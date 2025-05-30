@@ -319,10 +319,11 @@ const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
     description: "Manage repositories and GitHub workflows",
     icon: "🐙",
     logoColor: "bg-gray-900 text-white",
-    authType: "demo",
+    authType: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID ? "oauth" : "demo",
     scopes: ["repo", "workflow"],
     capabilities: ["Manage repos", "Create issues", "Deploy code"],
     category: "Development",
+    requiresSetup: !process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID,
   },
   {
     id: "gitlab",
@@ -588,6 +589,11 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
         case "discord":
           if (process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID) {
             authUrl = `https://discord.com/api/oauth2/authorize?client_id=${process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=bot&state=${state}`
+          }
+          break
+        case "github":
+          if (process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID) {
+            authUrl = `https://github.com/login/oauth/authorize?client_id=${process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(providerConfig.scopes.join(" "))}&state=${state}`
           }
           break
       }
