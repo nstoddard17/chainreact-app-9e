@@ -40,7 +40,7 @@ interface IntegrationState {
 
 interface IntegrationActions {
   fetchIntegrations: (force?: boolean) => Promise<void>
-  connectIntegration: (provider: string) => Promise<void>
+  connectIntegration: (provider: string, forceOAuth?: boolean) => Promise<void>
   disconnectIntegration: (id: string) => Promise<void>
   executeAction: (integration: Integration, action: string, params: any) => Promise<any>
   refreshToken: (integration: Integration) => Promise<void>
@@ -531,7 +531,7 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
         }
       },
 
-      connectIntegration: async (provider: string) => {
+      connectIntegration: async (provider: string, forceOAuth = false) => {
         set({ loading: true, error: null })
 
         try {
@@ -545,7 +545,7 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
             (i) => i.provider === provider && i.status === "connected",
           )
 
-          if (existingIntegration) {
+          if (existingIntegration && !forceOAuth) {
             console.log(`${provider} is already connected`)
             set({ loading: false })
             return
@@ -556,7 +556,11 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
             (i) => i.provider === provider && i.status === "disconnected",
           )
 
-          if (disconnectedIntegration) {
+          // For OAuth providers, always go through the OAuth flow again
+          const isOAuthProvider = providerConfig.authType === "oauth"
+
+          // If it's a disconnected OAuth integration and we're not forcing OAuth, reactivate it
+          if (disconnectedIntegration && !isOAuthProvider && !forceOAuth) {
             console.log(`Reactivating existing ${provider} integration`)
             const supabase = getSupabaseClient()
 
@@ -594,15 +598,30 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
               throw new Error("Not authenticated")
             }
 
-            const { error } = await supabase.from("integrations").insert({
-              user_id: session.user.id,
-              provider,
-              access_token: apiKey,
-              status: "connected",
-              metadata: { api_key: true },
-            })
+            // If there's a disconnected integration, update it
+            if (disconnectedIntegration) {
+              const { error } = await supabase
+                .from("integrations")
+                .update({
+                  access_token: apiKey,
+                  status: "connected",
+                  updated_at: new Date().toISOString(),
+                })
+                .eq("id", disconnectedIntegration.id)
 
-            if (error) throw error
+              if (error) throw error
+            } else {
+              // Otherwise create a new one
+              const { error } = await supabase.from("integrations").insert({
+                user_id: session.user.id,
+                provider,
+                access_token: apiKey,
+                status: "connected",
+                metadata: { api_key: true },
+              })
+
+              if (error) throw error
+            }
 
             // Refresh integrations
             await get().fetchIntegrations(true)
@@ -621,21 +640,39 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
               throw new Error("Not authenticated")
             }
 
-            const { error } = await supabase.from("integrations").insert({
-              user_id: session.user.id,
-              provider,
-              provider_user_id: `demo_${Date.now()}`,
-              access_token: `demo_token_${Date.now()}`,
-              status: "connected",
-              metadata: {
-                demo: true,
-                connected_at: new Date().toISOString(),
-                demo_user: `Demo User for ${providerConfig.name}`,
-                demo_account: `demo@${provider}.com`,
-              },
-            })
+            // If there's a disconnected integration, update it
+            if (disconnectedIntegration) {
+              const { error } = await supabase
+                .from("integrations")
+                .update({
+                  status: "connected",
+                  updated_at: new Date().toISOString(),
+                  metadata: {
+                    ...disconnectedIntegration.metadata,
+                    reconnected_at: new Date().toISOString(),
+                  },
+                })
+                .eq("id", disconnectedIntegration.id)
 
-            if (error) throw error
+              if (error) throw error
+            } else {
+              // Otherwise create a new one
+              const { error } = await supabase.from("integrations").insert({
+                user_id: session.user.id,
+                provider,
+                provider_user_id: `demo_${Date.now()}`,
+                access_token: `demo_token_${Date.now()}`,
+                status: "connected",
+                metadata: {
+                  demo: true,
+                  connected_at: new Date().toISOString(),
+                  demo_user: `Demo User for ${providerConfig.name}`,
+                  demo_account: `demo@${provider}.com`,
+                },
+              })
+
+              if (error) throw error
+            }
 
             // Refresh integrations
             await get().fetchIntegrations(true)

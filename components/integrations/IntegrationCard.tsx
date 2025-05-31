@@ -17,7 +17,9 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
 
   // Check if this provider is connected
   const connectedIntegration = integrations.find((i) => i.provider === provider.id && i.status === "connected")
+  const disconnectedIntegration = integrations.find((i) => i.provider === provider.id && i.status === "disconnected")
   const isConnected = !!connectedIntegration
+  const wasConnected = !!disconnectedIntegration
 
   const handleConnect = async () => {
     if (isConnected) {
@@ -27,7 +29,9 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
 
     setConnecting(true)
     try {
-      await connectIntegration(provider.id)
+      // For OAuth providers that were previously disconnected, force a new OAuth flow
+      const forceOAuth = wasConnected && provider.authType === "oauth"
+      await connectIntegration(provider.id, forceOAuth)
     } catch (error) {
       console.error("Failed to connect integration:", error)
     } finally {
@@ -100,6 +104,14 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
             <div className="text-xs text-blue-800">
               <strong>Demo Mode:</strong> This is a simulated connection for testing purposes.
+            </div>
+          </div>
+        )}
+
+        {wasConnected && !isConnected && provider.authType === "oauth" && (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+            <div className="text-xs text-amber-800">
+              <strong>Reconnection Required:</strong> Click Connect to re-authenticate with {provider.name}.
             </div>
           </div>
         )}
