@@ -5,18 +5,80 @@ import AppLayout from "@/components/layout/AppLayout"
 import { useIntegrationStore } from "@/stores/integrationStore"
 import IntegrationCard from "./IntegrationCard"
 import { Input } from "@/components/ui/input"
-import { Search, Loader2, Filter } from "lucide-react"
+import { Search, Loader2, Filter, CheckCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { useSearchParams } from "next/navigation"
+import { useToast } from "@/hooks/use-toast"
 
 export default function IntegrationsContent() {
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const { integrations, providers, loading, fetchIntegrations } = useIntegrationStore()
+  const searchParams = useSearchParams()
+  const { toast } = useToast()
 
   useEffect(() => {
     fetchIntegrations()
   }, [fetchIntegrations])
+
+  useEffect(() => {
+    // Handle success/error messages from OAuth callbacks
+    const success = searchParams.get("success")
+    const error = searchParams.get("error")
+    const details = searchParams.get("details")
+
+    if (success === "github_connected") {
+      toast({
+        title: "GitHub Connected",
+        description: "Your GitHub integration has been successfully connected!",
+        duration: 5000,
+      })
+      // Refresh integrations after successful connection
+      setTimeout(() => {
+        fetchIntegrations()
+      }, 1000)
+    } else if (error) {
+      let errorMessage = "Failed to connect integration"
+      switch (error) {
+        case "oauth_failed":
+          errorMessage = "OAuth authentication failed"
+          break
+        case "connection_failed":
+          errorMessage = "Connection failed"
+          break
+        case "missing_code":
+          errorMessage = "Missing authorization code"
+          break
+        case "missing_state":
+          errorMessage = "Missing state parameter"
+          break
+        case "session_expired":
+          errorMessage = "Your session has expired. Please log in again."
+          break
+      }
+
+      if (details) {
+        errorMessage += `: ${decodeURIComponent(details)}`
+      }
+
+      toast({
+        title: "Connection Failed",
+        description: errorMessage,
+        variant: "destructive",
+        duration: 7000,
+      })
+    }
+
+    // Clean up URL parameters
+    if (success || error) {
+      const url = new URL(window.location.href)
+      url.searchParams.delete("success")
+      url.searchParams.delete("error")
+      url.searchParams.delete("details")
+      window.history.replaceState({}, "", url.toString())
+    }
+  }, [searchParams, toast, fetchIntegrations])
 
   const categories = Array.from(new Set(providers.map((p) => p.category)))
 
@@ -31,13 +93,13 @@ export default function IntegrationsContent() {
     return matchesSearch && matchesCategory
   })
 
-  // Merge providers with integration status
+  // Merge providers with integration status - this is the key fix
   const providersWithStatus = filteredProviders.map((provider) => {
-    const integration = integrations.find((i) => i.provider === provider.id && i.status === "connected")
+    const connectedIntegration = integrations.find((i) => i.provider === provider.id && i.status === "connected")
     return {
       ...provider,
-      connected: !!integration,
-      integration,
+      connected: !!connectedIntegration,
+      integration: connectedIntegration,
     }
   })
 
@@ -49,6 +111,8 @@ export default function IntegrationsContent() {
     },
     {} as Record<string, typeof providersWithStatus>,
   )
+
+  const connectedCount = integrations.filter((i) => i.status === "connected").length
 
   if (loading) {
     return (
@@ -68,9 +132,20 @@ export default function IntegrationsContent() {
             <h1 className="text-3xl font-bold text-slate-900">Integrations</h1>
             <p className="text-slate-600 mt-1">Connect your favorite tools and services</p>
           </div>
-          <Badge variant="outline" className="text-sm bg-white text-black border border-slate-200">
-            {integrations.filter((i) => i.status === "connected").length} Connected
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="text-sm bg-white text-black border border-slate-200">
+              <CheckCircle className="w-3 h-3 mr-1 text-green-500" />
+              {connectedCount} Connected
+            </Badge>
+            <Button
+              onClick={() => fetchIntegrations()}
+              variant="outline"
+              size="sm"
+              className="bg-white text-black border border-slate-200 hover:bg-slate-100"
+            >
+              Refresh
+            </Button>
+          </div>
         </div>
 
         {/* Search and Filters */}
@@ -112,6 +187,21 @@ export default function IntegrationsContent() {
             ))}
           </div>
         </div>
+
+        {/* Debug info - remove in production */}
+        {process.env.NODE_ENV === "development" && (
+          <div className="bg-gray-100 p-4 rounded-lg text-xs">
+            <div>Total integrations: {integrations.length}</div>
+            <div>Connected integrations: {connectedCount}</div>
+            <div>
+              Connected providers:{" "}
+              {providersWithStatus
+                .filter((p) => p.connected)
+                .map((p) => p.name)
+                .join(", ") || "None"}
+            </div>
+          </div>
+        )}
 
         {/* Integrations by Category */}
         {selectedCategory ? (

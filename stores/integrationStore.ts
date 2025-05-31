@@ -1,6 +1,7 @@
 "use client"
 
 import { create } from "zustand"
+import { persist } from "zustand/middleware"
 import { getSupabaseClient } from "@/lib/supabase"
 
 interface Integration {
@@ -34,15 +35,16 @@ interface IntegrationState {
   providers: IntegrationProvider[]
   loading: boolean
   error: string | null
+  lastFetched: number | null
 }
 
 interface IntegrationActions {
-  fetchIntegrations: () => Promise<void>
+  fetchIntegrations: (force?: boolean) => Promise<void>
   connectIntegration: (provider: string) => Promise<void>
   disconnectIntegration: (id: string) => Promise<void>
   executeAction: (integration: Integration, action: string, params: any) => Promise<any>
   refreshToken: (integration: Integration) => Promise<void>
-  updateProviderConnectedState: () => void
+  clearCache: () => void
 }
 
 const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
@@ -469,210 +471,241 @@ const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
   },
 ]
 
-export const useIntegrationStore = create<IntegrationState & IntegrationActions>((set, get) => ({
-  integrations: [],
-  providers: INTEGRATION_PROVIDERS,
-  loading: false,
-  error: null,
+export const useIntegrationStore = create<IntegrationState & IntegrationActions>()(
+  persist(
+    (set, get) => ({
+      integrations: [],
+      providers: INTEGRATION_PROVIDERS,
+      loading: false,
+      error: null,
+      lastFetched: null,
 
-  fetchIntegrations: async () => {
-    const supabase = getSupabaseClient()
+      fetchIntegrations: async (force = false) => {
+        const state = get()
+        const now = Date.now()
 
-    set({ loading: true, error: null })
-
-    try {
-      const { data, error } = await supabase.from("integrations").select("*").order("created_at", { ascending: false })
-
-      if (error) throw error
-
-      set({ integrations: data || [], loading: false })
-
-      // Update provider connected state after fetching integrations
-      get().updateProviderConnectedState()
-    } catch (error: any) {
-      set({ error: error.message, loading: false })
-    }
-  },
-
-  updateProviderConnectedState: () => {
-    set((state) => {
-      const updatedProviders = state.providers.map((provider) => {
-        const connectedIntegration = state.integrations.find(
-          (integration) => integration.provider === provider.id && integration.status === "connected",
-        )
-        return {
-          ...provider,
-          connected: !!connectedIntegration,
-          integration: connectedIntegration || undefined,
-        }
-      })
-      return { ...state, providers: updatedProviders }
-    })
-  },
-
-  connectIntegration: async (provider: string) => {
-    set({ loading: true, error: null })
-
-    try {
-      const providerConfig = INTEGRATION_PROVIDERS.find((p) => p.id === provider)
-      if (!providerConfig) {
-        throw new Error(`Provider ${provider} not found`)
-      }
-
-      if (providerConfig.authType === "api_key") {
-        // For API key integrations, show a prompt for the API key
-        const apiKey = prompt(`Enter your ${providerConfig.name} API key:`)
-        if (!apiKey) {
-          set({ loading: false })
+        // Only fetch if forced, never fetched before, or data is older than 30 seconds
+        if (!force && state.lastFetched && now - state.lastFetched < 30000) {
+          console.log("Using cached integrations data")
           return
         }
 
-        // Store the API key integration
         const supabase = getSupabaseClient()
-        const {
-          data: { session },
-        } = await supabase.auth.getSession()
+        set({ loading: true, error: null })
 
-        if (!session) {
-          throw new Error("Not authenticated")
+        try {
+          console.log("Fetching integrations from database...")
+          const { data, error } = await supabase
+            .from("integrations")
+            .select("*")
+            .eq("status", "connected")
+            .order("created_at", { ascending: false })
+
+          if (error) {
+            console.error("Supabase error:", error)
+            throw error
+          }
+
+          console.log("Fetched integrations:", data)
+          set({
+            integrations: data || [],
+            loading: false,
+            lastFetched: now,
+          })
+        } catch (error: any) {
+          console.error("Error fetching integrations:", error)
+          set({ error: error.message, loading: false })
         }
+      },
 
-        const { error } = await supabase.from("integrations").insert({
-          user_id: session.user.id,
-          provider,
-          access_token: apiKey,
-          status: "connected",
-          metadata: { api_key: true },
-        })
+      connectIntegration: async (provider: string) => {
+        set({ loading: true, error: null })
 
-        if (error) throw error
+        try {
+          const providerConfig = INTEGRATION_PROVIDERS.find((p) => p.id === provider)
+          if (!providerConfig) {
+            throw new Error(`Provider ${provider} not found`)
+          }
 
-        // Refresh integrations
-        await get().fetchIntegrations()
-        set({ loading: false })
-        return
-      }
+          // Check if already connected
+          const existingIntegration = get().integrations.find(
+            (i) => i.provider === provider && i.status === "connected",
+          )
 
-      if (providerConfig.authType === "demo") {
-        // For demo integrations, create a mock connection
+          if (existingIntegration) {
+            console.log(`${provider} is already connected`)
+            set({ loading: false })
+            return
+          }
+
+          if (providerConfig.authType === "api_key") {
+            // For API key integrations, show a prompt for the API key
+            const apiKey = prompt(`Enter your ${providerConfig.name} API key:`)
+            if (!apiKey) {
+              set({ loading: false })
+              return
+            }
+
+            // Store the API key integration
+            const supabase = getSupabaseClient()
+            const {
+              data: { session },
+            } = await supabase.auth.getSession()
+
+            if (!session) {
+              throw new Error("Not authenticated")
+            }
+
+            const { error } = await supabase.from("integrations").insert({
+              user_id: session.user.id,
+              provider,
+              access_token: apiKey,
+              status: "connected",
+              metadata: { api_key: true },
+            })
+
+            if (error) throw error
+
+            // Refresh integrations
+            await get().fetchIntegrations(true)
+            set({ loading: false })
+            return
+          }
+
+          if (providerConfig.authType === "demo") {
+            // For demo integrations, create a mock connection
+            const supabase = getSupabaseClient()
+            const {
+              data: { session },
+            } = await supabase.auth.getSession()
+
+            if (!session) {
+              throw new Error("Not authenticated")
+            }
+
+            const { error } = await supabase.from("integrations").insert({
+              user_id: session.user.id,
+              provider,
+              provider_user_id: `demo_${Date.now()}`,
+              access_token: `demo_token_${Date.now()}`,
+              status: "connected",
+              metadata: {
+                demo: true,
+                connected_at: new Date().toISOString(),
+                demo_user: `Demo User for ${providerConfig.name}`,
+                demo_account: `demo@${provider}.com`,
+              },
+            })
+
+            if (error) throw error
+
+            // Refresh integrations
+            await get().fetchIntegrations(true)
+            set({ loading: false })
+            return
+          }
+
+          // For OAuth integrations with real client IDs
+          const redirectUri = `${window.location.origin}/api/integrations/${provider}/callback`
+          const state = btoa(JSON.stringify({ provider, timestamp: Date.now() }))
+
+          let authUrl = ""
+
+          switch (provider) {
+            case "slack":
+              if (process.env.NEXT_PUBLIC_SLACK_CLIENT_ID) {
+                authUrl = `https://slack.com/oauth/v2/authorize?client_id=${process.env.NEXT_PUBLIC_SLACK_CLIENT_ID}&scope=chat:write,channels:read&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}`
+              }
+              break
+            case "google-calendar":
+            case "google-sheets":
+            case "google-drive":
+            case "gmail":
+            case "google-analytics":
+              if (process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) {
+                const scopes = providerConfig.scopes.join(" ")
+                authUrl = `https://accounts.google.com/oauth/authorize?client_id=${process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scopes)}&response_type=code&state=${state}`
+              }
+              break
+            case "discord":
+              if (process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID) {
+                authUrl = `https://discord.com/api/oauth2/authorize?client_id=${process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=bot&state=${state}`
+              }
+              break
+            case "github":
+              if (process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID) {
+                authUrl = `https://github.com/login/oauth/authorize?client_id=${process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(providerConfig.scopes.join(" "))}&state=${state}&allow_signup=true`
+              }
+              break
+          }
+
+          if (authUrl) {
+            console.log(`Redirecting to OAuth for ${provider}:`, authUrl)
+            window.location.href = authUrl
+          } else {
+            throw new Error(`OAuth not configured for ${providerConfig.name}. Using demo mode instead.`)
+          }
+        } catch (error: any) {
+          console.error("Connect integration error:", error)
+          set({ error: error.message, loading: false })
+        }
+      },
+
+      disconnectIntegration: async (id: string) => {
         const supabase = getSupabaseClient()
-        const {
-          data: { session },
-        } = await supabase.auth.getSession()
 
-        if (!session) {
-          throw new Error("Not authenticated")
+        try {
+          const { error } = await supabase.from("integrations").update({ status: "disconnected" }).eq("id", id)
+
+          if (error) throw error
+
+          // Refresh integrations to update the UI
+          await get().fetchIntegrations(true)
+        } catch (error: any) {
+          set({ error: error.message })
+          throw error
         }
+      },
 
-        const { error } = await supabase.from("integrations").insert({
-          user_id: session.user.id,
-          provider,
-          provider_user_id: `demo_${Date.now()}`,
-          access_token: `demo_token_${Date.now()}`,
-          status: "connected",
-          metadata: {
-            demo: true,
-            connected_at: new Date().toISOString(),
-            demo_user: `Demo User for ${providerConfig.name}`,
-            demo_account: `demo@${provider}.com`,
-          },
-        })
+      executeAction: async (integration: Integration, action: string, params: any) => {
+        try {
+          const response = await fetch("/api/integrations/execute", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              integrationId: integration.id,
+              action,
+              params,
+            }),
+          })
 
-        if (error) throw error
-
-        // Refresh integrations
-        await get().fetchIntegrations()
-        set({ loading: false })
-        return
-      }
-
-      // For OAuth integrations with real client IDs
-      const redirectUri = `${window.location.origin}/api/integrations/${provider}/callback`
-      const state = btoa(JSON.stringify({ provider, timestamp: Date.now() }))
-
-      let authUrl = ""
-
-      switch (provider) {
-        case "slack":
-          if (process.env.NEXT_PUBLIC_SLACK_CLIENT_ID) {
-            authUrl = `https://slack.com/oauth/v2/authorize?client_id=${process.env.NEXT_PUBLIC_SLACK_CLIENT_ID}&scope=chat:write,channels:read&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}`
+          if (!response.ok) {
+            throw new Error("Failed to execute action")
           }
-          break
-        case "google-calendar":
-        case "google-sheets":
-        case "google-drive":
-        case "gmail":
-        case "google-analytics":
-          if (process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) {
-            const scopes = providerConfig.scopes.join(" ")
-            authUrl = `https://accounts.google.com/oauth/authorize?client_id=${process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scopes)}&response_type=code&state=${state}`
-          }
-          break
-        case "discord":
-          if (process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID) {
-            authUrl = `https://discord.com/api/oauth2/authorize?client_id=${process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=bot&state=${state}`
-          }
-          break
-        case "github":
-          if (process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID) {
-            const redirectUri = `${window.location.origin}/api/integrations/github/callback`
-            authUrl = `https://github.com/login/oauth/authorize?client_id=${process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(providerConfig.scopes.join(" "))}&state=${state}&allow_signup=true`
-          }
-          break
-      }
 
-      if (authUrl) {
-        window.location.href = authUrl
-      } else {
-        throw new Error(`OAuth not configured for ${providerConfig.name}. Using demo mode instead.`)
-      }
-    } catch (error: any) {
-      set({ error: error.message, loading: false })
-    }
-  },
+          return await response.json()
+        } catch (error: any) {
+          set({ error: error.message })
+          throw error
+        }
+      },
 
-  disconnectIntegration: async (id: string) => {
-    const supabase = getSupabaseClient()
+      refreshToken: async (integration: Integration) => {
+        console.log("Refreshing token for integration:", integration.id)
+      },
 
-    try {
-      const { error } = await supabase.from("integrations").update({ status: "disconnected" }).eq("id", id)
-
-      if (error) throw error
-
-      // Refresh integrations to update the UI
-      await get().fetchIntegrations()
-    } catch (error: any) {
-      set({ error: error.message })
-      throw error
-    }
-  },
-
-  executeAction: async (integration: Integration, action: string, params: any) => {
-    try {
-      const response = await fetch("/api/integrations/execute", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          integrationId: integration.id,
-          action,
-          params,
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error("Failed to execute action")
-      }
-
-      return await response.json()
-    } catch (error: any) {
-      set({ error: error.message })
-      throw error
-    }
-  },
-
-  refreshToken: async (integration: Integration) => {
-    console.log("Refreshing token for integration:", integration.id)
-  },
-}))
+      clearCache: () => {
+        set({ integrations: [], lastFetched: null })
+      },
+    }),
+    {
+      name: "integration-store",
+      partialize: (state) => ({
+        integrations: state.integrations,
+        lastFetched: state.lastFetched,
+      }),
+    },
+  ),
+)

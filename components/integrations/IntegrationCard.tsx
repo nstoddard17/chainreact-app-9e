@@ -13,9 +13,18 @@ interface IntegrationCardProps {
 
 export default function IntegrationCard({ provider }: IntegrationCardProps) {
   const [connecting, setConnecting] = useState(false)
-  const { connectIntegration, disconnectIntegration } = useIntegrationStore()
+  const { integrations, connectIntegration, disconnectIntegration } = useIntegrationStore()
+
+  // Check if this provider is connected
+  const connectedIntegration = integrations.find((i) => i.provider === provider.id && i.status === "connected")
+  const isConnected = !!connectedIntegration
 
   const handleConnect = async () => {
+    if (isConnected) {
+      console.log(`${provider.name} is already connected`)
+      return
+    }
+
     setConnecting(true)
     try {
       await connectIntegration(provider.id)
@@ -27,9 +36,9 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
   }
 
   const handleDisconnect = async () => {
-    if (provider.integration && confirm("Are you sure you want to disconnect this integration?")) {
+    if (connectedIntegration && confirm("Are you sure you want to disconnect this integration?")) {
       try {
-        await disconnectIntegration(provider.integration.id)
+        await disconnectIntegration(connectedIntegration.id)
       } catch (error) {
         console.error("Failed to disconnect integration:", error)
       }
@@ -39,9 +48,7 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
   return (
     <Card
       className={`bg-white rounded-2xl shadow-lg border transition-all duration-300 ${
-        provider.connected
-          ? "border-green-200 ring-2 ring-green-100 hover:shadow-xl"
-          : "border-slate-200 hover:shadow-xl"
+        isConnected ? "border-green-200 ring-2 ring-green-100 hover:shadow-xl" : "border-slate-200 hover:shadow-xl"
       }`}
     >
       <CardHeader className="pb-2">
@@ -56,7 +63,7 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
             )}
             <CardTitle className="text-lg font-semibold text-slate-900">{provider.name}</CardTitle>
           </div>
-          {provider.connected && (
+          {isConnected && (
             <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
               <Check className="w-3 h-3 mr-1" />
               Connected
@@ -80,7 +87,7 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
           )}
         </div>
 
-        {provider.requiresSetup && !provider.connected && (
+        {provider.requiresSetup && !isConnected && (
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
             <div className="text-xs text-amber-800">
               <strong>Setup Required:</strong> This integration requires OAuth configuration. In demo mode, a mock
@@ -89,7 +96,7 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
           </div>
         )}
 
-        {provider.connected && provider.integration?.metadata?.demo && (
+        {isConnected && connectedIntegration?.metadata?.demo && (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
             <div className="text-xs text-blue-800">
               <strong>Demo Mode:</strong> This is a simulated connection for testing purposes.
@@ -98,7 +105,7 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
         )}
 
         <div className="flex items-center space-x-2 pt-2">
-          {provider.connected ? (
+          {isConnected ? (
             <>
               <Button
                 variant="outline"
