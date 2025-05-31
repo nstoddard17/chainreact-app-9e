@@ -4,238 +4,115 @@ import { NextResponse } from "next/server"
 
 export async function GET(request: Request) {
   const supabase = createRouteHandlerClient({ cookies })
-  const { searchParams, origin } = new URL(request.url)
-
+  const { searchParams } = new URL(request.url)
   const code = searchParams.get("code")
   const state = searchParams.get("state")
-  const error = searchParams.get("error")
-  const error_description = searchParams.get("error_description")
 
-  console.log("GitHub callback received:", { code: !!code, state: !!state, error, error_description })
-
-  // Handle OAuth errors
-  if (error) {
-    console.error("GitHub OAuth error:", error, error_description)
-    return NextResponse.redirect(
-      new URL(`/integrations?error=oauth_failed&details=${encodeURIComponent(error_description || error)}`, origin),
-    )
-  }
-
-  if (!code) {
-    console.error("Missing authorization code")
-    return NextResponse.redirect(new URL("/integrations?error=missing_code", origin))
-  }
-
-  if (!state) {
-    console.error("Missing state parameter")
-    return NextResponse.redirect(new URL("/integrations?error=missing_state", origin))
+  if (!code || !state) {
+    return NextResponse.redirect(new URL("/integrations?error=missing_params", request.url))
   }
 
   try {
-    // Verify state parameter
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
+
+    if (!session) {
+      return NextResponse.redirect(new URL("/auth/login", request.url))
+    }
+
+    // Parse state to check if this is a reconnection
     let stateData
     try {
       stateData = JSON.parse(atob(state))
-    } catch (e) {
-      console.error("Invalid state parameter:", e)
-      throw new Error("Invalid state parameter")
+    } catch {
+      stateData = { provider: "github", timestamp: Date.now() }
     }
 
-    if (stateData.provider !== "github") {
-      throw new Error("Invalid state parameter - wrong provider")
-    }
-
-    // Check if this is a reconnection
-    const isReconnect = stateData.reconnect === true
-    const existingIntegrationId = stateData.integrationId
-
-    console.log("Exchanging code for token...")
+    const isReconnection = stateData.reconnect && stateData.integrationId
 
     // Exchange code for access token
     const tokenResponse = await fetch("https://github.com/login/oauth/access_token", {
       method: "POST",
       headers: {
         Accept: "application/json",
-        "Content-Type": "application/json",
-        "User-Agent": "ChainReact-SaaS/1.0",
+        "Content-Type": "application/x-www-form-urlencoded",
       },
-      body: JSON.stringify({
-        client_id: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID,
-        client_secret: process.env.GITHUB_CLIENT_SECRET,
+      body: new URLSearchParams({
+        client_id: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID!,
+        client_secret: process.env.GITHUB_CLIENT_SECRET!,
         code,
-        redirect_uri: `${origin}/api/integrations/github/callback`,
       }),
     })
 
-    if (!tokenResponse.ok) {
-      console.error("Token exchange failed:", tokenResponse.status, tokenResponse.statusText)
-      throw new Error(`GitHub token exchange failed: ${tokenResponse.statusText}`)
-    }
-
     const tokenData = await tokenResponse.json()
-    console.log("Token response:", { ...tokenData, access_token: tokenData.access_token ? "[REDACTED]" : undefined })
 
     if (tokenData.error) {
-      console.error("Token exchange error:", tokenData.error, tokenData.error_description)
-      throw new Error(`GitHub token exchange failed: ${tokenData.error_description || tokenData.error}`)
+      throw new Error(tokenData.error_description || "Failed to exchange code for token")
     }
 
-    if (!tokenData.access_token) {
-      console.error("No access token received")
-      throw new Error("No access token received from GitHub")
-    }
-
-    console.log("Fetching GitHub user data...")
-
-    // Get user info from GitHub
+    // Get user info
     const userResponse = await fetch("https://api.github.com/user", {
       headers: {
         Authorization: `Bearer ${tokenData.access_token}`,
-        Accept: "application/vnd.github.v3+json",
-        "User-Agent": "ChainReact-SaaS/1.0",
+        "User-Agent": "ChainReact-SaaS",
       },
     })
 
-    if (!userResponse.ok) {
-      console.error("GitHub user fetch failed:", userResponse.status, userResponse.statusText)
-      throw new Error(`Failed to fetch GitHub user data: ${userResponse.statusText}`)
-    }
+    const userData = await userResponse.json()
 
-    const githubUser = await userResponse.json()
-    console.log("GitHub user fetched:", { id: githubUser.id, login: githubUser.login })
-
-    // Get current user session
-    const {
-      data: { session },
-      error: sessionError,
-    } = await supabase.auth.getSession()
-
-    if (sessionError) {
-      console.error("Session error:", sessionError)
-      throw new Error("Failed to get user session")
-    }
-
-    if (!session) {
-      console.error("No active session")
-      return NextResponse.redirect(new URL("/auth/login?error=session_expired", origin))
-    }
-
-    console.log("Saving integration to database...")
-
-    // If this is a reconnection and we have an existing integration ID, update that record
-    if (isReconnect && existingIntegrationId) {
-      console.log(`Updating existing integration with ID: ${existingIntegrationId}`)
-
-      const { error: updateError } = await supabase
-        .from("integrations")
-        .update({
-          access_token: tokenData.access_token,
-          refresh_token: tokenData.refresh_token,
-          token_type: tokenData.token_type || "bearer",
-          scopes: tokenData.scope ? tokenData.scope.split(",") : ["repo", "workflow"],
-          status: "connected",
-          metadata: {
-            username: githubUser.login,
-            name: githubUser.name,
-            email: githubUser.email,
-            avatar_url: githubUser.avatar_url,
-            public_repos: githubUser.public_repos,
-            followers: githubUser.followers,
-            following: githubUser.following,
-            created_at: githubUser.created_at,
-            updated_at: githubUser.updated_at,
-            reconnected_at: new Date().toISOString(),
-          },
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", existingIntegrationId)
-
-      if (updateError) {
-        console.error("Database update error:", updateError)
-        throw new Error("Failed to update integration")
-      }
-
-      console.log("Successfully reconnected GitHub integration")
-      return NextResponse.redirect(new URL("/integrations?success=github_reconnected", origin))
-    }
-
-    // Check if integration already exists for this GitHub user ID
-    const { data: existingIntegration } = await supabase
-      .from("integrations")
-      .select("id")
-      .eq("user_id", session.user.id)
-      .eq("provider", "github")
-      .eq("provider_user_id", githubUser.id.toString())
-      .single()
-
-    if (existingIntegration) {
+    if (isReconnection) {
       // Update existing integration
-      const { error: updateError } = await supabase
+      const { error } = await supabase
         .from("integrations")
         .update({
           access_token: tokenData.access_token,
           refresh_token: tokenData.refresh_token,
-          token_type: tokenData.token_type || "bearer",
-          scopes: tokenData.scope ? tokenData.scope.split(",") : ["repo", "workflow"],
+          expires_at: tokenData.expires_in ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString() : null,
           status: "connected",
+          updated_at: new Date().toISOString(),
           metadata: {
-            username: githubUser.login,
-            name: githubUser.name,
-            email: githubUser.email,
-            avatar_url: githubUser.avatar_url,
-            public_repos: githubUser.public_repos,
-            followers: githubUser.followers,
-            following: githubUser.following,
-            created_at: githubUser.created_at,
-            updated_at: githubUser.updated_at,
+            username: userData.login,
+            name: userData.name,
+            email: userData.email,
+            avatar_url: userData.avatar_url,
             reconnected_at: new Date().toISOString(),
           },
-          updated_at: new Date().toISOString(),
         })
-        .eq("id", existingIntegration.id)
+        .eq("id", stateData.integrationId)
 
-      if (updateError) {
-        console.error("Database update error:", updateError)
-        throw new Error("Failed to update integration")
+      if (error) {
+        throw error
       }
+
+      return NextResponse.redirect(new URL("/integrations?success=github_reconnected", request.url))
     } else {
-      // Create new integration
-      const { error: insertError } = await supabase.from("integrations").insert({
+      // Create new integration or upsert
+      const { error } = await supabase.from("integrations").upsert({
         user_id: session.user.id,
         provider: "github",
-        provider_user_id: githubUser.id.toString(),
+        provider_user_id: userData.id.toString(),
         access_token: tokenData.access_token,
         refresh_token: tokenData.refresh_token,
-        token_type: tokenData.token_type || "bearer",
-        scopes: tokenData.scope ? tokenData.scope.split(",") : ["repo", "workflow"],
-        status: "connected",
+        expires_at: tokenData.expires_in ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString() : null,
+        scopes: tokenData.scope?.split(",") || [],
         metadata: {
-          username: githubUser.login,
-          name: githubUser.name,
-          email: githubUser.email,
-          avatar_url: githubUser.avatar_url,
-          public_repos: githubUser.public_repos,
-          followers: githubUser.followers,
-          following: githubUser.following,
-          created_at: githubUser.created_at,
-          updated_at: githubUser.updated_at,
+          username: userData.login,
+          name: userData.name,
+          email: userData.email,
+          avatar_url: userData.avatar_url,
         },
+        status: "connected",
       })
 
-      if (insertError) {
-        console.error("Database insert error:", insertError)
-        throw new Error("Failed to save integration")
+      if (error) {
+        throw error
       }
+
+      return NextResponse.redirect(new URL("/integrations?success=github_connected", request.url))
     }
-
-    console.log("Integration saved successfully")
-
-    // Redirect back to integrations page with success
-    return NextResponse.redirect(new URL("/integrations?success=github_connected", origin))
-  } catch (error: any) {
-    console.error("GitHub OAuth callback error:", error)
-    return NextResponse.redirect(
-      new URL(`/integrations?error=connection_failed&details=${encodeURIComponent(error.message)}`, origin),
-    )
+  } catch (error) {
+    console.error("GitHub OAuth error:", error)
+    return NextResponse.redirect(new URL("/integrations?error=oauth_failed", request.url))
   }
 }

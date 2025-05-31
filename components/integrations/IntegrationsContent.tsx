@@ -45,6 +45,7 @@ export default function IntegrationsContent() {
     const success = searchParams.get("success")
     const error = searchParams.get("error")
     const details = searchParams.get("details")
+    const providerId = searchParams.get("providerId")
 
     if (success === "github_connected") {
       toast({
@@ -58,6 +59,54 @@ export default function IntegrationsContent() {
       toast({
         title: "GitHub Reconnected",
         description: "Your GitHub integration has been successfully reconnected!",
+        duration: 5000,
+      })
+      // Refresh integrations after successful reconnection
+      fetchIntegrations(true).catch(console.error)
+    } else if (success === "slack_connected") {
+      toast({
+        title: "Slack Connected",
+        description: "Your Slack integration has been successfully connected!",
+        duration: 5000,
+      })
+      // Refresh integrations after successful connection
+      fetchIntegrations(true).catch(console.error)
+    } else if (success === "slack_reconnected") {
+      toast({
+        title: "Slack Reconnected",
+        description: "Your Slack integration has been successfully reconnected!",
+        duration: 5000,
+      })
+      // Refresh integrations after successful reconnection
+      fetchIntegrations(true).catch(console.error)
+    } else if (success === "google_connected") {
+      toast({
+        title: "Google Connected",
+        description: "Your Google integration has been successfully connected!",
+        duration: 5000,
+      })
+      // Refresh integrations after successful connection
+      fetchIntegrations(true).catch(console.error)
+    } else if (success === "google_reconnected") {
+      toast({
+        title: "Google Reconnected",
+        description: "Your Google integration has been successfully reconnected!",
+        duration: 5000,
+      })
+      // Refresh integrations after successful reconnection
+      fetchIntegrations(true).catch(console.error)
+    } else if (success === "discord_connected") {
+      toast({
+        title: "Discord Connected",
+        description: "Your Discord integration has been successfully connected!",
+        duration: 5000,
+      })
+      // Refresh integrations after successful connection
+      fetchIntegrations(true).catch(console.error)
+    } else if (success === "discord_reconnected") {
+      toast({
+        title: "Discord Reconnected",
+        description: "Your Discord integration has been successfully reconnected!",
         duration: 5000,
       })
       // Refresh integrations after successful reconnection
@@ -100,6 +149,7 @@ export default function IntegrationsContent() {
       url.searchParams.delete("success")
       url.searchParams.delete("error")
       url.searchParams.delete("details")
+      url.searchParams.delete("providerId")
       window.history.replaceState({}, "", url.toString())
     }
   }, [searchParams, toast, fetchIntegrations])

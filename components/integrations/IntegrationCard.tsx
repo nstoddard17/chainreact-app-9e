@@ -29,8 +29,8 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
 
     setConnecting(true)
     try {
-      // Always force OAuth for GitHub reconnections
-      const forceOAuth = provider.id === "github" || (wasConnected && provider.authType === "oauth")
+      // Always force OAuth for OAuth providers when reconnecting
+      const forceOAuth = provider.authType === "oauth" || (wasConnected && provider.authType === "oauth")
       await connectIntegration(provider.id, forceOAuth)
     } catch (error) {
       console.error("Failed to connect integration:", error)
@@ -58,13 +58,11 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
       <CardHeader className="pb-2">
         <div className="flex items-start justify-between">
           <div className="flex items-center space-x-3">
-            {provider.icon ? (
-              <img src={provider.icon || "/placeholder.svg"} alt={provider.name} className="w-8 h-8" />
-            ) : (
-              <div className="w-8 h-8 bg-slate-200 rounded-md flex items-center justify-center">
-                <span className="text-xs font-bold text-slate-500">{provider.name.charAt(0)}</span>
-              </div>
-            )}
+            <div
+              className={`w-8 h-8 rounded-md flex items-center justify-center text-xs font-bold ${provider.logoColor}`}
+            >
+              {provider.icon.length === 1 ? provider.icon : provider.name.charAt(0)}
+            </div>
             <CardTitle className="text-lg font-semibold text-slate-900">{provider.name}</CardTitle>
           </div>
           {isConnected && (

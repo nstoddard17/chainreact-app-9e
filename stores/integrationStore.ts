@@ -484,8 +484,8 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
         const state = get()
         const now = Date.now()
 
-        // Only fetch if forced, never fetched before, or data is older than 10 seconds
-        if (!force && state.lastFetched && now - state.lastFetched < 10000 && state.integrations.length > 0) {
+        // Only fetch if forced, never fetched before, or data is older than 5 seconds
+        if (!force && state.lastFetched && now - state.lastFetched < 5000 && state.integrations.length > 0) {
           console.log("Using cached integrations data")
           return
         }
@@ -552,10 +552,11 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
             return
           }
 
-          // For GitHub, always force a new OAuth flow
-          if (provider === "github") {
+          // For OAuth providers, always force a new OAuth flow when reconnecting
+          const isOAuthProvider = providerConfig.authType === "oauth"
+          if (isOAuthProvider) {
             forceOAuth = true
-            console.log("Forcing new OAuth flow for GitHub")
+            console.log(`Forcing new OAuth flow for ${provider}`)
           }
 
           // Check if there's a disconnected integration we can reactivate
@@ -563,10 +564,7 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
             (i) => i.provider === provider && i.status === "disconnected",
           )
 
-          // For OAuth providers, always go through the OAuth flow again if forced
-          const isOAuthProvider = providerConfig.authType === "oauth"
-
-          // If it's a disconnected OAuth integration and we're not forcing OAuth, reactivate it
+          // For non-OAuth providers, reactivate disconnected integrations
           if (disconnectedIntegration && !isOAuthProvider && !forceOAuth) {
             console.log(`Reactivating existing ${provider} integration`)
             const supabase = getSupabaseClient()
@@ -587,9 +585,8 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
             return
           }
 
-          // For GitHub and other OAuth providers when forced, always go through OAuth flow
-          if (isOAuthProvider && (forceOAuth || provider === "github")) {
-            // For OAuth integrations with real client IDs
+          // For OAuth providers, always go through OAuth flow
+          if (isOAuthProvider) {
             const redirectUri = `${window.location.origin}/api/integrations/${provider}/callback`
             const state = btoa(
               JSON.stringify({
@@ -615,18 +612,17 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
               case "google-analytics":
                 if (process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) {
                   const scopes = providerConfig.scopes.join(" ")
-                  authUrl = `https://accounts.google.com/oauth/authorize?client_id=${process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scopes)}&response_type=code&state=${state}`
+                  authUrl = `https://accounts.google.com/oauth/authorize?client_id=${process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scopes)}&response_type=code&state=${state}&access_type=offline&prompt=consent`
                 }
                 break
               case "discord":
                 if (process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID) {
-                  authUrl = `https://discord.com/api/oauth2/authorize?client_id=${process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=bot&state=${state}`
+                  authUrl = `https://discord.com/api/oauth2/authorize?client_id=${process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=bot&state=${state}&prompt=consent`
                 }
                 break
               case "github":
                 if (process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID) {
-                  // For GitHub, add additional parameters to force re-authentication
-                  authUrl = `https://github.com/login/oauth/authorize?client_id=${process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(providerConfig.scopes.join(" "))}&state=${state}&allow_signup=true&login=true`
+                  authUrl = `https://github.com/login/oauth/authorize?client_id=${process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(providerConfig.scopes.join(" "))}&state=${state}&allow_signup=true`
                 }
                 break
             }
@@ -634,10 +630,11 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
             if (authUrl) {
               console.log(`Redirecting to OAuth for ${provider}:`, authUrl)
               window.location.href = authUrl
+              return
             } else {
-              throw new Error(`OAuth not configured for ${providerConfig.name}. Using demo mode instead.`)
+              // Fall back to demo mode if OAuth not configured
+              console.log(`OAuth not configured for ${provider}, falling back to demo mode`)
             }
-            return
           }
 
           if (providerConfig.authType === "api_key") {
@@ -689,7 +686,7 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
             return
           }
 
-          if (providerConfig.authType === "demo") {
+          if (providerConfig.authType === "demo" || !isOAuthProvider) {
             // For demo integrations, create a mock connection
             const supabase = getSupabaseClient()
             const {
@@ -738,47 +735,6 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
             await get().fetchIntegrations(true)
             set({ loading: false })
             return
-          }
-
-          // For OAuth integrations with real client IDs
-          const redirectUri = `${window.location.origin}/api/integrations/${provider}/callback`
-          const state = btoa(JSON.stringify({ provider, timestamp: Date.now() }))
-
-          let authUrl = ""
-
-          switch (provider) {
-            case "slack":
-              if (process.env.NEXT_PUBLIC_SLACK_CLIENT_ID) {
-                authUrl = `https://slack.com/oauth/v2/authorize?client_id=${process.env.NEXT_PUBLIC_SLACK_CLIENT_ID}&scope=chat:write,channels:read&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}`
-              }
-              break
-            case "google-calendar":
-            case "google-sheets":
-            case "google-drive":
-            case "gmail":
-            case "google-analytics":
-              if (process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) {
-                const scopes = providerConfig.scopes.join(" ")
-                authUrl = `https://accounts.google.com/oauth/authorize?client_id=${process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scopes)}&response_type=code&state=${state}`
-              }
-              break
-            case "discord":
-              if (process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID) {
-                authUrl = `https://discord.com/api/oauth2/authorize?client_id=${process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=bot&state=${state}`
-              }
-              break
-            case "github":
-              if (process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID) {
-                authUrl = `https://github.com/login/oauth/authorize?client_id=${process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(providerConfig.scopes.join(" "))}&state=${state}&allow_signup=true`
-              }
-              break
-          }
-
-          if (authUrl) {
-            console.log(`Redirecting to OAuth for ${provider}:`, authUrl)
-            window.location.href = authUrl
-          } else {
-            throw new Error(`OAuth not configured for ${providerConfig.name}. Using demo mode instead.`)
           }
         } catch (error: any) {
           console.error("Connect integration error:", error)
