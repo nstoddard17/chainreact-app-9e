@@ -541,28 +541,93 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
             throw new Error(`Provider ${provider} not found`)
           }
 
+          console.log(`Connecting ${provider}, forceOAuth: ${forceOAuth}`)
+
           // Check if already connected
           const existingIntegration = get().integrations.find(
             (i) => i.provider === provider && i.status === "connected",
           )
 
-          if (existingIntegration && !forceOAuth) {
-            console.log(`${provider} is already connected`)
-            set({ loading: false })
-            return
-          }
-
           // For OAuth providers, always force a new OAuth flow when reconnecting
           const isOAuthProvider = providerConfig.authType === "oauth"
           if (isOAuthProvider) {
             forceOAuth = true
-            console.log(`Forcing new OAuth flow for ${provider}`)
+            console.log(`OAuth provider detected, forcing OAuth flow for ${provider}`)
+          }
+
+          // Only skip if not forcing OAuth and already connected
+          if (existingIntegration && !forceOAuth) {
+            console.log(`${provider} is already connected and not forcing OAuth`)
+            set({ loading: false })
+            return
           }
 
           // Check if there's a disconnected integration we can reactivate
           const disconnectedIntegration = get().integrations.find(
             (i) => i.provider === provider && i.status === "disconnected",
           )
+
+          // For OAuth providers, ALWAYS go through OAuth flow when forceOAuth is true
+          if (isOAuthProvider && forceOAuth) {
+            console.log(`Starting OAuth flow for ${provider}`)
+
+            const redirectUri = `${window.location.origin}/api/integrations/${provider}/callback`
+            const timestamp = Date.now()
+            const state = btoa(
+              JSON.stringify({
+                provider,
+                timestamp,
+                reconnect: !!disconnectedIntegration || !!existingIntegration,
+                integrationId: disconnectedIntegration?.id || existingIntegration?.id,
+              }),
+            )
+
+            let authUrl = ""
+
+            switch (provider) {
+              case "slack":
+                if (process.env.NEXT_PUBLIC_SLACK_CLIENT_ID) {
+                  authUrl = `https://slack.com/oauth/v2/authorize?client_id=${process.env.NEXT_PUBLIC_SLACK_CLIENT_ID}&scope=chat:write,channels:read&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&prompt=consent`
+                }
+                break
+              case "google-calendar":
+              case "google-sheets":
+              case "google-drive":
+              case "gmail":
+              case "google-analytics":
+                if (process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) {
+                  const scopes = providerConfig.scopes.join(" ")
+                  authUrl = `https://accounts.google.com/oauth/authorize?client_id=${process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scopes)}&response_type=code&state=${state}&access_type=offline&prompt=consent`
+                }
+                break
+              case "discord":
+                if (process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID) {
+                  authUrl = `https://discord.com/api/oauth2/authorize?client_id=${process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=bot&state=${state}&prompt=consent`
+                }
+                break
+              case "github":
+                if (process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID) {
+                  // For GitHub, add multiple parameters to force re-authentication
+                  // Add timestamp to prevent caching and force fresh authorization
+                  authUrl = `https://github.com/login/oauth/authorize?client_id=${
+                    process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID
+                  }&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(
+                    providerConfig.scopes.join(" "),
+                  )}&state=${state}&allow_signup=true&force_login=true&prompt=consent&t=${timestamp}`
+                }
+                break
+            }
+
+            if (authUrl) {
+              console.log(`Redirecting to OAuth URL for ${provider}:`, authUrl)
+              // Use window.location.replace to ensure we don't just refresh
+              window.location.replace(authUrl)
+              return
+            } else {
+              console.log(`OAuth not configured for ${provider}, falling back to demo mode`)
+              // Fall back to demo mode if OAuth not configured
+            }
+          }
 
           // For non-OAuth providers, reactivate disconnected integrations
           if (disconnectedIntegration && !isOAuthProvider && !forceOAuth) {
@@ -583,64 +648,6 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
             await get().fetchIntegrations(true)
             set({ loading: false })
             return
-          }
-
-          // For OAuth providers, always go through OAuth flow
-          if (isOAuthProvider) {
-            const redirectUri = `${window.location.origin}/api/integrations/${provider}/callback`
-            const state = btoa(
-              JSON.stringify({
-                provider,
-                timestamp: Date.now(),
-                reconnect: !!disconnectedIntegration,
-                integrationId: disconnectedIntegration?.id,
-              }),
-            )
-
-            let authUrl = ""
-
-            switch (provider) {
-              case "slack":
-                if (process.env.NEXT_PUBLIC_SLACK_CLIENT_ID) {
-                  authUrl = `https://slack.com/oauth/v2/authorize?client_id=${process.env.NEXT_PUBLIC_SLACK_CLIENT_ID}&scope=chat:write,channels:read&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}`
-                }
-                break
-              case "google-calendar":
-              case "google-sheets":
-              case "google-drive":
-              case "gmail":
-              case "google-analytics":
-                if (process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) {
-                  const scopes = providerConfig.scopes.join(" ")
-                  authUrl = `https://accounts.google.com/oauth/authorize?client_id=${process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scopes)}&response_type=code&state=${state}&access_type=offline&prompt=consent`
-                }
-                break
-              case "discord":
-                if (process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID) {
-                  authUrl = `https://discord.com/api/oauth2/authorize?client_id=${process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=bot&state=${state}&prompt=consent`
-                }
-                break
-              case "github":
-                if (process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID) {
-                  // For GitHub, add parameters to force re-authentication
-                  // force_login=true forces the user to enter their credentials
-                  authUrl = `https://github.com/login/oauth/authorize?client_id=${
-                    process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID
-                  }&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(
-                    providerConfig.scopes.join(" "),
-                  )}&state=${state}&allow_signup=true&force_login=true`
-                }
-                break
-            }
-
-            if (authUrl) {
-              console.log(`Redirecting to OAuth for ${provider}:`, authUrl)
-              window.location.href = authUrl
-              return
-            } else {
-              // Fall back to demo mode if OAuth not configured
-              console.log(`OAuth not configured for ${provider}, falling back to demo mode`)
-            }
           }
 
           if (providerConfig.authType === "api_key") {

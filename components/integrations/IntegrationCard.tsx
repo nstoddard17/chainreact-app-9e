@@ -22,16 +22,18 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
   const wasConnected = !!disconnectedIntegration
 
   const handleConnect = async () => {
+    console.log(`handleConnect called for ${provider.name}, isConnected: ${isConnected}`)
+
     if (isConnected && provider.id !== "github") {
-      console.log(`${provider.name} is already connected`)
+      console.log(`${provider.name} is already connected and not GitHub`)
       return
     }
 
     setConnecting(true)
     try {
+      console.log(`Calling connectIntegration for ${provider.id} with forceOAuth: true`)
       // Always force OAuth for OAuth providers when reconnecting
-      const forceOAuth = true
-      await connectIntegration(provider.id, forceOAuth)
+      await connectIntegration(provider.id, true)
     } catch (error) {
       console.error("Failed to connect integration:", error)
     } finally {
