@@ -5,7 +5,7 @@ import AppLayout from "@/components/layout/AppLayout"
 import { useIntegrationStore } from "@/stores/integrationStore"
 import IntegrationCard from "./IntegrationCard"
 import { Input } from "@/components/ui/input"
-import { Search, Loader2, Filter, CheckCircle } from "lucide-react"
+import { Search, Loader2, Filter, CheckCircle, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { useSearchParams } from "next/navigation"
@@ -14,14 +14,32 @@ import { useToast } from "@/hooks/use-toast"
 export default function IntegrationsContent() {
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
-  const { integrations, providers, loading, fetchIntegrations } = useIntegrationStore()
+  const [localLoading, setLocalLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const { integrations, providers, loading, error, fetchIntegrations, clearCache } = useIntegrationStore()
   const searchParams = useSearchParams()
   const { toast } = useToast()
 
+  // Handle initial data loading
   useEffect(() => {
-    fetchIntegrations()
-  }, [fetchIntegrations])
+    const loadData = async () => {
+      try {
+        setLocalLoading(true)
+        setLoadError(null)
+        await fetchIntegrations(true) // Force refresh on initial load
+      } catch (err: any) {
+        console.error("Failed to load integrations:", err)
+        setLoadError(err.message || "Failed to load integrations")
+      } finally {
+        setLocalLoading(false)
+      }
+    }
 
+    loadData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Empty dependency array to run only once on mount
+
+  // Handle URL parameters for OAuth callbacks
   useEffect(() => {
     // Handle success/error messages from OAuth callbacks
     const success = searchParams.get("success")
@@ -35,9 +53,7 @@ export default function IntegrationsContent() {
         duration: 5000,
       })
       // Refresh integrations after successful connection
-      setTimeout(() => {
-        fetchIntegrations()
-      }, 1000)
+      fetchIntegrations(true).catch(console.error)
     } else if (error) {
       let errorMessage = "Failed to connect integration"
       switch (error) {
@@ -93,13 +109,16 @@ export default function IntegrationsContent() {
     return matchesSearch && matchesCategory
   })
 
-  // Merge providers with integration status - this is the key fix
+  // Merge providers with integration status
   const providersWithStatus = filteredProviders.map((provider) => {
     const connectedIntegration = integrations.find((i) => i.provider === provider.id && i.status === "connected")
+    const disconnectedIntegration = integrations.find((i) => i.provider === provider.id && i.status === "disconnected")
+
     return {
       ...provider,
       connected: !!connectedIntegration,
-      integration: connectedIntegration,
+      wasConnected: !!disconnectedIntegration,
+      integration: connectedIntegration || disconnectedIntegration,
     }
   })
 
@@ -114,11 +133,69 @@ export default function IntegrationsContent() {
 
   const connectedCount = integrations.filter((i) => i.status === "connected").length
 
-  if (loading) {
+  const handleRefresh = async () => {
+    try {
+      setLocalLoading(true)
+      setLoadError(null)
+      await fetchIntegrations(true)
+    } catch (err: any) {
+      console.error("Failed to refresh integrations:", err)
+      setLoadError(err.message || "Failed to refresh integrations")
+      toast({
+        title: "Refresh Failed",
+        description: "Could not refresh integration data. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setLocalLoading(false)
+    }
+  }
+
+  const handleClearCache = () => {
+    clearCache()
+    toast({
+      title: "Cache Cleared",
+      description: "Integration cache has been cleared.",
+    })
+    handleRefresh()
+  }
+
+  // Show loading state
+  if (localLoading) {
     return (
       <AppLayout>
-        <div className="flex items-center justify-center h-64">
+        <div className="flex flex-col items-center justify-center h-64 space-y-4">
           <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+          <p className="text-slate-600">Loading integrations...</p>
+        </div>
+      </AppLayout>
+    )
+  }
+
+  // Show error state
+  if (loadError) {
+    return (
+      <AppLayout>
+        <div className="flex flex-col items-center justify-center h-64 space-y-4">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md w-full">
+            <div className="flex items-center space-x-3">
+              <AlertCircle className="w-6 h-6 text-red-500" />
+              <h3 className="text-lg font-medium text-red-800">Failed to load integrations</h3>
+            </div>
+            <p className="mt-2 text-sm text-red-700">{loadError}</p>
+            <div className="mt-4 flex space-x-3">
+              <Button onClick={handleRefresh} className="bg-white text-black border border-slate-200">
+                Try Again
+              </Button>
+              <Button
+                onClick={handleClearCache}
+                variant="outline"
+                className="bg-white text-black border border-slate-200"
+              >
+                Clear Cache
+              </Button>
+            </div>
+          </div>
         </div>
       </AppLayout>
     )
@@ -138,12 +215,13 @@ export default function IntegrationsContent() {
               {connectedCount} Connected
             </Badge>
             <Button
-              onClick={() => fetchIntegrations()}
+              onClick={handleRefresh}
               variant="outline"
               size="sm"
               className="bg-white text-black border border-slate-200 hover:bg-slate-100"
+              disabled={loading}
             >
-              Refresh
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Refresh"}
             </Button>
           </div>
         </div>
@@ -199,6 +277,11 @@ export default function IntegrationsContent() {
                 .filter((p) => p.connected)
                 .map((p) => p.name)
                 .join(", ") || "None"}
+            </div>
+            <div className="mt-2">
+              <Button onClick={handleClearCache} size="sm" variant="outline" className="text-xs h-6">
+                Clear Cache
+              </Button>
             </div>
           </div>
         )}

@@ -485,7 +485,7 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
         const now = Date.now()
 
         // Only fetch if forced, never fetched before, or data is older than 10 seconds
-        if (!force && state.lastFetched && now - state.lastFetched < 10000) {
+        if (!force && state.lastFetched && now - state.lastFetched < 10000 && state.integrations.length > 0) {
           console.log("Using cached integrations data")
           return
         }
@@ -528,6 +528,7 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
         } catch (error: any) {
           console.error("Error fetching integrations:", error)
           set({ error: error.message, loading: false })
+          throw error // Re-throw to allow component to handle it
         }
       },
 
@@ -723,6 +724,7 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
         } catch (error: any) {
           console.error("Connect integration error:", error)
           set({ error: error.message, loading: false })
+          throw error
         }
       },
 
