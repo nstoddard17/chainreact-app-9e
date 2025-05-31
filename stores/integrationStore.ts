@@ -552,12 +552,18 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
             return
           }
 
+          // For GitHub, always force a new OAuth flow
+          if (provider === "github") {
+            forceOAuth = true
+            console.log("Forcing new OAuth flow for GitHub")
+          }
+
           // Check if there's a disconnected integration we can reactivate
           const disconnectedIntegration = get().integrations.find(
             (i) => i.provider === provider && i.status === "disconnected",
           )
 
-          // For OAuth providers, always go through the OAuth flow again
+          // For OAuth providers, always go through the OAuth flow again if forced
           const isOAuthProvider = providerConfig.authType === "oauth"
 
           // If it's a disconnected OAuth integration and we're not forcing OAuth, reactivate it
@@ -578,6 +584,59 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
             // Refresh integrations
             await get().fetchIntegrations(true)
             set({ loading: false })
+            return
+          }
+
+          // For GitHub and other OAuth providers when forced, always go through OAuth flow
+          if (isOAuthProvider && (forceOAuth || provider === "github")) {
+            // For OAuth integrations with real client IDs
+            const redirectUri = `${window.location.origin}/api/integrations/${provider}/callback`
+            const state = btoa(
+              JSON.stringify({
+                provider,
+                timestamp: Date.now(),
+                reconnect: !!disconnectedIntegration,
+                integrationId: disconnectedIntegration?.id,
+              }),
+            )
+
+            let authUrl = ""
+
+            switch (provider) {
+              case "slack":
+                if (process.env.NEXT_PUBLIC_SLACK_CLIENT_ID) {
+                  authUrl = `https://slack.com/oauth/v2/authorize?client_id=${process.env.NEXT_PUBLIC_SLACK_CLIENT_ID}&scope=chat:write,channels:read&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}`
+                }
+                break
+              case "google-calendar":
+              case "google-sheets":
+              case "google-drive":
+              case "gmail":
+              case "google-analytics":
+                if (process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) {
+                  const scopes = providerConfig.scopes.join(" ")
+                  authUrl = `https://accounts.google.com/oauth/authorize?client_id=${process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scopes)}&response_type=code&state=${state}`
+                }
+                break
+              case "discord":
+                if (process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID) {
+                  authUrl = `https://discord.com/api/oauth2/authorize?client_id=${process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=bot&state=${state}`
+                }
+                break
+              case "github":
+                if (process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID) {
+                  // For GitHub, add additional parameters to force re-authentication
+                  authUrl = `https://github.com/login/oauth/authorize?client_id=${process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(providerConfig.scopes.join(" "))}&state=${state}&allow_signup=true&login=true`
+                }
+                break
+            }
+
+            if (authUrl) {
+              console.log(`Redirecting to OAuth for ${provider}:`, authUrl)
+              window.location.href = authUrl
+            } else {
+              throw new Error(`OAuth not configured for ${providerConfig.name}. Using demo mode instead.`)
+            }
             return
           }
 

@@ -45,6 +45,10 @@ export async function GET(request: Request) {
       throw new Error("Invalid state parameter - wrong provider")
     }
 
+    // Check if this is a reconnection
+    const isReconnect = stateData.reconnect === true
+    const existingIntegrationId = stateData.integrationId
+
     console.log("Exchanging code for token...")
 
     // Exchange code for access token
@@ -118,7 +122,44 @@ export async function GET(request: Request) {
 
     console.log("Saving integration to database...")
 
-    // Check if integration already exists
+    // If this is a reconnection and we have an existing integration ID, update that record
+    if (isReconnect && existingIntegrationId) {
+      console.log(`Updating existing integration with ID: ${existingIntegrationId}`)
+
+      const { error: updateError } = await supabase
+        .from("integrations")
+        .update({
+          access_token: tokenData.access_token,
+          refresh_token: tokenData.refresh_token,
+          token_type: tokenData.token_type || "bearer",
+          scopes: tokenData.scope ? tokenData.scope.split(",") : ["repo", "workflow"],
+          status: "connected",
+          metadata: {
+            username: githubUser.login,
+            name: githubUser.name,
+            email: githubUser.email,
+            avatar_url: githubUser.avatar_url,
+            public_repos: githubUser.public_repos,
+            followers: githubUser.followers,
+            following: githubUser.following,
+            created_at: githubUser.created_at,
+            updated_at: githubUser.updated_at,
+            reconnected_at: new Date().toISOString(),
+          },
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", existingIntegrationId)
+
+      if (updateError) {
+        console.error("Database update error:", updateError)
+        throw new Error("Failed to update integration")
+      }
+
+      console.log("Successfully reconnected GitHub integration")
+      return NextResponse.redirect(new URL("/integrations?success=github_reconnected", origin))
+    }
+
+    // Check if integration already exists for this GitHub user ID
     const { data: existingIntegration } = await supabase
       .from("integrations")
       .select("id")
@@ -147,6 +188,7 @@ export async function GET(request: Request) {
             following: githubUser.following,
             created_at: githubUser.created_at,
             updated_at: githubUser.updated_at,
+            reconnected_at: new Date().toISOString(),
           },
           updated_at: new Date().toISOString(),
         })

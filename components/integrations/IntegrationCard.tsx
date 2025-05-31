@@ -29,8 +29,8 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
 
     setConnecting(true)
     try {
-      // For OAuth providers that were previously disconnected, force a new OAuth flow
-      const forceOAuth = wasConnected && provider.authType === "oauth"
+      // Always force OAuth for GitHub reconnections
+      const forceOAuth = provider.id === "github" || (wasConnected && provider.authType === "oauth")
       await connectIntegration(provider.id, forceOAuth)
     } catch (error) {
       console.error("Failed to connect integration:", error)

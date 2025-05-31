@@ -54,6 +54,14 @@ export default function IntegrationsContent() {
       })
       // Refresh integrations after successful connection
       fetchIntegrations(true).catch(console.error)
+    } else if (success === "github_reconnected") {
+      toast({
+        title: "GitHub Reconnected",
+        description: "Your GitHub integration has been successfully reconnected!",
+        duration: 5000,
+      })
+      // Refresh integrations after successful reconnection
+      fetchIntegrations(true).catch(console.error)
     } else if (error) {
       let errorMessage = "Failed to connect integration"
       switch (error) {
