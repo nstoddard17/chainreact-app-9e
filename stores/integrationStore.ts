@@ -622,7 +622,13 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
                 break
               case "github":
                 if (process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID) {
-                  authUrl = `https://github.com/login/oauth/authorize?client_id=${process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(providerConfig.scopes.join(" "))}&state=${state}&allow_signup=true`
+                  // For GitHub, add parameters to force re-authentication
+                  // force_login=true forces the user to enter their credentials
+                  authUrl = `https://github.com/login/oauth/authorize?client_id=${
+                    process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID
+                  }&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(
+                    providerConfig.scopes.join(" "),
+                  )}&state=${state}&allow_signup=true&force_login=true`
                 }
                 break
             }

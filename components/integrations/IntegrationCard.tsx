@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Check, ExternalLink, Settings, Loader2 } from "lucide-react"
+import { Check, ExternalLink, Settings, Loader2, RefreshCw } from "lucide-react"
 import { useIntegrationStore } from "@/stores/integrationStore"
 
 interface IntegrationCardProps {
@@ -22,7 +22,7 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
   const wasConnected = !!disconnectedIntegration
 
   const handleConnect = async () => {
-    if (isConnected) {
+    if (isConnected && provider.id !== "github") {
       console.log(`${provider.name} is already connected`)
       return
     }
@@ -30,7 +30,7 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
     setConnecting(true)
     try {
       // Always force OAuth for OAuth providers when reconnecting
-      const forceOAuth = provider.authType === "oauth" || (wasConnected && provider.authType === "oauth")
+      const forceOAuth = true
       await connectIntegration(provider.id, forceOAuth)
     } catch (error) {
       console.error("Failed to connect integration:", error)
@@ -117,14 +117,36 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
         <div className="flex items-center space-x-2 pt-2">
           {isConnected ? (
             <>
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex-1 bg-white text-black border border-slate-200 hover:bg-slate-100 active:bg-slate-200"
-              >
-                <Settings className="w-4 h-4 mr-2" />
-                Configure
-              </Button>
+              {provider.id === "github" ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 bg-white text-black border border-slate-200 hover:bg-slate-100 active:bg-slate-200"
+                  onClick={handleConnect}
+                  disabled={connecting}
+                >
+                  {connecting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Reconnecting...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                      Reauthorize
+                    </>
+                  )}
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 bg-white text-black border border-slate-200 hover:bg-slate-100 active:bg-slate-200"
+                >
+                  <Settings className="w-4 h-4 mr-2" />
+                  Configure
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="sm"
