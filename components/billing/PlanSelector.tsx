@@ -160,7 +160,7 @@ function PlanCard({ plan, price, billingCycle, isCurrentPlan, isProcessing, isDi
         </div>
 
         <Button
-          className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+          className="w-full bg-white text-black border border-slate-200 hover:bg-slate-100 active:bg-slate-200"
           disabled={isCurrentPlan || isProcessing || isDisabled}
           onClick={onSelect}
         >

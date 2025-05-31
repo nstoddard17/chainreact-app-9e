@@ -50,7 +50,7 @@ export default function WorkflowsContent() {
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold text-slate-900">Workflows</h1>
           <Link href="/workflows/builder">
-            <Button className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700">
+            <Button className="bg-white text-black border border-slate-200 hover:bg-slate-100 active:bg-slate-200">
               <Plus className="w-4 h-4 mr-2" />
               Create Workflow
             </Button>
@@ -61,7 +61,7 @@ export default function WorkflowsContent() {
           <div className="text-center py-12">
             <div className="text-slate-500 mb-4">No workflows yet</div>
             <Link href="/workflows/builder">
-              <Button className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700">
+              <Button className="bg-white text-black border border-slate-200 hover:bg-slate-100 active:bg-slate-200">
                 <Plus className="w-4 h-4 mr-2" />
                 Create Your First Workflow
               </Button>
@@ -101,19 +101,24 @@ export default function WorkflowsContent() {
                     <Button
                       size="sm"
                       variant="outline"
+                      className="bg-white text-black border border-slate-200 hover:bg-slate-100 active:bg-slate-200"
                       onClick={() => handleToggleStatus(workflow.id, workflow.status)}
                     >
                       {workflow.status === "active" ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
                     </Button>
                     <Link href={`/workflows/builder?id=${workflow.id}`}>
-                      <Button size="sm" variant="outline">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="bg-white text-black border border-slate-200 hover:bg-slate-100 active:bg-slate-200"
+                      >
                         <Settings className="w-4 h-4" />
                       </Button>
                     </Link>
                     <Button
                       size="sm"
                       variant="outline"
-                      className="text-red-600 hover:text-red-700"
+                      className="bg-white text-red-600 border border-slate-200 hover:bg-slate-100 hover:text-red-700 active:bg-slate-200"
                       onClick={() => handleDeleteWorkflow(workflow.id)}
                     >
                       <Trash2 className="w-4 h-4" />

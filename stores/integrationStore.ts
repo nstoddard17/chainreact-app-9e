@@ -593,7 +593,8 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
           break
         case "github":
           if (process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID) {
-            authUrl = `https://github.com/login/oauth/authorize?client_id=${process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(providerConfig.scopes.join(" "))}&state=${state}`
+            const redirectUri = `${window.location.origin}/api/integrations/github/callback`
+            authUrl = `https://github.com/login/oauth/authorize?client_id=${process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(providerConfig.scopes.join(" "))}&state=${state}&allow_signup=true`
           }
           break
       }

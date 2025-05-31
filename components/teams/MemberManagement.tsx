@@ -102,7 +102,7 @@ export default function MemberManagement({ organizationId, userRole }: Props) {
             {canManageMembers && (
               <Button
                 onClick={() => setShowInviteDialog(true)}
-                className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+                className="bg-white text-black border border-slate-200 hover:bg-slate-100 active:bg-slate-200"
               >
                 <UserPlus className="w-4 h-4 mr-2" />
                 Invite Member
@@ -146,7 +146,7 @@ export default function MemberManagement({ organizationId, userRole }: Props) {
                     {canManageMembers && member.role !== "admin" && (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm">
+                          <Button variant="ghost" size="sm" className="bg-white text-black hover:bg-slate-100">
                             <MoreVertical className="w-4 h-4" />
                           </Button>
                         </DropdownMenuTrigger>
@@ -206,7 +206,12 @@ export default function MemberManagement({ organizationId, userRole }: Props) {
                     <Badge variant="outline" className="bg-yellow-100 text-yellow-700 border-yellow-300">
                       Pending
                     </Badge>
-                    <Button variant="ghost" size="sm" onClick={() => cancelInvitation(invitation.id)}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => cancelInvitation(invitation.id)}
+                      className="bg-white text-black hover:bg-slate-100"
+                    >
                       <Trash2 className="w-4 h-4" />
                     </Button>
                   </div>
@@ -266,10 +271,19 @@ export default function MemberManagement({ organizationId, userRole }: Props) {
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setShowInviteDialog(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowInviteDialog(false)}
+              className="bg-white text-black border border-slate-200 hover:bg-slate-100 active:bg-slate-200"
+            >
               Cancel
             </Button>
-            <Button onClick={handleInviteMember} disabled={inviteLoading || !inviteEmail.trim()}>
+            <Button
+              onClick={handleInviteMember}
+              disabled={inviteLoading || !inviteEmail.trim()}
+              className="bg-white text-black border border-slate-200 hover:bg-slate-100 active:bg-slate-200"
+            >
               {inviteLoading ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />

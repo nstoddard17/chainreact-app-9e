@@ -68,7 +68,7 @@ export default function IntegrationsContent() {
             <h1 className="text-3xl font-bold text-slate-900">Integrations</h1>
             <p className="text-slate-600 mt-1">Connect your favorite tools and services</p>
           </div>
-          <Badge variant="secondary" className="text-sm">
+          <Badge variant="outline" className="text-sm bg-white text-black border border-slate-200">
             {integrations.filter((i) => i.status === "connected").length} Connected
           </Badge>
         </div>
@@ -81,7 +81,7 @@ export default function IntegrationsContent() {
               placeholder="Search integrations..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
+              className="pl-10 bg-white text-black border border-slate-200"
             />
           </div>
 
@@ -90,7 +90,9 @@ export default function IntegrationsContent() {
               variant={selectedCategory === null ? "default" : "outline"}
               size="sm"
               onClick={() => setSelectedCategory(null)}
-              className="flex items-center gap-2"
+              className={`flex items-center gap-2 bg-white text-black border border-slate-200 hover:bg-slate-100 ${
+                selectedCategory === null ? "ring-2 ring-slate-200" : ""
+              }`}
             >
               <Filter className="w-4 h-4" />
               All Categories
@@ -101,6 +103,9 @@ export default function IntegrationsContent() {
                 variant={selectedCategory === category ? "default" : "outline"}
                 size="sm"
                 onClick={() => setSelectedCategory(category)}
+                className={`bg-white text-black border border-slate-200 hover:bg-slate-100 ${
+                  selectedCategory === category ? "ring-2 ring-slate-200" : ""
+                }`}
               >
                 {category}
               </Button>
@@ -126,7 +131,9 @@ export default function IntegrationsContent() {
               <div key={category}>
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-xl font-semibold text-slate-900">{category}</h2>
-                  <Badge variant="outline">{groupedProviders[category]?.length || 0} integrations</Badge>
+                  <Badge variant="outline" className="bg-white text-black border border-slate-200">
+                    {groupedProviders[category]?.length || 0} integrations
+                  </Badge>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {groupedProviders[category]?.map((provider) => (

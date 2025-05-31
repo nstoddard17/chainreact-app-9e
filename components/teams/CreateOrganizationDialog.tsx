@@ -110,10 +110,19 @@ export default function CreateOrganizationDialog({ open, onOpenChange }: Props) 
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              className="bg-white text-black border border-slate-200 hover:bg-slate-100 active:bg-slate-200"
+            >
               Cancel
             </Button>
-            <Button type="submit" disabled={loading || !name.trim() || !slug.trim()}>
+            <Button
+              type="submit"
+              disabled={loading || !name.trim() || !slug.trim()}
+              className="bg-white text-black border border-slate-200 hover:bg-slate-100 active:bg-slate-200"
+            >
               {loading ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
