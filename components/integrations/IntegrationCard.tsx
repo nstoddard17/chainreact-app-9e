@@ -20,12 +20,15 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
   const disconnectedIntegration = integrations.find((i) => i.provider === provider.id && i.status === "disconnected")
   const isConnected = !!connectedIntegration
   const wasConnected = !!disconnectedIntegration
+  const isOAuthProvider = provider.authType === "oauth"
 
   const handleConnect = async () => {
-    console.log(`handleConnect called for ${provider.name}, isConnected: ${isConnected}`)
+    console.log(`handleConnect called for ${provider.name}, isConnected: ${isConnected}, isOAuth: ${isOAuthProvider}`)
 
-    if (isConnected && provider.id !== "github") {
-      console.log(`${provider.name} is already connected and not GitHub`)
+    // For OAuth providers, always allow reauthorization
+    // For non-OAuth providers, skip if already connected
+    if (isConnected && !isOAuthProvider) {
+      console.log(`${provider.name} is already connected and not OAuth`)
       return
     }
 
@@ -119,7 +122,7 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
         <div className="flex items-center space-x-2 pt-2">
           {isConnected ? (
             <>
-              {provider.id === "github" ? (
+              {isOAuthProvider ? (
                 <Button
                   variant="outline"
                   size="sm"
