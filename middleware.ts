@@ -4,9 +4,11 @@ import { createMiddlewareClient } from "@supabase/auth-helpers-nextjs"
 
 export async function middleware(request: NextRequest) {
   const res = NextResponse.next()
-  const supabase = createMiddlewareClient({ req: request, res })
 
   try {
+    // Create middleware client (this is separate from the browser client)
+    const supabase = createMiddlewareClient({ req: request, res })
+
     // Check if user is authenticated
     const {
       data: { session },

@@ -1,7 +1,7 @@
 "use client"
 
 import { create } from "zustand"
-import { getSupabaseClient } from "@/lib/supabase"
+import { supabase } from "@/lib/supabase-singleton"
 import type { User, Session } from "@supabase/supabase-js"
 
 interface AuthState {
@@ -10,6 +10,7 @@ interface AuthState {
   profile: any | null
   loading: boolean
   error: string | null
+  initialized: boolean
 }
 
 interface AuthActions {
@@ -21,17 +22,31 @@ interface AuthActions {
   updateProfile: (updates: any) => Promise<void>
 }
 
+// Global flag to prevent multiple initializations
+let isInitializing = false
+let hasInitialized = false
+
 export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
   user: null,
   session: null,
   profile: null,
   loading: true,
   error: null,
+  initialized: false,
 
   initialize: async () => {
-    const supabase = getSupabaseClient()
+    // Prevent multiple simultaneous initializations
+    if (isInitializing || hasInitialized) {
+      return
+    }
+
+    isInitializing = true
 
     try {
+      if (!supabase) {
+        throw new Error("Supabase client not available")
+      }
+
       const {
         data: { session },
       } = await supabase.auth.getSession()
@@ -40,6 +55,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
         session,
         user: session?.user || null,
         loading: false,
+        initialized: true,
       })
 
       if (session?.user) {
@@ -49,7 +65,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
         set({ profile })
       }
 
-      // Listen for auth changes
+      // Set up auth state listener (only once)
       supabase.auth.onAuthStateChange(async (event, session) => {
         set({
           session,
@@ -64,6 +80,8 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
           set({ profile: null })
         }
       })
+
+      hasInitialized = true
     } catch (error) {
       console.error("Auth initialization error:", error)
       // For development, let's create a mock user to bypass authentication issues
@@ -84,16 +102,22 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
         } as Session,
         profile: { id: "mock-user-id", full_name: "Development User" },
         loading: false,
+        initialized: true,
       })
+      hasInitialized = true
+    } finally {
+      isInitializing = false
     }
   },
 
   signIn: async (email: string, password: string) => {
-    const supabase = getSupabaseClient()
-
     set({ loading: true, error: null })
 
     try {
+      if (!supabase) {
+        throw new Error("Supabase client not available")
+      }
+
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -148,11 +172,13 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
   },
 
   signUp: async (email: string, password: string, metadata = {}) => {
-    const supabase = getSupabaseClient()
-
     set({ loading: true, error: null })
 
     try {
+      if (!supabase) {
+        throw new Error("Supabase client not available")
+      }
+
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -201,11 +227,13 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
   },
 
   signInWithGoogle: async () => {
-    const supabase = getSupabaseClient()
-
     set({ loading: true, error: null })
 
     try {
+      if (!supabase) {
+        throw new Error("Supabase client not available")
+      }
+
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
@@ -241,10 +269,11 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
   },
 
   signOut: async () => {
-    const supabase = getSupabaseClient()
-
     try {
-      await supabase.auth.signOut()
+      if (supabase) {
+        await supabase.auth.signOut()
+      }
+
       set({
         user: null,
         session: null,
@@ -264,10 +293,9 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
   },
 
   updateProfile: async (updates: any) => {
-    const supabase = getSupabaseClient()
     const { user } = get()
 
-    if (!user) return
+    if (!user || !supabase) return
 
     try {
       const { error } = await supabase.from("user_profiles").update(updates).eq("id", user.id)
