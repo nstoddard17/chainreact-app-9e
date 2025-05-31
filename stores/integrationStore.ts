@@ -484,8 +484,8 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
         const state = get()
         const now = Date.now()
 
-        // Only fetch if forced, never fetched before, or data is older than 30 seconds
-        if (!force && state.lastFetched && now - state.lastFetched < 30000) {
+        // Only fetch if forced, never fetched before, or data is older than 10 seconds
+        if (!force && state.lastFetched && now - state.lastFetched < 10000) {
           console.log("Using cached integrations data")
           return
         }
@@ -495,10 +495,23 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
 
         try {
           console.log("Fetching integrations from database...")
+
+          // Get current user session
+          const {
+            data: { session },
+          } = await supabase.auth.getSession()
+
+          if (!session) {
+            console.log("No session found")
+            set({ integrations: [], loading: false, lastFetched: now })
+            return
+          }
+
+          // Fetch ALL integrations for this user (not just connected ones)
           const { data, error } = await supabase
             .from("integrations")
             .select("*")
-            .eq("status", "connected")
+            .eq("user_id", session.user.id)
             .order("created_at", { ascending: false })
 
           if (error) {
@@ -534,6 +547,31 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
 
           if (existingIntegration) {
             console.log(`${provider} is already connected`)
+            set({ loading: false })
+            return
+          }
+
+          // Check if there's a disconnected integration we can reactivate
+          const disconnectedIntegration = get().integrations.find(
+            (i) => i.provider === provider && i.status === "disconnected",
+          )
+
+          if (disconnectedIntegration) {
+            console.log(`Reactivating existing ${provider} integration`)
+            const supabase = getSupabaseClient()
+
+            const { error } = await supabase
+              .from("integrations")
+              .update({
+                status: "connected",
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", disconnectedIntegration.id)
+
+            if (error) throw error
+
+            // Refresh integrations
+            await get().fetchIntegrations(true)
             set({ loading: false })
             return
           }
@@ -655,7 +693,13 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
         const supabase = getSupabaseClient()
 
         try {
-          const { error } = await supabase.from("integrations").update({ status: "disconnected" }).eq("id", id)
+          const { error } = await supabase
+            .from("integrations")
+            .update({
+              status: "disconnected",
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", id)
 
           if (error) throw error
 
