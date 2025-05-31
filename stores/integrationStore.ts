@@ -25,6 +25,8 @@ interface IntegrationProvider {
   capabilities: string[]
   category: string
   requiresSetup?: boolean
+  connected?: boolean
+  integration?: Integration
 }
 
 interface IntegrationState {
@@ -40,6 +42,7 @@ interface IntegrationActions {
   disconnectIntegration: (id: string) => Promise<void>
   executeAction: (integration: Integration, action: string, params: any) => Promise<any>
   refreshToken: (integration: Integration) => Promise<void>
+  updateProviderConnectedState: () => void
 }
 
 const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
@@ -483,9 +486,28 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
       if (error) throw error
 
       set({ integrations: data || [], loading: false })
+
+      // Update provider connected state after fetching integrations
+      get().updateProviderConnectedState()
     } catch (error: any) {
       set({ error: error.message, loading: false })
     }
+  },
+
+  updateProviderConnectedState: () => {
+    set((state) => {
+      const updatedProviders = state.providers.map((provider) => {
+        const connectedIntegration = state.integrations.find(
+          (integration) => integration.provider === provider.id && integration.status === "connected",
+        )
+        return {
+          ...provider,
+          connected: !!connectedIntegration,
+          integration: connectedIntegration || undefined,
+        }
+      })
+      return { ...state, providers: updatedProviders }
+    })
   },
 
   connectIntegration: async (provider: string) => {
@@ -617,9 +639,8 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
 
       if (error) throw error
 
-      set((state) => ({
-        integrations: state.integrations.map((i) => (i.id === id ? { ...i, status: "disconnected" } : i)),
-      }))
+      // Refresh integrations to update the UI
+      await get().fetchIntegrations()
     } catch (error: any) {
       set({ error: error.message })
       throw error
