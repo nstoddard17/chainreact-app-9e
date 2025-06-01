@@ -3,116 +3,156 @@ import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 
 export async function GET(request: Request) {
-  const supabase = createRouteHandlerClient({ cookies })
   const { searchParams } = new URL(request.url)
   const code = searchParams.get("code")
-  const state = searchParams.get("state")
+  const stateParam = searchParams.get("state")
 
-  if (!code || !state) {
-    return NextResponse.redirect(new URL("/integrations?error=missing_params", request.url))
+  // Log the callback URL and parameters for debugging
+  console.log("GitHub OAuth callback received:", { code: !!code, state: stateParam })
+
+  if (!code) {
+    console.error("No code received from GitHub OAuth")
+    return NextResponse.redirect(
+      `${process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin}/integrations?error=No+authorization+code+received`,
+    )
   }
 
   try {
+    let state: any = {}
+    try {
+      state = JSON.parse(atob(stateParam || ""))
+    } catch (e) {
+      console.error("Failed to parse state parameter:", e)
+    }
+
+    const supabase = createRouteHandlerClient({ cookies })
+
     const {
       data: { session },
     } = await supabase.auth.getSession()
 
     if (!session) {
-      return NextResponse.redirect(new URL("/auth/login", request.url))
+      console.error("No session found in GitHub callback")
+      return NextResponse.redirect(
+        `${process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin}/auth/login?error=Authentication+required`,
+      )
     }
 
-    // Parse state to check if this is a reconnection
-    let stateData
-    try {
-      stateData = JSON.parse(atob(state))
-    } catch {
-      stateData = { provider: "github", timestamp: Date.now() }
-    }
-
-    const isReconnection = stateData.reconnect && stateData.integrationId
-
-    // Exchange code for access token
+    // Exchange the code for an access token
     const tokenResponse = await fetch("https://github.com/login/oauth/access_token", {
       method: "POST",
       headers: {
+        "Content-Type": "application/json",
         Accept: "application/json",
-        "Content-Type": "application/x-www-form-urlencoded",
       },
-      body: new URLSearchParams({
-        client_id: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID!,
-        client_secret: process.env.GITHUB_CLIENT_SECRET!,
+      body: JSON.stringify({
+        client_id: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID,
+        client_secret: process.env.GITHUB_CLIENT_SECRET,
         code,
+        redirect_uri: `${process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin}/api/integrations/github/callback`,
       }),
     })
 
-    const tokenData = await tokenResponse.json()
-
-    if (tokenData.error) {
-      throw new Error(tokenData.error_description || "Failed to exchange code for token")
+    if (!tokenResponse.ok) {
+      const errorText = await tokenResponse.text()
+      console.error("GitHub token exchange failed:", tokenResponse.status, errorText)
+      return NextResponse.redirect(
+        `${process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin}/integrations?error=Failed+to+exchange+authorization+code`,
+      )
     }
 
-    // Get user info
+    const tokenData = await tokenResponse.json()
+    console.log("GitHub token exchange successful:", { hasAccessToken: !!tokenData.access_token })
+
+    if (!tokenData.access_token) {
+      console.error("No access token received from GitHub")
+      return NextResponse.redirect(
+        `${process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin}/integrations?error=No+access+token+received`,
+      )
+    }
+
+    // Get user info from GitHub
     const userResponse = await fetch("https://api.github.com/user", {
       headers: {
-        Authorization: `Bearer ${tokenData.access_token}`,
-        "User-Agent": "ChainReact-SaaS",
+        Authorization: `token ${tokenData.access_token}`,
       },
     })
 
-    const userData = await userResponse.json()
+    if (!userResponse.ok) {
+      console.error("Failed to fetch GitHub user info:", userResponse.status)
+      return NextResponse.redirect(
+        `${process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin}/integrations?error=Failed+to+fetch+user+info`,
+      )
+    }
 
-    if (isReconnection) {
-      // Update existing integration
-      const { error } = await supabase
+    const userData = await userResponse.json()
+    console.log("GitHub user info fetched:", { id: userData.id, login: userData.login })
+
+    // Handle reconnection case
+    if (state.reconnect && state.integrationId) {
+      console.log("Reconnecting GitHub integration:", state.integrationId)
+
+      const { error: updateError } = await supabase
         .from("integrations")
         .update({
-          access_token: tokenData.access_token,
-          refresh_token: tokenData.refresh_token,
-          expires_at: tokenData.expires_in ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString() : null,
           status: "connected",
-          updated_at: new Date().toISOString(),
+          access_token: tokenData.access_token,
+          provider_user_id: userData.id.toString(),
           metadata: {
             username: userData.login,
-            name: userData.name,
-            email: userData.email,
             avatar_url: userData.avatar_url,
-            reconnected_at: new Date().toISOString(),
+            html_url: userData.html_url,
+            name: userData.name,
+            updated_at: new Date().toISOString(),
           },
+          updated_at: new Date().toISOString(),
         })
-        .eq("id", stateData.integrationId)
+        .eq("id", state.integrationId)
+        .eq("user_id", session.user.id)
 
-      if (error) {
-        throw error
+      if (updateError) {
+        console.error("Failed to update GitHub integration:", updateError)
+        return NextResponse.redirect(
+          `${process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin}/integrations?error=Failed+to+update+integration`,
+        )
       }
 
-      return NextResponse.redirect(new URL("/integrations?success=github_reconnected", request.url))
-    } else {
-      // Create new integration or upsert
-      const { error } = await supabase.from("integrations").upsert({
-        user_id: session.user.id,
-        provider: "github",
-        provider_user_id: userData.id.toString(),
-        access_token: tokenData.access_token,
-        refresh_token: tokenData.refresh_token,
-        expires_at: tokenData.expires_in ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString() : null,
-        scopes: tokenData.scope?.split(",") || [],
-        metadata: {
-          username: userData.login,
-          name: userData.name,
-          email: userData.email,
-          avatar_url: userData.avatar_url,
-        },
-        status: "connected",
-      })
-
-      if (error) {
-        throw error
-      }
-
-      return NextResponse.redirect(new URL("/integrations?success=github_connected", request.url))
+      return NextResponse.redirect(
+        `${process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin}/integrations?success=GitHub+reconnected`,
+      )
     }
+
+    // Create new integration
+    const { error: insertError } = await supabase.from("integrations").insert({
+      user_id: session.user.id,
+      provider: "github",
+      provider_user_id: userData.id.toString(),
+      status: "connected",
+      access_token: tokenData.access_token,
+      scopes: tokenData.scope ? tokenData.scope.split(",") : [],
+      metadata: {
+        username: userData.login,
+        avatar_url: userData.avatar_url,
+        html_url: userData.html_url,
+        name: userData.name,
+        connected_at: new Date().toISOString(),
+      },
+    })
+
+    if (insertError) {
+      console.error("Failed to insert GitHub integration:", insertError)
+      return NextResponse.redirect(
+        `${process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin}/integrations?error=Failed+to+create+integration`,
+      )
+    }
+
+    return NextResponse.redirect(
+      `${process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin}/integrations?success=GitHub+connected`,
+    )
   } catch (error) {
-    console.error("GitHub OAuth error:", error)
-    return NextResponse.redirect(new URL("/integrations?error=oauth_failed", request.url))
+    console.error("GitHub OAuth callback error:", error)
+    return NextResponse.redirect(
+      `${process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin}/integrations?error=Integration+error`,
+    )
   }
 }

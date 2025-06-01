@@ -1,11 +1,12 @@
 "use client"
 
 import type React from "react"
-
+import { useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Menu, X } from "lucide-react"
+import { Menu, X, User, LogOut } from "lucide-react"
 import Link from "next/link"
 import { useState } from "react"
+import { useAuthStore } from "@/stores/authStore"
 
 interface PublicLayoutProps {
   children: React.ReactNode
@@ -13,6 +14,12 @@ interface PublicLayoutProps {
 
 export function PublicLayout({ children }: PublicLayoutProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const { user, session, loading, initialize, signOut, profile } = useAuthStore()
+
+  // Initialize auth on component mount
+  useEffect(() => {
+    initialize()
+  }, [initialize])
 
   const handlePageNavigation = (path: string) => {
     // Close mobile menu if open
@@ -26,6 +33,26 @@ export function PublicLayout({ children }: PublicLayoutProps) {
   const handleMobileMenuClose = () => {
     setMobileMenuOpen(false)
   }
+
+  const handleSignOut = async () => {
+    await signOut()
+    setMobileMenuOpen(false)
+  }
+
+  // Show loading state while checking auth
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+      </div>
+    )
+  }
+
+  const isLoggedIn = !!user && !!session
+
+  // Get the first name from profile or user metadata
+  const firstName =
+    profile?.first_name || user?.user_metadata?.first_name || (user?.email ? user.email.split("@")[0] : "User")
 
   return (
     <div className="min-h-screen bg-white">
@@ -73,15 +100,38 @@ export function PublicLayout({ children }: PublicLayoutProps) {
               </div>
             </div>
 
+            {/* Desktop Auth Buttons */}
             <div className="hidden md:flex items-center space-x-4">
-              <Link href="/auth/login">
-                <Button className="border-2 border-indigo-600 text-indigo-600 bg-white hover:bg-indigo-50">
-                  Login
-                </Button>
-              </Link>
-              <Link href="/auth/register">
-                <Button className="bg-indigo-600 text-white hover:bg-indigo-700">Sign Up</Button>
-              </Link>
+              {isLoggedIn ? (
+                <>
+                  <div className="flex items-center space-x-2 text-sm text-slate-600">
+                    <User className="h-4 w-4" />
+                    <span>Welcome, {firstName}</span>
+                  </div>
+                  <Link href="/dashboard">
+                    <Button className="bg-indigo-600 text-white hover:bg-indigo-700">Dashboard</Button>
+                  </Link>
+                  <Button
+                    variant="outline"
+                    onClick={handleSignOut}
+                    className="border-slate-300 text-slate-600 hover:bg-slate-50"
+                  >
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Sign Out
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Link href="/auth/login">
+                    <Button className="border-2 border-indigo-600 text-indigo-600 bg-white hover:bg-indigo-50">
+                      Login
+                    </Button>
+                  </Link>
+                  <Link href="/auth/register">
+                    <Button className="bg-indigo-600 text-white hover:bg-indigo-700">Sign Up</Button>
+                  </Link>
+                </>
+              )}
             </div>
 
             {/* Mobile menu button */}
@@ -135,15 +185,43 @@ export function PublicLayout({ children }: PublicLayoutProps) {
               >
                 Support
               </Link>
+
+              {/* Mobile Auth Section */}
               <div className="pt-4 pb-3 border-t border-slate-200">
-                <Link href="/auth/login" className="block px-3 py-2">
-                  <Button className="w-full border-2 border-indigo-600 text-indigo-600 bg-white hover:bg-indigo-50">
-                    Login
-                  </Button>
-                </Link>
-                <Link href="/auth/register" className="block px-3 py-2">
-                  <Button className="w-full bg-indigo-600 text-white hover:bg-indigo-700">Sign Up</Button>
-                </Link>
+                {isLoggedIn ? (
+                  <>
+                    <div className="px-3 py-2">
+                      <div className="flex items-center space-x-2 text-sm text-slate-600">
+                        <User className="h-4 w-4" />
+                        <span>Welcome, {firstName}</span>
+                      </div>
+                    </div>
+                    <Link href="/dashboard" className="block px-3 py-2">
+                      <Button className="w-full bg-indigo-600 text-white hover:bg-indigo-700">Dashboard</Button>
+                    </Link>
+                    <div className="px-3 py-2">
+                      <Button
+                        variant="outline"
+                        onClick={handleSignOut}
+                        className="w-full border-slate-300 text-slate-600 hover:bg-slate-50"
+                      >
+                        <LogOut className="h-4 w-4 mr-2" />
+                        Sign Out
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <Link href="/auth/login" className="block px-3 py-2">
+                      <Button className="w-full border-2 border-indigo-600 text-indigo-600 bg-white hover:bg-indigo-50">
+                        Login
+                      </Button>
+                    </Link>
+                    <Link href="/auth/register" className="block px-3 py-2">
+                      <Button className="w-full bg-indigo-600 text-white hover:bg-indigo-700">Sign Up</Button>
+                    </Link>
+                  </>
+                )}
               </div>
             </div>
           </div>

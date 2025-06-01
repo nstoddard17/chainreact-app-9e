@@ -1,25 +1,30 @@
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
-import { NextResponse } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
+import { getSupabaseClient } from "@/lib/supabase"
 
-export async function GET(request: Request) {
-  const supabase = createRouteHandlerClient({ cookies })
-  const { searchParams } = new URL(request.url)
+export async function GET(request: NextRequest) {
+  const searchParams = request.nextUrl.searchParams
   const code = searchParams.get("code")
   const state = searchParams.get("state")
+  const error = searchParams.get("error")
+
+  console.log("Google OAuth callback:", { code: !!code, state, error })
+
+  if (error) {
+    console.error("OAuth error:", error)
+    return NextResponse.redirect(new URL("/integrations?error=oauth_error", request.url))
+  }
 
   if (!code || !state) {
+    console.error("Missing code or state parameter")
     return NextResponse.redirect(new URL("/integrations?error=missing_params", request.url))
   }
 
   try {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession()
+    // Parse state parameter
+    const stateData = JSON.parse(atob(state))
+    const { provider, reconnect, integrationId } = stateData
 
-    if (!session) {
-      return NextResponse.redirect(new URL("/auth/login", request.url))
-    }
+    console.log("State data:", stateData)
 
     // Exchange code for access token
     const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
@@ -36,11 +41,14 @@ export async function GET(request: Request) {
       }),
     })
 
-    const tokenData = await tokenResponse.json()
-
-    if (tokenData.error) {
-      throw new Error(tokenData.error_description || "Failed to exchange code for token")
+    if (!tokenResponse.ok) {
+      const errorText = await tokenResponse.text()
+      console.error("Token exchange failed:", errorText)
+      throw new Error("Failed to exchange code for token")
     }
+
+    const tokenData = await tokenResponse.json()
+    console.log("Token exchange successful")
 
     // Get user info
     const userResponse = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
@@ -50,40 +58,75 @@ export async function GET(request: Request) {
     })
 
     const userData = await userResponse.json()
+    console.log("User data retrieved:", userData.email)
 
-    // Determine provider based on scopes
-    const scopes = tokenData.scope?.split(" ") || []
-    const isCalendar = scopes.includes("https://www.googleapis.com/auth/calendar")
-    const isSheets = scopes.includes("https://www.googleapis.com/auth/spreadsheets")
-
-    let provider = "google"
-    if (isCalendar && !isSheets) provider = "google-calendar"
-    else if (isSheets && !isCalendar) provider = "google-sheets"
-
-    // Store integration in database
-    const { error } = await supabase.from("integrations").upsert({
-      user_id: session.user.id,
-      provider,
-      provider_user_id: userData.id,
-      access_token: tokenData.access_token,
-      refresh_token: tokenData.refresh_token,
-      expires_at: tokenData.expires_in ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString() : null,
-      scopes,
-      metadata: {
-        email: userData.email,
-        name: userData.name,
-        picture: userData.picture,
-      },
-      status: "connected",
-    })
-
-    if (error) {
-      throw error
+    // Map provider to scopes
+    const scopeMap: Record<string, string[]> = {
+      "google-calendar": ["https://www.googleapis.com/auth/calendar"],
+      "google-sheets": ["https://www.googleapis.com/auth/spreadsheets"],
+      "google-drive": ["https://www.googleapis.com/auth/docs"],
+      gmail: ["https://www.googleapis.com/auth/gmail.modify"],
+      youtube: ["https://www.googleapis.com/auth/youtube.upload"],
     }
 
-    return NextResponse.redirect(new URL("/integrations?success=google_connected", request.url))
+    const scopes = scopeMap[provider] || []
+
+    // Save integration to database
+    const supabase = getSupabaseClient()
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
+
+    if (!session) {
+      throw new Error("No active session")
+    }
+
+    if (reconnect && integrationId) {
+      // Update existing integration
+      const { error: updateError } = await supabase
+        .from("integrations")
+        .update({
+          status: "connected",
+          provider_user_id: userData.id,
+          metadata: {
+            access_token: tokenData.access_token,
+            refresh_token: tokenData.refresh_token,
+            expires_at: tokenData.expires_in ? Date.now() + tokenData.expires_in * 1000 : null,
+            user_email: userData.email,
+            user_name: userData.name,
+            scopes: scopes,
+            connected_at: new Date().toISOString(),
+          },
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", integrationId)
+
+      if (updateError) throw updateError
+    } else {
+      // Create new integration
+      const { error: insertError } = await supabase.from("integrations").insert({
+        user_id: session.user.id,
+        provider: provider,
+        provider_user_id: userData.id,
+        status: "connected",
+        metadata: {
+          access_token: tokenData.access_token,
+          refresh_token: tokenData.refresh_token,
+          expires_at: tokenData.expires_in ? Date.now() + tokenData.expires_in * 1000 : null,
+          user_email: userData.email,
+          user_name: userData.name,
+          scopes: scopes,
+          connected_at: new Date().toISOString(),
+        },
+      })
+
+      if (insertError) throw insertError
+    }
+
+    console.log("Integration saved successfully")
+    return NextResponse.redirect(new URL(`/integrations?success=${provider}`, request.url))
   } catch (error) {
-    console.error("Google OAuth error:", error)
-    return NextResponse.redirect(new URL("/integrations?error=oauth_failed", request.url))
+    console.error("OAuth callback error:", error)
+    return NextResponse.redirect(new URL("/integrations?error=callback_error", request.url))
   }
 }

@@ -2,6 +2,7 @@
 
 import { useEffect } from "react"
 import { useAnalyticsStore } from "@/stores/analyticsStore"
+import { useAuthStore } from "@/stores/authStore"
 import AppLayout from "@/components/layout/AppLayout"
 import MetricCard from "./MetricCard"
 import ActivityFeed from "./ActivityFeed"
@@ -10,17 +11,39 @@ import { Workflow, Clock, Puzzle, Zap } from "lucide-react"
 
 export default function DashboardContent() {
   const { metrics, chartData, fetchMetrics, fetchChartData } = useAnalyticsStore()
+  const { user, profile } = useAuthStore()
 
   useEffect(() => {
     fetchMetrics()
     fetchChartData()
   }, [fetchMetrics, fetchChartData])
 
+  // Get the user's first name for personalized greeting
+  const getFirstName = () => {
+    if (profile?.first_name) {
+      return profile.first_name
+    }
+    if (user?.user_metadata?.first_name) {
+      return user.user_metadata.first_name
+    }
+    if (user?.email) {
+      return user.email.split("@")[0]
+    }
+    return "User"
+  }
+
+  const firstName = getFirstName()
+
   return (
     <AppLayout>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold text-slate-900">Dashboard</h1>
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900">Dashboard</h1>
+            <p className="text-slate-600 mt-1">
+              Welcome back, {firstName}! Here's what's happening with your workflows.
+            </p>
+          </div>
         </div>
 
         {/* Metrics Grid */}

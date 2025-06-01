@@ -47,6 +47,11 @@ interface IntegrationActions {
   clearCache: () => void
 }
 
+// Use your actual domain for OAuth redirects
+const getBaseUrl = () => {
+  return "https://chainreact.app"
+}
+
 const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
   // Communication
   {
@@ -72,7 +77,320 @@ const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
     category: "Communication",
     requiresSetup: !process.env.NEXT_PUBLIC_SLACK_CLIENT_ID,
   },
-  // ... other providers remain the same
+  {
+    id: "discord",
+    name: "Discord",
+    description: "Manage Discord servers and channels",
+    icon: "#",
+    logoColor: "bg-indigo-600 text-white",
+    authType: process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID ? "oauth" : "demo",
+    scopes: ["bot", "applications.commands"],
+    capabilities: ["Send messages", "Manage channels", "Create webhooks", "Moderate servers"],
+    category: "Communication",
+    requiresSetup: !process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID,
+  },
+  {
+    id: "teams",
+    name: "Microsoft Teams",
+    description: "Collaborate and communicate with Teams",
+    icon: "#",
+    logoColor: "bg-blue-600 text-white",
+    authType: process.env.NEXT_PUBLIC_TEAMS_CLIENT_ID ? "oauth" : "demo",
+    scopes: ["https://graph.microsoft.com/Chat.ReadWrite", "https://graph.microsoft.com/Team.ReadBasic.All"],
+    capabilities: ["Send messages", "Create meetings", "Manage teams", "Share files"],
+    category: "Communication",
+    requiresSetup: !process.env.NEXT_PUBLIC_TEAMS_CLIENT_ID,
+  },
+
+  // Productivity
+  {
+    id: "google-calendar",
+    name: "Google Calendar",
+    description: "Manage events and schedules",
+    icon: "#",
+    logoColor: "bg-blue-500 text-white",
+    authType: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ? "oauth" : "demo",
+    scopes: ["https://www.googleapis.com/auth/calendar"],
+    capabilities: ["Create events", "Update events", "Delete events", "List calendars"],
+    category: "Productivity",
+    requiresSetup: !process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
+  },
+  {
+    id: "google-sheets",
+    name: "Google Sheets",
+    description: "Create and manage spreadsheets",
+    icon: "#",
+    logoColor: "bg-green-600 text-white",
+    authType: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ? "oauth" : "demo",
+    scopes: ["https://www.googleapis.com/auth/spreadsheets"],
+    capabilities: ["Read sheets", "Write data", "Create sheets", "Format cells"],
+    category: "Productivity",
+    requiresSetup: !process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
+  },
+  {
+    id: "google-drive",
+    name: "Google Drive",
+    description: "Store and share files",
+    icon: "#",
+    logoColor: "bg-yellow-500 text-white",
+    authType: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ? "oauth" : "demo",
+    scopes: ["https://www.googleapis.com/auth/docs"],
+    capabilities: ["Upload files", "Download files", "Share files", "Organize folders"],
+    category: "Productivity",
+    requiresSetup: !process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
+  },
+  {
+    id: "notion",
+    name: "Notion",
+    description: "Manage pages and databases",
+    icon: "#",
+    logoColor: "bg-gray-800 text-white",
+    authType: process.env.NEXT_PUBLIC_NOTION_CLIENT_ID ? "oauth" : "demo",
+    scopes: ["read", "update", "insert"],
+    capabilities: ["Create pages", "Update databases", "Query content", "Manage blocks"],
+    category: "Productivity",
+    requiresSetup: !process.env.NEXT_PUBLIC_NOTION_CLIENT_ID,
+  },
+  {
+    id: "airtable",
+    name: "Airtable",
+    description: "Organize data in flexible databases",
+    icon: "#",
+    logoColor: "bg-orange-500 text-white",
+    authType: process.env.NEXT_PUBLIC_AIRTABLE_CLIENT_ID ? "oauth" : "demo",
+    scopes: ["data.records:read", "data.records:write", "schema.bases:read"],
+    capabilities: ["Read records", "Create records", "Update records", "Manage bases"],
+    category: "Productivity",
+    requiresSetup: !process.env.NEXT_PUBLIC_AIRTABLE_CLIENT_ID,
+  },
+  {
+    id: "trello",
+    name: "Trello",
+    description: "Manage boards and cards",
+    icon: "#",
+    logoColor: "bg-blue-600 text-white",
+    authType: process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID ? "oauth" : "demo",
+    scopes: ["read", "write"],
+    capabilities: ["Create cards", "Move cards", "Manage boards", "Add comments"],
+    category: "Productivity",
+    requiresSetup: !process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID,
+  },
+
+  // Development
+  {
+    id: "github",
+    name: "GitHub",
+    description: "Manage repositories and issues",
+    icon: "#",
+    logoColor: "bg-gray-900 text-white",
+    authType: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID ? "oauth" : "demo",
+    scopes: ["repo", "user", "workflow"],
+    capabilities: ["Create issues", "Manage repositories", "Deploy code", "Review PRs"],
+    category: "Development",
+    requiresSetup: !process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID,
+  },
+  {
+    id: "gitlab",
+    name: "GitLab",
+    description: "DevOps platform for code management",
+    icon: "#",
+    logoColor: "bg-orange-600 text-white",
+    authType: process.env.NEXT_PUBLIC_GITLAB_CLIENT_ID ? "oauth" : "demo",
+    scopes: ["api", "read_user", "read_repository"],
+    capabilities: ["Manage projects", "Create issues", "Deploy pipelines", "Review code"],
+    category: "Development",
+    requiresSetup: !process.env.NEXT_PUBLIC_GITLAB_CLIENT_ID,
+  },
+  {
+    id: "docker",
+    name: "Docker Hub",
+    description: "Manage container images",
+    icon: "#",
+    logoColor: "bg-blue-500 text-white",
+    authType: process.env.NEXT_PUBLIC_DOCKER_CLIENT_ID ? "oauth" : "demo",
+    scopes: ["repo:read", "repo:write"],
+    capabilities: ["Push images", "Pull images", "Manage repositories", "View analytics"],
+    category: "Development",
+    requiresSetup: !process.env.NEXT_PUBLIC_DOCKER_CLIENT_ID,
+  },
+
+  // E-commerce & Payments
+  {
+    id: "stripe",
+    name: "Stripe",
+    description: "Process payments and manage subscriptions",
+    icon: "#",
+    logoColor: "bg-purple-600 text-white",
+    authType: process.env.NEXT_PUBLIC_STRIPE_CLIENT_ID ? "oauth" : "demo",
+    scopes: ["read_write"],
+    capabilities: ["Process payments", "Manage customers", "Handle subscriptions", "Generate reports"],
+    category: "E-commerce",
+    requiresSetup: !process.env.NEXT_PUBLIC_STRIPE_CLIENT_ID,
+  },
+  {
+    id: "paypal",
+    name: "PayPal",
+    description: "Accept payments worldwide",
+    icon: "#",
+    logoColor: "bg-blue-600 text-white",
+    authType: process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID ? "oauth" : "demo",
+    scopes: ["https://uri.paypal.com/services/payments/payment"],
+    capabilities: ["Process payments", "Manage invoices", "Handle refunds", "Track transactions"],
+    category: "E-commerce",
+    requiresSetup: !process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID,
+  },
+  {
+    id: "shopify",
+    name: "Shopify",
+    description: "Manage your online store",
+    icon: "#",
+    logoColor: "bg-green-600 text-white",
+    authType: process.env.NEXT_PUBLIC_SHOPIFY_CLIENT_ID ? "oauth" : "demo",
+    scopes: ["read_products", "write_products", "read_orders", "write_orders"],
+    capabilities: ["Manage products", "Process orders", "Handle inventory", "Generate reports"],
+    category: "E-commerce",
+    requiresSetup: !process.env.NEXT_PUBLIC_SHOPIFY_CLIENT_ID,
+  },
+
+  // Social Media
+  {
+    id: "twitter",
+    name: "Twitter/X",
+    description: "Post tweets and manage social presence",
+    icon: "#",
+    logoColor: "bg-black text-white",
+    authType: process.env.NEXT_PUBLIC_TWITTER_CLIENT_ID ? "oauth" : "demo",
+    scopes: ["tweet.read", "tweet.write", "users.read"],
+    capabilities: ["Post tweets", "Read timeline", "Manage followers", "Analyze engagement"],
+    category: "Social Media",
+    requiresSetup: !process.env.NEXT_PUBLIC_TWITTER_CLIENT_ID,
+  },
+  {
+    id: "facebook",
+    name: "Facebook",
+    description: "Manage Facebook pages and posts",
+    icon: "#",
+    logoColor: "bg-blue-600 text-white",
+    authType: process.env.NEXT_PUBLIC_FACEBOOK_CLIENT_ID ? "oauth" : "demo",
+    scopes: ["pages_manage_posts", "pages_read_engagement"],
+    capabilities: ["Post content", "Manage pages", "View insights", "Respond to comments"],
+    category: "Social Media",
+    requiresSetup: !process.env.NEXT_PUBLIC_FACEBOOK_CLIENT_ID,
+  },
+  {
+    id: "instagram",
+    name: "Instagram",
+    description: "Share photos and manage Instagram presence",
+    icon: "#",
+    logoColor: "bg-pink-600 text-white",
+    authType: process.env.NEXT_PUBLIC_INSTAGRAM_CLIENT_ID ? "oauth" : "demo",
+    scopes: ["instagram_basic", "instagram_content_publish"],
+    capabilities: ["Post photos", "Manage stories", "View insights", "Engage with followers"],
+    category: "Social Media",
+    requiresSetup: !process.env.NEXT_PUBLIC_INSTAGRAM_CLIENT_ID,
+  },
+  {
+    id: "linkedin",
+    name: "LinkedIn",
+    description: "Professional networking and content sharing",
+    icon: "#",
+    logoColor: "bg-blue-700 text-white",
+    authType: process.env.NEXT_PUBLIC_LINKEDIN_CLIENT_ID ? "oauth" : "demo",
+    scopes: ["r_liteprofile", "w_member_social"],
+    capabilities: ["Share posts", "Manage connections", "View analytics", "Company updates"],
+    category: "Social Media",
+    requiresSetup: !process.env.NEXT_PUBLIC_LINKEDIN_CLIENT_ID,
+  },
+  {
+    id: "youtube",
+    name: "YouTube",
+    description: "Manage videos and channel content",
+    icon: "#",
+    logoColor: "bg-red-600 text-white",
+    authType: process.env.NEXT_PUBLIC_YOUTUBE_CLIENT_ID ? "oauth" : "demo",
+    scopes: ["https://www.googleapis.com/auth/youtube.upload"],
+    capabilities: ["Upload videos", "Manage playlists", "View analytics", "Moderate comments"],
+    category: "Social Media",
+    requiresSetup: !process.env.NEXT_PUBLIC_YOUTUBE_CLIENT_ID,
+  },
+  {
+    id: "tiktok",
+    name: "TikTok",
+    description: "Create and manage TikTok content",
+    icon: "#",
+    logoColor: "bg-black text-white",
+    authType: process.env.NEXT_PUBLIC_TIKTOK_CLIENT_ID ? "oauth" : "demo",
+    scopes: ["user.info.basic", "video.upload"],
+    capabilities: ["Upload videos", "Manage profile", "View analytics", "Engage with content"],
+    category: "Social Media",
+    requiresSetup: !process.env.NEXT_PUBLIC_TIKTOK_CLIENT_ID,
+  },
+
+  // Marketing & Email
+  {
+    id: "mailchimp",
+    name: "Mailchimp",
+    description: "Email marketing and automation",
+    icon: "#",
+    logoColor: "bg-yellow-500 text-white",
+    authType: process.env.NEXT_PUBLIC_MAILCHIMP_CLIENT_ID ? "oauth" : "demo",
+    scopes: ["read", "write"],
+    capabilities: ["Send campaigns", "Manage lists", "Create automations", "View reports"],
+    category: "Marketing",
+    requiresSetup: !process.env.NEXT_PUBLIC_MAILCHIMP_CLIENT_ID,
+  },
+  {
+    id: "hubspot",
+    name: "HubSpot",
+    description: "CRM and marketing automation",
+    icon: "#",
+    logoColor: "bg-orange-600 text-white",
+    authType: process.env.NEXT_PUBLIC_HUBSPOT_CLIENT_ID ? "oauth" : "demo",
+    scopes: ["contacts", "content"],
+    capabilities: ["Manage contacts", "Create deals", "Send emails", "Track analytics"],
+    category: "Marketing",
+    requiresSetup: !process.env.NEXT_PUBLIC_HUBSPOT_CLIENT_ID,
+  },
+
+  // Cloud Storage
+  {
+    id: "dropbox",
+    name: "Dropbox",
+    description: "Cloud file storage and sharing",
+    icon: "#",
+    logoColor: "bg-blue-600 text-white",
+    authType: process.env.NEXT_PUBLIC_DROPBOX_CLIENT_ID ? "oauth" : "demo",
+    scopes: ["files.content.write", "files.content.read"],
+    capabilities: ["Upload files", "Download files", "Share folders", "Sync content"],
+    category: "Cloud Storage",
+    requiresSetup: !process.env.NEXT_PUBLIC_DROPBOX_CLIENT_ID,
+  },
+  {
+    id: "onedrive",
+    name: "OneDrive",
+    description: "Microsoft cloud storage",
+    icon: "#",
+    logoColor: "bg-blue-500 text-white",
+    authType: process.env.NEXT_PUBLIC_ONEDRIVE_CLIENT_ID ? "oauth" : "demo",
+    scopes: ["https://graph.microsoft.com/Files.ReadWrite"],
+    capabilities: ["Store files", "Share documents", "Collaborate", "Sync across devices"],
+    category: "Cloud Storage",
+    requiresSetup: !process.env.NEXT_PUBLIC_ONEDRIVE_CLIENT_ID,
+  },
+
+  // Email
+  {
+    id: "gmail",
+    name: "Gmail",
+    description: "Send and manage emails",
+    icon: "#",
+    logoColor: "bg-red-500 text-white",
+    authType: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ? "oauth" : "demo",
+    scopes: ["https://www.googleapis.com/auth/gmail.modify"],
+    capabilities: ["Send emails", "Read messages", "Compose emails", "Manage labels", "Search inbox", "Modify emails"],
+    category: "Email",
+    requiresSetup: !process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
+  },
 ]
 
 export const useIntegrationStore = create<IntegrationState & IntegrationActions>()(
@@ -167,7 +485,17 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
           if (isOAuthProvider && forceOAuth) {
             console.log(`Starting OAuth flow for ${provider}`)
 
-            const redirectUri = `https://chainreact.app/api/integrations/${provider}/callback`
+            const baseUrl = getBaseUrl()
+            // Use unified Google callback for all Google services
+            const isGoogleService = ["google-calendar", "google-sheets", "google-drive", "gmail", "youtube"].includes(
+              provider,
+            )
+            const redirectUri = isGoogleService
+              ? `${baseUrl}/api/integrations/google/callback`
+              : `${baseUrl}/api/integrations/${provider}/callback`
+
+            console.log(`Using redirect URI: ${redirectUri}`)
+
             const timestamp = Date.now()
             const state = btoa(
               JSON.stringify({
@@ -183,7 +511,6 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
             switch (provider) {
               case "slack":
                 if (process.env.NEXT_PUBLIC_SLACK_CLIENT_ID) {
-                  // Updated Slack OAuth URL with proper parameters for distributed apps
                   authUrl = `https://slack.com/oauth/v2/authorize?client_id=${process.env.NEXT_PUBLIC_SLACK_CLIENT_ID}&scope=chat:write,chat:write.public,channels:read,channels:join,groups:read,im:read,users:read,team:read,files:write,reactions:write&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&user_scope=&team=${""}`
                 }
                 break
@@ -202,7 +529,6 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
               case "google-sheets":
               case "google-drive":
               case "gmail":
-              case "google-analytics":
               case "youtube":
                 if (process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) {
                   const scopes = providerConfig.scopes.join(" ")
@@ -218,7 +544,91 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
                   )}&state=${state}&allow_signup=true&force_login=true&prompt=consent&t=${timestamp}`
                 }
                 break
-              // ... other providers remain the same
+              case "twitter":
+                if (process.env.NEXT_PUBLIC_TWITTER_CLIENT_ID) {
+                  authUrl = `https://twitter.com/i/oauth2/authorize?response_type=code&client_id=${process.env.NEXT_PUBLIC_TWITTER_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(providerConfig.scopes.join(" "))}&state=${state}&code_challenge=challenge&code_challenge_method=plain&t=${timestamp}`
+                }
+                break
+              case "facebook":
+                if (process.env.NEXT_PUBLIC_FACEBOOK_CLIENT_ID) {
+                  authUrl = `https://www.facebook.com/v18.0/dialog/oauth?client_id=${process.env.NEXT_PUBLIC_FACEBOOK_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(providerConfig.scopes.join(","))}&state=${state}&response_type=code&t=${timestamp}`
+                }
+                break
+              case "instagram":
+                if (process.env.NEXT_PUBLIC_INSTAGRAM_CLIENT_ID) {
+                  authUrl = `https://api.instagram.com/oauth/authorize?client_id=${process.env.NEXT_PUBLIC_INSTAGRAM_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(providerConfig.scopes.join(","))}&response_type=code&state=${state}&t=${timestamp}`
+                }
+                break
+              case "linkedin":
+                if (process.env.NEXT_PUBLIC_LINKEDIN_CLIENT_ID) {
+                  authUrl = `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${process.env.NEXT_PUBLIC_LINKEDIN_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(providerConfig.scopes.join(" "))}&state=${state}&t=${timestamp}`
+                }
+                break
+              case "tiktok":
+                if (process.env.NEXT_PUBLIC_TIKTOK_CLIENT_ID) {
+                  authUrl = `https://www.tiktok.com/auth/authorize/?client_key=${process.env.NEXT_PUBLIC_TIKTOK_CLIENT_ID}&scope=${encodeURIComponent(providerConfig.scopes.join(","))}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&t=${timestamp}`
+                }
+                break
+              case "mailchimp":
+                if (process.env.NEXT_PUBLIC_MAILCHIMP_CLIENT_ID) {
+                  authUrl = `https://login.mailchimp.com/oauth2/authorize?response_type=code&client_id=${process.env.NEXT_PUBLIC_MAILCHIMP_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&t=${timestamp}`
+                }
+                break
+              case "hubspot":
+                if (process.env.NEXT_PUBLIC_HUBSPOT_CLIENT_ID) {
+                  authUrl = `https://app.hubspot.com/oauth/authorize?client_id=${process.env.NEXT_PUBLIC_HUBSPOT_CLIENT_ID}&scope=${encodeURIComponent(providerConfig.scopes.join(" "))}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&t=${timestamp}`
+                }
+                break
+              case "gitlab":
+                if (process.env.NEXT_PUBLIC_GITLAB_CLIENT_ID) {
+                  authUrl = `https://gitlab.com/oauth/authorize?client_id=${process.env.NEXT_PUBLIC_GITLAB_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(providerConfig.scopes.join(" "))}&state=${state}&t=${timestamp}`
+                }
+                break
+              case "docker":
+                if (process.env.NEXT_PUBLIC_DOCKER_CLIENT_ID) {
+                  authUrl = `https://hub.docker.com/oauth/authorize/?client_id=${process.env.NEXT_PUBLIC_DOCKER_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(providerConfig.scopes.join(" "))}&state=${state}&t=${timestamp}`
+                }
+                break
+              case "dropbox":
+                if (process.env.NEXT_PUBLIC_DROPBOX_CLIENT_ID) {
+                  authUrl = `https://www.dropbox.com/oauth2/authorize?client_id=${process.env.NEXT_PUBLIC_DROPBOX_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&state=${state}&t=${timestamp}`
+                }
+                break
+              case "onedrive":
+                if (process.env.NEXT_PUBLIC_ONEDRIVE_CLIENT_ID) {
+                  authUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=${process.env.NEXT_PUBLIC_ONEDRIVE_CLIENT_ID}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(providerConfig.scopes.join(" "))}&state=${state}&t=${timestamp}`
+                }
+                break
+              case "notion":
+                if (process.env.NEXT_PUBLIC_NOTION_CLIENT_ID) {
+                  authUrl = `https://api.notion.com/v1/oauth/authorize?client_id=${process.env.NEXT_PUBLIC_NOTION_CLIENT_ID}&response_type=code&owner=user&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&t=${timestamp}`
+                }
+                break
+              case "airtable":
+                if (process.env.NEXT_PUBLIC_AIRTABLE_CLIENT_ID) {
+                  authUrl = `https://airtable.com/oauth2/v1/authorize?client_id=${process.env.NEXT_PUBLIC_AIRTABLE_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(providerConfig.scopes.join(" "))}&state=${state}&t=${timestamp}`
+                }
+                break
+              case "trello":
+                if (process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID) {
+                  authUrl = `https://trello.com/1/authorize?expiration=never&name=ChainReact&scope=${encodeURIComponent(providerConfig.scopes.join(","))}&response_type=token&key=${process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID}&return_url=${encodeURIComponent(redirectUri)}&state=${state}&t=${timestamp}`
+                }
+                break
+              case "stripe":
+                if (process.env.NEXT_PUBLIC_STRIPE_CLIENT_ID) {
+                  authUrl = `https://connect.stripe.com/oauth/authorize?response_type=code&client_id=${process.env.NEXT_PUBLIC_STRIPE_CLIENT_ID}&scope=${encodeURIComponent(providerConfig.scopes.join(" "))}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&t=${timestamp}`
+                }
+                break
+              case "paypal":
+                if (process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID) {
+                  authUrl = `https://www.paypal.com/signin/authorize?client_id=${process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID}&response_type=code&scope=${encodeURIComponent(providerConfig.scopes.join(" "))}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&t=${timestamp}`
+                }
+                break
+              case "shopify":
+                if (process.env.NEXT_PUBLIC_SHOPIFY_CLIENT_ID) {
+                  authUrl = `https://myshopify.com/admin/oauth/authorize?client_id=${process.env.NEXT_PUBLIC_SHOPIFY_CLIENT_ID}&scope=${encodeURIComponent(providerConfig.scopes.join(","))}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&t=${timestamp}`
+                }
+                break
             }
 
             if (authUrl) {
@@ -230,7 +640,36 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
             }
           }
 
-          // ... rest of the method remains the same
+          // Demo mode for providers without OAuth setup
+          console.log(`Creating demo integration for ${provider}`)
+          const supabase = getSupabaseClient()
+          const {
+            data: { session },
+          } = await supabase.auth.getSession()
+
+          if (!session) {
+            throw new Error("No active session")
+          }
+
+          const { data, error } = await supabase
+            .from("integrations")
+            .insert({
+              user_id: session.user.id,
+              provider: provider,
+              status: "connected",
+              metadata: {
+                demo: true,
+                connected_at: new Date().toISOString(),
+                capabilities: providerConfig.capabilities,
+              },
+            })
+            .select()
+            .single()
+
+          if (error) throw error
+
+          await get().fetchIntegrations(true)
+          set({ loading: false })
         } catch (error: any) {
           console.error("Connect integration error:", error)
           set({ error: error.message, loading: false })
@@ -238,7 +677,6 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
         }
       },
 
-      // ... other methods remain the same
       disconnectIntegration: async (id: string) => {
         const supabase = getSupabaseClient()
 

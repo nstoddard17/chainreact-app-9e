@@ -14,7 +14,8 @@ import { Mail, Lock, User } from "lucide-react"
 export default function RegisterForm() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [fullName, setFullName] = useState("")
+  const [firstName, setFirstName] = useState("")
+  const [lastName, setLastName] = useState("")
   const [loading, setLoading] = useState(false)
   const { signUp, signInWithGoogle } = useAuthStore()
   const router = useRouter()
@@ -24,7 +25,11 @@ export default function RegisterForm() {
     setLoading(true)
 
     try {
-      await signUp(email, password, { full_name: fullName })
+      await signUp(email, password, {
+        first_name: firstName,
+        last_name: lastName,
+        full_name: `${firstName} ${lastName}`.trim(),
+      })
       router.push("/dashboard")
     } catch (error) {
       console.error("Registration error:", error)
@@ -85,26 +90,51 @@ export default function RegisterForm() {
         </CardHeader>
         <CardContent className="space-y-6">
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="fullName" className="text-slate-700">
-                Full Name
-              </Label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input
-                  id="fullName"
-                  type="text"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  className="black-text-input w-full pl-10 pr-3 py-2 bg-slate-100 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter your full name"
-                  required
-                  style={{
-                    color: "#000000 !important",
-                    WebkitTextFillColor: "#000000 !important",
-                    caretColor: "#000000",
-                  }}
-                />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="firstName" className="text-slate-700">
+                  First Name
+                </Label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input
+                    id="firstName"
+                    type="text"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    className="black-text-input w-full pl-10 pr-3 py-2 bg-slate-100 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="First name"
+                    required
+                    style={{
+                      color: "#000000 !important",
+                      WebkitTextFillColor: "#000000 !important",
+                      caretColor: "#000000",
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="lastName" className="text-slate-700">
+                  Last Name
+                </Label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input
+                    id="lastName"
+                    type="text"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    className="black-text-input w-full pl-10 pr-3 py-2 bg-slate-100 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Last name"
+                    required
+                    style={{
+                      color: "#000000 !important",
+                      WebkitTextFillColor: "#000000 !important",
+                      caretColor: "#000000",
+                    }}
+                  />
+                </div>
               </div>
             </div>
 

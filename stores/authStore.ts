@@ -89,7 +89,11 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
         user: {
           id: "mock-user-id",
           email: "dev@example.com",
-          user_metadata: { name: "Development User" },
+          user_metadata: {
+            name: "Development User",
+            first_name: "Development",
+            last_name: "User",
+          },
         } as User,
         session: {
           access_token: "mock-token",
@@ -97,10 +101,19 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
           user: {
             id: "mock-user-id",
             email: "dev@example.com",
-            user_metadata: { name: "Development User" },
+            user_metadata: {
+              name: "Development User",
+              first_name: "Development",
+              last_name: "User",
+            },
           } as User,
         } as Session,
-        profile: { id: "mock-user-id", full_name: "Development User" },
+        profile: {
+          id: "mock-user-id",
+          full_name: "Development User",
+          first_name: "Development",
+          last_name: "User",
+        },
         loading: false,
         initialized: true,
       })
@@ -131,7 +144,11 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
           user: {
             id: "mock-user-id",
             email: email,
-            user_metadata: { name: "Development User" },
+            user_metadata: {
+              name: "Development User",
+              first_name: "Development",
+              last_name: "User",
+            },
           } as User,
           session: {
             access_token: "mock-token",
@@ -139,10 +156,19 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
             user: {
               id: "mock-user-id",
               email: email,
-              user_metadata: { name: "Development User" },
+              user_metadata: {
+                name: "Development User",
+                first_name: "Development",
+                last_name: "User",
+              },
             } as User,
           } as Session,
-          profile: { id: "mock-user-id", full_name: "Development User" },
+          profile: {
+            id: "mock-user-id",
+            full_name: "Development User",
+            first_name: "Development",
+            last_name: "User",
+          },
         })
       }
     } catch (error: any) {
@@ -152,7 +178,11 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
         user: {
           id: "mock-user-id",
           email: email,
-          user_metadata: { name: "Development User" },
+          user_metadata: {
+            name: "Development User",
+            first_name: "Development",
+            last_name: "User",
+          },
         } as User,
         session: {
           access_token: "mock-token",
@@ -160,10 +190,19 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
           user: {
             id: "mock-user-id",
             email: email,
-            user_metadata: { name: "Development User" },
+            user_metadata: {
+              name: "Development User",
+              first_name: "Development",
+              last_name: "User",
+            },
           } as User,
         } as Session,
-        profile: { id: "mock-user-id", full_name: "Development User" },
+        profile: {
+          id: "mock-user-id",
+          full_name: "Development User",
+          first_name: "Development",
+          last_name: "User",
+        },
         error: null, // Clear any error
       })
     } finally {
@@ -194,6 +233,8 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
         const { error: profileError } = await supabase.from("user_profiles").insert({
           id: data.user.id,
           full_name: metadata.full_name || "",
+          first_name: metadata.first_name || "",
+          last_name: metadata.last_name || "",
         })
 
         if (profileError) {
@@ -207,7 +248,11 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
         user: {
           id: "mock-user-id",
           email: email,
-          user_metadata: { name: "Development User" },
+          user_metadata: {
+            name: "Development User",
+            first_name: metadata.first_name || "Development",
+            last_name: metadata.last_name || "User",
+          },
         } as User,
         session: {
           access_token: "mock-token",
@@ -215,10 +260,19 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
           user: {
             id: "mock-user-id",
             email: email,
-            user_metadata: { name: "Development User" },
+            user_metadata: {
+              name: "Development User",
+              first_name: metadata.first_name || "Development",
+              last_name: metadata.last_name || "User",
+            },
           } as User,
         } as Session,
-        profile: { id: "mock-user-id", full_name: metadata.full_name || "Development User" },
+        profile: {
+          id: "mock-user-id",
+          full_name: metadata.full_name || "Development User",
+          first_name: metadata.first_name || "Development",
+          last_name: metadata.last_name || "User",
+        },
         error: null, // Clear any error
       })
     } finally {
@@ -249,7 +303,11 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
         user: {
           id: "mock-user-id",
           email: "google-user@example.com",
-          user_metadata: { name: "Google User" },
+          user_metadata: {
+            name: "Google User",
+            first_name: "Google",
+            last_name: "User",
+          },
         } as User,
         session: {
           access_token: "mock-token",
@@ -257,10 +315,19 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
           user: {
             id: "mock-user-id",
             email: "google-user@example.com",
-            user_metadata: { name: "Google User" },
+            user_metadata: {
+              name: "Google User",
+              first_name: "Google",
+              last_name: "User",
+            },
           } as User,
         } as Session,
-        profile: { id: "mock-user-id", full_name: "Google User" },
+        profile: {
+          id: "mock-user-id",
+          full_name: "Google User",
+          first_name: "Google",
+          last_name: "User",
+        },
         error: null, // Clear any error
       })
     } finally {
