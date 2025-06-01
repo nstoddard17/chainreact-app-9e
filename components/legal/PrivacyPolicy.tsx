@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
 
-export default function PrivacyPolicy() {
+export function PrivacyPolicy() {
   return (
     <div className="min-h-screen bg-white">
       {/* Header */}
@@ -211,3 +211,5 @@ export default function PrivacyPolicy() {
     </div>
   )
 }
+
+export default PrivacyPolicy

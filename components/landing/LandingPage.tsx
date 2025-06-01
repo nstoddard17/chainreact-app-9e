@@ -22,105 +22,12 @@ import {
   Smartphone,
   Code,
   Play,
-  Menu,
-  X,
 } from "lucide-react"
 import Link from "next/link"
-import { useState } from "react"
 
 export default function LandingPage() {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-
   return (
     <div className="min-h-screen bg-white">
-      {/* Navigation */}
-      <nav className="fixed top-0 w-full bg-white/95 backdrop-blur-sm border-b border-slate-200 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <h1 className="text-2xl font-bold text-indigo-600">ChainReact</h1>
-              </div>
-            </div>
-
-            {/* Desktop Navigation */}
-            <div className="hidden md:block">
-              <div className="ml-10 flex items-baseline space-x-4">
-                <a href="#features" className="text-slate-600 hover:text-indigo-600 px-3 py-2 text-sm font-medium">
-                  Features
-                </a>
-                <a href="#integrations" className="text-slate-600 hover:text-indigo-600 px-3 py-2 text-sm font-medium">
-                  Integrations
-                </a>
-                <a href="#pricing" className="text-slate-600 hover:text-indigo-600 px-3 py-2 text-sm font-medium">
-                  Pricing
-                </a>
-                <a href="#about" className="text-slate-600 hover:text-indigo-600 px-3 py-2 text-sm font-medium">
-                  About
-                </a>
-              </div>
-            </div>
-
-            <div className="hidden md:flex items-center space-x-4">
-              <Link href="/auth/login">
-                <Button className="border-2 border-indigo-600 text-indigo-600 bg-white hover:bg-indigo-50">
-                  Login
-                </Button>
-              </Link>
-              <Link href="/auth/register">
-                <Button className="bg-indigo-600 text-white hover:bg-indigo-700">Sign Up</Button>
-              </Link>
-            </div>
-
-            {/* Mobile menu button */}
-            <div className="md:hidden">
-              <button
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="text-slate-600 hover:text-indigo-600"
-              >
-                {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Mobile Navigation */}
-        {mobileMenuOpen && (
-          <div className="md:hidden">
-            <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-white border-t border-slate-200">
-              <a
-                href="#features"
-                className="text-slate-600 hover:text-indigo-600 block px-3 py-2 text-base font-medium"
-              >
-                Features
-              </a>
-              <a
-                href="#integrations"
-                className="text-slate-600 hover:text-indigo-600 block px-3 py-2 text-base font-medium"
-              >
-                Integrations
-              </a>
-              <a href="#pricing" className="text-slate-600 hover:text-indigo-600 block px-3 py-2 text-base font-medium">
-                Pricing
-              </a>
-              <a href="#about" className="text-slate-600 hover:text-indigo-600 block px-3 py-2 text-base font-medium">
-                About
-              </a>
-              <div className="pt-4 pb-3 border-t border-slate-200">
-                <Link href="/auth/login" className="block px-3 py-2">
-                  <Button className="w-full border-2 border-indigo-600 text-indigo-600 bg-white hover:bg-indigo-50">
-                    Login
-                  </Button>
-                </Link>
-                <Link href="/auth/register" className="block px-3 py-2">
-                  <Button className="w-full bg-indigo-600 text-white hover:bg-indigo-700">Sign Up</Button>
-                </Link>
-              </div>
-            </div>
-          </div>
-        )}
-      </nav>
-
       {/* Hero Section */}
       <section className="pt-24 pb-16 bg-gradient-to-br from-indigo-50 via-purple-50 to-blue-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -142,14 +49,16 @@ export default function LandingPage() {
                   Start Free Trial <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
               </Link>
-              <Button
-                size="lg"
-                variant="outline"
-                className="text-lg px-8 py-3 border-indigo-600 text-indigo-600 hover:bg-indigo-50"
-              >
-                <Play className="mr-2 h-5 w-5" />
-                Watch Demo
-              </Button>
+              <Link href="/support">
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="text-lg px-8 py-3 border-indigo-600 text-indigo-600 hover:bg-indigo-50"
+                >
+                  <Play className="mr-2 h-5 w-5" />
+                  Watch Demo
+                </Button>
+              </Link>
             </div>
             <p className="text-sm text-slate-500 mt-4">Free 14-day trial • No credit card required • Cancel anytime</p>
           </div>
@@ -267,9 +176,11 @@ export default function LandingPage() {
 
           <div className="text-center">
             <p className="text-slate-600 mb-4">And 500+ more integrations</p>
-            <Button variant="outline" className="border-indigo-600 text-indigo-600 hover:bg-indigo-50">
-              View All Integrations
-            </Button>
+            <Link href="/integrations">
+              <Button variant="outline" className="border-indigo-600 text-indigo-600 hover:bg-indigo-50">
+                View All Integrations
+              </Button>
+            </Link>
           </div>
         </div>
       </section>
@@ -397,9 +308,11 @@ export default function LandingPage() {
                     </li>
                   </ul>
 
-                  <Button variant="outline" className="w-full border-indigo-600 text-indigo-600 hover:bg-indigo-50">
-                    Contact Sales
-                  </Button>
+                  <Link href="/support">
+                    <Button variant="outline" className="w-full border-indigo-600 text-indigo-600 hover:bg-indigo-50">
+                      Contact Sales
+                    </Button>
+                  </Link>
                 </div>
               </CardContent>
             </Card>
@@ -481,112 +394,18 @@ export default function LandingPage() {
                 Start Free Trial <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
             </Link>
-            <Button
-              size="lg"
-              variant="outline"
-              className="text-lg px-8 py-3 bg-transparent text-white border-white hover:bg-indigo-700"
-            >
-              Schedule Demo
-            </Button>
+            <Link href="/support">
+              <Button
+                size="lg"
+                variant="outline"
+                className="text-lg px-8 py-3 bg-transparent text-white border-white hover:bg-indigo-700"
+              >
+                Schedule Demo
+              </Button>
+            </Link>
           </div>
         </div>
       </section>
-
-      {/* Footer */}
-      <footer className="bg-slate-900 text-white py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-            <div>
-              <h3 className="text-2xl font-bold mb-4 text-indigo-400">ChainReact</h3>
-              <p className="text-slate-400 mb-4">
-                Automate your workflows with ease. Connect apps, save time, and boost productivity.
-              </p>
-            </div>
-
-            <div>
-              <h4 className="font-semibold mb-4 text-indigo-300">Product</h4>
-              <ul className="space-y-2 text-slate-400">
-                <li>
-                  <a href="#features" className="hover:text-indigo-300">
-                    Features
-                  </a>
-                </li>
-                <li>
-                  <a href="#integrations" className="hover:text-indigo-300">
-                    Integrations
-                  </a>
-                </li>
-                <li>
-                  <a href="#pricing" className="hover:text-indigo-300">
-                    Pricing
-                  </a>
-                </li>
-                <li>
-                  <a href="/templates" className="hover:text-indigo-300">
-                    Templates
-                  </a>
-                </li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="font-semibold mb-4 text-indigo-300">Company</h4>
-              <ul className="space-y-2 text-slate-400">
-                <li>
-                  <a href="#about" className="hover:text-indigo-300">
-                    About
-                  </a>
-                </li>
-                <li>
-                  <a href="/community" className="hover:text-indigo-300">
-                    Community
-                  </a>
-                </li>
-                <li>
-                  <a href="/learn" className="hover:text-indigo-300">
-                    Learn
-                  </a>
-                </li>
-                <li>
-                  <a href="/enterprise" className="hover:text-indigo-300">
-                    Enterprise
-                  </a>
-                </li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="font-semibold mb-4 text-indigo-300">Legal</h4>
-              <ul className="space-y-2 text-slate-400">
-                <li>
-                  <Link href="/privacy" className="hover:text-indigo-300">
-                    Privacy Policy
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/terms" className="hover:text-indigo-300">
-                    Terms of Service
-                  </Link>
-                </li>
-                <li>
-                  <a href="/security" className="hover:text-indigo-300">
-                    Security
-                  </a>
-                </li>
-                <li>
-                  <a href="/contact" className="hover:text-indigo-300">
-                    Contact
-                  </a>
-                </li>
-              </ul>
-            </div>
-          </div>
-
-          <div className="border-t border-slate-800 mt-8 pt-8 text-center text-slate-400">
-            <p>&copy; 2024 ChainReact. All rights reserved.</p>
-          </div>
-        </div>
-      </footer>
     </div>
   )
 }

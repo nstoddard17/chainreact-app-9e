@@ -1,5 +1,10 @@
-import TermsOfService from "@/components/legal/TermsOfService"
+import { TermsOfService } from "@/components/legal/TermsOfService"
+import PublicLayout from "@/components/layout/PublicLayout"
 
 export default function TermsPage() {
-  return <TermsOfService />
+  return (
+    <PublicLayout>
+      <TermsOfService />
+    </PublicLayout>
+  )
 }

@@ -1,5 +1,10 @@
-import PrivacyPolicy from "@/components/legal/PrivacyPolicy"
+import { PrivacyPolicy } from "@/components/legal/PrivacyPolicy"
+import PublicLayout from "@/components/layout/PublicLayout"
 
 export default function PrivacyPage() {
-  return <PrivacyPolicy />
+  return (
+    <PublicLayout>
+      <PrivacyPolicy />
+    </PublicLayout>
+  )
 }

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
 
-export default function TermsOfService() {
+export function TermsOfService() {
   return (
     <div className="min-h-screen bg-white">
       {/* Header */}
@@ -244,3 +244,5 @@ export default function TermsOfService() {
     </div>
   )
 }
+
+export default TermsOfService

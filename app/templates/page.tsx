@@ -1,13 +1,10 @@
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
-import TemplateMarketplace from "@/components/templates/TemplateMarketplace"
+import PublicLayout from "@/components/layout/PublicLayout"
+import { TemplatesContent } from "@/components/templates/TemplatesContent"
 
-export default async function TemplatesPage() {
-  const supabase = createServerComponentClient({ cookies })
-
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-
-  return <TemplateMarketplace session={session} />
+export default function TemplatesPage() {
+  return (
+    <PublicLayout>
+      <TemplatesContent />
+    </PublicLayout>
+  )
 }
