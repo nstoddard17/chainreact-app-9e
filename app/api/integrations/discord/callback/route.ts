@@ -32,7 +32,7 @@ export async function GET(request: Request) {
         client_secret: process.env.DISCORD_CLIENT_SECRET!,
         code,
         grant_type: "authorization_code",
-        redirect_uri: `${new URL(request.url).origin}/api/integrations/discord/callback`,
+        redirect_uri: `https://chainreact.app/api/integrations/discord/callback`,
       }),
     })
 

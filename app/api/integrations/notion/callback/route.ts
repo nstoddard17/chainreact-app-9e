@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
       body: JSON.stringify({
         grant_type: "authorization_code",
         code,
-        redirect_uri: `${request.nextUrl.origin}/api/integrations/notion/callback`,
+        redirect_uri: `https://chainreact.app/api/integrations/notion/callback`,
       }),
     })
 

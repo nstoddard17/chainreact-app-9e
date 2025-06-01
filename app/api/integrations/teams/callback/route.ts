@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
         client_secret: process.env.TEAMS_CLIENT_SECRET!,
         code,
         grant_type: "authorization_code",
-        redirect_uri: `${request.nextUrl.origin}/api/integrations/teams/callback`,
+        redirect_uri: `https://chainreact.app/api/integrations/teams/callback`,
       }),
     })
 

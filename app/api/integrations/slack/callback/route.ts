@@ -31,7 +31,7 @@ export async function GET(request: Request) {
         client_id: process.env.NEXT_PUBLIC_SLACK_CLIENT_ID!,
         client_secret: process.env.SLACK_CLIENT_SECRET!,
         code,
-        redirect_uri: `${new URL(request.url).origin}/api/integrations/slack/callback`,
+        redirect_uri: `https://chainreact.app/api/integrations/slack/callback`,
       }),
     })
 

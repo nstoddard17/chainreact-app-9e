@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
         grant_type: "authorization_code",
         client_id: process.env.NEXT_PUBLIC_HUBSPOT_CLIENT_ID!,
         client_secret: process.env.HUBSPOT_CLIENT_SECRET!,
-        redirect_uri: `${request.nextUrl.origin}/api/integrations/hubspot/callback`,
+        redirect_uri: `https://chainreact.app/api/integrations/hubspot/callback`,
         code,
       }),
     })

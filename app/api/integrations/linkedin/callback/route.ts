@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
       body: new URLSearchParams({
         grant_type: "authorization_code",
         code,
-        redirect_uri: `${request.nextUrl.origin}/api/integrations/linkedin/callback`,
+        redirect_uri: `https://chainreact.app/api/integrations/linkedin/callback`,
         client_id: process.env.NEXT_PUBLIC_LINKEDIN_CLIENT_ID!,
         client_secret: process.env.LINKEDIN_CLIENT_SECRET!,
       }),

@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
       body: new URLSearchParams({
         client_id: process.env.NEXT_PUBLIC_FACEBOOK_CLIENT_ID!,
         client_secret: process.env.FACEBOOK_CLIENT_SECRET!,
-        redirect_uri: `${request.nextUrl.origin}/api/integrations/facebook/callback`,
+        redirect_uri: `https://chainreact.app/api/integrations/facebook/callback`,
         code,
       }),
     })

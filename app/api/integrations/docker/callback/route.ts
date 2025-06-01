@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
         client_secret: process.env.DOCKER_CLIENT_SECRET!,
         code,
         grant_type: "authorization_code",
-        redirect_uri: `${request.nextUrl.origin}/api/integrations/docker/callback`,
+        redirect_uri: `https://chainreact.app/api/integrations/docker/callback`,
       }),
     })
 
