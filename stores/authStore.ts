@@ -30,11 +30,14 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
   user: null,
   session: null,
   profile: null,
-  loading: true,
+  loading: false, // Changed from true to false
   error: null,
   initialized: false,
 
   initialize: async () => {
+    // Don't set loading to true for public pages
+    // set({ loading: true })
+
     // Prevent multiple simultaneous initializations
     if (isInitializing || hasInitialized) {
       return
