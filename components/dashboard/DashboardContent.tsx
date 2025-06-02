@@ -11,12 +11,15 @@ import { Workflow, Clock, Puzzle, Zap } from "lucide-react"
 
 export default function DashboardContent() {
   const { metrics, chartData, fetchMetrics, fetchChartData } = useAnalyticsStore()
-  const { user, profile } = useAuthStore()
+  const { user, profile, initialized } = useAuthStore()
 
   useEffect(() => {
-    fetchMetrics()
-    fetchChartData()
-  }, [fetchMetrics, fetchChartData])
+    // Only fetch data if auth is initialized
+    if (initialized) {
+      fetchMetrics()
+      fetchChartData()
+    }
+  }, [fetchMetrics, fetchChartData, initialized])
 
   // Get the user's first name for personalized greeting
   const getFirstName = () => {
@@ -33,6 +36,17 @@ export default function DashboardContent() {
   }
 
   const firstName = getFirstName()
+
+  // Show loading state if auth isn't ready
+  if (!initialized) {
+    return (
+      <AppLayout>
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+        </div>
+      </AppLayout>
+    )
+  }
 
   return (
     <AppLayout>
