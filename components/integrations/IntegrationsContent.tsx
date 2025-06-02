@@ -47,70 +47,81 @@ export default function IntegrationsContent() {
     const details = searchParams.get("details")
     const providerId = searchParams.get("providerId")
 
-    if (success === "github_connected") {
-      toast({
-        title: "GitHub Connected",
-        description: "Your GitHub integration has been successfully connected!",
-        duration: 5000,
-      })
-      // Refresh integrations after successful connection
-      fetchIntegrations(true).catch(console.error)
-    } else if (success === "github_reconnected") {
-      toast({
-        title: "GitHub Reconnected",
-        description: "Your GitHub integration has been successfully reconnected!",
-        duration: 5000,
-      })
-      // Refresh integrations after successful reconnection
-      fetchIntegrations(true).catch(console.error)
-    } else if (success === "slack_connected") {
-      toast({
-        title: "Slack Connected",
-        description: "Your Slack integration has been successfully connected!",
-        duration: 5000,
-      })
-      // Refresh integrations after successful connection
-      fetchIntegrations(true).catch(console.error)
-    } else if (success === "slack_reconnected") {
-      toast({
-        title: "Slack Reconnected",
-        description: "Your Slack integration has been successfully reconnected!",
-        duration: 5000,
-      })
-      // Refresh integrations after successful reconnection
-      fetchIntegrations(true).catch(console.error)
-    } else if (success === "google_connected") {
-      toast({
-        title: "Google Connected",
-        description: "Your Google integration has been successfully connected!",
-        duration: 5000,
-      })
-      // Refresh integrations after successful connection
-      fetchIntegrations(true).catch(console.error)
-    } else if (success === "google_reconnected") {
-      toast({
-        title: "Google Reconnected",
-        description: "Your Google integration has been successfully reconnected!",
-        duration: 5000,
-      })
-      // Refresh integrations after successful reconnection
-      fetchIntegrations(true).catch(console.error)
-    } else if (success === "discord_connected") {
-      toast({
-        title: "Discord Connected",
-        description: "Your Discord integration has been successfully connected!",
-        duration: 5000,
-      })
-      // Refresh integrations after successful connection
-      fetchIntegrations(true).catch(console.error)
-    } else if (success === "discord_reconnected") {
-      toast({
-        title: "Discord Reconnected",
-        description: "Your Discord integration has been successfully reconnected!",
-        duration: 5000,
-      })
-      // Refresh integrations after successful reconnection
-      fetchIntegrations(true).catch(console.error)
+    if (success) {
+      // Clear cache and force refresh integrations data
+      clearCache()
+
+      // Add a small delay to ensure the database has been updated
+      setTimeout(async () => {
+        try {
+          await fetchIntegrations(true)
+
+          // Show success toast based on the success type
+          if (success === "github_connected") {
+            toast({
+              title: "GitHub Connected",
+              description: "Your GitHub integration has been successfully connected!",
+              duration: 5000,
+            })
+          } else if (success === "github_reconnected") {
+            toast({
+              title: "GitHub Reconnected",
+              description: "Your GitHub integration has been successfully reconnected!",
+              duration: 5000,
+            })
+          } else if (success === "slack_connected") {
+            toast({
+              title: "Slack Connected",
+              description: "Your Slack integration has been successfully connected!",
+              duration: 5000,
+            })
+          } else if (success === "slack_reconnected") {
+            toast({
+              title: "Slack Reconnected",
+              description: "Your Slack integration has been successfully reconnected!",
+              duration: 5000,
+            })
+          } else if (success === "google_connected") {
+            toast({
+              title: "Google Connected",
+              description: "Your Google integration has been successfully connected!",
+              duration: 5000,
+            })
+          } else if (success === "google_reconnected") {
+            toast({
+              title: "Google Reconnected",
+              description: "Your Google integration has been successfully reconnected!",
+              duration: 5000,
+            })
+          } else if (success === "discord_connected") {
+            toast({
+              title: "Discord Connected",
+              description: "Your Discord integration has been successfully connected!",
+              duration: 5000,
+            })
+          } else if (success === "discord_reconnected") {
+            toast({
+              title: "Discord Reconnected",
+              description: "Your Discord integration has been successfully reconnected!",
+              duration: 5000,
+            })
+          } else {
+            // Generic success message
+            toast({
+              title: "Integration Connected",
+              description: "Your integration has been successfully connected!",
+              duration: 5000,
+            })
+          }
+        } catch (err) {
+          console.error("Failed to refresh integrations after OAuth:", err)
+          toast({
+            title: "Refresh Failed",
+            description: "Integration connected but failed to refresh the page. Please refresh manually.",
+            variant: "destructive",
+          })
+        }
+      }, 1000) // 1 second delay to ensure database is updated
     } else if (error) {
       let errorMessage = "Failed to connect integration"
       switch (error) {
@@ -152,7 +163,7 @@ export default function IntegrationsContent() {
       url.searchParams.delete("providerId")
       window.history.replaceState({}, "", url.toString())
     }
-  }, [searchParams, toast, fetchIntegrations])
+  }, [searchParams, toast, fetchIntegrations, clearCache])
 
   const categories = Array.from(new Set(providers.map((p) => p.category)))
 
@@ -195,7 +206,12 @@ export default function IntegrationsContent() {
     try {
       setLocalLoading(true)
       setLoadError(null)
+      clearCache() // Clear cache before refreshing
       await fetchIntegrations(true)
+      toast({
+        title: "Refreshed",
+        description: "Integration data has been refreshed.",
+      })
     } catch (err: any) {
       console.error("Failed to refresh integrations:", err)
       setLoadError(err.message || "Failed to refresh integrations")

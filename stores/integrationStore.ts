@@ -410,7 +410,8 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
         const state = get()
         const now = Date.now()
 
-        if (!force && state.lastFetched && now - state.lastFetched < 5000 && state.integrations.length > 0) {
+        // Reduce cache time to 10 seconds for better responsiveness after OAuth
+        if (!force && state.lastFetched && now - state.lastFetched < 10000 && state.integrations.length > 0) {
           console.log("Using cached integrations data")
           return
         }
