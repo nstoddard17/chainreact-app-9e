@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Check, ExternalLink, Settings, Loader2, RefreshCw } from "lucide-react"
+import { Check, ExternalLink, Settings, Loader2, RefreshCw, Clock } from "lucide-react"
 import { useIntegrationStore } from "@/stores/integrationStore"
 
 interface IntegrationCardProps {
@@ -21,8 +21,13 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
   const isConnected = !!connectedIntegration
   const wasConnected = !!disconnectedIntegration
   const isOAuthProvider = provider.authType === "oauth"
+  const isComingSoon = provider.comingSoon
 
   const handleConnect = async () => {
+    if (isComingSoon) {
+      return
+    }
+
     console.log(`handleConnect called for ${provider.name}, isConnected: ${isConnected}, isOAuth: ${isOAuthProvider}`)
 
     // For OAuth providers, always allow reauthorization
@@ -57,7 +62,11 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
   return (
     <Card
       className={`bg-white rounded-2xl shadow-lg border transition-all duration-300 ${
-        isConnected ? "border-green-200 ring-2 ring-green-100 hover:shadow-xl" : "border-slate-200 hover:shadow-xl"
+        isComingSoon
+          ? "border-gray-200 opacity-75"
+          : isConnected
+            ? "border-green-200 ring-2 ring-green-100 hover:shadow-xl"
+            : "border-slate-200 hover:shadow-xl"
       }`}
     >
       <CardHeader className="pb-2">
@@ -70,12 +79,17 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
             </div>
             <CardTitle className="text-lg font-semibold text-slate-900">{provider.name}</CardTitle>
           </div>
-          {isConnected && (
+          {isComingSoon ? (
+            <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+              <Clock className="w-3 h-3 mr-1" />
+              Coming Soon
+            </Badge>
+          ) : isConnected ? (
             <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
               <Check className="w-3 h-3 mr-1" />
               Connected
             </Badge>
-          )}
+          ) : null}
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -94,7 +108,16 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
           )}
         </div>
 
-        {provider.requiresSetup && !isConnected && (
+        {isComingSoon && (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+            <div className="text-xs text-amber-800">
+              <strong>Coming Soon:</strong> This integration is currently in development. We'll notify you when it's
+              ready!
+            </div>
+          </div>
+        )}
+
+        {!isComingSoon && provider.requiresSetup && !isConnected && (
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
             <div className="text-xs text-amber-800">
               <strong>Setup Required:</strong> This integration requires OAuth configuration. In demo mode, a mock
@@ -120,7 +143,17 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
         )}
 
         <div className="flex items-center space-x-2 pt-2">
-          {isConnected ? (
+          {isComingSoon ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1 bg-gray-100 text-gray-500 border border-gray-200 cursor-not-allowed"
+              disabled
+            >
+              <Clock className="w-4 h-4 mr-2" />
+              Coming Soon
+            </Button>
+          ) : isConnected ? (
             <>
               {isOAuthProvider ? (
                 <Button

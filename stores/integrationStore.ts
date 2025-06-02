@@ -28,6 +28,7 @@ interface IntegrationProvider {
   requiresSetup?: boolean
   connected?: boolean
   integration?: Integration
+  comingSoon?: boolean
 }
 
 interface IntegrationState {
@@ -128,14 +129,14 @@ const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
     requiresSetup: !process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
   },
   {
-    id: "google-drive",
-    name: "Google Drive",
-    description: "Store and share files",
+    id: "google-docs",
+    name: "Google Docs",
+    description: "Create and manage documents",
     icon: "#",
-    logoColor: "bg-yellow-500 text-white",
+    logoColor: "bg-blue-400 text-white",
     authType: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ? "oauth" : "demo",
-    scopes: ["https://www.googleapis.com/auth/docs"],
-    capabilities: ["Upload files", "Download files", "Share files", "Organize folders"],
+    scopes: ["https://www.googleapis.com/auth/documents"],
+    capabilities: ["Create documents", "Edit documents", "Share documents", "Format text"],
     category: "Productivity",
     requiresSetup: !process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
   },
@@ -196,7 +197,7 @@ const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
     icon: "#",
     logoColor: "bg-orange-600 text-white",
     authType: process.env.NEXT_PUBLIC_GITLAB_CLIENT_ID ? "oauth" : "demo",
-    scopes: ["api", "read_user", "read_repository"],
+    scopes: ["api"],
     capabilities: ["Manage projects", "Create issues", "Deploy pipelines", "Review code"],
     category: "Development",
     requiresSetup: !process.env.NEXT_PUBLIC_GITLAB_CLIENT_ID,
@@ -271,11 +272,12 @@ const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
     description: "Manage Facebook pages and posts",
     icon: "#",
     logoColor: "bg-blue-600 text-white",
-    authType: process.env.NEXT_PUBLIC_FACEBOOK_CLIENT_ID ? "oauth" : "demo",
+    authType: "demo",
     scopes: ["pages_manage_posts", "pages_read_engagement"],
     capabilities: ["Post content", "Manage pages", "View insights", "Respond to comments"],
     category: "Social Media",
-    requiresSetup: !process.env.NEXT_PUBLIC_FACEBOOK_CLIENT_ID,
+    requiresSetup: true,
+    comingSoon: true,
   },
   {
     id: "instagram",
@@ -283,11 +285,12 @@ const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
     description: "Share photos and manage Instagram presence",
     icon: "#",
     logoColor: "bg-pink-600 text-white",
-    authType: process.env.NEXT_PUBLIC_INSTAGRAM_CLIENT_ID ? "oauth" : "demo",
+    authType: "demo",
     scopes: ["instagram_basic", "instagram_content_publish"],
     capabilities: ["Post photos", "Manage stories", "View insights", "Engage with followers"],
     category: "Social Media",
-    requiresSetup: !process.env.NEXT_PUBLIC_INSTAGRAM_CLIENT_ID,
+    requiresSetup: true,
+    comingSoon: true,
   },
   {
     id: "linkedin",
@@ -319,11 +322,12 @@ const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
     description: "Create and manage TikTok content",
     icon: "#",
     logoColor: "bg-black text-white",
-    authType: process.env.NEXT_PUBLIC_TIKTOK_CLIENT_ID ? "oauth" : "demo",
+    authType: "demo",
     scopes: ["user.info.basic", "video.upload"],
     capabilities: ["Upload videos", "Manage profile", "View analytics", "Engage with content"],
     category: "Social Media",
-    requiresSetup: !process.env.NEXT_PUBLIC_TIKTOK_CLIENT_ID,
+    requiresSetup: true,
+    comingSoon: true,
   },
 
   // Marketing & Email
@@ -346,7 +350,7 @@ const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
     icon: "#",
     logoColor: "bg-orange-600 text-white",
     authType: process.env.NEXT_PUBLIC_HUBSPOT_CLIENT_ID ? "oauth" : "demo",
-    scopes: ["contacts", "content"],
+    scopes: ["crm.objects.contacts.read", "crm.objects.contacts.write"],
     capabilities: ["Manage contacts", "Create deals", "Send emails", "Track analytics"],
     category: "Marketing",
     requiresSetup: !process.env.NEXT_PUBLIC_HUBSPOT_CLIENT_ID,
@@ -460,6 +464,13 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
             throw new Error(`Provider ${provider} not found`)
           }
 
+          // Check if this is a "Coming Soon" integration
+          if (providerConfig.comingSoon) {
+            alert(`${providerConfig.name} integration is coming soon! Stay tuned for updates.`)
+            set({ loading: false })
+            return
+          }
+
           console.log(`Connecting ${provider}, forceOAuth: ${forceOAuth}`)
 
           const existingIntegration = get().integrations.find(
@@ -487,7 +498,7 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
 
             const baseUrl = getBaseUrl()
             // Use unified Google callback for all Google services
-            const isGoogleService = ["google-calendar", "google-sheets", "google-drive", "gmail", "youtube"].includes(
+            const isGoogleService = ["google-calendar", "google-sheets", "google-docs", "gmail", "youtube"].includes(
               provider,
             )
             const redirectUri = isGoogleService
@@ -527,12 +538,12 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
                 break
               case "google-calendar":
               case "google-sheets":
-              case "google-drive":
+              case "google-docs":
               case "gmail":
               case "youtube":
                 if (process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) {
                   const scopes = providerConfig.scopes.join(" ")
-                  authUrl = `https://accounts.google.com/oauth/authorize?client_id=${process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scopes)}&response_type=code&state=${state}&access_type=offline&prompt=consent&t=${timestamp}`
+                  authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scopes)}&response_type=code&state=${state}&access_type=offline&prompt=consent&t=${timestamp}`
                 }
                 break
               case "github":
@@ -549,24 +560,9 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
                   authUrl = `https://twitter.com/i/oauth2/authorize?response_type=code&client_id=${process.env.NEXT_PUBLIC_TWITTER_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(providerConfig.scopes.join(" "))}&state=${state}&code_challenge=challenge&code_challenge_method=plain&t=${timestamp}`
                 }
                 break
-              case "facebook":
-                if (process.env.NEXT_PUBLIC_FACEBOOK_CLIENT_ID) {
-                  authUrl = `https://www.facebook.com/v18.0/dialog/oauth?client_id=${process.env.NEXT_PUBLIC_FACEBOOK_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(providerConfig.scopes.join(","))}&state=${state}&response_type=code&t=${timestamp}`
-                }
-                break
-              case "instagram":
-                if (process.env.NEXT_PUBLIC_INSTAGRAM_CLIENT_ID) {
-                  authUrl = `https://api.instagram.com/oauth/authorize?client_id=${process.env.NEXT_PUBLIC_INSTAGRAM_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(providerConfig.scopes.join(","))}&response_type=code&state=${state}&t=${timestamp}`
-                }
-                break
               case "linkedin":
                 if (process.env.NEXT_PUBLIC_LINKEDIN_CLIENT_ID) {
                   authUrl = `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${process.env.NEXT_PUBLIC_LINKEDIN_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(providerConfig.scopes.join(" "))}&state=${state}&t=${timestamp}`
-                }
-                break
-              case "tiktok":
-                if (process.env.NEXT_PUBLIC_TIKTOK_CLIENT_ID) {
-                  authUrl = `https://www.tiktok.com/auth/authorize/?client_key=${process.env.NEXT_PUBLIC_TIKTOK_CLIENT_ID}&scope=${encodeURIComponent(providerConfig.scopes.join(","))}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&t=${timestamp}`
                 }
                 break
               case "mailchimp":

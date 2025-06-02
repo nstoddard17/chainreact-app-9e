@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
     const scopeMap: Record<string, string[]> = {
       "google-calendar": ["https://www.googleapis.com/auth/calendar"],
       "google-sheets": ["https://www.googleapis.com/auth/spreadsheets"],
-      "google-drive": ["https://www.googleapis.com/auth/docs"],
+      "google-docs": ["https://www.googleapis.com/auth/documents"],
       gmail: ["https://www.googleapis.com/auth/gmail.modify"],
       youtube: ["https://www.googleapis.com/auth/youtube.upload"],
     }
