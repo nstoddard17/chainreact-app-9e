@@ -28,11 +28,12 @@ export async function GET(request: NextRequest) {
       throw new Error("Invalid provider in state")
     }
 
-    // Exchange code for access token
+    // Exchange code for access token using LinkedIn OAuth v2
     const tokenResponse = await fetch("https://www.linkedin.com/oauth/v2/accessToken", {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
+        Accept: "application/json",
       },
       body: new URLSearchParams({
         grant_type: "authorization_code",
@@ -52,18 +53,41 @@ export async function GET(request: NextRequest) {
     const tokenData = await tokenResponse.json()
     const { access_token, expires_in } = tokenData
 
-    // Get user info from LinkedIn
-    const userResponse = await fetch("https://api.linkedin.com/v2/people/~:(id,firstName,lastName,emailAddress)", {
-      headers: {
-        Authorization: `Bearer ${access_token}`,
+    // Get user info from LinkedIn using v2 API
+    const userResponse = await fetch(
+      "https://api.linkedin.com/v2/people/~:(id,firstName,lastName,profilePicture(displayImage~:playableStreams))",
+      {
+        headers: {
+          Authorization: `Bearer ${access_token}`,
+          Accept: "application/json",
+        },
       },
-    })
+    )
 
     if (!userResponse.ok) {
+      const errorText = await userResponse.text()
+      console.error("LinkedIn user info failed:", errorText)
       throw new Error("Failed to get user info")
     }
 
     const userData = await userResponse.json()
+
+    // Get email address separately (requires r_emailaddress scope)
+    const emailResponse = await fetch(
+      "https://api.linkedin.com/v2/emailAddress?q=members&projection=(elements*(handle~))",
+      {
+        headers: {
+          Authorization: `Bearer ${access_token}`,
+          Accept: "application/json",
+        },
+      },
+    )
+
+    let email = null
+    if (emailResponse.ok) {
+      const emailData = await emailResponse.json()
+      email = emailData.elements?.[0]?.["handle~"]?.emailAddress
+    }
 
     // Store integration in Supabase
     const supabase = getSupabaseClient()
@@ -80,13 +104,14 @@ export async function GET(request: NextRequest) {
       provider: "linkedin",
       provider_user_id: userData.id,
       access_token,
-      expires_at: new Date(Date.now() + expires_in * 1000).toISOString(),
+      expires_at: expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null,
       status: "connected" as const,
-      scopes: ["w_member_social", "r_liteprofile"],
+      scopes: ["r_liteprofile", "r_emailaddress", "w_member_social"],
       metadata: {
         first_name: userData.firstName?.localized?.en_US,
         last_name: userData.lastName?.localized?.en_US,
-        email: userData.emailAddress,
+        email: email,
+        profile_picture: userData.profilePicture?.displayImage?.elements?.[0]?.identifiers?.[0]?.identifier,
         connected_at: new Date().toISOString(),
       },
     }

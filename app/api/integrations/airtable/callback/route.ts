@@ -48,8 +48,12 @@ export async function GET(request: NextRequest) {
 
     if (!tokenResponse.ok) {
       const errorData = await tokenResponse.text()
-      console.error("Airtable token exchange failed:", errorData)
-      throw new Error("Failed to exchange code for token")
+      console.error("Airtable token exchange failed:", {
+        status: tokenResponse.status,
+        statusText: tokenResponse.statusText,
+        error: errorData,
+      })
+      throw new Error(`Failed to exchange code for token: ${tokenResponse.status}`)
     }
 
     const tokenData = await tokenResponse.json()
@@ -111,7 +115,8 @@ export async function GET(request: NextRequest) {
       if (error) throw error
     }
 
-    console.log("Airtable integration saved successfully")
+    console.log("Airtable integration saved successfully for user:", session.user.id)
+    console.log("Integration data:", { provider: "airtable", status: "connected" })
     return NextResponse.redirect(new URL("/integrations?success=airtable_connected", request.url))
   } catch (error: any) {
     console.error("Airtable OAuth callback error:", error)
