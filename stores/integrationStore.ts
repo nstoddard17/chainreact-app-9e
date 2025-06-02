@@ -299,7 +299,7 @@ const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
     icon: "#",
     logoColor: "bg-blue-700 text-white",
     authType: process.env.NEXT_PUBLIC_LINKEDIN_CLIENT_ID ? "oauth" : "demo",
-    scopes: ["r_liteprofile", "r_emailaddress", "w_member_social"],
+    scopes: ["r_liteprofile", "w_member_social"],
     capabilities: ["Share posts", "Manage connections", "View analytics", "Company updates"],
     category: "Social Media",
     requiresSetup: !process.env.NEXT_PUBLIC_LINKEDIN_CLIENT_ID,
@@ -562,9 +562,7 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
                 break
               case "linkedin":
                 if (process.env.NEXT_PUBLIC_LINKEDIN_CLIENT_ID) {
-                  // Use LinkedIn OAuth v2 with proper formatting
-                  const linkedinScopes = providerConfig.scopes.join(" ")
-                  authUrl = `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${process.env.NEXT_PUBLIC_LINKEDIN_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(linkedinScopes)}&state=${state}`
+                  authUrl = `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${process.env.NEXT_PUBLIC_LINKEDIN_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(providerConfig.scopes.join(" "))}&state=${state}&t=${timestamp}`
                 }
                 break
               case "mailchimp":
@@ -604,7 +602,7 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
                 break
               case "airtable":
                 if (process.env.NEXT_PUBLIC_AIRTABLE_CLIENT_ID) {
-                  authUrl = `https://airtable.com/oauth2/v1/authorize?client_id=${process.env.NEXT_PUBLIC_AIRTABLE_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(providerConfig.scopes.join(" "))}&state=${state}`
+                  authUrl = `https://airtable.com/oauth2/v1/authorize?client_id=${process.env.NEXT_PUBLIC_AIRTABLE_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(providerConfig.scopes.join(" "))}&state=${state}&t=${timestamp}`
                 }
                 break
               case "trello":
@@ -637,9 +635,6 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
               console.log(`OAuth not configured for ${provider}, falling back to demo mode`)
             }
           }
-
-          // If we get here, OAuth failed or wasn't configured
-          console.log(`OAuth failed or not configured for ${provider}, creating demo integration`)
 
           // Demo mode for providers without OAuth setup
           console.log(`Creating demo integration for ${provider}`)

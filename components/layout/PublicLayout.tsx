@@ -16,10 +16,9 @@ export function PublicLayout({ children }: PublicLayoutProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const { user, session, loading, initialize, signOut, profile } = useAuthStore()
 
-  // Initialize auth on component mount - but don't block rendering
+  // Initialize auth on component mount
   useEffect(() => {
-    // Initialize auth in the background without blocking the UI
-    initialize().catch(console.error)
+    initialize()
   }, [initialize])
 
   const handlePageNavigation = (path: string) => {
@@ -40,14 +39,14 @@ export function PublicLayout({ children }: PublicLayoutProps) {
     setMobileMenuOpen(false)
   }
 
-  // Don't show loading state for public pages - let them render immediately
-  // if (loading) {
-  //   return (
-  //     <div className="min-h-screen bg-white flex items-center justify-center">
-  //       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
-  //     </div>
-  //   )
-  // }
+  // Show loading state while checking auth
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+      </div>
+    )
+  }
 
   const isLoggedIn = !!user && !!session
 
