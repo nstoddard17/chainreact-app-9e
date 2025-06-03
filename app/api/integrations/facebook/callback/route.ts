@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getSupabaseClient } from "@/lib/supabase"
+import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
+import { cookies } from "next/headers"
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
@@ -68,25 +69,24 @@ export async function GET(request: NextRequest) {
     const userData = await userResponse.json()
     console.log("User info fetched successfully:", { userId: userData.id })
 
-    // Store integration in Supabase
-    const supabase = getSupabaseClient()
-    const {
-      data: { session },
-      error: sessionError,
-    } = await supabase.auth.getSession()
+    // Store integration in Supabase using server component client
+    const supabase = createServerComponentClient({ cookies })
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
 
     if (sessionError) {
-      console.error("Session error:", sessionError)
+      console.error("Facebook: Error retrieving session:", sessionError)
       throw new Error(`Session error: ${sessionError.message}`)
     }
 
-    if (!session) {
-      console.error("No session found")
+    if (!sessionData?.session) {
+      console.error("Facebook: No session found")
       throw new Error("No session found")
     }
 
+    console.log("Facebook: Session successfully retrieved for user:", sessionData.session.user.id)
+
     const integrationData = {
-      user_id: session.user.id,
+      user_id: sessionData.session.user.id,
       provider: "facebook",
       provider_user_id: userData.id,
       access_token,
@@ -101,7 +101,7 @@ export async function GET(request: NextRequest) {
     }
 
     console.log("Saving integration to database...", {
-      userId: session.user.id,
+      userId: sessionData.session.user.id,
       provider: "facebook",
       reconnect,
       integrationId,

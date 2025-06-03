@@ -1,5 +1,4 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getSupabaseClient } from "@/lib/supabase"
 import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 
@@ -56,36 +55,24 @@ export async function GET(request: NextRequest) {
     const userData = await userResponse.json()
     console.log("Trello user data received:", { id: userData.id, username: userData.username })
 
-    // Get user session
-    console.log("Getting user session...")
-    let supabase
-    let session
+    // Store integration in Supabase using server component client
+    const supabase = createServerComponentClient({ cookies })
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
 
-    try {
-      supabase = createServerComponentClient({ cookies })
-      const {
-        data: { session: serverSession },
-      } = await supabase.auth.getSession()
-      session = serverSession
-    } catch (error) {
-      console.log("Server client failed, using regular client:", error)
-      supabase = getSupabaseClient()
-      const {
-        data: { session: regularSession },
-      } = await supabase.auth.getSession()
-      session = regularSession
+    if (sessionError) {
+      console.error("Trello: Error retrieving session:", sessionError)
+      throw new Error(`Session error: ${sessionError.message}`)
     }
 
-    if (!session) {
-      console.error("No session found")
-      return NextResponse.redirect(new URL("/integrations?error=no_session&provider=trello", request.url))
+    if (!sessionData?.session) {
+      console.error("Trello: No session found")
+      throw new Error("No session found")
     }
 
-    console.log("Session found for user:", session.user.id)
+    console.log("Trello: Session successfully retrieved for user:", sessionData.session.user.id)
 
-    // Store integration in Supabase
     const integrationData = {
-      user_id: session.user.id,
+      user_id: sessionData.session.user.id,
       provider: "trello",
       provider_user_id: userData.id,
       access_token: token,

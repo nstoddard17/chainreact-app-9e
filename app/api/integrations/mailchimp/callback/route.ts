@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getSupabaseClient } from "@/lib/supabase"
+import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
+import { cookies } from "next/headers"
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
@@ -65,72 +66,24 @@ export async function GET(request: NextRequest) {
 
     const userData = await userResponse.json()
 
-    // Store integration in Supabase
-    const supabase = getSupabaseClient()
+    // Store integration in Supabase using server component client
+    const supabase = createServerComponentClient({ cookies })
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
 
-    // Try to get session from cookies first
-    let session = null
-    try {
-      const {
-        data: { session: cookieSession },
-      } = await supabase.auth.getSession()
-      session = cookieSession
-    } catch (error) {
-      console.log("Failed to get session from cookies:", error)
+    if (sessionError) {
+      console.error("Mailchimp: Error retrieving session:", sessionError)
+      throw new Error(`Session error: ${sessionError.message}`)
     }
 
-    // If no session from cookies, try to get from request headers
-    if (!session) {
-      try {
-        const authHeader = request.headers.get("authorization")
-        if (authHeader?.startsWith("Bearer ")) {
-          const token = authHeader.substring(7)
-          const {
-            data: { user },
-          } = await supabase.auth.getUser(token)
-          if (user) {
-            session = { user }
-          }
-        }
-      } catch (error) {
-        console.log("Failed to get session from headers:", error)
-      }
+    if (!sessionData?.session) {
+      console.error("Mailchimp: No session found")
+      throw new Error("No session found")
     }
 
-    // If still no session, try to get from URL state or create a temporary session
-    if (!session) {
-      console.log("No session found, attempting to handle OAuth callback without session")
-      // For OAuth callbacks, we might need to handle this differently
-      // Let's try to get user info from the state parameter
-      try {
-        const stateData = JSON.parse(atob(state))
-        console.log("State data:", stateData)
-
-        // If we have a reconnect scenario, we might be able to find the user
-        if (stateData.reconnect && stateData.integrationId) {
-          const { data: existingIntegration } = await supabase
-            .from("integrations")
-            .select("user_id")
-            .eq("id", stateData.integrationId)
-            .single()
-
-          if (existingIntegration) {
-            session = { user: { id: existingIntegration.user_id } }
-            console.log("Found user from existing integration:", existingIntegration.user_id)
-          }
-        }
-      } catch (error) {
-        console.log("Failed to extract user from state:", error)
-      }
-    }
-
-    if (!session) {
-      console.error("No session found and unable to determine user")
-      return NextResponse.redirect(new URL("/integrations?error=no_session", request.url))
-    }
+    console.log("Mailchimp: Session successfully retrieved for user:", sessionData.session.user.id)
 
     const integrationData = {
-      user_id: session.user.id,
+      user_id: sessionData.session.user.id,
       provider: "mailchimp",
       provider_user_id: userData.user_id.toString(),
       access_token,

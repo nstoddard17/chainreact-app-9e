@@ -1,7 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
-import { getSupabaseClient } from "@/lib/supabase"
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
@@ -75,45 +74,24 @@ export async function GET(request: NextRequest) {
     const userData = await userResponse.json()
     console.log("User info fetched successfully:", { userId: userData.id })
 
-    // Get session using server component client
-    console.log("Retrieving user session...")
-    let session = null
-    let supabase = null
+    // Store integration in Supabase using server component client
+    const supabase = createServerComponentClient({ cookies })
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
 
-    try {
-      supabase = createServerComponentClient({ cookies })
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
-
-      if (sessionError) {
-        console.error("Server session error:", sessionError)
-        throw sessionError
-      }
-
-      session = sessionData.session
-      console.log("Server session retrieved:", { hasSession: !!session })
-    } catch (serverError) {
-      console.warn("Server session failed, trying fallback:", serverError)
-
-      // Fallback to regular client
-      supabase = getSupabaseClient()
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
-
-      if (sessionError) {
-        console.error("Fallback session error:", sessionError)
-        throw new Error(`Session error: ${sessionError.message}`)
-      }
-
-      session = sessionData.session
-      console.log("Fallback session retrieved:", { hasSession: !!session })
+    if (sessionError) {
+      console.error("GitLab: Error retrieving session:", sessionError)
+      throw new Error(`Session error: ${sessionError.message}`)
     }
 
-    if (!session) {
-      console.error("No session found after all attempts")
+    if (!sessionData?.session) {
+      console.error("GitLab: No session found")
       throw new Error("No session found")
     }
 
+    console.log("GitLab: Session successfully retrieved for user:", sessionData.session.user.id)
+
     const integrationData = {
-      user_id: session.user.id,
+      user_id: sessionData.session.user.id,
       provider: "gitlab",
       provider_user_id: userData.id.toString(),
       access_token,
@@ -131,7 +109,7 @@ export async function GET(request: NextRequest) {
     }
 
     console.log("Saving integration to database...", {
-      userId: session.user.id,
+      userId: sessionData.session.user.id,
       provider: "gitlab",
       reconnect,
       integrationId,

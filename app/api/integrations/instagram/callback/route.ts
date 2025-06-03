@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getSupabaseClient } from "@/lib/supabase"
+import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
+import { cookies } from "next/headers"
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
@@ -68,65 +69,24 @@ export async function GET(request: NextRequest) {
     const userData = await userResponse.json()
     console.log("User info fetched successfully:", { userId: userData.id })
 
-    // Store integration in Supabase with robust session handling
-    const supabase = getSupabaseClient()
+    // Store integration in Supabase using server component client
+    const supabase = createServerComponentClient({ cookies })
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
 
-    // Try multiple methods to get session
-    let session = null
-    try {
-      const {
-        data: { session: cookieSession },
-      } = await supabase.auth.getSession()
-      session = cookieSession
-      console.log("Session from cookies:", !!session)
-    } catch (error) {
-      console.log("Failed to get session from cookies:", error)
+    if (sessionError) {
+      console.error("Instagram: Error retrieving session:", sessionError)
+      throw new Error(`Session error: ${sessionError.message}`)
     }
 
-    // If no session from cookies, try authorization headers
-    if (!session) {
-      try {
-        const authHeader = request.headers.get("authorization")
-        if (authHeader?.startsWith("Bearer ")) {
-          const token = authHeader.substring(7)
-          const {
-            data: { user },
-          } = await supabase.auth.getUser(token)
-          if (user) {
-            session = { user }
-            console.log("Session from auth header:", !!session)
-          }
-        }
-      } catch (error) {
-        console.log("Failed to get session from headers:", error)
-      }
+    if (!sessionData?.session) {
+      console.error("Instagram: No session found")
+      throw new Error("No session found")
     }
 
-    // For reconnection scenarios, try to find user from existing integration
-    if (!session && reconnect && integrationId) {
-      try {
-        const { data: existingIntegration } = await supabase
-          .from("integrations")
-          .select("user_id")
-          .eq("id", integrationId)
-          .single()
-
-        if (existingIntegration) {
-          session = { user: { id: existingIntegration.user_id } }
-          console.log("Session from existing integration:", !!session)
-        }
-      } catch (error) {
-        console.log("Failed to get user from existing integration:", error)
-      }
-    }
-
-    if (!session) {
-      console.error("No session found after all attempts")
-      return NextResponse.redirect(new URL("/integrations?error=no_session&provider=instagram", request.url))
-    }
+    console.log("Instagram: Session successfully retrieved for user:", sessionData.session.user.id)
 
     const integrationData = {
-      user_id: session.user.id,
+      user_id: sessionData.session.user.id,
       provider: "instagram",
       provider_user_id: userData.id,
       access_token,
@@ -140,7 +100,7 @@ export async function GET(request: NextRequest) {
     }
 
     console.log("Saving integration to database...", {
-      userId: session.user.id,
+      userId: sessionData.session.user.id,
       provider: "instagram",
       reconnect,
       integrationId,
