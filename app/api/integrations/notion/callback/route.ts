@@ -1,5 +1,4 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getSupabaseClient } from "@/lib/supabase"
 import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 
@@ -72,80 +71,24 @@ export async function GET(request: NextRequest) {
 
     const { access_token, workspace_name, workspace_id, bot_id } = tokenData
 
-    // Get user session using multiple fallback methods
-    console.log("Getting user session...")
-    let session = null
-    let userId = null
+    // Get session using server component client - this is the source of truth
+    const supabase = createServerComponentClient({ cookies })
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
 
-    try {
-      // Method 1: Try server component client
-      const supabase = createServerComponentClient({ cookies })
-      const {
-        data: { session: serverSession },
-        error: sessionError,
-      } = await supabase.auth.getSession()
-
-      if (serverSession && !sessionError) {
-        session = serverSession
-        userId = session.user.id
-        console.log("Got session from server component client")
-      }
-    } catch (serverError) {
-      console.log("Server component client failed:", serverError)
+    if (sessionError) {
+      console.error("Notion: Error retrieving session:", sessionError)
+      throw new Error(`Session error: ${sessionError.message}`)
     }
 
-    if (!session) {
-      try {
-        // Method 2: Try regular client
-        const regularSupabase = getSupabaseClient()
-        const {
-          data: { session: fallbackSession },
-          error: fallbackError,
-        } = await regularSupabase.auth.getSession()
-
-        if (fallbackSession && !fallbackError) {
-          session = fallbackSession
-          userId = session.user.id
-          console.log("Got session from regular client")
-        }
-      } catch (fallbackError) {
-        console.log("Regular client failed:", fallbackError)
-      }
+    if (!sessionData?.session) {
+      console.error("Notion: No session found")
+      throw new Error("No session found")
     }
 
-    if (!session && reconnect && integrationId) {
-      try {
-        // Method 3: For reconnection, try to get user from existing integration
-        const supabase = getSupabaseClient()
-        const { data: existingIntegration } = await supabase
-          .from("integrations")
-          .select("user_id")
-          .eq("id", integrationId)
-          .single()
-
-        if (existingIntegration?.user_id) {
-          userId = existingIntegration.user_id
-          console.log("Got user ID from existing integration for reconnection")
-        }
-      } catch (integrationError) {
-        console.log("Failed to get user from existing integration:", integrationError)
-      }
-    }
-
-    if (!userId) {
-      console.error("No session or user ID found after trying all methods")
-      return NextResponse.redirect(
-        new URL(
-          "/integrations?error=no_session&provider=notion&message=Please%20log%20in%20and%20try%20again",
-          request.url,
-        ),
-      )
-    }
-
-    console.log("Session found for user:", userId)
+    console.log("Notion: Session successfully retrieved for user:", sessionData.session.user.id)
 
     const integrationData = {
-      user_id: userId,
+      user_id: sessionData.session.user.id,
       provider: "notion",
       provider_user_id: bot_id,
       access_token,
@@ -160,8 +103,6 @@ export async function GET(request: NextRequest) {
     }
 
     console.log("Saving integration to database...")
-
-    const supabase = getSupabaseClient()
 
     if (reconnect && integrationId) {
       // Update existing integration

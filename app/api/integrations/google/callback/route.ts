@@ -9,28 +9,7 @@ export async function GET(request: NextRequest) {
   const error = searchParams.get("error")
   const scope = searchParams.get("scope")
 
-  console.log("=== GOOGLE OAUTH CALLBACK START ===")
-  console.log("Callback params:", { code: !!code, state, error, scope })
-  console.log("Request URL:", request.url)
-  console.log("Request origin:", request.headers.get("origin"))
-  console.log("Request referer:", request.headers.get("referer"))
-
-  // Debug cookies before processing
-  const cookieStore = cookies()
-  const allCookies = cookieStore.getAll()
-  const supabaseCookies = allCookies.filter(
-    (cookie) => cookie.name.includes("supabase") || cookie.name.includes("sb-") || cookie.name.includes("auth"),
-  )
-
-  console.log("=== COOKIE DEBUG ===")
-  console.log("Total cookies received:", allCookies.length)
-  console.log("Supabase cookies found:", supabaseCookies.length)
-
-  supabaseCookies.forEach((cookie) => {
-    console.log(`Cookie: ${cookie.name}`)
-    console.log(`Value length: ${cookie.value?.length || 0}`)
-    console.log(`Value starts with: ${cookie.value?.substring(0, 20)}...`)
-  })
+  console.log("Google OAuth callback:", { code: !!code, state, error, scope })
 
   if (error) {
     console.error("Google OAuth error:", error)
@@ -83,12 +62,10 @@ export async function GET(request: NextRequest) {
     const tokenData = await tokenResponse.json()
     const { access_token, refresh_token, expires_in, scope: grantedScope } = tokenData
 
-    console.log("Token exchange successful:", {
-      hasAccessToken: !!access_token,
-      hasRefreshToken: !!refresh_token,
-      expiresIn: expires_in,
-      scope: grantedScope,
-    })
+    // Log token details immediately after exchange
+    console.log("Access Token:", access_token)
+    console.log("Token Type:", tokenData.token_type)
+    console.log("Scope:", tokenData.scope)
 
     if (!access_token) {
       throw new Error("No access token received from Google")
@@ -107,64 +84,34 @@ export async function GET(request: NextRequest) {
     if (!userResponse.ok) {
       const errorData = await userResponse.text()
       console.error("Failed to get user info from Google:", errorData)
+      console.error("Response status:", userResponse.status)
+      console.error("Response headers:", Object.fromEntries(userResponse.headers.entries()))
       throw new Error(`Failed to get user info: ${errorData}`)
     }
 
     const userData = await userResponse.json()
     console.log("User info fetched successfully:", { userId: userData.sub, email: userData.email })
 
-    // Get session using server component client
-    console.log("=== SESSION RETRIEVAL ===")
+    // Get session using server component client - this is the source of truth
     const supabase = createServerComponentClient({ cookies })
-
-    console.log("Attempting to get session...")
     const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
 
-    console.log("Session result:", {
-      hasSession: !!sessionData.session,
-      hasUser: !!sessionData.session?.user,
-      userId: sessionData.session?.user?.id,
-      userEmail: sessionData.session?.user?.email,
-      error: sessionError?.message,
-    })
-
     if (sessionError) {
-      console.error("Session error details:", sessionError)
+      console.error("Google: Error retrieving session:", sessionError)
+      throw new Error(`Session error: ${sessionError.message}`)
     }
 
-    // Also try getUser() for comparison
-    console.log("Attempting to get user directly...")
-    const { data: directUserData, error: userError } = await supabase.auth.getUser()
-
-    console.log("Direct user result:", {
-      hasUser: !!directUserData.user,
-      userId: directUserData.user?.id,
-      userEmail: directUserData.user?.email,
-      error: userError?.message,
-    })
-
-    const session = sessionData.session
-
-    if (!session) {
-      console.error("=== NO SESSION FOUND ===")
-      console.error("This means the user is not authenticated when reaching the callback")
-      console.error("Possible causes:")
-      console.error("1. User not logged in before starting OAuth flow")
-      console.error("2. Session cookie not being sent with callback request")
-      console.error("3. Cookie domain/SameSite policy issues")
-      console.error("4. Session expired during OAuth flow")
-
-      return NextResponse.redirect(new URL(`/integrations?error=no_session&provider=google&debug=true`, request.url))
+    if (!sessionData?.session) {
+      console.error("Google: No session found")
+      throw new Error("No session found")
     }
 
-    console.log("=== SESSION FOUND ===")
-    console.log("User ID:", session.user.id)
-    console.log("User email:", session.user.email)
+    console.log("Google: Session successfully retrieved for user:", sessionData.session.user.id)
 
     const integrationData = {
-      user_id: session.user.id,
+      user_id: sessionData.session.user.id,
       provider: provider,
-      provider_user_id: userData.sub,
+      provider_user_id: userData.sub, // OpenID Connect uses 'sub' instead of 'id'
       status: "connected" as const,
       metadata: {
         access_token,
@@ -179,7 +126,7 @@ export async function GET(request: NextRequest) {
     }
 
     console.log("Saving integration to database...", {
-      userId: session.user.id,
+      userId: sessionData.session.user.id,
       provider: provider,
       reconnect,
       integrationId,
@@ -210,11 +157,10 @@ export async function GET(request: NextRequest) {
       console.log("Integration created successfully")
     }
 
-    console.log("=== GOOGLE OAUTH CALLBACK SUCCESS ===")
+    console.log("Google integration saved successfully")
     return NextResponse.redirect(new URL(`/integrations?success=${provider}_connected`, request.url))
   } catch (error: any) {
-    console.error("=== GOOGLE OAUTH CALLBACK ERROR ===")
-    console.error("Error details:", error)
+    console.error("Google OAuth callback error:", error)
     return NextResponse.redirect(
       new URL(
         `/integrations?error=callback_failed&provider=google&message=${encodeURIComponent(error.message)}`,
