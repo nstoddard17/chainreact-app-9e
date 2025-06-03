@@ -1,33 +1,50 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getSupabaseClient } from "@/lib/supabase"
+import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
+import { cookies } from "next/headers"
 
 export async function GET(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams
-  const code = searchParams.get("code")
-  const state = searchParams.get("state")
-  const error = searchParams.get("error")
-
-  console.log("Slack OAuth callback:", { code: !!code, state, error })
-
-  if (error) {
-    console.error("Slack OAuth error:", error)
-    return NextResponse.redirect(new URL("/integrations?error=oauth_error&provider=slack", request.url))
-  }
-
-  if (!code || !state) {
-    console.error("Missing code or state in Slack callback")
-    return NextResponse.redirect(new URL("/integrations?error=missing_params&provider=slack", request.url))
-  }
+  console.log("Slack OAuth callback received")
 
   try {
-    // Decode state to get provider info
-    const stateData = JSON.parse(atob(state))
-    const { provider, reconnect, integrationId } = stateData
+    const { searchParams, origin } = new URL(request.url)
+    const code = searchParams.get("code")
+    const state = searchParams.get("state")
+    const error = searchParams.get("error")
 
-    console.log("Decoded state data:", stateData)
+    console.log("Slack callback params:", {
+      code: code ? "present" : "missing",
+      state: state ? "present" : "missing",
+      error,
+    })
 
-    if (provider !== "slack") {
-      throw new Error("Invalid provider in state")
+    // Handle OAuth errors from Slack
+    if (error) {
+      console.error("Slack OAuth error:", error)
+      const redirectUrl = new URL("/integrations", origin)
+      redirectUrl.searchParams.set("error", "oauth_error")
+      redirectUrl.searchParams.set("message", `Slack OAuth error: ${error}`)
+      redirectUrl.searchParams.set("provider", "slack")
+      return NextResponse.redirect(redirectUrl.toString())
+    }
+
+    // Validate required parameters
+    if (!code) {
+      console.error("Missing authorization code")
+      const redirectUrl = new URL("/integrations", origin)
+      redirectUrl.searchParams.set("error", "missing_code")
+      redirectUrl.searchParams.set("message", "Authorization code not received from Slack")
+      redirectUrl.searchParams.set("provider", "slack")
+      return NextResponse.redirect(redirectUrl.toString())
+    }
+
+    // Validate environment variables
+    if (!process.env.NEXT_PUBLIC_SLACK_CLIENT_ID || !process.env.SLACK_CLIENT_SECRET) {
+      console.error("Missing Slack OAuth configuration")
+      const redirectUrl = new URL("/integrations", origin)
+      redirectUrl.searchParams.set("error", "configuration_error")
+      redirectUrl.searchParams.set("message", "Slack OAuth not properly configured")
+      redirectUrl.searchParams.set("provider", "slack")
+      return NextResponse.redirect(redirectUrl.toString())
     }
 
     // Exchange code for access token
@@ -38,104 +55,130 @@ export async function GET(request: NextRequest) {
         "Content-Type": "application/x-www-form-urlencoded",
       },
       body: new URLSearchParams({
-        client_id: process.env.NEXT_PUBLIC_SLACK_CLIENT_ID!,
-        client_secret: process.env.SLACK_CLIENT_SECRET!,
+        client_id: process.env.NEXT_PUBLIC_SLACK_CLIENT_ID,
+        client_secret: process.env.SLACK_CLIENT_SECRET,
         code,
-        redirect_uri: `${request.nextUrl.origin}/api/integrations/slack/callback`,
+        redirect_uri: `${origin}/api/integrations/slack/callback`,
       }),
     })
 
     if (!tokenResponse.ok) {
-      const errorData = await tokenResponse.text()
-      console.error("Slack token exchange failed:", errorData)
-      throw new Error(`Failed to exchange code for token: ${errorData}`)
+      console.error("Token exchange failed:", tokenResponse.status, tokenResponse.statusText)
+      const redirectUrl = new URL("/integrations", origin)
+      redirectUrl.searchParams.set("error", "token_exchange_failed")
+      redirectUrl.searchParams.set("message", `Failed to exchange code for token: ${tokenResponse.statusText}`)
+      redirectUrl.searchParams.set("provider", "slack")
+      return NextResponse.redirect(redirectUrl.toString())
     }
 
     const tokenData = await tokenResponse.json()
-    console.log("Token exchange successful:", { ok: tokenData.ok, hasAccessToken: !!tokenData.access_token })
+    console.log("Token exchange response:", { ok: tokenData.ok, team: tokenData.team?.name })
 
     if (!tokenData.ok) {
-      throw new Error(`Slack API error: ${tokenData.error}`)
+      console.error("Slack token error:", tokenData.error)
+      const redirectUrl = new URL("/integrations", origin)
+      redirectUrl.searchParams.set("error", "token_error")
+      redirectUrl.searchParams.set("message", tokenData.error || "Token exchange failed")
+      redirectUrl.searchParams.set("provider", "slack")
+      return NextResponse.redirect(redirectUrl.toString())
     }
 
-    const { access_token, refresh_token, expires_in } = tokenData
-    const { team, authed_user } = tokenData
+    // Initialize Supabase client
+    const supabase = createRouteHandlerClient({ cookies })
 
-    // Store integration in Supabase
-    const supabase = getSupabaseClient()
+    // Get current session
     const {
       data: { session },
       error: sessionError,
     } = await supabase.auth.getSession()
 
-    if (sessionError) {
+    if (sessionError || !session) {
       console.error("Session error:", sessionError)
-      throw new Error(`Session error: ${sessionError.message}`)
+      const redirectUrl = new URL("/integrations", origin)
+      redirectUrl.searchParams.set("error", "session_error")
+      redirectUrl.searchParams.set("message", "No active user session found")
+      redirectUrl.searchParams.set("provider", "slack")
+      return NextResponse.redirect(redirectUrl.toString())
     }
 
-    if (!session) {
-      console.error("No session found")
-      throw new Error("No session found")
-    }
+    console.log("User session found:", session.user.id)
 
+    // Prepare integration data
     const integrationData = {
       user_id: session.user.id,
       provider: "slack",
-      provider_user_id: authed_user.id,
-      access_token,
-      refresh_token,
-      expires_at: expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null,
+      provider_user_id: tokenData.authed_user?.id || tokenData.user_id,
       status: "connected" as const,
       scopes: tokenData.scope ? tokenData.scope.split(",") : [],
       metadata: {
-        team_id: team.id,
-        team_name: team.name,
-        user_id: authed_user.id,
+        access_token: tokenData.access_token,
+        token_type: tokenData.token_type || "bot",
+        scope: tokenData.scope,
+        team: tokenData.team,
+        authed_user: tokenData.authed_user,
+        bot_user_id: tokenData.bot_user_id,
         connected_at: new Date().toISOString(),
       },
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     }
 
-    console.log("Saving integration to database...", {
-      userId: session.user.id,
-      provider: "slack",
-      reconnect,
-      integrationId,
-    })
+    console.log("Saving integration to database...")
 
-    if (reconnect && integrationId) {
-      // Update existing integration
-      const { error } = await supabase
+    // Check if integration already exists
+    const { data: existingIntegration } = await supabase
+      .from("integrations")
+      .select("id")
+      .eq("user_id", session.user.id)
+      .eq("provider", "slack")
+      .single()
+
+    let result
+    if (existingIntegration) {
+      console.log("Updating existing Slack integration:", existingIntegration.id)
+      result = await supabase
         .from("integrations")
         .update({
-          ...integrationData,
+          status: "connected",
+          provider_user_id: integrationData.provider_user_id,
+          scopes: integrationData.scopes,
+          metadata: integrationData.metadata,
           updated_at: new Date().toISOString(),
         })
-        .eq("id", integrationId)
-
-      if (error) {
-        console.error("Error updating integration:", error)
-        throw error
-      }
-      console.log("Integration updated successfully")
+        .eq("id", existingIntegration.id)
+        .select()
     } else {
-      // Create new integration
-      const { error } = await supabase.from("integrations").insert(integrationData)
-      if (error) {
-        console.error("Error inserting integration:", error)
-        throw error
-      }
-      console.log("Integration created successfully")
+      console.log("Creating new Slack integration")
+      result = await supabase.from("integrations").insert(integrationData).select()
     }
 
-    console.log("Slack integration saved successfully")
-    return NextResponse.redirect(new URL("/integrations?success=slack_connected", request.url))
+    if (result.error) {
+      console.error("Database error:", result.error)
+      const redirectUrl = new URL("/integrations", origin)
+      redirectUrl.searchParams.set("error", "database_error")
+      redirectUrl.searchParams.set("message", `Database error: ${result.error.message}`)
+      redirectUrl.searchParams.set("provider", "slack")
+      return NextResponse.redirect(redirectUrl.toString())
+    }
+
+    console.log("Slack integration saved successfully:", result.data?.[0]?.id)
+
+    // Redirect to success page
+    const redirectUrl = new URL("/integrations", origin)
+    redirectUrl.searchParams.set("success", existingIntegration ? "slack_reconnected" : "slack_connected")
+    redirectUrl.searchParams.set("provider", "slack")
+
+    console.log("Redirecting to:", redirectUrl.toString())
+    return NextResponse.redirect(redirectUrl.toString())
   } catch (error: any) {
     console.error("Slack OAuth callback error:", error)
-    return NextResponse.redirect(
-      new URL(
-        `/integrations?error=callback_failed&provider=slack&message=${encodeURIComponent(error.message)}`,
-        request.url,
-      ),
-    )
+
+    const { origin } = new URL(request.url)
+    const redirectUrl = new URL("/integrations", origin)
+    redirectUrl.searchParams.set("error", "callback_failed")
+    redirectUrl.searchParams.set("message", `Callback failed: ${error.message}`)
+    redirectUrl.searchParams.set("provider", "slack")
+
+    return NextResponse.redirect(redirectUrl.toString())
   }
 }

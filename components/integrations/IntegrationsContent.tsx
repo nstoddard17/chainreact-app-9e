@@ -45,10 +45,21 @@ export default function IntegrationsContent() {
     const success = searchParams.get("success")
     const error = searchParams.get("error")
     const details = searchParams.get("details")
-    const providerId = searchParams.get("providerId")
+    const message = searchParams.get("message")
+    const provider = searchParams.get("provider")
+
+    // Log all search params for debugging
+    const allParams = {}
+    searchParams.forEach((value, key) => {
+      allParams[key] = value
+    })
+
+    if (Object.keys(allParams).length > 0) {
+      console.log("URL search params:", allParams)
+    }
 
     if (success) {
-      console.log("OAuth success detected:", { success, providerId })
+      console.log("OAuth success detected:", { success, provider })
 
       // Clear cache and force refresh integrations data
       clearCache()
@@ -62,52 +73,34 @@ export default function IntegrationsContent() {
           console.log("Current integrations after refresh:", integrations.length)
 
           // Show success toast based on the success type
-          if (success === "github_connected") {
+          if (success.includes("github")) {
             toast({
               title: "GitHub Connected",
               description: "Your GitHub integration has been successfully connected!",
               duration: 5000,
             })
-          } else if (success === "github_reconnected") {
-            toast({
-              title: "GitHub Reconnected",
-              description: "Your GitHub integration has been successfully reconnected!",
-              duration: 5000,
-            })
-          } else if (success === "slack_connected") {
+          } else if (success.includes("slack")) {
             toast({
               title: "Slack Connected",
               description: "Your Slack integration has been successfully connected!",
               duration: 5000,
             })
-          } else if (success === "slack_reconnected") {
-            toast({
-              title: "Slack Reconnected",
-              description: "Your Slack integration has been successfully reconnected!",
-              duration: 5000,
-            })
-          } else if (success === "google_connected") {
+          } else if (success.includes("google")) {
             toast({
               title: "Google Connected",
               description: "Your Google integration has been successfully connected!",
               duration: 5000,
             })
-          } else if (success === "google_reconnected") {
-            toast({
-              title: "Google Reconnected",
-              description: "Your Google integration has been successfully reconnected!",
-              duration: 5000,
-            })
-          } else if (success === "discord_connected") {
+          } else if (success.includes("discord")) {
             toast({
               title: "Discord Connected",
               description: "Your Discord integration has been successfully connected!",
               duration: 5000,
             })
-          } else if (success === "discord_reconnected") {
+          } else if (success.includes("teams")) {
             toast({
-              title: "Discord Reconnected",
-              description: "Your Discord integration has been successfully reconnected!",
+              title: "Teams Connected",
+              description: "Your Microsoft Teams integration has been successfully connected!",
               duration: 5000,
             })
           } else {
@@ -128,42 +121,66 @@ export default function IntegrationsContent() {
         }
       }, 2000) // Increased delay to 2 seconds to ensure database is updated
     } else if (error) {
-      console.log("OAuth error detected:", { error, details, providerId })
-      console.log("Full search params:", Object.fromEntries(searchParams.entries()))
+      console.log("OAuth error detected - Raw values:", {
+        error,
+        details,
+        message,
+        provider,
+      })
 
       let errorMessage = "Failed to connect integration"
-      switch (error) {
-        case "oauth_failed":
-          errorMessage = "OAuth authentication failed"
-          break
-        case "connection_failed":
-          errorMessage = "Connection failed"
-          break
-        case "missing_code":
-          errorMessage = "Missing authorization code"
-          break
-        case "missing_state":
-          errorMessage = "Missing state parameter"
-          break
-        case "session_expired":
-          errorMessage = "Your session has expired. Please log in again."
-          break
-        case "database_error":
-          errorMessage = "Database error occurred while saving integration"
-          break
-        case "token_exchange_failed":
-          errorMessage = "Failed to exchange authorization code for access token"
-          break
-        case "invalid_state":
-          errorMessage = "Invalid state parameter - possible CSRF attack"
-          break
-        case "provider_error":
-          errorMessage = "Provider returned an error"
-          break
+
+      // Use the message parameter if available, otherwise decode details
+      if (message) {
+        errorMessage = decodeURIComponent(message)
+      } else if (details) {
+        errorMessage = decodeURIComponent(details)
+      } else {
+        // Map error codes to user-friendly messages
+        switch (error) {
+          case "oauth_error":
+            errorMessage = "OAuth authentication failed"
+            break
+          case "oauth_failed":
+            errorMessage = "OAuth authentication failed"
+            break
+          case "connection_failed":
+            errorMessage = "Connection failed"
+            break
+          case "missing_code":
+            errorMessage = "Missing authorization code"
+            break
+          case "missing_params":
+            errorMessage = "Missing required parameters"
+            break
+          case "missing_state":
+            errorMessage = "Missing state parameter"
+            break
+          case "session_expired":
+            errorMessage = "Your session has expired. Please log in again."
+            break
+          case "database_error":
+            errorMessage = "Database error occurred while saving integration"
+            break
+          case "token_exchange_failed":
+            errorMessage = "Failed to exchange authorization code for access token"
+            break
+          case "callback_failed":
+            errorMessage = "OAuth callback failed"
+            break
+          case "invalid_state":
+            errorMessage = "Invalid state parameter - possible CSRF attack"
+            break
+          case "provider_error":
+            errorMessage = "Provider returned an error"
+            break
+          default:
+            errorMessage = `Integration error: ${error}`
+        }
       }
 
-      if (details) {
-        errorMessage += `: ${decodeURIComponent(details)}`
+      if (provider) {
+        errorMessage = `${provider.charAt(0).toUpperCase() + provider.slice(1)}: ${errorMessage}`
       }
 
       console.error("OAuth connection failed:", errorMessage)
@@ -182,7 +199,8 @@ export default function IntegrationsContent() {
       url.searchParams.delete("success")
       url.searchParams.delete("error")
       url.searchParams.delete("details")
-      url.searchParams.delete("providerId")
+      url.searchParams.delete("message")
+      url.searchParams.delete("provider")
       window.history.replaceState({}, "", url.toString())
     }
   }, [searchParams, toast, fetchIntegrations, clearCache, integrations.length])

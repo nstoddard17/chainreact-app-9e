@@ -1,9 +1,14 @@
 import { NextResponse } from "next/server"
 
-// This is a simple endpoint to clear any caching that might be happening
-// It doesn't actually do anything except return a 200 response
-// The real purpose is to provide a way to invalidate any client-side caching
 export async function POST() {
-  console.log("Cache clearing request received")
-  return NextResponse.json({ success: true, timestamp: Date.now() })
+  try {
+    // This is just a placeholder endpoint to clear any caching
+    // In a real implementation, you might clear Redis cache or similar
+    console.log("Cache clear requested")
+
+    return NextResponse.json({ success: true, message: "Cache cleared" })
+  } catch (error: any) {
+    console.error("Error clearing cache:", error)
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
 }
