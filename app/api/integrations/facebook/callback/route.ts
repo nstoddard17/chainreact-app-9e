@@ -11,12 +11,12 @@ export async function GET(request: NextRequest) {
 
   if (error) {
     console.error("Facebook OAuth error:", error)
-    return NextResponse.redirect(new URL("/integrations?error=oauth_error", request.url))
+    return NextResponse.redirect(new URL("/integrations?error=oauth_error&provider=facebook", request.url))
   }
 
   if (!code || !state) {
     console.error("Missing code or state in Facebook callback")
-    return NextResponse.redirect(new URL("/integrations?error=missing_params", request.url))
+    return NextResponse.redirect(new URL("/integrations?error=missing_params&provider=facebook", request.url))
   }
 
   try {
@@ -24,11 +24,14 @@ export async function GET(request: NextRequest) {
     const stateData = JSON.parse(atob(state))
     const { provider, reconnect, integrationId } = stateData
 
+    console.log("Decoded state data:", stateData)
+
     if (provider !== "facebook") {
       throw new Error("Invalid provider in state")
     }
 
     // Exchange code for access token
+    console.log("Exchanging code for access token...")
     const tokenResponse = await fetch("https://graph.facebook.com/v18.0/oauth/access_token", {
       method: "POST",
       headers: {
@@ -37,7 +40,7 @@ export async function GET(request: NextRequest) {
       body: new URLSearchParams({
         client_id: process.env.NEXT_PUBLIC_FACEBOOK_CLIENT_ID!,
         client_secret: process.env.FACEBOOK_CLIENT_SECRET!,
-        redirect_uri: `https://chainreact.app/api/integrations/facebook/callback`,
+        redirect_uri: `${request.nextUrl.origin}/api/integrations/facebook/callback`,
         code,
       }),
     })
@@ -45,28 +48,40 @@ export async function GET(request: NextRequest) {
     if (!tokenResponse.ok) {
       const errorData = await tokenResponse.text()
       console.error("Facebook token exchange failed:", errorData)
-      throw new Error("Failed to exchange code for token")
+      throw new Error(`Failed to exchange code for token: ${errorData}`)
     }
 
     const tokenData = await tokenResponse.json()
+    console.log("Token exchange successful:", { hasAccessToken: !!tokenData.access_token })
     const { access_token, expires_in } = tokenData
 
     // Get user info from Facebook
+    console.log("Fetching user info from Facebook...")
     const userResponse = await fetch(`https://graph.facebook.com/me?fields=id,name,email&access_token=${access_token}`)
 
     if (!userResponse.ok) {
-      throw new Error("Failed to get user info")
+      const errorData = await userResponse.text()
+      console.error("Failed to get user info from Facebook:", errorData)
+      throw new Error(`Failed to get user info: ${errorData}`)
     }
 
     const userData = await userResponse.json()
+    console.log("User info fetched successfully:", { userId: userData.id })
 
     // Store integration in Supabase
     const supabase = getSupabaseClient()
     const {
       data: { session },
+      error: sessionError,
     } = await supabase.auth.getSession()
 
+    if (sessionError) {
+      console.error("Session error:", sessionError)
+      throw new Error(`Session error: ${sessionError.message}`)
+    }
+
     if (!session) {
+      console.error("No session found")
       throw new Error("No session found")
     }
 
@@ -75,7 +90,7 @@ export async function GET(request: NextRequest) {
       provider: "facebook",
       provider_user_id: userData.id,
       access_token,
-      expires_at: new Date(Date.now() + expires_in * 1000).toISOString(),
+      expires_at: expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null,
       status: "connected" as const,
       scopes: ["pages_manage_posts", "pages_read_engagement"],
       metadata: {
@@ -84,6 +99,13 @@ export async function GET(request: NextRequest) {
         connected_at: new Date().toISOString(),
       },
     }
+
+    console.log("Saving integration to database...", {
+      userId: session.user.id,
+      provider: "facebook",
+      reconnect,
+      integrationId,
+    })
 
     if (reconnect && integrationId) {
       // Update existing integration
@@ -95,17 +117,30 @@ export async function GET(request: NextRequest) {
         })
         .eq("id", integrationId)
 
-      if (error) throw error
+      if (error) {
+        console.error("Error updating integration:", error)
+        throw error
+      }
+      console.log("Integration updated successfully")
     } else {
       // Create new integration
       const { error } = await supabase.from("integrations").insert(integrationData)
-      if (error) throw error
+      if (error) {
+        console.error("Error inserting integration:", error)
+        throw error
+      }
+      console.log("Integration created successfully")
     }
 
     console.log("Facebook integration saved successfully")
     return NextResponse.redirect(new URL("/integrations?success=facebook_connected", request.url))
   } catch (error: any) {
     console.error("Facebook OAuth callback error:", error)
-    return NextResponse.redirect(new URL("/integrations?error=callback_failed", request.url))
+    return NextResponse.redirect(
+      new URL(
+        `/integrations?error=callback_failed&provider=facebook&message=${encodeURIComponent(error.message)}`,
+        request.url,
+      ),
+    )
   }
 }
