@@ -59,22 +59,20 @@ export async function GET(request: NextRequest) {
     }
 
     const tokenData = await tokenResponse.json()
-    console.log("Token exchange successful:", {
-      hasAccessToken: !!tokenData.access_token,
-      tokenType: tokenData.token_type,
-      expiresIn: tokenData.expires_in,
-      scope: tokenData.scope,
-    })
-
     const { access_token, refresh_token, expires_in, scope: grantedScope } = tokenData
+
+    // Log token details immediately after exchange
+    console.log("Access Token:", access_token)
+    console.log("Token Type:", tokenData.token_type)
+    console.log("Scope:", tokenData.scope)
 
     if (!access_token) {
       throw new Error("No access token received from Google")
     }
 
-    // Get user info from Google using the correct endpoint and headers
+    // Get user info from Google using the OpenID Connect endpoint
     console.log("Fetching user info from Google...")
-    const userResponse = await fetch("https://www.googleapis.com/oauth2/v1/userinfo", {
+    const userResponse = await fetch("https://openidconnect.googleapis.com/v1/userinfo", {
       method: "GET",
       headers: {
         Authorization: `Bearer ${access_token}`,
@@ -82,39 +80,16 @@ export async function GET(request: NextRequest) {
       },
     })
 
-    let userData
-
     if (!userResponse.ok) {
       const errorData = await userResponse.text()
       console.error("Failed to get user info from Google:", errorData)
       console.error("Response status:", userResponse.status)
       console.error("Response headers:", Object.fromEntries(userResponse.headers.entries()))
-
-      // Try alternative endpoint if the first one fails
-      console.log("Trying alternative Google userinfo endpoint...")
-      const altUserResponse = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${access_token}`,
-          Accept: "application/json",
-        },
-      })
-
-      if (!altUserResponse.ok) {
-        const altErrorData = await altUserResponse.text()
-        console.error("Alternative endpoint also failed:", altErrorData)
-        throw new Error(`Failed to get user info from both endpoints: ${errorData}`)
-      }
-
-      userData = await altUserResponse.json()
-      console.log("User info fetched successfully from alternative endpoint:", {
-        userId: userData.id,
-        email: userData.email,
-      })
-    } else {
-      userData = await userResponse.json()
-      console.log("User info fetched successfully:", { userId: userData.id, email: userData.email })
+      throw new Error(`Failed to get user info: ${errorData}`)
     }
+
+    const userData = await userResponse.json()
+    console.log("User info fetched successfully:", { userId: userData.sub, email: userData.email })
 
     // Get session with multiple fallback methods
     const supabase = getSupabaseClient()
@@ -189,7 +164,7 @@ export async function GET(request: NextRequest) {
     const integrationData = {
       user_id: session.user.id,
       provider: provider,
-      provider_user_id: userData.id,
+      provider_user_id: userData.sub, // OpenID Connect uses 'sub' instead of 'id'
       status: "connected" as const,
       metadata: {
         access_token,
