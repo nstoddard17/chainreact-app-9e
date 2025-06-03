@@ -534,7 +534,11 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
               case "teams":
                 if (process.env.NEXT_PUBLIC_TEAMS_CLIENT_ID) {
                   const scopes = encodeURIComponent(providerConfig.scopes.join(" "))
-                  authUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=${process.env.NEXT_PUBLIC_TEAMS_CLIENT_ID}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scopes}&state=${state}&prompt=consent&t=${timestamp}`
+                  authUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=${
+                    process.env.NEXT_PUBLIC_TEAMS_CLIENT_ID
+                  }&response_type=code&redirect_uri=${encodeURIComponent(
+                    redirectUri,
+                  )}&scope=${scopes}&state=${state}&prompt=consent`
                 }
                 break
               case "google-calendar":
