@@ -11,12 +11,12 @@ export async function GET(request: NextRequest) {
 
   if (error) {
     console.error("LinkedIn OAuth error:", error)
-    return NextResponse.redirect(new URL("/integrations?error=oauth_error", request.url))
+    return NextResponse.redirect(new URL("/integrations?error=oauth_error&provider=linkedin", request.url))
   }
 
   if (!code || !state) {
     console.error("Missing code or state in LinkedIn callback")
-    return NextResponse.redirect(new URL("/integrations?error=missing_params", request.url))
+    return NextResponse.redirect(new URL("/integrations?error=missing_params&provider=linkedin", request.url))
   }
 
   try {
@@ -24,11 +24,14 @@ export async function GET(request: NextRequest) {
     const stateData = JSON.parse(atob(state))
     const { provider, reconnect, integrationId } = stateData
 
+    console.log("Decoded state data:", stateData)
+
     if (provider !== "linkedin") {
       throw new Error("Invalid provider in state")
     }
 
     // Exchange code for access token
+    console.log("Exchanging code for access token...")
     const tokenResponse = await fetch("https://www.linkedin.com/oauth/v2/accessToken", {
       method: "POST",
       headers: {
@@ -37,7 +40,7 @@ export async function GET(request: NextRequest) {
       body: new URLSearchParams({
         grant_type: "authorization_code",
         code,
-        redirect_uri: `https://chainreact.app/api/integrations/linkedin/callback`,
+        redirect_uri: `${request.nextUrl.origin}/api/integrations/linkedin/callback`,
         client_id: process.env.NEXT_PUBLIC_LINKEDIN_CLIENT_ID!,
         client_secret: process.env.LINKEDIN_CLIENT_SECRET!,
       }),
@@ -46,33 +49,105 @@ export async function GET(request: NextRequest) {
     if (!tokenResponse.ok) {
       const errorData = await tokenResponse.text()
       console.error("LinkedIn token exchange failed:", errorData)
-      throw new Error("Failed to exchange code for token")
+      throw new Error(`Failed to exchange code for token: ${errorData}`)
     }
 
     const tokenData = await tokenResponse.json()
+    console.log("Token exchange successful:", { hasAccessToken: !!tokenData.access_token })
     const { access_token, expires_in } = tokenData
 
-    // Get user info from LinkedIn
-    const userResponse = await fetch("https://api.linkedin.com/v2/people/~:(id,firstName,lastName,emailAddress)", {
+    // Get user info from LinkedIn using the correct v2 API
+    console.log("Fetching user info from LinkedIn...")
+    const userResponse = await fetch("https://api.linkedin.com/v2/people/~:(id,localizedFirstName,localizedLastName)", {
       headers: {
         Authorization: `Bearer ${access_token}`,
       },
     })
 
     if (!userResponse.ok) {
-      throw new Error("Failed to get user info")
+      const errorData = await userResponse.text()
+      console.error("Failed to get user info from LinkedIn:", errorData)
+      throw new Error(`Failed to get user info: ${errorData}`)
     }
 
     const userData = await userResponse.json()
+    console.log("User info fetched successfully:", { userId: userData.id })
 
-    // Store integration in Supabase
+    // Get email separately as it requires a different endpoint
+    let email = null
+    try {
+      const emailResponse = await fetch(
+        "https://api.linkedin.com/v2/emailAddress?q=members&projection=(elements*(handle~))",
+        {
+          headers: {
+            Authorization: `Bearer ${access_token}`,
+          },
+        },
+      )
+
+      if (emailResponse.ok) {
+        const emailData = await emailResponse.json()
+        email = emailData.elements?.[0]?.["handle~"]?.emailAddress
+      }
+    } catch (error) {
+      console.log("Failed to get email from LinkedIn:", error)
+    }
+
+    // Store integration in Supabase with robust session handling
     const supabase = getSupabaseClient()
-    const {
-      data: { session },
-    } = await supabase.auth.getSession()
+
+    // Try multiple methods to get session
+    let session = null
+    try {
+      const {
+        data: { session: cookieSession },
+      } = await supabase.auth.getSession()
+      session = cookieSession
+      console.log("Session from cookies:", !!session)
+    } catch (error) {
+      console.log("Failed to get session from cookies:", error)
+    }
+
+    // If no session from cookies, try authorization headers
+    if (!session) {
+      try {
+        const authHeader = request.headers.get("authorization")
+        if (authHeader?.startsWith("Bearer ")) {
+          const token = authHeader.substring(7)
+          const {
+            data: { user },
+          } = await supabase.auth.getUser(token)
+          if (user) {
+            session = { user }
+            console.log("Session from auth header:", !!session)
+          }
+        }
+      } catch (error) {
+        console.log("Failed to get session from headers:", error)
+      }
+    }
+
+    // For reconnection scenarios, try to find user from existing integration
+    if (!session && reconnect && integrationId) {
+      try {
+        const { data: existingIntegration } = await supabase
+          .from("integrations")
+          .select("user_id")
+          .eq("id", integrationId)
+          .single()
+
+        if (existingIntegration) {
+          session = { user: { id: existingIntegration.user_id } }
+          console.log("Session from existing integration:", !!session)
+        }
+      } catch (error) {
+        console.log("Failed to get user from existing integration:", error)
+      }
+    }
 
     if (!session) {
-      throw new Error("No session found")
+      console.error("No session found after all attempts")
+      return NextResponse.redirect(new URL("/integrations?error=no_session&provider=linkedin", request.url))
     }
 
     const integrationData = {
@@ -80,16 +155,23 @@ export async function GET(request: NextRequest) {
       provider: "linkedin",
       provider_user_id: userData.id,
       access_token,
-      expires_at: new Date(Date.now() + expires_in * 1000).toISOString(),
+      expires_at: expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null,
       status: "connected" as const,
-      scopes: ["w_member_social", "r_liteprofile"],
+      scopes: ["r_liteprofile", "r_emailaddress", "w_member_social"],
       metadata: {
-        first_name: userData.firstName?.localized?.en_US,
-        last_name: userData.lastName?.localized?.en_US,
-        email: userData.emailAddress,
+        first_name: userData.localizedFirstName,
+        last_name: userData.localizedLastName,
+        email: email,
         connected_at: new Date().toISOString(),
       },
     }
+
+    console.log("Saving integration to database...", {
+      userId: session.user.id,
+      provider: "linkedin",
+      reconnect,
+      integrationId,
+    })
 
     if (reconnect && integrationId) {
       // Update existing integration
@@ -101,17 +183,30 @@ export async function GET(request: NextRequest) {
         })
         .eq("id", integrationId)
 
-      if (error) throw error
+      if (error) {
+        console.error("Error updating integration:", error)
+        throw error
+      }
+      console.log("Integration updated successfully")
     } else {
       // Create new integration
       const { error } = await supabase.from("integrations").insert(integrationData)
-      if (error) throw error
+      if (error) {
+        console.error("Error inserting integration:", error)
+        throw error
+      }
+      console.log("Integration created successfully")
     }
 
     console.log("LinkedIn integration saved successfully")
     return NextResponse.redirect(new URL("/integrations?success=linkedin_connected", request.url))
   } catch (error: any) {
     console.error("LinkedIn OAuth callback error:", error)
-    return NextResponse.redirect(new URL("/integrations?error=callback_failed", request.url))
+    return NextResponse.redirect(
+      new URL(
+        `/integrations?error=callback_failed&provider=linkedin&message=${encodeURIComponent(error.message)}`,
+        request.url,
+      ),
+    )
   }
 }

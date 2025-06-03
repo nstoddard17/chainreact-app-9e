@@ -1,19 +1,36 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getSupabaseClient } from "@/lib/supabase"
+import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
+import { cookies } from "next/headers"
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
   const token = searchParams.get("token")
   const state = searchParams.get("state")
 
-  console.log("Trello OAuth callback:", { token: !!token, state })
+  // Trello returns the token in the URL fragment, not as a query parameter
+  // We need to handle this on the client side and pass it as a query parameter
+  console.log("Trello OAuth callback:", {
+    token: !!token,
+    state: !!state,
+    allParams: Object.fromEntries(searchParams.entries()),
+    url: request.url,
+  })
 
-  if (!token || !state) {
-    console.error("Missing token or state in Trello callback")
-    return NextResponse.redirect(new URL("/integrations?error=missing_params", request.url))
+  // If no token in query params, redirect to a client-side handler
+  if (!token) {
+    console.log("No token in query params, redirecting to client-side handler")
+    return NextResponse.redirect(new URL("/integrations?trello_auth=pending", request.url))
+  }
+
+  if (!state) {
+    console.error("Missing state in Trello callback")
+    return NextResponse.redirect(new URL("/integrations?error=missing_state&provider=trello", request.url))
   }
 
   try {
+    console.log("Processing Trello OAuth callback with token and state")
+
     // Decode state to get provider info
     const stateData = JSON.parse(atob(state))
     const { provider, reconnect, integrationId } = stateData
@@ -22,27 +39,51 @@ export async function GET(request: NextRequest) {
       throw new Error("Invalid provider in state")
     }
 
+    console.log("Decoded state:", { provider, reconnect, integrationId })
+
     // Get user info from Trello
+    console.log("Fetching user info from Trello API...")
     const userResponse = await fetch(
       `https://api.trello.com/1/members/me?key=${process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID}&token=${token}`,
     )
 
     if (!userResponse.ok) {
-      throw new Error("Failed to get user info")
+      const errorText = await userResponse.text()
+      console.error("Failed to get Trello user info:", errorText)
+      throw new Error(`Failed to get user info: ${userResponse.status}`)
     }
 
     const userData = await userResponse.json()
+    console.log("Trello user data received:", { id: userData.id, username: userData.username })
 
-    // Store integration in Supabase
-    const supabase = getSupabaseClient()
-    const {
-      data: { session },
-    } = await supabase.auth.getSession()
+    // Get user session
+    console.log("Getting user session...")
+    let supabase
+    let session
 
-    if (!session) {
-      throw new Error("No session found")
+    try {
+      supabase = createServerComponentClient({ cookies })
+      const {
+        data: { session: serverSession },
+      } = await supabase.auth.getSession()
+      session = serverSession
+    } catch (error) {
+      console.log("Server client failed, using regular client:", error)
+      supabase = getSupabaseClient()
+      const {
+        data: { session: regularSession },
+      } = await supabase.auth.getSession()
+      session = regularSession
     }
 
+    if (!session) {
+      console.error("No session found")
+      return NextResponse.redirect(new URL("/integrations?error=no_session&provider=trello", request.url))
+    }
+
+    console.log("Session found for user:", session.user.id)
+
+    // Store integration in Supabase
     const integrationData = {
       user_id: session.user.id,
       provider: "trello",
@@ -58,8 +99,10 @@ export async function GET(request: NextRequest) {
       },
     }
 
+    console.log("Saving integration to database...")
+
     if (reconnect && integrationId) {
-      // Update existing integration
+      console.log("Updating existing integration:", integrationId)
       const { error } = await supabase
         .from("integrations")
         .update({
@@ -68,17 +111,28 @@ export async function GET(request: NextRequest) {
         })
         .eq("id", integrationId)
 
-      if (error) throw error
+      if (error) {
+        console.error("Database update error:", error)
+        throw error
+      }
     } else {
-      // Create new integration
+      console.log("Creating new integration")
       const { error } = await supabase.from("integrations").insert(integrationData)
-      if (error) throw error
+      if (error) {
+        console.error("Database insert error:", error)
+        throw error
+      }
     }
 
     console.log("Trello integration saved successfully")
     return NextResponse.redirect(new URL("/integrations?success=trello_connected", request.url))
   } catch (error: any) {
     console.error("Trello OAuth callback error:", error)
-    return NextResponse.redirect(new URL("/integrations?error=callback_failed", request.url))
+    return NextResponse.redirect(
+      new URL(
+        `/integrations?error=callback_failed&provider=trello&message=${encodeURIComponent(error.message)}`,
+        request.url,
+      ),
+    )
   }
 }

@@ -299,7 +299,7 @@ const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
     icon: "#",
     logoColor: "bg-blue-700 text-white",
     authType: process.env.NEXT_PUBLIC_LINKEDIN_CLIENT_ID ? "oauth" : "demo",
-    scopes: ["r_liteprofile", "w_member_social"],
+    scopes: ["r_liteprofile", "r_emailaddress", "w_member_social"],
     capabilities: ["Share posts", "Manage connections", "View analytics", "Company updates"],
     category: "Social Media",
     requiresSetup: !process.env.NEXT_PUBLIC_LINKEDIN_CLIENT_ID,
@@ -503,7 +503,7 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
               provider,
             )
             const redirectUri = isGoogleService
-              ? `${baseUrl}/api/integrations/google/callback`
+              ? "https://chainreact.app/api/integrations/google/callback"
               : `${baseUrl}/api/integrations/${provider}/callback`
 
             console.log(`Using redirect URI: ${redirectUri}`)
@@ -580,7 +580,9 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
                 break
               case "linkedin":
                 if (process.env.NEXT_PUBLIC_LINKEDIN_CLIENT_ID) {
-                  authUrl = `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${process.env.NEXT_PUBLIC_LINKEDIN_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(providerConfig.scopes.join(" "))}&state=${state}&t=${timestamp}`
+                  // Use the correct LinkedIn OAuth v2 scopes
+                  const linkedinScopes = "r_liteprofile r_emailaddress w_member_social"
+                  authUrl = `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${process.env.NEXT_PUBLIC_LINKEDIN_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(linkedinScopes)}&state=${state}&t=${timestamp}`
                 }
                 break
               case "mailchimp":
@@ -625,7 +627,26 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
                 break
               case "trello":
                 if (process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID) {
-                  authUrl = `https://trello.com/1/authorize?expiration=never&name=ChainReact&scope=${encodeURIComponent(providerConfig.scopes.join(","))}&response_type=token&key=${process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID}&return_url=${encodeURIComponent(redirectUri)}&state=${state}&t=${timestamp}`
+                  // Trello uses a special token-based flow
+                  // We need to create a custom handler for this
+                  const trelloAuthUrl = `https://trello.com/1/authorize?expiration=never&name=ChainReact&scope=${encodeURIComponent(providerConfig.scopes.join(","))}&response_type=token&key=${process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID}&callback_method=fragment&return_url=${encodeURIComponent(`${baseUrl}/integrations?trello_state=${state}`)}&t=${timestamp}`
+
+                  // Open Trello auth in a popup and handle the token on return
+                  const popup = window.open(trelloAuthUrl, "trello-auth", "width=600,height=600")
+
+                  // Listen for the popup to close or send a message
+                  const checkClosed = setInterval(() => {
+                    if (popup?.closed) {
+                      clearInterval(checkClosed)
+                      // Refresh the page to check for new integrations
+                      window.location.reload()
+                    }
+                  }, 1000)
+
+                  set({ loading: false })
+                  return
+                } else {
+                  console.warn("NEXT_PUBLIC_TRELLO_CLIENT_ID not configured")
                 }
                 break
               case "stripe":

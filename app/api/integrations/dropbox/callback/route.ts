@@ -30,6 +30,9 @@ export async function GET(request: NextRequest) {
       throw new Error("Invalid provider in state")
     }
 
+    const redirectUri = `${request.nextUrl.origin}/api/integrations/dropbox/callback`
+    console.log("Using redirect URI for token exchange:", redirectUri)
+
     // Exchange code for access token
     console.log("Exchanging code for access token...")
     const tokenResponse = await fetch("https://api.dropboxapi.com/oauth2/token", {
@@ -42,7 +45,7 @@ export async function GET(request: NextRequest) {
         grant_type: "authorization_code",
         client_id: process.env.NEXT_PUBLIC_DROPBOX_CLIENT_ID!,
         client_secret: process.env.DROPBOX_CLIENT_SECRET!,
-        redirect_uri: `${request.nextUrl.origin}/api/integrations/dropbox/callback`,
+        redirect_uri: redirectUri,
       }),
     })
 

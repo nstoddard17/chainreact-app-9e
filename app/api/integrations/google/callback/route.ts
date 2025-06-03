@@ -23,16 +23,21 @@ export async function GET(request: NextRequest) {
   try {
     // Decode state to get provider info
     const stateData = JSON.parse(atob(state))
-    const { provider, service, reconnect, integrationId } = stateData
+    const { provider, reconnect, integrationId } = stateData
 
     console.log("Decoded state data:", stateData)
 
-    if (!provider.startsWith("google")) {
+    if (!provider || (!provider.startsWith("google") && provider !== "gmail" && provider !== "youtube")) {
       throw new Error("Invalid provider in state")
     }
 
+    // Use the correct redirect URI that matches what we're using in the OAuth flow
+    const redirectUri = "https://chainreact.app/api/integrations/google/callback"
+
     // Exchange code for access token
     console.log("Exchanging code for access token...")
+    console.log("Using redirect URI:", redirectUri)
+
     const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: {
@@ -43,7 +48,7 @@ export async function GET(request: NextRequest) {
         client_secret: process.env.GOOGLE_CLIENT_SECRET!,
         code,
         grant_type: "authorization_code",
-        redirect_uri: `${request.nextUrl.origin}/api/integrations/google/callback`,
+        redirect_uri: redirectUri,
       }),
     })
 
@@ -72,11 +77,7 @@ export async function GET(request: NextRequest) {
     }
 
     const userData = await userResponse.json()
-    console.log("User info fetched successfully:", { userId: userData.id })
-
-    // Map service to provider
-    const actualProvider = service || "google"
-    console.log("Using provider:", actualProvider)
+    console.log("User info fetched successfully:", { userId: userData.id, email: userData.email })
 
     // Store integration in Supabase
     const supabase = getSupabaseClient()
@@ -97,24 +98,24 @@ export async function GET(request: NextRequest) {
 
     const integrationData = {
       user_id: session.user.id,
-      provider: actualProvider,
+      provider: provider,
       provider_user_id: userData.id,
-      access_token,
-      refresh_token,
-      expires_at: expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null,
       status: "connected" as const,
-      scopes: grantedScope ? grantedScope.split(" ") : [],
       metadata: {
+        access_token,
+        refresh_token,
+        expires_at: expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null,
         user_name: userData.name,
         user_email: userData.email,
         picture: userData.picture,
+        scopes: grantedScope ? grantedScope.split(" ") : [],
         connected_at: new Date().toISOString(),
       },
     }
 
     console.log("Saving integration to database...", {
       userId: session.user.id,
-      provider: actualProvider,
+      provider: provider,
       reconnect,
       integrationId,
     })
@@ -145,7 +146,7 @@ export async function GET(request: NextRequest) {
     }
 
     console.log("Google integration saved successfully")
-    return NextResponse.redirect(new URL(`/integrations?success=${actualProvider}_connected`, request.url))
+    return NextResponse.redirect(new URL(`/integrations?success=${provider}_connected`, request.url))
   } catch (error: any) {
     console.error("Google OAuth callback error:", error)
     return NextResponse.redirect(

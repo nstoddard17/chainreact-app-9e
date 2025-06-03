@@ -1,5 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getSupabaseClient } from "@/lib/supabase"
+import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
+import { cookies } from "next/headers"
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
@@ -11,12 +13,14 @@ export async function GET(request: NextRequest) {
 
   if (error) {
     console.error("Notion OAuth error:", error)
-    return NextResponse.redirect(new URL("/integrations?error=oauth_error", request.url))
+    return NextResponse.redirect(
+      new URL(`/integrations?error=oauth_error&message=${encodeURIComponent(error)}&provider=notion`, request.url),
+    )
   }
 
   if (!code || !state) {
     console.error("Missing code or state in Notion callback")
-    return NextResponse.redirect(new URL("/integrations?error=missing_params", request.url))
+    return NextResponse.redirect(new URL("/integrations?error=missing_params&provider=notion", request.url))
   }
 
   try {
@@ -24,11 +28,20 @@ export async function GET(request: NextRequest) {
     const stateData = JSON.parse(atob(state))
     const { provider, reconnect, integrationId } = stateData
 
+    console.log("Decoded state:", stateData)
+
     if (provider !== "notion") {
       throw new Error("Invalid provider in state")
     }
 
+    // Get the origin from the request URL
+    const origin = new URL(request.url).origin
+    const redirectUri = `${origin}/api/integrations/notion/callback`
+
+    console.log("Using redirect URI:", redirectUri)
+
     // Exchange code for access token
+    console.log("Exchanging code for access token...")
     const tokenResponse = await fetch("https://api.notion.com/v1/oauth/token", {
       method: "POST",
       headers: {
@@ -40,28 +53,67 @@ export async function GET(request: NextRequest) {
       body: JSON.stringify({
         grant_type: "authorization_code",
         code,
-        redirect_uri: `https://chainreact.app/api/integrations/notion/callback`,
+        redirect_uri: redirectUri,
       }),
     })
 
     if (!tokenResponse.ok) {
       const errorData = await tokenResponse.text()
       console.error("Notion token exchange failed:", errorData)
-      throw new Error("Failed to exchange code for token")
+      throw new Error(`Failed to exchange code for token: ${errorData}`)
     }
 
     const tokenData = await tokenResponse.json()
+    console.log("Token exchange successful:", {
+      hasAccessToken: !!tokenData.access_token,
+      workspaceName: tokenData.workspace_name,
+      workspaceId: tokenData.workspace_id,
+      botId: tokenData.bot_id,
+    })
+
     const { access_token, workspace_name, workspace_id, bot_id } = tokenData
 
-    // Store integration in Supabase
-    const supabase = getSupabaseClient()
-    const {
-      data: { session },
-    } = await supabase.auth.getSession()
+    // Get user session using server component client
+    console.log("Getting user session...")
+    const supabase = createServerComponentClient({ cookies })
+
+    let session
+    try {
+      const {
+        data: { session: serverSession },
+        error: sessionError,
+      } = await supabase.auth.getSession()
+      if (sessionError) {
+        console.error("Session error:", sessionError)
+        throw new Error(`Session error: ${sessionError.message}`)
+      }
+      session = serverSession
+    } catch (sessionErr) {
+      console.error("Failed to get session with server client, trying regular client:", sessionErr)
+      // Fallback to regular client
+      const regularSupabase = getSupabaseClient()
+      const {
+        data: { session: fallbackSession },
+        error: fallbackError,
+      } = await regularSupabase.auth.getSession()
+      if (fallbackError) {
+        console.error("Fallback session error:", fallbackError)
+        throw new Error(`Fallback session error: ${fallbackError.message}`)
+      }
+      session = fallbackSession
+    }
 
     if (!session) {
-      throw new Error("No session found")
+      console.error("No session found after trying both methods")
+      return NextResponse.redirect(
+        new URL(
+          "/integrations?error=no_session&provider=notion&message=Please%20log%20in%20and%20try%20again",
+          request.url,
+        ),
+      )
     }
+
+    console.log("Session found for user:", session.user.id)
 
     const integrationData = {
       user_id: session.user.id,
@@ -78,9 +130,12 @@ export async function GET(request: NextRequest) {
       },
     }
 
+    console.log("Saving integration to database...")
+
     if (reconnect && integrationId) {
       // Update existing integration
-      const { error } = await supabase
+      console.log("Updating existing integration:", integrationId)
+      const { error: updateError } = await supabase
         .from("integrations")
         .update({
           ...integrationData,
@@ -88,17 +143,29 @@ export async function GET(request: NextRequest) {
         })
         .eq("id", integrationId)
 
-      if (error) throw error
+      if (updateError) {
+        console.error("Database update error:", updateError)
+        throw updateError
+      }
+      console.log("Integration updated successfully")
     } else {
       // Create new integration
-      const { error } = await supabase.from("integrations").insert(integrationData)
-      if (error) throw error
+      console.log("Creating new integration")
+      const { error: insertError } = await supabase.from("integrations").insert(integrationData)
+      if (insertError) {
+        console.error("Database insert error:", insertError)
+        throw insertError
+      }
+      console.log("Integration created successfully")
     }
 
     console.log("Notion integration saved successfully")
     return NextResponse.redirect(new URL("/integrations?success=notion_connected", request.url))
   } catch (error: any) {
     console.error("Notion OAuth callback error:", error)
-    return NextResponse.redirect(new URL("/integrations?error=callback_failed", request.url))
+    const errorMessage = encodeURIComponent(error.message || "Unknown error occurred")
+    return NextResponse.redirect(
+      new URL(`/integrations?error=callback_failed&provider=notion&message=${errorMessage}`, request.url),
+    )
   }
 }
