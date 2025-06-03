@@ -247,20 +247,6 @@ export default function IntegrationsContent() {
     handleRefresh()
   }
 
-  // Add this function to the IntegrationsContent component
-
-  const handleDebug = async () => {
-    try {
-      const response = await fetch("/api/integrations/debug")
-      const data = await response.json()
-      console.log("Debug data:", data)
-      alert("Debug info logged to console")
-    } catch (error) {
-      console.error("Debug error:", error)
-      alert("Debug error: " + (error as Error).message)
-    }
-  }
-
   // Show loading state
   if (localLoading) {
     return (
@@ -379,12 +365,9 @@ export default function IntegrationsContent() {
                 .map((p) => p.name)
                 .join(", ") || "None"}
             </div>
-            <div className="mt-2 flex space-x-2">
+            <div className="mt-2">
               <Button onClick={handleClearCache} size="sm" variant="outline" className="text-xs h-6">
                 Clear Cache
-              </Button>
-              <Button onClick={handleDebug} size="sm" variant="outline" className="text-xs h-6">
-                Debug
               </Button>
             </div>
           </div>

@@ -6,68 +6,35 @@ export async function GET(request: NextRequest) {
   const code = searchParams.get("code")
   const state = searchParams.get("state")
   const error = searchParams.get("error")
-  const errorDescription = searchParams.get("error_description")
 
-  console.log("Teams OAuth callback:", {
-    code: !!code,
-    state: !!state,
-    error,
-    errorDescription,
-    url: request.url,
-  })
+  console.log("Teams OAuth callback:", { code: !!code, state, error })
 
   if (error) {
-    console.error("Teams OAuth error:", error, errorDescription)
-    return NextResponse.redirect(
-      new URL(`/integrations?error=oauth_error&details=${encodeURIComponent(errorDescription || error)}`, request.url),
-    )
+    console.error("Teams OAuth error:", error)
+    return NextResponse.redirect(new URL("/integrations?error=oauth_error", request.url))
   }
 
   if (!code || !state) {
-    console.error("Missing code or state in Teams callback", { code: !!code, state: !!state })
-    return NextResponse.redirect(
-      new URL(
-        `/integrations?error=missing_params&details=${encodeURIComponent("Missing authorization code or state parameter")}`,
-        request.url,
-      ),
-    )
+    console.error("Missing code or state in Teams callback")
+    return NextResponse.redirect(new URL("/integrations?error=missing_params", request.url))
   }
 
   try {
     // Decode state to get provider info
-    let stateData
-    try {
-      stateData = JSON.parse(atob(state))
-      console.log("Decoded state data:", stateData)
-    } catch (e) {
-      console.error("Failed to decode state:", e)
-      return NextResponse.redirect(
-        new URL(
-          `/integrations?error=invalid_state&details=${encodeURIComponent("Invalid state parameter")}`,
-          request.url,
-        ),
-      )
-    }
-
+    const stateData = JSON.parse(atob(state))
     const { provider, reconnect, integrationId } = stateData
 
     if (provider !== "teams") {
-      console.error("Invalid provider in state:", provider)
-      return NextResponse.redirect(
-        new URL(
-          `/integrations?error=invalid_provider&details=${encodeURIComponent("Invalid provider in state")}`,
-          request.url,
-        ),
-      )
+      throw new Error("Invalid provider in state")
     }
 
-    // Get the base URL for the redirect URI
-    const baseUrl = new URL(request.url).origin
-    const redirectUri = `${baseUrl}/api/integrations/teams/callback`
-    console.log("Using redirect URI:", redirectUri)
+    // Get the origin for the redirect URI
+    const origin = new URL(request.url).origin
+    const redirectUri = `${origin}/api/integrations/teams/callback`
+
+    console.log("Teams token exchange with redirect URI:", redirectUri)
 
     // Exchange code for access token
-    console.log("Exchanging code for access token...")
     const tokenResponse = await fetch("https://login.microsoftonline.com/common/oauth2/v2.0/token", {
       method: "POST",
       headers: {
@@ -86,26 +53,16 @@ export async function GET(request: NextRequest) {
       const errorData = await tokenResponse.text()
       console.error("Teams token exchange failed:", errorData)
       return NextResponse.redirect(
-        new URL(
-          `/integrations?error=token_exchange_failed&details=${encodeURIComponent(
-            "Failed to exchange code for token: " + errorData,
-          )}`,
-          request.url,
-        ),
+        new URL(`/integrations?error=token_exchange_failed&details=${encodeURIComponent(errorData)}`, request.url),
       )
     }
 
     const tokenData = await tokenResponse.json()
-    console.log("Token exchange successful:", {
-      access_token: !!tokenData.access_token,
-      refresh_token: !!tokenData.refresh_token,
-      expires_in: tokenData.expires_in,
-    })
-
     const { access_token, refresh_token, expires_in } = tokenData
 
+    console.log("Teams token exchange successful, fetching user info")
+
     // Get user info from Microsoft Graph
-    console.log("Fetching user info from Microsoft Graph...")
     const userResponse = await fetch("https://graph.microsoft.com/v1.0/me", {
       headers: {
         Authorization: `Bearer ${access_token}`,
@@ -114,21 +71,14 @@ export async function GET(request: NextRequest) {
 
     if (!userResponse.ok) {
       const errorData = await userResponse.text()
-      console.error("Failed to get user info:", errorData)
+      console.error("Failed to get Teams user info:", errorData)
       return NextResponse.redirect(
-        new URL(
-          `/integrations?error=user_info_failed&details=${encodeURIComponent("Failed to get user info: " + errorData)}`,
-          request.url,
-        ),
+        new URL(`/integrations?error=user_info_failed&details=${encodeURIComponent(errorData)}`, request.url),
       )
     }
 
     const userData = await userResponse.json()
-    console.log("User info fetched successfully:", {
-      id: userData.id,
-      displayName: userData.displayName,
-      email: userData.mail || userData.userPrincipalName,
-    })
+    console.log("Teams user info retrieved:", { id: userData.id, name: userData.displayName })
 
     // Store integration in Supabase
     const supabase = getSupabaseClient()
@@ -137,13 +87,8 @@ export async function GET(request: NextRequest) {
     } = await supabase.auth.getSession()
 
     if (!session) {
-      console.error("No session found")
-      return NextResponse.redirect(
-        new URL(
-          `/integrations?error=session_expired&details=${encodeURIComponent("No active session found")}`,
-          request.url,
-        ),
-      )
+      console.error("No session found for Teams integration")
+      return NextResponse.redirect(new URL("/integrations?error=session_expired", request.url))
     }
 
     const integrationData = {
@@ -162,16 +107,17 @@ export async function GET(request: NextRequest) {
       },
     }
 
-    console.log("Saving integration to database...", {
+    console.log("Saving Teams integration to database:", {
+      userId: session.user.id,
       provider: "teams",
       reconnect,
-      integrationId,
+      integrationId: integrationId || "new",
     })
 
     try {
       if (reconnect && integrationId) {
         // Update existing integration
-        const { error } = await supabase
+        const { error: updateError } = await supabase
           .from("integrations")
           .update({
             ...integrationData,
@@ -179,41 +125,36 @@ export async function GET(request: NextRequest) {
           })
           .eq("id", integrationId)
 
-        if (error) {
-          console.error("Database error updating integration:", error)
-          throw error
+        if (updateError) {
+          console.error("Teams integration update error:", updateError)
+          throw updateError
         }
-        console.log("Integration updated successfully")
+
+        console.log("Teams integration updated successfully")
       } else {
         // Create new integration
-        const { error } = await supabase.from("integrations").insert(integrationData)
-        if (error) {
-          console.error("Database error inserting integration:", error)
-          throw error
+        const { error: insertError } = await supabase.from("integrations").insert(integrationData)
+
+        if (insertError) {
+          console.error("Teams integration insert error:", insertError)
+          throw insertError
         }
-        console.log("Integration created successfully")
+
+        console.log("Teams integration created successfully")
       }
     } catch (dbError: any) {
-      console.error("Database operation failed:", dbError)
+      console.error("Teams database operation failed:", dbError)
       return NextResponse.redirect(
-        new URL(
-          `/integrations?error=database_error&details=${encodeURIComponent(
-            "Failed to save integration: " + dbError.message,
-          )}`,
-          request.url,
-        ),
+        new URL(`/integrations?error=database_error&details=${encodeURIComponent(dbError.message)}`, request.url),
       )
     }
 
     console.log("Teams integration saved successfully")
-    return NextResponse.redirect(new URL(`/integrations?success=teams_connected&providerId=teams`, request.url))
+    return NextResponse.redirect(new URL("/integrations?success=teams_connected", request.url))
   } catch (error: any) {
     console.error("Teams OAuth callback error:", error)
     return NextResponse.redirect(
-      new URL(
-        `/integrations?error=callback_failed&details=${encodeURIComponent(error.message || "Unknown error")}`,
-        request.url,
-      ),
+      new URL(`/integrations?error=callback_failed&details=${encodeURIComponent(error.message)}`, request.url),
     )
   }
 }
