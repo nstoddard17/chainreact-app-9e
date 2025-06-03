@@ -16,6 +16,7 @@ export default function IntegrationsContent() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [localLoading, setLocalLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [processingTrello, setProcessingTrello] = useState(false)
   const { integrations, providers, loading, error, fetchIntegrations, clearCache } = useIntegrationStore()
   const searchParams = useSearchParams()
   const { toast } = useToast()
@@ -38,6 +39,83 @@ export default function IntegrationsContent() {
     loadData()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []) // Empty dependency array to run only once on mount
+
+  // Handle Trello token from URL fragment
+  useEffect(() => {
+    const handleTrelloAuth = async () => {
+      // Check if we have a trello_state parameter (indicates returning from Trello OAuth)
+      const trelloState = searchParams.get("trello_state")
+      const trelloAuth = searchParams.get("trello_auth")
+
+      if (trelloState || trelloAuth === "pending") {
+        // Get token from URL fragment
+        const hash = window.location.hash
+        if (hash && hash.includes("token=")) {
+          setProcessingTrello(true)
+          try {
+            // Extract token from hash
+            const token = hash.split("token=")[1].split("&")[0]
+            console.log("Extracted Trello token from URL fragment")
+
+            // Extract state from query parameter
+            const state = trelloState || ""
+
+            // Send token to our backend
+            const response = await fetch(`/api/integrations/trello/callback?token=${token}&state=${state}`)
+
+            if (!response.ok) {
+              const errorData = await response.json().catch(() => ({}))
+              throw new Error(errorData.message || "Failed to process Trello integration")
+            }
+
+            // Clear cache and refresh integrations
+            clearCache()
+            await fetchIntegrations(true)
+
+            // Show success toast
+            toast({
+              title: "Trello Connected",
+              description: "Your Trello integration has been successfully connected!",
+              duration: 5000,
+            })
+
+            // Clean up URL
+            const url = new URL(window.location.href)
+            url.hash = ""
+            url.searchParams.delete("trello_state")
+            url.searchParams.delete("trello_auth")
+            window.history.replaceState({}, "", url.toString())
+          } catch (err: any) {
+            console.error("Failed to process Trello token:", err)
+            toast({
+              title: "Connection Failed",
+              description: `Failed to connect Trello: ${err.message}`,
+              variant: "destructive",
+              duration: 7000,
+            })
+          } finally {
+            setProcessingTrello(false)
+          }
+        } else if (trelloAuth === "pending") {
+          // If we have trello_auth=pending but no token in the hash,
+          // the user probably closed the Trello auth window without authorizing
+          toast({
+            title: "Connection Cancelled",
+            description: "Trello authorization was cancelled or failed.",
+            variant: "destructive",
+            duration: 5000,
+          })
+
+          // Clean up URL
+          const url = new URL(window.location.href)
+          url.searchParams.delete("trello_auth")
+          window.history.replaceState({}, "", url.toString())
+        }
+      }
+    }
+
+    handleTrelloAuth()
+  }, [searchParams, toast, clearCache, fetchIntegrations])
 
   // Handle URL parameters for OAuth callbacks
   useEffect(() => {
@@ -101,6 +179,12 @@ export default function IntegrationsContent() {
             toast({
               title: "Teams Connected",
               description: "Your Microsoft Teams integration has been successfully connected!",
+              duration: 5000,
+            })
+          } else if (success.includes("trello")) {
+            toast({
+              title: "Trello Connected",
+              description: "Your Trello integration has been successfully connected!",
               duration: 5000,
             })
           } else {
@@ -275,12 +359,14 @@ export default function IntegrationsContent() {
   }
 
   // Show loading state
-  if (localLoading) {
+  if (localLoading || processingTrello) {
     return (
       <AppLayout>
         <div className="flex flex-col items-center justify-center h-64 space-y-4">
           <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
-          <p className="text-slate-600">Loading integrations...</p>
+          <p className="text-slate-600">
+            {processingTrello ? "Processing Trello integration..." : "Loading integrations..."}
+          </p>
         </div>
       </AppLayout>
     )

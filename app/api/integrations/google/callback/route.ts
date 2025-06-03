@@ -89,10 +89,10 @@ export async function GET(request: NextRequest) {
       throw new Error(`Failed to get user info: ${errorData}`)
     }
 
-    const userData = await userResponse.json()
-    console.log("User info fetched successfully:", { userId: userData.sub, email: userData.email })
+    const googleUserData = await userResponse.json()
+    console.log("User info fetched successfully:", { userId: googleUserData.sub, email: googleUserData.email })
 
-    // Get session using server component client - this is the source of truth
+    // Get session using server component client
     const supabase = createServerComponentClient({ cookies })
     const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
 
@@ -101,32 +101,45 @@ export async function GET(request: NextRequest) {
       throw new Error(`Session error: ${sessionError.message}`)
     }
 
-    if (!sessionData?.session) {
-      console.error("Google: No session found")
-      throw new Error("No session found")
+    if (!sessionData?.session?.access_token) {
+      console.error("Google: No session or access token found")
+      throw new Error("No session or access token found")
     }
 
-    console.log("Google: Session successfully retrieved for user:", sessionData.session.user.id)
+    // Securely fetch the authenticated user using the session access token\
+    const { data: userData: authenticatedUser, error: userError } = await supabase.auth.getUser(sessionData.session.access_token)
+
+    if (userError) {
+      console.error("Google: Error retrieving authenticated user:", userError)
+      throw new Error(`User authentication error: ${userError.message}`)
+    }
+
+    if (!authenticatedUser?.user) {
+      console.error("Google: No authenticated user found")
+      throw new Error("No authenticated user found")
+    }
+
+    console.log("Google: Authenticated user successfully retrieved:", authenticatedUser.user.id)
 
     const integrationData = {
-      user_id: sessionData.session.user.id,
+      user_id: authenticatedUser.user.id,
       provider: provider,
-      provider_user_id: userData.sub, // OpenID Connect uses 'sub' instead of 'id'
+      provider_user_id: googleUserData.sub, // OpenID Connect uses 'sub' instead of 'id'
       status: "connected" as const,
       metadata: {
         access_token,
         refresh_token,
         expires_at: expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null,
-        user_name: userData.name,
-        user_email: userData.email,
-        picture: userData.picture,
+        user_name: googleUserData.name,
+        user_email: googleUserData.email,
+        picture: googleUserData.picture,
         scopes: grantedScope ? grantedScope.split(" ") : [],
         connected_at: new Date().toISOString(),
       },
     }
 
     console.log("Saving integration to database...", {
-      userId: sessionData.session.user.id,
+      userId: authenticatedUser.user.id,
       provider: provider,
       reconnect,
       integrationId,
