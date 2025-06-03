@@ -62,37 +62,107 @@ export async function GET(request: NextRequest) {
     console.log("Token exchange successful:", { hasAccessToken: !!tokenData.access_token })
     const { access_token, refresh_token, expires_in, scope: grantedScope } = tokenData
 
-    // Get user info from Google
+    if (!access_token) {
+      throw new Error("No access token received from Google")
+    }
+
+    // Get user info from Google using the correct endpoint and headers
     console.log("Fetching user info from Google...")
-    const userResponse = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+    const userResponse = await fetch("https://www.googleapis.com/oauth2/v1/userinfo?alt=json", {
+      method: "GET",
       headers: {
         Authorization: `Bearer ${access_token}`,
+        Accept: "application/json",
       },
     })
 
     if (!userResponse.ok) {
       const errorData = await userResponse.text()
       console.error("Failed to get user info from Google:", errorData)
-      throw new Error(`Failed to get user info: ${errorData}`)
+      console.error("Response status:", userResponse.status)
+      console.error("Response headers:", Object.fromEntries(userResponse.headers.entries()))
+
+      // Try alternative endpoint if the first one fails
+      console.log("Trying alternative Google userinfo endpoint...")
+      const altUserResponse = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${access_token}`,
+          Accept: "application/json",
+        },
+      })
+
+      if (!altUserResponse.ok) {
+        const altErrorData = await altUserResponse.text()
+        console.error("Alternative endpoint also failed:", altErrorData)
+        throw new Error(`Failed to get user info from both endpoints: ${errorData}`)
+      }
+
+      const altUserData = await altUserResponse.json()
+      console.log("User info fetched successfully from alternative endpoint:", {
+        userId: altUserData.id,
+        email: altUserData.email,
+      })
+
+      // Use the alternative response
+      var userData = altUserData
+    } else {
+      userData = await userResponse.json()
+      console.log("User info fetched successfully:", { userId: userData.id, email: userData.email })
     }
 
-    const userData = await userResponse.json()
-    console.log("User info fetched successfully:", { userId: userData.id, email: userData.email })
-
-    // Store integration in Supabase
+    // Get session with multiple fallback methods
     const supabase = getSupabaseClient()
-    const {
-      data: { session },
-      error: sessionError,
-    } = await supabase.auth.getSession()
+    let session = null
+    let sessionError = null
 
-    if (sessionError) {
-      console.error("Session error:", sessionError)
-      throw new Error(`Session error: ${sessionError.message}`)
+    try {
+      // Try to get session from cookies first
+      const { data: sessionData, error: sessionErr } = await supabase.auth.getSession()
+      session = sessionData.session
+      sessionError = sessionErr
+      console.log("Session from cookies:", { hasSession: !!session, error: sessionError })
+    } catch (err) {
+      console.log("Failed to get session from cookies:", err)
+    }
+
+    // If no session from cookies, try to get from headers
+    if (!session) {
+      try {
+        const authHeader = request.headers.get("authorization")
+        if (authHeader?.startsWith("Bearer ")) {
+          const token = authHeader.substring(7)
+          const { data: userData, error: userError } = await supabase.auth.getUser(token)
+          if (userData.user && !userError) {
+            session = { user: userData.user } as any
+            console.log("Session from auth header:", { hasSession: !!session })
+          }
+        }
+      } catch (err) {
+        console.log("Failed to get session from auth header:", err)
+      }
+    }
+
+    // For reconnection scenarios, try to find user from existing integrations
+    if (!session && reconnect && integrationId) {
+      try {
+        const { data: existingIntegration } = await supabase
+          .from("integrations")
+          .select("user_id")
+          .eq("id", integrationId)
+          .single()
+
+        if (existingIntegration?.user_id) {
+          session = { user: { id: existingIntegration.user_id } } as any
+          console.log("Session from existing integration:", { hasSession: !!session })
+        }
+      } catch (err) {
+        console.log("Failed to get session from existing integration:", err)
+      }
     }
 
     if (!session) {
-      console.error("No session found")
+      console.error("No session found after all attempts")
       throw new Error("No session found")
     }
 

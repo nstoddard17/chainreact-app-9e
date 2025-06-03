@@ -497,17 +497,6 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
           if (isOAuthProvider && forceOAuth) {
             console.log(`Starting OAuth flow for ${provider}`)
 
-            const baseUrl = getBaseUrl()
-            // Use unified Google callback for all Google services
-            const isGoogleService = ["google-calendar", "google-sheets", "google-docs", "gmail", "youtube"].includes(
-              provider,
-            )
-            const redirectUri = isGoogleService
-              ? "https://chainreact.app/api/integrations/google/callback"
-              : `${baseUrl}/api/integrations/${provider}/callback`
-
-            console.log(`Using redirect URI: ${redirectUri}`)
-
             const timestamp = Date.now()
             const state = btoa(
               JSON.stringify({
@@ -529,6 +518,7 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
             switch (provider) {
               case "slack":
                 if (process.env.NEXT_PUBLIC_SLACK_CLIENT_ID) {
+                  const redirectUri = "https://chainreact.app/api/integrations/slack/callback"
                   authUrl = `https://slack.com/oauth/v2/authorize?client_id=${process.env.NEXT_PUBLIC_SLACK_CLIENT_ID}&scope=chat:write,chat:write.public,channels:read,channels:join,groups:read,im:read,users:read,team:read,files:write,reactions:write&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&user_scope=&team=${""}`
                 } else {
                   console.warn("NEXT_PUBLIC_SLACK_CLIENT_ID not configured")
@@ -536,6 +526,7 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
                 break
               case "discord":
                 if (process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID) {
+                  const redirectUri = "https://chainreact.app/api/integrations/discord/callback"
                   authUrl = `https://discord.com/api/oauth2/authorize?client_id=${process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=bot&state=${state}&prompt=consent&t=${timestamp}`
                 } else {
                   console.warn("NEXT_PUBLIC_DISCORD_CLIENT_ID not configured")
@@ -543,7 +534,7 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
                 break
               case "teams":
                 if (process.env.NEXT_PUBLIC_TEAMS_CLIENT_ID) {
-                  // Use the correct Microsoft Graph scopes for Teams
+                  const redirectUri = "https://chainreact.app/api/integrations/teams/callback"
                   const scopes = encodeURIComponent("User.Read Chat.ReadWrite Team.ReadBasic.All")
                   authUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=${process.env.NEXT_PUBLIC_TEAMS_CLIENT_ID}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scopes}&state=${state}&prompt=consent&t=${timestamp}`
                 } else {
@@ -556,6 +547,7 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
               case "gmail":
               case "youtube":
                 if (process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) {
+                  const redirectUri = "https://chainreact.app/api/integrations/google/callback"
                   const scopes = providerConfig.scopes.join(" ")
                   authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scopes)}&response_type=code&state=${state}&access_type=offline&prompt=consent&t=${timestamp}`
                 } else {
@@ -564,6 +556,7 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
                 break
               case "github":
                 if (process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID) {
+                  const redirectUri = "https://chainreact.app/api/integrations/github/callback"
                   authUrl = `https://github.com/login/oauth/authorize?client_id=${
                     process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID
                   }&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(
@@ -575,60 +568,69 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
                 break
               case "twitter":
                 if (process.env.NEXT_PUBLIC_TWITTER_CLIENT_ID) {
+                  const redirectUri = "https://chainreact.app/api/integrations/twitter/callback"
                   authUrl = `https://twitter.com/i/oauth2/authorize?response_type=code&client_id=${process.env.NEXT_PUBLIC_TWITTER_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(providerConfig.scopes.join(" "))}&state=${state}&code_challenge=challenge&code_challenge_method=plain&t=${timestamp}`
                 }
                 break
               case "linkedin":
                 if (process.env.NEXT_PUBLIC_LINKEDIN_CLIENT_ID) {
-                  // Use the correct LinkedIn OAuth v2 scopes
+                  const redirectUri = "https://chainreact.app/api/integrations/linkedin/callback"
                   const linkedinScopes = "r_liteprofile r_emailaddress w_member_social"
                   authUrl = `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${process.env.NEXT_PUBLIC_LINKEDIN_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(linkedinScopes)}&state=${state}&t=${timestamp}`
                 }
                 break
               case "mailchimp":
                 if (process.env.NEXT_PUBLIC_MAILCHIMP_CLIENT_ID) {
+                  const redirectUri = "https://chainreact.app/api/integrations/mailchimp/callback"
                   authUrl = `https://login.mailchimp.com/oauth2/authorize?response_type=code&client_id=${process.env.NEXT_PUBLIC_MAILCHIMP_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&t=${timestamp}`
                 }
                 break
               case "hubspot":
                 if (process.env.NEXT_PUBLIC_HUBSPOT_CLIENT_ID) {
+                  const redirectUri = "https://chainreact.app/api/integrations/hubspot/callback"
                   authUrl = `https://app.hubspot.com/oauth/authorize?client_id=${process.env.NEXT_PUBLIC_HUBSPOT_CLIENT_ID}&scope=${encodeURIComponent(providerConfig.scopes.join(" "))}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&t=${timestamp}`
                 }
                 break
               case "gitlab":
                 if (process.env.NEXT_PUBLIC_GITLAB_CLIENT_ID) {
+                  const redirectUri = "https://chainreact.app/api/integrations/gitlab/callback"
                   authUrl = `https://gitlab.com/oauth/authorize?client_id=${process.env.NEXT_PUBLIC_GITLAB_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(providerConfig.scopes.join(" "))}&state=${state}&t=${timestamp}`
                 }
                 break
               case "docker":
                 if (process.env.NEXT_PUBLIC_DOCKER_CLIENT_ID) {
+                  const redirectUri = "https://chainreact.app/api/integrations/docker/callback"
                   authUrl = `https://hub.docker.com/oauth/authorize/?client_id=${process.env.NEXT_PUBLIC_DOCKER_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(providerConfig.scopes.join(" "))}&state=${state}&t=${timestamp}`
                 }
                 break
               case "dropbox":
                 if (process.env.NEXT_PUBLIC_DROPBOX_CLIENT_ID) {
+                  const redirectUri = "https://chainreact.app/api/integrations/dropbox/callback"
                   authUrl = `https://www.dropbox.com/oauth2/authorize?client_id=${process.env.NEXT_PUBLIC_DROPBOX_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&state=${state}&t=${timestamp}`
                 }
                 break
               case "onedrive":
                 if (process.env.NEXT_PUBLIC_ONEDRIVE_CLIENT_ID) {
+                  const redirectUri = "https://chainreact.app/api/integrations/onedrive/callback"
                   authUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=${process.env.NEXT_PUBLIC_ONEDRIVE_CLIENT_ID}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(providerConfig.scopes.join(" "))}&state=${state}&t=${timestamp}`
                 }
                 break
               case "notion":
                 if (process.env.NEXT_PUBLIC_NOTION_CLIENT_ID) {
+                  const redirectUri = "https://chainreact.app/api/integrations/notion/callback"
                   authUrl = `https://api.notion.com/v1/oauth/authorize?client_id=${process.env.NEXT_PUBLIC_NOTION_CLIENT_ID}&response_type=code&owner=user&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&t=${timestamp}`
                 }
                 break
               case "airtable":
                 if (process.env.NEXT_PUBLIC_AIRTABLE_CLIENT_ID) {
+                  const redirectUri = "https://chainreact.app/api/integrations/airtable/callback"
                   authUrl = `https://airtable.com/oauth2/v1/authorize?client_id=${process.env.NEXT_PUBLIC_AIRTABLE_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(providerConfig.scopes.join(" "))}&state=${state}&t=${timestamp}`
                 }
                 break
               case "trello":
                 if (process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID) {
                   // Trello uses a special token-based flow
-                  // We need to create a custom handler for this
+                  const baseUrl = getBaseUrl()
                   const trelloAuthUrl = `https://trello.com/1/authorize?expiration=never&name=ChainReact&scope=${encodeURIComponent(providerConfig.scopes.join(","))}&response_type=token&key=${process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID}&callback_method=fragment&return_url=${encodeURIComponent(`${baseUrl}/integrations?trello_state=${state}`)}&t=${timestamp}`
 
                   // Open Trello auth in a popup and handle the token on return
@@ -651,16 +653,19 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
                 break
               case "stripe":
                 if (process.env.NEXT_PUBLIC_STRIPE_CLIENT_ID) {
+                  const redirectUri = "https://chainreact.app/api/integrations/stripe/callback"
                   authUrl = `https://connect.stripe.com/oauth/authorize?response_type=code&client_id=${process.env.NEXT_PUBLIC_STRIPE_CLIENT_ID}&scope=${encodeURIComponent(providerConfig.scopes.join(" "))}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&t=${timestamp}`
                 }
                 break
               case "paypal":
                 if (process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID) {
+                  const redirectUri = "https://chainreact.app/api/integrations/paypal/callback"
                   authUrl = `https://www.paypal.com/signin/authorize?client_id=${process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID}&response_type=code&scope=${encodeURIComponent(providerConfig.scopes.join(" "))}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&t=${timestamp}`
                 }
                 break
               case "shopify":
                 if (process.env.NEXT_PUBLIC_SHOPIFY_CLIENT_ID) {
+                  const redirectUri = "https://chainreact.app/api/integrations/shopify/callback"
                   authUrl = `https://myshopify.com/admin/oauth/authorize?client_id=${process.env.NEXT_PUBLIC_SHOPIFY_CLIENT_ID}&scope=${encodeURIComponent(providerConfig.scopes.join(","))}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&t=${timestamp}`
                 }
                 break

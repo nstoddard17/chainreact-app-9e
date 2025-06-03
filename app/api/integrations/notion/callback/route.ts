@@ -34,9 +34,8 @@ export async function GET(request: NextRequest) {
       throw new Error("Invalid provider in state")
     }
 
-    // Get the origin from the request URL
-    const origin = new URL(request.url).origin
-    const redirectUri = `${origin}/api/integrations/notion/callback`
+    // Use hardcoded redirect URI for Notion
+    const redirectUri = "https://chainreact.app/api/integrations/notion/callback"
 
     console.log("Using redirect URI:", redirectUri)
 
@@ -73,38 +72,68 @@ export async function GET(request: NextRequest) {
 
     const { access_token, workspace_name, workspace_id, bot_id } = tokenData
 
-    // Get user session using server component client
+    // Get user session using multiple fallback methods
     console.log("Getting user session...")
-    const supabase = createServerComponentClient({ cookies })
+    let session = null
+    let userId = null
 
-    let session
     try {
+      // Method 1: Try server component client
+      const supabase = createServerComponentClient({ cookies })
       const {
         data: { session: serverSession },
         error: sessionError,
       } = await supabase.auth.getSession()
-      if (sessionError) {
-        console.error("Session error:", sessionError)
-        throw new Error(`Session error: ${sessionError.message}`)
+
+      if (serverSession && !sessionError) {
+        session = serverSession
+        userId = session.user.id
+        console.log("Got session from server component client")
       }
-      session = serverSession
-    } catch (sessionErr) {
-      console.error("Failed to get session with server client, trying regular client:", sessionErr)
-      // Fallback to regular client
-      const regularSupabase = getSupabaseClient()
-      const {
-        data: { session: fallbackSession },
-        error: fallbackError,
-      } = await regularSupabase.auth.getSession()
-      if (fallbackError) {
-        console.error("Fallback session error:", fallbackError)
-        throw new Error(`Fallback session error: ${fallbackError.message}`)
-      }
-      session = fallbackSession
+    } catch (serverError) {
+      console.log("Server component client failed:", serverError)
     }
 
     if (!session) {
-      console.error("No session found after trying both methods")
+      try {
+        // Method 2: Try regular client
+        const regularSupabase = getSupabaseClient()
+        const {
+          data: { session: fallbackSession },
+          error: fallbackError,
+        } = await regularSupabase.auth.getSession()
+
+        if (fallbackSession && !fallbackError) {
+          session = fallbackSession
+          userId = session.user.id
+          console.log("Got session from regular client")
+        }
+      } catch (fallbackError) {
+        console.log("Regular client failed:", fallbackError)
+      }
+    }
+
+    if (!session && reconnect && integrationId) {
+      try {
+        // Method 3: For reconnection, try to get user from existing integration
+        const supabase = getSupabaseClient()
+        const { data: existingIntegration } = await supabase
+          .from("integrations")
+          .select("user_id")
+          .eq("id", integrationId)
+          .single()
+
+        if (existingIntegration?.user_id) {
+          userId = existingIntegration.user_id
+          console.log("Got user ID from existing integration for reconnection")
+        }
+      } catch (integrationError) {
+        console.log("Failed to get user from existing integration:", integrationError)
+      }
+    }
+
+    if (!userId) {
+      console.error("No session or user ID found after trying all methods")
       return NextResponse.redirect(
         new URL(
           "/integrations?error=no_session&provider=notion&message=Please%20log%20in%20and%20try%20again",
@@ -113,10 +142,10 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    console.log("Session found for user:", session.user.id)
+    console.log("Session found for user:", userId)
 
     const integrationData = {
-      user_id: session.user.id,
+      user_id: userId,
       provider: "notion",
       provider_user_id: bot_id,
       access_token,
@@ -131,6 +160,8 @@ export async function GET(request: NextRequest) {
     }
 
     console.log("Saving integration to database...")
+
+    const supabase = getSupabaseClient()
 
     if (reconnect && integrationId) {
       // Update existing integration

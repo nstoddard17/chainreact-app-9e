@@ -40,8 +40,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get the origin for the redirect URI
-    const origin = new URL(request.url).origin
-    const redirectUri = `${origin}/api/integrations/teams/callback`
+    const redirectUri = "https://chainreact.app/api/integrations/teams/callback"
 
     console.log("Teams token exchange with redirect URI:", redirectUri)
 
