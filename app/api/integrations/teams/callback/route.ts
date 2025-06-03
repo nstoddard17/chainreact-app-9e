@@ -6,17 +6,28 @@ export async function GET(request: NextRequest) {
   const code = searchParams.get("code")
   const state = searchParams.get("state")
   const error = searchParams.get("error")
+  const errorDescription = searchParams.get("error_description")
 
-  console.log("Teams OAuth callback:", { code: !!code, state, error })
+  console.log("Teams OAuth callback:", {
+    code: !!code,
+    state: !!state,
+    error,
+    errorDescription,
+  })
 
   if (error) {
-    console.error("Teams OAuth error:", error)
-    return NextResponse.redirect(new URL("/integrations?error=oauth_error", request.url))
+    console.error("Teams OAuth error:", error, errorDescription)
+    return NextResponse.redirect(
+      new URL(
+        `/integrations?error=oauth_error&provider=teams&message=${encodeURIComponent(errorDescription || error)}`,
+        request.url,
+      ),
+    )
   }
 
   if (!code || !state) {
     console.error("Missing code or state in Teams callback")
-    return NextResponse.redirect(new URL("/integrations?error=missing_params", request.url))
+    return NextResponse.redirect(new URL("/integrations?error=missing_params&provider=teams", request.url))
   }
 
   try {
@@ -49,15 +60,20 @@ export async function GET(request: NextRequest) {
       }),
     })
 
+    const tokenResponseText = await tokenResponse.text()
+    console.log("Teams token response status:", tokenResponse.status)
+
     if (!tokenResponse.ok) {
-      const errorData = await tokenResponse.text()
-      console.error("Teams token exchange failed:", errorData)
+      console.error("Teams token exchange failed:", tokenResponseText)
       return NextResponse.redirect(
-        new URL(`/integrations?error=token_exchange_failed&details=${encodeURIComponent(errorData)}`, request.url),
+        new URL(
+          `/integrations?error=token_exchange_failed&provider=teams&message=${encodeURIComponent(tokenResponseText)}`,
+          request.url,
+        ),
       )
     }
 
-    const tokenData = await tokenResponse.json()
+    const tokenData = JSON.parse(tokenResponseText)
     const { access_token, refresh_token, expires_in } = tokenData
 
     console.log("Teams token exchange successful, fetching user info")
@@ -73,7 +89,10 @@ export async function GET(request: NextRequest) {
       const errorData = await userResponse.text()
       console.error("Failed to get Teams user info:", errorData)
       return NextResponse.redirect(
-        new URL(`/integrations?error=user_info_failed&details=${encodeURIComponent(errorData)}`, request.url),
+        new URL(
+          `/integrations?error=user_info_failed&provider=teams&message=${encodeURIComponent(errorData)}`,
+          request.url,
+        ),
       )
     }
 
@@ -88,7 +107,7 @@ export async function GET(request: NextRequest) {
 
     if (!session) {
       console.error("No session found for Teams integration")
-      return NextResponse.redirect(new URL("/integrations?error=session_expired", request.url))
+      return NextResponse.redirect(new URL("/integrations?error=session_expired&provider=teams", request.url))
     }
 
     const integrationData = {
@@ -99,7 +118,7 @@ export async function GET(request: NextRequest) {
       refresh_token,
       expires_at: new Date(Date.now() + expires_in * 1000).toISOString(),
       status: "connected" as const,
-      scopes: ["https://graph.microsoft.com/Chat.ReadWrite", "https://graph.microsoft.com/Team.ReadBasic.All"],
+      scopes: ["User.Read", "Chat.ReadWrite", "Team.ReadBasic.All"],
       metadata: {
         user_name: userData.displayName,
         user_email: userData.mail || userData.userPrincipalName,
@@ -145,16 +164,30 @@ export async function GET(request: NextRequest) {
     } catch (dbError: any) {
       console.error("Teams database operation failed:", dbError)
       return NextResponse.redirect(
-        new URL(`/integrations?error=database_error&details=${encodeURIComponent(dbError.message)}`, request.url),
+        new URL(
+          `/integrations?error=database_error&provider=teams&message=${encodeURIComponent(dbError.message)}`,
+          request.url,
+        ),
       )
     }
 
+    // Clear the cache and redirect to success page
+    try {
+      await fetch(`${origin}/api/integrations/clear-cache`, { method: "POST" })
+      console.log("Cache cleared successfully")
+    } catch (cacheError) {
+      console.error("Failed to clear cache:", cacheError)
+    }
+
     console.log("Teams integration saved successfully")
-    return NextResponse.redirect(new URL("/integrations?success=teams_connected", request.url))
+    return NextResponse.redirect(new URL("/integrations?success=teams_connected&provider=teams", request.url))
   } catch (error: any) {
     console.error("Teams OAuth callback error:", error)
     return NextResponse.redirect(
-      new URL(`/integrations?error=callback_failed&details=${encodeURIComponent(error.message)}`, request.url),
+      new URL(
+        `/integrations?error=callback_failed&provider=teams&message=${encodeURIComponent(error.message)}`,
+        request.url,
+      ),
     )
   }
 }
