@@ -97,7 +97,7 @@ const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
     icon: "#",
     logoColor: "bg-blue-600 text-white",
     authType: process.env.NEXT_PUBLIC_TEAMS_CLIENT_ID ? "oauth" : "demo",
-    scopes: ["https://graph.microsoft.com/Chat.ReadWrite", "https://graph.microsoft.com/Team.ReadBasic.All"],
+    scopes: ["User.Read", "Chat.ReadWrite", "Team.ReadBasic.All"],
     capabilities: ["Send messages", "Create meetings", "Manage teams", "Share files"],
     category: "Communication",
     requiresSetup: !process.env.NEXT_PUBLIC_TEAMS_CLIENT_ID,
@@ -543,7 +543,8 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
                 break
               case "teams":
                 if (process.env.NEXT_PUBLIC_TEAMS_CLIENT_ID) {
-                  const scopes = encodeURIComponent(providerConfig.scopes.join(" "))
+                  // Use the correct Microsoft Graph scopes for Teams
+                  const scopes = encodeURIComponent("User.Read Chat.ReadWrite Team.ReadBasic.All")
                   authUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=${process.env.NEXT_PUBLIC_TEAMS_CLIENT_ID}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scopes}&state=${state}&prompt=consent&t=${timestamp}`
                 } else {
                   console.warn("NEXT_PUBLIC_TEAMS_CLIENT_ID not configured")
