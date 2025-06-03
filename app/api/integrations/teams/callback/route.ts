@@ -98,16 +98,67 @@ export async function GET(request: NextRequest) {
     const userData = await userResponse.json()
     console.log("Teams user info retrieved:", { id: userData.id, name: userData.displayName })
 
-    // Store integration in Supabase
+    // Store integration in Supabase with multiple session retrieval methods
     const supabase = getSupabaseClient()
-    const {
-      data: { session },
-    } = await supabase.auth.getSession()
 
-    if (!session) {
-      console.error("No session found for Teams integration")
-      return NextResponse.redirect(new URL("/integrations?error=session_expired&provider=teams", request.url))
+    // Try multiple methods to get the session
+    let session = null
+    let sessionError = null
+
+    try {
+      // Method 1: Get session from Supabase
+      const { data: sessionData, error: sessionErr } = await supabase.auth.getSession()
+      if (sessionData?.session) {
+        session = sessionData.session
+        console.log("Teams: Got session via getSession()")
+      } else {
+        sessionError = sessionErr
+        console.log("Teams: getSession() failed:", sessionErr)
+      }
+    } catch (error) {
+      console.log("Teams: getSession() threw error:", error)
+      sessionError = error
     }
+
+    // Method 2: Try to get user from cookies if session failed
+    if (!session) {
+      try {
+        const { data: userData, error: userError } = await supabase.auth.getUser()
+        if (userData?.user) {
+          session = { user: userData.user }
+          console.log("Teams: Got user via getUser()")
+        } else {
+          console.log("Teams: getUser() failed:", userError)
+        }
+      } catch (error) {
+        console.log("Teams: getUser() threw error:", error)
+      }
+    }
+
+    // Method 3: Try to refresh session if we still don't have one
+    if (!session) {
+      try {
+        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
+        if (refreshData?.session) {
+          session = refreshData.session
+          console.log("Teams: Got session via refreshSession()")
+        } else {
+          console.log("Teams: refreshSession() failed:", refreshError)
+        }
+      } catch (error) {
+        console.log("Teams: refreshSession() threw error:", error)
+      }
+    }
+
+    if (!session?.user) {
+      console.error("Teams: No session found after all methods tried")
+      console.error("Teams: Original session error:", sessionError)
+      return NextResponse.redirect(
+        new URL("/integrations?error=session_expired&provider=teams&message=Please+log+in+again", request.url),
+      )
+    }
+
+    console.log("Teams: Using session for user:", session.user.id)
 
     const integrationData = {
       user_id: session.user.id,
