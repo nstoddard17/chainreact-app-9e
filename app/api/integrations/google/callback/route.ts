@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getSupabaseClient } from "@/lib/supabase"
+import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
+import { cookies } from "next/headers"
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
@@ -8,7 +9,28 @@ export async function GET(request: NextRequest) {
   const error = searchParams.get("error")
   const scope = searchParams.get("scope")
 
-  console.log("Google OAuth callback:", { code: !!code, state, error, scope })
+  console.log("=== GOOGLE OAUTH CALLBACK START ===")
+  console.log("Callback params:", { code: !!code, state, error, scope })
+  console.log("Request URL:", request.url)
+  console.log("Request origin:", request.headers.get("origin"))
+  console.log("Request referer:", request.headers.get("referer"))
+
+  // Debug cookies before processing
+  const cookieStore = cookies()
+  const allCookies = cookieStore.getAll()
+  const supabaseCookies = allCookies.filter(
+    (cookie) => cookie.name.includes("supabase") || cookie.name.includes("sb-") || cookie.name.includes("auth"),
+  )
+
+  console.log("=== COOKIE DEBUG ===")
+  console.log("Total cookies received:", allCookies.length)
+  console.log("Supabase cookies found:", supabaseCookies.length)
+
+  supabaseCookies.forEach((cookie) => {
+    console.log(`Cookie: ${cookie.name}`)
+    console.log(`Value length: ${cookie.value?.length || 0}`)
+    console.log(`Value starts with: ${cookie.value?.substring(0, 20)}...`)
+  })
 
   if (error) {
     console.error("Google OAuth error:", error)
@@ -61,10 +83,12 @@ export async function GET(request: NextRequest) {
     const tokenData = await tokenResponse.json()
     const { access_token, refresh_token, expires_in, scope: grantedScope } = tokenData
 
-    // Log token details immediately after exchange
-    console.log("Access Token:", access_token)
-    console.log("Token Type:", tokenData.token_type)
-    console.log("Scope:", tokenData.scope)
+    console.log("Token exchange successful:", {
+      hasAccessToken: !!access_token,
+      hasRefreshToken: !!refresh_token,
+      expiresIn: expires_in,
+      scope: grantedScope,
+    })
 
     if (!access_token) {
       throw new Error("No access token received from Google")
@@ -83,88 +107,64 @@ export async function GET(request: NextRequest) {
     if (!userResponse.ok) {
       const errorData = await userResponse.text()
       console.error("Failed to get user info from Google:", errorData)
-      console.error("Response status:", userResponse.status)
-      console.error("Response headers:", Object.fromEntries(userResponse.headers.entries()))
       throw new Error(`Failed to get user info: ${errorData}`)
     }
 
     const userData = await userResponse.json()
     console.log("User info fetched successfully:", { userId: userData.sub, email: userData.email })
 
-    // Get session with multiple fallback methods
-    const supabase = getSupabaseClient()
-    let session = null
-    let sessionError = null
+    // Get session using server component client
+    console.log("=== SESSION RETRIEVAL ===")
+    const supabase = createServerComponentClient({ cookies })
 
-    try {
-      // Try to get session from cookies first
-      const { data: sessionData, error: sessionErr } = await supabase.auth.getSession()
-      session = sessionData.session
-      sessionError = sessionErr
-      console.log("Session from cookies:", { hasSession: !!session, error: sessionError })
-    } catch (err) {
-      console.log("Failed to get session from cookies:", err)
+    console.log("Attempting to get session...")
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+
+    console.log("Session result:", {
+      hasSession: !!sessionData.session,
+      hasUser: !!sessionData.session?.user,
+      userId: sessionData.session?.user?.id,
+      userEmail: sessionData.session?.user?.email,
+      error: sessionError?.message,
+    })
+
+    if (sessionError) {
+      console.error("Session error details:", sessionError)
     }
 
-    // If no session from cookies, try to get from headers
-    if (!session) {
-      try {
-        const authHeader = request.headers.get("authorization")
-        if (authHeader?.startsWith("Bearer ")) {
-          const token = authHeader.substring(7)
-          const { data: userData, error: userError } = await supabase.auth.getUser(token)
-          if (userData.user && !userError) {
-            session = { user: userData.user } as any
-            console.log("Session from auth header:", { hasSession: !!session })
-          }
-        }
-      } catch (err) {
-        console.log("Failed to get session from auth header:", err)
-      }
-    }
+    // Also try getUser() for comparison
+    console.log("Attempting to get user directly...")
+    const { data: directUserData, error: userError } = await supabase.auth.getUser()
 
-    // Try to refresh the session if we still don't have one
-    if (!session) {
-      try {
-        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
-        if (refreshData.session && !refreshError) {
-          session = refreshData.session
-          console.log("Session from refresh:", { hasSession: !!session })
-        }
-      } catch (err) {
-        console.log("Failed to refresh session:", err)
-      }
-    }
+    console.log("Direct user result:", {
+      hasUser: !!directUserData.user,
+      userId: directUserData.user?.id,
+      userEmail: directUserData.user?.email,
+      error: userError?.message,
+    })
 
-    // For reconnection scenarios, try to find user from existing integrations
-    if (!session && reconnect && integrationId) {
-      try {
-        const { data: existingIntegration } = await supabase
-          .from("integrations")
-          .select("user_id")
-          .eq("id", integrationId)
-          .single()
-
-        if (existingIntegration?.user_id) {
-          session = { user: { id: existingIntegration.user_id } } as any
-          console.log("Session from existing integration:", { hasSession: !!session })
-        }
-      } catch (err) {
-        console.log("Failed to get session from existing integration:", err)
-      }
-    }
+    const session = sessionData.session
 
     if (!session) {
-      console.error("No session found after all attempts")
-      return NextResponse.redirect(
-        new URL(`/integrations?error=no_session&provider=google&message=No session found`, request.url),
-      )
+      console.error("=== NO SESSION FOUND ===")
+      console.error("This means the user is not authenticated when reaching the callback")
+      console.error("Possible causes:")
+      console.error("1. User not logged in before starting OAuth flow")
+      console.error("2. Session cookie not being sent with callback request")
+      console.error("3. Cookie domain/SameSite policy issues")
+      console.error("4. Session expired during OAuth flow")
+
+      return NextResponse.redirect(new URL(`/integrations?error=no_session&provider=google&debug=true`, request.url))
     }
+
+    console.log("=== SESSION FOUND ===")
+    console.log("User ID:", session.user.id)
+    console.log("User email:", session.user.email)
 
     const integrationData = {
       user_id: session.user.id,
       provider: provider,
-      provider_user_id: userData.sub, // OpenID Connect uses 'sub' instead of 'id'
+      provider_user_id: userData.sub,
       status: "connected" as const,
       metadata: {
         access_token,
@@ -210,10 +210,11 @@ export async function GET(request: NextRequest) {
       console.log("Integration created successfully")
     }
 
-    console.log("Google integration saved successfully")
+    console.log("=== GOOGLE OAUTH CALLBACK SUCCESS ===")
     return NextResponse.redirect(new URL(`/integrations?success=${provider}_connected`, request.url))
   } catch (error: any) {
-    console.error("Google OAuth callback error:", error)
+    console.error("=== GOOGLE OAUTH CALLBACK ERROR ===")
+    console.error("Error details:", error)
     return NextResponse.redirect(
       new URL(
         `/integrations?error=callback_failed&provider=google&message=${encodeURIComponent(error.message)}`,
