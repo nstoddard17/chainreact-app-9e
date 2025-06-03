@@ -106,23 +106,25 @@ export async function GET(request: NextRequest) {
       throw new Error("No session or access token found")
     }
 
-    // Securely fetch the authenticated user using the session access token\
-    const { data: userData: authenticatedUser, error: userError } = await supabase.auth.getUser(sessionData.session.access_token)
+    // Securely fetch the authenticated user using the session access token
+    const { data: authenticatedUserData, error: userError } = await supabase.auth.getUser(
+      sessionData.session.access_token,
+    )
 
     if (userError) {
       console.error("Google: Error retrieving authenticated user:", userError)
       throw new Error(`User authentication error: ${userError.message}`)
     }
 
-    if (!authenticatedUser?.user) {
+    if (!authenticatedUserData?.user) {
       console.error("Google: No authenticated user found")
       throw new Error("No authenticated user found")
     }
 
-    console.log("Google: Authenticated user successfully retrieved:", authenticatedUser.user.id)
+    console.log("Google: Authenticated user successfully retrieved:", authenticatedUserData.user.id)
 
     const integrationData = {
-      user_id: authenticatedUser.user.id,
+      user_id: authenticatedUserData.user.id,
       provider: provider,
       provider_user_id: googleUserData.sub, // OpenID Connect uses 'sub' instead of 'id'
       status: "connected" as const,
@@ -139,7 +141,7 @@ export async function GET(request: NextRequest) {
     }
 
     console.log("Saving integration to database...", {
-      userId: authenticatedUser.user.id,
+      userId: authenticatedUserData.user.id,
       provider: provider,
       reconnect,
       integrationId,
