@@ -636,17 +636,9 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
                   const baseUrl = getBaseUrl()
                   const trelloAuthUrl = `https://trello.com/1/authorize?expiration=never&name=ChainReact&scope=${encodeURIComponent(providerConfig.scopes.join(","))}&response_type=token&key=${process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID}&callback_method=fragment&return_url=${encodeURIComponent(`${baseUrl}/integrations?trello_state=${state}`)}&t=${timestamp}`
 
-                  // Open Trello auth in a popup and handle the token on return
-                  const popup = window.open(trelloAuthUrl, "trello-auth", "width=600,height=600")
-
-                  // Listen for the popup to close or send a message
-                  const checkClosed = setInterval(() => {
-                    if (popup?.closed) {
-                      clearInterval(checkClosed)
-                      // Refresh the page to check for new integrations
-                      window.location.reload()
-                    }
-                  }, 1000)
+                  // Open Trello auth in a new tab instead of popup window
+                  console.log(`Opening Trello OAuth in new tab: ${trelloAuthUrl}`)
+                  window.open(trelloAuthUrl, "_blank")
 
                   set({ loading: false })
                   return
