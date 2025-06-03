@@ -128,7 +128,8 @@ export default function IntegrationsContent() {
         }
       }, 2000) // Increased delay to 2 seconds to ensure database is updated
     } else if (error) {
-      console.log("OAuth error detected:", { error, details })
+      console.log("OAuth error detected:", { error, details, providerId })
+      console.log("Full search params:", Object.fromEntries(searchParams.entries()))
 
       let errorMessage = "Failed to connect integration"
       switch (error) {
@@ -153,11 +154,19 @@ export default function IntegrationsContent() {
         case "token_exchange_failed":
           errorMessage = "Failed to exchange authorization code for access token"
           break
+        case "invalid_state":
+          errorMessage = "Invalid state parameter - possible CSRF attack"
+          break
+        case "provider_error":
+          errorMessage = "Provider returned an error"
+          break
       }
 
       if (details) {
         errorMessage += `: ${decodeURIComponent(details)}`
       }
+
+      console.error("OAuth connection failed:", errorMessage)
 
       toast({
         title: "Connection Failed",

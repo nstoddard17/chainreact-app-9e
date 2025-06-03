@@ -518,23 +518,35 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
               }),
             )
 
+            console.log(`Generated state for ${provider}:`, {
+              provider,
+              timestamp,
+              reconnect: !!disconnectedIntegration || !!existingIntegration,
+            })
+
             let authUrl = ""
 
             switch (provider) {
               case "slack":
                 if (process.env.NEXT_PUBLIC_SLACK_CLIENT_ID) {
                   authUrl = `https://slack.com/oauth/v2/authorize?client_id=${process.env.NEXT_PUBLIC_SLACK_CLIENT_ID}&scope=chat:write,chat:write.public,channels:read,channels:join,groups:read,im:read,users:read,team:read,files:write,reactions:write&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&user_scope=&team=${""}`
+                } else {
+                  console.warn("NEXT_PUBLIC_SLACK_CLIENT_ID not configured")
                 }
                 break
               case "discord":
                 if (process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID) {
                   authUrl = `https://discord.com/api/oauth2/authorize?client_id=${process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=bot&state=${state}&prompt=consent&t=${timestamp}`
+                } else {
+                  console.warn("NEXT_PUBLIC_DISCORD_CLIENT_ID not configured")
                 }
                 break
               case "teams":
                 if (process.env.NEXT_PUBLIC_TEAMS_CLIENT_ID) {
                   const scopes = encodeURIComponent(providerConfig.scopes.join(" "))
                   authUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=${process.env.NEXT_PUBLIC_TEAMS_CLIENT_ID}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scopes}&state=${state}&prompt=consent&t=${timestamp}`
+                } else {
+                  console.warn("NEXT_PUBLIC_TEAMS_CLIENT_ID not configured")
                 }
                 break
               case "google-calendar":
@@ -545,6 +557,8 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
                 if (process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) {
                   const scopes = providerConfig.scopes.join(" ")
                   authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scopes)}&response_type=code&state=${state}&access_type=offline&prompt=consent&t=${timestamp}`
+                } else {
+                  console.warn("NEXT_PUBLIC_GOOGLE_CLIENT_ID not configured")
                 }
                 break
               case "github":
@@ -554,6 +568,8 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
                   }&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(
                     providerConfig.scopes.join(" "),
                   )}&state=${state}&allow_signup=true&force_login=true&prompt=consent&t=${timestamp}`
+                } else {
+                  console.warn("NEXT_PUBLIC_GITHUB_CLIENT_ID not configured")
                 }
                 break
               case "twitter":
@@ -629,11 +645,13 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
             }
 
             if (authUrl) {
-              console.log(`Redirecting to OAuth URL for ${provider}:`, authUrl)
+              console.log(`Redirecting to OAuth URL for ${provider}`)
+              console.log(`Auth URL: ${authUrl}`)
               window.location.replace(authUrl)
               return
             } else {
               console.log(`OAuth not configured for ${provider}, falling back to demo mode`)
+              console.log(`Missing environment variable for ${provider}`)
             }
           }
 
