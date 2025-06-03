@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getSupabaseClient } from "@/lib/supabase"
+import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
+import { cookies } from "next/headers"
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
@@ -98,70 +99,30 @@ export async function GET(request: NextRequest) {
     const userData = await userResponse.json()
     console.log("Teams user info retrieved:", { id: userData.id, name: userData.displayName })
 
-    // Store integration in Supabase with multiple session retrieval methods
-    const supabase = getSupabaseClient()
+    // Store integration in Supabase using server component client
+    const supabase = createServerComponentClient({ cookies })
 
-    // Try multiple methods to get the session
-    let session = null
-    let sessionError = null
+    // Get session from cookies
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
 
-    try {
-      // Method 1: Get session from Supabase
-      const { data: sessionData, error: sessionErr } = await supabase.auth.getSession()
-      if (sessionData?.session) {
-        session = sessionData.session
-        console.log("Teams: Got session via getSession()")
-      } else {
-        sessionError = sessionErr
-        console.log("Teams: getSession() failed:", sessionErr)
-      }
-    } catch (error) {
-      console.log("Teams: getSession() threw error:", error)
-      sessionError = error
+    if (sessionError) {
+      console.error("Teams: Error retrieving session:", sessionError)
+      return NextResponse.redirect(
+        new URL("/integrations?error=session_error&provider=teams&message=Error+retrieving+session", request.url),
+      )
     }
 
-    // Method 2: Try to get user from cookies if session failed
-    if (!session) {
-      try {
-        const { data: userData, error: userError } = await supabase.auth.getUser()
-        if (userData?.user) {
-          session = { user: userData.user }
-          console.log("Teams: Got user via getUser()")
-        } else {
-          console.log("Teams: getUser() failed:", userError)
-        }
-      } catch (error) {
-        console.log("Teams: getUser() threw error:", error)
-      }
-    }
-
-    // Method 3: Try to refresh session if we still don't have one
-    if (!session) {
-      try {
-        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
-        if (refreshData?.session) {
-          session = refreshData.session
-          console.log("Teams: Got session via refreshSession()")
-        } else {
-          console.log("Teams: refreshSession() failed:", refreshError)
-        }
-      } catch (error) {
-        console.log("Teams: refreshSession() threw error:", error)
-      }
-    }
-
-    if (!session?.user) {
-      console.error("Teams: No session found after all methods tried")
-      console.error("Teams: Original session error:", sessionError)
+    if (!sessionData?.session) {
+      console.error("Teams: No session found in cookies")
       return NextResponse.redirect(
         new URL("/integrations?error=session_expired&provider=teams&message=Please+log+in+again", request.url),
       )
     }
 
-    console.log("Teams: Using session for user:", session.user.id)
+    console.log("Teams: Session successfully retrieved for user:", sessionData.session.user.id)
 
     const integrationData = {
-      user_id: session.user.id,
+      user_id: sessionData.session.user.id,
       provider: "teams",
       provider_user_id: userData.id,
       access_token,
@@ -177,7 +138,7 @@ export async function GET(request: NextRequest) {
     }
 
     console.log("Saving Teams integration to database:", {
-      userId: session.user.id,
+      userId: sessionData.session.user.id,
       provider: "teams",
       reconnect,
       integrationId: integrationId || "new",
@@ -223,7 +184,7 @@ export async function GET(request: NextRequest) {
 
     // Clear the cache and redirect to success page
     try {
-      await fetch(`${origin}/api/integrations/clear-cache`, { method: "POST" })
+      await fetch(`${request.nextUrl.origin}/api/integrations/clear-cache`, { method: "POST" })
       console.log("Cache cleared successfully")
     } catch (cacheError) {
       console.error("Failed to clear cache:", cacheError)

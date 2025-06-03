@@ -548,7 +548,10 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
               case "youtube":
                 if (process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) {
                   const redirectUri = "https://chainreact.app/api/integrations/google/callback"
-                  const scopes = providerConfig.scopes.join(" ")
+                  // Combine OpenID Connect scopes with provider-specific scopes
+                  const openidScopes = ["openid", "profile", "email"]
+                  const combinedScopes = [...openidScopes, ...providerConfig.scopes]
+                  const scopes = combinedScopes.join(" ")
                   authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scopes)}&response_type=code&state=${state}&access_type=offline&prompt=consent&t=${timestamp}`
                 } else {
                   console.warn("NEXT_PUBLIC_GOOGLE_CLIENT_ID not configured")
