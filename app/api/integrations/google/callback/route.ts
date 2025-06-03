@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
       throw new Error("Invalid provider in state")
     }
 
-    // Use the correct redirect URI that matches what we're using in the OAuth flow
+    // Use the hardcoded redirect URI that matches what we're using in the OAuth flow
     const redirectUri = "https://chainreact.app/api/integrations/google/callback"
 
     // Exchange code for access token
@@ -59,7 +59,13 @@ export async function GET(request: NextRequest) {
     }
 
     const tokenData = await tokenResponse.json()
-    console.log("Token exchange successful:", { hasAccessToken: !!tokenData.access_token })
+    console.log("Token exchange successful:", {
+      hasAccessToken: !!tokenData.access_token,
+      tokenType: tokenData.token_type,
+      expiresIn: tokenData.expires_in,
+      scope: tokenData.scope,
+    })
+
     const { access_token, refresh_token, expires_in, scope: grantedScope } = tokenData
 
     if (!access_token) {
@@ -68,13 +74,15 @@ export async function GET(request: NextRequest) {
 
     // Get user info from Google using the correct endpoint and headers
     console.log("Fetching user info from Google...")
-    const userResponse = await fetch("https://www.googleapis.com/oauth2/v1/userinfo?alt=json", {
+    const userResponse = await fetch("https://www.googleapis.com/oauth2/v1/userinfo", {
       method: "GET",
       headers: {
         Authorization: `Bearer ${access_token}`,
         Accept: "application/json",
       },
     })
+
+    let userData
 
     if (!userResponse.ok) {
       const errorData = await userResponse.text()
@@ -98,14 +106,11 @@ export async function GET(request: NextRequest) {
         throw new Error(`Failed to get user info from both endpoints: ${errorData}`)
       }
 
-      const altUserData = await altUserResponse.json()
+      userData = await altUserResponse.json()
       console.log("User info fetched successfully from alternative endpoint:", {
-        userId: altUserData.id,
-        email: altUserData.email,
+        userId: userData.id,
+        email: userData.email,
       })
-
-      // Use the alternative response
-      var userData = altUserData
     } else {
       userData = await userResponse.json()
       console.log("User info fetched successfully:", { userId: userData.id, email: userData.email })
@@ -143,6 +148,19 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Try to refresh the session if we still don't have one
+    if (!session) {
+      try {
+        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
+        if (refreshData.session && !refreshError) {
+          session = refreshData.session
+          console.log("Session from refresh:", { hasSession: !!session })
+        }
+      } catch (err) {
+        console.log("Failed to refresh session:", err)
+      }
+    }
+
     // For reconnection scenarios, try to find user from existing integrations
     if (!session && reconnect && integrationId) {
       try {
@@ -163,7 +181,9 @@ export async function GET(request: NextRequest) {
 
     if (!session) {
       console.error("No session found after all attempts")
-      throw new Error("No session found")
+      return NextResponse.redirect(
+        new URL(`/integrations?error=no_session&provider=google&message=No session found`, request.url),
+      )
     }
 
     const integrationData = {
