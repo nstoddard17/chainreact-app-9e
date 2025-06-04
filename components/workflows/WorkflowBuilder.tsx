@@ -22,6 +22,7 @@ import "@xyflow/react/dist/style.css"
 import AppLayout from "@/components/layout/AppLayout"
 import { useWorkflowStore } from "@/stores/workflowStore"
 import { useAIStore } from "@/stores/aiStore"
+import { useIntegrationStore } from "@/stores/integrationStore"
 import { AIChatAssistant } from "@/components/ai/AIChatAssistant"
 import NodePalette from "./NodePalette"
 import ConfigurationPanel from "./ConfigurationPanel"
@@ -31,7 +32,7 @@ import { NodeSuggestions } from "@/components/ai/NodeSuggestions"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
-import { Save, Play, Loader2, Sparkles, Zap, Brain, ArrowLeft, Undo, Redo } from "lucide-react"
+import { Save, Play, Loader2, Sparkles, Zap, Brain, ArrowLeft, Undo, Redo, RefreshCw } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
 
@@ -57,6 +58,7 @@ export default function WorkflowBuilder() {
   } = useWorkflowStore()
 
   const { optimizations, anomalies, fetchOptimizations, fetchAnomalies, isGenerating } = useAIStore()
+  const { integrations, fetchIntegrations, verifyIntegrationScopes } = useIntegrationStore()
 
   const [nodes, setNodes, onNodesChange] = useNodesState([])
   const [edges, setEdges, onEdgesChange] = useEdgesState([])
@@ -68,7 +70,31 @@ export default function WorkflowBuilder() {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [aiPrompt, setAiPrompt] = useState("")
   const [generatingAI, setGeneratingAI] = useState(false)
+  const [refreshingIntegrations, setRefreshingIntegrations] = useState(false)
+  const [verifyingScopes, setVerifyingScopes] = useState(false)
   const { toast } = useToast()
+
+  // Fetch integrations and verify scopes on mount
+  useEffect(() => {
+    const initializeIntegrations = async () => {
+      setVerifyingScopes(true)
+      try {
+        await fetchIntegrations()
+        await verifyIntegrationScopes()
+      } catch (error) {
+        console.error("Failed to initialize integrations:", error)
+        toast({
+          title: "Warning",
+          description: "Failed to verify integration permissions",
+          variant: "destructive",
+        })
+      } finally {
+        setVerifyingScopes(false)
+      }
+    }
+
+    initializeIntegrations()
+  }, [fetchIntegrations, verifyIntegrationScopes, toast])
 
   // Track changes to detect unsaved state
   useEffect(() => {
@@ -144,7 +170,7 @@ export default function WorkflowBuilder() {
       event.preventDefault()
 
       const nodeType = event.dataTransfer.getData("application/reactflow")
-      const nodeData = JSON.parse(event.dataTransfer.getData("application/nodedata"))
+      const nodeData = JSON.parse(event.dataTransfer.getData("application/nodedata") || "{}")
 
       if (!nodeType || !currentWorkflow) return
 
@@ -186,6 +212,26 @@ export default function WorkflowBuilder() {
   const handleDiscardAndExit = () => {
     setShowExitDialog(false)
     router.push("/workflows")
+  }
+
+  const handleRefreshIntegrations = async () => {
+    setRefreshingIntegrations(true)
+    try {
+      await fetchIntegrations(true) // Force refresh
+      await verifyIntegrationScopes() // Re-verify scopes
+      toast({
+        title: "Success",
+        description: "Integration permissions refreshed",
+      })
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to refresh integrations",
+        variant: "destructive",
+      })
+    } finally {
+      setRefreshingIntegrations(false)
+    }
   }
 
   const handleSave = async () => {
@@ -289,6 +335,9 @@ export default function WorkflowBuilder() {
   const workflowOptimizations = currentWorkflow ? optimizations[currentWorkflow.id] || [] : []
   const workflowAnomalies = currentWorkflow ? anomalies[currentWorkflow.id] || [] : []
 
+  // Count connected integrations for display
+  const connectedIntegrationsCount = integrations.filter((i) => i.status === "connected").length
+
   if (!currentWorkflow) {
     return (
       <AppLayout>
@@ -383,6 +432,21 @@ export default function WorkflowBuilder() {
             </div>
           </div>
           <div className="flex items-center space-x-2">
+            {/* Integration Status */}
+            <div className="flex items-center gap-2 px-3 py-1 bg-slate-50 rounded-lg text-sm text-slate-600">
+              <span>{connectedIntegrationsCount} integrations</span>
+              {verifyingScopes && <Loader2 className="w-3 h-3 animate-spin" />}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleRefreshIntegrations}
+                disabled={refreshingIntegrations || verifyingScopes}
+                className="h-6 w-6 p-0 hover:bg-slate-200"
+              >
+                <RefreshCw className={`w-3 h-3 ${refreshingIntegrations ? "animate-spin" : ""}`} />
+              </Button>
+            </div>
+
             {/* Undo/Redo buttons */}
             <Button
               variant="outline"

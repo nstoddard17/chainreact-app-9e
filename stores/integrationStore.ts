@@ -13,6 +13,8 @@ interface Integration {
   metadata: any
   created_at: string
   updated_at: string
+  verified?: boolean
+  verifiedScopes?: string[]
 }
 
 interface IntegrationProvider {
@@ -37,10 +39,12 @@ interface IntegrationState {
   loading: boolean
   error: string | null
   lastFetched: number | null
+  verifyingScopes: boolean
 }
 
 interface IntegrationActions {
   fetchIntegrations: (force?: boolean) => Promise<void>
+  verifyIntegrationScopes: () => Promise<void>
   connectIntegration: (provider: string, forceOAuth?: boolean) => Promise<void>
   disconnectIntegration: (id: string) => Promise<void>
   executeAction: (integration: Integration, action: string, params: any) => Promise<any>
@@ -405,6 +409,7 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
       loading: false,
       error: null,
       lastFetched: null,
+      verifyingScopes: false,
 
       fetchIntegrations: async (force = false) => {
         const state = get()
@@ -453,6 +458,38 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
           console.error("Error fetching integrations:", error)
           set({ error: error.message, loading: false })
           throw error
+        }
+      },
+
+      verifyIntegrationScopes: async () => {
+        set({ verifyingScopes: true })
+        try {
+          const response = await fetch("/api/integrations/verify-scopes")
+
+          // Check if response is OK before trying to parse JSON
+          if (!response.ok) {
+            const errorText = await response.text()
+            console.error(`Error response (${response.status}):`, errorText)
+            throw new Error(`API error: ${response.status}`)
+          }
+
+          // Now safely parse JSON
+          const data = await response.json()
+
+          if (data.error) {
+            throw new Error(data.error)
+          }
+
+          set((state) => ({
+            integrations: data.integrations || state.integrations,
+            verifyingScopes: false,
+          }))
+
+          return data.integrations
+        } catch (error: any) {
+          console.error("Error verifying integration scopes:", error)
+          set({ error: error.message, verifyingScopes: false })
+          return get().integrations
         }
       },
 
