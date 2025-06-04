@@ -4,10 +4,12 @@ import { useState, useEffect } from "react"
 import AppLayout from "@/components/layout/AppLayout"
 import { useIntegrationStore } from "@/stores/integrationStore"
 import IntegrationCard from "./IntegrationCard"
+import IntegrationDiagnostics from "./IntegrationDiagnostics"
 import { Input } from "@/components/ui/input"
-import { Search, Loader2, Filter, CheckCircle, AlertCircle } from "lucide-react"
+import { Search, Loader2, Filter, CheckCircle, AlertCircle, Stethoscope } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useSearchParams } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
 
@@ -426,104 +428,120 @@ export default function IntegrationsContent() {
           </div>
         </div>
 
-        {/* Search and Filters */}
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
-            <Input
-              placeholder="Search integrations..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 bg-white text-black border border-slate-200"
-            />
-          </div>
+        <Tabs defaultValue="integrations" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="integrations">Integrations</TabsTrigger>
+            <TabsTrigger value="diagnostics" className="flex items-center gap-2">
+              <Stethoscope className="h-4 w-4" />
+              Diagnostics
+            </TabsTrigger>
+          </TabsList>
 
-          <div className="flex gap-2 flex-wrap">
-            <Button
-              variant={selectedCategory === null ? "default" : "outline"}
-              size="sm"
-              onClick={() => setSelectedCategory(null)}
-              className={`flex items-center gap-2 bg-white text-black border border-slate-200 hover:bg-slate-100 ${
-                selectedCategory === null ? "ring-2 ring-slate-200" : ""
-              }`}
-            >
-              <Filter className="w-4 h-4" />
-              All Categories
-            </Button>
-            {categories.map((category) => (
-              <Button
-                key={category}
-                variant={selectedCategory === category ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSelectedCategory(category)}
-                className={`bg-white text-black border border-slate-200 hover:bg-slate-100 ${
-                  selectedCategory === category ? "ring-2 ring-slate-200" : ""
-                }`}
-              >
-                {category}
-              </Button>
-            ))}
-          </div>
-        </div>
+          <TabsContent value="integrations" className="space-y-6">
+            {/* Search and Filters */}
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
+                <Input
+                  placeholder="Search integrations..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 bg-white text-black border border-slate-200"
+                />
+              </div>
 
-        {/* Debug info - remove in production */}
-        {process.env.NODE_ENV === "development" && (
-          <div className="bg-gray-100 p-4 rounded-lg text-xs">
-            <div>Total integrations: {integrations.length}</div>
-            <div>Connected integrations: {connectedCount}</div>
-            <div>
-              Connected providers:{" "}
-              {providersWithStatus
-                .filter((p) => p.connected)
-                .map((p) => p.name)
-                .join(", ") || "None"}
-            </div>
-            <div className="mt-2">
-              <Button onClick={handleClearCache} size="sm" variant="outline" className="text-xs h-6">
-                Clear Cache
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* Integrations by Category */}
-        {selectedCategory ? (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-xl font-semibold text-slate-900 mb-4">{selectedCategory}</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {groupedProviders[selectedCategory]?.map((provider) => (
-                  <IntegrationCard key={provider.id} provider={provider} />
+              <div className="flex gap-2 flex-wrap">
+                <Button
+                  variant={selectedCategory === null ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setSelectedCategory(null)}
+                  className={`flex items-center gap-2 bg-white text-black border border-slate-200 hover:bg-slate-100 ${
+                    selectedCategory === null ? "ring-2 ring-slate-200" : ""
+                  }`}
+                >
+                  <Filter className="w-4 h-4" />
+                  All Categories
+                </Button>
+                {categories.map((category) => (
+                  <Button
+                    key={category}
+                    variant={selectedCategory === category ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setSelectedCategory(category)}
+                    className={`bg-white text-black border border-slate-200 hover:bg-slate-100 ${
+                      selectedCategory === category ? "ring-2 ring-slate-200" : ""
+                    }`}
+                  >
+                    {category}
+                  </Button>
                 ))}
               </div>
             </div>
-          </div>
-        ) : (
-          <div className="space-y-8">
-            {categories.map((category) => (
-              <div key={category}>
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-semibold text-slate-900">{category}</h2>
-                  <Badge variant="outline" className="bg-white text-black border border-slate-200">
-                    {groupedProviders[category]?.length || 0} integrations
-                  </Badge>
+
+            {/* Debug info - remove in production */}
+            {process.env.NODE_ENV === "development" && (
+              <div className="bg-gray-100 p-4 rounded-lg text-xs">
+                <div>Total integrations: {integrations.length}</div>
+                <div>Connected integrations: {connectedCount}</div>
+                <div>
+                  Connected providers:{" "}
+                  {providersWithStatus
+                    .filter((p) => p.connected)
+                    .map((p) => p.name)
+                    .join(", ") || "None"}
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {groupedProviders[category]?.map((provider) => (
-                    <IntegrationCard key={provider.id} provider={provider} />
-                  ))}
+                <div className="mt-2">
+                  <Button onClick={handleClearCache} size="sm" variant="outline" className="text-xs h-6">
+                    Clear Cache
+                  </Button>
                 </div>
               </div>
-            ))}
-          </div>
-        )}
+            )}
 
-        {filteredProviders.length === 0 && (
-          <div className="text-center py-12">
-            <div className="text-slate-400 text-lg mb-2">No integrations found</div>
-            <p className="text-slate-500">Try adjusting your search or filter criteria</p>
-          </div>
-        )}
+            {/* Integrations by Category */}
+            {selectedCategory ? (
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-xl font-semibold text-slate-900 mb-4">{selectedCategory}</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {groupedProviders[selectedCategory]?.map((provider) => (
+                      <IntegrationCard key={provider.id} provider={provider} />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-8">
+                {categories.map((category) => (
+                  <div key={category}>
+                    <div className="flex items-center justify-between mb-4">
+                      <h2 className="text-xl font-semibold text-slate-900">{category}</h2>
+                      <Badge variant="outline" className="bg-white text-black border border-slate-200">
+                        {groupedProviders[category]?.length || 0} integrations
+                      </Badge>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {groupedProviders[category]?.map((provider) => (
+                        <IntegrationCard key={provider.id} provider={provider} />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {filteredProviders.length === 0 && (
+              <div className="text-center py-12">
+                <div className="text-slate-400 text-lg mb-2">No integrations found</div>
+                <p className="text-slate-500">Try adjusting your search or filter criteria</p>
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="diagnostics">
+            <IntegrationDiagnostics />
+          </TabsContent>
+        </Tabs>
       </div>
     </AppLayout>
   )
