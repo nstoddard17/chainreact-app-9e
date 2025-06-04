@@ -63,9 +63,7 @@ export class DropboxOAuthService {
         method: "POST",
         headers: {
           Authorization: `Bearer ${access_token}`,
-          "Content-Type": "application/json",
         },
-        body: JSON.stringify({}),
       })
 
       if (!userResponse.ok) {

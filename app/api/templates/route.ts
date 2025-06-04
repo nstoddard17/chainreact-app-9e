@@ -16,8 +16,7 @@ export async function GET(request: NextRequest) {
     let query = supabase
       .from("templates")
       .select(`
-        *,
-        creator:auth.users!templates_created_by_fkey(email)
+        *
       `)
       .eq("is_public", true)
       .order("created_at", { ascending: false })

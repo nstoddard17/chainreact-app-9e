@@ -44,6 +44,7 @@ export async function GET(request: NextRequest) {
         code,
         grant_type: "authorization_code",
         redirect_uri: "https://chainreact.app/api/integrations/onedrive/callback",
+        scope: "https://graph.microsoft.com/Files.ReadWrite https://graph.microsoft.com/User.Read",
       }),
     })
 
@@ -57,22 +58,29 @@ export async function GET(request: NextRequest) {
     console.log("Token exchange successful:", { hasAccessToken: !!tokenData.access_token })
     const { access_token, refresh_token, expires_in } = tokenData
 
-    // Get user info from Microsoft Graph
+    // Get user info from Microsoft Graph with proper headers
     console.log("Fetching user info from Microsoft Graph...")
     const userResponse = await fetch("https://graph.microsoft.com/v1.0/me", {
+      method: "GET",
       headers: {
         Authorization: `Bearer ${access_token}`,
+        Accept: "application/json",
+        "Content-Type": "application/json",
       },
     })
 
     if (!userResponse.ok) {
       const errorData = await userResponse.text()
-      console.error("Failed to get user info from Microsoft Graph:", errorData)
+      console.error("Failed to get user info from Microsoft Graph:", {
+        status: userResponse.status,
+        statusText: userResponse.statusText,
+        error: errorData,
+      })
       throw new Error(`Failed to get user info: ${errorData}`)
     }
 
     const userData = await userResponse.json()
-    console.log("User info fetched successfully:", { userId: userData.id })
+    console.log("User info fetched successfully:", { userId: userData.id, displayName: userData.displayName })
 
     // Initialize Supabase client
     const supabase = createRouteHandlerClient({ cookies })
@@ -98,7 +106,7 @@ export async function GET(request: NextRequest) {
       refresh_token,
       expires_at: expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null,
       status: "connected" as const,
-      scopes: ["https://graph.microsoft.com/Files.ReadWrite"],
+      scopes: ["https://graph.microsoft.com/Files.ReadWrite", "https://graph.microsoft.com/User.Read"],
       metadata: {
         user_name: userData.displayName,
         user_email: userData.mail || userData.userPrincipalName,

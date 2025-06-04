@@ -15,7 +15,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
-import { Play, Pause, Settings, Trash2, Loader2, Sparkles, LayoutTemplateIcon as Template } from "lucide-react"
+import { Play, Pause, Settings, Trash2, Loader2, Sparkles, LayoutTemplateIcon as Template, Plus } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import CreateWorkflowDialog from "./CreateWorkflowDialog"
 
@@ -159,30 +159,45 @@ export default function WorkflowsContent() {
 
   return (
     <AppLayout>
-      <div className="space-y-6">
+      <div className="space-y-8 p-6">
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold text-slate-900">Workflows</h1>
-          <div className="flex gap-2">
+          <div className="flex gap-3">
             <CreateWorkflowDialog />
           </div>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="workflows">My Workflows</TabsTrigger>
-            <TabsTrigger value="templates">Templates</TabsTrigger>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
+          <TabsList className="grid w-full grid-cols-2 bg-slate-100 p-1 rounded-lg">
+            <TabsTrigger
+              value="workflows"
+              className="transition-all duration-200 hover:bg-white hover:shadow-sm focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            >
+              My Workflows
+            </TabsTrigger>
+            <TabsTrigger
+              value="templates"
+              className="transition-all duration-200 hover:bg-white hover:shadow-sm focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            >
+              Templates
+            </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="workflows" className="space-y-6">
+          <TabsContent value="workflows" className="space-y-8">
             {/* AI Generation Section */}
-            <Card className="bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Sparkles className="h-5 w-5 text-blue-600" />
+            <Card className="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 border-blue-200/50 shadow-sm">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-3 text-xl">
+                  <div className="p-2 bg-blue-100 rounded-lg">
+                    <Sparkles className="h-5 w-5 text-blue-600" />
+                  </div>
                   Generate Workflow with AI
                 </CardTitle>
+                <p className="text-slate-600 text-sm">
+                  Describe what you want your workflow to do, and AI will create it for you.
+                </p>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-4">
                 <div className="flex gap-4">
                   <div className="flex-1">
                     <Textarea
@@ -190,12 +205,13 @@ export default function WorkflowsContent() {
                       value={aiPrompt}
                       onChange={(e) => setAiPrompt(e.target.value)}
                       rows={3}
+                      className="resize-none border-blue-200 focus:border-blue-400 focus:ring-blue-400 transition-all duration-200"
                     />
                   </div>
                   <Button
                     onClick={handleGenerateWithAI}
                     disabled={!aiPrompt.trim() || generatingAI}
-                    className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+                    className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 hover:shadow-lg hover:scale-105 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 px-6"
                   >
                     {generatingAI ? (
                       <>
@@ -215,32 +231,44 @@ export default function WorkflowsContent() {
 
             {/* Workflows Grid */}
             {workflows.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="text-slate-500 mb-4">No workflows yet</div>
-                <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                  <CreateWorkflowDialog />
-                  <Button
-                    variant="outline"
-                    onClick={() => setActiveTab("templates")}
-                    className="flex items-center gap-2"
-                  >
-                    <Template className="w-4 h-4" />
-                    Browse Templates
-                  </Button>
+              <div className="text-center py-16">
+                <div className="max-w-md mx-auto space-y-6">
+                  <div className="p-4 bg-slate-100 rounded-full w-16 h-16 mx-auto flex items-center justify-center">
+                    <Plus className="w-8 h-8 text-slate-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-medium text-slate-900 mb-2">No workflows yet</h3>
+                    <p className="text-slate-500 text-sm">
+                      Create your first workflow to automate your tasks and processes.
+                    </p>
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                    <CreateWorkflowDialog />
+                    <Button
+                      variant="outline"
+                      onClick={() => setActiveTab("templates")}
+                      className="flex items-center gap-2 hover:bg-slate-50 hover:shadow-sm focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200"
+                    >
+                      <Template className="w-4 h-4" />
+                      Browse Templates
+                    </Button>
+                  </div>
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 {workflows.map((workflow) => (
                   <Card
                     key={workflow.id}
-                    className="bg-white rounded-2xl shadow-lg border border-slate-200 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
+                    className="bg-white rounded-xl shadow-sm border border-slate-200 hover:shadow-lg hover:border-slate-300 transition-all duration-300 transform hover:-translate-y-1 group"
                   >
-                    <CardHeader>
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="text-lg font-semibold text-slate-900">{workflow.name}</CardTitle>
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between">
+                        <CardTitle className="text-lg font-semibold text-slate-900 group-hover:text-blue-600 transition-colors duration-200 line-clamp-1">
+                          {workflow.name}
+                        </CardTitle>
                         <div
-                          className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ml-2 ${
                             workflow.status === "active"
                               ? "bg-green-100 text-green-700"
                               : workflow.status === "paused"
@@ -251,28 +279,33 @@ export default function WorkflowsContent() {
                           {workflow.status}
                         </div>
                       </div>
-                      <p className="text-sm text-slate-600">{workflow.description || "No description"}</p>
+                      <p className="text-sm text-slate-600 line-clamp-2 min-h-[2.5rem]">
+                        {workflow.description || "No description"}
+                      </p>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      <div className="flex justify-between text-sm text-slate-600">
-                        <span>{workflow.nodes?.length || 0} nodes</span>
+                      <div className="flex justify-between text-sm text-slate-500 bg-slate-50 rounded-lg p-3">
+                        <span className="flex items-center gap-1">
+                          <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+                          {workflow.nodes?.length || 0} nodes
+                        </span>
                         <span>Updated: {new Date(workflow.updated_at).toLocaleDateString()}</span>
                       </div>
 
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center gap-2">
                         <Button
                           size="sm"
                           variant="outline"
-                          className="bg-white text-black border border-slate-200 hover:bg-slate-100 active:bg-slate-200"
+                          className="flex-1 hover:bg-slate-50 hover:shadow-sm focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 transition-all duration-200"
                           onClick={() => handleToggleStatus(workflow.id, workflow.status)}
                         >
                           {workflow.status === "active" ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
                         </Button>
-                        <Link href={`/workflows/builder?id=${workflow.id}`}>
+                        <Link href={`/workflows/builder?id=${workflow.id}`} className="flex-1">
                           <Button
                             size="sm"
                             variant="outline"
-                            className="bg-white text-black border border-slate-200 hover:bg-slate-100 active:bg-slate-200"
+                            className="w-full hover:bg-slate-50 hover:shadow-sm focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 transition-all duration-200"
                           >
                             <Settings className="w-4 h-4" />
                           </Button>
@@ -280,7 +313,7 @@ export default function WorkflowsContent() {
                         <Button
                           size="sm"
                           variant="outline"
-                          className="bg-white text-blue-600 border border-slate-200 hover:bg-slate-100 active:bg-slate-200"
+                          className="flex-1 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 transition-all duration-200"
                           onClick={() => {
                             setTemplateDialog({ open: true, workflowId: workflow.id })
                             setTemplateForm((prev) => ({ ...prev, name: `${workflow.name} Template` }))
@@ -291,7 +324,7 @@ export default function WorkflowsContent() {
                         <Button
                           size="sm"
                           variant="outline"
-                          className="bg-white text-red-600 border border-slate-200 hover:bg-slate-100 hover:text-red-700 active:bg-slate-200"
+                          className="flex-1 hover:bg-red-50 hover:text-red-600 hover:border-red-200 focus:ring-2 focus:ring-red-500 focus:ring-offset-1 transition-all duration-200"
                           onClick={() => handleDeleteWorkflow(workflow.id)}
                         >
                           <Trash2 className="w-4 h-4" />
@@ -312,7 +345,7 @@ export default function WorkflowsContent() {
 
       {/* Template Creation Dialog */}
       <Dialog open={templateDialog.open} onOpenChange={(open) => setTemplateDialog({ open, workflowId: null })}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Create Template</DialogTitle>
             <DialogDescription>Share your workflow as a template for others to use</DialogDescription>
@@ -325,6 +358,7 @@ export default function WorkflowsContent() {
                 value={templateForm.name}
                 onChange={(e) => setTemplateForm((prev) => ({ ...prev, name: e.target.value }))}
                 placeholder="Template name"
+                className="mt-1"
               />
             </div>
             <div>
@@ -335,6 +369,7 @@ export default function WorkflowsContent() {
                 onChange={(e) => setTemplateForm((prev) => ({ ...prev, description: e.target.value }))}
                 placeholder="Describe what this template does"
                 rows={3}
+                className="mt-1"
               />
             </div>
             <div>
@@ -343,7 +378,7 @@ export default function WorkflowsContent() {
                 value={templateForm.category}
                 onValueChange={(value) => setTemplateForm((prev) => ({ ...prev, category: value }))}
               >
-                <SelectTrigger>
+                <SelectTrigger className="mt-1">
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
                 <SelectContent>
@@ -365,6 +400,7 @@ export default function WorkflowsContent() {
                 value={templateForm.tags}
                 onChange={(e) => setTemplateForm((prev) => ({ ...prev, tags: e.target.value }))}
                 placeholder="automation, slack, email"
+                className="mt-1"
               />
             </div>
             <div className="flex items-center space-x-2">
@@ -375,18 +411,18 @@ export default function WorkflowsContent() {
               />
               <Label htmlFor="template-public">Make public (visible to all users)</Label>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-3 pt-4">
               <Button
                 variant="outline"
                 onClick={() => setTemplateDialog({ open: false, workflowId: null })}
-                className="flex-1"
+                className="flex-1 hover:bg-slate-50 focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 transition-all duration-200"
               >
                 Cancel
               </Button>
               <Button
                 onClick={handleCreateTemplate}
                 disabled={!templateForm.name || !templateForm.category}
-                className="flex-1"
+                className="flex-1 hover:shadow-lg focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200"
               >
                 Create Template
               </Button>
