@@ -25,7 +25,7 @@ export class TwitterOAuthService {
   ): Promise<TwitterOAuthResult> {
     try {
       const stateData = JSON.parse(atob(state))
-      const { provider, reconnect, integrationId } = stateData
+      const { provider, reconnect, integrationId, requireFullScopes } = stateData
 
       if (provider !== "twitter") {
         throw new Error("Invalid provider in state")
@@ -54,7 +54,26 @@ export class TwitterOAuthService {
       }
 
       const tokenData = await tokenResponse.json()
-      const { access_token, refresh_token, expires_in } = tokenData
+      const { access_token, refresh_token, expires_in, scope } = tokenData
+
+      // Validate scopes if required
+      if (requireFullScopes) {
+        const grantedScopes = scope ? scope.split(" ") : []
+        const requiredScopes = ["tweet.read", "tweet.write", "users.read"]
+        const missingScopes = requiredScopes.filter((s) => !grantedScopes.includes(s))
+
+        if (missingScopes.length > 0) {
+          console.error("Twitter scope validation failed:", { grantedScopes, missingScopes })
+          return {
+            success: false,
+            redirectUrl: `${baseUrl}/integrations?error=insufficient_scopes&provider=twitter&message=${encodeURIComponent(
+              `Your connection is missing required permissions: ${missingScopes.join(", ")}. Please reconnect and accept all scopes.`,
+            )}`,
+            error: "Insufficient scopes",
+          }
+        }
+        console.log("Twitter scopes validated successfully:", grantedScopes)
+      }
 
       const userResponse = await fetch("https://api.twitter.com/2/users/me", {
         headers: {
@@ -78,11 +97,12 @@ export class TwitterOAuthService {
         refresh_token,
         expires_at: expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null,
         status: "connected" as const,
-        scopes: ["tweet.read", "tweet.write", "users.read"],
+        scopes: scope ? scope.split(" ") : [],
         metadata: {
           username: user.username,
           user_name: user.name,
           connected_at: new Date().toISOString(),
+          scopes_validated: requireFullScopes,
         },
       }
 
@@ -103,7 +123,7 @@ export class TwitterOAuthService {
 
       return {
         success: true,
-        redirectUrl: `${baseUrl}/integrations?success=twitter_connected`,
+        redirectUrl: `${baseUrl}/integrations?success=twitter_connected&provider=twitter&scopes_validated=${requireFullScopes}`,
       }
     } catch (error: any) {
       return {

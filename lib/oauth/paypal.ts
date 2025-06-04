@@ -19,6 +19,43 @@ export class PayPalOAuthService {
     return { clientId, clientSecret }
   }
 
+  // Define required scopes for PayPal
+  static getRequiredScopes() {
+    return [
+      "https://uri.paypal.com/services/payments/payment",
+      "https://uri.paypal.com/services/payments/refund",
+      "https://uri.paypal.com/services/payments/orders/read",
+      "email",
+      "openid",
+      "profile",
+    ]
+  }
+
+  // Validate scopes against required scopes
+  static validateScopes(grantedScopes: string[]): { valid: boolean; missing: string[] } {
+    const requiredScopes = this.getRequiredScopes()
+    const missing = requiredScopes.filter((scope) => !grantedScopes.includes(scope))
+    return {
+      valid: missing.length === 0,
+      missing,
+    }
+  }
+
+  // Validate token by making an API call
+  static async validateToken(accessToken: string): Promise<boolean> {
+    try {
+      const response = await fetch("https://api.paypal.com/v1/identity/oauth2/userinfo?schema=paypalv1.1", {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      })
+      return response.ok
+    } catch (error) {
+      console.error("PayPal token validation error:", error)
+      return false
+    }
+  }
+
   static async handleCallback(code: string, state: string, baseUrl: string): Promise<PayPalOAuthResult> {
     try {
       const stateData = JSON.parse(atob(state))
@@ -29,6 +66,23 @@ export class PayPalOAuthService {
       }
 
       const { clientId, clientSecret } = this.getClientCredentials()
+
+      // Clear any existing tokens before requesting new ones
+      if (reconnect && integrationId) {
+        const supabase = createServerComponentClient({ cookies })
+        const { error: clearError } = await supabase
+          .from("integrations")
+          .update({
+            access_token: null,
+            refresh_token: null,
+            status: "reconnecting",
+          })
+          .eq("id", integrationId)
+
+        if (clearError) {
+          console.error("Error clearing existing tokens:", clearError)
+        }
+      }
 
       const tokenResponse = await fetch("https://api.paypal.com/v1/oauth2/token", {
         method: "POST",
@@ -49,7 +103,29 @@ export class PayPalOAuthService {
       }
 
       const tokenData = await tokenResponse.json()
-      const { access_token, refresh_token, expires_in } = tokenData
+      const { access_token, refresh_token, expires_in, scope } = tokenData
+
+      // Get granted scopes from the token data
+      const grantedScopes = scope ? scope.split(" ") : []
+
+      // Validate scopes
+      const scopeValidation = this.validateScopes(grantedScopes)
+
+      if (!scopeValidation.valid) {
+        return {
+          success: false,
+          redirectUrl: `${baseUrl}/integrations?error=insufficient_scopes&provider=paypal&missing=${scopeValidation.missing.join(",")}`,
+        }
+      }
+
+      // Validate token by making an API call
+      const isTokenValid = await this.validateToken(access_token)
+      if (!isTokenValid) {
+        return {
+          success: false,
+          redirectUrl: `${baseUrl}/integrations?error=invalid_token&provider=paypal`,
+        }
+      }
 
       const userResponse = await fetch("https://api.paypal.com/v1/identity/oauth2/userinfo?schema=paypalv1.1", {
         headers: {
@@ -79,7 +155,7 @@ export class PayPalOAuthService {
         refresh_token,
         expires_at: expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null,
         status: "connected" as const,
-        scopes: ["https://uri.paypal.com/services/payments/payment"],
+        scopes: grantedScopes,
         metadata: {
           user_name: userData.name,
           user_email: userData.email,

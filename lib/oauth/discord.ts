@@ -25,7 +25,7 @@ export class DiscordOAuthService {
   ): Promise<DiscordOAuthResult> {
     try {
       const stateData = JSON.parse(atob(state))
-      const { provider, reconnect, integrationId } = stateData
+      const { provider, reconnect, integrationId, requireFullScopes } = stateData
 
       if (provider !== "discord") {
         throw new Error("Invalid provider in state")
@@ -41,8 +41,8 @@ export class DiscordOAuthService {
         body: new URLSearchParams({
           client_id: clientId,
           client_secret: clientSecret,
-          code,
           grant_type: "authorization_code",
+          code,
           redirect_uri: "https://chainreact.app/api/integrations/discord/callback",
         }),
       })
@@ -53,7 +53,26 @@ export class DiscordOAuthService {
       }
 
       const tokenData = await tokenResponse.json()
-      const { access_token, refresh_token, expires_in } = tokenData
+      const { access_token, refresh_token, expires_in, scope } = tokenData
+
+      // Validate scopes if required
+      if (requireFullScopes) {
+        const grantedScopes = scope ? scope.split(" ") : []
+        const requiredScopes = ["bot", "applications.commands"]
+        const missingScopes = requiredScopes.filter((s) => !grantedScopes.includes(s))
+
+        if (missingScopes.length > 0) {
+          console.error("Discord scope validation failed:", { grantedScopes, missingScopes })
+          return {
+            success: false,
+            redirectUrl: `${baseUrl}/integrations?error=insufficient_scopes&provider=discord&message=${encodeURIComponent(
+              `Your connection is missing required permissions: ${missingScopes.join(", ")}. Please reconnect and accept all scopes.`,
+            )}`,
+            error: "Insufficient scopes",
+          }
+        }
+        console.log("Discord scopes validated successfully:", grantedScopes)
+      }
 
       const userResponse = await fetch("https://discord.com/api/users/@me", {
         headers: {
@@ -75,14 +94,14 @@ export class DiscordOAuthService {
         access_token,
         refresh_token,
         expires_at: expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null,
-        scopes: tokenData.scope?.split(" ") || [],
         status: "connected" as const,
+        scopes: scope ? scope.split(" ") : [],
         metadata: {
           username: userData.username,
           discriminator: userData.discriminator,
           avatar: userData.avatar,
-          email: userData.email,
           connected_at: new Date().toISOString(),
+          scopes_validated: requireFullScopes,
         },
       }
 
@@ -103,7 +122,7 @@ export class DiscordOAuthService {
 
       return {
         success: true,
-        redirectUrl: `${baseUrl}/integrations?success=discord_connected`,
+        redirectUrl: `${baseUrl}/integrations?success=discord_connected&provider=discord&scopes_validated=${requireFullScopes}`,
       }
     } catch (error: any) {
       return {

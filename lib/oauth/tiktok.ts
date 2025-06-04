@@ -19,6 +19,43 @@ export class TikTokOAuthService {
     return { clientId, clientSecret }
   }
 
+  // Define required scopes for TikTok
+  static getRequiredScopes() {
+    return ["user.info.basic", "video.upload", "video.list", "comment.list", "comment.create"]
+  }
+
+  // Validate scopes against required scopes
+  static validateScopes(grantedScopes: string[]): { valid: boolean; missing: string[] } {
+    const requiredScopes = this.getRequiredScopes()
+    const missing = requiredScopes.filter((scope) => !grantedScopes.includes(scope))
+    return {
+      valid: missing.length === 0,
+      missing,
+    }
+  }
+
+  // Validate token by making an API call
+  static async validateToken(accessToken: string, openId: string): Promise<boolean> {
+    try {
+      const response = await fetch("https://open-api.tiktok.com/user/info/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          access_token: accessToken,
+          open_id: openId,
+          fields: ["open_id", "union_id", "avatar_url", "display_name"],
+        }),
+      })
+      return response.ok
+    } catch (error) {
+      console.error("TikTok token validation error:", error)
+      return false
+    }
+  }
+
   static async handleCallback(code: string, state: string, baseUrl: string): Promise<TikTokOAuthResult> {
     try {
       const stateData = JSON.parse(atob(state))
@@ -29,6 +66,23 @@ export class TikTokOAuthService {
       }
 
       const { clientId, clientSecret } = this.getClientCredentials()
+
+      // Clear any existing tokens before requesting new ones
+      if (reconnect && integrationId) {
+        const supabase = createServerComponentClient({ cookies })
+        const { error: clearError } = await supabase
+          .from("integrations")
+          .update({
+            access_token: null,
+            refresh_token: null,
+            status: "reconnecting",
+          })
+          .eq("id", integrationId)
+
+        if (clearError) {
+          console.error("Error clearing existing tokens:", clearError)
+        }
+      }
 
       const tokenResponse = await fetch("https://open-api.tiktok.com/oauth/access_token/", {
         method: "POST",
@@ -50,7 +104,29 @@ export class TikTokOAuthService {
       }
 
       const tokenData = await tokenResponse.json()
-      const { access_token, expires_in, open_id } = tokenData.data
+      const { access_token, expires_in, open_id, scope } = tokenData.data
+
+      // Get granted scopes from the token data
+      const grantedScopes = scope ? scope.split(",") : ["user.info.basic", "video.upload"]
+
+      // Validate scopes
+      const scopeValidation = this.validateScopes(grantedScopes)
+
+      if (!scopeValidation.valid) {
+        return {
+          success: false,
+          redirectUrl: `${baseUrl}/integrations?error=insufficient_scopes&provider=tiktok&missing=${scopeValidation.missing.join(",")}`,
+        }
+      }
+
+      // Validate token by making an API call
+      const isTokenValid = await this.validateToken(access_token, open_id)
+      if (!isTokenValid) {
+        return {
+          success: false,
+          redirectUrl: `${baseUrl}/integrations?error=invalid_token&provider=tiktok`,
+        }
+      }
 
       const userResponse = await fetch("https://open-api.tiktok.com/user/info/", {
         method: "POST",
@@ -87,7 +163,7 @@ export class TikTokOAuthService {
         access_token,
         expires_at: expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null,
         status: "connected" as const,
-        scopes: ["user.info.basic", "video.upload"],
+        scopes: grantedScopes,
         metadata: {
           open_id: user.open_id,
           union_id: user.union_id,

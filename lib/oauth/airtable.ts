@@ -3,6 +3,7 @@ interface AirtableTokenResponse {
   refresh_token?: string
   expires_in?: number
   token_type: string
+  scope?: string
 }
 
 interface AirtableUserInfo {
@@ -27,6 +28,36 @@ export class AirtableOAuthService {
     }
 
     return { clientId, clientSecret }
+  }
+
+  // Define required scopes for Airtable
+  static getRequiredScopes() {
+    return ["data.records:read", "data.records:write", "schema.bases:read", "schema.bases:write"]
+  }
+
+  // Validate scopes against required scopes
+  static validateScopes(grantedScopes: string[]): { valid: boolean; missing: string[] } {
+    const requiredScopes = this.getRequiredScopes()
+    const missing = requiredScopes.filter((scope) => !grantedScopes.includes(scope))
+    return {
+      valid: missing.length === 0,
+      missing,
+    }
+  }
+
+  // Validate token by making an API call
+  static async validateToken(accessToken: string): Promise<boolean> {
+    try {
+      const response = await fetch("https://api.airtable.com/v0/meta/whoami", {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      })
+      return response.ok
+    } catch (error) {
+      console.error("Airtable token validation error:", error)
+      return false
+    }
   }
 
   private static async exchangeCodeForToken(code: string, redirectUri: string): Promise<AirtableTokenResponse> {
@@ -76,6 +107,7 @@ export class AirtableOAuthService {
     tokenData: AirtableTokenResponse,
     userData: AirtableUserInfo,
     stateData: any,
+    grantedScopes: string[],
   ): Promise<void> {
     const integrationData = {
       user_id: userId,
@@ -85,7 +117,7 @@ export class AirtableOAuthService {
       refresh_token: tokenData.refresh_token,
       expires_at: tokenData.expires_in ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString() : null,
       status: "connected" as const,
-      scopes: ["data.records:read", "data.records:write", "schema.bases:read"],
+      scopes: grantedScopes,
       metadata: {
         user_name: userData.name,
         user_email: userData.email,
@@ -159,6 +191,22 @@ export class AirtableOAuthService {
         throw new Error("Invalid provider in state")
       }
 
+      // Clear any existing tokens before requesting new ones
+      if (reconnect && integrationId) {
+        const { error: clearError } = await supabase
+          .from("integrations")
+          .update({
+            access_token: null,
+            refresh_token: null,
+            status: "reconnecting",
+          })
+          .eq("id", integrationId)
+
+        if (clearError) {
+          console.error("Error clearing existing tokens:", clearError)
+        }
+      }
+
       // Get secure redirect URI
       const redirectUri = this.getRedirectUri()
       console.log("Using redirect URI:", redirectUri)
@@ -168,13 +216,37 @@ export class AirtableOAuthService {
       const tokenData = await this.exchangeCodeForToken(code, redirectUri)
       console.log("Token exchange successful:", { hasAccessToken: !!tokenData.access_token })
 
+      // Get granted scopes from the token data
+      const grantedScopes = tokenData.scope
+        ? tokenData.scope.split(" ")
+        : ["data.records:read", "data.records:write", "schema.bases:read"]
+
+      // Validate scopes
+      const scopeValidation = this.validateScopes(grantedScopes)
+
+      if (!scopeValidation.valid) {
+        return {
+          success: false,
+          redirectUrl: `${baseUrl}/integrations?error=insufficient_scopes&provider=airtable&missing=${scopeValidation.missing.join(",")}`,
+        }
+      }
+
+      // Validate token by making an API call
+      const isTokenValid = await this.validateToken(tokenData.access_token)
+      if (!isTokenValid) {
+        return {
+          success: false,
+          redirectUrl: `${baseUrl}/integrations?error=invalid_token&provider=airtable`,
+        }
+      }
+
       // Get user info from Airtable
       console.log("Fetching user info from Airtable...")
       const userData = await this.getUserInfo(tokenData.access_token)
       console.log("User info fetched successfully:", { userId: userData.id })
 
       // Save integration to database
-      await this.saveIntegration(supabase, userId, tokenData, userData, stateData)
+      await this.saveIntegration(supabase, userId, tokenData, userData, stateData, grantedScopes)
 
       console.log("Airtable integration saved successfully")
       return {
@@ -209,7 +281,7 @@ export class AirtableOAuthService {
       redirect_uri: redirectUri,
       response_type: "code",
       state,
-      scope: "data.records:read data.records:write schema.bases:read",
+      scope: "data.records:read data.records:write schema.bases:read schema.bases:write",
     })
 
     return `https://airtable.com/oauth2/v1/authorize?${params.toString()}`

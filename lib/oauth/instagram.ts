@@ -19,6 +19,32 @@ export class InstagramOAuthService {
     return { clientId, clientSecret }
   }
 
+  // Define required scopes for Instagram
+  static getRequiredScopes() {
+    return ["instagram_basic", "instagram_content_publish", "pages_show_list", "pages_read_engagement"]
+  }
+
+  // Validate scopes against required scopes
+  static validateScopes(grantedScopes: string[]): { valid: boolean; missing: string[] } {
+    const requiredScopes = this.getRequiredScopes()
+    const missing = requiredScopes.filter((scope) => !grantedScopes.includes(scope))
+    return {
+      valid: missing.length === 0,
+      missing,
+    }
+  }
+
+  // Validate token by making an API call
+  static async validateToken(accessToken: string): Promise<boolean> {
+    try {
+      const response = await fetch(`https://graph.instagram.com/me?access_token=${accessToken}`)
+      return response.ok
+    } catch (error) {
+      console.error("Instagram token validation error:", error)
+      return false
+    }
+  }
+
   static async handleCallback(code: string, state: string, baseUrl: string): Promise<InstagramOAuthResult> {
     try {
       const stateData = JSON.parse(atob(state))
@@ -29,6 +55,23 @@ export class InstagramOAuthService {
       }
 
       const { clientId, clientSecret } = this.getClientCredentials()
+
+      // Clear any existing tokens before requesting new ones
+      if (reconnect && integrationId) {
+        const supabase = createServerComponentClient({ cookies })
+        const { error: clearError } = await supabase
+          .from("integrations")
+          .update({
+            access_token: null,
+            refresh_token: null,
+            status: "reconnecting",
+          })
+          .eq("id", integrationId)
+
+        if (clearError) {
+          console.error("Error clearing existing tokens:", clearError)
+        }
+      }
 
       const tokenResponse = await fetch("https://graph.facebook.com/v18.0/oauth/access_token", {
         method: "POST",
@@ -50,6 +93,39 @@ export class InstagramOAuthService {
 
       const tokenData = await tokenResponse.json()
       const { access_token, expires_in } = tokenData
+
+      // Get granted scopes from a debug token call
+      const debugTokenResponse = await fetch(
+        `https://graph.facebook.com/debug_token?input_token=${access_token}&access_token=${access_token}`,
+      )
+
+      let grantedScopes: string[] = []
+      if (debugTokenResponse.ok) {
+        const debugData = await debugTokenResponse.json()
+        grantedScopes = debugData.data?.scopes || []
+      } else {
+        // Fallback to default scopes if we can't get them from the debug token
+        grantedScopes = ["instagram_basic", "instagram_content_publish"]
+      }
+
+      // Validate scopes
+      const scopeValidation = this.validateScopes(grantedScopes)
+
+      if (!scopeValidation.valid) {
+        return {
+          success: false,
+          redirectUrl: `${baseUrl}/integrations?error=insufficient_scopes&provider=instagram&missing=${scopeValidation.missing.join(",")}`,
+        }
+      }
+
+      // Validate token by making an API call
+      const isTokenValid = await this.validateToken(access_token)
+      if (!isTokenValid) {
+        return {
+          success: false,
+          redirectUrl: `${baseUrl}/integrations?error=invalid_token&provider=instagram`,
+        }
+      }
 
       const userResponse = await fetch(`https://graph.instagram.com/me?fields=id,username&access_token=${access_token}`)
 
@@ -74,7 +150,7 @@ export class InstagramOAuthService {
         access_token,
         expires_at: expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null,
         status: "connected" as const,
-        scopes: ["instagram_basic", "instagram_content_publish"],
+        scopes: grantedScopes,
         metadata: {
           username: userData.username,
           connected_at: new Date().toISOString(),

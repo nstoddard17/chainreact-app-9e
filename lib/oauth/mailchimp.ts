@@ -19,6 +19,38 @@ export class MailchimpOAuthService {
     return { clientId, clientSecret }
   }
 
+  // Define required scopes for Mailchimp
+  static getRequiredScopes() {
+    return ["campaigns:read", "campaigns:write", "lists:read", "lists:write", "reports:read"]
+  }
+
+  // Validate scopes against required scopes
+  static validateScopes(grantedScopes: string[]): { valid: boolean; missing: string[] } {
+    const requiredScopes = this.getRequiredScopes()
+    const missing = requiredScopes.filter((scope) => !grantedScopes.includes(scope))
+    return {
+      valid: missing.length === 0,
+      missing,
+    }
+  }
+
+  // Validate token by making an API call
+  static async validateToken(accessToken: string, metadata: any): Promise<boolean> {
+    try {
+      // Mailchimp requires the datacenter (dc) in the API URL
+      const dc = metadata?.dc || "us1"
+      const response = await fetch(`https://${dc}.api.mailchimp.com/3.0/`, {
+        headers: {
+          Authorization: `OAuth ${accessToken}`,
+        },
+      })
+      return response.ok
+    } catch (error) {
+      console.error("Mailchimp token validation error:", error)
+      return false
+    }
+  }
+
   static async handleCallback(code: string, state: string, baseUrl: string): Promise<MailchimpOAuthResult> {
     try {
       const stateData = JSON.parse(atob(state))
@@ -29,6 +61,23 @@ export class MailchimpOAuthService {
       }
 
       const { clientId, clientSecret } = this.getClientCredentials()
+
+      // Clear any existing tokens before requesting new ones
+      if (reconnect && integrationId) {
+        const supabase = createServerComponentClient({ cookies })
+        const { error: clearError } = await supabase
+          .from("integrations")
+          .update({
+            access_token: null,
+            refresh_token: null,
+            status: "reconnecting",
+          })
+          .eq("id", integrationId)
+
+        if (clearError) {
+          console.error("Error clearing existing tokens:", clearError)
+        }
+      }
 
       const tokenResponse = await fetch("https://login.mailchimp.com/oauth2/token", {
         method: "POST",
@@ -64,6 +113,28 @@ export class MailchimpOAuthService {
 
       const userData = await userResponse.json()
 
+      // Get granted scopes from the token data or metadata
+      const grantedScopes = tokenData.scope ? tokenData.scope.split(" ") : ["campaigns:read", "lists:write"]
+
+      // Validate scopes
+      const scopeValidation = this.validateScopes(grantedScopes)
+
+      if (!scopeValidation.valid) {
+        return {
+          success: false,
+          redirectUrl: `${baseUrl}/integrations?error=insufficient_scopes&provider=mailchimp&missing=${scopeValidation.missing.join(",")}`,
+        }
+      }
+
+      // Validate token by making an API call
+      const isTokenValid = await this.validateToken(access_token, userData)
+      if (!isTokenValid) {
+        return {
+          success: false,
+          redirectUrl: `${baseUrl}/integrations?error=invalid_token&provider=mailchimp`,
+        }
+      }
+
       const supabase = createServerComponentClient({ cookies })
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
 
@@ -76,9 +147,9 @@ export class MailchimpOAuthService {
         provider: "mailchimp",
         provider_user_id: userData.user_id.toString(),
         access_token,
-        expires_at: new Date(Date.now() + expires_in * 1000).toISOString(),
+        expires_at: expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null,
         status: "connected" as const,
-        scopes: ["campaigns:read", "lists:write"],
+        scopes: grantedScopes,
         metadata: {
           dc: userData.dc,
           api_endpoint: userData.api_endpoint,

@@ -37,7 +37,7 @@ export class SlackOAuthService {
     try {
       // Decode state to get provider info
       const stateData = JSON.parse(atob(state))
-      const { provider } = stateData
+      const { provider, requireFullScopes } = stateData
 
       if (provider !== "slack") {
         throw new Error("Invalid provider in state")
@@ -70,6 +70,23 @@ export class SlackOAuthService {
         throw new Error(tokenData.error || "Token exchange failed")
       }
 
+      // Validate scopes if required
+      if (requireFullScopes && tokenData.access_token) {
+        const { OAuthService } = await import("./oauthService")
+        const validation = await OAuthService.validateToken("slack", tokenData.access_token)
+
+        if (!validation.valid) {
+          console.error("Slack scope validation failed:", validation)
+          return {
+            success: false,
+            redirectUrl: `${baseUrl}/integrations?error=insufficient_scopes&provider=slack&message=${encodeURIComponent(
+              `Your connection is missing required permissions: ${validation.missingScopes.join(", ")}. Please reconnect and accept all scopes.`,
+            )}`,
+            error: "Insufficient scopes granted",
+          }
+        }
+      }
+
       // Prepare integration data
       const integrationData = {
         user_id: userId,
@@ -85,6 +102,7 @@ export class SlackOAuthService {
           authed_user: tokenData.authed_user,
           bot_user_id: tokenData.bot_user_id,
           connected_at: new Date().toISOString(),
+          validated_at: new Date().toISOString(),
         },
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -121,7 +139,7 @@ export class SlackOAuthService {
 
       return {
         success: true,
-        redirectUrl: `${baseUrl}/integrations?success=${existingIntegration ? "slack_reconnected" : "slack_connected"}&provider=slack`,
+        redirectUrl: `${baseUrl}/integrations?success=${existingIntegration ? "slack_reconnected" : "slack_connected"}&provider=slack&scopes_validated=true`,
       }
     } catch (error: any) {
       return {

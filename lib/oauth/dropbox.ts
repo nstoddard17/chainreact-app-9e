@@ -1,3 +1,5 @@
+import { OAuthService } from "./oauthService"
+
 interface DropboxOAuthResult {
   success: boolean
   redirectUrl: string
@@ -26,7 +28,7 @@ export class DropboxOAuthService {
     try {
       // Decode state to get provider info
       const stateData = JSON.parse(atob(state))
-      const { provider, reconnect, integrationId } = stateData
+      const { provider, reconnect, integrationId, requireFullScopes } = stateData
 
       if (provider !== "dropbox") {
         throw new Error("Invalid provider in state")
@@ -58,6 +60,24 @@ export class DropboxOAuthService {
       const tokenData = await tokenResponse.json()
       const { access_token, refresh_token, expires_in, account_id } = tokenData
 
+      // Validate scopes if required
+      if (requireFullScopes) {
+        console.log("Validating Dropbox scopes...")
+        const validation = await OAuthService.validateToken("dropbox", access_token)
+
+        if (!validation.valid) {
+          console.error("Dropbox scope validation failed:", validation)
+          return {
+            success: false,
+            redirectUrl: `${baseUrl}/integrations?error=insufficient_scopes&provider=dropbox&message=${encodeURIComponent(
+              `Your connection is missing required permissions: ${validation.missingScopes.join(", ")}. Please reconnect and accept all scopes.`,
+            )}`,
+            error: "Insufficient scopes",
+          }
+        }
+        console.log("Dropbox scopes validated successfully:", validation.grantedScopes)
+      }
+
       // Get user info from Dropbox
       const userResponse = await fetch("https://api.dropboxapi.com/2/users/get_current_account", {
         method: "POST",
@@ -81,12 +101,13 @@ export class DropboxOAuthService {
         refresh_token,
         expires_at: expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null,
         status: "connected" as const,
-        scopes: ["files.content.write", "files.content.read"],
+        scopes: ["files.content.write", "files.content.read", "sharing.write"],
         metadata: {
           account_id: userData.account_id,
           user_name: userData.name?.display_name,
           user_email: userData.email,
           connected_at: new Date().toISOString(),
+          scopes_validated: requireFullScopes,
         },
       }
 
@@ -111,7 +132,7 @@ export class DropboxOAuthService {
 
       return {
         success: true,
-        redirectUrl: `${baseUrl}/integrations?success=dropbox_connected`,
+        redirectUrl: `${baseUrl}/integrations?success=dropbox_connected&provider=dropbox&scopes_validated=${requireFullScopes}`,
       }
     } catch (error: any) {
       return {

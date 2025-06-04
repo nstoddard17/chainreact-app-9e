@@ -1,6 +1,3 @@
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
-
 interface LinkedInOAuthResult {
   success: boolean
   redirectUrl: string
@@ -19,10 +16,16 @@ export class LinkedInOAuthService {
     return { clientId, clientSecret }
   }
 
-  static async handleCallback(code: string, state: string, baseUrl: string): Promise<LinkedInOAuthResult> {
+  static async handleCallback(
+    code: string,
+    state: string,
+    baseUrl: string,
+    supabase: any,
+    userId: string,
+  ): Promise<LinkedInOAuthResult> {
     try {
       const stateData = JSON.parse(atob(state))
-      const { provider, reconnect, integrationId } = stateData
+      const { provider, reconnect, integrationId, requireFullScopes } = stateData
 
       if (provider !== "linkedin") {
         throw new Error("Invalid provider in state")
@@ -51,6 +54,58 @@ export class LinkedInOAuthService {
 
       const tokenData = await tokenResponse.json()
       const { access_token, expires_in } = tokenData
+
+      // Validate scopes if required
+      if (requireFullScopes) {
+        // LinkedIn doesn't return scopes in token response, so we test endpoints
+        const grantedScopes: string[] = []
+
+        // Test profile access
+        const profileResponse = await fetch(
+          "https://api.linkedin.com/v2/people/~:(id,localizedFirstName,localizedLastName)",
+          {
+            headers: { Authorization: `Bearer ${access_token}` },
+          },
+        )
+        if (profileResponse.ok) {
+          grantedScopes.push("r_liteprofile")
+        }
+
+        // Test email access
+        const emailResponse = await fetch(
+          "https://api.linkedin.com/v2/emailAddress?q=members&projection=(elements*(handle~))",
+          {
+            headers: { Authorization: `Bearer ${access_token}` },
+          },
+        )
+        if (emailResponse.ok) {
+          grantedScopes.push("r_emailaddress")
+        }
+
+        // Test posting access (this might fail but we can check the error)
+        const postResponse = await fetch("https://api.linkedin.com/v2/people/~", {
+          headers: { Authorization: `Bearer ${access_token}` },
+        })
+        if (postResponse.ok || postResponse.status === 403) {
+          // 403 means we have the scope but not permission to this specific action
+          grantedScopes.push("w_member_social")
+        }
+
+        const requiredScopes = ["r_liteprofile", "r_emailaddress", "w_member_social"]
+        const missingScopes = requiredScopes.filter((s) => !grantedScopes.includes(s))
+
+        if (missingScopes.length > 0) {
+          console.error("LinkedIn scope validation failed:", { grantedScopes, missingScopes })
+          return {
+            success: false,
+            redirectUrl: `${baseUrl}/integrations?error=insufficient_scopes&provider=linkedin&message=${encodeURIComponent(
+              `Your connection is missing required permissions: ${missingScopes.join(", ")}. Please reconnect and accept all scopes.`,
+            )}`,
+            error: "Insufficient scopes",
+          }
+        }
+        console.log("LinkedIn scopes validated successfully:", grantedScopes)
+      }
 
       const userResponse = await fetch(
         "https://api.linkedin.com/v2/people/~:(id,localizedFirstName,localizedLastName)",
@@ -87,15 +142,8 @@ export class LinkedInOAuthService {
         console.log("Failed to get email from LinkedIn:", error)
       }
 
-      const supabase = createServerComponentClient({ cookies })
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
-
-      if (sessionError || !sessionData?.session) {
-        throw new Error("No active user session found")
-      }
-
       const integrationData = {
-        user_id: sessionData.session.user.id,
+        user_id: userId,
         provider: "linkedin",
         provider_user_id: userData.id,
         access_token,
@@ -107,6 +155,7 @@ export class LinkedInOAuthService {
           last_name: userData.localizedLastName,
           email: email,
           connected_at: new Date().toISOString(),
+          scopes_validated: requireFullScopes,
         },
       }
 
@@ -127,7 +176,7 @@ export class LinkedInOAuthService {
 
       return {
         success: true,
-        redirectUrl: `${baseUrl}/integrations?success=linkedin_connected`,
+        redirectUrl: `${baseUrl}/integrations?success=linkedin_connected&provider=linkedin&scopes_validated=${requireFullScopes}`,
       }
     } catch (error: any) {
       return {

@@ -19,6 +19,45 @@ export class ShopifyOAuthService {
     return { clientId, clientSecret }
   }
 
+  // Define required scopes for Shopify
+  static getRequiredScopes() {
+    return [
+      "read_products",
+      "write_products",
+      "read_orders",
+      "write_orders",
+      "read_customers",
+      "write_customers",
+      "read_inventory",
+      "write_inventory",
+    ]
+  }
+
+  // Validate scopes against required scopes
+  static validateScopes(grantedScopes: string[]): { valid: boolean; missing: string[] } {
+    const requiredScopes = this.getRequiredScopes()
+    const missing = requiredScopes.filter((scope) => !grantedScopes.includes(scope))
+    return {
+      valid: missing.length === 0,
+      missing,
+    }
+  }
+
+  // Validate token by making an API call
+  static async validateToken(accessToken: string, shop: string): Promise<boolean> {
+    try {
+      const response = await fetch(`https://${shop}/admin/api/2023-10/shop.json`, {
+        headers: {
+          "X-Shopify-Access-Token": accessToken,
+        },
+      })
+      return response.ok
+    } catch (error) {
+      console.error("Shopify token validation error:", error)
+      return false
+    }
+  }
+
   static async handleCallback(code: string, state: string, shop: string, baseUrl: string): Promise<ShopifyOAuthResult> {
     try {
       const stateData = JSON.parse(atob(state))
@@ -29,6 +68,23 @@ export class ShopifyOAuthService {
       }
 
       const { clientId, clientSecret } = this.getClientCredentials()
+
+      // Clear any existing tokens before requesting new ones
+      if (reconnect && integrationId) {
+        const supabase = createServerComponentClient({ cookies })
+        const { error: clearError } = await supabase
+          .from("integrations")
+          .update({
+            access_token: null,
+            refresh_token: null,
+            status: "reconnecting",
+          })
+          .eq("id", integrationId)
+
+        if (clearError) {
+          console.error("Error clearing existing tokens:", clearError)
+        }
+      }
 
       const tokenResponse = await fetch(`https://${shop}/admin/oauth/access_token`, {
         method: "POST",
@@ -49,6 +105,28 @@ export class ShopifyOAuthService {
 
       const tokenData = await tokenResponse.json()
       const { access_token, scope } = tokenData
+
+      // Get granted scopes from the token data
+      const grantedScopes = scope ? scope.split(",") : []
+
+      // Validate scopes
+      const scopeValidation = this.validateScopes(grantedScopes)
+
+      if (!scopeValidation.valid) {
+        return {
+          success: false,
+          redirectUrl: `${baseUrl}/integrations?error=insufficient_scopes&provider=shopify&missing=${scopeValidation.missing.join(",")}`,
+        }
+      }
+
+      // Validate token by making an API call
+      const isTokenValid = await this.validateToken(access_token, shop)
+      if (!isTokenValid) {
+        return {
+          success: false,
+          redirectUrl: `${baseUrl}/integrations?error=invalid_token&provider=shopify`,
+        }
+      }
 
       const shopResponse = await fetch(`https://${shop}/admin/api/2023-10/shop.json`, {
         headers: {
@@ -77,7 +155,7 @@ export class ShopifyOAuthService {
         provider_user_id: shopInfo.id.toString(),
         access_token,
         status: "connected" as const,
-        scopes: scope.split(","),
+        scopes: grantedScopes,
         metadata: {
           shop_domain: shop,
           shop_name: shopInfo.name,

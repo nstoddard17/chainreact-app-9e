@@ -26,7 +26,7 @@ export class GoogleOAuthService {
     try {
       // Decode state to get provider info
       const stateData = JSON.parse(atob(state))
-      const { provider, reconnect, integrationId } = stateData
+      const { provider, reconnect, integrationId, requireFullScopes } = stateData
 
       if (!provider || (!provider.startsWith("google") && provider !== "gmail" && provider !== "youtube")) {
         throw new Error("Invalid provider in state")
@@ -60,6 +60,23 @@ export class GoogleOAuthService {
 
       if (!access_token) {
         throw new Error("No access token received from Google")
+      }
+
+      // Validate scopes if required
+      if (requireFullScopes) {
+        const { OAuthService } = await import("./oauthService")
+        const validation = await OAuthService.validateToken("google", access_token)
+
+        if (!validation.valid) {
+          console.error("Google scope validation failed:", validation)
+          return {
+            success: false,
+            redirectUrl: `${baseUrl}/integrations?error=insufficient_scopes&provider=google&message=${encodeURIComponent(
+              `Your connection is missing required permissions: ${validation.missingScopes.join(", ")}. Please reconnect and accept all scopes.`,
+            )}`,
+            error: "Insufficient scopes granted",
+          }
+        }
       }
 
       // Get user info from Google
@@ -99,6 +116,7 @@ export class GoogleOAuthService {
           picture: googleUserData.picture,
           scopes: grantedScope ? grantedScope.split(" ") : [],
           connected_at: new Date().toISOString(),
+          validated_at: new Date().toISOString(),
         },
       }
 
@@ -123,7 +141,7 @@ export class GoogleOAuthService {
 
       return {
         success: true,
-        redirectUrl: `${baseUrl}/integrations?success=${provider}_connected`,
+        redirectUrl: `${baseUrl}/integrations?success=${provider}_connected&scopes_validated=true`,
       }
     } catch (error: any) {
       return {

@@ -1,18 +1,18 @@
 import { OAuthService } from "./oauthService"
 
-interface TeamsOAuthResult {
+interface GitHubOAuthResult {
   success: boolean
   redirectUrl: string
   error?: string
 }
 
-export class TeamsOAuthService {
+export class GitHubOAuthService {
   private static getClientCredentials() {
-    const clientId = process.env.NEXT_PUBLIC_TEAMS_CLIENT_ID
-    const clientSecret = process.env.TEAMS_CLIENT_SECRET
+    const clientId = process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID
+    const clientSecret = process.env.GITHUB_CLIENT_SECRET
 
     if (!clientId || !clientSecret) {
-      throw new Error("Missing Teams OAuth configuration")
+      throw new Error("Missing GitHub OAuth configuration")
     }
 
     return { clientId, clientSecret }
@@ -24,64 +24,64 @@ export class TeamsOAuthService {
     baseUrl: string,
     supabase: any,
     userId: string,
-  ): Promise<TeamsOAuthResult> {
+  ): Promise<GitHubOAuthResult> {
     try {
-      // Decode state to get provider info
       const stateData = JSON.parse(atob(state))
       const { provider, reconnect, integrationId, requireFullScopes } = stateData
 
-      if (provider !== "teams") {
+      if (provider !== "github") {
         throw new Error("Invalid provider in state")
       }
 
-      // Get credentials securely
       const { clientId, clientSecret } = this.getClientCredentials()
 
-      // Exchange code for access token
-      const tokenResponse = await fetch("https://login.microsoftonline.com/common/oauth2/v2.0/token", {
+      const tokenResponse = await fetch("https://github.com/login/oauth/access_token", {
         method: "POST",
         headers: {
+          Accept: "application/json",
           "Content-Type": "application/x-www-form-urlencoded",
         },
         body: new URLSearchParams({
           client_id: clientId,
           client_secret: clientSecret,
           code,
-          grant_type: "authorization_code",
-          redirect_uri: "https://chainreact.app/api/integrations/teams/callback",
         }),
       })
 
       if (!tokenResponse.ok) {
-        const errorText = await tokenResponse.text()
-        throw new Error(`Token exchange failed: ${errorText}`)
+        const errorData = await tokenResponse.text()
+        throw new Error(`Token exchange failed: ${errorData}`)
       }
 
       const tokenData = await tokenResponse.json()
-      const { access_token, refresh_token, expires_in } = tokenData
+      const { access_token } = tokenData
+
+      if (!access_token) {
+        throw new Error("No access token received from GitHub")
+      }
 
       // Validate scopes if required
       if (requireFullScopes) {
-        console.log("Validating Microsoft Teams scopes...")
-        const validation = await OAuthService.validateToken("microsoft", access_token)
+        console.log("Validating GitHub scopes...")
+        const validation = await OAuthService.validateToken("github", access_token)
 
         if (!validation.valid) {
-          console.error("Teams scope validation failed:", validation)
+          console.error("GitHub scope validation failed:", validation)
           return {
             success: false,
-            redirectUrl: `${baseUrl}/integrations?error=insufficient_scopes&provider=teams&message=${encodeURIComponent(
+            redirectUrl: `${baseUrl}/integrations?error=insufficient_scopes&provider=github&message=${encodeURIComponent(
               `Your connection is missing required permissions: ${validation.missingScopes.join(", ")}. Please reconnect and accept all scopes.`,
             )}`,
             error: "Insufficient scopes",
           }
         }
-        console.log("Teams scopes validated successfully:", validation.grantedScopes)
+        console.log("GitHub scopes validated successfully:", validation.grantedScopes)
       }
 
-      // Get user info from Microsoft Graph
-      const userResponse = await fetch("https://graph.microsoft.com/v1.0/me", {
+      const userResponse = await fetch("https://api.github.com/user", {
         headers: {
           Authorization: `Bearer ${access_token}`,
+          Accept: "application/vnd.github.v3+json",
         },
       })
 
@@ -91,26 +91,28 @@ export class TeamsOAuthService {
       }
 
       const userData = await userResponse.json()
+      const scopesHeader = userResponse.headers.get("X-OAuth-Scopes")
+      const grantedScopes = scopesHeader ? scopesHeader.split(", ").map((s) => s.trim()) : []
 
       const integrationData = {
         user_id: userId,
-        provider: "teams",
-        provider_user_id: userData.id,
+        provider: "github",
+        provider_user_id: userData.id.toString(),
         access_token,
-        refresh_token,
-        expires_at: new Date(Date.now() + expires_in * 1000).toISOString(),
         status: "connected" as const,
-        scopes: ["User.Read", "Calendars.ReadWrite", "Chat.ReadWrite", "Files.ReadWrite", "Mail.ReadWrite"],
+        scopes: grantedScopes,
         metadata: {
-          user_name: userData.displayName,
-          user_email: userData.mail || userData.userPrincipalName,
+          username: userData.login,
+          user_name: userData.name,
+          user_email: userData.email,
+          avatar_url: userData.avatar_url,
           connected_at: new Date().toISOString(),
           scopes_validated: requireFullScopes,
         },
       }
 
       if (reconnect && integrationId) {
-        const { error: updateError } = await supabase
+        const { error } = await supabase
           .from("integrations")
           .update({
             ...integrationData,
@@ -118,24 +120,20 @@ export class TeamsOAuthService {
           })
           .eq("id", integrationId)
 
-        if (updateError) {
-          throw updateError
-        }
+        if (error) throw error
       } else {
-        const { error: insertError } = await supabase.from("integrations").insert(integrationData)
-        if (insertError) {
-          throw insertError
-        }
+        const { error } = await supabase.from("integrations").insert(integrationData)
+        if (error) throw error
       }
 
       return {
         success: true,
-        redirectUrl: `${baseUrl}/integrations?success=teams_connected&provider=teams&scopes_validated=${requireFullScopes}`,
+        redirectUrl: `${baseUrl}/integrations?success=github_connected&provider=github&scopes_validated=${requireFullScopes}`,
       }
     } catch (error: any) {
       return {
         success: false,
-        redirectUrl: `${baseUrl}/integrations?error=callback_failed&provider=teams&message=${encodeURIComponent(error.message)}`,
+        redirectUrl: `${baseUrl}/integrations?error=callback_failed&provider=github&message=${encodeURIComponent(error.message)}`,
         error: error.message,
       }
     }
