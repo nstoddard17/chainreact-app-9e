@@ -1,6 +1,3 @@
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
-
 interface AirtableTokenResponse {
   access_token: string
   refresh_token?: string
@@ -74,25 +71,14 @@ export class AirtableOAuthService {
   }
 
   private static async saveIntegration(
+    supabase: any,
+    userId: string,
     tokenData: AirtableTokenResponse,
     userData: AirtableUserInfo,
     stateData: any,
   ): Promise<void> {
-    const supabase = createServerComponentClient({ cookies })
-    const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
-
-    if (sessionError) {
-      console.error("Airtable: Error retrieving session:", sessionError)
-      throw new Error(`Session error: ${sessionError.message}`)
-    }
-
-    if (!sessionData?.session) {
-      console.error("Airtable: No session found")
-      throw new Error("No session found")
-    }
-
     const integrationData = {
-      user_id: sessionData.session.user.id,
+      user_id: userId,
       provider: "airtable",
       provider_user_id: userData.id,
       access_token: tokenData.access_token,
@@ -108,7 +94,7 @@ export class AirtableOAuthService {
     }
 
     console.log("Saving integration to database...", {
-      userId: sessionData.session.user.id,
+      userId: userId,
       provider: "airtable",
       reconnect: stateData.reconnect,
       integrationId: stateData.integrationId,
@@ -140,13 +126,17 @@ export class AirtableOAuthService {
     }
   }
 
-  public static getRedirectUri(baseUrl: string): string {
-    // Construct redirect URI safely from the base URL
-    const url = new URL("/api/integrations/airtable/callback", baseUrl)
-    return url.toString()
+  public static getRedirectUri(): string {
+    return "https://chainreact.app/api/integrations/airtable/callback"
   }
 
-  public static async handleCallback(code: string, state: string, baseUrl: string): Promise<AirtableOAuthResult> {
+  public static async handleCallback(
+    code: string,
+    state: string,
+    baseUrl: string,
+    supabase: any,
+    userId: string,
+  ): Promise<AirtableOAuthResult> {
     try {
       console.log("Airtable OAuth callback:", { code: !!code, state })
 
@@ -170,7 +160,7 @@ export class AirtableOAuthService {
       }
 
       // Get secure redirect URI
-      const redirectUri = this.getRedirectUri(baseUrl)
+      const redirectUri = this.getRedirectUri()
       console.log("Using redirect URI:", redirectUri)
 
       // Exchange code for access token
@@ -184,7 +174,7 @@ export class AirtableOAuthService {
       console.log("User info fetched successfully:", { userId: userData.id })
 
       // Save integration to database
-      await this.saveIntegration(tokenData, userData, stateData)
+      await this.saveIntegration(supabase, userId, tokenData, userData, stateData)
 
       console.log("Airtable integration saved successfully")
       return {
@@ -203,7 +193,7 @@ export class AirtableOAuthService {
 
   public static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string): string {
     const { clientId } = this.getClientCredentials()
-    const redirectUri = this.getRedirectUri(baseUrl)
+    const redirectUri = this.getRedirectUri()
 
     const state = btoa(
       JSON.stringify({

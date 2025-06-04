@@ -1,6 +1,3 @@
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
-
 interface TeamsOAuthResult {
   success: boolean
   redirectUrl: string
@@ -19,7 +16,13 @@ export class TeamsOAuthService {
     return { clientId, clientSecret }
   }
 
-  static async handleCallback(code: string, state: string, baseUrl: string): Promise<TeamsOAuthResult> {
+  static async handleCallback(
+    code: string,
+    state: string,
+    baseUrl: string,
+    supabase: any,
+    userId: string,
+  ): Promise<TeamsOAuthResult> {
     try {
       // Decode state to get provider info
       const stateData = JSON.parse(atob(state))
@@ -69,16 +72,8 @@ export class TeamsOAuthService {
 
       const userData = await userResponse.json()
 
-      // Store integration in Supabase
-      const supabase = createServerComponentClient({ cookies })
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
-
-      if (sessionError || !sessionData?.session) {
-        throw new Error("No active user session found")
-      }
-
       const integrationData = {
-        user_id: sessionData.session.user.id,
+        user_id: userId,
         provider: "teams",
         provider_user_id: userData.id,
         access_token,

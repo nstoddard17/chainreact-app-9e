@@ -1,4 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
+import { cookies } from "next/headers"
 import { AirtableOAuthService } from "@/lib/oauth/airtable"
 
 export async function GET(request: NextRequest) {
@@ -25,8 +27,26 @@ export async function GET(request: NextRequest) {
   const baseUrl = new URL(request.url).origin
 
   try {
+    // Initialize Supabase client
+    const supabase = createRouteHandlerClient({ cookies })
+
+    // Get current session
+    const {
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession()
+
+    if (sessionError || !session) {
+      console.error("Airtable: Session error:", sessionError)
+      return NextResponse.redirect(
+        new URL(`/integrations?error=session_error&provider=airtable&message=No+active+user+session+found`, baseUrl),
+      )
+    }
+
+    console.log("Airtable: Session successfully retrieved for user:", session.user.id)
+
     // Handle the OAuth callback using the secure service
-    const result = await AirtableOAuthService.handleCallback(code, state, baseUrl)
+    const result = await AirtableOAuthService.handleCallback(code, state, baseUrl, supabase, session.user.id)
 
     // Redirect based on result
     return NextResponse.redirect(new URL(result.redirectUrl))

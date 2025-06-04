@@ -1,6 +1,3 @@
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
-
 interface DropboxOAuthResult {
   success: boolean
   redirectUrl: string
@@ -19,7 +16,13 @@ export class DropboxOAuthService {
     return { clientId, clientSecret }
   }
 
-  static async handleCallback(code: string, state: string, baseUrl: string): Promise<DropboxOAuthResult> {
+  static async handleCallback(
+    code: string,
+    state: string,
+    baseUrl: string,
+    supabase: any,
+    userId: string,
+  ): Promise<DropboxOAuthResult> {
     try {
       // Decode state to get provider info
       const stateData = JSON.parse(atob(state))
@@ -72,16 +75,8 @@ export class DropboxOAuthService {
 
       const userData = await userResponse.json()
 
-      // Store integration in Supabase
-      const supabase = createServerComponentClient({ cookies })
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
-
-      if (sessionError || !sessionData?.session) {
-        throw new Error("No active user session found")
-      }
-
       const integrationData = {
-        user_id: sessionData.session.user.id,
+        user_id: userId,
         provider: "dropbox",
         provider_user_id: userData.account_id,
         access_token,

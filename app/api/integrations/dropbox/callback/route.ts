@@ -1,4 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
+import { cookies } from "next/headers"
 import { DropboxOAuthService } from "@/lib/oauth/dropbox"
 
 export async function GET(request: NextRequest) {
@@ -20,8 +22,21 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    // Initialize Supabase client
+    const supabase = createRouteHandlerClient({ cookies })
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+
+    if (sessionError || !sessionData?.session) {
+      console.error("Dropbox: Session error:", sessionError)
+      return NextResponse.redirect(
+        new URL("/integrations?error=session_error&provider=dropbox&message=No+active+user+session+found", request.url),
+      )
+    }
+
+    console.log("Dropbox: Session successfully retrieved for user:", sessionData.session.user.id)
+
     const baseUrl = new URL(request.url).origin
-    const result = await DropboxOAuthService.handleCallback(code, state, baseUrl)
+    const result = await DropboxOAuthService.handleCallback(code, state, baseUrl, supabase, sessionData.session.user.id)
 
     console.log("Dropbox OAuth result:", result.success ? "success" : "failed")
     return NextResponse.redirect(new URL(result.redirectUrl))

@@ -1,4 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
+import { cookies } from "next/headers"
 import { TeamsOAuthService } from "@/lib/oauth/teams"
 
 export async function GET(request: NextRequest) {
@@ -31,8 +33,38 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    // Initialize Supabase client
+    const supabase = createRouteHandlerClient({ cookies })
+
+    // Get session from cookies
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+
+    if (sessionError) {
+      console.error("Teams: Error retrieving session:", sessionError)
+      return NextResponse.redirect(
+        new URL("/integrations?error=session_error&provider=teams&message=Error+retrieving+session", request.url),
+      )
+    }
+
+    if (!sessionData?.session) {
+      console.error("Teams: No session found in cookies")
+      return NextResponse.redirect(
+        new URL("/integrations?error=session_expired&provider=teams&message=Please+log+in+again", request.url),
+      )
+    }
+
+    console.log("Teams: Session successfully retrieved for user:", sessionData.session.user.id)
+
     const baseUrl = new URL(request.url).origin
-    const result = await TeamsOAuthService.handleCallback(code, state, baseUrl)
+    const result = await TeamsOAuthService.handleCallback(code, state, baseUrl, supabase, sessionData.session.user.id)
+
+    // Clear the cache and redirect to success page
+    try {
+      await fetch(`${request.nextUrl.origin}/api/integrations/clear-cache`, { method: "POST" })
+      console.log("Cache cleared successfully")
+    } catch (cacheError) {
+      console.error("Failed to clear cache:", cacheError)
+    }
 
     console.log("Teams OAuth result:", result.success ? "success" : "failed")
     return NextResponse.redirect(new URL(result.redirectUrl))

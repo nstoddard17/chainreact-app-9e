@@ -1,6 +1,3 @@
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
-
 interface TwitterOAuthResult {
   success: boolean
   redirectUrl: string
@@ -19,7 +16,13 @@ export class TwitterOAuthService {
     return { clientId, clientSecret }
   }
 
-  static async handleCallback(code: string, state: string, baseUrl: string): Promise<TwitterOAuthResult> {
+  static async handleCallback(
+    code: string,
+    state: string,
+    baseUrl: string,
+    supabase: any,
+    userId: string,
+  ): Promise<TwitterOAuthResult> {
     try {
       const stateData = JSON.parse(atob(state))
       const { provider, reconnect, integrationId } = stateData
@@ -67,15 +70,8 @@ export class TwitterOAuthService {
       const userData = await userResponse.json()
       const user = userData.data
 
-      const supabase = createServerComponentClient({ cookies })
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
-
-      if (sessionError || !sessionData?.session) {
-        throw new Error("No active user session found")
-      }
-
       const integrationData = {
-        user_id: sessionData.session.user.id,
+        user_id: userId,
         provider: "twitter",
         provider_user_id: user.id,
         access_token,

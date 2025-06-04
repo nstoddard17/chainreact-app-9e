@@ -1,4 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
+import { cookies } from "next/headers"
 import { SlackOAuthService } from "@/lib/oauth/slack"
 
 export async function GET(request: NextRequest) {
@@ -36,8 +38,28 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(redirectUrl.toString())
     }
 
+    // Initialize Supabase client
+    const supabase = createRouteHandlerClient({ cookies })
+
+    // Get current session
+    const {
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession()
+
+    if (sessionError || !session) {
+      console.error("Session error:", sessionError)
+      const redirectUrl = new URL("/integrations", origin)
+      redirectUrl.searchParams.set("error", "session_error")
+      redirectUrl.searchParams.set("message", "No active user session found")
+      redirectUrl.searchParams.set("provider", "slack")
+      return NextResponse.redirect(redirectUrl.toString())
+    }
+
+    console.log("User session found:", session.user.id)
+
     // Handle the OAuth callback using the secure service
-    const result = await SlackOAuthService.handleCallback(code, state, origin)
+    const result = await SlackOAuthService.handleCallback(code, state, origin, supabase, session.user.id)
 
     console.log("Slack OAuth result:", result.success ? "success" : "failed")
     return NextResponse.redirect(new URL(result.redirectUrl))

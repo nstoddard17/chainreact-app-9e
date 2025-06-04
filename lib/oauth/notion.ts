@@ -1,6 +1,3 @@
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
-
 interface NotionOAuthResult {
   success: boolean
   redirectUrl: string
@@ -19,7 +16,13 @@ export class NotionOAuthService {
     return { clientId, clientSecret }
   }
 
-  static async handleCallback(code: string, state: string, baseUrl: string): Promise<NotionOAuthResult> {
+  static async handleCallback(
+    code: string,
+    state: string,
+    baseUrl: string,
+    supabase: any,
+    userId: string,
+  ): Promise<NotionOAuthResult> {
     try {
       const stateData = JSON.parse(atob(state))
       const { provider, reconnect, integrationId } = stateData
@@ -51,15 +54,8 @@ export class NotionOAuthService {
       const tokenData = await tokenResponse.json()
       const { access_token, workspace_name, workspace_id, bot_id } = tokenData
 
-      const supabase = createServerComponentClient({ cookies })
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
-
-      if (sessionError || !sessionData?.session) {
-        throw new Error("No active user session found")
-      }
-
       const integrationData = {
-        user_id: sessionData.session.user.id,
+        user_id: userId,
         provider: "notion",
         provider_user_id: bot_id,
         access_token,

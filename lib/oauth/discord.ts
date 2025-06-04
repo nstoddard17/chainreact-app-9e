@@ -1,6 +1,3 @@
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
-
 interface DiscordOAuthResult {
   success: boolean
   redirectUrl: string
@@ -19,7 +16,13 @@ export class DiscordOAuthService {
     return { clientId, clientSecret }
   }
 
-  static async handleCallback(code: string, state: string, baseUrl: string): Promise<DiscordOAuthResult> {
+  static async handleCallback(
+    code: string,
+    state: string,
+    baseUrl: string,
+    supabase: any,
+    userId: string,
+  ): Promise<DiscordOAuthResult> {
     try {
       const stateData = JSON.parse(atob(state))
       const { provider, reconnect, integrationId } = stateData
@@ -65,15 +68,8 @@ export class DiscordOAuthService {
 
       const userData = await userResponse.json()
 
-      const supabase = createServerComponentClient({ cookies })
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
-
-      if (sessionError || !sessionData?.session) {
-        throw new Error("No active user session found")
-      }
-
       const integrationData = {
-        user_id: sessionData.session.user.id,
+        user_id: userId,
         provider: "discord",
         provider_user_id: userData.id,
         access_token,

@@ -1,6 +1,3 @@
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
-
 interface GoogleOAuthResult {
   success: boolean
   redirectUrl: string
@@ -19,7 +16,13 @@ export class GoogleOAuthService {
     return { clientId, clientSecret }
   }
 
-  static async handleCallback(code: string, state: string, baseUrl: string): Promise<GoogleOAuthResult> {
+  static async handleCallback(
+    code: string,
+    state: string,
+    baseUrl: string,
+    supabase: any,
+    sessionAccessToken: string,
+  ): Promise<GoogleOAuthResult> {
     try {
       // Decode state to get provider info
       const stateData = JSON.parse(atob(state))
@@ -75,18 +78,8 @@ export class GoogleOAuthService {
 
       const googleUserData = await userResponse.json()
 
-      // Get session using server component client
-      const supabase = createServerComponentClient({ cookies })
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
-
-      if (sessionError || !sessionData?.session?.access_token) {
-        throw new Error("No active user session found")
-      }
-
-      // Securely fetch the authenticated user
-      const { data: authenticatedUserData, error: userError } = await supabase.auth.getUser(
-        sessionData.session.access_token,
-      )
+      // Securely fetch the authenticated user using the session access token
+      const { data: authenticatedUserData, error: userError } = await supabase.auth.getUser(sessionAccessToken)
 
       if (userError || !authenticatedUserData?.user) {
         throw new Error("User authentication failed")

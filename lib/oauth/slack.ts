@@ -1,6 +1,3 @@
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
-
 interface SlackTokenResponse {
   ok: boolean
   access_token?: string
@@ -30,7 +27,13 @@ export class SlackOAuthService {
     return { clientId, clientSecret }
   }
 
-  static async handleCallback(code: string, state: string, baseUrl: string): Promise<SlackOAuthResult> {
+  static async handleCallback(
+    code: string,
+    state: string,
+    baseUrl: string,
+    supabase: any,
+    userId: string,
+  ): Promise<SlackOAuthResult> {
     try {
       // Decode state to get provider info
       const stateData = JSON.parse(atob(state))
@@ -67,20 +70,9 @@ export class SlackOAuthService {
         throw new Error(tokenData.error || "Token exchange failed")
       }
 
-      // Get current session
-      const supabase = createServerComponentClient({ cookies })
-      const {
-        data: { session },
-        error: sessionError,
-      } = await supabase.auth.getSession()
-
-      if (sessionError || !session) {
-        throw new Error("No active user session found")
-      }
-
       // Prepare integration data
       const integrationData = {
-        user_id: session.user.id,
+        user_id: userId,
         provider: "slack",
         provider_user_id: tokenData.authed_user?.id || "unknown",
         status: "connected" as const,
@@ -102,7 +94,7 @@ export class SlackOAuthService {
       const { data: existingIntegration } = await supabase
         .from("integrations")
         .select("id")
-        .eq("user_id", session.user.id)
+        .eq("user_id", userId)
         .eq("provider", "slack")
         .single()
 

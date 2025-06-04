@@ -1,6 +1,3 @@
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
-
 interface TrelloOAuthResult {
   success: boolean
   redirectUrl: string
@@ -10,15 +7,22 @@ interface TrelloOAuthResult {
 export class TrelloOAuthService {
   private static getClientCredentials() {
     const clientId = process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID
+    const clientSecret = process.env.TRELLO_CLIENT_SECRET
 
-    if (!clientId) {
+    if (!clientId || !clientSecret) {
       throw new Error("Missing Trello OAuth configuration")
     }
 
-    return { clientId }
+    return { clientId, clientSecret }
   }
 
-  static async handleCallback(token: string, state: string, baseUrl: string): Promise<TrelloOAuthResult> {
+  static async handleCallback(
+    token: string,
+    state: string,
+    baseUrl: string,
+    supabase: any,
+    userId: string,
+  ): Promise<TrelloOAuthResult> {
     try {
       const stateData = JSON.parse(atob(state))
       const { provider, reconnect, integrationId } = stateData
@@ -29,6 +33,7 @@ export class TrelloOAuthService {
 
       const { clientId } = this.getClientCredentials()
 
+      // Get user info from Trello
       const userResponse = await fetch(`https://api.trello.com/1/members/me?key=${clientId}&token=${token}`)
 
       if (!userResponse.ok) {
@@ -38,15 +43,8 @@ export class TrelloOAuthService {
 
       const userData = await userResponse.json()
 
-      const supabase = createServerComponentClient({ cookies })
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
-
-      if (sessionError || !sessionData?.session) {
-        throw new Error("No active user session found")
-      }
-
       const integrationData = {
-        user_id: sessionData.session.user.id,
+        user_id: userId,
         provider: "trello",
         provider_user_id: userData.id,
         access_token: token,

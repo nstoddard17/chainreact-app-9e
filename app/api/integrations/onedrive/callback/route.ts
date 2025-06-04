@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
+import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 
 export async function GET(request: NextRequest) {
@@ -31,9 +31,6 @@ export async function GET(request: NextRequest) {
       throw new Error("Invalid provider in state")
     }
 
-    // Hardcoded redirect URI to prevent AADSTS90023 errors
-    const redirectUri = "https://chainreact.app/api/integrations/onedrive/callback"
-
     // Exchange code for access token
     console.log("Exchanging code for access token...")
     const tokenResponse = await fetch("https://login.microsoftonline.com/common/oauth2/v2.0/token", {
@@ -46,7 +43,7 @@ export async function GET(request: NextRequest) {
         client_secret: process.env.ONEDRIVE_CLIENT_SECRET!,
         code,
         grant_type: "authorization_code",
-        redirect_uri: redirectUri,
+        redirect_uri: "https://chainreact.app/api/integrations/onedrive/callback",
       }),
     })
 
@@ -77,18 +74,18 @@ export async function GET(request: NextRequest) {
     const userData = await userResponse.json()
     console.log("User info fetched successfully:", { userId: userData.id })
 
-    // Store integration in Supabase using server component client
-    const supabase = createServerComponentClient({ cookies })
+    // Initialize Supabase client
+    const supabase = createRouteHandlerClient({ cookies })
     const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
 
-    if (sessionError) {
-      console.error("OneDrive: Error retrieving session:", sessionError)
-      throw new Error(`Session error: ${sessionError.message}`)
-    }
-
-    if (!sessionData?.session) {
-      console.error("OneDrive: No session found")
-      throw new Error("No session found")
+    if (sessionError || !sessionData?.session) {
+      console.error("OneDrive: Session error:", sessionError)
+      return NextResponse.redirect(
+        new URL(
+          "/integrations?error=session_error&provider=onedrive&message=No+active+user+session+found",
+          request.url,
+        ),
+      )
     }
 
     console.log("OneDrive: Session successfully retrieved for user:", sessionData.session.user.id)
