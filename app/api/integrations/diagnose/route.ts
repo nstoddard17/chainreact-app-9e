@@ -1,5 +1,7 @@
-import { NextResponse } from "next/server"
-import { getSupabaseClient } from "@/lib/supabase"
+import { type NextRequest, NextResponse } from "next/server"
+import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
+import { cookies } from "next/headers"
+import type { Database } from "@/types/supabase"
 
 interface DiagnosticResult {
   integrationId: string
@@ -413,16 +415,27 @@ function analyzeIntegration(
   }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const supabase = getSupabaseClient()
-    const { data: sessionData } = await supabase.auth.getSession()
+    // Create Supabase client for route handler with cookies
+    const supabase = createRouteHandlerClient<Database>({ cookies })
 
-    if (!sessionData?.session) {
+    // Get the current session
+    const {
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession()
+
+    if (sessionError) {
+      console.error("Session error:", sessionError)
+      return NextResponse.json({ error: "Authentication error" }, { status: 401 })
+    }
+
+    if (!session) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
     }
 
-    const userId = sessionData.session.user.id
+    const userId = session.user.id
 
     // Get all connected integrations
     const { data: integrations, error } = await supabase
@@ -432,6 +445,7 @@ export async function GET() {
       .eq("status", "connected")
 
     if (error) {
+      console.error("Database error:", error)
       throw error
     }
 
