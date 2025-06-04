@@ -1,6 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
+import { DockerOAuthService } from "@/lib/oauth/docker"
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
@@ -21,126 +20,11 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Decode state to get provider info
-    const stateData = JSON.parse(atob(state))
-    const { provider, reconnect, integrationId } = stateData
+    const baseUrl = new URL(request.url).origin
+    const result = await DockerOAuthService.handleCallback(code, state, baseUrl)
 
-    console.log("Decoded state data:", stateData)
-
-    if (provider !== "docker") {
-      throw new Error("Invalid provider in state")
-    }
-
-    // Exchange code for access token
-    console.log("Exchanging code for access token...")
-    const tokenResponse = await fetch("https://hub.docker.com/v2/oauth2/token/", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: new URLSearchParams({
-        grant_type: "authorization_code",
-        client_id: process.env.NEXT_PUBLIC_DOCKER_CLIENT_ID!,
-        client_secret: process.env.DOCKER_CLIENT_SECRET!,
-        redirect_uri: `${request.nextUrl.origin}/api/integrations/docker/callback`,
-        code,
-      }),
-    })
-
-    if (!tokenResponse.ok) {
-      const errorData = await tokenResponse.text()
-      console.error("Docker token exchange failed:", errorData)
-      throw new Error(`Failed to exchange code for token: ${errorData}`)
-    }
-
-    const tokenData = await tokenResponse.json()
-    console.log("Token exchange successful:", { hasAccessToken: !!tokenData.access_token })
-    const { access_token, refresh_token, expires_in } = tokenData
-
-    // Get user info from Docker Hub
-    console.log("Fetching user info from Docker...")
-    const userResponse = await fetch("https://hub.docker.com/v2/user/", {
-      headers: {
-        Authorization: `Bearer ${access_token}`,
-      },
-    })
-
-    if (!userResponse.ok) {
-      const errorData = await userResponse.text()
-      console.error("Failed to get user info from Docker:", errorData)
-      throw new Error(`Failed to get user info: ${errorData}`)
-    }
-
-    const userData = await userResponse.json()
-    console.log("User info fetched successfully:", { userId: userData.id })
-
-    // Store integration in Supabase using server component client
-    const supabase = createServerComponentClient({ cookies })
-    const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
-
-    if (sessionError) {
-      console.error("Docker: Error retrieving session:", sessionError)
-      throw new Error(`Session error: ${sessionError.message}`)
-    }
-
-    if (!sessionData?.session) {
-      console.error("Docker: No session found")
-      throw new Error("No session found")
-    }
-
-    console.log("Docker: Session successfully retrieved for user:", sessionData.session.user.id)
-
-    const integrationData = {
-      user_id: sessionData.session.user.id,
-      provider: "docker",
-      provider_user_id: userData.id.toString(),
-      access_token,
-      refresh_token,
-      expires_at: expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null,
-      status: "connected" as const,
-      scopes: ["repo:read", "repo:write"],
-      metadata: {
-        username: userData.username,
-        user_name: userData.full_name,
-        user_email: userData.email,
-        connected_at: new Date().toISOString(),
-      },
-    }
-
-    console.log("Saving integration to database...", {
-      userId: sessionData.session.user.id,
-      provider: "docker",
-      reconnect,
-      integrationId,
-    })
-
-    if (reconnect && integrationId) {
-      // Update existing integration
-      const { error } = await supabase
-        .from("integrations")
-        .update({
-          ...integrationData,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", integrationId)
-
-      if (error) {
-        console.error("Error updating integration:", error)
-        throw error
-      }
-      console.log("Integration updated successfully")
-    } else {
-      // Create new integration
-      const { error } = await supabase.from("integrations").insert(integrationData)
-      if (error) {
-        console.error("Error inserting integration:", error)
-        throw error
-      }
-      console.log("Integration created successfully")
-    }
-
-    console.log("Docker integration saved successfully")
-    return NextResponse.redirect(new URL("/integrations?success=docker_connected", request.url))
+    console.log("Docker OAuth result:", result.success ? "success" : "failed")
+    return NextResponse.redirect(new URL(result.redirectUrl))
   } catch (error: any) {
     console.error("Docker OAuth callback error:", error)
     return NextResponse.redirect(

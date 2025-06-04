@@ -10,7 +10,7 @@ importers:
     dependencies:
       '@ai-sdk/openai':
         specifier: latest
-        version: 1.3.22(zod@3.25.49)
+        version: 1.3.22(zod@3.25.50)
       '@hookform/resolvers':
         specifier: ^3.9.1
         version: 3.9.1(react-hook-form@7.54.1(react@19.0.0))
@@ -106,7 +106,7 @@ importers:
         version: 12.6.4(@types/react@19.0.0)(immer@10.1.1)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       ai:
         specifier: latest
-        version: 4.3.16(react@19.0.0)(zod@3.25.49)
+        version: 4.3.16(react@19.0.0)(zod@3.25.50)
       autoprefixer:
         specifier: ^10.4.20
         version: 10.4.20(postcss@8.0.0)
@@ -143,6 +143,9 @@ importers:
       next-themes:
         specifier: ^0.4.4
         version: 0.4.4(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+      openai:
+        specifier: latest
+        version: 5.1.0(ws@8.18.2)(zod@3.25.50)
       react:
         specifier: ^19
         version: 19.0.0
@@ -162,8 +165,8 @@ importers:
         specifier: latest
         version: 2.15.3(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       sonner:
-        specifier: ^1.7.1
-        version: 1.7.1(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+        specifier: latest
+        version: 2.0.5(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       stripe:
         specifier: latest
         version: 18.2.1(@types/node@22.0.0)
@@ -179,9 +182,12 @@ importers:
       vaul:
         specifier: ^0.9.6
         version: 0.9.6(@types/react-dom@19.0.0)(@types/react@19.0.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+      ws:
+        specifier: latest
+        version: 8.18.2
       zod:
         specifier: latest
-        version: 3.25.49
+        version: 3.25.50
       zustand:
         specifier: latest
         version: 5.0.5(@types/react@19.0.0)(immer@10.1.1)(react@19.0.0)(use-sync-external-store@1.5.0(react@19.0.0))
@@ -1762,6 +1768,18 @@ packages:
     resolution: {integrity: sha512-W67iLl4J2EXEGTbfeHCffrjDfitvLANg0UlX3wFUUSTx92KXRFegMHUVgSqE+wvhAbi4WqjGg9czysTV2Epbew==}
     engines: {node: '>= 0.4'}
 
+  openai@5.1.0:
+    resolution: {integrity: sha512-YQBgPJykHrDOlngB/8QpOsFNg36yofBatpeDWg1zejl9R59/ELuN7AMPSU95ZIdChbKc/o5vg1UnBJ1OEB0IJA==}
+    hasBin: true
+    peerDependencies:
+      ws: ^8.18.0
+      zod: ^3.23.8
+    peerDependenciesMeta:
+      ws:
+        optional: true
+      zod:
+        optional: true
+
   package-json-from-dist@1.0.1:
     resolution: {integrity: sha512-UEZIS3/by4OC8vL3P2dTXRETpebLI2NiI5vIrjaD/5UtrkFX/tNbwjTSRAGC/+7CAo2pIcBaRgWmcBBHcsaCIw==}
 
@@ -2003,8 +2021,8 @@ packages:
   simple-swizzle@0.2.2:
     resolution: {integrity: sha512-JA//kQgZtbuY83m+xT+tXJkmJncGMTFT+C+g2h2R9uxkYIrE2yy9sgmcLhCnw57/WSD+Eh3J97FPEDFnbXnDUg==}
 
-  sonner@1.7.1:
-    resolution: {integrity: sha512-b6LHBfH32SoVasRFECrdY8p8s7hXPDn3OHUFbZZbiB1ctLS9Gdh6rpX2dVrpQA0kiL5jcRzDDldwwLkSKk3+QQ==}
+  sonner@2.0.5:
+    resolution: {integrity: sha512-YwbHQO6cSso3HBXlbCkgrgzDNIhws14r4MO87Ofy+cV2X7ES4pOoAK3+veSmVTvqNx1BWUxlhPmZzP00Crk2aQ==}
     peerDependencies:
       react: ^18.0.0 || ^19.0.0 || ^19.0.0-rc
       react-dom: ^18.0.0 || ^19.0.0 || ^19.0.0-rc
@@ -2205,8 +2223,8 @@ packages:
     peerDependencies:
       zod: ^3.24.1
 
-  zod@3.25.49:
-    resolution: {integrity: sha512-JMMPMy9ZBk3XFEdbM3iL1brx4NUSejd6xr3ELrrGEfGb355gjhiAWtG3K5o+AViV/3ZfkIrCzXsZn6SbLwTR8Q==}
+  zod@3.25.50:
+    resolution: {integrity: sha512-VstOnRxf4tlSq0raIwbn0n+LA34SxVoZ8r3pkwSUM0jqNiA/HCMQEVjTuS5FZmHsge+9MDGTiAuHyml5T0um6A==}
 
   zustand@4.5.7:
     resolution: {integrity: sha512-CHOUy7mu3lbD6o6LJLfllpjkzhHXSBlX8B9+qPddUsIfeF5S/UZ5q0kmCsnRqT1UHFQZchNFDDzMbQsuesHWlw==}
@@ -2243,39 +2261,39 @@ packages:
 
 snapshots:
 
-  '@ai-sdk/openai@1.3.22(zod@3.25.49)':
+  '@ai-sdk/openai@1.3.22(zod@3.25.50)':
     dependencies:
       '@ai-sdk/provider': 1.1.3
-      '@ai-sdk/provider-utils': 2.2.8(zod@3.25.49)
-      zod: 3.25.49
+      '@ai-sdk/provider-utils': 2.2.8(zod@3.25.50)
+      zod: 3.25.50
 
-  '@ai-sdk/provider-utils@2.2.8(zod@3.25.49)':
+  '@ai-sdk/provider-utils@2.2.8(zod@3.25.50)':
     dependencies:
       '@ai-sdk/provider': 1.1.3
       nanoid: 3.3.11
       secure-json-parse: 2.7.0
-      zod: 3.25.49
+      zod: 3.25.50
 
   '@ai-sdk/provider@1.1.3':
     dependencies:
       json-schema: 0.4.0
 
-  '@ai-sdk/react@1.2.12(react@19.0.0)(zod@3.25.49)':
+  '@ai-sdk/react@1.2.12(react@19.0.0)(zod@3.25.50)':
     dependencies:
-      '@ai-sdk/provider-utils': 2.2.8(zod@3.25.49)
-      '@ai-sdk/ui-utils': 1.2.11(zod@3.25.49)
+      '@ai-sdk/provider-utils': 2.2.8(zod@3.25.50)
+      '@ai-sdk/ui-utils': 1.2.11(zod@3.25.50)
       react: 19.0.0
       swr: 2.3.3(react@19.0.0)
       throttleit: 2.1.0
     optionalDependencies:
-      zod: 3.25.49
+      zod: 3.25.50
 
-  '@ai-sdk/ui-utils@1.2.11(zod@3.25.49)':
+  '@ai-sdk/ui-utils@1.2.11(zod@3.25.50)':
     dependencies:
       '@ai-sdk/provider': 1.1.3
-      '@ai-sdk/provider-utils': 2.2.8(zod@3.25.49)
-      zod: 3.25.49
-      zod-to-json-schema: 3.24.5(zod@3.25.49)
+      '@ai-sdk/provider-utils': 2.2.8(zod@3.25.50)
+      zod: 3.25.50
+      zod-to-json-schema: 3.24.5(zod@3.25.50)
 
   '@alloc/quick-lru@5.2.0': {}
 
@@ -3282,15 +3300,15 @@ snapshots:
       d3-selection: 3.0.0
       d3-zoom: 3.0.0
 
-  ai@4.3.16(react@19.0.0)(zod@3.25.49):
+  ai@4.3.16(react@19.0.0)(zod@3.25.50):
     dependencies:
       '@ai-sdk/provider': 1.1.3
-      '@ai-sdk/provider-utils': 2.2.8(zod@3.25.49)
-      '@ai-sdk/react': 1.2.12(react@19.0.0)(zod@3.25.49)
-      '@ai-sdk/ui-utils': 1.2.11(zod@3.25.49)
+      '@ai-sdk/provider-utils': 2.2.8(zod@3.25.50)
+      '@ai-sdk/react': 1.2.12(react@19.0.0)(zod@3.25.50)
+      '@ai-sdk/ui-utils': 1.2.11(zod@3.25.50)
       '@opentelemetry/api': 1.9.0
       jsondiffpatch: 0.6.0
-      zod: 3.25.49
+      zod: 3.25.50
     optionalDependencies:
       react: 19.0.0
 
@@ -3778,6 +3796,11 @@ snapshots:
 
   object-inspect@1.13.4: {}
 
+  openai@5.1.0(ws@8.18.2)(zod@3.25.50):
+    optionalDependencies:
+      ws: 8.18.2
+      zod: 3.25.50
+
   package-json-from-dist@1.0.1: {}
 
   path-key@3.1.1: {}
@@ -4042,7 +4065,7 @@ snapshots:
       is-arrayish: 0.3.2
     optional: true
 
-  sonner@1.7.1(react-dom@19.0.0(react@19.0.0))(react@19.0.0):
+  sonner@2.0.5(react-dom@19.0.0(react@19.0.0))(react@19.0.0):
     dependencies:
       react: 19.0.0
       react-dom: 19.0.0(react@19.0.0)
@@ -4241,11 +4264,11 @@ snapshots:
 
   yaml@2.8.0: {}
 
-  zod-to-json-schema@3.24.5(zod@3.25.49):
+  zod-to-json-schema@3.24.5(zod@3.25.50):
     dependencies:
-      zod: 3.25.49
+      zod: 3.25.50
 
-  zod@3.25.49: {}
+  zod@3.25.50: {}
 
   zustand@4.5.7(@types/react@19.0.0)(immer@10.1.1)(react@19.0.0):
     dependencies:

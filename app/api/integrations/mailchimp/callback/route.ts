@@ -1,6 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
+import { MailchimpOAuthService } from "@/lib/oauth/mailchimp"
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
@@ -21,102 +20,11 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Decode state to get provider info
-    const stateData = JSON.parse(atob(state))
-    const { provider, reconnect, integrationId } = stateData
+    const baseUrl = new URL(request.url).origin
+    const result = await MailchimpOAuthService.handleCallback(code, state, baseUrl)
 
-    if (provider !== "mailchimp") {
-      throw new Error("Invalid provider in state")
-    }
-
-    // Exchange code for access token
-    const tokenResponse = await fetch("https://login.mailchimp.com/oauth2/token", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: new URLSearchParams({
-        grant_type: "authorization_code",
-        client_id: process.env.NEXT_PUBLIC_MAILCHIMP_CLIENT_ID!,
-        client_secret: process.env.MAILCHIMP_CLIENT_SECRET!,
-        redirect_uri: `https://chainreact.app/api/integrations/mailchimp/callback`,
-        code,
-      }),
-    })
-
-    if (!tokenResponse.ok) {
-      const errorData = await tokenResponse.text()
-      console.error("Mailchimp token exchange failed:", errorData)
-      throw new Error("Failed to exchange code for token")
-    }
-
-    const tokenData = await tokenResponse.json()
-    const { access_token, expires_in } = tokenData
-
-    // Get user info from Mailchimp
-    const userResponse = await fetch("https://login.mailchimp.com/oauth2/metadata", {
-      headers: {
-        Authorization: `OAuth ${access_token}`,
-      },
-    })
-
-    if (!userResponse.ok) {
-      throw new Error("Failed to get user info")
-    }
-
-    const userData = await userResponse.json()
-
-    // Store integration in Supabase using server component client
-    const supabase = createServerComponentClient({ cookies })
-    const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
-
-    if (sessionError) {
-      console.error("Mailchimp: Error retrieving session:", sessionError)
-      throw new Error(`Session error: ${sessionError.message}`)
-    }
-
-    if (!sessionData?.session) {
-      console.error("Mailchimp: No session found")
-      throw new Error("No session found")
-    }
-
-    console.log("Mailchimp: Session successfully retrieved for user:", sessionData.session.user.id)
-
-    const integrationData = {
-      user_id: sessionData.session.user.id,
-      provider: "mailchimp",
-      provider_user_id: userData.user_id.toString(),
-      access_token,
-      expires_at: new Date(Date.now() + expires_in * 1000).toISOString(),
-      status: "connected" as const,
-      scopes: ["campaigns:read", "lists:write"],
-      metadata: {
-        dc: userData.dc,
-        api_endpoint: userData.api_endpoint,
-        account_name: userData.accountname,
-        connected_at: new Date().toISOString(),
-      },
-    }
-
-    if (reconnect && integrationId) {
-      // Update existing integration
-      const { error } = await supabase
-        .from("integrations")
-        .update({
-          ...integrationData,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", integrationId)
-
-      if (error) throw error
-    } else {
-      // Create new integration
-      const { error } = await supabase.from("integrations").insert(integrationData)
-      if (error) throw error
-    }
-
-    console.log("Mailchimp integration saved successfully")
-    return NextResponse.redirect(new URL("/integrations?success=mailchimp_connected", request.url))
+    console.log("Mailchimp OAuth result:", result.success ? "success" : "failed")
+    return NextResponse.redirect(new URL(result.redirectUrl))
   } catch (error: any) {
     console.error("Mailchimp OAuth callback error:", error)
     return NextResponse.redirect(new URL("/integrations?error=callback_failed", request.url))

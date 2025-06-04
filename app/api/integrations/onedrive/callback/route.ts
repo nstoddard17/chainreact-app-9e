@@ -31,6 +31,9 @@ export async function GET(request: NextRequest) {
       throw new Error("Invalid provider in state")
     }
 
+    // Hardcoded redirect URI to prevent AADSTS90023 errors
+    const redirectUri = "https://chainreact.app/api/integrations/onedrive/callback"
+
     // Exchange code for access token
     console.log("Exchanging code for access token...")
     const tokenResponse = await fetch("https://login.microsoftonline.com/common/oauth2/v2.0/token", {
@@ -43,7 +46,7 @@ export async function GET(request: NextRequest) {
         client_secret: process.env.ONEDRIVE_CLIENT_SECRET!,
         code,
         grant_type: "authorization_code",
-        redirect_uri: `${request.nextUrl.origin}/api/integrations/onedrive/callback`,
+        redirect_uri: redirectUri,
       }),
     })
 

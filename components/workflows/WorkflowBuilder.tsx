@@ -22,16 +22,19 @@ import "@xyflow/react/dist/style.css"
 import AppLayout from "@/components/layout/AppLayout"
 import { useWorkflowStore } from "@/stores/workflowStore"
 import { useAIStore } from "@/stores/aiStore"
+import { AIChatAssistant } from "@/components/ai/AIChatAssistant"
 import WorkflowToolbar from "./WorkflowToolbar"
 import NodePalette from "./NodePalette"
 import ConfigurationPanel from "./ConfigurationPanel"
 import CustomNode from "./CustomNode"
-import { AIWorkflowGenerator } from "@/components/ai/AIWorkflowGenerator"
 import { WorkflowOptimizer } from "@/components/ai/WorkflowOptimizer"
 import { NodeSuggestions } from "@/components/ai/NodeSuggestions"
 import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Textarea } from "@/components/ui/textarea"
 import { Save, Play, Loader2, Sparkles, Zap, Brain } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import { useToast } from "@/hooks/use-toast"
 
 const nodeTypes: NodeTypes = {
   custom: CustomNode,
@@ -50,6 +53,7 @@ export default function WorkflowBuilder() {
     fetchWorkflows,
     workflows,
     addNode,
+    generateWorkflowWithAI,
   } = useWorkflowStore()
 
   const { optimizations, anomalies, fetchOptimizations, fetchAnomalies, isGenerating } = useAIStore()
@@ -60,6 +64,9 @@ export default function WorkflowBuilder() {
   const [testing, setTesting] = useState(false)
   const [showAIGenerator, setShowAIGenerator] = useState(false)
   const [showOptimizer, setShowOptimizer] = useState(false)
+  const [aiPrompt, setAiPrompt] = useState("")
+  const [generatingAI, setGeneratingAI] = useState(false)
+  const { toast } = useToast()
 
   // Load workflow if ID is provided
   useEffect(() => {
@@ -161,8 +168,17 @@ export default function WorkflowBuilder() {
       }
       setCurrentWorkflow(updatedWorkflow)
       await saveWorkflow()
+      toast({
+        title: "Success",
+        description: "Workflow saved successfully",
+      })
     } catch (error) {
       console.error("Failed to save workflow:", error)
+      toast({
+        title: "Error",
+        description: "Failed to save workflow",
+        variant: "destructive",
+      })
     } finally {
       setSaving(false)
     }
@@ -187,15 +203,52 @@ export default function WorkflowBuilder() {
       const result = await response.json()
 
       if (result.success) {
-        alert("Workflow test completed successfully!")
+        toast({
+          title: "Success",
+          description: "Workflow test completed successfully!",
+        })
       } else {
-        alert(`Workflow test failed: ${result.error}`)
+        toast({
+          title: "Error",
+          description: `Workflow test failed: ${result.error}`,
+          variant: "destructive",
+        })
       }
     } catch (error) {
       console.error("Failed to test workflow:", error)
-      alert("Failed to test workflow")
+      toast({
+        title: "Error",
+        description: "Failed to test workflow",
+        variant: "destructive",
+      })
     } finally {
       setTesting(false)
+    }
+  }
+
+  const handleGenerateWithAI = async () => {
+    if (!aiPrompt.trim()) return
+
+    setGeneratingAI(true)
+    try {
+      const workflow = await generateWorkflowWithAI(aiPrompt)
+      setAiPrompt("")
+      setShowAIGenerator(false)
+      toast({
+        title: "Success",
+        description: "AI workflow generated successfully!",
+      })
+      // Navigate to the new workflow
+      window.location.href = `/workflows/builder?id=${workflow.id}`
+    } catch (error) {
+      console.error("Failed to generate workflow:", error)
+      toast({
+        title: "Error",
+        description: "Failed to generate workflow with AI",
+        variant: "destructive",
+      })
+    } finally {
+      setGeneratingAI(false)
     }
   }
 
@@ -217,7 +270,46 @@ export default function WorkflowBuilder() {
             </Button>
           </div>
         </div>
-        <AIWorkflowGenerator open={showAIGenerator} onOpenChange={setShowAIGenerator} />
+
+        {/* AI Generation Dialog */}
+        <Dialog open={showAIGenerator} onOpenChange={setShowAIGenerator}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Generate Workflow with AI</DialogTitle>
+              <DialogDescription>
+                Describe what you want your workflow to do, and AI will create it for you.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <Textarea
+                placeholder="e.g., Send Slack notifications when new emails arrive from important clients"
+                value={aiPrompt}
+                onChange={(e) => setAiPrompt(e.target.value)}
+                rows={4}
+              />
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setShowAIGenerator(false)} className="flex-1">
+                  Cancel
+                </Button>
+                <Button onClick={handleGenerateWithAI} disabled={!aiPrompt.trim() || generatingAI} className="flex-1">
+                  {generatingAI ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      Generate
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <AIChatAssistant />
       </AppLayout>
     )
   }
@@ -371,9 +463,48 @@ export default function WorkflowBuilder() {
         </div>
       </div>
 
+      {/* AI Generation Dialog */}
+      <Dialog open={showAIGenerator} onOpenChange={setShowAIGenerator}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Generate Workflow with AI</DialogTitle>
+            <DialogDescription>
+              Describe what you want your workflow to do, and AI will create it for you.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Textarea
+              placeholder="e.g., Send Slack notifications when new emails arrive from important clients"
+              value={aiPrompt}
+              onChange={(e) => setAiPrompt(e.target.value)}
+              rows={4}
+            />
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setShowAIGenerator(false)} className="flex-1">
+                Cancel
+              </Button>
+              <Button onClick={handleGenerateWithAI} disabled={!aiPrompt.trim() || generatingAI} className="flex-1">
+                {generatingAI ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    Generate
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* AI Dialogs */}
-      <AIWorkflowGenerator open={showAIGenerator} onOpenChange={setShowAIGenerator} />
       <WorkflowOptimizer open={showOptimizer} onOpenChange={setShowOptimizer} workflow={currentWorkflow} />
+
+      <AIChatAssistant />
     </AppLayout>
   )
 }

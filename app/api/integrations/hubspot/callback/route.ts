@@ -1,6 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
+import { HubSpotOAuthService } from "@/lib/oauth/hubspot"
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
@@ -21,122 +20,11 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Decode state to get provider info
-    const stateData = JSON.parse(atob(state))
-    const { provider, reconnect, integrationId } = stateData
+    const baseUrl = new URL(request.url).origin
+    const result = await HubSpotOAuthService.handleCallback(code, state, baseUrl)
 
-    console.log("Decoded state data:", stateData)
-
-    if (provider !== "hubspot") {
-      throw new Error("Invalid provider in state")
-    }
-
-    // Exchange code for access token
-    console.log("Exchanging code for access token...")
-    const tokenResponse = await fetch("https://api.hubapi.com/oauth/v1/token", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: new URLSearchParams({
-        grant_type: "authorization_code",
-        client_id: process.env.NEXT_PUBLIC_HUBSPOT_CLIENT_ID!,
-        client_secret: process.env.HUBSPOT_CLIENT_SECRET!,
-        redirect_uri: `${request.nextUrl.origin}/api/integrations/hubspot/callback`,
-        code,
-      }),
-    })
-
-    if (!tokenResponse.ok) {
-      const errorData = await tokenResponse.text()
-      console.error("HubSpot token exchange failed:", errorData)
-      throw new Error(`Failed to exchange code for token: ${errorData}`)
-    }
-
-    const tokenData = await tokenResponse.json()
-    console.log("Token exchange successful:", { hasAccessToken: !!tokenData.access_token })
-    const { access_token, refresh_token, expires_in } = tokenData
-
-    // Get user info from HubSpot
-    console.log("Fetching user info from HubSpot...")
-    const userResponse = await fetch("https://api.hubapi.com/oauth/v1/access-tokens/" + access_token)
-
-    if (!userResponse.ok) {
-      const errorData = await userResponse.text()
-      console.error("Failed to get user info from HubSpot:", errorData)
-      throw new Error(`Failed to get user info: ${errorData}`)
-    }
-
-    const userData = await userResponse.json()
-    console.log("User info fetched successfully:", { userId: userData.user_id })
-
-    // Store integration in Supabase using server component client
-    const supabase = createServerComponentClient({ cookies })
-    const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
-
-    if (sessionError) {
-      console.error("HubSpot: Error retrieving session:", sessionError)
-      throw new Error(`Session error: ${sessionError.message}`)
-    }
-
-    if (!sessionData?.session) {
-      console.error("HubSpot: No session found")
-      throw new Error("No session found")
-    }
-
-    console.log("HubSpot: Session successfully retrieved for user:", sessionData.session.user.id)
-
-    const integrationData = {
-      user_id: sessionData.session.user.id,
-      provider: "hubspot",
-      provider_user_id: userData.user_id.toString(),
-      access_token,
-      refresh_token,
-      expires_at: expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null,
-      status: "connected" as const,
-      scopes: ["contacts", "content"],
-      metadata: {
-        hub_domain: userData.hub_domain,
-        hub_id: userData.hub_id,
-        user_id: userData.user_id,
-        connected_at: new Date().toISOString(),
-      },
-    }
-
-    console.log("Saving integration to database...", {
-      userId: sessionData.session.user.id,
-      provider: "hubspot",
-      reconnect,
-      integrationId,
-    })
-
-    if (reconnect && integrationId) {
-      // Update existing integration
-      const { error } = await supabase
-        .from("integrations")
-        .update({
-          ...integrationData,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", integrationId)
-
-      if (error) {
-        console.error("Error updating integration:", error)
-        throw error
-      }
-      console.log("Integration updated successfully")
-    } else {
-      // Create new integration
-      const { error } = await supabase.from("integrations").insert(integrationData)
-      if (error) {
-        console.error("Error inserting integration:", error)
-        throw error
-      }
-      console.log("Integration created successfully")
-    }
-
-    console.log("HubSpot integration saved successfully")
-    return NextResponse.redirect(new URL("/integrations?success=hubspot_connected", request.url))
+    console.log("HubSpot OAuth result:", result.success ? "success" : "failed")
+    return NextResponse.redirect(new URL(result.redirectUrl))
   } catch (error: any) {
     console.error("HubSpot OAuth callback error:", error)
     return NextResponse.redirect(
