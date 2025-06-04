@@ -18,7 +18,6 @@ export default function IntegrationsContent() {
 
   const { providers, integrations, loading, error, fetchIntegrations, clearCache } = useIntegrationStore()
 
-  // Handle URL query parameters for OAuth callbacks
   useEffect(() => {
     const success = searchParams.get("success")
     const error = searchParams.get("error")
@@ -36,7 +35,6 @@ export default function IntegrationsContent() {
     }
   }, [searchParams, fetchIntegrations])
 
-  // Initialize integrations on mount
   useEffect(() => {
     if (!isInitialized) {
       fetchIntegrations()
@@ -44,7 +42,6 @@ export default function IntegrationsContent() {
     }
   }, [fetchIntegrations, isInitialized])
 
-  // Handle Trello token-based OAuth callback
   useEffect(() => {
     const handleTrelloCallback = () => {
       const hash = window.location.hash
@@ -81,7 +78,6 @@ export default function IntegrationsContent() {
     handleTrelloCallback()
   }, [searchParams, fetchIntegrations])
 
-  // Category options
   const categories = [
     "All Categories",
     "Communication",
@@ -94,7 +90,6 @@ export default function IntegrationsContent() {
     "Email",
   ]
 
-  // Filter providers based on search and category
   const filteredProviders = providers.filter((provider) => {
     const matchesSearch =
       provider.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -103,7 +98,6 @@ export default function IntegrationsContent() {
     return matchesSearch && matchesCategory
   })
 
-  // Group providers by category
   const groupedProviders = filteredProviders.reduce(
     (acc, provider) => {
       const category = provider.category
@@ -116,7 +110,6 @@ export default function IntegrationsContent() {
     {} as Record<string, typeof providers>,
   )
 
-  // Count connected integrations
   const connectedCount = integrations.filter((i) => i.status === "connected").length
 
   const handleRefresh = () => {
@@ -147,7 +140,6 @@ export default function IntegrationsContent() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto p-6 space-y-8">
-        {/* Header */}
         <div className="flex flex-col space-y-4 lg:flex-row lg:items-start lg:justify-between lg:space-y-0">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Integrations</h1>
@@ -164,7 +156,6 @@ export default function IntegrationsContent() {
           </div>
         </div>
 
-        {/* Search and Category Filters */}
         <div className="space-y-4">
           <div className="w-full max-w-md">
             <div className="relative">
@@ -197,65 +188,26 @@ export default function IntegrationsContent() {
           </div>
         </div>
 
-        {/* Integration Sections */}
-        {loading && integrations.length === 0 ? (
-          <div className="space-y-12">
-            {[...Array(2)].map((_, sectionIndex) => (
-              <div key={sectionIndex} className="space-y-6">
+        <div className="space-y-12">
+          {Object.entries(groupedProviders)
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([category, categoryProviders]) => (
+              <div key={category} className="space-y-6">
                 <div className="flex items-center justify-between">
-                  <div className="h-7 bg-gray-200 rounded w-40 animate-pulse"></div>
-                  <div className="h-5 bg-gray-200 rounded w-24 animate-pulse"></div>
+                  <h2 className="text-2xl font-semibold text-gray-900">{category}</h2>
+                  <span className="text-sm text-gray-500 font-medium">
+                    {categoryProviders.length} integration{categoryProviders.length !== 1 ? "s" : ""}
+                  </span>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {[...Array(3)].map((_, i) => (
-                    <div key={i} className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 animate-pulse">
-                      <div className="flex items-center space-x-3 mb-4">
-                        <div className="w-10 h-10 bg-gray-200 rounded-lg"></div>
-                        <div className="space-y-2">
-                          <div className="h-5 bg-gray-200 rounded w-24"></div>
-                          <div className="h-4 bg-gray-200 rounded w-16"></div>
-                        </div>
-                      </div>
-                      <div className="space-y-3 mb-4">
-                        <div className="h-4 bg-gray-200 rounded w-full"></div>
-                        <div className="flex space-x-2">
-                          <div className="h-6 bg-gray-200 rounded w-20"></div>
-                          <div className="h-6 bg-gray-200 rounded w-24"></div>
-                        </div>
-                      </div>
-                      <div className="flex space-x-2">
-                        <div className="h-9 bg-gray-200 rounded flex-1"></div>
-                        <div className="h-9 bg-gray-200 rounded w-24"></div>
-                      </div>
-                    </div>
+                  {categoryProviders.map((provider) => (
+                    <IntegrationCard key={provider.id} provider={provider} />
                   ))}
                 </div>
               </div>
             ))}
-          </div>
-        ) : (
-          <div className="space-y-12">
-            {Object.entries(groupedProviders)
-              .sort(([a], [b]) => a.localeCompare(b))
-              .map(([category, categoryProviders]) => (
-                <div key={category} className="space-y-6">
-                  <div className="flex items-center justify-between">
-                    <h2 className="text-2xl font-semibold text-gray-900">{category}</h2>
-                    <span className="text-sm text-gray-500 font-medium">
-                      {categoryProviders.length} integration{categoryProviders.length !== 1 ? "s" : ""}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {categoryProviders.map((provider) => (
-                      <IntegrationCard key={provider.id} provider={provider} />
-                    ))}
-                  </div>
-                </div>
-              ))}
-          </div>
-        )}
+        </div>
 
-        {/* Empty State */}
         {!loading && filteredProviders.length === 0 && (
           <div className="text-center py-16">
             <div className="text-gray-400 mb-6">
