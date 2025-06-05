@@ -1,5 +1,4 @@
-import { createClientComponentClient, createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import type { Database } from "@/types/supabase"
 
 // Check if Supabase is configured
@@ -34,49 +33,28 @@ export const createBrowserSupabaseClient = () => {
   return createClientComponentClient<Database>()
 }
 
-// Server client for route handlers
-export const createServerSupabaseClient = () => {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-  if (!supabaseUrl || !supabaseAnonKey) {
-    console.error("Missing Supabase environment variables:", {
-      NEXT_PUBLIC_SUPABASE_URL: !!supabaseUrl,
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: !!supabaseAnonKey,
-    })
-    throw new Error("Supabase environment variables are required")
-  }
-
-  return createRouteHandlerClient<Database>({ cookies })
-}
-
 // Global singleton for browser usage
 declare global {
   var __supabase_browser_client__: ReturnType<typeof createClientComponentClient<Database>> | undefined
 }
 
 export const getSupabaseClient = () => {
-  // Check if we're in the browser
-  if (typeof window !== "undefined") {
-    // Browser-side: use global singleton
-    if (!globalThis.__supabase_browser_client__) {
-      try {
-        globalThis.__supabase_browser_client__ = createBrowserSupabaseClient()
-      } catch (error) {
-        console.error("Failed to create browser Supabase client:", error)
-        return null
-      }
-    }
-    return globalThis.__supabase_browser_client__
-  } else {
-    // Server-side: create new instance each time
+  // This function only works on the client side
+  if (typeof window === "undefined") {
+    console.warn("getSupabaseClient called on server side, returning null")
+    return null
+  }
+
+  // Browser-side: use global singleton
+  if (!globalThis.__supabase_browser_client__) {
     try {
-      return createServerSupabaseClient()
+      globalThis.__supabase_browser_client__ = createBrowserSupabaseClient()
     } catch (error) {
-      console.error("Failed to create server Supabase client:", error)
+      console.error("Failed to create browser Supabase client:", error)
       return null
     }
   }
+  return globalThis.__supabase_browser_client__
 }
 
 // For compatibility with existing code
