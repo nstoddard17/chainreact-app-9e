@@ -4,6 +4,7 @@ import { create } from "zustand"
 import { persist } from "zustand/middleware"
 import { getSupabaseClient } from "@/lib/supabase"
 import { toast } from "@/hooks/use-toast"
+import { getOAuthRedirectUri, generateOAuthState } from "@/lib/oauth/utils"
 
 interface Integration {
   id: string
@@ -554,27 +555,70 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
           const isOAuthProvider = providerConfig.authType === "oauth"
 
           // For OAuth providers, always force a new OAuth flow to ensure proper scopes
-          if (isOAuthProvider) {
-            forceOAuth = true
-            console.log(`OAuth provider detected, forcing OAuth flow for ${provider}`)
+          if (isOAuthProvider && forceOAuth) {
+            console.log(`Starting OAuth flow for ${provider}`)
 
-            // If there's an existing integration, invalidate its token first
-            if (existingIntegration) {
-              console.log(`Invalidating existing token for ${provider}`)
-              const supabase = getSupabaseClient()
-              await supabase
-                .from("integrations")
-                .update({
-                  status: "disconnected",
-                  metadata: {
-                    ...existingIntegration.metadata,
-                    access_token: null,
-                    refresh_token: null,
-                    invalidated_at: new Date().toISOString(),
-                  },
-                  updated_at: new Date().toISOString(),
-                })
-                .eq("id", existingIntegration.id)
+            const disconnectedIntegration = get().integrations.find(
+              (i) => i.provider === provider && i.status === "disconnected",
+            )
+
+            const state = generateOAuthState(provider, {
+              reconnect: !!disconnectedIntegration || !!existingIntegration,
+              integrationId: disconnectedIntegration?.id || existingIntegration?.id,
+              requireFullScopes: true,
+            })
+
+            console.log(`Generated state for ${provider}:`, {
+              provider,
+              reconnect: !!disconnectedIntegration || !!existingIntegration,
+              requireFullScopes: true,
+            })
+
+            let authUrl = ""
+            const redirectUri = getOAuthRedirectUri(provider)
+
+            switch (provider) {
+              case "slack":
+                if (process.env.NEXT_PUBLIC_SLACK_CLIENT_ID) {
+                  // Always include the complete set of scopes, especially files:write and reactions:write
+                  const requiredScopes =
+                    "chat:write,chat:write.public,channels:read,channels:join,groups:read,im:read,users:read,team:read,files:write,reactions:write"
+                  authUrl = `https://slack.com/oauth/v2/authorize?client_id=${process.env.NEXT_PUBLIC_SLACK_CLIENT_ID}&scope=${requiredScopes}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&user_scope=&team=${""}&prompt=consent`
+                }
+                break
+              case "discord":
+                if (process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID) {
+                  // Always include both bot and applications.commands scopes
+                  const requiredScopes = "bot applications.commands identify guilds"
+                  authUrl = `https://discord.com/api/oauth2/authorize?client_id=${process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(requiredScopes)}&state=${state}&prompt=consent`
+                }
+                break
+              case "dropbox":
+                if (process.env.NEXT_PUBLIC_DROPBOX_CLIENT_ID) {
+                  authUrl = `https://www.dropbox.com/oauth2/authorize?client_id=${process.env.NEXT_PUBLIC_DROPBOX_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&state=${state}&force_reapprove=true&token_access_type=offline`
+                }
+                break
+              // Add other providers as needed
+            }
+
+            if (authUrl) {
+              console.log(`Redirecting to OAuth URL for ${provider}`)
+              console.log(`Auth URL: ${authUrl}`)
+
+              // Set a timeout to reset the connecting state if the redirect doesn't happen
+              setTimeout(() => {
+                set({ loading: false, connectingProvider: null })
+              }, 10000)
+
+              window.location.href = authUrl
+              return
+            } else {
+              console.log(`OAuth not configured for ${provider}, falling back to demo mode`)
+              toast({
+                title: "OAuth Not Configured",
+                description: `OAuth is not configured for ${providerConfig.name}. Falling back to demo mode.`,
+                variant: "destructive",
+              })
             }
           }
 

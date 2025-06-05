@@ -1,3 +1,5 @@
+import { getOAuthRedirectUri, upsertIntegration, parseOAuthState } from "./utils"
+
 interface DropboxOAuthResult {
   success: boolean
   redirectUrl: string
@@ -16,99 +18,82 @@ export class DropboxOAuthService {
     return { clientId, clientSecret }
   }
 
-  static async validateToken(
-    accessToken: string,
-  ): Promise<{ valid: boolean; grantedScopes: string[]; missingScopes: string[] }> {
+  static async validateToken(accessToken: string): Promise<{ valid: boolean; grantedScopes: string[] }> {
     try {
-      // Test the token by making an API call to get_current_account
       const response = await fetch("https://api.dropboxapi.com/2/users/get_current_account", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
         },
       })
 
-      if (!response.ok) {
-        return { valid: false, grantedScopes: [], missingScopes: [] }
+      return {
+        valid: response.ok,
+        grantedScopes: [], // Dropbox doesn't return scopes in this endpoint
       }
-
-      // Dropbox doesn't provide a way to get scopes from the token directly
-      // We'll need to rely on what was stored during the OAuth flow
-      return { valid: true, grantedScopes: [], missingScopes: [] }
     } catch (error) {
       console.error("Error validating Dropbox token:", error)
-      return { valid: false, grantedScopes: [], missingScopes: [] }
+      return { valid: false, grantedScopes: [] }
     }
   }
 
-  static async handleCallback(
-    code: string,
-    state: string,
-    baseUrl: string,
-    supabase: any,
-    userId: string,
-  ): Promise<DropboxOAuthResult> {
+  static async validateExistingIntegration(integration: any): Promise<boolean> {
     try {
-      // Decode state to get provider info
-      const stateData = JSON.parse(atob(state))
-      const { provider, reconnect, integrationId, requireFullScopes } = stateData
+      if (integration.access_token) {
+        const validation = await this.validateToken(integration.access_token)
+        return validation.valid
+      }
+      return false
+    } catch (error) {
+      console.error("Dropbox validation error:", error)
+      return false
+    }
+  }
+
+  static async handleCallback(code: string, state: string, supabase: any, userId: string): Promise<DropboxOAuthResult> {
+    try {
+      const stateData = parseOAuthState(state)
+      const { provider } = stateData
 
       if (provider !== "dropbox") {
         throw new Error("Invalid provider in state")
       }
 
-      // Get credentials securely
       const { clientId, clientSecret } = this.getClientCredentials()
+      const redirectUri = getOAuthRedirectUri("dropbox")
 
-      // Exchange code for access token
+      console.log("Dropbox OAuth callback - using redirect URI:", redirectUri)
+
       const tokenResponse = await fetch("https://api.dropboxapi.com/oauth2/token", {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
         },
         body: new URLSearchParams({
-          code,
-          grant_type: "authorization_code",
           client_id: clientId,
           client_secret: clientSecret,
-          redirect_uri: `${baseUrl}/api/integrations/dropbox/callback`,
+          grant_type: "authorization_code",
+          code,
+          redirect_uri: redirectUri,
         }),
       })
 
       if (!tokenResponse.ok) {
         const errorData = await tokenResponse.text()
+        console.error("Dropbox token exchange failed:", errorData)
         throw new Error(`Token exchange failed: ${errorData}`)
       }
 
       const tokenData = await tokenResponse.json()
-      const { access_token, refresh_token, expires_in, account_id } = tokenData
+      const { access_token, refresh_token, expires_in } = tokenData
 
-      // Validate token by making an API call
-      let validationResult = { valid: false, grantedScopes: [], missingScopes: [] }
-
-      try {
-        validationResult = await this.validateToken(access_token)
-
-        if (!validationResult.valid) {
-          console.error("Dropbox token validation failed")
-          return {
-            success: false,
-            redirectUrl: `${baseUrl}/integrations?error=token_validation&provider=dropbox&message=${encodeURIComponent(
-              "Failed to validate Dropbox token. Please try reconnecting.",
-            )}`,
-            error: "Token validation failed",
-          }
-        }
-      } catch (error) {
-        console.error("Error during Dropbox token validation:", error)
-        // Continue with the flow even if validation fails
-      }
-
-      // Get user info from Dropbox
+      // Test the token by getting user info
       const userResponse = await fetch("https://api.dropboxapi.com/2/users/get_current_account", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${access_token}`,
+          "Content-Type": "application/json",
         },
       })
 
@@ -127,40 +112,26 @@ export class DropboxOAuthService {
         refresh_token,
         expires_at: expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null,
         status: "connected" as const,
-        scopes: ["files.content.write", "files.content.read", "sharing.write"],
+        scopes: ["files.content.write", "files.content.read"], // Default Dropbox scopes
         metadata: {
-          account_id: userData.account_id,
-          user_name: userData.name?.display_name,
-          user_email: userData.email,
+          name: userData.name?.display_name,
+          email: userData.email,
           connected_at: new Date().toISOString(),
-          scopes_validated: true,
+          account_id: userData.account_id,
         },
       }
 
-      if (reconnect && integrationId) {
-        const { error } = await supabase
-          .from("integrations")
-          .update({
-            ...integrationData,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", integrationId)
+      // Use upsert to avoid duplicate key constraint violations
+      await upsertIntegration(supabase, integrationData)
 
-        if (error) {
-          throw error
-        }
-      } else {
-        const { error } = await supabase.from("integrations").insert(integrationData)
-        if (error) {
-          throw error
-        }
-      }
-
+      const baseUrl = new URL(redirectUri).origin
       return {
         success: true,
-        redirectUrl: `${baseUrl}/integrations?success=dropbox_connected&provider=dropbox&scopes_validated=true`,
+        redirectUrl: `${baseUrl}/integrations?success=dropbox_connected&provider=dropbox`,
       }
     } catch (error: any) {
+      console.error("Dropbox OAuth callback error:", error)
+      const baseUrl = getOAuthRedirectUri("dropbox").split("/api")[0]
       return {
         success: false,
         redirectUrl: `${baseUrl}/integrations?error=callback_failed&provider=dropbox&message=${encodeURIComponent(error.message)}`,

@@ -1,3 +1,5 @@
+import { getOAuthRedirectUri, upsertIntegration, parseOAuthState } from "./utils"
+
 interface DiscordOAuthResult {
   success: boolean
   redirectUrl: string
@@ -76,15 +78,9 @@ export class DiscordOAuthService {
     }
   }
 
-  static async handleCallback(
-    code: string,
-    state: string,
-    baseUrl: string,
-    supabase: any,
-    userId: string,
-  ): Promise<DiscordOAuthResult> {
+  static async handleCallback(code: string, state: string, supabase: any, userId: string): Promise<DiscordOAuthResult> {
     try {
-      const stateData = JSON.parse(atob(state))
+      const stateData = parseOAuthState(state)
       const { provider, reconnect, integrationId, requireFullScopes } = stateData
 
       if (provider !== "discord") {
@@ -92,6 +88,9 @@ export class DiscordOAuthService {
       }
 
       const { clientId, clientSecret } = this.getClientCredentials()
+      const redirectUri = getOAuthRedirectUri("discord")
+
+      console.log("Discord OAuth callback - using redirect URI:", redirectUri)
 
       const tokenResponse = await fetch("https://discord.com/api/oauth2/token", {
         method: "POST",
@@ -103,12 +102,13 @@ export class DiscordOAuthService {
           client_secret: clientSecret,
           grant_type: "authorization_code",
           code,
-          redirect_uri: `${baseUrl}/api/integrations/discord/callback`,
+          redirect_uri: redirectUri,
         }),
       })
 
       if (!tokenResponse.ok) {
         const errorData = await tokenResponse.text()
+        console.error("Discord token exchange failed:", errorData)
         throw new Error(`Token exchange failed: ${errorData}`)
       }
 
@@ -122,6 +122,7 @@ export class DiscordOAuthService {
 
       if (missingScopes.length > 0) {
         console.error("Discord scope validation failed:", { grantedScopes, missingScopes })
+        const baseUrl = new URL(redirectUri).origin
         return {
           success: false,
           redirectUrl: `${baseUrl}/integrations?error=insufficient_scopes&provider=discord&message=${encodeURIComponent(
@@ -167,26 +168,17 @@ export class DiscordOAuthService {
         },
       }
 
-      if (reconnect && integrationId) {
-        const { error } = await supabase
-          .from("integrations")
-          .update({
-            ...integrationData,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", integrationId)
+      // Use upsert to avoid duplicate key constraint violations
+      await upsertIntegration(supabase, integrationData)
 
-        if (error) throw error
-      } else {
-        const { error } = await supabase.from("integrations").insert(integrationData)
-        if (error) throw error
-      }
-
+      const baseUrl = new URL(redirectUri).origin
       return {
         success: true,
         redirectUrl: `${baseUrl}/integrations?success=discord_connected&provider=discord&scopes_validated=true`,
       }
     } catch (error: any) {
+      console.error("Discord OAuth callback error:", error)
+      const baseUrl = getOAuthRedirectUri("discord").split("/api")[0]
       return {
         success: false,
         redirectUrl: `${baseUrl}/integrations?error=callback_failed&provider=discord&message=${encodeURIComponent(error.message)}`,

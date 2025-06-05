@@ -1,13 +1,4 @@
-interface SlackTokenResponse {
-  ok: boolean
-  access_token?: string
-  token_type?: string
-  scope?: string
-  team?: any
-  authed_user?: any
-  bot_user_id?: string
-  error?: string
-}
+import { getOAuthRedirectUri, upsertIntegration, parseOAuthState } from "./utils"
 
 interface SlackOAuthResult {
   success: boolean
@@ -27,82 +18,27 @@ export class SlackOAuthService {
     return { clientId, clientSecret }
   }
 
-  static async validateToken(
-    accessToken: string,
-  ): Promise<{ valid: boolean; grantedScopes: string[]; missingScopes: string[] }> {
+  static async validateToken(accessToken: string): Promise<{ valid: boolean; grantedScopes: string[] }> {
     try {
-      // Test the token by making an API call to auth.test
       const response = await fetch("https://slack.com/api/auth.test", {
-        method: "POST",
         headers: {
           Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
         },
       })
 
-      if (!response.ok) {
-        return { valid: false, grantedScopes: [], missingScopes: [] }
-      }
-
       const data = await response.json()
-
-      if (!data.ok) {
-        return { valid: false, grantedScopes: [], missingScopes: [] }
+      return {
+        valid: data.ok === true,
+        grantedScopes: [], // Slack doesn't return scopes in auth.test
       }
-
-      // We can't get scopes from auth.test, so we'll need to rely on what was stored
-      // This is just a token validation check
-      return { valid: true, grantedScopes: [], missingScopes: [] }
     } catch (error) {
       console.error("Error validating Slack token:", error)
-      return { valid: false, grantedScopes: [], missingScopes: [] }
+      return { valid: false, grantedScopes: [] }
     }
   }
 
-  static async handleCallback(
-    code: string,
-    state: string,
-    baseUrl: string,
-    supabase: any,
-    userId: string,
-  ): Promise<SlackOAuthResult> {
+  static async validateExistingIntegration(integration: any): Promise<boolean> {
     try {
-      // Decode state to get provider info
-      const stateData = JSON.parse(atob(state))
-      const { provider, requireFullScopes } = stateData
-
-      if (provider !== "slack") {
-        throw new Error("Invalid provider in state")
-      }
-
-      // Get credentials securely
-      const { clientId, clientSecret } = this.getClientCredentials()
-
-      // Exchange code for access token
-      const tokenResponse = await fetch("https://slack.com/api/oauth.v2.access", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: new URLSearchParams({
-          client_id: clientId,
-          client_secret: clientSecret,
-          code,
-          redirect_uri: `${baseUrl}/api/integrations/slack/callback`,
-        }),
-      })
-
-      if (!tokenResponse.ok) {
-        throw new Error(`Token exchange failed: ${tokenResponse.statusText}`)
-      }
-
-      const tokenData: SlackTokenResponse = await tokenResponse.json()
-
-      if (!tokenData.ok) {
-        throw new Error(tokenData.error || "Token exchange failed")
-      }
-
-      // Validate that we have the required scopes, especially files:write and reactions:write
       const requiredScopes = [
         "chat:write",
         "chat:write.public",
@@ -115,110 +51,134 @@ export class SlackOAuthService {
         "files:write",
         "reactions:write",
       ]
+      const grantedScopes = integration.scopes || []
 
-      const grantedScopes = tokenData.scope ? tokenData.scope.split(",") : []
+      console.log("Slack scope validation:", { grantedScopes, requiredScopes })
+
+      // Check if all required scopes are present
       const missingScopes = requiredScopes.filter((scope) => !grantedScopes.includes(scope))
 
       if (missingScopes.length > 0) {
-        console.error("Missing required Slack scopes:", missingScopes)
+        console.log("Slack missing scopes:", missingScopes)
+        return false
+      }
+
+      // Test the token
+      if (integration.access_token) {
+        const validation = await this.validateToken(integration.access_token)
+        return validation.valid
+      }
+
+      return true
+    } catch (error) {
+      console.error("Slack validation error:", error)
+      return false
+    }
+  }
+
+  static async handleCallback(code: string, state: string, supabase: any, userId: string): Promise<SlackOAuthResult> {
+    try {
+      const stateData = parseOAuthState(state)
+      const { provider, reconnect, integrationId } = stateData
+
+      if (provider !== "slack") {
+        throw new Error("Invalid provider in state")
+      }
+
+      const { clientId, clientSecret } = this.getClientCredentials()
+      const redirectUri = getOAuthRedirectUri("slack")
+
+      console.log("Slack OAuth callback - using redirect URI:", redirectUri)
+
+      const tokenResponse = await fetch("https://slack.com/api/oauth.v2.access", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({
+          client_id: clientId,
+          client_secret: clientSecret,
+          code,
+          redirect_uri: redirectUri,
+        }),
+      })
+
+      if (!tokenResponse.ok) {
+        const errorData = await tokenResponse.text()
+        console.error("Slack token exchange failed:", errorData)
+        throw new Error(`Token exchange failed: ${errorData}`)
+      }
+
+      const tokenData = await tokenResponse.json()
+
+      if (!tokenData.ok) {
+        throw new Error(`Slack OAuth error: ${tokenData.error}`)
+      }
+
+      const { access_token, scope, team, authed_user } = tokenData
+
+      // Validate scopes
+      const grantedScopes = scope ? scope.split(",") : []
+      const requiredScopes = [
+        "chat:write",
+        "chat:write.public",
+        "channels:read",
+        "channels:join",
+        "groups:read",
+        "im:read",
+        "users:read",
+        "team:read",
+        "files:write",
+        "reactions:write",
+      ]
+      const missingScopes = requiredScopes.filter((s) => !grantedScopes.includes(s))
+
+      if (missingScopes.length > 0) {
+        console.error("Slack scope validation failed:", { grantedScopes, missingScopes })
+        const baseUrl = new URL(redirectUri).origin
         return {
           success: false,
           redirectUrl: `${baseUrl}/integrations?error=insufficient_scopes&provider=slack&message=${encodeURIComponent(
             `Your Slack connection is missing required permissions: ${missingScopes.join(", ")}. Please reconnect and accept all scopes.`,
           )}`,
-          error: "Insufficient scopes granted",
+          error: "Insufficient scopes",
         }
       }
 
-      // Validate token by making an API call
-      if (tokenData.access_token) {
-        try {
-          const authTestResponse = await fetch("https://slack.com/api/auth.test", {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${tokenData.access_token}`,
-              "Content-Type": "application/json",
-            },
-          })
+      console.log("Slack scopes validated successfully:", grantedScopes)
 
-          const authTestData = await authTestResponse.json()
-
-          if (!authTestData.ok) {
-            throw new Error(`Token validation failed: ${authTestData.error}`)
-          }
-
-          console.log("Slack token validated successfully:", authTestData.team, authTestData.user)
-        } catch (error) {
-          console.error("Slack token validation failed:", error)
-          return {
-            success: false,
-            redirectUrl: `${baseUrl}/integrations?error=token_validation&provider=slack&message=${encodeURIComponent(
-              "Failed to validate Slack token. Please try reconnecting.",
-            )}`,
-            error: "Token validation failed",
-          }
-        }
-      }
-
-      // Prepare integration data
       const integrationData = {
         user_id: userId,
         provider: "slack",
-        provider_user_id: tokenData.authed_user?.id || "unknown",
+        provider_user_id: authed_user?.id,
+        access_token,
         status: "connected" as const,
         scopes: grantedScopes,
         metadata: {
-          access_token: tokenData.access_token,
-          token_type: tokenData.token_type || "bot",
-          scope: tokenData.scope,
-          team: tokenData.team,
-          authed_user: tokenData.authed_user,
-          bot_user_id: tokenData.bot_user_id,
+          team_id: team?.id,
+          team_name: team?.name,
+          user_id: authed_user?.id,
           connected_at: new Date().toISOString(),
-          validated_at: new Date().toISOString(),
+          scopes_validated: true,
+          required_scopes: requiredScopes,
+          granted_scopes: grantedScopes,
         },
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
       }
 
-      // Check if integration already exists
-      const { data: existingIntegration } = await supabase
-        .from("integrations")
-        .select("id")
-        .eq("user_id", userId)
-        .eq("provider", "slack")
-        .single()
+      // Use upsert to avoid duplicate key constraint violations
+      await upsertIntegration(supabase, integrationData)
 
-      let result
-      if (existingIntegration) {
-        // Always update the token and scopes for existing integrations
-        result = await supabase
-          .from("integrations")
-          .update({
-            status: "connected",
-            provider_user_id: integrationData.provider_user_id,
-            scopes: integrationData.scopes,
-            metadata: integrationData.metadata,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", existingIntegration.id)
-          .select()
-      } else {
-        result = await supabase.from("integrations").insert(integrationData).select()
-      }
-
-      if (result.error) {
-        throw new Error(`Database error: ${result.error.message}`)
-      }
-
+      const baseUrl = new URL(redirectUri).origin
       return {
         success: true,
-        redirectUrl: `${baseUrl}/integrations?success=${existingIntegration ? "slack_reconnected" : "slack_connected"}&provider=slack&scopes_validated=true`,
+        redirectUrl: `${baseUrl}/integrations?success=slack_connected&provider=slack&scopes_validated=true`,
       }
     } catch (error: any) {
+      console.error("Slack OAuth callback error:", error)
+      const baseUrl = getOAuthRedirectUri("slack").split("/api")[0]
       return {
         success: false,
-        redirectUrl: `${baseUrl}/integrations?error=callback_failed&message=${encodeURIComponent(error.message)}&provider=slack`,
+        redirectUrl: `${baseUrl}/integrations?error=callback_failed&provider=slack&message=${encodeURIComponent(error.message)}`,
         error: error.message,
       }
     }

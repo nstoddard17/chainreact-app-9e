@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
-import { DiscordOAuthService } from "@/lib/oauth/discord"
+import { parseOAuthState } from "./utils"
 
 const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
   auth: {
@@ -9,41 +9,40 @@ const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SE
   },
 })
 
-export async function GET(request: NextRequest) {
+export async function handleGenericOAuthCallback(request: NextRequest, provider: string, oauthService: any) {
   try {
     const { searchParams } = new URL(request.url)
     const code = searchParams.get("code")
     const state = searchParams.get("state")
     const error = searchParams.get("error")
 
-    console.log("Discord OAuth callback received:", { code: !!code, state: !!state, error })
+    console.log(`${provider} OAuth callback received:`, { code: !!code, state: !!state, error })
 
     if (error) {
-      console.error("Discord OAuth error:", error)
+      console.error(`${provider} OAuth error:`, error)
       const baseUrl = new URL(request.url).origin
       return NextResponse.redirect(
-        new URL(`/integrations?error=oauth_denied&provider=discord&message=${encodeURIComponent(error)}`, baseUrl),
+        new URL(`/integrations?error=oauth_denied&provider=${provider}&message=${encodeURIComponent(error)}`, baseUrl),
       )
     }
 
     if (!code || !state) {
-      console.error("Missing code or state in Discord OAuth callback")
+      console.error(`Missing code or state in ${provider} OAuth callback`)
       const baseUrl = new URL(request.url).origin
-      return NextResponse.redirect(new URL("/integrations?error=missing_params&provider=discord", baseUrl))
+      return NextResponse.redirect(new URL(`/integrations?error=missing_params&provider=${provider}`, baseUrl))
     }
 
     // Parse state to get user information
     let stateData
     try {
-      stateData = JSON.parse(atob(state))
+      stateData = parseOAuthState(state)
     } catch (error) {
       console.error("Invalid state parameter:", error)
       const baseUrl = new URL(request.url).origin
-      return NextResponse.redirect(new URL("/integrations?error=invalid_state&provider=discord", baseUrl))
+      return NextResponse.redirect(new URL(`/integrations?error=invalid_state&provider=${provider}`, baseUrl))
     }
 
     // Get user session to determine user_id
-    const authHeader = request.headers.get("authorization")
     let userId = stateData.userId
 
     if (!userId) {
@@ -58,21 +57,21 @@ export async function GET(request: NextRequest) {
     }
 
     if (!userId) {
-      console.error("No user ID found in Discord OAuth callback")
+      console.error(`No user ID found in ${provider} OAuth callback`)
       const baseUrl = new URL(request.url).origin
-      return NextResponse.redirect(new URL("/integrations?error=no_user&provider=discord", baseUrl))
+      return NextResponse.redirect(new URL(`/integrations?error=no_user&provider=${provider}`, baseUrl))
     }
 
     // Handle the OAuth callback
-    const result = await DiscordOAuthService.handleCallback(code, state, supabase, userId)
+    const result = await oauthService.handleCallback(code, state, supabase, userId)
 
     return NextResponse.redirect(new URL(result.redirectUrl))
   } catch (error: any) {
-    console.error("Discord OAuth callback error:", error)
+    console.error(`${provider} OAuth callback error:`, error)
     const baseUrl = new URL(request.url).origin
     return NextResponse.redirect(
       new URL(
-        `/integrations?error=callback_failed&provider=discord&message=${encodeURIComponent(error.message)}`,
+        `/integrations?error=callback_failed&provider=${provider}&message=${encodeURIComponent(error.message)}`,
         baseUrl,
       ),
     )
