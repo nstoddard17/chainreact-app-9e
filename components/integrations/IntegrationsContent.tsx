@@ -307,14 +307,16 @@ export default function IntegrationsContent() {
 
   // Merge providers with integration status
   const providersWithStatus = filteredProviders.map((provider) => {
-    const connectedIntegration = integrations.find((i) => i.provider === provider.id && i.status === "connected")
-    const disconnectedIntegration = integrations.find((i) => i.provider === provider.id && i.status === "disconnected")
+    const connectedIntegration = integrations.find((i) => i?.provider === provider.id && i?.status === "connected")
+    const disconnectedIntegration = integrations.find(
+      (i) => i?.provider === provider.id && i?.status === "disconnected",
+    )
 
     return {
       ...provider,
       connected: !!connectedIntegration,
       wasConnected: !!disconnectedIntegration,
-      integration: connectedIntegration || disconnectedIntegration,
+      integration: connectedIntegration || disconnectedIntegration || null,
     }
   })
 
@@ -327,7 +329,7 @@ export default function IntegrationsContent() {
     {} as Record<string, typeof providersWithStatus>,
   )
 
-  const connectedCount = integrations.filter((i) => i.status === "connected").length
+  const connectedCount = integrations.filter((i) => i?.status === "connected").length
 
   const handleRefresh = async () => {
     try {

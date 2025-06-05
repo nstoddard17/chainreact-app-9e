@@ -570,44 +570,26 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
               .eq("id", existingIntegration.id)
           }
 
-          let authUrl = ""
-          const redirectUri = `https://chainreact.app/api/integrations/${provider}/callback`
+          // Use the server action to generate the OAuth URL
+          const response = await fetch("/api/integrations/auth", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              provider,
+              reconnect: !!disconnectedIntegration || !!existingIntegration,
+              integrationId: disconnectedIntegration?.id || existingIntegration?.id,
+            }),
+          })
 
-          switch (provider) {
-            case "slack":
-              if (process.env.NEXT_PUBLIC_SLACK_CLIENT_ID) {
-                // Always include the complete set of scopes
-                const requiredScopes =
-                  "chat:write,chat:write.public,channels:read,channels:join,groups:read,im:read,users:read,team:read,files:write,reactions:write"
-                authUrl = `https://slack.com/oauth/v2/authorize?client_id=${process.env.NEXT_PUBLIC_SLACK_CLIENT_ID}&scope=${requiredScopes}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&prompt=consent`
-              }
-              break
-            case "discord":
-              if (process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID) {
-                // Use the updated Discord scopes
-                const requiredScopes = "identify guilds guilds.join messages.read"
-                authUrl = `https://discord.com/api/oauth2/authorize?client_id=${process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(requiredScopes)}&state=${state}&prompt=consent`
-              }
-              break
-            case "dropbox":
-              if (process.env.NEXT_PUBLIC_DROPBOX_CLIENT_ID) {
-                authUrl = `https://www.dropbox.com/oauth2/authorize?client_id=${process.env.NEXT_PUBLIC_DROPBOX_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&state=${state}&force_reapprove=true&token_access_type=offline`
-              }
-              break
-              case "gmail":
-                  if (process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) {
-                      const requiredScopes = providerConfig.scopes.join(" ");
-                      authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(requiredScopes)}&state=${state}&access_type=offline&prompt=consent`;
-                  }
-                  break;
-              case "notion":
-                  if (process.env.NEXT_PUBLIC_NOTION_CLIENT_ID) {
-                      const requiredScopes = providerConfig.scopes.join(" ");
-                      authUrl = `https://api.notion.com/v1/oauth/authorize?client_id=${process.env.NEXT_PUBLIC_NOTION_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&owner=user&scope=${encodeURIComponent(requiredScopes)}&state=${state}`;
-                  }
-                  break;
-
+          if (!response.ok) {
+            const errorData = await response.json()
+            throw new Error(errorData.error || `Failed to generate OAuth URL for ${providerConfig.name}`)
           }
+
+          const data = await response.json()
+          const authUrl = data.authUrl
 
           if (authUrl) {
             console.log(`Redirecting to OAuth URL for ${provider}:`, authUrl)

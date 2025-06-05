@@ -5,52 +5,52 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { AlertCircle, CheckCircle, ExternalLink, Settings, Unlink } from "lucide-react"
-import { initiateOAuth } from "@/app/actions/oauth"
+import { useIntegrationStore } from "@/stores/integrationStore"
 import { useToast } from "@/hooks/use-toast"
 
-interface Integration {
-  id?: string
-  provider: string
-  status: "connected" | "disconnected" | "error"
-  metadata?: any
-  scopes?: string[]
-  connected_at?: string
+interface Provider {
+  id: string
+  name: string
+  description: string
+  icon: string
+  logoColor: string
+  authType: "oauth" | "api_key"
+  scopes: string[]
+  capabilities: string[]
+  category: string
+  requiresSetup?: boolean
+  connected?: boolean
+  wasConnected?: boolean
+  integration?: any
+  comingSoon?: boolean
 }
 
 interface IntegrationCardProps {
-  integration: Integration
-  onReconnect?: () => void
-  onDisconnect?: () => void
+  provider: Provider
 }
 
-export default function IntegrationCard({ integration, onReconnect, onDisconnect }: IntegrationCardProps) {
+export default function IntegrationCard({ provider }: IntegrationCardProps) {
   const [isConnecting, setIsConnecting] = useState(false)
+  const { connectIntegration, disconnectIntegration } = useIntegrationStore()
   const { toast } = useToast()
 
   const handleConnect = async () => {
+    if (provider.comingSoon) {
+      toast({
+        title: "Coming Soon",
+        description: `${provider.name} integration is coming soon! Stay tuned for updates.`,
+      })
+      return
+    }
+
     setIsConnecting(true)
-
     try {
-      const result = await initiateOAuth(integration.provider, false)
-
-      if (result.success && result.authUrl) {
-        // Redirect to OAuth provider
-        window.location.href = result.authUrl
-      } else {
-        console.error("OAuth initiation failed:", result)
-
-        // Show specific error message
-        toast({
-          title: "OAuth Configuration Error",
-          description: result.error || `Failed to connect to ${getProviderDisplayName(integration.provider)}`,
-          variant: "destructive",
-        })
-      }
+      await connectIntegration(provider.id, true)
     } catch (error: any) {
       console.error("Connection error:", error)
       toast({
-        title: "Connection Error",
-        description: `Failed to connect to ${getProviderDisplayName(integration.provider)}: ${error.message}`,
+        title: "Connection Failed",
+        description: `Failed to connect to ${provider.name}: ${error.message}`,
         variant: "destructive",
       })
     } finally {
@@ -59,30 +59,16 @@ export default function IntegrationCard({ integration, onReconnect, onDisconnect
   }
 
   const handleReconnect = async () => {
-    if (!integration.id) return
+    if (!provider.integration?.id) return
 
     setIsConnecting(true)
-
     try {
-      const result = await initiateOAuth(integration.provider, true, integration.id)
-
-      if (result.success && result.authUrl) {
-        // Redirect to OAuth provider
-        window.location.href = result.authUrl
-      } else {
-        console.error("OAuth reconnection failed:", result)
-
-        toast({
-          title: "OAuth Configuration Error",
-          description: result.error || `Failed to reconnect to ${getProviderDisplayName(integration.provider)}`,
-          variant: "destructive",
-        })
-      }
+      await connectIntegration(provider.id, true)
     } catch (error: any) {
       console.error("Reconnection error:", error)
       toast({
-        title: "Reconnection Error",
-        description: `Failed to reconnect to ${getProviderDisplayName(integration.provider)}: ${error.message}`,
+        title: "Reconnection Failed",
+        description: `Failed to reconnect to ${provider.name}: ${error.message}`,
         variant: "destructive",
       })
     } finally {
@@ -90,69 +76,98 @@ export default function IntegrationCard({ integration, onReconnect, onDisconnect
     }
   }
 
+  const handleDisconnect = async () => {
+    if (!provider.integration?.id) return
+
+    if (confirm(`Are you sure you want to disconnect ${provider.name}?`)) {
+      try {
+        await disconnectIntegration(provider.integration.id)
+        toast({
+          title: "Integration Disconnected",
+          description: `${provider.name} has been disconnected successfully.`,
+        })
+      } catch (error: any) {
+        console.error("Disconnection error:", error)
+        toast({
+          title: "Disconnection Failed",
+          description: `Failed to disconnect ${provider.name}: ${error.message}`,
+          variant: "destructive",
+        })
+      }
+    }
+  }
+
   const getStatusIcon = () => {
-    switch (integration.status) {
-      case "connected":
-        return <CheckCircle className="h-4 w-4 text-green-500" />
-      case "error":
-        return <AlertCircle className="h-4 w-4 text-red-500" />
-      default:
-        return <AlertCircle className="h-4 w-4 text-gray-400" />
+    if (provider.connected) {
+      return <CheckCircle className="h-4 w-4 text-green-500" />
+    } else if (provider.integration?.status === "error") {
+      return <AlertCircle className="h-4 w-4 text-red-500" />
+    } else {
+      return <AlertCircle className="h-4 w-4 text-gray-400" />
     }
   }
 
   const getStatusBadge = () => {
-    switch (integration.status) {
-      case "connected":
-        return (
-          <Badge variant="default" className="bg-green-100 text-green-800">
-            Connected
-          </Badge>
-        )
-      case "error":
-        return <Badge variant="destructive">Error</Badge>
-      default:
-        return <Badge variant="secondary">Not Connected</Badge>
+    if (provider.connected) {
+      return (
+        <Badge variant="default" className="bg-green-100 text-green-800">
+          Connected
+        </Badge>
+      )
+    } else if (provider.integration?.status === "error") {
+      return <Badge variant="destructive">Error</Badge>
+    } else if (provider.comingSoon) {
+      return (
+        <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+          Coming Soon
+        </Badge>
+      )
+    } else {
+      return <Badge variant="secondary">Not Connected</Badge>
     }
   }
 
   return (
-    <Card className="w-full">
+    <Card className={`w-full ${provider.comingSoon ? "opacity-75" : ""}`}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <div className="flex items-center space-x-2">
           {getStatusIcon()}
-          <CardTitle className="text-sm font-medium">{getProviderDisplayName(integration.provider)}</CardTitle>
+          <CardTitle className="text-sm font-medium">{provider.name}</CardTitle>
         </div>
         {getStatusBadge()}
       </CardHeader>
       <CardContent>
-        <CardDescription className="text-xs text-muted-foreground mb-4">
-          {getProviderDescription(integration.provider)}
-        </CardDescription>
+        <CardDescription className="text-xs text-muted-foreground mb-4">{provider.description}</CardDescription>
 
-        {integration.status === "connected" && integration.metadata && (
+        {provider.connected && provider.integration?.metadata && (
           <div className="text-xs text-muted-foreground mb-4">
-            <p>Connected as: {integration.metadata.user_name || integration.metadata.username || "Unknown"}</p>
-            {integration.connected_at && <p>Connected: {new Date(integration.connected_at).toLocaleDateString()}</p>}
+            <p>
+              Connected as:{" "}
+              {provider.integration.metadata.user_name ||
+                provider.integration.metadata.username ||
+                provider.integration.metadata.display_name ||
+                "Unknown"}
+            </p>
+            {provider.integration.connected_at && (
+              <p>Connected: {new Date(provider.integration.connected_at).toLocaleDateString()}</p>
+            )}
           </div>
         )}
 
         <div className="flex gap-2">
-          {integration.status === "connected" ? (
+          {provider.connected ? (
             <>
               <Button size="sm" variant="outline" onClick={handleReconnect} disabled={isConnecting} className="flex-1">
                 <Settings className="h-3 w-3 mr-1" />
                 {isConnecting ? "Reconnecting..." : "Reconnect"}
               </Button>
-              {onDisconnect && (
-                <Button size="sm" variant="outline" onClick={onDisconnect} className="flex-1">
-                  <Unlink className="h-3 w-3 mr-1" />
-                  Disconnect
-                </Button>
-              )}
+              <Button size="sm" variant="outline" onClick={handleDisconnect} className="flex-1">
+                <Unlink className="h-3 w-3 mr-1" />
+                Disconnect
+              </Button>
             </>
           ) : (
-            <Button size="sm" onClick={handleConnect} disabled={isConnecting} className="flex-1">
+            <Button size="sm" onClick={handleConnect} disabled={isConnecting || provider.comingSoon} className="flex-1">
               <ExternalLink className="h-3 w-3 mr-1" />
               {isConnecting ? "Connecting..." : "Connect"}
             </Button>
@@ -161,60 +176,4 @@ export default function IntegrationCard({ integration, onReconnect, onDisconnect
       </CardContent>
     </Card>
   )
-}
-
-function getProviderDisplayName(provider: string): string {
-  const displayNames: Record<string, string> = {
-    google: "Google",
-    teams: "Microsoft Teams",
-    slack: "Slack",
-    dropbox: "Dropbox",
-    github: "GitHub",
-    twitter: "Twitter",
-    linkedin: "LinkedIn",
-    facebook: "Facebook",
-    instagram: "Instagram",
-    tiktok: "TikTok",
-    paypal: "PayPal",
-    shopify: "Shopify",
-    trello: "Trello",
-    notion: "Notion",
-    youtube: "YouTube",
-    docker: "Docker",
-    gitlab: "GitLab",
-    airtable: "Airtable",
-    mailchimp: "Mailchimp",
-    hubspot: "HubSpot",
-    discord: "Discord",
-  }
-
-  return displayNames[provider] || provider.charAt(0).toUpperCase() + provider.slice(1)
-}
-
-function getProviderDescription(provider: string): string {
-  const descriptions: Record<string, string> = {
-    google: "Connect your Google account for Calendar, Drive, Gmail, and Sheets integration",
-    teams: "Connect Microsoft Teams for messaging and collaboration",
-    slack: "Connect Slack for team communication and notifications",
-    dropbox: "Connect Dropbox for file storage and sharing",
-    github: "Connect GitHub for repository management and CI/CD",
-    twitter: "Connect Twitter for social media automation",
-    linkedin: "Connect LinkedIn for professional networking",
-    facebook: "Connect Facebook for social media management",
-    instagram: "Connect Instagram for content publishing",
-    tiktok: "Connect TikTok for video content management",
-    paypal: "Connect PayPal for payment processing",
-    shopify: "Connect Shopify for e-commerce management",
-    trello: "Connect Trello for project management",
-    notion: "Connect Notion for documentation and knowledge management",
-    youtube: "Connect YouTube for video content management",
-    docker: "Connect Docker Hub for container management",
-    gitlab: "Connect GitLab for repository and CI/CD management",
-    airtable: "Connect Airtable for database and workflow management",
-    mailchimp: "Connect Mailchimp for email marketing",
-    hubspot: "Connect HubSpot for CRM and marketing automation",
-    discord: "Connect Discord for community management",
-  }
-
-  return descriptions[provider] || `Connect ${getProviderDisplayName(provider)} for enhanced workflow automation`
 }
