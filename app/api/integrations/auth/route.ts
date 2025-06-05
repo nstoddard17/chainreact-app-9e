@@ -42,16 +42,29 @@ export async function POST(request: NextRequest) {
       if (error.message.includes("Missing") && error.message.includes("environment variable")) {
         return NextResponse.json(
           {
-            error: `OAuth not configured for ${provider}. Missing environment variables.`,
+            error: `OAuth not configured for ${getProviderDisplayName(provider)}`,
             details: error.message,
+            configurationError: true,
           },
           { status: 500 },
         )
       }
 
+      // Check if it's an unsupported provider error
+      if (error.message.includes("Unsupported OAuth provider")) {
+        return NextResponse.json(
+          {
+            error: `${getProviderDisplayName(provider)} integration is not yet supported`,
+            details: error.message,
+            unsupportedProvider: true,
+          },
+          { status: 400 },
+        )
+      }
+
       return NextResponse.json(
         {
-          error: `OAuth not configured for ${provider}`,
+          error: `OAuth configuration error for ${getProviderDisplayName(provider)}`,
           details: error.message,
         },
         { status: 500 },
@@ -67,4 +80,32 @@ export async function POST(request: NextRequest) {
       { status: 500 },
     )
   }
+}
+
+function getProviderDisplayName(provider: string): string {
+  const displayNames: Record<string, string> = {
+    google: "Google",
+    teams: "Microsoft Teams",
+    slack: "Slack",
+    dropbox: "Dropbox",
+    github: "GitHub",
+    twitter: "Twitter",
+    linkedin: "LinkedIn",
+    facebook: "Facebook",
+    instagram: "Instagram",
+    tiktok: "TikTok",
+    paypal: "PayPal",
+    shopify: "Shopify",
+    trello: "Trello",
+    notion: "Notion",
+    youtube: "YouTube",
+    docker: "Docker",
+    gitlab: "GitLab",
+    airtable: "Airtable",
+    mailchimp: "Mailchimp",
+    hubspot: "HubSpot",
+    discord: "Discord",
+  }
+
+  return displayNames[provider] || provider.charAt(0).toUpperCase() + provider.slice(1)
 }

@@ -1,222 +1,220 @@
 "use client"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Check, ExternalLink, Settings, Loader2, RefreshCw, Clock } from "lucide-react"
-import { useIntegrationStore } from "@/stores/integrationStore"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { AlertCircle, CheckCircle, ExternalLink, Settings, Unlink } from "lucide-react"
+import { initiateOAuth } from "@/app/actions/oauth"
+import { useToast } from "@/hooks/use-toast"
 
-interface IntegrationCardProps {
-  provider: any
+interface Integration {
+  id?: string
+  provider: string
+  status: "connected" | "disconnected" | "error"
+  metadata?: any
+  scopes?: string[]
+  connected_at?: string
 }
 
-export default function IntegrationCard({ provider }: IntegrationCardProps) {
-  const { integrations, connectIntegration, disconnectIntegration, connectingProvider } = useIntegrationStore()
-  const connecting = connectingProvider === provider.id
+interface IntegrationCardProps {
+  integration: Integration
+  onReconnect?: () => void
+  onDisconnect?: () => void
+}
 
-  // Check if this provider is connected
-  const connectedIntegration = integrations.find((i) => i.provider === provider.id && i.status === "connected")
-  const disconnectedIntegration = integrations.find((i) => i.provider === provider.id && i.status === "disconnected")
-  const isConnected = !!connectedIntegration
-  const wasConnected = !!disconnectedIntegration
-  const isOAuthProvider = provider.authType === "oauth"
-  const isComingSoon = provider.comingSoon
+export default function IntegrationCard({ integration, onReconnect, onDisconnect }: IntegrationCardProps) {
+  const [isConnecting, setIsConnecting] = useState(false)
+  const { toast } = useToast()
 
   const handleConnect = async () => {
-    if (isComingSoon) {
-      return
-    }
-
-    console.log(`handleConnect called for ${provider.name}, isConnected: ${isConnected}, isOAuth: ${isOAuthProvider}`)
-
-    // For OAuth providers, always allow reauthorization
-    // For non-OAuth providers, skip if already connected
-    if (isConnected && !isOAuthProvider) {
-      console.log(`${provider.name} is already connected and not OAuth`)
-      return
-    }
+    setIsConnecting(true)
 
     try {
-      console.log(`Calling connectIntegration for ${provider.id} with forceOAuth: true`)
-      // Always force OAuth for OAuth providers when reconnecting
-      await connectIntegration(provider.id, true)
-    } catch (error) {
-      console.error("Failed to connect integration:", error)
+      const result = await initiateOAuth(integration.provider, false)
+
+      if (result.success && result.authUrl) {
+        // Redirect to OAuth provider
+        window.location.href = result.authUrl
+      } else {
+        console.error("OAuth initiation failed:", result)
+
+        // Show specific error message
+        toast({
+          title: "OAuth Configuration Error",
+          description: result.error || `Failed to connect to ${getProviderDisplayName(integration.provider)}`,
+          variant: "destructive",
+        })
+      }
+    } catch (error: any) {
+      console.error("Connection error:", error)
+      toast({
+        title: "Connection Error",
+        description: `Failed to connect to ${getProviderDisplayName(integration.provider)}: ${error.message}`,
+        variant: "destructive",
+      })
+    } finally {
+      setIsConnecting(false)
     }
   }
 
-  const handleDisconnect = async () => {
-    if (connectedIntegration && confirm("Are you sure you want to disconnect this integration?")) {
-      try {
-        await disconnectIntegration(connectedIntegration.id)
-      } catch (error) {
-        console.error("Failed to disconnect integration:", error)
+  const handleReconnect = async () => {
+    if (!integration.id) return
+
+    setIsConnecting(true)
+
+    try {
+      const result = await initiateOAuth(integration.provider, true, integration.id)
+
+      if (result.success && result.authUrl) {
+        // Redirect to OAuth provider
+        window.location.href = result.authUrl
+      } else {
+        console.error("OAuth reconnection failed:", result)
+
+        toast({
+          title: "OAuth Configuration Error",
+          description: result.error || `Failed to reconnect to ${getProviderDisplayName(integration.provider)}`,
+          variant: "destructive",
+        })
       }
+    } catch (error: any) {
+      console.error("Reconnection error:", error)
+      toast({
+        title: "Reconnection Error",
+        description: `Failed to reconnect to ${getProviderDisplayName(integration.provider)}: ${error.message}`,
+        variant: "destructive",
+      })
+    } finally {
+      setIsConnecting(false)
+    }
+  }
+
+  const getStatusIcon = () => {
+    switch (integration.status) {
+      case "connected":
+        return <CheckCircle className="h-4 w-4 text-green-500" />
+      case "error":
+        return <AlertCircle className="h-4 w-4 text-red-500" />
+      default:
+        return <AlertCircle className="h-4 w-4 text-gray-400" />
+    }
+  }
+
+  const getStatusBadge = () => {
+    switch (integration.status) {
+      case "connected":
+        return (
+          <Badge variant="default" className="bg-green-100 text-green-800">
+            Connected
+          </Badge>
+        )
+      case "error":
+        return <Badge variant="destructive">Error</Badge>
+      default:
+        return <Badge variant="secondary">Not Connected</Badge>
     }
   }
 
   return (
-    <Card
-      className={`bg-white rounded-2xl shadow-lg border transition-all duration-300 ${
-        isComingSoon
-          ? "border-gray-200 opacity-75"
-          : isConnected
-            ? "border-green-200 ring-2 ring-green-100 hover:shadow-xl"
-            : "border-slate-200 hover:shadow-xl"
-      }`}
-    >
-      <CardHeader className="pb-2">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center space-x-3">
-            <div
-              className={`w-8 h-8 rounded-md flex items-center justify-center text-xs font-bold ${provider.logoColor}`}
-            >
-              {provider.icon.length === 1 ? provider.icon : provider.name.charAt(0)}
-            </div>
-            <CardTitle className="text-lg font-semibold text-slate-900">{provider.name}</CardTitle>
-          </div>
-          {isComingSoon ? (
-            <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
-              <Clock className="w-3 h-3 mr-1" />
-              Coming Soon
-            </Badge>
-          ) : isConnected ? (
-            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-              <Check className="w-3 h-3 mr-1" />
-              Connected
-            </Badge>
-          ) : null}
+    <Card className="w-full">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <div className="flex items-center space-x-2">
+          {getStatusIcon()}
+          <CardTitle className="text-sm font-medium">{getProviderDisplayName(integration.provider)}</CardTitle>
         </div>
+        {getStatusBadge()}
       </CardHeader>
-      <CardContent className="space-y-4">
-        <p className="text-sm text-slate-600">{provider.description}</p>
+      <CardContent>
+        <CardDescription className="text-xs text-muted-foreground mb-4">
+          {getProviderDescription(integration.provider)}
+        </CardDescription>
 
-        <div className="flex flex-wrap gap-2">
-          {provider.capabilities.slice(0, 3).map((capability: string) => (
-            <Badge key={capability} variant="secondary" className="bg-white text-black border border-slate-200">
-              {capability}
-            </Badge>
-          ))}
-          {provider.capabilities.length > 3 && (
-            <Badge variant="secondary" className="bg-white text-black border border-slate-200">
-              +{provider.capabilities.length - 3} more
-            </Badge>
-          )}
-        </div>
-
-        {isComingSoon && (
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-            <div className="text-xs text-amber-800">
-              <strong>Coming Soon:</strong> This integration is currently in development. We'll notify you when it's
-              ready!
-            </div>
+        {integration.status === "connected" && integration.metadata && (
+          <div className="text-xs text-muted-foreground mb-4">
+            <p>Connected as: {integration.metadata.user_name || integration.metadata.username || "Unknown"}</p>
+            {integration.connected_at && <p>Connected: {new Date(integration.connected_at).toLocaleDateString()}</p>}
           </div>
         )}
 
-        {!isComingSoon && provider.requiresSetup && !isConnected && (
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-            <div className="text-xs text-amber-800">
-              <strong>Setup Required:</strong> This integration requires OAuth configuration. In demo mode, a mock
-              connection will be created.
-            </div>
-          </div>
-        )}
-
-        {isConnected && connectedIntegration?.metadata?.demo && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-            <div className="text-xs text-blue-800">
-              <strong>Demo Mode:</strong> This is a simulated connection for testing purposes.
-            </div>
-          </div>
-        )}
-
-        {wasConnected && !isConnected && provider.authType === "oauth" && (
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-            <div className="text-xs text-amber-800">
-              <strong>Reconnection Required:</strong> Click Connect to re-authenticate with {provider.name}.
-            </div>
-          </div>
-        )}
-
-        <div className="flex items-center space-x-2 pt-2">
-          {isComingSoon ? (
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex-1 bg-gray-100 text-gray-500 border border-gray-200 cursor-not-allowed"
-              disabled
-            >
-              <Clock className="w-4 h-4 mr-2" />
-              Coming Soon
-            </Button>
-          ) : isConnected ? (
+        <div className="flex gap-2">
+          {integration.status === "connected" ? (
             <>
-              {isOAuthProvider ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex-1 bg-white text-black border border-slate-200 hover:bg-slate-100 active:bg-slate-200"
-                  onClick={handleConnect}
-                  disabled={connecting}
-                >
-                  {connecting ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Reconnecting...
-                    </>
-                  ) : (
-                    <>
-                      <RefreshCw className="w-4 h-4 mr-2" />
-                      Reauthorize
-                    </>
-                  )}
-                </Button>
-              ) : (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex-1 bg-white text-black border border-slate-200 hover:bg-slate-100 active:bg-slate-200"
-                >
-                  <Settings className="w-4 h-4 mr-2" />
-                  Configure
+              <Button size="sm" variant="outline" onClick={handleReconnect} disabled={isConnecting} className="flex-1">
+                <Settings className="h-3 w-3 mr-1" />
+                {isConnecting ? "Reconnecting..." : "Reconnect"}
+              </Button>
+              {onDisconnect && (
+                <Button size="sm" variant="outline" onClick={onDisconnect} className="flex-1">
+                  <Unlink className="h-3 w-3 mr-1" />
+                  Disconnect
                 </Button>
               )}
-              <Button
-                variant="outline"
-                size="sm"
-                className="bg-white text-red-600 border border-slate-200 hover:bg-slate-100 hover:text-red-700 active:bg-slate-200"
-                onClick={handleDisconnect}
-                disabled={connecting}
-              >
-                Disconnect
-              </Button>
             </>
           ) : (
-            <>
-              <Button
-                onClick={handleConnect}
-                className="flex-1 bg-white text-black border border-slate-200 hover:bg-slate-100 active:bg-slate-200"
-                disabled={connecting}
-              >
-                {connecting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Connecting...
-                  </>
-                ) : (
-                  "Connect"
-                )}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="bg-white text-black border border-slate-200 hover:bg-slate-100 active:bg-slate-200"
-              >
-                <ExternalLink className="w-4 h-4" />
-              </Button>
-            </>
+            <Button size="sm" onClick={handleConnect} disabled={isConnecting} className="flex-1">
+              <ExternalLink className="h-3 w-3 mr-1" />
+              {isConnecting ? "Connecting..." : "Connect"}
+            </Button>
           )}
         </div>
       </CardContent>
     </Card>
   )
+}
+
+function getProviderDisplayName(provider: string): string {
+  const displayNames: Record<string, string> = {
+    google: "Google",
+    teams: "Microsoft Teams",
+    slack: "Slack",
+    dropbox: "Dropbox",
+    github: "GitHub",
+    twitter: "Twitter",
+    linkedin: "LinkedIn",
+    facebook: "Facebook",
+    instagram: "Instagram",
+    tiktok: "TikTok",
+    paypal: "PayPal",
+    shopify: "Shopify",
+    trello: "Trello",
+    notion: "Notion",
+    youtube: "YouTube",
+    docker: "Docker",
+    gitlab: "GitLab",
+    airtable: "Airtable",
+    mailchimp: "Mailchimp",
+    hubspot: "HubSpot",
+    discord: "Discord",
+  }
+
+  return displayNames[provider] || provider.charAt(0).toUpperCase() + provider.slice(1)
+}
+
+function getProviderDescription(provider: string): string {
+  const descriptions: Record<string, string> = {
+    google: "Connect your Google account for Calendar, Drive, Gmail, and Sheets integration",
+    teams: "Connect Microsoft Teams for messaging and collaboration",
+    slack: "Connect Slack for team communication and notifications",
+    dropbox: "Connect Dropbox for file storage and sharing",
+    github: "Connect GitHub for repository management and CI/CD",
+    twitter: "Connect Twitter for social media automation",
+    linkedin: "Connect LinkedIn for professional networking",
+    facebook: "Connect Facebook for social media management",
+    instagram: "Connect Instagram for content publishing",
+    tiktok: "Connect TikTok for video content management",
+    paypal: "Connect PayPal for payment processing",
+    shopify: "Connect Shopify for e-commerce management",
+    trello: "Connect Trello for project management",
+    notion: "Connect Notion for documentation and knowledge management",
+    youtube: "Connect YouTube for video content management",
+    docker: "Connect Docker Hub for container management",
+    gitlab: "Connect GitLab for repository and CI/CD management",
+    airtable: "Connect Airtable for database and workflow management",
+    mailchimp: "Connect Mailchimp for email marketing",
+    hubspot: "Connect HubSpot for CRM and marketing automation",
+    discord: "Connect Discord for community management",
+  }
+
+  return descriptions[provider] || `Connect ${getProviderDisplayName(provider)} for enhanced workflow automation`
 }
