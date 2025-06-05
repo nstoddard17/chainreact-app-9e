@@ -1,4 +1,4 @@
-import { upsertIntegration, parseOAuthState } from "./utils"
+import { upsertIntegration, parseOAuthState, getOAuthRedirectUri } from "./utils"
 
 interface DiscordOAuthResult {
   success: boolean
@@ -18,30 +18,39 @@ export class DiscordOAuthService {
     return { clientId, clientSecret }
   }
 
-  static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string): string {
+  static generateAuthUrl(userId: string, reconnect = false, integrationId?: string): string {
     const { clientId } = this.getClientCredentials()
-    const redirectUri = this.getRedirectUri(baseUrl)
+    const redirectUri = getOAuthRedirectUri("discord")
 
-    // Always include bot and applications.commands scopes
+    // Always include bot and applications.commands scopes with proper permissions
     const requiredScopes = ["bot", "applications.commands", "identify", "guilds"]
+
+    // Include permissions for bot (8 = Administrator, or use specific permissions as needed)
+    // You can adjust this based on what your bot actually needs
+    const permissions = "8" // Administrator permissions, adjust as needed
+
+    const state = btoa(
+      JSON.stringify({
+        provider: "discord",
+        userId,
+        timestamp: Date.now(),
+        reconnect,
+        integrationId,
+        requireFullScopes: true,
+      }),
+    )
 
     const params = new URLSearchParams({
       client_id: clientId,
       redirect_uri: redirectUri,
       response_type: "code",
       scope: requiredScopes.join(" "),
+      permissions, // Include bot permissions
+      prompt: "consent", // Force re-authorization to ensure fresh scopes
+      state,
     })
 
-    if (reconnect) {
-      params.append("prompt", "consent")
-    }
-
     return `https://discord.com/api/oauth2/authorize?${params.toString()}`
-  }
-
-  static getRedirectUri(baseUrl: string): string {
-    // Hardcoded redirect URI
-    return "https://chainreact.app/api/integrations/discord/callback"
   }
 
   static async validateToken(
@@ -59,8 +68,8 @@ export class DiscordOAuthService {
         return { valid: false, grantedScopes: [], missingScopes: [] }
       }
 
-      // Discord doesn't provide a way to get scopes from the token directly
-      // We'll need to rely on what was stored during the OAuth flow
+      // For Discord, we need to validate scopes from the stored integration data
+      // since Discord doesn't provide scope info in the token endpoint
       return { valid: true, grantedScopes: [], missingScopes: [] }
     } catch (error) {
       console.error("Error validating Discord token:", error)
@@ -71,7 +80,7 @@ export class DiscordOAuthService {
   static async validateExistingIntegration(integration: any): Promise<boolean> {
     try {
       const requiredScopes = ["bot", "applications.commands", "identify", "guilds"]
-      const grantedScopes = integration.scopes || []
+      const grantedScopes = integration.configuration?.scopes || integration.scopes || []
 
       console.log("Discord scope validation:", { grantedScopes, requiredScopes })
 
@@ -84,10 +93,11 @@ export class DiscordOAuthService {
       }
 
       // Test the token by making an API call
-      if (integration.access_token) {
+      const accessToken = integration.credentials?.access_token || integration.access_token
+      if (accessToken) {
         const response = await fetch("https://discord.com/api/users/@me", {
           headers: {
-            Authorization: `Bearer ${integration.access_token}`,
+            Authorization: `Bearer ${accessToken}`,
           },
         })
 
@@ -114,7 +124,7 @@ export class DiscordOAuthService {
       }
 
       const { clientId, clientSecret } = this.getClientCredentials()
-      const redirectUri = this.getRedirectUri("")
+      const redirectUri = getOAuthRedirectUri("discord")
 
       console.log("Discord OAuth callback - using redirect URI:", redirectUri)
 
@@ -141,18 +151,22 @@ export class DiscordOAuthService {
       const tokenData = await tokenResponse.json()
       const { access_token, refresh_token, expires_in, scope } = tokenData
 
-      // Always validate scopes for Discord
+      // Validate scopes dynamically from the token response
       const grantedScopes = scope ? scope.split(" ") : []
       const requiredScopes = ["bot", "applications.commands", "identify", "guilds"]
       const missingScopes = requiredScopes.filter((s) => !grantedScopes.includes(s))
 
+      console.log("Discord OAuth - Granted scopes:", grantedScopes)
+      console.log("Discord OAuth - Required scopes:", requiredScopes)
+      console.log("Discord OAuth - Missing scopes:", missingScopes)
+
       if (missingScopes.length > 0) {
         console.error("Discord scope validation failed:", { grantedScopes, missingScopes })
-        const baseUrl = new URL(redirectUri).origin
+        const baseUrl = "https://chainreact.app"
         return {
           success: false,
           redirectUrl: `${baseUrl}/integrations?error=insufficient_scopes&provider=discord&message=${encodeURIComponent(
-            `Your Discord connection is missing required permissions: ${missingScopes.join(", ")}. Please reconnect and accept all scopes.`,
+            `Your Discord connection is missing required permissions: ${missingScopes.join(", ")}. Please reconnect and accept all permissions including bot access.`,
           )}`,
           error: "Insufficient scopes",
         }
@@ -174,6 +188,16 @@ export class DiscordOAuthService {
 
       const userData = await userResponse.json()
 
+      // If this is a reconnect, clear any existing integration first
+      if (reconnect || integrationId) {
+        try {
+          await supabase.from("advanced_integrations").delete().eq("user_id", userId).eq("provider", "discord")
+          console.log("Cleared existing Discord integration for fresh connection")
+        } catch (error) {
+          console.warn("Failed to clear existing integration:", error)
+        }
+      }
+
       const integrationData = {
         user_id: userId,
         provider: "discord",
@@ -191,13 +215,15 @@ export class DiscordOAuthService {
           scopes_validated: true,
           required_scopes: requiredScopes,
           granted_scopes: grantedScopes,
+          token_type: tokenData.token_type,
+          scope: scope, // Store original scope string
         },
       }
 
       // Use upsert to avoid duplicate key constraint violations
       await upsertIntegration(supabase, integrationData)
 
-      const baseUrl = new URL(redirectUri).origin
+      const baseUrl = "https://chainreact.app"
       return {
         success: true,
         redirectUrl: `${baseUrl}/integrations?success=discord_connected&provider=discord&scopes_validated=true`,

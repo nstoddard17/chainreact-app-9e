@@ -9,6 +9,18 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams
     const code = searchParams.get("code")
     const state = searchParams.get("state")
+    const error = searchParams.get("error")
+
+    // Handle OAuth errors from Discord
+    if (error) {
+      console.error("Discord OAuth error:", error)
+      const errorDescription = searchParams.get("error_description") || error
+      return NextResponse.redirect(
+        `https://chainreact.app/integrations?error=oauth_error&provider=discord&message=${encodeURIComponent(
+          errorDescription,
+        )}`,
+      )
+    }
 
     if (!code) {
       return NextResponse.redirect(
@@ -48,8 +60,21 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Create Supabase client
+    // Create Supabase client using server method
     const supabase = createServerSupabaseClient()
+
+    // Verify the user session
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
+
+    if (!session || session.user.id !== userId) {
+      return NextResponse.redirect(
+        `https://chainreact.app/integrations?error=session_mismatch&provider=discord&message=${encodeURIComponent(
+          "Session validation failed",
+        )}`,
+      )
+    }
 
     // Handle OAuth callback
     const result = await DiscordOAuthService.handleCallback(code, state, supabase, userId)

@@ -39,30 +39,6 @@ export const createAdminSupabaseClient = () => {
   })
 }
 
-// For backward compatibility - this is a lazy-loaded getter that only initializes on the server
-// This prevents client-side errors while maintaining the export for existing code
-export const adminSupabase = new Proxy({} as ReturnType<typeof createClient<Database>>, {
-  get: (target, prop) => {
-    // Only create the client when a property is accessed
-    if (typeof window !== "undefined") {
-      console.error("Error: Attempted to access adminSupabase on the client side")
-      return undefined
-    }
-
-    try {
-      const client = createAdminSupabaseClient()
-      if (!client) {
-        return undefined
-      }
-      // @ts-ignore - accessing dynamic property
-      return client[prop]
-    } catch (error) {
-      console.error("Error accessing adminSupabase:", error)
-      return undefined
-    }
-  },
-})
-
 /**
  * Get hardcoded redirect URI for OAuth providers
  * Always uses the production domain to prevent redirect mismatches
@@ -76,15 +52,6 @@ export function getOAuthRedirectUri(provider: string): string {
  * Always returns production URL for OAuth consistency
  */
 export function getAbsoluteBaseUrl(request: Request | NextRequest): string {
-  // Always return production URL for OAuth consistency
-  return "https://chainreact.app"
-}
-
-/**
- * Get the correct base URL for OAuth redirects based on environment
- * Always returns production URL for OAuth consistency
- */
-export function getOAuthBaseUrl(): string {
   // Always return production URL for OAuth consistency
   return "https://chainreact.app"
 }
