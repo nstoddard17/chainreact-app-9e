@@ -199,7 +199,55 @@ export const INTEGRATION_SCOPES: Record<string, IntegrationScopeConfig> = {
             "teams-get-teams": ["Team.ReadBasic.All"],
         },
     },
-
+    trello: {
+        provider: "trello",
+        scopes: [
+            { scope: "read", description: "Read boards, cards, and workspaces", required: true },
+            { scope: "write", description: "Create and update cards, boards, and lists", required: true },
+            { scope: "account", description: "Access account info", required: true },
+        ],
+        components: {
+            "trello-read-board": ["read"],
+            "trello-create-card": ["write"],
+            "trello-update-card": ["write"],
+            "trello-get-user": ["account"],
+        },
+    },
+    facebook: {
+        provider: "facebook",
+        scopes: [
+            { scope: "public_profile", description: "Access public profile information", required: true },
+            { scope: "email", description: "Access your email address", required: true },
+            { scope: "pages_show_list", description: "Show list of managed Facebook Pages", required: true },
+            { scope: "pages_manage_posts", description: "Create and manage posts for Pages", required: false },
+            { scope: "pages_read_engagement", description: "Read engagement metrics from Pages", required: false },
+            { scope: "pages_manage_metadata", description: "Manage Page settings and metadata", required: false },
+        ],
+        components: {
+            "facebook-post-to-page": ["pages_manage_posts"],
+            "facebook-read-page-engagement": ["pages_read_engagement"],
+            "facebook-get-pages": ["pages_show_list"],
+        },
+    },
+    youtube: {
+        provider: "youtube",
+        scopes: [
+            {
+                scope: "https://www.googleapis.com/auth/youtube.upload",
+                description: "Upload videos to your YouTube channel",
+                required: true,
+            },
+            {
+                scope: "https://www.googleapis.com/auth/youtube.readonly",
+                description: "View your YouTube account",
+                required: false,
+            },
+        ],
+        components: {
+            "youtube-upload-video": ["https://www.googleapis.com/auth/youtube.upload"],
+            "youtube-get-channel": ["https://www.googleapis.com/auth/youtube.readonly"],
+        },
+    },
 }
 
 export function getRequiredScopes(provider: string): string[] {
@@ -379,8 +427,29 @@ export function generateOAuthUrlWithScopes(provider: string, baseUrl: string, st
                   )}&response_mode=query&access_type=offline&prompt=consent&state=${state}`
           }
           break
-
-
+      case "trello":
+          if (process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID) {
+              const scopesParam = getAllScopes("trello").join(",")
+              return `https://trello.com/1/authorize?expiration=never&name=ChainReactApp&scope=${scopesParam}&response_type=token&client_id=${process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID
+                  }&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}`
+          }
+          break
+      case "facebook":
+          if (process.env.NEXT_PUBLIC_FACEBOOK_CLIENT_ID) {
+              const scopesParam = allScopes.join(",")
+              return `https://www.facebook.com/v18.0/dialog/oauth?client_id=${process.env.NEXT_PUBLIC_FACEBOOK_CLIENT_ID
+                  }&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&scope=${encodeURIComponent(scopesParam)}&response_type=code`
+          }
+          break
+      case "youtube":
+          if (process.env.NEXT_PUBLIC_YOUTUBE_CLIENT_ID) {
+              const scopesParam = allScopes.join(" ")
+              return `https://accounts.google.com/o/oauth2/v2/auth?client_id=${process.env.NEXT_PUBLIC_YOUTUBE_CLIENT_ID
+                  }&redirect_uri=${encodeURIComponent(
+                      redirectUri
+                  )}&scope=${encodeURIComponent(scopesParam)}&response_type=code&state=${state}&access_type=offline&prompt=consent`
+          }
+          break
 
     // Add other providers as needed
   }
