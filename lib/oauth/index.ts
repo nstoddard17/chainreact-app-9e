@@ -74,6 +74,20 @@ export function generateOAuthUrl(
     return service.generateAuthUrl(baseUrl, reconnect, integrationId)
   } catch (error: any) {
     console.error(`Failed to generate OAuth URL for ${provider}:`, error)
-    throw new Error(`OAuth not configured for ${provider}: ${error.message}`)
+
+    // Re-throw with more context
+    if (error.message.includes("Missing") && error.message.includes("environment variable")) {
+      throw new Error(`OAuth not configured for ${provider}: ${error.message}`)
+    }
+
+    throw new Error(`OAuth configuration error for ${provider}: ${error.message}`)
   }
+}
+
+export function isProviderSupported(provider: string): provider is SupportedProvider {
+  return provider in oauthProviders
+}
+
+export function getSupportedProviders(): SupportedProvider[] {
+  return Object.keys(oauthProviders) as SupportedProvider[]
 }
