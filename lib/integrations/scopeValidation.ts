@@ -16,7 +16,20 @@ export async function validateIntegrationScopes(
   provider: string,
   grantedScopes: string[],
 ): Promise<ScopeValidationResult> {
-  const validation = validateScopes(provider, grantedScopes)
+  // For Discord, use the updated required scopes
+  let validation
+  if (provider === "discord") {
+    const requiredScopes = ["identify", "guilds", "guilds.join", "messages.read"]
+    const missing = requiredScopes.filter((scope) => !grantedScopes.includes(scope))
+    validation = {
+      valid: missing.length === 0,
+      missing,
+      granted: grantedScopes.filter((scope) => requiredScopes.includes(scope)),
+      status: missing.length === 0 ? "valid" : missing.length === requiredScopes.length ? "invalid" : "partial",
+    }
+  } else {
+    validation = validateScopes(provider, grantedScopes)
+  }
 
   // Update the integration record with validation results
   try {
@@ -67,6 +80,22 @@ export async function validateAllUserIntegrations(userId: string): Promise<Scope
 }
 
 export function generateReconnectionUrl(provider: string, state?: string): string {
+  if (provider === "discord") {
+    // Updated Discord scopes
+    const requiredScopes = ["identify", "guilds", "guilds.join", "messages.read"]
+    const redirectUri = getOAuthRedirectUri("discord")
+
+    const discordParams = new URLSearchParams({
+      client_id: process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID!,
+      scope: requiredScopes.join(" "),
+      redirect_uri: redirectUri,
+      response_type: "code",
+      prompt: "consent", // Force re-authorization
+      ...(state && { state }),
+    })
+    return `https://discord.com/api/oauth2/authorize?${discordParams.toString()}`
+  }
+
   const config = INTEGRATION_SCOPES[provider]
   if (!config) {
     throw new Error(`Unsupported provider: ${provider}`)
@@ -97,16 +126,6 @@ export function generateReconnectionUrl(provider: string, state?: string): strin
         ...(state && { state }),
       })
       return `https://accounts.google.com/o/oauth2/v2/auth?${googleParams.toString()}`
-
-    case "discord":
-      const discordParams = new URLSearchParams({
-        client_id: process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID!,
-        scope: allScopes.join(" "),
-        redirect_uri: redirectUri,
-        response_type: "code",
-        ...(state && { state }),
-      })
-      return `https://discord.com/api/oauth2/authorize?${discordParams.toString()}`
 
     case "github":
       const githubParams = new URLSearchParams({
@@ -221,7 +240,19 @@ export async function validateAndUpdateIntegrationScopes(
   const provider = integration.provider
 
   // Validate the scopes
-  const validationResult = validateScopes(provider, grantedScopes)
+  let validationResult
+  if (provider === "discord") {
+    const requiredScopes = ["identify", "guilds", "guilds.join", "messages.read"]
+    const missing = requiredScopes.filter((scope) => !grantedScopes.includes(scope))
+    validationResult = {
+      valid: missing.length === 0,
+      missing,
+      granted: grantedScopes.filter((scope) => requiredScopes.includes(scope)),
+      status: missing.length === 0 ? "valid" : missing.length === requiredScopes.length ? "invalid" : "partial",
+    }
+  } else {
+    validationResult = validateScopes(provider, grantedScopes)
+  }
 
   // Update the integration with validation results
   await db
@@ -271,7 +302,19 @@ export async function validateAllIntegrations(userId: string): Promise<any[]> {
     const grantedScopes = integration.granted_scopes || []
     const provider = integration.provider
 
-    const validationResult = validateScopes(provider, grantedScopes)
+    let validationResult
+    if (provider === "discord") {
+      const requiredScopes = ["identify", "guilds", "guilds.join", "messages.read"]
+      const missing = requiredScopes.filter((scope) => !grantedScopes.includes(scope))
+      validationResult = {
+        valid: missing.length === 0,
+        missing,
+        granted: grantedScopes.filter((scope) => requiredScopes.includes(scope)),
+        status: missing.length === 0 ? "valid" : missing.length === requiredScopes.length ? "invalid" : "partial",
+      }
+    } else {
+      validationResult = validateScopes(provider, grantedScopes)
+    }
 
     // Update the integration with validation results
     await db

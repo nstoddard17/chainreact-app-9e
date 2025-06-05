@@ -72,6 +72,6 @@ export const getSupabaseClient = () => {
   return globalThis.__supabase_browser_client__
 }
 
-// For compatibility with existing code
-export const supabase = getSupabaseClient()
+// For compatibility with existing code - only use on client side
+export const supabase = typeof window !== "undefined" ? getSupabaseClient() : null
 export const createClient = () => getSupabaseClient()
