@@ -185,6 +185,35 @@ export class NotionOAuthService {
     }
   }
 
+  static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string): string {
+    const { clientId } = this.getClientCredentials()
+    const redirectUri = "https://chainreact.app/api/integrations/notion/callback"
+
+    const state = btoa(
+      JSON.stringify({
+        provider: "notion",
+        reconnect,
+        integrationId,
+        requireFullScopes: true,
+        timestamp: Date.now(),
+      }),
+    )
+
+    const params = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      response_type: "code",
+      owner: "user",
+      state,
+    })
+
+    return `https://api.notion.com/v1/oauth/authorize?${params.toString()}`
+  }
+
+  static getRedirectUri(baseUrl: string): string {
+    return "https://chainreact.app/api/integrations/notion/callback"
+  }
+
   static async handleCallback(
     code: string,
     state: string,

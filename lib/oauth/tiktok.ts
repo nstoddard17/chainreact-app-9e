@@ -56,6 +56,36 @@ export class TikTokOAuthService {
     }
   }
 
+  static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string): string {
+    const { clientId } = this.getClientCredentials()
+    const redirectUri = "https://chainreact.app/api/integrations/tiktok/callback"
+
+    const scopes = ["user.info.basic", "video.upload", "video.list", "comment.list", "comment.create"]
+
+    const state = btoa(
+      JSON.stringify({
+        provider: "tiktok",
+        reconnect,
+        integrationId,
+        timestamp: Date.now(),
+      }),
+    )
+
+    const params = new URLSearchParams({
+      client_key: clientId,
+      redirect_uri: redirectUri,
+      scope: scopes.join(","),
+      response_type: "code",
+      state,
+    })
+
+    return `https://www.tiktok.com/auth/authorize/?${params.toString()}`
+  }
+
+  static getRedirectUri(baseUrl: string): string {
+    return "https://chainreact.app/api/integrations/tiktok/callback"
+  }
+
   static async handleCallback(code: string, state: string, baseUrl: string): Promise<TikTokOAuthResult> {
     try {
       const stateData = JSON.parse(atob(state))

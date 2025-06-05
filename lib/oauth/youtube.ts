@@ -19,6 +19,48 @@ export class YouTubeOAuthService {
     return { clientId, clientSecret }
   }
 
+  static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string): string {
+    const clientId = process.env.NEXT_PUBLIC_YOUTUBE_CLIENT_ID
+    if (!clientId) {
+      throw new Error("Missing NEXT_PUBLIC_YOUTUBE_CLIENT_ID environment variable")
+    }
+
+    const redirectUri = "https://chainreact.app/api/integrations/youtube/callback"
+
+    const scopes = [
+      "https://www.googleapis.com/auth/youtube",
+      "https://www.googleapis.com/auth/youtube.upload",
+      "https://www.googleapis.com/auth/youtube.readonly",
+      "https://www.googleapis.com/auth/userinfo.profile",
+      "https://www.googleapis.com/auth/userinfo.email",
+    ]
+
+    const state = btoa(
+      JSON.stringify({
+        provider: "youtube",
+        reconnect,
+        integrationId,
+        timestamp: Date.now(),
+      }),
+    )
+
+    const params = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      response_type: "code",
+      scope: scopes.join(" "),
+      access_type: "offline",
+      prompt: reconnect ? "consent" : "select_account",
+      state,
+    })
+
+    return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`
+  }
+
+  static getRedirectUri(baseUrl: string): string {
+    return "https://chainreact.app/api/integrations/youtube/callback"
+  }
+
   static async handleCallback(code: string, state: string, baseUrl: string): Promise<YouTubeOAuthResult> {
     try {
       const stateData = JSON.parse(atob(state))
@@ -117,3 +159,6 @@ export class YouTubeOAuthService {
     }
   }
 }
+
+// Export alias for compatibility
+export const YoutubeOAuth = YouTubeOAuthService

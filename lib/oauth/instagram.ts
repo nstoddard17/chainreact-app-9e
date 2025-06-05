@@ -45,6 +45,36 @@ export class InstagramOAuthService {
     }
   }
 
+  static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string): string {
+    const { clientId } = this.getClientCredentials()
+    const redirectUri = "https://chainreact.app/api/integrations/instagram/callback"
+
+    const scopes = ["instagram_basic", "instagram_content_publish", "pages_show_list", "pages_read_engagement"]
+
+    const state = btoa(
+      JSON.stringify({
+        provider: "instagram",
+        reconnect,
+        integrationId,
+        timestamp: Date.now(),
+      }),
+    )
+
+    const params = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      scope: scopes.join(","),
+      response_type: "code",
+      state,
+    })
+
+    return `https://www.facebook.com/v18.0/dialog/oauth?${params.toString()}`
+  }
+
+  static getRedirectUri(baseUrl: string): string {
+    return "https://chainreact.app/api/integrations/instagram/callback"
+  }
+
   static async handleCallback(code: string, state: string, baseUrl: string): Promise<InstagramOAuthResult> {
     try {
       const stateData = JSON.parse(atob(state))

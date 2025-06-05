@@ -55,6 +55,44 @@ export class HubSpotOAuthService {
     }
   }
 
+  static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string): string {
+    const { clientId } = this.getClientCredentials()
+    const redirectUri = "https://chainreact.app/api/integrations/hubspot/callback"
+
+    const scopes = [
+      "contacts",
+      "content",
+      "forms",
+      "tickets",
+      "e-commerce",
+      "automation",
+      "crm.objects.contacts.read",
+      "crm.objects.contacts.write",
+    ]
+
+    const state = btoa(
+      JSON.stringify({
+        provider: "hubspot",
+        reconnect,
+        integrationId,
+        timestamp: Date.now(),
+      }),
+    )
+
+    const params = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      scope: scopes.join(" "),
+      state,
+    })
+
+    return `https://app.hubspot.com/oauth/authorize?${params.toString()}`
+  }
+
+  static getRedirectUri(baseUrl: string): string {
+    return "https://chainreact.app/api/integrations/hubspot/callback"
+  }
+
   static async handleCallback(
     code: string,
     state: string,

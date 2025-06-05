@@ -51,6 +51,33 @@ export class MailchimpOAuthService {
     }
   }
 
+  static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string): string {
+    const { clientId } = this.getClientCredentials()
+    const redirectUri = "https://chainreact.app/api/integrations/mailchimp/callback"
+
+    const state = btoa(
+      JSON.stringify({
+        provider: "mailchimp",
+        reconnect,
+        integrationId,
+        timestamp: Date.now(),
+      }),
+    )
+
+    const params = new URLSearchParams({
+      response_type: "code",
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      state,
+    })
+
+    return `https://login.mailchimp.com/oauth2/authorize?${params.toString()}`
+  }
+
+  static getRedirectUri(baseUrl: string): string {
+    return "https://chainreact.app/api/integrations/mailchimp/callback"
+  }
+
   static async handleCallback(code: string, state: string, baseUrl: string): Promise<MailchimpOAuthResult> {
     try {
       const stateData = JSON.parse(atob(state))

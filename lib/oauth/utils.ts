@@ -81,11 +81,64 @@ export async function upsertIntegration(
     // Add timestamps
     const now = new Date().toISOString()
 
-    // Map to your database structure
-    const dataWithTimestamps = {
+    // First, try to save to the main integrations table
+    const mainIntegrationData = {
       user_id: integrationData.user_id,
       provider: integrationData.provider,
-      integration_name: integrationData.provider, // Use provider as integration_name
+      provider_user_id: integrationData.provider_user_id,
+      status: integrationData.status,
+      scopes: integrationData.scopes,
+      access_token: integrationData.access_token,
+      refresh_token: integrationData.refresh_token,
+      expires_at: integrationData.expires_at,
+      metadata: integrationData.metadata,
+      updated_at: now,
+    }
+
+    // Check if integration exists in main table
+    const { data: existingMainIntegration, error: findMainError } = await supabase
+      .from("integrations")
+      .select("id")
+      .eq("user_id", integrationData.user_id)
+      .eq("provider", integrationData.provider)
+      .maybeSingle()
+
+    if (findMainError) {
+      console.error("Error checking for existing main integration:", findMainError)
+    }
+
+    let mainResult
+    if (existingMainIntegration) {
+      console.log(`Updating existing main integration: ${existingMainIntegration.id}`)
+      mainResult = await supabase
+        .from("integrations")
+        .update(mainIntegrationData)
+        .eq("id", existingMainIntegration.id)
+        .select()
+        .single()
+    } else {
+      console.log("Creating new main integration")
+      mainResult = await supabase
+        .from("integrations")
+        .insert({
+          ...mainIntegrationData,
+          created_at: now,
+        })
+        .select()
+        .single()
+    }
+
+    if (mainResult.error) {
+      console.error("Error upserting main integration:", mainResult.error)
+    } else {
+      console.log("Main integration saved successfully:", mainResult.data)
+    }
+
+    // Also save to advanced_integrations table for compatibility
+    const advancedIntegrationData = {
+      user_id: integrationData.user_id,
+      provider: integrationData.provider,
+      integration_name: integrationData.provider,
       status: integrationData.status,
       configuration: {
         scopes: integrationData.scopes,
@@ -102,49 +155,47 @@ export async function upsertIntegration(
       last_sync_at: now,
     }
 
-    // Check if integration exists using advanced_integrations table
-    const { data: existingIntegration, error: findError } = await supabase
+    // Check if integration exists in advanced table
+    const { data: existingAdvancedIntegration, error: findAdvancedError } = await supabase
       .from("advanced_integrations")
       .select("id")
       .eq("user_id", integrationData.user_id)
       .eq("provider", integrationData.provider)
       .maybeSingle()
 
-    if (findError) {
-      console.error("Error checking for existing integration:", findError)
-      throw findError
+    if (findAdvancedError) {
+      console.error("Error checking for existing advanced integration:", findAdvancedError)
     }
 
-    let result
-
-    if (existingIntegration) {
-      console.log(`Updating existing integration: ${existingIntegration.id}`)
-      // Update existing integration
-      result = await supabase
+    let advancedResult
+    if (existingAdvancedIntegration) {
+      console.log(`Updating existing advanced integration: ${existingAdvancedIntegration.id}`)
+      advancedResult = await supabase
         .from("advanced_integrations")
-        .update(dataWithTimestamps)
-        .eq("id", existingIntegration.id)
+        .update(advancedIntegrationData)
+        .eq("id", existingAdvancedIntegration.id)
         .select()
         .single()
     } else {
-      console.log("Creating new integration")
-      // Insert new integration
-      result = await supabase
+      console.log("Creating new advanced integration")
+      advancedResult = await supabase
         .from("advanced_integrations")
         .insert({
-          ...dataWithTimestamps,
+          ...advancedIntegrationData,
           created_at: now,
         })
         .select()
         .single()
     }
 
-    if (result.error) {
-      console.error("Error upserting integration:", result.error)
-      throw result.error
+    if (advancedResult.error) {
+      console.error("Error upserting advanced integration:", advancedResult.error)
+    } else {
+      console.log("Advanced integration saved successfully:", advancedResult.data)
     }
 
-    return result.data
+    // Return the main result or advanced result if main failed
+    return mainResult.data || advancedResult.data
   } catch (error) {
     console.error("Error in upsertIntegration:", error)
     throw error
@@ -275,7 +326,8 @@ export function getRequiredScopes(provider: string): string[] {
         "reactions:write",
       ]
     case "discord":
-      return ["bot", "applications.commands", "identify", "guilds"]
+      // Only require essential scopes for Discord
+      return ["identify", "guilds", "guilds.join", "messages.read"]
     case "dropbox":
       return ["files.content.write", "files.content.read"]
     case "google":

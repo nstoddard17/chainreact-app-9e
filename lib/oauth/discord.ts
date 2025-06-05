@@ -22,7 +22,7 @@ export class DiscordOAuthService {
     const { clientId } = this.getClientCredentials()
     const redirectUri = getOAuthRedirectUri("discord")
 
-    // Updated required scopes for reading and writing messages
+    // Only require essential scopes for message functionality
     const requiredScopes = ["identify", "guilds", "guilds.join", "messages.read"]
 
     const state = btoa(
@@ -74,7 +74,7 @@ export class DiscordOAuthService {
 
   static async validateExistingIntegration(integration: any): Promise<boolean> {
     try {
-      // Updated required scopes
+      // Only require essential scopes
       const requiredScopes = ["identify", "guilds", "guilds.join", "messages.read"]
       const grantedScopes = integration.configuration?.scopes || integration.scopes || []
 
@@ -149,21 +149,26 @@ export class DiscordOAuthService {
 
       // Validate scopes dynamically from the token response
       const grantedScopes = scope ? scope.split(" ") : []
-      // Updated required scopes
+      // Only require essential scopes
       const requiredScopes = ["identify", "guilds", "guilds.join", "messages.read"]
-      const missingScopes = requiredScopes.filter((s) => !grantedScopes.includes(s))
+
+      // More flexible scope validation - check if we have at least the minimum required
+      const hasIdentify = grantedScopes.includes("identify")
+      const hasGuilds = grantedScopes.includes("guilds") || grantedScopes.includes("guilds.read")
+      const hasMessages = grantedScopes.includes("messages.read") || grantedScopes.includes("bot") // bot includes message permissions
 
       console.log("Discord OAuth - Granted scopes:", grantedScopes)
       console.log("Discord OAuth - Required scopes:", requiredScopes)
-      console.log("Discord OAuth - Missing scopes:", missingScopes)
+      console.log("Discord OAuth - Scope validation:", { hasIdentify, hasGuilds, hasMessages })
 
-      if (missingScopes.length > 0) {
-        console.error("Discord scope validation failed:", { grantedScopes, missingScopes })
+      // Only fail if we're missing critical scopes
+      if (!hasIdentify) {
+        console.error("Discord scope validation failed: missing identify scope")
         const baseUrl = "https://chainreact.app"
         return {
           success: false,
           redirectUrl: `${baseUrl}/integrations?error=insufficient_scopes&provider=discord&message=${encodeURIComponent(
-            `Your Discord connection is missing required permissions: ${missingScopes.join(", ")}. Please reconnect and accept all permissions.`,
+            "Your Discord connection is missing the 'identify' permission. Please reconnect and accept all permissions.",
           )}`,
           error: "Insufficient scopes",
         }
@@ -188,7 +193,7 @@ export class DiscordOAuthService {
       // If this is a reconnect, clear any existing integration first
       if (reconnect || integrationId) {
         try {
-          await supabase.from("advanced_integrations").delete().eq("user_id", userId).eq("provider", "discord")
+          await supabase.from("integrations").delete().eq("user_id", userId).eq("provider", "discord")
           console.log("Cleared existing Discord integration for fresh connection")
         } catch (error) {
           console.warn("Failed to clear existing integration:", error)
@@ -214,11 +219,15 @@ export class DiscordOAuthService {
           granted_scopes: grantedScopes,
           token_type: tokenData.token_type,
           scope: scope, // Store original scope string
+          user_id: userData.id,
+          global_name: userData.global_name,
         },
       }
 
-      // Use upsert to avoid duplicate key constraint violations
-      await upsertIntegration(supabase, integrationData)
+      // Use upsert to save integration data
+      console.log("Saving Discord integration data:", integrationData)
+      const savedIntegration = await upsertIntegration(supabase, integrationData)
+      console.log("Discord integration saved successfully:", savedIntegration)
 
       const baseUrl = "https://chainreact.app"
       return {

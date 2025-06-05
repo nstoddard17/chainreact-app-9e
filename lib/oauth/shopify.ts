@@ -58,6 +58,47 @@ export class ShopifyOAuthService {
     }
   }
 
+  static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string): string {
+    const { clientId } = this.getClientCredentials()
+    const redirectUri = "https://chainreact.app/api/integrations/shopify/callback"
+
+    const scopes = [
+      "read_products",
+      "write_products",
+      "read_orders",
+      "write_orders",
+      "read_customers",
+      "write_customers",
+      "read_inventory",
+      "write_inventory",
+    ]
+
+    const state = btoa(
+      JSON.stringify({
+        provider: "shopify",
+        reconnect,
+        integrationId,
+        timestamp: Date.now(),
+      }),
+    )
+
+    // Note: Shopify requires shop domain, this is a simplified version
+    // In practice, you'd need to collect the shop domain first
+    const params = new URLSearchParams({
+      client_id: clientId,
+      scope: scopes.join(","),
+      redirect_uri: redirectUri,
+      state,
+    })
+
+    // This would need to be customized per shop
+    return `https://SHOP_DOMAIN.myshopify.com/admin/oauth/authorize?${params.toString()}`
+  }
+
+  static getRedirectUri(baseUrl: string): string {
+    return "https://chainreact.app/api/integrations/shopify/callback"
+  }
+
   static async handleCallback(code: string, state: string, shop: string, baseUrl: string): Promise<ShopifyOAuthResult> {
     try {
       const stateData = JSON.parse(atob(state))

@@ -18,6 +18,36 @@ export class GitHubOAuthService {
     return { clientId, clientSecret }
   }
 
+  static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string): string {
+    const { clientId } = this.getClientCredentials()
+    const redirectUri = "https://chainreact.app/api/integrations/github/callback"
+
+    const scopes = ["user:email", "read:user", "repo", "workflow", "write:repo_hook", "read:org"]
+
+    const state = btoa(
+      JSON.stringify({
+        provider: "github",
+        reconnect,
+        integrationId,
+        requireFullScopes: true,
+        timestamp: Date.now(),
+      }),
+    )
+
+    const params = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      scope: scopes.join(" "),
+      state,
+    })
+
+    return `https://github.com/login/oauth/authorize?${params.toString()}`
+  }
+
+  static getRedirectUri(baseUrl: string): string {
+    return "https://chainreact.app/api/integrations/github/callback"
+  }
+
   static async handleCallback(
     code: string,
     state: string,

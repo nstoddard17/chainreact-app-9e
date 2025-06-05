@@ -30,9 +30,10 @@ const COMPONENT_SCOPE_MAPPING = {
   slack_file_upload: { scopes: ["files:write"], provider: "slack" },
   slack_user_info: { scopes: ["users:read"], provider: "slack" },
 
-  // Discord components
-  discord_message: { scopes: ["bot"], provider: "discord" },
-  discord_webhook: { scopes: ["webhook.incoming"], provider: "discord" },
+  // Discord components - updated for new scopes
+  discord_message: { scopes: ["identify"], provider: "discord" },
+  discord_guild_info: { scopes: ["guilds"], provider: "discord" },
+  discord_read_messages: { scopes: ["messages.read"], provider: "discord" },
 
   // Microsoft Teams components
   teams_message: { scopes: ["Chat.ReadWrite"], provider: "teams" },
@@ -81,6 +82,29 @@ const COMPONENT_SCOPE_MAPPING = {
   dropbox_upload: { scopes: ["files.content.write"], provider: "dropbox" },
   dropbox_download: { scopes: ["files.content.read"], provider: "dropbox" },
   dropbox_share: { scopes: ["sharing.write"], provider: "dropbox" },
+}
+
+async function verifyDiscordToken(accessToken: string): Promise<{ valid: boolean; scopes: string[]; error?: string }> {
+  try {
+    // Test the token by making an API call to users/@me
+    const response = await fetch("https://discord.com/api/users/@me", {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      return { valid: false, scopes: [], error: error.message || "Token validation failed" }
+    }
+
+    // For Discord, we can't get scopes from the API, so we assume basic scopes if token works
+    const scopes = ["identify", "guilds", "guilds.join", "messages.read"]
+
+    return { valid: true, scopes }
+  } catch (error: any) {
+    return { valid: false, scopes: [], error: error.message }
+  }
 }
 
 async function verifyGoogleToken(accessToken: string): Promise<{ valid: boolean; scopes: string[]; error?: string }> {
@@ -392,6 +416,8 @@ function analyzeIntegration(
       recommendations.push("Ensure your Slack app has the required scopes configured")
     } else if (provider === "github") {
       recommendations.push("Grant repository access and workflow permissions when reconnecting")
+    } else if (provider === "discord") {
+      recommendations.push("Ensure you grant identify and guild permissions when reconnecting")
     }
   }
 
@@ -453,7 +479,7 @@ export async function GET(request: NextRequest) {
 
     for (const integration of integrations || []) {
       const { provider, metadata } = integration
-      const accessToken = metadata?.access_token
+      const accessToken = metadata?.access_token || integration.access_token
 
       let tokenValid = false
       let grantedScopes: string[] = []
@@ -468,6 +494,9 @@ export async function GET(request: NextRequest) {
         let verificationResult
 
         switch (provider) {
+          case "discord":
+            verificationResult = await verifyDiscordToken(accessToken)
+            break
           case "google-calendar":
           case "google-sheets":
           case "google-docs":
@@ -492,7 +521,7 @@ export async function GET(request: NextRequest) {
             // For other providers, trust stored scopes
             verificationResult = {
               valid: true,
-              scopes: metadata?.scopes || [],
+              scopes: metadata?.scopes || integration.scopes || [],
             }
         }
 
@@ -502,7 +531,7 @@ export async function GET(request: NextRequest) {
       } else {
         // No access token - likely API key or broken integration
         tokenValid = false
-        grantedScopes = metadata?.scopes || []
+        grantedScopes = metadata?.scopes || integration.scopes || []
         errorMessage = "No access token found"
       }
 

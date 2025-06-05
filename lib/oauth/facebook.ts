@@ -52,6 +52,43 @@ export class FacebookOAuthService {
     }
   }
 
+  static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string): string {
+    const { clientId } = this.getClientCredentials()
+    const redirectUri = "https://chainreact.app/api/integrations/facebook/callback"
+
+    const scopes = [
+      "pages_manage_posts",
+      "pages_read_engagement",
+      "pages_show_list",
+      "public_profile",
+      "email",
+      "pages_manage_metadata",
+    ]
+
+    const state = btoa(
+      JSON.stringify({
+        provider: "facebook",
+        reconnect,
+        integrationId,
+        timestamp: Date.now(),
+      }),
+    )
+
+    const params = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      scope: scopes.join(","),
+      response_type: "code",
+      state,
+    })
+
+    return `https://www.facebook.com/v18.0/dialog/oauth?${params.toString()}`
+  }
+
+  static getRedirectUri(baseUrl: string): string {
+    return "https://chainreact.app/api/integrations/facebook/callback"
+  }
+
   static async handleCallback(code: string, state: string, baseUrl: string): Promise<FacebookOAuthResult> {
     try {
       const stateData = JSON.parse(atob(state))

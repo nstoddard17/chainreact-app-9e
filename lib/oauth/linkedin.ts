@@ -16,6 +16,37 @@ export class LinkedInOAuthService {
     return { clientId, clientSecret }
   }
 
+  static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string): string {
+    const { clientId } = this.getClientCredentials()
+    const redirectUri = "https://chainreact.app/api/integrations/linkedin/callback"
+
+    const scopes = ["r_liteprofile", "r_emailaddress", "w_member_social"]
+
+    const state = btoa(
+      JSON.stringify({
+        provider: "linkedin",
+        reconnect,
+        integrationId,
+        requireFullScopes: true,
+        timestamp: Date.now(),
+      }),
+    )
+
+    const params = new URLSearchParams({
+      response_type: "code",
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      scope: scopes.join(" "),
+      state,
+    })
+
+    return `https://www.linkedin.com/oauth/v2/authorization?${params.toString()}`
+  }
+
+  static getRedirectUri(baseUrl: string): string {
+    return "https://chainreact.app/api/integrations/linkedin/callback"
+  }
+
   static async handleCallback(
     code: string,
     state: string,
