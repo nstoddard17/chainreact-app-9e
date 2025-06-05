@@ -16,6 +16,42 @@ export class DiscordOAuthService {
     return { clientId, clientSecret }
   }
 
+  static async validateExistingIntegration(integration: any): Promise<boolean> {
+    try {
+      const requiredScopes = ["bot", "applications.commands"]
+      const grantedScopes = integration.scopes || []
+
+      console.log("Discord scope validation:", { grantedScopes, requiredScopes })
+
+      // Check if all required scopes are present
+      const missingScopes = requiredScopes.filter((scope) => !grantedScopes.includes(scope))
+
+      if (missingScopes.length > 0) {
+        console.log("Discord missing scopes:", missingScopes)
+        return false
+      }
+
+      // Test the token by making an API call
+      if (integration.access_token) {
+        const response = await fetch("https://discord.com/api/users/@me", {
+          headers: {
+            Authorization: `Bearer ${integration.access_token}`,
+          },
+        })
+
+        if (!response.ok) {
+          console.log("Discord token validation failed:", response.status)
+          return false
+        }
+      }
+
+      return true
+    } catch (error) {
+      console.error("Discord validation error:", error)
+      return false
+    }
+  }
+
   static async handleCallback(
     code: string,
     state: string,
@@ -55,25 +91,25 @@ export class DiscordOAuthService {
       const tokenData = await tokenResponse.json()
       const { access_token, refresh_token, expires_in, scope } = tokenData
 
-      // Validate scopes if required
-      if (requireFullScopes) {
-        const grantedScopes = scope ? scope.split(" ") : []
-        const requiredScopes = ["bot", "applications.commands"]
-        const missingScopes = requiredScopes.filter((s) => !grantedScopes.includes(s))
+      // Always validate scopes for Discord
+      const grantedScopes = scope ? scope.split(" ") : []
+      const requiredScopes = ["bot", "applications.commands"]
+      const missingScopes = requiredScopes.filter((s) => !grantedScopes.includes(s))
 
-        if (missingScopes.length > 0) {
-          console.error("Discord scope validation failed:", { grantedScopes, missingScopes })
-          return {
-            success: false,
-            redirectUrl: `${baseUrl}/integrations?error=insufficient_scopes&provider=discord&message=${encodeURIComponent(
-              `Your connection is missing required permissions: ${missingScopes.join(", ")}. Please reconnect and accept all scopes.`,
-            )}`,
-            error: "Insufficient scopes",
-          }
+      if (missingScopes.length > 0) {
+        console.error("Discord scope validation failed:", { grantedScopes, missingScopes })
+        return {
+          success: false,
+          redirectUrl: `${baseUrl}/integrations?error=insufficient_scopes&provider=discord&message=${encodeURIComponent(
+            `Your Discord connection is missing required permissions: ${missingScopes.join(", ")}. Please reconnect and accept all scopes.`,
+          )}`,
+          error: "Insufficient scopes",
         }
-        console.log("Discord scopes validated successfully:", grantedScopes)
       }
 
+      console.log("Discord scopes validated successfully:", grantedScopes)
+
+      // Test the token by getting user info
       const userResponse = await fetch("https://discord.com/api/users/@me", {
         headers: {
           Authorization: `Bearer ${access_token}`,
@@ -95,13 +131,15 @@ export class DiscordOAuthService {
         refresh_token,
         expires_at: expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null,
         status: "connected" as const,
-        scopes: scope ? scope.split(" ") : [],
+        scopes: grantedScopes,
         metadata: {
           username: userData.username,
           discriminator: userData.discriminator,
           avatar: userData.avatar,
           connected_at: new Date().toISOString(),
-          scopes_validated: requireFullScopes,
+          scopes_validated: true,
+          required_scopes: requiredScopes,
+          granted_scopes: grantedScopes,
         },
       }
 
@@ -122,7 +160,7 @@ export class DiscordOAuthService {
 
       return {
         success: true,
-        redirectUrl: `${baseUrl}/integrations?success=discord_connected&provider=discord&scopes_validated=${requireFullScopes}`,
+        redirectUrl: `${baseUrl}/integrations?success=discord_connected&provider=discord&scopes_validated=true`,
       }
     } catch (error: any) {
       return {

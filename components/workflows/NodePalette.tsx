@@ -29,6 +29,8 @@ import {
   Loader2,
 } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { isComponentAvailable } from "@/lib/integrations/integrationScopes"
 
 interface NodeComponent {
   type: string
@@ -380,7 +382,6 @@ export default function NodePalette() {
         await verifyIntegrationScopes()
       } catch (error) {
         console.error("Failed to verify integration scopes:", error)
-        // Continue with available integrations even if verification fails
       } finally {
         setIsLoading(false)
       }
@@ -389,60 +390,40 @@ export default function NodePalette() {
     verifyScopes()
   }, [verifyIntegrationScopes])
 
-  // Filter components based on connected integrations and their verified scopes
+  // Filter components based on available integrations and their scopes
   const availableComponents = useMemo(() => {
-    const connectedIntegrations = integrations.filter((integration) => integration.status === "connected")
-
-    return ALL_NODE_COMPONENTS.filter((component) => {
-      // If component doesn't require a provider, it's always available
+    return ALL_NODE_COMPONENTS.map((component) => {
+      // Components without a provider are always available
       if (!component.providerId) {
-        return true
+        return { ...component, available: true, reason: null }
       }
 
-      // Find the matching connected integration
-      const matchingIntegration = connectedIntegrations.find(
-        (integration) => integration.provider === component.providerId,
-      )
+      // Find the connected integration for this provider
+      const integration = integrations.find((i) => i.provider === component.providerId && i.status === "connected")
 
-      if (!matchingIntegration) {
-        return false
-      }
-
-      // If component doesn't specify required scopes, it's available if integration is connected
-      if (!component.requiredScopes || component.requiredScopes.length === 0) {
-        return true
-      }
-
-      // Use verified scopes if available, otherwise fall back to stored scopes
-      const integrationScopes = matchingIntegration.verifiedScopes || matchingIntegration.metadata?.scopes || []
-
-      // For demo integrations, show all components
-      if (matchingIntegration.metadata?.demo) {
-        return true
-      }
-
-      // Check if all required scopes are available in the integration
-      return component.requiredScopes.every((requiredScope) => {
-        // For Google scopes, handle both exact matches and readonly vs full access
-        if (requiredScope.includes("googleapis.com/auth/")) {
-          // If the component requires readonly scope, it's satisfied by either readonly or full access
-          if (requiredScope.includes(".readonly")) {
-            const fullAccessScope = requiredScope.replace(".readonly", "")
-            return integrationScopes.includes(requiredScope) || integrationScopes.includes(fullAccessScope)
-          }
-
-          // If component requires full access, only full access scope will work
-          return integrationScopes.includes(requiredScope)
+      if (!integration) {
+        return {
+          ...component,
+          available: false,
+          reason: "Integration not connected",
         }
+      }
 
-        return integrationScopes.includes(requiredScope)
-      })
+      // Check if the integration has the required scopes
+      const grantedScopes = integration.scopes || []
+      const available = isComponentAvailable(component.providerId, component.type, grantedScopes)
+
+      return {
+        ...component,
+        available,
+        reason: available ? null : "Missing required permissions",
+      }
     })
   }, [integrations])
 
   // Group components by category
   const componentsByCategory = useMemo(() => {
-    const categories: Record<string, NodeComponent[]> = {}
+    const categories: Record<string, typeof availableComponents> = {}
 
     availableComponents.forEach((component) => {
       if (!categories[component.category]) {
@@ -454,97 +435,34 @@ export default function NodePalette() {
     return categories
   }, [availableComponents])
 
-  const onDragStart = (event: React.DragEvent, nodeType: string, nodeData: any) => {
-    event.dataTransfer.setData("application/reactflow", nodeType)
-    event.dataTransfer.setData("application/nodedata", JSON.stringify(nodeData))
-    event.dataTransfer.effectAllowed = "move"
-  }
-
-  const getCategoryColor = (category: string) => {
-    switch (category) {
-      case "Triggers":
-        return "green"
-      case "Communication":
-        return "blue"
-      case "Productivity":
-        return "purple"
-      case "Development":
-        return "orange"
-      case "Email":
-        return "red"
-      case "Cloud Storage":
-        return "indigo"
-      case "Logic & Control":
-        return "yellow"
-      case "Data Operations":
-        return "gray"
-      case "Error Handling":
-        return "red"
-      default:
-        return "gray"
+  const handleDragStart = (e: React.DragEvent, nodeType: string, available: boolean) => {
+    if (!available) {
+      e.preventDefault()
+      return
     }
-  }
 
-  const getColorClasses = (color: string) => {
-    const colorMap = {
-      green: {
-        bg: "bg-green-100",
-        text: "text-green-600",
-        badge: "bg-green-100 text-green-700",
-      },
-      blue: {
-        bg: "bg-blue-100",
-        text: "text-blue-600",
-        badge: "bg-blue-100 text-blue-700",
-      },
-      purple: {
-        bg: "bg-purple-100",
-        text: "text-purple-600",
-        badge: "bg-purple-100 text-purple-700",
-      },
-      orange: {
-        bg: "bg-orange-100",
-        text: "text-orange-600",
-        badge: "bg-orange-100 text-orange-700",
-      },
-      red: {
-        bg: "bg-red-100",
-        text: "text-red-600",
-        badge: "bg-red-100 text-red-700",
-      },
-      indigo: {
-        bg: "bg-indigo-100",
-        text: "text-indigo-600",
-        badge: "bg-indigo-100 text-indigo-700",
-      },
-      yellow: {
-        bg: "bg-yellow-100",
-        text: "text-yellow-600",
-        badge: "bg-yellow-100 text-yellow-700",
-      },
-      gray: {
-        bg: "bg-gray-100",
-        text: "text-gray-600",
-        badge: "bg-gray-100 text-gray-700",
-      },
-    }
-    return colorMap[color as keyof typeof colorMap] || colorMap.gray
+    e.dataTransfer.setData("application/reactflow", nodeType)
+    e.dataTransfer.effectAllowed = "move"
   }
 
   if (isLoading || verifyingScopes) {
     return (
       <div className="w-80 bg-white border-r border-gray-200 p-4 overflow-y-auto">
-        <div className="flex items-center gap-2 mb-4">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          <h3 className="text-lg font-semibold">Verifying Components...</h3>
+        <div className="mb-4">
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Components</h3>
+          <div className="flex items-center gap-2 text-sm text-gray-600">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            Verifying permissions...
+          </div>
         </div>
         <div className="space-y-4">
-          {[1, 2, 3, 4, 5].map((i) => (
+          {Array.from({ length: 5 }).map((_, i) => (
             <div key={i} className="space-y-2">
               <Skeleton className="h-4 w-24" />
               <div className="space-y-2">
-                <Skeleton className="h-16 w-full" />
-                <Skeleton className="h-16 w-full" />
+                {Array.from({ length: 3 }).map((_, j) => (
+                  <Skeleton key={j} className="h-16 w-full" />
+                ))}
               </div>
             </div>
           ))}
@@ -554,74 +472,86 @@ export default function NodePalette() {
   }
 
   return (
-    <div className="w-80 bg-white border-r border-gray-200 p-4 overflow-y-auto">
-      <h3 className="text-lg font-semibold mb-4 text-gray-900">Components</h3>
-
-      {Object.keys(componentsByCategory).length === 0 ? (
-        <div className="text-center py-8">
-          <div className="text-gray-500 mb-2">No components available</div>
-          <div className="text-sm text-gray-400">Connect integrations to see more components</div>
+    <TooltipProvider>
+      <div className="w-80 bg-white border-r border-gray-200 p-4 overflow-y-auto">
+        <div className="mb-4">
+          <h3 className="text-lg font-semibold text-gray-900">Components</h3>
+          <p className="text-sm text-gray-600">Drag components to the canvas</p>
         </div>
-      ) : (
-        <div className="space-y-6">
-          {Object.entries(componentsByCategory).map(([category, components]) => {
-            const color = getCategoryColor(category)
-            const colorClasses = getColorClasses(color)
 
-            return (
-              <div key={category}>
-                <div className="flex items-center gap-2 mb-3">
-                  <Badge variant="secondary" className={`${colorClasses.badge} text-xs font-medium`}>
-                    {category}
-                  </Badge>
-                  <span className="text-xs text-gray-500">({components.length})</span>
-                </div>
-                <div className="space-y-2">
-                  {components.map((component) => {
-                    const Icon = component.icon
-                    return (
-                      <Card
-                        key={component.type}
-                        className="p-3 cursor-move border border-gray-200 bg-white hover:bg-gray-50 hover:border-gray-300 hover:shadow-md transition-all duration-200 transform hover:scale-[1.02] group"
-                        draggable
-                        onDragStart={(e) =>
-                          onDragStart(e, component.type, {
-                            title: component.title,
-                            description: component.description,
-                            providerId: component.providerId,
-                            requiredScopes: component.requiredScopes,
-                          })
-                        }
-                      >
-                        <div className="flex items-start gap-3">
-                          <div
-                            className={`p-2 rounded-lg ${colorClasses.bg} group-hover:scale-110 transition-transform duration-200`}
-                          >
-                            <Icon className={`h-4 w-4 ${colorClasses.text}`} />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h4 className="text-sm font-medium text-gray-900 group-hover:text-gray-700 transition-colors">
-                              {component.title}
-                            </h4>
-                            <p className="text-xs text-gray-600 mt-1 leading-relaxed">{component.description}</p>
-                            {component.providerId && (
-                              <div className="mt-2">
-                                <Badge variant="outline" className="text-xs bg-gray-50 text-gray-600 border-gray-200">
+        <div className="space-y-6">
+          {Object.entries(componentsByCategory).map(([category, components]) => (
+            <div key={category}>
+              <h4 className="text-sm font-medium text-gray-700 mb-3 uppercase tracking-wide">{category}</h4>
+              <div className="space-y-2">
+                {components.map((component) => {
+                  const IconComponent = component.icon
+                  const isAvailable = component.available
+                  const reason = component.reason
+
+                  return (
+                    <Tooltip key={component.type}>
+                      <TooltipTrigger asChild>
+                        <Card
+                          className={`p-3 cursor-pointer transition-all duration-200 ${
+                            isAvailable
+                              ? "hover:shadow-md hover:border-blue-300 border-gray-200"
+                              : "opacity-50 cursor-not-allowed border-gray-100 bg-gray-50"
+                          }`}
+                          draggable={isAvailable}
+                          onDragStart={(e) => handleDragStart(e, component.type, isAvailable)}
+                        >
+                          <div className="flex items-start space-x-3">
+                            <div className={`p-2 rounded-lg ${isAvailable ? "bg-blue-100" : "bg-gray-100"}`}>
+                              <IconComponent className={`w-4 h-4 ${isAvailable ? "text-blue-600" : "text-gray-400"}`} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <h5
+                                  className={`text-sm font-medium ${isAvailable ? "text-gray-900" : "text-gray-500"}`}
+                                >
+                                  {component.title}
+                                </h5>
+                                {!isAvailable && <AlertTriangle className="w-3 h-3 text-yellow-500" />}
+                              </div>
+                              <p className={`text-xs ${isAvailable ? "text-gray-600" : "text-gray-400"}`}>
+                                {component.description}
+                              </p>
+                              {component.providerId && (
+                                <Badge
+                                  variant="outline"
+                                  className={`mt-1 text-xs ${isAvailable ? "" : "border-gray-200 text-gray-400"}`}
+                                >
                                   {component.providerId}
                                 </Badge>
-                              </div>
+                              )}
+                            </div>
+                          </div>
+                        </Card>
+                      </TooltipTrigger>
+                      <TooltipContent side="right">
+                        {isAvailable ? (
+                          <p>Drag to add to workflow</p>
+                        ) : (
+                          <div>
+                            <p className="font-medium">Component unavailable</p>
+                            <p className="text-xs">{reason}</p>
+                            {component.providerId && (
+                              <p className="text-xs mt-1">
+                                Connect {component.providerId} integration to use this component
+                              </p>
                             )}
                           </div>
-                        </div>
-                      </Card>
-                    )
-                  })}
-                </div>
+                        )}
+                      </TooltipContent>
+                    </Tooltip>
+                  )
+                })}
               </div>
-            )
-          })}
+            </div>
+          ))}
         </div>
-      )}
-    </div>
+      </div>
+    </TooltipProvider>
   )
 }

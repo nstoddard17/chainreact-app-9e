@@ -3,6 +3,7 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 import { getSupabaseClient } from "@/lib/supabase"
+import { validateScopes, generateOAuthUrlWithScopes, INTEGRATION_SCOPES } from "@/lib/integrations/integrationScopes"
 
 interface Integration {
   id: string
@@ -449,8 +450,37 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
           }
 
           console.log("Fetched integrations:", data)
+
+          // Validate scopes for each integration
+          const validatedIntegrations =
+            data?.map((integration) => {
+              if (
+                integration.status === "connected" &&
+                integration.scopes &&
+                INTEGRATION_SCOPES[integration.provider]
+              ) {
+                const validationResult = validateScopes(integration.provider, integration.scopes)
+
+                // Update the integration with validation results
+                return {
+                  ...integration,
+                  verified: validationResult.valid,
+                  metadata: {
+                    ...integration.metadata,
+                    scope_validation: {
+                      valid: validationResult.valid,
+                      missing_scopes: validationResult.missingScopes,
+                      optional_missing_scopes: validationResult.optionalMissingScopes,
+                      validated_at: new Date().toISOString(),
+                    },
+                  },
+                }
+              }
+              return integration
+            }) || []
+
           set({
-            integrations: data || [],
+            integrations: validatedIntegrations,
             loading: false,
             lastFetched: now,
           })
@@ -480,12 +510,40 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
             throw new Error(data.error)
           }
 
+          // Validate scopes for each integration
+          const validatedIntegrations =
+            data.integrations?.map((integration: any) => {
+              if (
+                integration.status === "connected" &&
+                integration.scopes &&
+                INTEGRATION_SCOPES[integration.provider]
+              ) {
+                const validationResult = validateScopes(integration.provider, integration.scopes)
+
+                // Update the integration with validation results
+                return {
+                  ...integration,
+                  verified: validationResult.valid,
+                  metadata: {
+                    ...integration.metadata,
+                    scope_validation: {
+                      valid: validationResult.valid,
+                      missing_scopes: validationResult.missingScopes,
+                      optional_missing_scopes: validationResult.optionalMissingScopes,
+                      validated_at: new Date().toISOString(),
+                    },
+                  },
+                }
+              }
+              return integration
+            }) || []
+
           set((state) => ({
-            integrations: data.integrations || state.integrations,
+            integrations: validatedIntegrations || state.integrations,
             verifyingScopes: false,
           }))
 
-          return data.integrations
+          return validatedIntegrations
         } catch (error: any) {
           console.error("Error verifying integration scopes:", error)
           set({ error: error.message, verifyingScopes: false })
@@ -515,12 +573,15 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
             (i) => i.provider === provider && i.status === "connected",
           )
 
+          // Check if the integration has missing required scopes
+          const hasMissingScopes = existingIntegration?.metadata?.scope_validation?.valid === false
+
           const isOAuthProvider = providerConfig.authType === "oauth"
 
           // For OAuth providers, always force a new OAuth flow to ensure proper scopes
-          if (isOAuthProvider) {
+          if (isOAuthProvider || hasMissingScopes) {
             forceOAuth = true
-            console.log(`OAuth provider detected, forcing OAuth flow for ${provider}`)
+            console.log(`OAuth provider detected or missing scopes, forcing OAuth flow for ${provider}`)
 
             // If there's an existing integration, invalidate its token first
             if (existingIntegration) {
@@ -535,6 +596,7 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
                     access_token: null,
                     refresh_token: null,
                     invalidated_at: new Date().toISOString(),
+                    invalidation_reason: hasMissingScopes ? "Missing required scopes" : "User initiated reconnection",
                   },
                   updated_at: new Date().toISOString(),
                 })
@@ -542,7 +604,7 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
             }
           }
 
-          if (existingIntegration && !forceOAuth) {
+          if (existingIntegration && !forceOAuth && !hasMissingScopes) {
             console.log(`${provider} is already connected and not forcing OAuth`)
             set({ loading: false })
             return
@@ -573,144 +635,9 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
               requireFullScopes: true,
             })
 
-            let authUrl = ""
-
-            switch (provider) {
-              case "slack":
-                if (process.env.NEXT_PUBLIC_SLACK_CLIENT_ID) {
-                  const redirectUri = "https://chainreact.app/api/integrations/slack/callback"
-                  const requiredScopes =
-                    "chat:write,chat:write.public,channels:read,channels:join,groups:read,im:read,users:read,team:read,files:write,reactions:write"
-                  authUrl = `https://slack.com/oauth/v2/authorize?client_id=${process.env.NEXT_PUBLIC_SLACK_CLIENT_ID}&scope=${requiredScopes}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&user_scope=&team=${""}&prompt=consent`
-                }
-                break
-              case "discord":
-                if (process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID) {
-                  const redirectUri = "https://chainreact.app/api/integrations/discord/callback"
-                  authUrl = `https://discord.com/api/oauth2/authorize?client_id=${process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=bot&state=${state}&prompt=consent&t=${timestamp}`
-                }
-                break
-              case "teams":
-                if (process.env.NEXT_PUBLIC_TEAMS_CLIENT_ID) {
-                  const redirectUri = "https://chainreact.app/api/integrations/teams/callback"
-                  const scopes = encodeURIComponent(
-                    "User.Read Calendars.ReadWrite Chat.ReadWrite Files.ReadWrite Mail.ReadWrite",
-                  )
-                  authUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=${process.env.NEXT_PUBLIC_TEAMS_CLIENT_ID}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scopes}&state=${state}&prompt=consent&t=${timestamp}`
-                }
-                break
-              case "google-calendar":
-              case "google-sheets":
-              case "google-docs":
-              case "gmail":
-              case "youtube":
-                if (process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) {
-                  const redirectUri = "https://chainreact.app/api/integrations/google/callback"
-                  // Request all Google scopes for comprehensive access
-                  const allGoogleScopes = [
-                    "openid",
-                    "profile",
-                    "email",
-                    "https://www.googleapis.com/auth/calendar",
-                    "https://www.googleapis.com/auth/spreadsheets",
-                    "https://www.googleapis.com/auth/documents",
-                    "https://www.googleapis.com/auth/gmail.modify",
-                    "https://www.googleapis.com/auth/drive",
-                  ]
-                  const scopes = allGoogleScopes.join(" ")
-                  authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scopes)}&response_type=code&state=${state}&access_type=offline&prompt=consent&t=${timestamp}`
-                }
-                break
-              case "github":
-                if (process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID) {
-                  const redirectUri = "https://chainreact.app/api/integrations/github/callback"
-                  const scopes = "repo user workflow"
-                  authUrl = `https://github.com/login/oauth/authorize?client_id=${
-                    process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID
-                  }&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scopes)}&state=${state}&allow_signup=true&force_login=true&prompt=consent&t=${timestamp}`
-                }
-                break
-              case "dropbox":
-                if (process.env.NEXT_PUBLIC_DROPBOX_CLIENT_ID) {
-                  const redirectUri = "https://chainreact.app/api/integrations/dropbox/callback"
-                  authUrl = `https://www.dropbox.com/oauth2/authorize?client_id=${process.env.NEXT_PUBLIC_DROPBOX_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&state=${state}&force_reapprove=true&t=${timestamp}`
-                }
-                break
-              // Add other OAuth providers here...
-              case "twitter":
-                if (process.env.NEXT_PUBLIC_TWITTER_CLIENT_ID) {
-                  const redirectUri = "https://chainreact.app/api/integrations/twitter/callback"
-                  authUrl = `https://twitter.com/i/oauth2/authorize?response_type=code&client_id=${process.env.NEXT_PUBLIC_TWITTER_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent("tweet.read tweet.write users.read")}&state=${state}&code_challenge=challenge&code_challenge_method=plain&t=${timestamp}`
-                }
-                break
-              case "linkedin":
-                if (process.env.NEXT_PUBLIC_LINKEDIN_CLIENT_ID) {
-                  const redirectUri = "https://chainreact.app/api/integrations/linkedin/callback"
-                  const linkedinScopes = "r_liteprofile r_emailaddress w_member_social"
-                  authUrl = `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${process.env.NEXT_PUBLIC_LINKEDIN_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(linkedinScopes)}&state=${state}&t=${timestamp}`
-                }
-                break
-              case "mailchimp":
-                if (process.env.NEXT_PUBLIC_MAILCHIMP_CLIENT_ID) {
-                  const redirectUri = "https://chainreact.app/api/integrations/mailchimp/callback"
-                  authUrl = `https://login.mailchimp.com/oauth2/authorize?response_type=code&client_id=${process.env.NEXT_PUBLIC_MAILCHIMP_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&t=${timestamp}`
-                }
-                break
-              case "hubspot":
-                if (process.env.NEXT_PUBLIC_HUBSPOT_CLIENT_ID) {
-                  const redirectUri = "https://chainreact.app/api/integrations/hubspot/callback"
-                  authUrl = `https://app.hubspot.com/oauth/authorize?client_id=${process.env.NEXT_PUBLIC_HUBSPOT_CLIENT_ID}&scope=${encodeURIComponent("crm.objects.contacts.read crm.objects.contacts.write")}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&t=${timestamp}`
-                }
-                break
-              case "gitlab":
-                if (process.env.NEXT_PUBLIC_GITLAB_CLIENT_ID) {
-                  const redirectUri = "https://chainreact.app/api/integrations/gitlab/callback"
-                  authUrl = `https://gitlab.com/oauth/authorize?client_id=${process.env.NEXT_PUBLIC_GITLAB_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent("api read_repository write_repository")}&state=${state}&t=${timestamp}`
-                }
-                break
-              case "docker":
-                if (process.env.NEXT_PUBLIC_DOCKER_CLIENT_ID) {
-                  const redirectUri = "https://chainreact.app/api/integrations/docker/callback"
-                  authUrl = `https://hub.docker.com/oauth/authorize/?client_id=${process.env.NEXT_PUBLIC_DOCKER_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent("repo:read repo:write")}&state=${state}&t=${timestamp}`
-                }
-                break
-              case "onedrive":
-                if (process.env.NEXT_PUBLIC_ONEDRIVE_CLIENT_ID) {
-                  const redirectUri = "https://chainreact.app/api/integrations/onedrive/callback"
-                  authUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=${process.env.NEXT_PUBLIC_ONEDRIVE_CLIENT_ID}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent("https://graph.microsoft.com/Files.ReadWrite")}&state=${state}&t=${timestamp}`
-                }
-                break
-              case "notion":
-                if (process.env.NEXT_PUBLIC_NOTION_CLIENT_ID) {
-                  const redirectUri = "https://chainreact.app/api/integrations/notion/callback"
-                  authUrl = `https://api.notion.com/v1/oauth/authorize?client_id=${process.env.NEXT_PUBLIC_NOTION_CLIENT_ID}&response_type=code&owner=user&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&t=${timestamp}`
-                }
-                break
-              case "airtable":
-                if (process.env.NEXT_PUBLIC_AIRTABLE_CLIENT_ID) {
-                  const redirectUri = "https://chainreact.app/api/integrations/airtable/callback"
-                  authUrl = `https://airtable.com/oauth2/v1/authorize?client_id=${process.env.NEXT_PUBLIC_AIRTABLE_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent("data.records:read data.records:write schema.bases:read")}&state=${state}&t=${timestamp}`
-                }
-                break
-              case "stripe":
-                if (process.env.NEXT_PUBLIC_STRIPE_CLIENT_ID) {
-                  const redirectUri = "https://chainreact.app/api/integrations/stripe/callback"
-                  authUrl = `https://connect.stripe.com/oauth/authorize?response_type=code&client_id=${process.env.NEXT_PUBLIC_STRIPE_CLIENT_ID}&scope=${encodeURIComponent("read_write")}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&t=${timestamp}`
-                }
-                break
-              case "paypal":
-                if (process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID) {
-                  const redirectUri = "https://chainreact.app/api/integrations/paypal/callback"
-                  authUrl = `https://www.paypal.com/signin/authorize?client_id=${process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID}&response_type=code&scope=${encodeURIComponent("https://uri.paypal.com/services/payments/payment")}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&t=${timestamp}`
-                }
-                break
-              case "shopify":
-                if (process.env.NEXT_PUBLIC_SHOPIFY_CLIENT_ID) {
-                  const redirectUri = "https://chainreact.app/api/integrations/shopify/callback"
-                  authUrl = `https://myshopify.com/admin/oauth/authorize?client_id=${process.env.NEXT_PUBLIC_SHOPIFY_CLIENT_ID}&scope=${encodeURIComponent("read_products,write_products,read_orders,write_orders")}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&t=${timestamp}`
-                }
-                break
-            }
+            // Use the centralized OAuth URL generator
+            const baseUrl = getBaseUrl()
+            const authUrl = generateOAuthUrlWithScopes(provider, baseUrl, state)
 
             if (authUrl) {
               console.log(`Redirecting to OAuth URL for ${provider}`)
@@ -743,7 +670,14 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
                 demo: true,
                 connected_at: new Date().toISOString(),
                 capabilities: providerConfig.capabilities,
+                scope_validation: {
+                  valid: true, // Demo integrations are always valid
+                  missing_scopes: [],
+                  optional_missing_scopes: [],
+                  validated_at: new Date().toISOString(),
+                },
               },
+              verified: true, // Demo integrations are always verified
             })
             .select()
             .single()
@@ -759,6 +693,7 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
         }
       },
 
+      // ... other methods remain unchanged
       disconnectIntegration: async (id: string) => {
         const supabase = getSupabaseClient()
 

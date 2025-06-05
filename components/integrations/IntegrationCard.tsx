@@ -4,8 +4,9 @@ import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Check, ExternalLink, Settings, Loader2, RefreshCw, Clock } from "lucide-react"
+import { Check, ExternalLink, Settings, Loader2, RefreshCw, Clock, AlertTriangle } from "lucide-react"
 import { useIntegrationStore } from "@/stores/integrationStore"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 interface IntegrationCardProps {
   provider: any
@@ -23,6 +24,10 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
   const isOAuthProvider = provider.authType === "oauth"
   const isComingSoon = provider.comingSoon
 
+  // Check if the integration has missing required scopes
+  const hasMissingScopes = connectedIntegration?.metadata?.scope_validation?.valid === false
+  const missingScopes = connectedIntegration?.metadata?.scope_validation?.missing_scopes || []
+
   const handleConnect = async () => {
     if (isComingSoon) {
       return
@@ -32,7 +37,7 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
 
     // For OAuth providers, always allow reauthorization
     // For non-OAuth providers, skip if already connected
-    if (isConnected && !isOAuthProvider) {
+    if (isConnected && !isOAuthProvider && !hasMissingScopes) {
       console.log(`${provider.name} is already connected and not OAuth`)
       return
     }
@@ -65,7 +70,9 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
         isComingSoon
           ? "border-gray-200 opacity-75"
           : isConnected
-            ? "border-green-200 ring-2 ring-green-100 hover:shadow-xl"
+            ? hasMissingScopes
+              ? "border-yellow-200 ring-2 ring-yellow-100 hover:shadow-xl"
+              : "border-green-200 ring-2 ring-green-100 hover:shadow-xl"
             : "border-slate-200 hover:shadow-xl"
       }`}
     >
@@ -85,10 +92,26 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
               Coming Soon
             </Badge>
           ) : isConnected ? (
-            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-              <Check className="w-3 h-3 mr-1" />
-              Connected
-            </Badge>
+            hasMissingScopes ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
+                      <AlertTriangle className="w-3 h-3 mr-1" />
+                      Limited Access
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Missing required permissions. Please reconnect.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : (
+              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                <Check className="w-3 h-3 mr-1" />
+                Connected
+              </Badge>
+            )
           ) : null}
         </div>
       </CardHeader>
@@ -142,6 +165,22 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
           </div>
         )}
 
+        {isConnected && hasMissingScopes && (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+            <div className="text-xs text-yellow-800">
+              <strong>Missing Permissions:</strong> This integration is missing required permissions:
+              <ul className="mt-1 list-disc list-inside">
+                {missingScopes.map((scope: string) => (
+                  <li key={scope} className="text-xs">
+                    {scope}
+                  </li>
+                ))}
+              </ul>
+              Please reconnect to grant all required permissions.
+            </div>
+          </div>
+        )}
+
         <div className="flex items-center space-x-2 pt-2">
           {isComingSoon ? (
             <Button
@@ -155,11 +194,15 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
             </Button>
           ) : isConnected ? (
             <>
-              {isOAuthProvider ? (
+              {isOAuthProvider || hasMissingScopes ? (
                 <Button
                   variant="outline"
                   size="sm"
-                  className="flex-1 bg-white text-black border border-slate-200 hover:bg-slate-100 active:bg-slate-200"
+                  className={`flex-1 bg-white border ${
+                    hasMissingScopes
+                      ? "text-yellow-600 border-yellow-300 hover:bg-yellow-50 active:bg-yellow-100"
+                      : "text-black border-slate-200 hover:bg-slate-100 active:bg-slate-200"
+                  }`}
                   onClick={handleConnect}
                   disabled={connecting}
                 >
@@ -171,7 +214,7 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
                   ) : (
                     <>
                       <RefreshCw className="w-4 h-4 mr-2" />
-                      Reauthorize
+                      {hasMissingScopes ? "Fix Permissions" : "Reauthorize"}
                     </>
                   )}
                 </Button>

@@ -70,19 +70,60 @@ export class SlackOAuthService {
         throw new Error(tokenData.error || "Token exchange failed")
       }
 
-      // Validate scopes if required
-      if (requireFullScopes && tokenData.access_token) {
-        const { OAuthService } = await import("./oauthService")
-        const validation = await OAuthService.validateToken("slack", tokenData.access_token)
+      // Validate that we have the required scopes, especially files:write and reactions:write
+      const requiredScopes = [
+        "chat:write",
+        "chat:write.public",
+        "channels:read",
+        "channels:join",
+        "groups:read",
+        "im:read",
+        "users:read",
+        "team:read",
+        "files:write",
+        "reactions:write",
+      ]
 
-        if (!validation.valid) {
-          console.error("Slack scope validation failed:", validation)
+      const grantedScopes = tokenData.scope ? tokenData.scope.split(",") : []
+      const missingScopes = requiredScopes.filter((scope) => !grantedScopes.includes(scope))
+
+      if (missingScopes.length > 0) {
+        console.error("Missing required Slack scopes:", missingScopes)
+        return {
+          success: false,
+          redirectUrl: `${baseUrl}/integrations?error=insufficient_scopes&provider=slack&message=${encodeURIComponent(
+            `Your Slack connection is missing required permissions: ${missingScopes.join(", ")}. Please reconnect and accept all scopes.`,
+          )}`,
+          error: "Insufficient scopes granted",
+        }
+      }
+
+      // Validate token by making an API call
+      if (tokenData.access_token) {
+        try {
+          const authTestResponse = await fetch("https://slack.com/api/auth.test", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${tokenData.access_token}`,
+              "Content-Type": "application/json",
+            },
+          })
+
+          const authTestData = await authTestResponse.json()
+
+          if (!authTestData.ok) {
+            throw new Error(`Token validation failed: ${authTestData.error}`)
+          }
+
+          console.log("Slack token validated successfully:", authTestData.team, authTestData.user)
+        } catch (error) {
+          console.error("Slack token validation failed:", error)
           return {
             success: false,
-            redirectUrl: `${baseUrl}/integrations?error=insufficient_scopes&provider=slack&message=${encodeURIComponent(
-              `Your connection is missing required permissions: ${validation.missingScopes.join(", ")}. Please reconnect and accept all scopes.`,
+            redirectUrl: `${baseUrl}/integrations?error=token_validation&provider=slack&message=${encodeURIComponent(
+              "Failed to validate Slack token. Please try reconnecting.",
             )}`,
-            error: "Insufficient scopes granted",
+            error: "Token validation failed",
           }
         }
       }
@@ -93,7 +134,7 @@ export class SlackOAuthService {
         provider: "slack",
         provider_user_id: tokenData.authed_user?.id || "unknown",
         status: "connected" as const,
-        scopes: tokenData.scope ? tokenData.scope.split(",") : [],
+        scopes: grantedScopes,
         metadata: {
           access_token: tokenData.access_token,
           token_type: tokenData.token_type || "bot",
@@ -118,6 +159,7 @@ export class SlackOAuthService {
 
       let result
       if (existingIntegration) {
+        // Always update the token and scopes for existing integrations
         result = await supabase
           .from("integrations")
           .update({
