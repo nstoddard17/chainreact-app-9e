@@ -6,7 +6,8 @@ export async function GET(request: NextRequest) {
   console.log("GitHub OAuth callback received")
 
   try {
-    const { searchParams, origin } = new URL(request.url)
+    const { searchParams } = new URL(request.url)
+    const baseUrl = new URL(request.url).origin
     const code = searchParams.get("code")
     const state = searchParams.get("state")
     const error = searchParams.get("error")
@@ -22,7 +23,7 @@ export async function GET(request: NextRequest) {
     // Handle OAuth errors from GitHub
     if (error) {
       console.error("GitHub OAuth error:", { error, errorDescription })
-      const redirectUrl = new URL("/integrations", origin)
+      const redirectUrl = new URL("/integrations", baseUrl)
       redirectUrl.searchParams.set("error", "oauth_error")
       redirectUrl.searchParams.set("message", errorDescription || error)
       redirectUrl.searchParams.set("provider", "github")
@@ -32,7 +33,7 @@ export async function GET(request: NextRequest) {
     // Validate required parameters
     if (!code) {
       console.error("Missing authorization code")
-      const redirectUrl = new URL("/integrations", origin)
+      const redirectUrl = new URL("/integrations", baseUrl)
       redirectUrl.searchParams.set("error", "missing_code")
       redirectUrl.searchParams.set("message", "Authorization code not received from GitHub")
       redirectUrl.searchParams.set("provider", "github")
@@ -41,7 +42,7 @@ export async function GET(request: NextRequest) {
 
     if (!state) {
       console.error("Missing state parameter")
-      const redirectUrl = new URL("/integrations", origin)
+      const redirectUrl = new URL("/integrations", baseUrl)
       redirectUrl.searchParams.set("error", "missing_state")
       redirectUrl.searchParams.set("message", "State parameter missing - possible security issue")
       redirectUrl.searchParams.set("provider", "github")
@@ -55,7 +56,7 @@ export async function GET(request: NextRequest) {
       console.log("Parsed state data:", stateData)
     } catch (err) {
       console.error("Invalid state parameter:", err)
-      const redirectUrl = new URL("/integrations", origin)
+      const redirectUrl = new URL("/integrations", baseUrl)
       redirectUrl.searchParams.set("error", "invalid_state")
       redirectUrl.searchParams.set("message", "Invalid state parameter")
       redirectUrl.searchParams.set("provider", "github")
@@ -65,7 +66,7 @@ export async function GET(request: NextRequest) {
     // Validate environment variables
     if (!process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID || !process.env.GITHUB_CLIENT_SECRET) {
       console.error("Missing GitHub OAuth configuration")
-      const redirectUrl = new URL("/integrations", origin)
+      const redirectUrl = new URL("/integrations", baseUrl)
       redirectUrl.searchParams.set("error", "configuration_error")
       redirectUrl.searchParams.set("message", "GitHub OAuth not properly configured")
       redirectUrl.searchParams.set("provider", "github")
@@ -84,7 +85,7 @@ export async function GET(request: NextRequest) {
         client_id: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID,
         client_secret: process.env.GITHUB_CLIENT_SECRET,
         code,
-        redirect_uri: `${origin}/api/integrations/github/callback`,
+        redirect_uri: `${baseUrl}/api/integrations/github/callback`,
       }),
     })
 
@@ -93,7 +94,7 @@ export async function GET(request: NextRequest) {
       const errorText = await tokenResponse.text()
       console.error("Token exchange error details:", errorText)
 
-      const redirectUrl = new URL("/integrations", origin)
+      const redirectUrl = new URL("/integrations", baseUrl)
       redirectUrl.searchParams.set("error", "token_exchange_failed")
       redirectUrl.searchParams.set("message", `Failed to exchange code for token: ${tokenResponse.statusText}`)
       redirectUrl.searchParams.set("provider", "github")
@@ -105,7 +106,7 @@ export async function GET(request: NextRequest) {
 
     if (tokenData.error) {
       console.error("GitHub token error:", tokenData)
-      const redirectUrl = new URL("/integrations", origin)
+      const redirectUrl = new URL("/integrations", baseUrl)
       redirectUrl.searchParams.set("error", "token_error")
       redirectUrl.searchParams.set("message", tokenData.error_description || tokenData.error)
       redirectUrl.searchParams.set("provider", "github")
@@ -114,7 +115,7 @@ export async function GET(request: NextRequest) {
 
     if (!tokenData.access_token) {
       console.error("No access token received:", tokenData)
-      const redirectUrl = new URL("/integrations", origin)
+      const redirectUrl = new URL("/integrations", baseUrl)
       redirectUrl.searchParams.set("error", "no_access_token")
       redirectUrl.searchParams.set("message", "No access token received from GitHub")
       redirectUrl.searchParams.set("provider", "github")
@@ -132,7 +133,7 @@ export async function GET(request: NextRequest) {
 
     if (!userResponse.ok) {
       console.error("Failed to fetch GitHub user info:", userResponse.status)
-      const redirectUrl = new URL("/integrations", origin)
+      const redirectUrl = new URL("/integrations", baseUrl)
       redirectUrl.searchParams.set("error", "user_fetch_failed")
       redirectUrl.searchParams.set("message", "Failed to fetch user information from GitHub")
       redirectUrl.searchParams.set("provider", "github")
@@ -153,7 +154,7 @@ export async function GET(request: NextRequest) {
 
     if (sessionError) {
       console.error("Session error:", sessionError)
-      const redirectUrl = new URL("/integrations", origin)
+      const redirectUrl = new URL("/integrations", baseUrl)
       redirectUrl.searchParams.set("error", "session_error")
       redirectUrl.searchParams.set("message", "Failed to get user session")
       redirectUrl.searchParams.set("provider", "github")
@@ -162,7 +163,7 @@ export async function GET(request: NextRequest) {
 
     if (!session) {
       console.error("No active session found")
-      const redirectUrl = new URL("/integrations", origin)
+      const redirectUrl = new URL("/integrations", baseUrl)
       redirectUrl.searchParams.set("error", "no_session")
       redirectUrl.searchParams.set("message", "No active user session found")
       redirectUrl.searchParams.set("provider", "github")
@@ -226,7 +227,7 @@ export async function GET(request: NextRequest) {
 
     if (result.error) {
       console.error("Database error:", result.error)
-      const redirectUrl = new URL("/integrations", origin)
+      const redirectUrl = new URL("/integrations", baseUrl)
       redirectUrl.searchParams.set("error", "database_error")
       redirectUrl.searchParams.set("message", `Database error: ${result.error.message}`)
       redirectUrl.searchParams.set("provider", "github")
@@ -236,7 +237,7 @@ export async function GET(request: NextRequest) {
     console.log("GitHub integration saved successfully:", result.data?.[0]?.id)
 
     // Redirect to success page
-    const redirectUrl = new URL("/integrations", origin)
+    const redirectUrl = new URL("/integrations", baseUrl)
     redirectUrl.searchParams.set("success", existingIntegration ? "github_reconnected" : "github_connected")
     redirectUrl.searchParams.set("provider", "github")
 
@@ -245,8 +246,8 @@ export async function GET(request: NextRequest) {
   } catch (error: any) {
     console.error("GitHub OAuth callback error:", error)
 
-    const { origin } = new URL(request.url)
-    const redirectUrl = new URL("/integrations", origin)
+    const baseUrl = new URL(request.url).origin
+    const redirectUrl = new URL("/integrations", baseUrl)
     redirectUrl.searchParams.set("error", "callback_failed")
     redirectUrl.searchParams.set("message", `Callback failed: ${error.message}`)
     redirectUrl.searchParams.set("provider", "github")

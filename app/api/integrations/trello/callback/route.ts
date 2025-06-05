@@ -5,6 +5,7 @@ import { TrelloOAuthService } from "@/lib/oauth/trello"
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
+  const baseUrl = new URL(request.url).origin
   const token = searchParams.get("token")
   const state = searchParams.get("state")
 
@@ -17,12 +18,12 @@ export async function GET(request: NextRequest) {
 
   if (!token) {
     console.log("No token in query params, redirecting to client-side handler")
-    return NextResponse.redirect(new URL("/integrations?trello_auth=pending", request.url))
+    return NextResponse.redirect(new URL("/integrations?trello_auth=pending", baseUrl))
   }
 
   if (!state) {
     console.error("Missing state in Trello callback")
-    return NextResponse.redirect(new URL("/integrations?error=missing_state&provider=trello", request.url))
+    return NextResponse.redirect(new URL("/integrations?error=missing_state&provider=trello", baseUrl))
   }
 
   try {
@@ -33,23 +34,22 @@ export async function GET(request: NextRequest) {
     if (sessionError || !sessionData?.session) {
       console.error("Trello: Session error:", sessionError)
       return NextResponse.redirect(
-        new URL("/integrations?error=session_error&provider=trello&message=No+active+user+session+found", request.url),
+        new URL("/integrations?error=session_error&provider=trello&message=No+active+user+session+found", baseUrl),
       )
     }
 
     console.log("Trello: Session successfully retrieved for user:", sessionData.session.user.id)
 
-    const baseUrl = new URL(request.url).origin
     const result = await TrelloOAuthService.handleCallback(token, state, baseUrl, supabase, sessionData.session.user.id)
 
     console.log("Trello OAuth result:", result.success ? "success" : "failed")
-    return NextResponse.redirect(new URL(result.redirectUrl))
+    return NextResponse.redirect(new URL(result.redirectUrl, baseUrl))
   } catch (error: any) {
     console.error("Trello OAuth callback error:", error)
     return NextResponse.redirect(
       new URL(
         `/integrations?error=callback_failed&provider=trello&message=${encodeURIComponent(error.message)}`,
-        request.url,
+        baseUrl,
       ),
     )
   }

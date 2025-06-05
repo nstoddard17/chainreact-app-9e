@@ -5,6 +5,7 @@ import { AirtableOAuthService } from "@/lib/oauth/airtable"
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
+  const baseUrl = new URL(request.url).origin
   const code = searchParams.get("code")
   const state = searchParams.get("state")
   const error = searchParams.get("error")
@@ -12,19 +13,14 @@ export async function GET(request: NextRequest) {
   // Handle OAuth errors
   if (error) {
     console.error("Airtable OAuth error:", error)
-    const baseUrl = new URL(request.url).origin
     return NextResponse.redirect(new URL(`/integrations?error=oauth_error&provider=airtable`, baseUrl))
   }
 
   // Validate required parameters
   if (!code || !state) {
     console.error("Missing code or state in Airtable callback")
-    const baseUrl = new URL(request.url).origin
     return NextResponse.redirect(new URL(`/integrations?error=missing_params&provider=airtable`, baseUrl))
   }
-
-  // Get base URL safely from request
-  const baseUrl = new URL(request.url).origin
 
   try {
     // Initialize Supabase client
@@ -49,7 +45,7 @@ export async function GET(request: NextRequest) {
     const result = await AirtableOAuthService.handleCallback(code, state, baseUrl, supabase, session.user.id)
 
     // Redirect based on result
-    return NextResponse.redirect(new URL(result.redirectUrl))
+    return NextResponse.redirect(new URL(result.redirectUrl, baseUrl))
   } catch (error: any) {
     console.error("Unexpected error in Airtable callback:", error)
     return NextResponse.redirect(

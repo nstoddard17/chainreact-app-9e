@@ -4,6 +4,7 @@ import { cookies } from "next/headers"
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
+  const baseUrl = new URL(request.url).origin
   const code = searchParams.get("code")
   const state = searchParams.get("state")
   const error = searchParams.get("error")
@@ -12,12 +13,12 @@ export async function GET(request: NextRequest) {
 
   if (error) {
     console.error("OneDrive OAuth error:", error)
-    return NextResponse.redirect(new URL("/integrations?error=oauth_error&provider=onedrive", request.url))
+    return NextResponse.redirect(new URL("/integrations?error=oauth_error&provider=onedrive", baseUrl))
   }
 
   if (!code || !state) {
     console.error("Missing code or state in OneDrive callback")
-    return NextResponse.redirect(new URL("/integrations?error=missing_params&provider=onedrive", request.url))
+    return NextResponse.redirect(new URL("/integrations?error=missing_params&provider=onedrive", baseUrl))
   }
 
   try {
@@ -43,7 +44,7 @@ export async function GET(request: NextRequest) {
         client_secret: process.env.ONEDRIVE_CLIENT_SECRET!,
         code,
         grant_type: "authorization_code",
-        redirect_uri: "https://chainreact.app/api/integrations/onedrive/callback",
+        redirect_uri: `${baseUrl}/api/integrations/onedrive/callback`,
         scope: "https://graph.microsoft.com/Files.ReadWrite https://graph.microsoft.com/User.Read",
       }),
     })
@@ -89,10 +90,7 @@ export async function GET(request: NextRequest) {
     if (sessionError || !sessionData?.session) {
       console.error("OneDrive: Session error:", sessionError)
       return NextResponse.redirect(
-        new URL(
-          "/integrations?error=session_error&provider=onedrive&message=No+active+user+session+found",
-          request.url,
-        ),
+        new URL("/integrations?error=session_error&provider=onedrive&message=No+active+user+session+found", baseUrl),
       )
     }
 
@@ -147,13 +145,13 @@ export async function GET(request: NextRequest) {
     }
 
     console.log("OneDrive integration saved successfully")
-    return NextResponse.redirect(new URL("/integrations?success=onedrive_connected", request.url))
+    return NextResponse.redirect(new URL("/integrations?success=onedrive_connected", baseUrl))
   } catch (error: any) {
     console.error("OneDrive OAuth callback error:", error)
     return NextResponse.redirect(
       new URL(
         `/integrations?error=callback_failed&provider=onedrive&message=${encodeURIComponent(error.message)}`,
-        request.url,
+        baseUrl,
       ),
     )
   }
