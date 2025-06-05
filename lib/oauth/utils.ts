@@ -3,12 +3,28 @@ import type { NextRequest } from "next/server"
 import type { Database } from "@/types/supabase"
 
 // Create a server-side Supabase client for admin operations
-export const adminSupabase = createClient<Database>(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false,
-  },
-})
+export const createAdminSupabaseClient = () => {
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+  if (!supabaseUrl || !supabaseServiceKey) {
+    console.error("Missing Supabase admin environment variables:", {
+      SUPABASE_URL: !!supabaseUrl,
+      SUPABASE_SERVICE_ROLE_KEY: !!supabaseServiceKey,
+    })
+    throw new Error("Supabase admin environment variables are required")
+  }
+
+  return createClient<Database>(supabaseUrl, supabaseServiceKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  })
+}
+
+// Export the admin client instance for backward compatibility
+export const adminSupabase = createAdminSupabaseClient()
 
 /**
  * Get the absolute base URL for OAuth redirects based on the request
@@ -193,8 +209,16 @@ export function parseOAuthState(state: string): any {
  */
 export async function validateSession(request: NextRequest): Promise<string | null> {
   try {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      console.error("Missing Supabase environment variables for session validation")
+      return null
+    }
+
     // Try to get session from cookie
-    const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_ANON_KEY!, {
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       cookies: {
         get(name: string) {
           return request.cookies.get(name)?.value

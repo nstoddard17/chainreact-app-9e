@@ -425,11 +425,17 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
           return
         }
 
-        const supabase = getSupabaseClient()
         set({ loading: true, error: null })
 
         try {
           console.log("Fetching integrations from database...")
+
+          const supabase = getSupabaseClient()
+          if (!supabase) {
+            console.warn("Supabase client not available, skipping integration fetch")
+            set({ integrations: [], loading: false, lastFetched: now })
+            return
+          }
 
           const {
             data: { session },
@@ -442,7 +448,7 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
           }
 
           const { data, error } = await supabase
-            .from("advanced_integrations")
+            .from("integrations")
             .select("*")
             .eq("user_id", session.user.id)
             .order("created_at", { ascending: false })
@@ -530,6 +536,10 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
             console.log(`Starting OAuth flow for ${provider}`)
 
             const supabase = getSupabaseClient()
+            if (!supabase) {
+              throw new Error("Supabase client not available")
+            }
+
             const {
               data: { session },
             } = await supabase.auth.getSession()
@@ -618,6 +628,10 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
           // Demo mode for providers without OAuth setup
           console.log(`Creating demo integration for ${provider}`)
           const supabase = getSupabaseClient()
+          if (!supabase) {
+            throw new Error("Supabase client not available")
+          }
+
           const {
             data: { session },
           } = await supabase.auth.getSession()
@@ -628,7 +642,7 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
 
           // Check for existing integration to avoid duplicates
           const { data: existingData } = await supabase
-            .from("advanced_integrations")
+            .from("integrations")
             .select("id")
             .eq("user_id", session.user.id)
             .eq("provider", provider)
@@ -649,7 +663,7 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
           if (existingData) {
             // Update existing integration
             result = await supabase
-              .from("advanced_integrations")
+              .from("integrations")
               .update({
                 ...integrationData,
                 updated_at: new Date().toISOString(),
@@ -660,7 +674,7 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
           } else {
             // Insert new integration
             result = await supabase
-              .from("advanced_integrations")
+              .from("integrations")
               .insert({
                 ...integrationData,
                 created_at: new Date().toISOString(),
@@ -693,6 +707,10 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
 
       disconnectIntegration: async (id: string) => {
         const supabase = getSupabaseClient()
+        if (!supabase) {
+          throw new Error("Supabase client not available")
+        }
+
         const integration = get().integrations.find((i) => i.id === id)
         const providerName = integration
           ? INTEGRATION_PROVIDERS.find((p) => p.id === integration.provider)?.name
@@ -700,7 +718,7 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
 
         try {
           const { error } = await supabase
-            .from("advanced_integrations")
+            .from("integrations")
             .update({
               status: "disconnected",
               updated_at: new Date().toISOString(),

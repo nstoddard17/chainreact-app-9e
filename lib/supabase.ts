@@ -1,47 +1,84 @@
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { createClientComponentClient, createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
+import { cookies } from "next/headers"
 import type { Database } from "@/types/supabase"
 
 // Check if Supabase is configured
 export const isSupabaseConfigured = () => {
-  return !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    console.warn("Supabase environment variables missing:", {
+      url: !!supabaseUrl,
+      key: !!supabaseAnonKey,
+    })
+    return false
+  }
+
+  return true
 }
 
-// Global singleton to ensure only one instance across the entire app
+// Browser client for client-side operations
+export const createBrowserSupabaseClient = () => {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    console.error("Missing Supabase environment variables:", {
+      NEXT_PUBLIC_SUPABASE_URL: !!supabaseUrl,
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: !!supabaseAnonKey,
+    })
+    throw new Error("Supabase environment variables are required")
+  }
+
+  return createClientComponentClient<Database>()
+}
+
+// Server client for route handlers
+export const createServerSupabaseClient = () => {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    console.error("Missing Supabase environment variables:", {
+      NEXT_PUBLIC_SUPABASE_URL: !!supabaseUrl,
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: !!supabaseAnonKey,
+    })
+    throw new Error("Supabase environment variables are required")
+  }
+
+  return createRouteHandlerClient<Database>({ cookies })
+}
+
+// Global singleton for browser usage
 declare global {
-  var __supabase_client__: ReturnType<typeof createClientComponentClient<Database>> | undefined
+  var __supabase_browser_client__: ReturnType<typeof createClientComponentClient<Database>> | undefined
 }
 
 export const getSupabaseClient = () => {
-  if (!isSupabaseConfigured()) {
-    console.warn("Supabase not configured. Some features may not work.")
-    return null
-  }
-
-  if (typeof window === "undefined") {
-    // Server-side: always create a new instance
+  // Check if we're in the browser
+  if (typeof window !== "undefined") {
+    // Browser-side: use global singleton
+    if (!globalThis.__supabase_browser_client__) {
+      try {
+        globalThis.__supabase_browser_client__ = createBrowserSupabaseClient()
+      } catch (error) {
+        console.error("Failed to create browser Supabase client:", error)
+        return null
+      }
+    }
+    return globalThis.__supabase_browser_client__
+  } else {
+    // Server-side: create new instance each time
     try {
-      return createClientComponentClient<Database>()
+      return createServerSupabaseClient()
     } catch (error) {
       console.error("Failed to create server Supabase client:", error)
       return null
     }
   }
-
-  // Client-side: use global singleton
-  if (!globalThis.__supabase_client__) {
-    try {
-      globalThis.__supabase_client__ = createClientComponentClient<Database>()
-    } catch (error) {
-      console.error("Failed to create client Supabase client:", error)
-      return null
-    }
-  }
-
-  return globalThis.__supabase_client__
 }
 
-// Export the singleton instance (can be null if not configured)
-export const supabase = getSupabaseClient()
-
 // For compatibility with existing code
+export const supabase = getSupabaseClient()
 export const createClient = () => getSupabaseClient()
