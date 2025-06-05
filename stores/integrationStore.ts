@@ -4,7 +4,7 @@ import { create } from "zustand"
 import { persist } from "zustand/middleware"
 import { getSupabaseClient } from "@/lib/supabase"
 import { toast } from "@/hooks/use-toast"
-import { getOAuthRedirectUri, generateOAuthState } from "@/lib/oauth/utils"
+import { generateOAuthState } from "@/lib/oauth/utils"
 
 interface Integration {
   id: string
@@ -442,7 +442,7 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
           }
 
           const { data, error } = await supabase
-            .from("integrations")
+            .from("advanced_integrations")
             .select("*")
             .eq("user_id", session.user.id)
             .order("created_at", { ascending: false })
@@ -523,72 +523,66 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
             (i) => i.provider === provider && i.status === "connected",
           )
 
-          // Special handling for Discord - check existing scopes and force reconnection if missing
-          if (provider === "discord" && existingIntegration && !forceOAuth) {
-            const requiredScopes = ["bot", "applications.commands", "identify", "guilds"]
-            const grantedScopes = existingIntegration.scopes || []
-            const missingScopes = requiredScopes.filter((scope) => !grantedScopes.includes(scope))
-
-            if (missingScopes.length > 0) {
-              console.log(`Discord missing required scopes: ${missingScopes.join(", ")}, forcing reconnection`)
-              forceOAuth = true
-
-              // Invalidate the existing integration
-              const supabase = getSupabaseClient()
-              await supabase
-                .from("integrations")
-                .update({
-                  status: "disconnected",
-                  metadata: {
-                    ...existingIntegration.metadata,
-                    access_token: null,
-                    refresh_token: null,
-                    invalidated_reason: `Missing required scopes: ${missingScopes.join(", ")}`,
-                    invalidated_at: new Date().toISOString(),
-                  },
-                  updated_at: new Date().toISOString(),
-                })
-                .eq("id", existingIntegration.id)
-            }
-          }
-
           const isOAuthProvider = providerConfig.authType === "oauth"
 
           // For OAuth providers, always force a new OAuth flow to ensure proper scopes
-          if (isOAuthProvider && forceOAuth) {
+          if (isOAuthProvider) {
             console.log(`Starting OAuth flow for ${provider}`)
 
+            const supabase = getSupabaseClient()
+            const {
+              data: { session },
+            } = await supabase.auth.getSession()
+
+            if (!session) {
+              toast({
+                title: "Authentication Required",
+                description: "Please log in to connect integrations.",
+                variant: "destructive",
+              })
+              set({ loading: false, connectingProvider: null })
+              return
+            }
+
+            const userId = session.user.id
             const disconnectedIntegration = get().integrations.find(
               (i) => i.provider === provider && i.status === "disconnected",
             )
 
-            const state = generateOAuthState(provider, {
+            // Generate state with user ID included
+            const state = generateOAuthState(provider, userId, {
               reconnect: !!disconnectedIntegration || !!existingIntegration,
               integrationId: disconnectedIntegration?.id || existingIntegration?.id,
               requireFullScopes: true,
             })
 
-            console.log(`Generated state for ${provider}:`, {
-              provider,
-              reconnect: !!disconnectedIntegration || !!existingIntegration,
-              requireFullScopes: true,
-            })
+            // If there's an existing integration, mark it as being reconnected
+            if (existingIntegration) {
+              await supabase
+                .from("integrations")
+                .update({
+                  status: "reconnecting",
+                  updated_at: new Date().toISOString(),
+                })
+                .eq("id", existingIntegration.id)
+            }
 
             let authUrl = ""
-            const redirectUri = getOAuthRedirectUri(provider)
+            const baseUrl = window.location.origin
+            const redirectUri = `${baseUrl}/api/integrations/${provider}/callback`
 
             switch (provider) {
               case "slack":
                 if (process.env.NEXT_PUBLIC_SLACK_CLIENT_ID) {
-                  // Always include the complete set of scopes, especially files:write and reactions:write
+                  // Always include the complete set of scopes
                   const requiredScopes =
                     "chat:write,chat:write.public,channels:read,channels:join,groups:read,im:read,users:read,team:read,files:write,reactions:write"
-                  authUrl = `https://slack.com/oauth/v2/authorize?client_id=${process.env.NEXT_PUBLIC_SLACK_CLIENT_ID}&scope=${requiredScopes}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&user_scope=&team=${""}&prompt=consent`
+                  authUrl = `https://slack.com/oauth/v2/authorize?client_id=${process.env.NEXT_PUBLIC_SLACK_CLIENT_ID}&scope=${requiredScopes}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&prompt=consent`
                 }
                 break
               case "discord":
                 if (process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID) {
-                  // Always include both bot and applications.commands scopes
+                  // Always include all required scopes
                   const requiredScopes = "bot applications.commands identify guilds"
                   authUrl = `https://discord.com/api/oauth2/authorize?client_id=${process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(requiredScopes)}&state=${state}&prompt=consent`
                 }
@@ -602,90 +596,7 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
             }
 
             if (authUrl) {
-              console.log(`Redirecting to OAuth URL for ${provider}`)
-              console.log(`Auth URL: ${authUrl}`)
-
-              // Set a timeout to reset the connecting state if the redirect doesn't happen
-              setTimeout(() => {
-                set({ loading: false, connectingProvider: null })
-              }, 10000)
-
-              window.location.href = authUrl
-              return
-            } else {
-              console.log(`OAuth not configured for ${provider}, falling back to demo mode`)
-              toast({
-                title: "OAuth Not Configured",
-                description: `OAuth is not configured for ${providerConfig.name}. Falling back to demo mode.`,
-                variant: "destructive",
-              })
-            }
-          }
-
-          if (existingIntegration && !forceOAuth) {
-            console.log(`${provider} is already connected and not forcing OAuth`)
-            set({ loading: false, connectingProvider: null })
-            return
-          }
-
-          const disconnectedIntegration = get().integrations.find(
-            (i) => i.provider === provider && i.status === "disconnected",
-          )
-
-          if (isOAuthProvider && forceOAuth) {
-            console.log(`Starting OAuth flow for ${provider}`)
-
-            const timestamp = Date.now()
-            const state = btoa(
-              JSON.stringify({
-                provider,
-                timestamp,
-                reconnect: !!disconnectedIntegration || !!existingIntegration,
-                integrationId: disconnectedIntegration?.id || existingIntegration?.id,
-                requireFullScopes: true, // Flag to ensure we validate scopes
-              }),
-            )
-
-            console.log(`Generated state for ${provider}:`, {
-              provider,
-              timestamp,
-              reconnect: !!disconnectedIntegration || !!existingIntegration,
-              requireFullScopes: true,
-            })
-
-            let authUrl = ""
-            const baseUrl = getBaseUrl()
-
-            switch (provider) {
-              case "slack":
-                if (process.env.NEXT_PUBLIC_SLACK_CLIENT_ID) {
-                  const redirectUri = `${baseUrl}/api/integrations/slack/callback`
-                  // Always include the complete set of scopes, especially files:write and reactions:write
-                  const requiredScopes =
-                    "chat:write,chat:write.public,channels:read,channels:join,groups:read,im:read,users:read,team:read,files:write,reactions:write"
-                  authUrl = `https://slack.com/oauth/v2/authorize?client_id=${process.env.NEXT_PUBLIC_SLACK_CLIENT_ID}&scope=${requiredScopes}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&user_scope=&team=${""}&prompt=consent`
-                }
-                break
-              case "discord":
-                if (process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID) {
-                  const redirectUri = `${baseUrl}/api/integrations/discord/callback`
-                  // Always include both bot and applications.commands scopes
-                  const requiredScopes = "bot applications.commands identify guilds"
-                  authUrl = `https://discord.com/api/oauth2/authorize?client_id=${process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(requiredScopes)}&state=${state}&prompt=consent&t=${timestamp}`
-                }
-                break
-              case "dropbox":
-                if (process.env.NEXT_PUBLIC_DROPBOX_CLIENT_ID) {
-                  const redirectUri = `${baseUrl}/api/integrations/dropbox/callback`
-                  authUrl = `https://www.dropbox.com/oauth2/authorize?client_id=${process.env.NEXT_PUBLIC_DROPBOX_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&state=${state}&force_reapprove=true&t=${timestamp}`
-                }
-                break
-              // Other providers remain unchanged
-            }
-
-            if (authUrl) {
-              console.log(`Redirecting to OAuth URL for ${provider}`)
-              console.log(`Auth URL: ${authUrl}`)
+              console.log(`Redirecting to OAuth URL for ${provider}:`, authUrl)
 
               // Set a timeout to reset the connecting state if the redirect doesn't happen
               setTimeout(() => {
@@ -715,22 +626,51 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
             throw new Error("No active session")
           }
 
-          const { data, error } = await supabase
-            .from("integrations")
-            .insert({
-              user_id: session.user.id,
-              provider: provider,
-              status: "connected",
-              metadata: {
-                demo: true,
-                connected_at: new Date().toISOString(),
-                capabilities: providerConfig.capabilities,
-              },
-            })
-            .select()
-            .single()
+          // Check for existing integration to avoid duplicates
+          const { data: existingData } = await supabase
+            .from("advanced_integrations")
+            .select("id")
+            .eq("user_id", session.user.id)
+            .eq("provider", provider)
+            .maybeSingle()
 
-          if (error) throw error
+          const integrationData = {
+            user_id: session.user.id,
+            provider: provider,
+            status: "connected",
+            metadata: {
+              demo: true,
+              connected_at: new Date().toISOString(),
+              capabilities: providerConfig.capabilities,
+            },
+          }
+
+          let result
+          if (existingData) {
+            // Update existing integration
+            result = await supabase
+              .from("advanced_integrations")
+              .update({
+                ...integrationData,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", existingData.id)
+              .select()
+              .single()
+          } else {
+            // Insert new integration
+            result = await supabase
+              .from("advanced_integrations")
+              .insert({
+                ...integrationData,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              })
+              .select()
+              .single()
+          }
+
+          if (result.error) throw result.error
 
           await get().fetchIntegrations(true)
           toast({
@@ -760,7 +700,7 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
 
         try {
           const { error } = await supabase
-            .from("integrations")
+            .from("advanced_integrations")
             .update({
               status: "disconnected",
               updated_at: new Date().toISOString(),
