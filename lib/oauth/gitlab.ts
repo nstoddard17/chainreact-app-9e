@@ -19,6 +19,40 @@ export class GitLabOAuthService {
     return { clientId, clientSecret }
   }
 
+  static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string): string {
+    const clientId = process.env.NEXT_PUBLIC_GITLAB_CLIENT_ID
+    if (!clientId) {
+      throw new Error("Missing NEXT_PUBLIC_GITLAB_CLIENT_ID environment variable")
+    }
+
+    const redirectUri = "https://chainreact.app/api/integrations/gitlab/callback"
+
+    const scopes = ["api", "read_user", "read_repository", "write_repository"]
+
+    const state = btoa(
+      JSON.stringify({
+        provider: "gitlab",
+        reconnect,
+        integrationId,
+        timestamp: Date.now(),
+      }),
+    )
+
+    const params = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      response_type: "code",
+      scope: scopes.join(" "),
+      state,
+    })
+
+    return `https://gitlab.com/oauth/authorize?${params.toString()}`
+  }
+
+  static getRedirectUri(baseUrl: string): string {
+    return "https://chainreact.app/api/integrations/gitlab/callback"
+  }
+
   static async handleCallback(code: string, state: string, baseUrl: string): Promise<GitLabOAuthResult> {
     try {
       const stateData = JSON.parse(atob(state))
@@ -118,3 +152,6 @@ export class GitLabOAuthService {
     }
   }
 }
+
+// Export alias for compatibility
+export const GitLabOAuth = GitLabOAuthService

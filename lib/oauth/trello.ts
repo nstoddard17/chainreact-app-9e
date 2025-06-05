@@ -42,6 +42,39 @@ export class TrelloOAuthService {
     }
   }
 
+  static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string): string {
+    const { clientId } = this.getClientCredentials()
+    const redirectUri = "https://chainreact.app/api/integrations/trello/callback"
+
+    const scopes = ["read", "write", "account"]
+
+    const state = btoa(
+      JSON.stringify({
+        provider: "trello",
+        reconnect,
+        integrationId,
+        scopes,
+        timestamp: Date.now(),
+      }),
+    )
+
+    const params = new URLSearchParams({
+      key: clientId,
+      name: "ChainReact",
+      scope: scopes.join(","),
+      response_type: "token",
+      callback_method: "postMessage",
+      return_url: redirectUri,
+      state,
+    })
+
+    return `https://trello.com/1/authorize?${params.toString()}`
+  }
+
+  static getRedirectUri(baseUrl: string): string {
+    return "https://chainreact.app/api/integrations/trello/callback"
+  }
+
   static async handleCallback(
     token: string,
     state: string,

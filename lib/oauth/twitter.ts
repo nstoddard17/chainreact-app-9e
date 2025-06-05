@@ -16,6 +16,39 @@ export class TwitterOAuthService {
     return { clientId, clientSecret }
   }
 
+  static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string): string {
+    const { clientId } = this.getClientCredentials()
+    const redirectUri = "https://chainreact.app/api/integrations/twitter/callback"
+
+    const scopes = ["tweet.read", "tweet.write", "users.read", "offline.access"]
+
+    const state = btoa(
+      JSON.stringify({
+        provider: "twitter",
+        reconnect,
+        integrationId,
+        requireFullScopes: true,
+        timestamp: Date.now(),
+      }),
+    )
+
+    const params = new URLSearchParams({
+      response_type: "code",
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      scope: scopes.join(" "),
+      state,
+      code_challenge: "challenge",
+      code_challenge_method: "plain",
+    })
+
+    return `https://twitter.com/i/oauth2/authorize?${params.toString()}`
+  }
+
+  static getRedirectUri(baseUrl: string): string {
+    return "https://chainreact.app/api/integrations/twitter/callback"
+  }
+
   static async handleCallback(
     code: string,
     state: string,

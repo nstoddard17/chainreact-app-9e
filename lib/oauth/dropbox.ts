@@ -1,21 +1,40 @@
 import { BaseOAuthService } from "./BaseOAuthService"
 
 export class DropboxOAuthService extends BaseOAuthService {
+  private static getClientCredentials() {
+    const clientId = process.env.NEXT_PUBLIC_DROPBOX_CLIENT_ID
+    const clientSecret = process.env.DROPBOX_CLIENT_SECRET
+
+    if (!clientId) {
+      throw new Error("Missing NEXT_PUBLIC_DROPBOX_CLIENT_ID environment variable")
+    }
+    if (!clientSecret) {
+      throw new Error("Missing DROPBOX_CLIENT_SECRET environment variable")
+    }
+
+    return { clientId, clientSecret }
+  }
+
   static getRedirectUri(baseUrl: string): string {
     // Hardcoded redirect URI
     return "https://chainreact.app/api/integrations/dropbox/callback"
   }
 
   static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string): string {
-    const clientId = process.env.NEXT_PUBLIC_DROPBOX_CLIENT_ID
-    if (!clientId) {
-      throw new Error("Missing Dropbox OAuth client ID")
-    }
-
+    const { clientId } = this.getClientCredentials()
     const redirectUri = this.getRedirectUri(baseUrl)
 
     // Define required scopes
     const scopes = ["files.content.write", "files.content.read"]
+
+    const state = btoa(
+      JSON.stringify({
+        provider: "dropbox",
+        reconnect,
+        integrationId,
+        timestamp: Date.now(),
+      }),
+    )
 
     const params = new URLSearchParams({
       client_id: clientId,
@@ -23,6 +42,7 @@ export class DropboxOAuthService extends BaseOAuthService {
       response_type: "code",
       token_access_type: "offline",
       scope: scopes.join(" "),
+      state,
     })
 
     if (reconnect) {
@@ -35,9 +55,11 @@ export class DropboxOAuthService extends BaseOAuthService {
   static async exchangeCodeForToken(
     code: string,
     redirectUri: string,
-    clientId: string,
-    clientSecret: string,
+    clientId?: string,
+    clientSecret?: string,
   ): Promise<any> {
+    const credentials = this.getClientCredentials()
+
     const response = await fetch("https://api.dropboxapi.com/oauth2/token", {
       method: "POST",
       headers: {
@@ -45,8 +67,8 @@ export class DropboxOAuthService extends BaseOAuthService {
       },
       body: new URLSearchParams({
         code,
-        client_id: clientId,
-        client_secret: clientSecret,
+        client_id: credentials.clientId,
+        client_secret: credentials.clientSecret,
         redirect_uri: redirectUri,
         grant_type: "authorization_code",
       }),

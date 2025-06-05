@@ -56,6 +56,43 @@ export class PayPalOAuthService {
     }
   }
 
+  static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string): string {
+    const { clientId } = this.getClientCredentials()
+    const redirectUri = "https://chainreact.app/api/integrations/paypal/callback"
+
+    const scopes = [
+      "https://uri.paypal.com/services/payments/payment",
+      "https://uri.paypal.com/services/payments/refund",
+      "https://uri.paypal.com/services/payments/orders/read",
+      "email",
+      "openid",
+      "profile",
+    ]
+
+    const state = btoa(
+      JSON.stringify({
+        provider: "paypal",
+        reconnect,
+        integrationId,
+        timestamp: Date.now(),
+      }),
+    )
+
+    const params = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      scope: scopes.join(" "),
+      response_type: "code",
+      state,
+    })
+
+    return `https://www.paypal.com/signin/authorize?${params.toString()}`
+  }
+
+  static getRedirectUri(baseUrl: string): string {
+    return "https://chainreact.app/api/integrations/paypal/callback"
+  }
+
   static async handleCallback(code: string, state: string, baseUrl: string): Promise<PayPalOAuthResult> {
     try {
       const stateData = JSON.parse(atob(state))

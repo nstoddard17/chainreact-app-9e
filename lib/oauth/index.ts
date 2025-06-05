@@ -54,6 +54,12 @@ export function getOAuthProvider(provider: SupportedProvider): OAuthProvider {
   if (!providerService) {
     throw new Error(`Unsupported OAuth provider: ${provider}`)
   }
+
+  // Verify the provider has required methods
+  if (!providerService.generateAuthUrl || !providerService.getRedirectUri) {
+    throw new Error(`OAuth provider ${provider} is missing required methods`)
+  }
+
   return providerService
 }
 
@@ -63,6 +69,11 @@ export function generateOAuthUrl(
   reconnect = false,
   integrationId?: string,
 ): string {
-  const service = getOAuthProvider(provider)
-  return service.generateAuthUrl(baseUrl, reconnect, integrationId)
+  try {
+    const service = getOAuthProvider(provider)
+    return service.generateAuthUrl(baseUrl, reconnect, integrationId)
+  } catch (error: any) {
+    console.error(`Failed to generate OAuth URL for ${provider}:`, error)
+    throw new Error(`OAuth not configured for ${provider}: ${error.message}`)
+  }
 }

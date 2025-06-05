@@ -1,17 +1,27 @@
 import { BaseOAuthService } from "./BaseOAuthService"
 
 export class GoogleOAuthService extends BaseOAuthService {
+  private static getClientCredentials() {
+    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET
+
+    if (!clientId) {
+      throw new Error("Missing NEXT_PUBLIC_GOOGLE_CLIENT_ID environment variable")
+    }
+    if (!clientSecret) {
+      throw new Error("Missing GOOGLE_CLIENT_SECRET environment variable")
+    }
+
+    return { clientId, clientSecret }
+  }
+
   static getRedirectUri(baseUrl: string): string {
     // Hardcoded redirect URI
     return "https://chainreact.app/api/integrations/google/callback"
   }
 
   static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string): string {
-    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
-    if (!clientId) {
-      throw new Error("Missing Google OAuth client ID")
-    }
-
+    const { clientId } = this.getClientCredentials()
     const redirectUri = this.getRedirectUri(baseUrl)
 
     // Define required scopes
@@ -26,6 +36,15 @@ export class GoogleOAuthService extends BaseOAuthService {
       "https://www.googleapis.com/auth/gmail.send",
     ]
 
+    const state = btoa(
+      JSON.stringify({
+        provider: "google",
+        reconnect,
+        integrationId,
+        timestamp: Date.now(),
+      }),
+    )
+
     const params = new URLSearchParams({
       client_id: clientId,
       redirect_uri: redirectUri,
@@ -33,6 +52,7 @@ export class GoogleOAuthService extends BaseOAuthService {
       scope: scopes.join(" "),
       access_type: "offline",
       prompt: reconnect ? "consent" : "select_account",
+      state,
     })
 
     return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`
@@ -41,9 +61,11 @@ export class GoogleOAuthService extends BaseOAuthService {
   static async exchangeCodeForToken(
     code: string,
     redirectUri: string,
-    clientId: string,
-    clientSecret: string,
+    clientId?: string,
+    clientSecret?: string,
   ): Promise<any> {
+    const credentials = this.getClientCredentials()
+
     const response = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: {
@@ -51,8 +73,8 @@ export class GoogleOAuthService extends BaseOAuthService {
       },
       body: new URLSearchParams({
         code,
-        client_id: clientId,
-        client_secret: clientSecret,
+        client_id: credentials.clientId,
+        client_secret: credentials.clientSecret,
         redirect_uri: redirectUri,
         grant_type: "authorization_code",
       }),

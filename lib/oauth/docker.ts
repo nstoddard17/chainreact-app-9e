@@ -19,6 +19,40 @@ export class DockerOAuthService {
     return { clientId, clientSecret }
   }
 
+  static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string): string {
+    const clientId = process.env.NEXT_PUBLIC_DOCKER_CLIENT_ID
+    if (!clientId) {
+      throw new Error("Missing NEXT_PUBLIC_DOCKER_CLIENT_ID environment variable")
+    }
+
+    const redirectUri = "https://chainreact.app/api/integrations/docker/callback"
+
+    const scopes = ["repo:admin", "repo:write", "repo:read"]
+
+    const state = btoa(
+      JSON.stringify({
+        provider: "docker",
+        reconnect,
+        integrationId,
+        timestamp: Date.now(),
+      }),
+    )
+
+    const params = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      response_type: "code",
+      scope: scopes.join(" "),
+      state,
+    })
+
+    return `https://hub.docker.com/oauth/authorize?${params.toString()}`
+  }
+
+  static getRedirectUri(baseUrl: string): string {
+    return "https://chainreact.app/api/integrations/docker/callback"
+  }
+
   static async handleCallback(code: string, state: string, baseUrl: string): Promise<DockerOAuthResult> {
     try {
       const stateData = JSON.parse(atob(state))
@@ -117,3 +151,6 @@ export class DockerOAuthService {
     }
   }
 }
+
+// Export alias for compatibility
+export const DockerOAuth = DockerOAuthService
