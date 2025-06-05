@@ -1,154 +1,90 @@
-interface GoogleOAuthResult {
-  success: boolean
-  redirectUrl: string
-  error?: string
-}
+import { BaseOAuthService } from "./BaseOAuthService"
 
-export class GoogleOAuthService {
-  private static getClientCredentials() {
-    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
-    const clientSecret = process.env.GOOGLE_CLIENT_SECRET
-
-    if (!clientId || !clientSecret) {
-      throw new Error("Missing Google OAuth configuration")
-    }
-
-    return { clientId, clientSecret }
+export class GoogleOAuthService extends BaseOAuthService {
+  static getRedirectUri(baseUrl: string): string {
+    // Hardcoded redirect URI
+    return "https://chainreact.app/api/integrations/google/callback"
   }
 
-  static async handleCallback(
-    code: string,
-    state: string,
-    baseUrl: string,
-    supabase: any,
-    sessionAccessToken: string,
-  ): Promise<GoogleOAuthResult> {
-    try {
-      // Decode state to get provider info
-      const stateData = JSON.parse(atob(state))
-      const { provider, reconnect, integrationId, requireFullScopes } = stateData
-
-      if (!provider || (!provider.startsWith("google") && provider !== "gmail" && provider !== "youtube")) {
-        throw new Error("Invalid provider in state")
-      }
-
-      // Get credentials securely
-      const { clientId, clientSecret } = this.getClientCredentials()
-
-      // Exchange code for access token
-      const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: new URLSearchParams({
-          client_id: clientId,
-          client_secret: clientSecret,
-          code,
-          grant_type: "authorization_code",
-          redirect_uri: "https://chainreact.app/api/integrations/google/callback",
-        }),
-      })
-
-      if (!tokenResponse.ok) {
-        const errorData = await tokenResponse.text()
-        throw new Error(`Token exchange failed: ${errorData}`)
-      }
-
-      const tokenData = await tokenResponse.json()
-      const { access_token, refresh_token, expires_in, scope: grantedScope } = tokenData
-
-      if (!access_token) {
-        throw new Error("No access token received from Google")
-      }
-
-      // Validate scopes if required
-      if (requireFullScopes) {
-        const { OAuthService } = await import("./oauthService")
-        const validation = await OAuthService.validateToken("google", access_token)
-
-        if (!validation.valid) {
-          console.error("Google scope validation failed:", validation)
-          return {
-            success: false,
-            redirectUrl: `https://chainreact.app/integrations?error=insufficient_scopes&provider=google&message=${encodeURIComponent(
-              `Your connection is missing required permissions: ${validation.missingScopes.join(", ")}. Please reconnect and accept all scopes.`,
-            )}`,
-            error: "Insufficient scopes granted",
-          }
-        }
-      }
-
-      // Get user info from Google
-      const userResponse = await fetch("https://openidconnect.googleapis.com/v1/userinfo", {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${access_token}`,
-          Accept: "application/json",
-        },
-      })
-
-      if (!userResponse.ok) {
-        const errorData = await userResponse.text()
-        throw new Error(`Failed to get user info: ${errorData}`)
-      }
-
-      const googleUserData = await userResponse.json()
-
-      // Securely fetch the authenticated user using the session access token
-      const { data: authenticatedUserData, error: userError } = await supabase.auth.getUser(sessionAccessToken)
-
-      if (userError || !authenticatedUserData?.user) {
-        throw new Error("User authentication failed")
-      }
-
-      const integrationData = {
-        user_id: authenticatedUserData.user.id,
-        provider: provider,
-        provider_user_id: googleUserData.sub,
-        status: "connected" as const,
-        metadata: {
-          access_token,
-          refresh_token,
-          expires_at: expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null,
-          user_name: googleUserData.name,
-          user_email: googleUserData.email,
-          picture: googleUserData.picture,
-          scopes: grantedScope ? grantedScope.split(" ") : [],
-          connected_at: new Date().toISOString(),
-          validated_at: new Date().toISOString(),
-        },
-      }
-
-      if (reconnect && integrationId) {
-        const { error } = await supabase
-          .from("integrations")
-          .update({
-            ...integrationData,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", integrationId)
-
-        if (error) {
-          throw error
-        }
-      } else {
-        const { error } = await supabase.from("integrations").insert(integrationData)
-        if (error) {
-          throw error
-        }
-      }
-
-      return {
-        success: true,
-        redirectUrl: `https://chainreact.app/integrations?success=${provider}_connected&scopes_validated=true`,
-      }
-    } catch (error: any) {
-      return {
-        success: false,
-        redirectUrl: `https://chainreact.app/integrations?error=callback_failed&provider=google&message=${encodeURIComponent(error.message)}`,
-        error: error.message,
-      }
+  static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string): string {
+    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
+    if (!clientId) {
+      throw new Error("Missing Google OAuth client ID")
     }
+
+    const redirectUri = this.getRedirectUri(baseUrl)
+
+    // Define required scopes
+    const scopes = [
+      "https://www.googleapis.com/auth/userinfo.email",
+      "https://www.googleapis.com/auth/userinfo.profile",
+      "https://www.googleapis.com/auth/calendar",
+      "https://www.googleapis.com/auth/calendar.events",
+      "https://www.googleapis.com/auth/drive",
+      "https://www.googleapis.com/auth/drive.file",
+      "https://www.googleapis.com/auth/spreadsheets",
+      "https://www.googleapis.com/auth/gmail.send",
+    ]
+
+    const params = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      response_type: "code",
+      scope: scopes.join(" "),
+      access_type: "offline",
+      prompt: reconnect ? "consent" : "select_account",
+    })
+
+    return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`
+  }
+
+  static async exchangeCodeForToken(
+    code: string,
+    redirectUri: string,
+    clientId: string,
+    clientSecret: string,
+  ): Promise<any> {
+    const response = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        code,
+        client_id: clientId,
+        client_secret: clientSecret,
+        redirect_uri: redirectUri,
+        grant_type: "authorization_code",
+      }),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.text()
+      throw new Error(`Google token exchange failed: ${errorData}`)
+    }
+
+    return response.json()
+  }
+
+  static async validateTokenAndGetUserInfo(accessToken: string): Promise<any> {
+    const response = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    })
+
+    if (!response.ok) {
+      throw new Error(`Failed to get Google user info: ${response.statusText}`)
+    }
+
+    return response.json()
+  }
+
+  static parseScopes(tokenResponse: any): string[] {
+    return tokenResponse.scope ? tokenResponse.scope.split(" ") : []
+  }
+
+  static getRequiredScopes(): string[] {
+    return ["https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"]
   }
 }

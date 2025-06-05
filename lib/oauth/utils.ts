@@ -81,6 +81,15 @@ export function getAbsoluteBaseUrl(request: Request | NextRequest): string {
 }
 
 /**
+ * Get the correct base URL for OAuth redirects based on environment
+ * Always returns production URL for OAuth consistency
+ */
+export function getOAuthBaseUrl(): string {
+  // Always return production URL for OAuth consistency
+  return "https://chainreact.app"
+}
+
+/**
  * Upsert integration data to avoid duplicate key constraint violations
  * This is atomic and safe for concurrent operations
  */
@@ -306,6 +315,8 @@ export function getRequiredScopes(provider: string): string[] {
       return ["https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"]
     case "github":
       return ["repo", "user"]
+    case "teams":
+      return ["openid", "profile", "email", "offline_access", "User.Read"]
     // Add other providers as needed
     default:
       return []

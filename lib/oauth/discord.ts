@@ -1,4 +1,4 @@
-import { getOAuthRedirectUri, upsertIntegration, parseOAuthState } from "./utils"
+import { upsertIntegration, parseOAuthState } from "./utils"
 
 interface DiscordOAuthResult {
   success: boolean
@@ -16,6 +16,32 @@ export class DiscordOAuthService {
     }
 
     return { clientId, clientSecret }
+  }
+
+  static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string): string {
+    const { clientId } = this.getClientCredentials()
+    const redirectUri = this.getRedirectUri(baseUrl)
+
+    // Always include bot and applications.commands scopes
+    const requiredScopes = ["bot", "applications.commands", "identify", "guilds"]
+
+    const params = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      response_type: "code",
+      scope: requiredScopes.join(" "),
+    })
+
+    if (reconnect) {
+      params.append("prompt", "consent")
+    }
+
+    return `https://discord.com/api/oauth2/authorize?${params.toString()}`
+  }
+
+  static getRedirectUri(baseUrl: string): string {
+    // Hardcoded redirect URI
+    return "https://chainreact.app/api/integrations/discord/callback"
   }
 
   static async validateToken(
@@ -88,7 +114,7 @@ export class DiscordOAuthService {
       }
 
       const { clientId, clientSecret } = this.getClientCredentials()
-      const redirectUri = getOAuthRedirectUri("discord")
+      const redirectUri = this.getRedirectUri("")
 
       console.log("Discord OAuth callback - using redirect URI:", redirectUri)
 
@@ -178,7 +204,7 @@ export class DiscordOAuthService {
       }
     } catch (error: any) {
       console.error("Discord OAuth callback error:", error)
-      const baseUrl = getOAuthRedirectUri("discord").split("/api")[0]
+      const baseUrl = "https://chainreact.app"
       return {
         success: false,
         redirectUrl: `${baseUrl}/integrations?error=callback_failed&provider=discord&message=${encodeURIComponent(error.message)}`,

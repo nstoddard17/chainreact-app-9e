@@ -1,80 +1,77 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
+import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { TeamsOAuthService } from "@/lib/oauth/teams"
+import { parseOAuthState } from "@/lib/oauth/utils"
 
 export async function GET(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams
-  const baseUrl = new URL(request.url).origin
-  const code = searchParams.get("code")
-  const state = searchParams.get("state")
-  const error = searchParams.get("error")
-  const errorDescription = searchParams.get("error_description")
-
-  console.log("Teams OAuth callback:", {
-    code: !!code,
-    state: !!state,
-    error,
-    errorDescription,
-  })
-
-  if (error) {
-    console.error("Teams OAuth error:", error, errorDescription)
-    return NextResponse.redirect(
-      new URL(
-        `/integrations?error=oauth_error&provider=teams&message=${encodeURIComponent(errorDescription || error)}`,
-        baseUrl,
-      ),
-    )
-  }
-
-  if (!code || !state) {
-    console.error("Missing code or state in Teams callback")
-    return NextResponse.redirect(new URL("/integrations?error=missing_params&provider=teams", baseUrl))
-  }
-
   try {
-    // Initialize Supabase client
-    const supabase = createRouteHandlerClient({ cookies })
+    // Get code and state from query parameters
+    const searchParams = request.nextUrl.searchParams
+    const code = searchParams.get("code")
+    const state = searchParams.get("state")
+    const error = searchParams.get("error")
+    const errorDescription = searchParams.get("error_description")
 
-    // Get session from cookies
-    const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
-
-    if (sessionError) {
-      console.error("Teams: Error retrieving session:", sessionError)
+    if (error) {
       return NextResponse.redirect(
-        new URL("/integrations?error=session_error&provider=teams&message=Error+retrieving+session", baseUrl),
+        `https://chainreact.app/integrations?error=provider_error&provider=teams&message=${encodeURIComponent(
+          `Microsoft Teams returned an error: ${error} - ${errorDescription || ""}`,
+        )}`,
       )
     }
 
-    if (!sessionData?.session) {
-      console.error("Teams: No session found in cookies")
+    if (!code) {
       return NextResponse.redirect(
-        new URL("/integrations?error=session_expired&provider=teams&message=Please+log+in+again", baseUrl),
+        `https://chainreact.app/integrations?error=missing_code&provider=teams&message=${encodeURIComponent(
+          "Missing authorization code",
+        )}`,
       )
     }
 
-    console.log("Teams: Session successfully retrieved for user:", sessionData.session.user.id)
+    if (!state) {
+      return NextResponse.redirect(
+        `https://chainreact.app/integrations?error=missing_state&provider=teams&message=${encodeURIComponent(
+          "Missing state parameter",
+        )}`,
+      )
+    }
 
-    const result = await TeamsOAuthService.handleCallback(code, state, baseUrl, supabase, sessionData.session.user.id)
-
-    // Clear the cache and redirect to success page
+    // Parse state to get user ID
+    let stateData
     try {
-      await fetch(`${baseUrl}/api/integrations/clear-cache`, { method: "POST" })
-      console.log("Cache cleared successfully")
-    } catch (cacheError) {
-      console.error("Failed to clear cache:", cacheError)
+      stateData = parseOAuthState(state)
+    } catch (error) {
+      return NextResponse.redirect(
+        `https://chainreact.app/integrations?error=invalid_state&provider=teams&message=${encodeURIComponent(
+          "Invalid state parameter",
+        )}`,
+      )
     }
 
-    console.log("Teams OAuth result:", result.success ? "success" : "failed")
-    return NextResponse.redirect(new URL(result.redirectUrl, baseUrl))
+    const { userId } = stateData
+
+    if (!userId) {
+      return NextResponse.redirect(
+        `https://chainreact.app/integrations?error=missing_user_id&provider=teams&message=${encodeURIComponent(
+          "Missing user ID in state",
+        )}`,
+      )
+    }
+
+    // Create Supabase client
+    const supabase = createServerSupabaseClient()
+
+    // Handle OAuth callback
+    const result = await TeamsOAuthService.handleCallback("teams", code, state, userId)
+
+    // Redirect based on result
+    return NextResponse.redirect(result.redirectUrl)
   } catch (error: any) {
-    console.error("Teams OAuth callback error:", error)
+    console.error("Microsoft Teams OAuth callback error:", error)
     return NextResponse.redirect(
-      new URL(
-        `/integrations?error=callback_failed&provider=teams&message=${encodeURIComponent(error.message)}`,
-        baseUrl,
-      ),
+      `https://chainreact.app/integrations?error=callback_failed&provider=teams&message=${encodeURIComponent(
+        error.message || "An unexpected error occurred",
+      )}`,
     )
   }
 }

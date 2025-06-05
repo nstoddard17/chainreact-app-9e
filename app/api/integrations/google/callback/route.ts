@@ -1,69 +1,76 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
+import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { GoogleOAuthService } from "@/lib/oauth/google"
+import { parseOAuthState } from "@/lib/oauth/utils"
 
 export async function GET(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams
-  const baseUrl = new URL(request.url).origin
-  const code = searchParams.get("code")
-  const state = searchParams.get("state")
-  const error = searchParams.get("error")
-  const scope = searchParams.get("scope")
-
-  console.log("Google OAuth callback:", { code: !!code, state, error, scope })
-
-  if (error) {
-    console.error("Google OAuth error:", error)
-    return NextResponse.redirect(new URL("/integrations?error=oauth_error&provider=google", baseUrl))
-  }
-
-  if (!code || !state) {
-    console.error("Missing code or state in Google callback")
-    return NextResponse.redirect(new URL("/integrations?error=missing_params&provider=google", baseUrl))
-  }
-
   try {
-    // Get session using route handler client
-    const supabase = createRouteHandlerClient({ cookies })
-    const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+    // Get code and state from query parameters
+    const searchParams = request.nextUrl.searchParams
+    const code = searchParams.get("code")
+    const state = searchParams.get("state")
+    const error = searchParams.get("error")
 
-    if (sessionError) {
-      console.error("Google: Error retrieving session:", sessionError)
+    if (error) {
       return NextResponse.redirect(
-        new URL(
-          `/integrations?error=session_error&provider=google&message=${encodeURIComponent(sessionError.message)}`,
-          baseUrl,
-        ),
+        `https://chainreact.app/integrations?error=provider_error&provider=google&message=${encodeURIComponent(
+          `Google returned an error: ${error}`,
+        )}`,
       )
     }
 
-    if (!sessionData?.session?.access_token) {
-      console.error("Google: No session or access token found")
+    if (!code) {
       return NextResponse.redirect(
-        new URL("/integrations?error=session_error&provider=google&message=No+session+or+access+token+found", baseUrl),
+        `https://chainreact.app/integrations?error=missing_code&provider=google&message=${encodeURIComponent(
+          "Missing authorization code",
+        )}`,
       )
     }
 
-    console.log("Google: Session successfully retrieved for user:", sessionData.session.user.id)
+    if (!state) {
+      return NextResponse.redirect(
+        `https://chainreact.app/integrations?error=missing_state&provider=google&message=${encodeURIComponent(
+          "Missing state parameter",
+        )}`,
+      )
+    }
 
-    const result = await GoogleOAuthService.handleCallback(
-      code,
-      state,
-      baseUrl,
-      supabase,
-      sessionData.session.access_token,
-    )
+    // Parse state to get user ID
+    let stateData
+    try {
+      stateData = parseOAuthState(state)
+    } catch (error) {
+      return NextResponse.redirect(
+        `https://chainreact.app/integrations?error=invalid_state&provider=google&message=${encodeURIComponent(
+          "Invalid state parameter",
+        )}`,
+      )
+    }
 
-    console.log("Google OAuth result:", result.success ? "success" : "failed")
-    return NextResponse.redirect(new URL(result.redirectUrl, baseUrl))
+    const { userId } = stateData
+
+    if (!userId) {
+      return NextResponse.redirect(
+        `https://chainreact.app/integrations?error=missing_user_id&provider=google&message=${encodeURIComponent(
+          "Missing user ID in state",
+        )}`,
+      )
+    }
+
+    // Create Supabase client
+    const supabase = createServerSupabaseClient()
+
+    // Handle OAuth callback
+    const result = await GoogleOAuthService.handleCallback("google", code, state, userId)
+
+    // Redirect based on result
+    return NextResponse.redirect(result.redirectUrl)
   } catch (error: any) {
     console.error("Google OAuth callback error:", error)
     return NextResponse.redirect(
-      new URL(
-        `/integrations?error=callback_failed&provider=google&message=${encodeURIComponent(error.message)}`,
-        baseUrl,
-      ),
+      `https://chainreact.app/integrations?error=callback_failed&provider=google&message=${encodeURIComponent(
+        error.message || "An unexpected error occurred",
+      )}`,
     )
   }
 }

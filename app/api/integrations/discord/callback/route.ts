@@ -1,137 +1,67 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
-import {
-  getOAuthRedirectUri,
-  parseOAuthState,
-  upsertIntegration,
-  validateScopes,
-  getRequiredScopes,
-} from "@/lib/oauth/utils"
+import { DiscordOAuthService } from "@/lib/oauth/discord"
+import { parseOAuthState } from "@/lib/oauth/utils"
 
 export async function GET(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams
-  const code = searchParams.get("code")
-  const state = searchParams.get("state")
-  const error = searchParams.get("error")
-
-  const baseUrl = "https://chainreact.app"
-
   try {
-    // Handle OAuth errors
-    if (error) {
-      console.error("OAuth error:", error)
-      return NextResponse.redirect(`${baseUrl}/integrations?error=oauth_error&message=${encodeURIComponent(error)}`)
-    }
+    // Get code and state from query parameters
+    const searchParams = request.nextUrl.searchParams
+    const code = searchParams.get("code")
+    const state = searchParams.get("state")
 
-    if (!code || !state) {
+    if (!code) {
       return NextResponse.redirect(
-        `${baseUrl}/integrations?error=missing_params&message=Missing+authorization+code+or+state`,
+        `https://chainreact.app/integrations?error=missing_code&provider=discord&message=${encodeURIComponent(
+          "Missing authorization code",
+        )}`,
       )
     }
 
-    // Parse and validate state
-    let parsedState
+    if (!state) {
+      return NextResponse.redirect(
+        `https://chainreact.app/integrations?error=missing_state&provider=discord&message=${encodeURIComponent(
+          "Missing state parameter",
+        )}`,
+      )
+    }
+
+    // Parse state to get user ID
+    let stateData
     try {
-      parsedState = parseOAuthState(state)
+      stateData = parseOAuthState(state)
     } catch (error) {
-      return NextResponse.redirect(`${baseUrl}/integrations?error=invalid_state&message=Invalid+state+parameter`)
-    }
-
-    // Validate session
-    const supabase = createServerSupabaseClient()
-    const {
-      data: { session },
-    } = await supabase.auth.getSession()
-
-    if (!session) {
-      return NextResponse.redirect(`${baseUrl}/integrations?error=session_error&message=Please+log+in+again`)
-    }
-
-    // Verify state matches current user
-    if (parsedState.userId !== session.user.id) {
-      return NextResponse.redirect(`${baseUrl}/integrations?error=user_mismatch&message=Session+mismatch`)
-    }
-
-    // Exchange code for token
-    const clientId = process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID
-    const clientSecret = process.env.DISCORD_CLIENT_SECRET
-
-    if (!clientId || !clientSecret) {
-      throw new Error("Discord OAuth credentials not configured")
-    }
-
-    const redirectUri = getOAuthRedirectUri("discord")
-
-    const tokenResponse = await fetch("https://discord.com/api/oauth2/token", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: new URLSearchParams({
-        client_id: clientId,
-        client_secret: clientSecret,
-        grant_type: "authorization_code",
-        code,
-        redirect_uri: redirectUri,
-      }),
-    })
-
-    const tokenData = await tokenResponse.json()
-
-    if (tokenData.error) {
-      throw new Error(`Discord OAuth error: ${tokenData.error_description || tokenData.error}`)
-    }
-
-    // Validate scopes
-    const requiredScopes = getRequiredScopes("discord")
-    const grantedScopes = tokenData.scope ? tokenData.scope.split(" ") : []
-    const scopeValidation = validateScopes(requiredScopes, grantedScopes)
-
-    if (!scopeValidation.valid) {
       return NextResponse.redirect(
-        `${baseUrl}/integrations?error=insufficient_scopes&message=Missing+scopes:+${scopeValidation.missingScopes.join(",")}`,
+        `https://chainreact.app/integrations?error=invalid_state&provider=discord&message=${encodeURIComponent(
+          "Invalid state parameter",
+        )}`,
       )
     }
 
-    // Get user info
-    const userResponse = await fetch("https://discord.com/api/users/@me", {
-      headers: {
-        Authorization: `Bearer ${tokenData.access_token}`,
-      },
-    })
+    const { userId } = stateData
 
-    const userData = await userResponse.json()
+    if (!userId) {
+      return NextResponse.redirect(
+        `https://chainreact.app/integrations?error=missing_user_id&provider=discord&message=${encodeURIComponent(
+          "Missing user ID in state",
+        )}`,
+      )
+    }
 
-    // Calculate expiry
-    const expiresAt = new Date(Date.now() + tokenData.expires_in * 1000).toISOString()
+    // Create Supabase client
+    const supabase = createServerSupabaseClient()
 
-    // Upsert integration
-    await upsertIntegration(supabase, {
-      user_id: session.user.id,
-      provider: "discord",
-      provider_user_id: userData.id,
-      status: "connected",
-      scopes: grantedScopes,
-      access_token: tokenData.access_token,
-      refresh_token: tokenData.refresh_token,
-      expires_at: expiresAt,
-      metadata: {
-        user_id: userData.id,
-        username: userData.username,
-        discriminator: userData.discriminator,
-        avatar: userData.avatar,
-        scope: tokenData.scope,
-        connected_at: new Date().toISOString(),
-      },
-    })
+    // Handle OAuth callback
+    const result = await DiscordOAuthService.handleCallback(code, state, supabase, userId)
 
-    return NextResponse.redirect(
-      `${baseUrl}/integrations?success=true&provider=discord&message=Discord+connected+successfully`,
-    )
+    // Redirect based on result
+    return NextResponse.redirect(result.redirectUrl)
   } catch (error: any) {
     console.error("Discord OAuth callback error:", error)
     return NextResponse.redirect(
-      `${baseUrl}/integrations?error=callback_error&message=${encodeURIComponent(error.message)}`,
+      `https://chainreact.app/integrations?error=callback_failed&provider=discord&message=${encodeURIComponent(
+        error.message || "An unexpected error occurred",
+      )}`,
     )
   }
 }

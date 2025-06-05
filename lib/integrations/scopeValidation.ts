@@ -1,6 +1,6 @@
 import { db } from "@/lib/db"
 import { INTEGRATION_SCOPES, validateScopes, getAllScopes } from "./integrationScopes"
-import { absoluteUrl } from "@/lib/utils"
+import { getOAuthRedirectUri } from "@/lib/oauth/utils"
 
 export interface ScopeValidationResult {
   provider: string
@@ -73,14 +73,14 @@ export function generateReconnectionUrl(provider: string, state?: string): strin
   }
 
   const allScopes = getAllScopes(provider)
-  const baseUrl = absoluteUrl(`/api/integrations/${provider}/callback`)
+  const redirectUri = getOAuthRedirectUri(provider)
 
   switch (provider) {
     case "slack":
       const slackParams = new URLSearchParams({
         client_id: process.env.NEXT_PUBLIC_SLACK_CLIENT_ID!,
         scope: allScopes.join(","),
-        redirect_uri: baseUrl,
+        redirect_uri: redirectUri,
         response_type: "code",
         ...(state && { state }),
       })
@@ -90,7 +90,7 @@ export function generateReconnectionUrl(provider: string, state?: string): strin
       const googleParams = new URLSearchParams({
         client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!,
         scope: allScopes.join(" "),
-        redirect_uri: baseUrl,
+        redirect_uri: redirectUri,
         response_type: "code",
         access_type: "offline",
         prompt: "consent",
@@ -102,7 +102,7 @@ export function generateReconnectionUrl(provider: string, state?: string): strin
       const discordParams = new URLSearchParams({
         client_id: process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID!,
         scope: allScopes.join(" "),
-        redirect_uri: baseUrl,
+        redirect_uri: redirectUri,
         response_type: "code",
         ...(state && { state }),
       })
@@ -112,7 +112,7 @@ export function generateReconnectionUrl(provider: string, state?: string): strin
       const githubParams = new URLSearchParams({
         client_id: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID!,
         scope: allScopes.join(" "),
-        redirect_uri: baseUrl,
+        redirect_uri: redirectUri,
         ...(state && { state }),
       })
       return `https://github.com/login/oauth/authorize?${githubParams.toString()}`
@@ -121,7 +121,7 @@ export function generateReconnectionUrl(provider: string, state?: string): strin
       const dropboxParams = new URLSearchParams({
         client_id: process.env.NEXT_PUBLIC_DROPBOX_CLIENT_ID!,
         scope: allScopes.join(" "),
-        redirect_uri: baseUrl,
+        redirect_uri: redirectUri,
         response_type: "code",
         token_access_type: "offline",
         ...(state && { state }),
@@ -271,11 +271,6 @@ export async function validateAllIntegrations(userId: string): Promise<any[]> {
     const grantedScopes = integration.granted_scopes || []
     const provider = integration.provider
 
-    // Skip providers not in our registry
-    if (!INTEGRATION_SCOPES[provider]) {
-      continue
-    }
-
     const validationResult = validateScopes(provider, grantedScopes)
 
     // Update the integration with validation results
@@ -290,11 +285,8 @@ export async function validateAllIntegrations(userId: string): Promise<any[]> {
       .eq("id", integration.id)
 
     results.push({
-      integration: {
-        ...integration,
-        missing_scopes: validationResult.missing,
-        scope_validation_status: validationResult.status,
-      },
+      integrationId: integration.id,
+      provider,
       ...validationResult,
     })
   }
