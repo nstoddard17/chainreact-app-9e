@@ -1,7 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createServerSupabaseClient } from "@/lib/supabase-server"
+import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
+import { cookies } from "next/headers"
 import { DiscordOAuthService } from "@/lib/oauth/discord"
 import { parseOAuthState } from "@/lib/oauth/utils"
+import type { Database } from "@/types/supabase"
 
 export async function GET(request: NextRequest) {
   try {
@@ -60,8 +62,8 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Create Supabase client using server method
-    const supabase = createServerSupabaseClient()
+    // Create Supabase client using route handler method with cookies
+    const supabase = createRouteHandlerClient<Database>({ cookies })
 
     // Verify the user session
     const {

@@ -87,7 +87,7 @@ const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
     icon: "#",
     logoColor: "bg-indigo-600 text-white",
     authType: "oauth",
-    scopes: ["bot", "applications.commands", "identify", "guilds"],
+    scopes: ["identify", "guilds", "guilds.join", "messages.read"],
     capabilities: ["Send messages", "Manage channels", "Create webhooks", "Moderate servers"],
     category: "Communication",
     requiresSetup: !process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID,
@@ -414,8 +414,8 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
         const state = get()
         const now = Date.now()
 
-        // Reduce cache time to 10 seconds for better responsiveness after OAuth
-        if (!force && state.lastFetched && now - state.lastFetched < 10000 && state.integrations.length > 0) {
+        // Force refresh after OAuth callback or if explicitly requested
+        if (!force && state.lastFetched && now - state.lastFetched < 5000 && state.integrations.length > 0) {
           console.log("Using cached integrations data")
           return
         }
@@ -584,8 +584,8 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
               break
             case "discord":
               if (process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID) {
-                // Always include all required scopes
-                const requiredScopes = "bot applications.commands identify guilds"
+                // Use the updated Discord scopes
+                const requiredScopes = "identify guilds guilds.join messages.read"
                 authUrl = `https://discord.com/api/oauth2/authorize?client_id=${process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(requiredScopes)}&state=${state}&prompt=consent`
               }
               break
@@ -600,10 +600,23 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
           if (authUrl) {
             console.log(`Redirecting to OAuth URL for ${provider}:`, authUrl)
 
-            // Set a timeout to reset the connecting state if the redirect doesn't happen
+            // Set up a listener for when the user returns from OAuth
+            const handleOAuthReturn = () => {
+              console.log("OAuth return detected, refreshing integrations...")
+              setTimeout(() => {
+                get().fetchIntegrations(true)
+                set({ loading: false, connectingProvider: null })
+              }, 2000) // Give the callback time to save the integration
+            }
+
+            // Listen for focus events (when user returns to the tab)
+            window.addEventListener("focus", handleOAuthReturn, { once: true })
+
+            // Set a timeout to reset the connecting state
             setTimeout(() => {
+              window.removeEventListener("focus", handleOAuthReturn)
               set({ loading: false, connectingProvider: null })
-            }, 10000)
+            }, 300000) // 5 minutes timeout
 
             window.location.href = authUrl
             return
