@@ -594,7 +594,12 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
                 authUrl = `https://www.dropbox.com/oauth2/authorize?client_id=${process.env.NEXT_PUBLIC_DROPBOX_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&state=${state}&force_reapprove=true&token_access_type=offline`
               }
               break
-            // Add other providers as needed
+              case "gmail":
+                  if (process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) {
+                      const requiredScopes = providerConfig.scopes.join(" ");
+                      authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(requiredScopes)}&state=${state}&access_type=offline&prompt=consent`;
+                  }
+                  break;
           }
 
           if (authUrl) {
