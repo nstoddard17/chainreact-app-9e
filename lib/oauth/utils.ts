@@ -2,17 +2,29 @@ import { createClient } from "@supabase/supabase-js"
 import type { NextRequest } from "next/server"
 import type { Database } from "@/types/supabase"
 
-// Create a server-side Supabase client for admin operations
+/**
+ * Create admin client only for server-side operations
+ * This should only be called from server-side code (API routes, server actions)
+ */
 export const createAdminSupabaseClient = () => {
+  // Ensure this only runs on the server
+  if (typeof window !== "undefined") {
+    console.warn("Warning: Attempted to create admin Supabase client on the client side")
+    return null
+  }
+
   const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
   if (!supabaseUrl || !supabaseServiceKey) {
-    console.error("Missing Supabase admin environment variables:", {
-      SUPABASE_URL: !!supabaseUrl,
-      SUPABASE_SERVICE_ROLE_KEY: !!supabaseServiceKey,
-    })
-    throw new Error("Supabase admin environment variables are required")
+    const missingVars = {
+      SUPABASE_URL: !supabaseUrl,
+      SUPABASE_SERVICE_ROLE_KEY: !supabaseServiceKey,
+    }
+
+    // Only log on server, not in browser
+    console.error("Missing Supabase admin environment variables:", missingVars)
+    throw new Error("Supabase admin environment variables are required for server operations")
   }
 
   return createClient<Database>(supabaseUrl, supabaseServiceKey, {
@@ -23,8 +35,29 @@ export const createAdminSupabaseClient = () => {
   })
 }
 
-// Export the admin client instance for backward compatibility
-export const adminSupabase = createAdminSupabaseClient()
+// For backward compatibility - this is a lazy-loaded getter that only initializes on the server
+// This prevents client-side errors while maintaining the export for existing code
+export const adminSupabase = new Proxy({} as ReturnType<typeof createClient<Database>>, {
+  get: (target, prop) => {
+    // Only create the client when a property is accessed
+    if (typeof window !== "undefined") {
+      console.error("Error: Attempted to access adminSupabase on the client side")
+      return undefined
+    }
+
+    try {
+      const client = createAdminSupabaseClient()
+      if (!client) {
+        return undefined
+      }
+      // @ts-ignore - accessing dynamic property
+      return client[prop]
+    } catch (error) {
+      console.error("Error accessing adminSupabase:", error)
+      return undefined
+    }
+  },
+})
 
 /**
  * Get the absolute base URL for OAuth redirects based on the request
