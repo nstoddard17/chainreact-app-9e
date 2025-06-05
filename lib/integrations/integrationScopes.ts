@@ -120,7 +120,23 @@ export const INTEGRATION_SCOPES: Record<string, IntegrationScopeConfig> = {
       "dropbox-list-files": ["files.metadata.read"],
       "dropbox-create-folder": ["files.metadata.write"],
     },
-  },
+    },
+    notion: {
+        provider: "notion",
+        scopes: [
+            { scope: "read", description: "Read workspace content", required: true },
+            { scope: "insert", description: "Create pages and databases", required: true },
+            { scope: "update", description: "Update existing pages and blocks", required: false },
+            { scope: "delete", description: "Delete pages and databases", required: false },
+        ],
+        components: {
+            "notion-create-page": ["insert"],
+            "notion-read-page": ["read"],
+            "notion-update-page": ["update"],
+            "notion-delete-page": ["delete"],
+        },
+    },
+
 }
 
 export function getRequiredScopes(provider: string): string[] {
@@ -270,7 +286,17 @@ export function generateOAuthUrlWithScopes(provider: string, baseUrl: string, st
           process.env.NEXT_PUBLIC_DROPBOX_CLIENT_ID
         }&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&state=${state}`
       }
-      break
+          break
+      case "notion":
+          if (process.env.NEXT_PUBLIC_NOTION_CLIENT_ID) {
+              const scopesParam = allScopes.join(" ");
+              return `https://api.notion.com/v1/oauth/authorize?client_id=${process.env.NEXT_PUBLIC_NOTION_CLIENT_ID
+                  }&redirect_uri=${encodeURIComponent(
+                      redirectUri,
+                  )}&response_type=code&owner=user&scope=${encodeURIComponent(scopesParam)}&state=${state}`;
+          }
+          break;
+
     // Add other providers as needed
   }
 

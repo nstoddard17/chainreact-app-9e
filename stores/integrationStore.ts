@@ -600,6 +600,13 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
                       authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(requiredScopes)}&state=${state}&access_type=offline&prompt=consent`;
                   }
                   break;
+              case "notion":
+                  if (process.env.NEXT_PUBLIC_NOTION_CLIENT_ID) {
+                      const requiredScopes = providerConfig.scopes.join(" ");
+                      authUrl = `https://api.notion.com/v1/oauth/authorize?client_id=${process.env.NEXT_PUBLIC_NOTION_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&owner=user&scope=${encodeURIComponent(requiredScopes)}&state=${state}`;
+                  }
+                  break;
+
           }
 
           if (authUrl) {
