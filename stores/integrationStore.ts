@@ -3,7 +3,7 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 import { getSupabaseClient } from "@/lib/supabase"
-import { validateScopes, generateOAuthUrlWithScopes, INTEGRATION_SCOPES } from "@/lib/integrations/integrationScopes"
+import { toast } from "@/hooks/use-toast"
 
 interface Integration {
   id: string
@@ -41,6 +41,7 @@ interface IntegrationState {
   error: string | null
   lastFetched: number | null
   verifyingScopes: boolean
+  connectingProvider: string | null
 }
 
 interface IntegrationActions {
@@ -55,7 +56,7 @@ interface IntegrationActions {
 
 // Use your actual domain for OAuth redirects
 const getBaseUrl = () => {
-  return "https://chainreact.app"
+  return typeof window !== "undefined" ? window.location.origin : "https://chainreact.app"
 }
 
 const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
@@ -90,7 +91,7 @@ const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
     icon: "#",
     logoColor: "bg-indigo-600 text-white",
     authType: process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID ? "oauth" : "demo",
-    scopes: ["bot", "applications.commands"],
+    scopes: ["bot", "applications.commands", "identify", "guilds"],
     capabilities: ["Send messages", "Manage channels", "Create webhooks", "Moderate servers"],
     category: "Communication",
     requiresSetup: !process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID,
@@ -411,6 +412,7 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
       error: null,
       lastFetched: null,
       verifyingScopes: false,
+      connectingProvider: null,
 
       fetchIntegrations: async (force = false) => {
         const state = get()
@@ -450,37 +452,8 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
           }
 
           console.log("Fetched integrations:", data)
-
-          // Validate scopes for each integration
-          const validatedIntegrations =
-            data?.map((integration) => {
-              if (
-                integration.status === "connected" &&
-                integration.scopes &&
-                INTEGRATION_SCOPES[integration.provider]
-              ) {
-                const validationResult = validateScopes(integration.provider, integration.scopes)
-
-                // Update the integration with validation results
-                return {
-                  ...integration,
-                  verified: validationResult.valid,
-                  metadata: {
-                    ...integration.metadata,
-                    scope_validation: {
-                      valid: validationResult.valid,
-                      missing_scopes: validationResult.missingScopes,
-                      optional_missing_scopes: validationResult.optionalMissingScopes,
-                      validated_at: new Date().toISOString(),
-                    },
-                  },
-                }
-              }
-              return integration
-            }) || []
-
           set({
-            integrations: validatedIntegrations,
+            integrations: data || [],
             loading: false,
             lastFetched: now,
           })
@@ -510,40 +483,12 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
             throw new Error(data.error)
           }
 
-          // Validate scopes for each integration
-          const validatedIntegrations =
-            data.integrations?.map((integration: any) => {
-              if (
-                integration.status === "connected" &&
-                integration.scopes &&
-                INTEGRATION_SCOPES[integration.provider]
-              ) {
-                const validationResult = validateScopes(integration.provider, integration.scopes)
-
-                // Update the integration with validation results
-                return {
-                  ...integration,
-                  verified: validationResult.valid,
-                  metadata: {
-                    ...integration.metadata,
-                    scope_validation: {
-                      valid: validationResult.valid,
-                      missing_scopes: validationResult.missingScopes,
-                      optional_missing_scopes: validationResult.optionalMissingScopes,
-                      validated_at: new Date().toISOString(),
-                    },
-                  },
-                }
-              }
-              return integration
-            }) || []
-
           set((state) => ({
-            integrations: validatedIntegrations || state.integrations,
+            integrations: data.integrations || state.integrations,
             verifyingScopes: false,
           }))
 
-          return validatedIntegrations
+          return data.integrations
         } catch (error: any) {
           console.error("Error verifying integration scopes:", error)
           set({ error: error.message, verifyingScopes: false })
@@ -552,7 +497,7 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
       },
 
       connectIntegration: async (provider: string, forceOAuth = false) => {
-        set({ loading: true, error: null })
+        set({ loading: true, error: null, connectingProvider: provider })
 
         try {
           const providerConfig = INTEGRATION_PROVIDERS.find((p) => p.id === provider)
@@ -562,8 +507,12 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
 
           // Check if this is a "Coming Soon" integration
           if (providerConfig.comingSoon) {
-            alert(`${providerConfig.name} integration is coming soon! Stay tuned for updates.`)
-            set({ loading: false })
+            toast({
+              title: "Coming Soon",
+              description: `${providerConfig.name} integration is coming soon! Stay tuned for updates.`,
+              variant: "default",
+            })
+            set({ loading: false, connectingProvider: null })
             return
           }
 
@@ -573,15 +522,41 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
             (i) => i.provider === provider && i.status === "connected",
           )
 
-          // Check if the integration has missing required scopes
-          const hasMissingScopes = existingIntegration?.metadata?.scope_validation?.valid === false
+          // Special handling for Discord - check existing scopes and force reconnection if missing
+          if (provider === "discord" && existingIntegration && !forceOAuth) {
+            const requiredScopes = ["bot", "applications.commands", "identify", "guilds"]
+            const grantedScopes = existingIntegration.scopes || []
+            const missingScopes = requiredScopes.filter((scope) => !grantedScopes.includes(scope))
+
+            if (missingScopes.length > 0) {
+              console.log(`Discord missing required scopes: ${missingScopes.join(", ")}, forcing reconnection`)
+              forceOAuth = true
+
+              // Invalidate the existing integration
+              const supabase = getSupabaseClient()
+              await supabase
+                .from("integrations")
+                .update({
+                  status: "disconnected",
+                  metadata: {
+                    ...existingIntegration.metadata,
+                    access_token: null,
+                    refresh_token: null,
+                    invalidated_reason: `Missing required scopes: ${missingScopes.join(", ")}`,
+                    invalidated_at: new Date().toISOString(),
+                  },
+                  updated_at: new Date().toISOString(),
+                })
+                .eq("id", existingIntegration.id)
+            }
+          }
 
           const isOAuthProvider = providerConfig.authType === "oauth"
 
           // For OAuth providers, always force a new OAuth flow to ensure proper scopes
-          if (isOAuthProvider || hasMissingScopes) {
+          if (isOAuthProvider) {
             forceOAuth = true
-            console.log(`OAuth provider detected or missing scopes, forcing OAuth flow for ${provider}`)
+            console.log(`OAuth provider detected, forcing OAuth flow for ${provider}`)
 
             // If there's an existing integration, invalidate its token first
             if (existingIntegration) {
@@ -596,7 +571,6 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
                     access_token: null,
                     refresh_token: null,
                     invalidated_at: new Date().toISOString(),
-                    invalidation_reason: hasMissingScopes ? "Missing required scopes" : "User initiated reconnection",
                   },
                   updated_at: new Date().toISOString(),
                 })
@@ -604,9 +578,9 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
             }
           }
 
-          if (existingIntegration && !forceOAuth && !hasMissingScopes) {
+          if (existingIntegration && !forceOAuth) {
             console.log(`${provider} is already connected and not forcing OAuth`)
-            set({ loading: false })
+            set({ loading: false, connectingProvider: null })
             return
           }
 
@@ -635,17 +609,54 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
               requireFullScopes: true,
             })
 
-            // Use the centralized OAuth URL generator
+            let authUrl = ""
             const baseUrl = getBaseUrl()
-            const authUrl = generateOAuthUrlWithScopes(provider, baseUrl, state)
+
+            switch (provider) {
+              case "slack":
+                if (process.env.NEXT_PUBLIC_SLACK_CLIENT_ID) {
+                  const redirectUri = `${baseUrl}/api/integrations/slack/callback`
+                  // Always include the complete set of scopes, especially files:write and reactions:write
+                  const requiredScopes =
+                    "chat:write,chat:write.public,channels:read,channels:join,groups:read,im:read,users:read,team:read,files:write,reactions:write"
+                  authUrl = `https://slack.com/oauth/v2/authorize?client_id=${process.env.NEXT_PUBLIC_SLACK_CLIENT_ID}&scope=${requiredScopes}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&user_scope=&team=${""}&prompt=consent`
+                }
+                break
+              case "discord":
+                if (process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID) {
+                  const redirectUri = `${baseUrl}/api/integrations/discord/callback`
+                  // Always include both bot and applications.commands scopes
+                  const requiredScopes = "bot applications.commands identify guilds"
+                  authUrl = `https://discord.com/api/oauth2/authorize?client_id=${process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(requiredScopes)}&state=${state}&prompt=consent&t=${timestamp}`
+                }
+                break
+              case "dropbox":
+                if (process.env.NEXT_PUBLIC_DROPBOX_CLIENT_ID) {
+                  const redirectUri = `${baseUrl}/api/integrations/dropbox/callback`
+                  authUrl = `https://www.dropbox.com/oauth2/authorize?client_id=${process.env.NEXT_PUBLIC_DROPBOX_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&state=${state}&force_reapprove=true&t=${timestamp}`
+                }
+                break
+              // Other providers remain unchanged
+            }
 
             if (authUrl) {
               console.log(`Redirecting to OAuth URL for ${provider}`)
               console.log(`Auth URL: ${authUrl}`)
-              window.location.replace(authUrl)
+
+              // Set a timeout to reset the connecting state if the redirect doesn't happen
+              setTimeout(() => {
+                set({ loading: false, connectingProvider: null })
+              }, 10000)
+
+              window.location.href = authUrl
               return
             } else {
               console.log(`OAuth not configured for ${provider}, falling back to demo mode`)
+              toast({
+                title: "OAuth Not Configured",
+                description: `OAuth is not configured for ${providerConfig.name}. Falling back to demo mode.`,
+                variant: "destructive",
+              })
             }
           }
 
@@ -670,14 +681,7 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
                 demo: true,
                 connected_at: new Date().toISOString(),
                 capabilities: providerConfig.capabilities,
-                scope_validation: {
-                  valid: true, // Demo integrations are always valid
-                  missing_scopes: [],
-                  optional_missing_scopes: [],
-                  validated_at: new Date().toISOString(),
-                },
               },
-              verified: true, // Demo integrations are always verified
             })
             .select()
             .single()
@@ -685,17 +689,30 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
           if (error) throw error
 
           await get().fetchIntegrations(true)
-          set({ loading: false })
+          toast({
+            title: "Integration Connected",
+            description: `${providerConfig.name} has been connected in demo mode.`,
+            variant: "default",
+          })
+          set({ loading: false, connectingProvider: null })
         } catch (error: any) {
           console.error("Connect integration error:", error)
-          set({ error: error.message, loading: false })
+          toast({
+            title: "Connection Failed",
+            description: error.message || "Failed to connect integration. Please try again.",
+            variant: "destructive",
+          })
+          set({ error: error.message, loading: false, connectingProvider: null })
           throw error
         }
       },
 
-      // ... other methods remain unchanged
       disconnectIntegration: async (id: string) => {
         const supabase = getSupabaseClient()
+        const integration = get().integrations.find((i) => i.id === id)
+        const providerName = integration
+          ? INTEGRATION_PROVIDERS.find((p) => p.id === integration.provider)?.name
+          : "Integration"
 
         try {
           const { error } = await supabase
@@ -709,7 +726,17 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
           if (error) throw error
 
           await get().fetchIntegrations(true)
+          toast({
+            title: "Integration Disconnected",
+            description: `${providerName} has been disconnected successfully.`,
+            variant: "default",
+          })
         } catch (error: any) {
+          toast({
+            title: "Disconnection Failed",
+            description: error.message || "Failed to disconnect integration. Please try again.",
+            variant: "destructive",
+          })
           set({ error: error.message })
           throw error
         }
@@ -730,11 +757,17 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
           })
 
           if (!response.ok) {
-            throw new Error("Failed to execute action")
+            const errorText = await response.text()
+            throw new Error(`Failed to execute action: ${errorText}`)
           }
 
           return await response.json()
         } catch (error: any) {
+          toast({
+            title: "Action Failed",
+            description: error.message || "Failed to execute integration action. Please try again.",
+            variant: "destructive",
+          })
           set({ error: error.message })
           throw error
         }
@@ -742,6 +775,7 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
 
       refreshToken: async (integration: Integration) => {
         console.log("Refreshing token for integration:", integration.id)
+        // Implementation for token refresh
       },
 
       clearCache: () => {

@@ -16,9 +16,33 @@ export class DiscordOAuthService {
     return { clientId, clientSecret }
   }
 
+  static async validateToken(
+    accessToken: string,
+  ): Promise<{ valid: boolean; grantedScopes: string[]; missingScopes: string[] }> {
+    try {
+      // Test the token by making an API call to users/@me
+      const response = await fetch("https://discord.com/api/users/@me", {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      })
+
+      if (!response.ok) {
+        return { valid: false, grantedScopes: [], missingScopes: [] }
+      }
+
+      // Discord doesn't provide a way to get scopes from the token directly
+      // We'll need to rely on what was stored during the OAuth flow
+      return { valid: true, grantedScopes: [], missingScopes: [] }
+    } catch (error) {
+      console.error("Error validating Discord token:", error)
+      return { valid: false, grantedScopes: [], missingScopes: [] }
+    }
+  }
+
   static async validateExistingIntegration(integration: any): Promise<boolean> {
     try {
-      const requiredScopes = ["bot", "applications.commands"]
+      const requiredScopes = ["bot", "applications.commands", "identify", "guilds"]
       const grantedScopes = integration.scopes || []
 
       console.log("Discord scope validation:", { grantedScopes, requiredScopes })
@@ -79,7 +103,7 @@ export class DiscordOAuthService {
           client_secret: clientSecret,
           grant_type: "authorization_code",
           code,
-          redirect_uri: "https://chainreact.app/api/integrations/discord/callback",
+          redirect_uri: `${baseUrl}/api/integrations/discord/callback`,
         }),
       })
 
@@ -93,7 +117,7 @@ export class DiscordOAuthService {
 
       // Always validate scopes for Discord
       const grantedScopes = scope ? scope.split(" ") : []
-      const requiredScopes = ["bot", "applications.commands"]
+      const requiredScopes = ["bot", "applications.commands", "identify", "guilds"]
       const missingScopes = requiredScopes.filter((s) => !grantedScopes.includes(s))
 
       if (missingScopes.length > 0) {

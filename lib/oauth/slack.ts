@@ -27,6 +27,38 @@ export class SlackOAuthService {
     return { clientId, clientSecret }
   }
 
+  static async validateToken(
+    accessToken: string,
+  ): Promise<{ valid: boolean; grantedScopes: string[]; missingScopes: string[] }> {
+    try {
+      // Test the token by making an API call to auth.test
+      const response = await fetch("https://slack.com/api/auth.test", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+      })
+
+      if (!response.ok) {
+        return { valid: false, grantedScopes: [], missingScopes: [] }
+      }
+
+      const data = await response.json()
+
+      if (!data.ok) {
+        return { valid: false, grantedScopes: [], missingScopes: [] }
+      }
+
+      // We can't get scopes from auth.test, so we'll need to rely on what was stored
+      // This is just a token validation check
+      return { valid: true, grantedScopes: [], missingScopes: [] }
+    } catch (error) {
+      console.error("Error validating Slack token:", error)
+      return { valid: false, grantedScopes: [], missingScopes: [] }
+    }
+  }
+
   static async handleCallback(
     code: string,
     state: string,
@@ -56,7 +88,7 @@ export class SlackOAuthService {
           client_id: clientId,
           client_secret: clientSecret,
           code,
-          redirect_uri: "https://chainreact.app/api/integrations/slack/callback",
+          redirect_uri: `${baseUrl}/api/integrations/slack/callback`,
         }),
       })
 
