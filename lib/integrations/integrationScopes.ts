@@ -362,17 +362,21 @@ export function generateOAuthUrlWithScopes(provider: string, baseUrl: string, st
           process.env.NEXT_PUBLIC_SLACK_CLIENT_ID
         }&scope=${scopesParam}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}`
       }
-      break
-    case "google":
-      if (process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) {
-        const scopesParam = allScopes.join(" ")
-        return `https://accounts.google.com/o/oauth2/v2/auth?client_id=${
-          process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
-        }&redirect_uri=${encodeURIComponent(
-          redirectUri,
-        )}&scope=${encodeURIComponent(scopesParam)}&response_type=code&state=${state}&access_type=offline&prompt=consent`
-      }
-      break
+          break
+      case "gmail":
+      case "google-calendar":
+      case "google-sheets":
+      case "google-docs":
+      case "youtube":
+          if (process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) {
+              const scopesParam = allScopes.join(" ");
+              return `https://accounts.google.com/o/oauth2/v2/auth?client_id=${process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
+                  }&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(
+                      scopesParam,
+                  )}&response_type=code&state=${state}&access_type=offline&prompt=consent`;
+          }
+          break;
+
     case "discord":
       if (process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID) {
         const scopesParam = allScopes.join(" ")
@@ -439,15 +443,6 @@ export function generateOAuthUrlWithScopes(provider: string, baseUrl: string, st
               const scopesParam = allScopes.join(",")
               return `https://www.facebook.com/v18.0/dialog/oauth?client_id=${process.env.NEXT_PUBLIC_FACEBOOK_CLIENT_ID
                   }&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&scope=${encodeURIComponent(scopesParam)}&response_type=code`
-          }
-          break
-      case "youtube":
-          if (process.env.NEXT_PUBLIC_YOUTUBE_CLIENT_ID) {
-              const scopesParam = allScopes.join(" ")
-              return `https://accounts.google.com/o/oauth2/v2/auth?client_id=${process.env.NEXT_PUBLIC_YOUTUBE_CLIENT_ID
-                  }&redirect_uri=${encodeURIComponent(
-                      redirectUri
-                  )}&scope=${encodeURIComponent(scopesParam)}&response_type=code&state=${state}&access_type=offline&prompt=consent`
           }
           break
 
