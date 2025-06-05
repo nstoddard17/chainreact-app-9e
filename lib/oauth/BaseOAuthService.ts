@@ -1,4 +1,4 @@
-import { adminSupabase, upsertIntegration, validateScopes, getRequiredScopes } from "./utils"
+import { createAdminSupabaseClient, upsertIntegration, validateScopes, getRequiredScopes } from "./utils"
 
 export interface OAuthResult {
   success: boolean
@@ -7,6 +7,13 @@ export interface OAuthResult {
 }
 
 export class BaseOAuthService {
+  /**
+   * Get hardcoded redirect URI for a provider
+   */
+  static getRedirectUri(provider: string): string {
+    return `https://chainreact.app/api/integrations/${provider}/callback`
+  }
+
   /**
    * Exchange authorization code for access token
    * To be implemented by provider-specific services
@@ -48,13 +55,7 @@ export class BaseOAuthService {
    * Handle OAuth callback
    * Common implementation for all providers
    */
-  static async handleCallback(
-    provider: string,
-    code: string,
-    state: string,
-    redirectUri: string,
-    userId: string,
-  ): Promise<OAuthResult> {
+  static async handleCallback(provider: string, code: string, state: string, userId: string): Promise<OAuthResult> {
     try {
       // Get client credentials
       const clientId = process.env[`NEXT_PUBLIC_${provider.toUpperCase()}_CLIENT_ID`]
@@ -63,6 +64,9 @@ export class BaseOAuthService {
       if (!clientId || !clientSecret) {
         throw new Error(`Missing ${provider} OAuth configuration`)
       }
+
+      // Use hardcoded redirect URI
+      const redirectUri = this.getRedirectUri(provider)
 
       // Exchange code for token
       const tokenResponse = await this.exchangeCodeForToken(code, redirectUri, clientId, clientSecret)
@@ -81,10 +85,9 @@ export class BaseOAuthService {
           missing: scopeValidation.missingScopes,
         })
 
-        const baseUrl = new URL(redirectUri).origin
         return {
           success: false,
-          redirectUrl: `${baseUrl}/integrations?error=insufficient_scopes&provider=${provider}&message=${encodeURIComponent(
+          redirectUrl: `https://chainreact.app/integrations?error=insufficient_scopes&provider=${provider}&message=${encodeURIComponent(
             `Missing required permissions: ${scopeValidation.missingScopes.join(", ")}. Please reconnect and accept all permissions.`,
           )}`,
           error: "Insufficient scopes",
@@ -120,19 +123,20 @@ export class BaseOAuthService {
       }
 
       // Upsert integration data
-      await upsertIntegration(adminSupabase, integrationData)
+      const adminSupabase = createAdminSupabaseClient()
+      if (adminSupabase) {
+        await upsertIntegration(adminSupabase, integrationData)
+      }
 
-      const baseUrl = new URL(redirectUri).origin
       return {
         success: true,
-        redirectUrl: `${baseUrl}/integrations?success=${provider}_connected&provider=${provider}`,
+        redirectUrl: `https://chainreact.app/integrations?success=${provider}_connected&provider=${provider}`,
       }
     } catch (error: any) {
       console.error(`${provider} OAuth callback error:`, error)
-      const baseUrl = new URL(redirectUri).origin
       return {
         success: false,
-        redirectUrl: `${baseUrl}/integrations?error=callback_failed&provider=${provider}&message=${encodeURIComponent(
+        redirectUrl: `https://chainreact.app/integrations?error=callback_failed&provider=${provider}&message=${encodeURIComponent(
           error.message,
         )}`,
         error: error.message,

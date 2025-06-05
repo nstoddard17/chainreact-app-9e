@@ -71,7 +71,7 @@ export class GoogleOAuthService {
           console.error("Google scope validation failed:", validation)
           return {
             success: false,
-            redirectUrl: `${baseUrl}/integrations?error=insufficient_scopes&provider=google&message=${encodeURIComponent(
+            redirectUrl: `https://chainreact.app/integrations?error=insufficient_scopes&provider=google&message=${encodeURIComponent(
               `Your connection is missing required permissions: ${validation.missingScopes.join(", ")}. Please reconnect and accept all scopes.`,
             )}`,
             error: "Insufficient scopes granted",
@@ -141,12 +141,12 @@ export class GoogleOAuthService {
 
       return {
         success: true,
-        redirectUrl: `${baseUrl}/integrations?success=${provider}_connected&scopes_validated=true`,
+        redirectUrl: `https://chainreact.app/integrations?success=${provider}_connected&scopes_validated=true`,
       }
     } catch (error: any) {
       return {
         success: false,
-        redirectUrl: `${baseUrl}/integrations?error=callback_failed&provider=google&message=${encodeURIComponent(error.message)}`,
+        redirectUrl: `https://chainreact.app/integrations?error=callback_failed&provider=google&message=${encodeURIComponent(error.message)}`,
         error: error.message,
       }
     }

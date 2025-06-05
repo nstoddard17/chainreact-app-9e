@@ -18,7 +18,7 @@ export class DropboxOAuthService extends BaseOAuthService {
         grant_type: "authorization_code",
         client_id: clientId,
         client_secret: clientSecret,
-        redirect_uri: redirectUri,
+        redirect_uri: "https://chainreact.app/api/integrations/dropbox/callback",
       }),
     })
 
@@ -56,7 +56,7 @@ export class DropboxOAuthService extends BaseOAuthService {
     return getRequiredScopes("dropbox")
   }
 
-  static async handleCallback(code: string, state: string, redirectUri: string, userId: string): Promise<OAuthResult> {
-    return super.handleCallback("dropbox", code, state, redirectUri, userId)
+  static async handleCallback(code: string, state: string, userId: string): Promise<OAuthResult> {
+    return super.handleCallback("dropbox", code, state, userId)
   }
 }

@@ -15,21 +15,22 @@ export function createAdminSupabaseClient() {
     return adminClient
   }
 
-  const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseUrl = process.env.SUPABASE_URL
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
   if (!supabaseUrl || !supabaseServiceKey) {
-    const missingVars = {
-      SUPABASE_URL: !supabaseUrl,
-      SUPABASE_SERVICE_ROLE_KEY: !supabaseServiceKey,
+    const missingVars = []
+    if (!supabaseUrl) missingVars.push("SUPABASE_URL")
+    if (!supabaseServiceKey) missingVars.push("SUPABASE_SERVICE_ROLE_KEY")
+
+    const errorMessage = `Missing required Supabase admin environment variables: ${missingVars.join(", ")}`
+
+    if (process.env.NODE_ENV === "development") {
+      throw new Error(errorMessage)
+    } else {
+      console.error(errorMessage)
+      throw new Error("Server configuration error")
     }
-
-    console.error("Missing Supabase admin environment variables:", missingVars)
-    console.error("Please ensure these variables are set in your .env.local file:")
-    if (!supabaseUrl) console.error("- SUPABASE_URL")
-    if (!supabaseServiceKey) console.error("- SUPABASE_SERVICE_ROLE_KEY")
-
-    throw new Error("Supabase admin environment variables are required for server operations")
   }
 
   try {

@@ -25,7 +25,7 @@ interface IntegrationProvider {
   description: string
   icon: string
   logoColor: string
-  authType: "oauth" | "api_key" | "demo"
+  authType: "oauth" | "api_key"
   scopes: string[]
   capabilities: string[]
   category: string
@@ -55,11 +55,6 @@ interface IntegrationActions {
   clearCache: () => void
 }
 
-// Use your actual domain for OAuth redirects
-const getBaseUrl = () => {
-  return typeof window !== "undefined" ? window.location.origin : "https://chainreact.app"
-}
-
 const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
   // Communication
   {
@@ -68,7 +63,7 @@ const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
     description: "Send messages and manage channels",
     icon: "#",
     logoColor: "bg-purple-600 text-white",
-    authType: process.env.NEXT_PUBLIC_SLACK_CLIENT_ID ? "oauth" : "demo",
+    authType: "oauth",
     scopes: [
       "chat:write",
       "chat:write.public",
@@ -91,7 +86,7 @@ const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
     description: "Manage Discord servers and channels",
     icon: "#",
     logoColor: "bg-indigo-600 text-white",
-    authType: process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID ? "oauth" : "demo",
+    authType: "oauth",
     scopes: ["bot", "applications.commands", "identify", "guilds"],
     capabilities: ["Send messages", "Manage channels", "Create webhooks", "Moderate servers"],
     category: "Communication",
@@ -103,7 +98,7 @@ const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
     description: "Collaborate and communicate with Teams",
     icon: "#",
     logoColor: "bg-blue-600 text-white",
-    authType: process.env.NEXT_PUBLIC_TEAMS_CLIENT_ID ? "oauth" : "demo",
+    authType: "oauth",
     scopes: ["User.Read", "Chat.ReadWrite", "Team.ReadBasic.All"],
     capabilities: ["Send messages", "Create meetings", "Manage teams", "Share files"],
     category: "Communication",
@@ -117,7 +112,7 @@ const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
     description: "Manage events and schedules",
     icon: "#",
     logoColor: "bg-blue-500 text-white",
-    authType: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ? "oauth" : "demo",
+    authType: "oauth",
     scopes: ["https://www.googleapis.com/auth/calendar"],
     capabilities: ["Create events", "Update events", "Delete events", "List calendars"],
     category: "Productivity",
@@ -129,7 +124,7 @@ const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
     description: "Create and manage spreadsheets",
     icon: "#",
     logoColor: "bg-green-600 text-white",
-    authType: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ? "oauth" : "demo",
+    authType: "oauth",
     scopes: ["https://www.googleapis.com/auth/spreadsheets"],
     capabilities: ["Read sheets", "Write data", "Create sheets", "Format cells"],
     category: "Productivity",
@@ -141,7 +136,7 @@ const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
     description: "Create and manage documents",
     icon: "#",
     logoColor: "bg-blue-400 text-white",
-    authType: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ? "oauth" : "demo",
+    authType: "oauth",
     scopes: ["https://www.googleapis.com/auth/documents"],
     capabilities: ["Create documents", "Edit documents", "Share documents", "Format text"],
     category: "Productivity",
@@ -153,7 +148,7 @@ const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
     description: "Manage pages and databases",
     icon: "#",
     logoColor: "bg-gray-800 text-white",
-    authType: process.env.NEXT_PUBLIC_NOTION_CLIENT_ID ? "oauth" : "demo",
+    authType: "oauth",
     scopes: ["read", "update", "insert"],
     capabilities: ["Create pages", "Update databases", "Query content", "Manage blocks"],
     category: "Productivity",
@@ -165,7 +160,7 @@ const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
     description: "Organize data in flexible databases",
     icon: "#",
     logoColor: "bg-orange-500 text-white",
-    authType: process.env.NEXT_PUBLIC_AIRTABLE_CLIENT_ID ? "oauth" : "demo",
+    authType: "oauth",
     scopes: ["data.records:read", "data.records:write", "schema.bases:read"],
     capabilities: ["Read records", "Create records", "Update records", "Manage bases"],
     category: "Productivity",
@@ -177,7 +172,7 @@ const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
     description: "Manage boards and cards",
     icon: "#",
     logoColor: "bg-blue-600 text-white",
-    authType: process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID ? "oauth" : "demo",
+    authType: "oauth",
     scopes: ["read", "write"],
     capabilities: ["Create cards", "Move cards", "Manage boards", "Add comments"],
     category: "Productivity",
@@ -191,7 +186,7 @@ const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
     description: "Manage repositories and issues",
     icon: "#",
     logoColor: "bg-gray-900 text-white",
-    authType: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID ? "oauth" : "demo",
+    authType: "oauth",
     scopes: ["repo", "user", "workflow"],
     capabilities: ["Create issues", "Manage repositories", "Deploy code", "Review PRs"],
     category: "Development",
@@ -203,7 +198,7 @@ const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
     description: "DevOps platform for code management",
     icon: "#",
     logoColor: "bg-orange-600 text-white",
-    authType: process.env.NEXT_PUBLIC_GITLAB_CLIENT_ID ? "oauth" : "demo",
+    authType: "oauth",
     scopes: ["api"],
     capabilities: ["Manage projects", "Create issues", "Deploy pipelines", "Review code"],
     category: "Development",
@@ -215,7 +210,7 @@ const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
     description: "Manage container images",
     icon: "#",
     logoColor: "bg-blue-500 text-white",
-    authType: process.env.NEXT_PUBLIC_DOCKER_CLIENT_ID ? "oauth" : "demo",
+    authType: "oauth",
     scopes: ["repo:read", "repo:write"],
     capabilities: ["Push images", "Pull images", "Manage repositories", "View analytics"],
     category: "Development",
@@ -229,7 +224,7 @@ const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
     description: "Process payments and manage subscriptions",
     icon: "#",
     logoColor: "bg-purple-600 text-white",
-    authType: process.env.NEXT_PUBLIC_STRIPE_CLIENT_ID ? "oauth" : "demo",
+    authType: "oauth",
     scopes: ["read_write"],
     capabilities: ["Process payments", "Manage customers", "Handle subscriptions", "Generate reports"],
     category: "E-commerce",
@@ -241,7 +236,7 @@ const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
     description: "Accept payments worldwide",
     icon: "#",
     logoColor: "bg-blue-600 text-white",
-    authType: process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID ? "oauth" : "demo",
+    authType: "oauth",
     scopes: ["https://uri.paypal.com/services/payments/payment"],
     capabilities: ["Process payments", "Manage invoices", "Handle refunds", "Track transactions"],
     category: "E-commerce",
@@ -253,7 +248,7 @@ const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
     description: "Manage your online store",
     icon: "#",
     logoColor: "bg-green-600 text-white",
-    authType: process.env.NEXT_PUBLIC_SHOPIFY_CLIENT_ID ? "oauth" : "demo",
+    authType: "oauth",
     scopes: ["read_products", "write_products", "read_orders", "write_orders"],
     capabilities: ["Manage products", "Process orders", "Handle inventory", "Generate reports"],
     category: "E-commerce",
@@ -267,7 +262,7 @@ const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
     description: "Post tweets and manage social presence",
     icon: "#",
     logoColor: "bg-black text-white",
-    authType: process.env.NEXT_PUBLIC_TWITTER_CLIENT_ID ? "oauth" : "demo",
+    authType: "oauth",
     scopes: ["tweet.read", "tweet.write", "users.read"],
     capabilities: ["Post tweets", "Read timeline", "Manage followers", "Analyze engagement"],
     category: "Social Media",
@@ -279,7 +274,7 @@ const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
     description: "Manage Facebook pages and posts",
     icon: "#",
     logoColor: "bg-blue-600 text-white",
-    authType: "demo",
+    authType: "oauth",
     scopes: ["pages_manage_posts", "pages_read_engagement"],
     capabilities: ["Post content", "Manage pages", "View insights", "Respond to comments"],
     category: "Social Media",
@@ -292,7 +287,7 @@ const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
     description: "Share photos and manage Instagram presence",
     icon: "#",
     logoColor: "bg-pink-600 text-white",
-    authType: "demo",
+    authType: "oauth",
     scopes: ["instagram_basic", "instagram_content_publish"],
     capabilities: ["Post photos", "Manage stories", "View insights", "Engage with followers"],
     category: "Social Media",
@@ -305,7 +300,7 @@ const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
     description: "Professional networking and content sharing",
     icon: "#",
     logoColor: "bg-blue-700 text-white",
-    authType: process.env.NEXT_PUBLIC_LINKEDIN_CLIENT_ID ? "oauth" : "demo",
+    authType: "oauth",
     scopes: ["r_liteprofile", "r_emailaddress", "w_member_social"],
     capabilities: ["Share posts", "Manage connections", "View analytics", "Company updates"],
     category: "Social Media",
@@ -317,7 +312,7 @@ const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
     description: "Manage videos and channel content",
     icon: "#",
     logoColor: "bg-red-600 text-white",
-    authType: process.env.NEXT_PUBLIC_YOUTUBE_CLIENT_ID ? "oauth" : "demo",
+    authType: "oauth",
     scopes: ["https://www.googleapis.com/auth/youtube.upload"],
     capabilities: ["Upload videos", "Manage playlists", "View analytics", "Moderate comments"],
     category: "Social Media",
@@ -329,7 +324,7 @@ const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
     description: "Create and manage TikTok content",
     icon: "#",
     logoColor: "bg-black text-white",
-    authType: "demo",
+    authType: "oauth",
     scopes: ["user.info.basic", "video.upload"],
     capabilities: ["Upload videos", "Manage profile", "View analytics", "Engage with content"],
     category: "Social Media",
@@ -344,7 +339,7 @@ const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
     description: "Email marketing and automation",
     icon: "#",
     logoColor: "bg-yellow-500 text-white",
-    authType: process.env.NEXT_PUBLIC_MAILCHIMP_CLIENT_ID ? "oauth" : "demo",
+    authType: "oauth",
     scopes: ["read", "write"],
     capabilities: ["Send campaigns", "Manage lists", "Create automations", "View reports"],
     category: "Marketing",
@@ -356,7 +351,7 @@ const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
     description: "CRM and marketing automation",
     icon: "#",
     logoColor: "bg-orange-600 text-white",
-    authType: process.env.NEXT_PUBLIC_HUBSPOT_CLIENT_ID ? "oauth" : "demo",
+    authType: "oauth",
     scopes: ["crm.objects.contacts.read", "crm.objects.contacts.write"],
     capabilities: ["Manage contacts", "Create deals", "Send emails", "Track analytics"],
     category: "Marketing",
@@ -370,7 +365,7 @@ const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
     description: "Cloud file storage and sharing",
     icon: "#",
     logoColor: "bg-blue-600 text-white",
-    authType: process.env.NEXT_PUBLIC_DROPBOX_CLIENT_ID ? "oauth" : "demo",
+    authType: "oauth",
     scopes: ["files.content.write", "files.content.read"],
     capabilities: ["Upload files", "Download files", "Share folders", "Sync content"],
     category: "Cloud Storage",
@@ -382,7 +377,7 @@ const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
     description: "Microsoft cloud storage",
     icon: "#",
     logoColor: "bg-blue-500 text-white",
-    authType: process.env.NEXT_PUBLIC_ONEDRIVE_CLIENT_ID ? "oauth" : "demo",
+    authType: "oauth",
     scopes: ["https://graph.microsoft.com/Files.ReadWrite"],
     capabilities: ["Store files", "Share documents", "Collaborate", "Sync across devices"],
     category: "Cloud Storage",
@@ -396,7 +391,7 @@ const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
     description: "Send and manage emails",
     icon: "#",
     logoColor: "bg-red-500 text-white",
-    authType: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ? "oauth" : "demo",
+    authType: "oauth",
     scopes: ["https://www.googleapis.com/auth/gmail.modify"],
     capabilities: ["Send emails", "Read messages", "Compose emails", "Manage labels", "Search inbox", "Modify emails"],
     category: "Email",
@@ -432,8 +427,9 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
 
           const supabase = getSupabaseClient()
           if (!supabase) {
-            console.warn("Supabase client not available, skipping integration fetch")
-            set({ integrations: [], loading: false, lastFetched: now })
+            const errorMessage = "Supabase client not available, missing required environment variables"
+            console.error(errorMessage)
+            set({ error: errorMessage, loading: false })
             return
           }
 
@@ -529,107 +525,12 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
             (i) => i.provider === provider && i.status === "connected",
           )
 
-          const isOAuthProvider = providerConfig.authType === "oauth"
+          // For OAuth providers, start the OAuth flow
+          console.log(`Starting OAuth flow for ${provider}`)
 
-          // For OAuth providers, always force a new OAuth flow to ensure proper scopes
-          if (isOAuthProvider) {
-            console.log(`Starting OAuth flow for ${provider}`)
-
-            const supabase = getSupabaseClient()
-            if (!supabase) {
-              throw new Error("Supabase client not available")
-            }
-
-            const {
-              data: { session },
-            } = await supabase.auth.getSession()
-
-            if (!session) {
-              toast({
-                title: "Authentication Required",
-                description: "Please log in to connect integrations.",
-                variant: "destructive",
-              })
-              set({ loading: false, connectingProvider: null })
-              return
-            }
-
-            const userId = session.user.id
-            const disconnectedIntegration = get().integrations.find(
-              (i) => i.provider === provider && i.status === "disconnected",
-            )
-
-            // Generate state with user ID included
-            const state = generateOAuthState(provider, userId, {
-              reconnect: !!disconnectedIntegration || !!existingIntegration,
-              integrationId: disconnectedIntegration?.id || existingIntegration?.id,
-              requireFullScopes: true,
-            })
-
-            // If there's an existing integration, mark it as being reconnected
-            if (existingIntegration) {
-              await supabase
-                .from("integrations")
-                .update({
-                  status: "reconnecting",
-                  updated_at: new Date().toISOString(),
-                })
-                .eq("id", existingIntegration.id)
-            }
-
-            let authUrl = ""
-            const baseUrl = window.location.origin
-            const redirectUri = `${baseUrl}/api/integrations/${provider}/callback`
-
-            switch (provider) {
-              case "slack":
-                if (process.env.NEXT_PUBLIC_SLACK_CLIENT_ID) {
-                  // Always include the complete set of scopes
-                  const requiredScopes =
-                    "chat:write,chat:write.public,channels:read,channels:join,groups:read,im:read,users:read,team:read,files:write,reactions:write"
-                  authUrl = `https://slack.com/oauth/v2/authorize?client_id=${process.env.NEXT_PUBLIC_SLACK_CLIENT_ID}&scope=${requiredScopes}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&prompt=consent`
-                }
-                break
-              case "discord":
-                if (process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID) {
-                  // Always include all required scopes
-                  const requiredScopes = "bot applications.commands identify guilds"
-                  authUrl = `https://discord.com/api/oauth2/authorize?client_id=${process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(requiredScopes)}&state=${state}&prompt=consent`
-                }
-                break
-              case "dropbox":
-                if (process.env.NEXT_PUBLIC_DROPBOX_CLIENT_ID) {
-                  authUrl = `https://www.dropbox.com/oauth2/authorize?client_id=${process.env.NEXT_PUBLIC_DROPBOX_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&state=${state}&force_reapprove=true&token_access_type=offline`
-                }
-                break
-              // Add other providers as needed
-            }
-
-            if (authUrl) {
-              console.log(`Redirecting to OAuth URL for ${provider}:`, authUrl)
-
-              // Set a timeout to reset the connecting state if the redirect doesn't happen
-              setTimeout(() => {
-                set({ loading: false, connectingProvider: null })
-              }, 10000)
-
-              window.location.href = authUrl
-              return
-            } else {
-              console.log(`OAuth not configured for ${provider}, falling back to demo mode`)
-              toast({
-                title: "OAuth Not Configured",
-                description: `OAuth is not configured for ${providerConfig.name}. Falling back to demo mode.`,
-                variant: "destructive",
-              })
-            }
-          }
-
-          // Demo mode for providers without OAuth setup
-          console.log(`Creating demo integration for ${provider}`)
           const supabase = getSupabaseClient()
           if (!supabase) {
-            throw new Error("Supabase client not available")
+            throw new Error("Supabase client not available, missing required environment variables")
           }
 
           const {
@@ -637,62 +538,85 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
           } = await supabase.auth.getSession()
 
           if (!session) {
-            throw new Error("No active session")
+            toast({
+              title: "Authentication Required",
+              description: "Please log in to connect integrations.",
+              variant: "destructive",
+            })
+            set({ loading: false, connectingProvider: null })
+            return
           }
 
-          // Check for existing integration to avoid duplicates
-          const { data: existingData } = await supabase
-            .from("integrations")
-            .select("id")
-            .eq("user_id", session.user.id)
-            .eq("provider", provider)
-            .maybeSingle()
+          const userId = session.user.id
+          const disconnectedIntegration = get().integrations.find(
+            (i) => i.provider === provider && i.status === "disconnected",
+          )
 
-          const integrationData = {
-            user_id: session.user.id,
-            provider: provider,
-            status: "connected",
-            metadata: {
-              demo: true,
-              connected_at: new Date().toISOString(),
-              capabilities: providerConfig.capabilities,
-            },
-          }
+          // Generate state with user ID included
+          const state = generateOAuthState(provider, userId, {
+            reconnect: !!disconnectedIntegration || !!existingIntegration,
+            integrationId: disconnectedIntegration?.id || existingIntegration?.id,
+            requireFullScopes: true,
+          })
 
-          let result
-          if (existingData) {
-            // Update existing integration
-            result = await supabase
+          // If there's an existing integration, mark it as being reconnected
+          if (existingIntegration) {
+            await supabase
               .from("integrations")
               .update({
-                ...integrationData,
+                status: "reconnecting",
                 updated_at: new Date().toISOString(),
               })
-              .eq("id", existingData.id)
-              .select()
-              .single()
-          } else {
-            // Insert new integration
-            result = await supabase
-              .from("integrations")
-              .insert({
-                ...integrationData,
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
-              })
-              .select()
-              .single()
+              .eq("id", existingIntegration.id)
           }
 
-          if (result.error) throw result.error
+          let authUrl = ""
+          const redirectUri = `https://chainreact.app/api/integrations/${provider}/callback`
 
-          await get().fetchIntegrations(true)
-          toast({
-            title: "Integration Connected",
-            description: `${providerConfig.name} has been connected in demo mode.`,
-            variant: "default",
-          })
-          set({ loading: false, connectingProvider: null })
+          switch (provider) {
+            case "slack":
+              if (process.env.NEXT_PUBLIC_SLACK_CLIENT_ID) {
+                // Always include the complete set of scopes
+                const requiredScopes =
+                  "chat:write,chat:write.public,channels:read,channels:join,groups:read,im:read,users:read,team:read,files:write,reactions:write"
+                authUrl = `https://slack.com/oauth/v2/authorize?client_id=${process.env.NEXT_PUBLIC_SLACK_CLIENT_ID}&scope=${requiredScopes}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&prompt=consent`
+              }
+              break
+            case "discord":
+              if (process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID) {
+                // Always include all required scopes
+                const requiredScopes = "bot applications.commands identify guilds"
+                authUrl = `https://discord.com/api/oauth2/authorize?client_id=${process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(requiredScopes)}&state=${state}&prompt=consent`
+              }
+              break
+            case "dropbox":
+              if (process.env.NEXT_PUBLIC_DROPBOX_CLIENT_ID) {
+                authUrl = `https://www.dropbox.com/oauth2/authorize?client_id=${process.env.NEXT_PUBLIC_DROPBOX_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&state=${state}&force_reapprove=true&token_access_type=offline`
+              }
+              break
+            // Add other providers as needed
+          }
+
+          if (authUrl) {
+            console.log(`Redirecting to OAuth URL for ${provider}:`, authUrl)
+
+            // Set a timeout to reset the connecting state if the redirect doesn't happen
+            setTimeout(() => {
+              set({ loading: false, connectingProvider: null })
+            }, 10000)
+
+            window.location.href = authUrl
+            return
+          } else {
+            const errorMessage = `OAuth not configured for ${providerConfig.name}. Please check your environment variables.`
+            console.error(errorMessage)
+            toast({
+              title: "OAuth Configuration Error",
+              description: errorMessage,
+              variant: "destructive",
+            })
+            set({ loading: false, connectingProvider: null, error: errorMessage })
+          }
         } catch (error: any) {
           console.error("Connect integration error:", error)
           toast({
@@ -708,7 +632,15 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
       disconnectIntegration: async (id: string) => {
         const supabase = getSupabaseClient()
         if (!supabase) {
-          throw new Error("Supabase client not available")
+          const errorMessage = "Supabase client not available, missing required environment variables"
+          console.error(errorMessage)
+          toast({
+            title: "Disconnection Failed",
+            description: errorMessage,
+            variant: "destructive",
+          })
+          set({ error: errorMessage })
+          return
         }
 
         const integration = get().integrations.find((i) => i.id === id)

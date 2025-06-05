@@ -18,7 +18,7 @@ export class DiscordOAuthService extends BaseOAuthService {
         client_secret: clientSecret,
         grant_type: "authorization_code",
         code,
-        redirect_uri: redirectUri,
+        redirect_uri: "https://chainreact.app/api/integrations/discord/callback",
       }),
     })
 
@@ -53,7 +53,7 @@ export class DiscordOAuthService extends BaseOAuthService {
     return getRequiredScopes("discord")
   }
 
-  static async handleCallback(code: string, state: string, redirectUri: string, userId: string): Promise<OAuthResult> {
-    return super.handleCallback("discord", code, state, redirectUri, userId)
+  static async handleCallback(code: string, state: string, userId: string): Promise<OAuthResult> {
+    return super.handleCallback("discord", code, state, userId)
   }
 }

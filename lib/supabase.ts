@@ -1,16 +1,24 @@
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import type { Database } from "@/types/supabase"
 
-// Check if Supabase is configured
+// Check if Supabase is configured with exact environment variables
 export const isSupabaseConfigured = () => {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    console.warn("Supabase environment variables missing:", {
-      url: !!supabaseUrl,
-      key: !!supabaseAnonKey,
-    })
+    const missingVars = []
+    if (!supabaseUrl) missingVars.push("NEXT_PUBLIC_SUPABASE_URL")
+    if (!supabaseAnonKey) missingVars.push("NEXT_PUBLIC_SUPABASE_ANON_KEY")
+
+    const errorMessage = `Missing required Supabase environment variables: ${missingVars.join(", ")}`
+
+    if (process.env.NODE_ENV === "development") {
+      throw new Error(errorMessage)
+    } else {
+      console.error(errorMessage)
+    }
+
     return false
   }
 
@@ -23,11 +31,18 @@ export const createBrowserSupabaseClient = () => {
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    console.error("Missing Supabase environment variables:", {
-      NEXT_PUBLIC_SUPABASE_URL: !!supabaseUrl,
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: !!supabaseAnonKey,
-    })
-    throw new Error("Supabase environment variables are required")
+    const missingVars = []
+    if (!supabaseUrl) missingVars.push("NEXT_PUBLIC_SUPABASE_URL")
+    if (!supabaseAnonKey) missingVars.push("NEXT_PUBLIC_SUPABASE_ANON_KEY")
+
+    const errorMessage = `Missing required Supabase environment variables: ${missingVars.join(", ")}`
+
+    if (process.env.NODE_ENV === "development") {
+      throw new Error(errorMessage)
+    } else {
+      console.error(errorMessage)
+      return null
+    }
   }
 
   return createClientComponentClient<Database>()

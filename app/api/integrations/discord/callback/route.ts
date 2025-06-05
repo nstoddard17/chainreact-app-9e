@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import {
-  getAbsoluteBaseUrl,
+  getOAuthRedirectUri,
   parseOAuthState,
   upsertIntegration,
   validateScopes,
@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
   const state = searchParams.get("state")
   const error = searchParams.get("error")
 
-  const baseUrl = getAbsoluteBaseUrl(request)
+  const baseUrl = "https://chainreact.app"
 
   try {
     // Handle OAuth errors
@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
       throw new Error("Discord OAuth credentials not configured")
     }
 
-    const redirectUri = `${baseUrl}/api/integrations/discord/callback`
+    const redirectUri = getOAuthRedirectUri("discord")
 
     const tokenResponse = await fetch("https://discord.com/api/oauth2/token", {
       method: "POST",

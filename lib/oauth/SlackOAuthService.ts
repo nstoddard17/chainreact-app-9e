@@ -17,7 +17,7 @@ export class SlackOAuthService extends BaseOAuthService {
         client_id: clientId,
         client_secret: clientSecret,
         code,
-        redirect_uri: redirectUri,
+        redirect_uri: "https://chainreact.app/api/integrations/slack/callback",
       }),
     })
 
@@ -63,7 +63,7 @@ export class SlackOAuthService extends BaseOAuthService {
     return getRequiredScopes("slack")
   }
 
-  static async handleCallback(code: string, state: string, redirectUri: string, userId: string): Promise<OAuthResult> {
-    return super.handleCallback("slack", code, state, redirectUri, userId)
+  static async handleCallback(code: string, state: string, userId: string): Promise<OAuthResult> {
+    return super.handleCallback("slack", code, state, userId)
   }
 }

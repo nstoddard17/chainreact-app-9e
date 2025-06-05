@@ -13,18 +13,22 @@ export const createAdminSupabaseClient = () => {
     return null
   }
 
-  const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseUrl = process.env.SUPABASE_URL
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
   if (!supabaseUrl || !supabaseServiceKey) {
-    const missingVars = {
-      SUPABASE_URL: !supabaseUrl,
-      SUPABASE_SERVICE_ROLE_KEY: !supabaseServiceKey,
-    }
+    const missingVars = []
+    if (!supabaseUrl) missingVars.push("SUPABASE_URL")
+    if (!supabaseServiceKey) missingVars.push("SUPABASE_SERVICE_ROLE_KEY")
 
-    // Only log on server, not in browser
-    console.error("Missing Supabase admin environment variables:", missingVars)
-    throw new Error("Supabase admin environment variables are required for server operations")
+    const errorMessage = `Missing required Supabase admin environment variables: ${missingVars.join(", ")}`
+
+    if (process.env.NODE_ENV === "development") {
+      throw new Error(errorMessage)
+    } else {
+      console.error(errorMessage)
+      throw new Error("Server configuration error")
+    }
   }
 
   return createClient<Database>(supabaseUrl, supabaseServiceKey, {
@@ -60,49 +64,20 @@ export const adminSupabase = new Proxy({} as ReturnType<typeof createClient<Data
 })
 
 /**
+ * Get hardcoded redirect URI for OAuth providers
+ * Always uses the production domain to prevent redirect mismatches
+ */
+export function getOAuthRedirectUri(provider: string): string {
+  return `https://chainreact.app/api/integrations/${provider}/callback`
+}
+
+/**
  * Get the absolute base URL for OAuth redirects based on the request
+ * Always returns production URL for OAuth consistency
  */
 export function getAbsoluteBaseUrl(request: Request | NextRequest): string {
-  // Try to get from request URL first
-  try {
-    const url = new URL(request.url)
-    return `${url.protocol}//${url.host}`
-  } catch (error) {
-    console.error("Error parsing request URL:", error)
-  }
-
-  // Fallback to environment variable
-  if (process.env.NEXT_PUBLIC_APP_URL) {
-    return process.env.NEXT_PUBLIC_APP_URL
-  }
-
-  // Final fallback for production
+  // Always return production URL for OAuth consistency
   return "https://chainreact.app"
-}
-
-/**
- * Get the correct base URL for OAuth redirects based on environment
- */
-export function getOAuthBaseUrl(): string {
-  // In production, always use the production domain
-  if (process.env.NODE_ENV === "production") {
-    return "https://chainreact.app"
-  }
-
-  // For development, check if we have a custom URL set
-  if (process.env.NEXT_PUBLIC_APP_URL) {
-    return process.env.NEXT_PUBLIC_APP_URL
-  }
-
-  // Default to localhost for development
-  return "http://localhost:3000"
-}
-
-/**
- * Generate a consistent redirect URI for OAuth providers
- */
-export function getOAuthRedirectUri(baseUrl: string, provider: string): string {
-  return `${baseUrl}/api/integrations/${provider}/callback`
 }
 
 /**
@@ -242,11 +217,15 @@ export function parseOAuthState(state: string): any {
  */
 export async function validateSession(request: NextRequest): Promise<string | null> {
   try {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    const supabaseUrl = process.env.SUPABASE_URL
+    const supabaseAnonKey = process.env.SUPABASE_ANON_KEY
 
     if (!supabaseUrl || !supabaseAnonKey) {
-      console.error("Missing Supabase environment variables for session validation")
+      const missingVars = []
+      if (!supabaseUrl) missingVars.push("SUPABASE_URL")
+      if (!supabaseAnonKey) missingVars.push("SUPABASE_ANON_KEY")
+
+      console.error(`Missing required Supabase environment variables for session validation: ${missingVars.join(", ")}`)
       return null
     }
 

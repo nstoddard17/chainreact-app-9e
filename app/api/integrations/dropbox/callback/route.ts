@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
-import { getAbsoluteBaseUrl, parseOAuthState, upsertIntegration } from "@/lib/oauth/utils"
+import { getOAuthRedirectUri, parseOAuthState, upsertIntegration } from "@/lib/oauth/utils"
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
   const state = searchParams.get("state")
   const error = searchParams.get("error")
 
-  const baseUrl = getAbsoluteBaseUrl(request)
+  const baseUrl = "https://chainreact.app"
 
   try {
     // Handle OAuth errors
@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
       throw new Error("Dropbox OAuth credentials not configured")
     }
 
-    const redirectUri = `${baseUrl}/api/integrations/dropbox/callback`
+    const redirectUri = getOAuthRedirectUri("dropbox")
 
     const tokenResponse = await fetch("https://api.dropboxapi.com/oauth2/token", {
       method: "POST",
