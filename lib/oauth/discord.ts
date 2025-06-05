@@ -22,12 +22,8 @@ export class DiscordOAuthService {
     const { clientId } = this.getClientCredentials()
     const redirectUri = getOAuthRedirectUri("discord")
 
-    // Always include bot and applications.commands scopes with proper permissions
-    const requiredScopes = ["bot", "applications.commands", "identify", "guilds"]
-
-    // Include permissions for bot (8 = Administrator, or use specific permissions as needed)
-    // You can adjust this based on what your bot actually needs
-    const permissions = "8" // Administrator permissions, adjust as needed
+    // Updated required scopes for reading and writing messages
+    const requiredScopes = ["identify", "guilds", "guilds.join", "messages.read"]
 
     const state = btoa(
       JSON.stringify({
@@ -45,7 +41,6 @@ export class DiscordOAuthService {
       redirect_uri: redirectUri,
       response_type: "code",
       scope: requiredScopes.join(" "),
-      permissions, // Include bot permissions
       prompt: "consent", // Force re-authorization to ensure fresh scopes
       state,
     })
@@ -79,7 +74,8 @@ export class DiscordOAuthService {
 
   static async validateExistingIntegration(integration: any): Promise<boolean> {
     try {
-      const requiredScopes = ["bot", "applications.commands", "identify", "guilds"]
+      // Updated required scopes
+      const requiredScopes = ["identify", "guilds", "guilds.join", "messages.read"]
       const grantedScopes = integration.configuration?.scopes || integration.scopes || []
 
       console.log("Discord scope validation:", { grantedScopes, requiredScopes })
@@ -153,7 +149,8 @@ export class DiscordOAuthService {
 
       // Validate scopes dynamically from the token response
       const grantedScopes = scope ? scope.split(" ") : []
-      const requiredScopes = ["bot", "applications.commands", "identify", "guilds"]
+      // Updated required scopes
+      const requiredScopes = ["identify", "guilds", "guilds.join", "messages.read"]
       const missingScopes = requiredScopes.filter((s) => !grantedScopes.includes(s))
 
       console.log("Discord OAuth - Granted scopes:", grantedScopes)
@@ -166,7 +163,7 @@ export class DiscordOAuthService {
         return {
           success: false,
           redirectUrl: `${baseUrl}/integrations?error=insufficient_scopes&provider=discord&message=${encodeURIComponent(
-            `Your Discord connection is missing required permissions: ${missingScopes.join(", ")}. Please reconnect and accept all permissions including bot access.`,
+            `Your Discord connection is missing required permissions: ${missingScopes.join(", ")}. Please reconnect and accept all permissions.`,
           )}`,
           error: "Insufficient scopes",
         }
