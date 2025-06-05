@@ -13,82 +13,112 @@ export interface IntegrationScopeConfig {
 }
 
 export const INTEGRATION_SCOPES: Record<string, IntegrationScopeConfig> = {
-  slack: {
-    provider: "slack",
-    scopes: [
-      { scope: "channels:read", description: "View channels in workspace", required: true },
-      { scope: "chat:write", description: "Send messages", required: true },
-      { scope: "files:write", description: "Upload files", required: true },
-      { scope: "reactions:write", description: "Add reactions to messages", required: true },
-      { scope: "users:read", description: "View people in workspace", required: false },
-      { scope: "channels:history", description: "View messages in channels", required: false },
-      { scope: "groups:read", description: "View private channels", required: false },
-      { scope: "im:read", description: "View direct messages", required: false },
-      { scope: "mpim:read", description: "View group direct messages", required: false },
-    ],
-    components: {
-      "slack-send-message": ["channels:read", "chat:write"],
-      "slack-upload-file": ["files:write"],
-      "slack-add-reaction": ["reactions:write"],
-      "slack-get-channels": ["channels:read"],
-      "slack-get-users": ["users:read"],
-      "slack-get-messages": ["channels:history"],
+    slack: {
+        provider: "slack",
+        scopes: [
+            { scope: "channels:read", description: "View channels in workspace", required: true },
+            { scope: "chat:write", description: "Send messages", required: true },
+            { scope: "files:write", description: "Upload files", required: true },
+            { scope: "reactions:write", description: "Add reactions to messages", required: true },
+            { scope: "users:read", description: "View people in workspace", required: false },
+            { scope: "channels:history", description: "View messages in channels", required: false },
+            { scope: "groups:read", description: "View private channels", required: false },
+            { scope: "im:read", description: "View direct messages", required: false },
+            { scope: "mpim:read", description: "View group direct messages", required: false },
+        ],
+        components: {
+            "slack-send-message": ["channels:read", "chat:write"],
+            "slack-upload-file": ["files:write"],
+            "slack-add-reaction": ["reactions:write"],
+            "slack-get-channels": ["channels:read"],
+            "slack-get-users": ["users:read"],
+            "slack-get-messages": ["channels:history"],
+        },
     },
-  },
-  google: {
-    provider: "google",
-    scopes: [
-      { scope: "https://www.googleapis.com/auth/userinfo.email", description: "View email address", required: true },
-      {
-        scope: "https://www.googleapis.com/auth/userinfo.profile",
-        description: "View basic profile info",
-        required: true,
-      },
-      { scope: "https://www.googleapis.com/auth/gmail.send", description: "Send emails", required: false },
-      { scope: "https://www.googleapis.com/auth/gmail.readonly", description: "Read emails", required: false },
-      {
-        scope: "https://www.googleapis.com/auth/drive.file",
-        description: "View and manage Google Drive files",
-        required: false,
-      },
-      {
-        scope: "https://www.googleapis.com/auth/calendar.events",
-        description: "View and edit calendar events",
-        required: false,
-      },
-      {
-        scope: "https://www.googleapis.com/auth/spreadsheets",
-        description: "View and edit Google Sheets",
-        required: false,
-      },
-    ],
-    components: {
-      "gmail-send-email": ["https://www.googleapis.com/auth/gmail.send"],
-      "gmail-read-emails": ["https://www.googleapis.com/auth/gmail.readonly"],
-      "drive-upload-file": ["https://www.googleapis.com/auth/drive.file"],
-      "calendar-create-event": ["https://www.googleapis.com/auth/calendar.events"],
-      "sheets-read-data": ["https://www.googleapis.com/auth/spreadsheets"],
-      "sheets-write-data": ["https://www.googleapis.com/auth/spreadsheets"],
+    google: {
+        provider: "google",
+        scopes: [
+            {
+                scope: "https://www.googleapis.com/auth/userinfo.email",
+                description: "View email address",
+                required: true,
+            },
+            {
+                scope: "https://www.googleapis.com/auth/userinfo.profile",
+                description: "View basic profile info",
+                required: true,
+            },
+            {
+                scope: "https://www.googleapis.com/auth/gmail.send",
+                description: "Send emails",
+                required: false,
+            },
+            {
+                scope: "https://www.googleapis.com/auth/gmail.readonly",
+                description: "Read emails",
+                required: false,
+            },
+            {
+                scope: "https://www.googleapis.com/auth/gmail.modify",
+                description: "Read and modify emails",
+                required: false,
+            },
+            {
+                scope: "https://www.googleapis.com/auth/drive",
+                description: "Full access to Google Drive",
+                required: false,
+            },
+            {
+                scope: "https://www.googleapis.com/auth/drive.file",
+                description: "View and manage Google Drive files created by this app",
+                required: false,
+            },
+            {
+                scope: "https://www.googleapis.com/auth/calendar",
+                description: "View and manage calendar",
+                required: false,
+            },
+            {
+                scope: "https://www.googleapis.com/auth/calendar.events",
+                description: "View and edit calendar events",
+                required: false,
+            },
+            {
+                scope: "https://www.googleapis.com/auth/spreadsheets",
+                description: "View and edit Google Sheets",
+                required: false,
+            },
+        ],
+        components: {
+            "gmail-send-email": ["https://www.googleapis.com/auth/gmail.send"],
+            "gmail-read-emails": ["https://www.googleapis.com/auth/gmail.readonly"],
+            "gmail-modify-emails": ["https://www.googleapis.com/auth/gmail.modify"],
+            "drive-upload-file": ["https://www.googleapis.com/auth/drive.file"],
+            "drive-full-access": ["https://www.googleapis.com/auth/drive"],
+            "calendar-read-events": ["https://www.googleapis.com/auth/calendar"],
+            "calendar-create-event": ["https://www.googleapis.com/auth/calendar.events"],
+            "sheets-read-data": ["https://www.googleapis.com/auth/spreadsheets"],
+            "sheets-write-data": ["https://www.googleapis.com/auth/spreadsheets"],
+        },
     },
-  },
-  discord: {
-    provider: "discord",
-    scopes: [
-      { scope: "identify", description: "Access basic account info", required: true },
-      { scope: "bot", description: "Add bot to server", required: true },
-      { scope: "applications.commands", description: "Create slash commands", required: true },
-      { scope: "guilds", description: "View servers", required: false },
-      { scope: "guilds.join", description: "Join servers for you", required: false },
-      { scope: "messages.read", description: "Read message history", required: false },
-    ],
-    components: {
-      "discord-send-message": ["bot"],
-      "discord-create-command": ["applications.commands"],
-      "discord-get-guilds": ["guilds"],
-      "discord-join-guild": ["guilds.join"],
-      "discord-read-messages": ["messages.read"],
+    discord: {
+        provider: "discord",
+        scopes: [
+            { scope: "identify", description: "Access basic account info", required: true },
+            { scope: "bot", description: "Add bot to server", required: true },
+            { scope: "applications.commands", description: "Create slash commands", required: true },
+            { scope: "guilds", description: "View servers", required: false },
+            { scope: "guilds.join", description: "Join servers for you", required: false },
+            { scope: "messages.read", description: "Read message history", required: false },
+        ],
+        components: {
+            "discord-send-message": ["bot"],
+            "discord-create-command": ["applications.commands"],
+            "discord-get-guilds": ["guilds"],
+            "discord-join-guild": ["guilds.join"],
+            "discord-read-messages": ["messages.read"],
+        },
     },
-  },
   github: {
     provider: "github",
     scopes: [
@@ -134,6 +164,39 @@ export const INTEGRATION_SCOPES: Record<string, IntegrationScopeConfig> = {
             "notion-read-page": ["read"],
             "notion-update-page": ["update"],
             "notion-delete-page": ["delete"],
+        },
+    },
+    airtable: {
+        provider: "airtable",
+        scopes: [
+            { scope: "data.records:read", description: "Read records from Airtable bases", required: true },
+            { scope: "data.records:write", description: "Write records to Airtable bases", required: true },
+            { scope: "schema.bases:read", description: "Read Airtable base schema", required: true },
+            { scope: "schema.bases:write", description: "Write Airtable base schema", required: false },
+        ],
+        components: {
+            "airtable-read-records": ["data.records:read"],
+            "airtable-write-records": ["data.records:write"],
+            "airtable-read-schema": ["schema.bases:read"],
+            "airtable-write-schema": ["schema.bases:write"],
+        },
+    },
+    teams: {
+        provider: "teams",
+        scopes: [
+            { scope: "openid", description: "Authenticate with Microsoft", required: true },
+            { scope: "profile", description: "Access basic profile info", required: true },
+            { scope: "email", description: "Access email address", required: true },
+            { scope: "offline_access", description: "Allow offline access (refresh tokens)", required: true },
+            { scope: "User.Read", description: "Read user profile", required: true },
+            { scope: "ChannelMessage.Send", description: "Send messages in channels", required: false },
+            { scope: "Chat.ReadWrite", description: "Read and write chat messages", required: false },
+            { scope: "Team.ReadBasic.All", description: "Read basic info about teams", required: false },
+        ],
+        components: {
+            "teams-send-message": ["ChannelMessage.Send"],
+            "teams-read-write-chat": ["Chat.ReadWrite"],
+            "teams-get-teams": ["Team.ReadBasic.All"],
         },
     },
 
@@ -296,6 +359,28 @@ export function generateOAuthUrlWithScopes(provider: string, baseUrl: string, st
                   )}&response_type=code&owner=user&scope=${encodeURIComponent(scopesParam)}&state=${state}`;
           }
           break;
+      case "airtable":
+          if (process.env.NEXT_PUBLIC_AIRTABLE_CLIENT_ID) {
+              const scopesParam = allScopes.join(" ");
+              return `https://airtable.com/oauth2/v1/authorize?client_id=${process.env.NEXT_PUBLIC_AIRTABLE_CLIENT_ID
+                  }&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(
+                      scopesParam,
+                  )}&state=${state}`;
+          }
+          break;
+      case "teams":
+          if (process.env.NEXT_PUBLIC_TEAMS_CLIENT_ID) {
+              const scopesParam = allScopes.join(" ")
+              return `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=${process.env.NEXT_PUBLIC_TEAMS_CLIENT_ID
+                  }&redirect_uri=${encodeURIComponent(
+                      redirectUri
+                  )}&response_type=code&scope=${encodeURIComponent(
+                      scopesParam
+                  )}&response_mode=query&access_type=offline&prompt=consent&state=${state}`
+          }
+          break
+
+
 
     // Add other providers as needed
   }
