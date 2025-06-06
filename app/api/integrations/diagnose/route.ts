@@ -24,13 +24,12 @@ interface DiagnosticResult {
 
 // Component definitions with their required scopes
 const COMPONENT_SCOPE_MAPPING = {
-  // Slack components
+  // Slack components - only include scopes we actually use
   slack_message: { scopes: ["chat:write"], provider: "slack" },
-  slack_channel_create: { scopes: ["channels:write"], provider: "slack" },
-  slack_file_upload: { scopes: ["files:write"], provider: "slack" },
   slack_user_info: { scopes: ["users:read"], provider: "slack" },
+  slack_channels_list: { scopes: ["channels:read"], provider: "slack" },
 
-  // Discord components - updated for new scopes
+  // Discord components
   discord_message: { scopes: ["identify"], provider: "discord" },
   discord_guild_info: { scopes: ["guilds"], provider: "discord" },
   discord_read_messages: { scopes: ["messages.read"], provider: "discord" },
@@ -64,10 +63,10 @@ const COMPONENT_SCOPE_MAPPING = {
   github_create_pr: { scopes: ["repo"], provider: "github" },
   github_workflow: { scopes: ["workflow"], provider: "github" },
 
-  // Notion components
-  notion_create_page: { scopes: ["insert"], provider: "notion" },
-  notion_update_database: { scopes: ["update"], provider: "notion" },
-  notion_read: { scopes: ["read"], provider: "notion" },
+  // Notion components - use actual Notion scopes
+  notion_create_page: { scopes: [], provider: "notion" }, // Notion doesn't use granular scopes
+  notion_read_page: { scopes: [], provider: "notion" },
+  notion_update_page: { scopes: [], provider: "notion" },
 
   // Airtable components
   airtable_create_record: { scopes: ["data.records:write"], provider: "airtable" },
@@ -508,12 +507,8 @@ export async function GET(request: NextRequest) {
               const googleToken = googleIntegration.metadata?.access_token || googleIntegration.access_token
               verificationResult = await verifyGoogleToken(googleToken)
             } else {
-              // If no main Google integration, this service is not connected
-              verificationResult = {
-                valid: false,
-                scopes: [],
-                error: "No Google integration found - connect Google first",
-              }
+              // If no main Google integration, try the current integration token
+              verificationResult = await verifyGoogleToken(accessToken)
             }
             break
           case "teams":
@@ -547,12 +542,12 @@ export async function GET(request: NextRequest) {
         errorMessage = "No access token found"
       }
 
-      // For Google services, use the main Google integration data
+      // For Google services, use the main Google integration data if available
       if (provider.startsWith("google") || provider === "gmail" || provider === "youtube") {
         const googleIntegration = integrations?.find((int) => int.provider === "google")
-        if (googleIntegration) {
-          const diagnostic = analyzeIntegration(googleIntegration, tokenValid, grantedScopes, errorMessage)
-          // Override the provider to match the specific service
+        if (googleIntegration && (googleIntegration.metadata?.access_token || googleIntegration.access_token)) {
+          // Use the Google integration's token and scopes
+          const diagnostic = analyzeIntegration(integration, tokenValid, grantedScopes, errorMessage)
           diagnostic.provider = provider
           diagnostics.push(diagnostic)
           continue
