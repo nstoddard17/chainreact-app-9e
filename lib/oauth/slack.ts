@@ -23,17 +23,27 @@ export class SlackOAuthService extends BaseOAuthService {
     const { clientId } = this.getClientCredentials()
     const redirectUri = this.getRedirectUri()
 
+    // Enhanced scopes for better workflow functionality
     const scopes = [
       "chat:write",
       "chat:write.public",
       "channels:read",
       "channels:join",
+      "channels:manage",
       "groups:read",
       "im:read",
       "users:read",
+      "users:read.email",
       "team:read",
       "files:write",
+      "files:read",
       "reactions:write",
+      "reactions:read",
+      "pins:write",
+      "pins:read",
+      "bookmarks:read",
+      "bookmarks:write",
+      "workflow.steps:execute",
     ]
 
     const state = btoa(
@@ -51,6 +61,7 @@ export class SlackOAuthService extends BaseOAuthService {
       redirect_uri: redirectUri,
       scope: scopes.join(","),
       state,
+      user_scope: "identity.basic,identity.email,identity.team",
     })
 
     if (reconnect) {
@@ -118,10 +129,10 @@ export class SlackOAuthService extends BaseOAuthService {
       "chat:write.public",
       "channels:read",
       "channels:join",
-      "groups:read",
-      "im:read",
       "users:read",
       "team:read",
+      "files:write",
+      "reactions:write",
     ]
   }
 }

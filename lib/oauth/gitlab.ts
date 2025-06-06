@@ -3,8 +3,11 @@ export class GitLabOAuthService {
     const clientId = process.env.NEXT_PUBLIC_GITLAB_CLIENT_ID
     const clientSecret = process.env.GITLAB_CLIENT_SECRET
 
-    if (!clientId || !clientSecret) {
-      throw new Error("Missing GitLab OAuth configuration")
+    if (!clientId) {
+      throw new Error("Missing NEXT_PUBLIC_GITLAB_CLIENT_ID environment variable")
+    }
+    if (!clientSecret) {
+      throw new Error("Missing GITLAB_CLIENT_SECRET environment variable")
     }
 
     return { clientId, clientSecret }
@@ -14,8 +17,17 @@ export class GitLabOAuthService {
     const { clientId } = this.getClientCredentials()
     const redirectUri = "https://chainreact.app/api/integrations/gitlab/callback"
 
-    // Fix: Use only valid GitLab scopes
-    const scopes = ["read_user", "read_api", "read_repository", "write_repository"]
+    // Enhanced scopes for comprehensive GitLab functionality
+    const scopes = [
+      "read_user",
+      "read_api",
+      "read_repository",
+      "write_repository",
+      "read_registry",
+      "write_registry",
+      "sudo",
+      "admin_mode",
+    ]
 
     const state = btoa(
       JSON.stringify({
@@ -42,6 +54,10 @@ export class GitLabOAuthService {
     return "https://chainreact.app/api/integrations/gitlab/callback"
   }
 
+  static getRequiredScopes(): string[] {
+    return ["read_user", "read_api", "read_repository", "write_repository"]
+  }
+
   static async handleCallback(
     code: string,
     state: string,
@@ -49,6 +65,14 @@ export class GitLabOAuthService {
     userId: string,
   ): Promise<{ success: boolean; redirectUrl: string; error?: string }> {
     try {
+      if (!code) {
+        throw new Error("Missing authorization code from GitLab")
+      }
+
+      if (!state) {
+        throw new Error("Missing state parameter from GitLab")
+      }
+
       const stateData = JSON.parse(atob(state))
       const { provider, reconnect, integrationId } = stateData
 
@@ -74,11 +98,15 @@ export class GitLabOAuthService {
 
       if (!tokenResponse.ok) {
         const errorData = await tokenResponse.text()
-        throw new Error(`Token exchange failed: ${errorData}`)
+        throw new Error(`GitLab token exchange failed: ${errorData}`)
       }
 
       const tokenData = await tokenResponse.json()
       const { access_token, refresh_token, expires_in, scope } = tokenData
+
+      if (!access_token) {
+        throw new Error("No access token received from GitLab")
+      }
 
       const userResponse = await fetch("https://gitlab.com/api/v4/user", {
         headers: {
@@ -87,7 +115,7 @@ export class GitLabOAuthService {
       })
 
       if (!userResponse.ok) {
-        throw new Error(`Failed to get user info: ${userResponse.statusText}`)
+        throw new Error(`Failed to get GitLab user info: ${userResponse.statusText}`)
       }
 
       const userData = await userResponse.json()
