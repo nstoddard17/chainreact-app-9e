@@ -155,7 +155,7 @@ const availableProviders: Provider[] = [
     category: "Social",
     logoUrl: "/placeholder.svg?height=40&width=40&text=F",
     capabilities: ["Posts", "Pages", "Insights", "Events"],
-    scopes: ["pages_manage_posts", "pages_read_engagement"],
+    scopes: ["public_profile", "email", "pages_show_list", "pages_manage_posts", "pages_read_engagement"],
     isAvailable: true,
   },
   {

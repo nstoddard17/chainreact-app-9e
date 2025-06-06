@@ -1,9 +1,10 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { FacebookOAuthService } from "@/lib/oauth/facebook"
+import { getAbsoluteBaseUrl } from "@/lib/oauth/utils"
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
-  const baseUrl = new URL(request.url).origin
+  const baseUrl = getAbsoluteBaseUrl(request)
   const code = searchParams.get("code")
   const state = searchParams.get("state")
   const error = searchParams.get("error")

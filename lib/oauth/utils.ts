@@ -283,9 +283,9 @@ export function getRequiredScopes(provider: string): string[] {
     case "linkedin":
       return ["r_liteprofile", "w_member_social"]
     case "facebook":
-      return ["pages_manage_posts", "pages_read_engagement"]
+      return ["public_profile", "email", "pages_show_list", "pages_manage_posts", "pages_read_engagement"]
     case "teams":
-      return ["User.Read", "Chat.ReadWrite"]
+      return ["openid", "profile", "email", "offline_access"]
     default:
       return []
   }

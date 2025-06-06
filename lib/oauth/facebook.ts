@@ -1,5 +1,4 @@
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
+import { generateOAuthState, parseOAuthState, upsertIntegration, createAdminSupabaseClient } from "./utils"
 
 interface FacebookOAuthResult {
   success: boolean
@@ -21,14 +20,7 @@ export class FacebookOAuthService {
 
   // Define required scopes for Facebook
   static getRequiredScopes() {
-    return [
-      "pages_manage_posts",
-      "pages_read_engagement",
-      "pages_show_list",
-      "public_profile",
-      "email",
-      "pages_manage_metadata",
-    ]
+    return ["public_profile", "email", "pages_show_list", "pages_manage_posts", "pages_read_engagement"]
   }
 
   // Validate scopes against required scopes
@@ -52,27 +44,24 @@ export class FacebookOAuthService {
     }
   }
 
-  static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string): string {
+  static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string, userId?: string): string {
     const { clientId } = this.getClientCredentials()
-    const redirectUri = "https://chainreact.app/api/integrations/facebook/callback"
+    const redirectUri = `${baseUrl}/api/integrations/facebook/callback`
 
     const scopes = [
-      "pages_manage_posts",
-      "pages_read_engagement",
-      "pages_show_list",
       "public_profile",
       "email",
+      "pages_show_list",
+      "pages_manage_posts",
+      "pages_read_engagement",
       "pages_manage_metadata",
     ]
 
-    const state = btoa(
-      JSON.stringify({
-        provider: "facebook",
-        reconnect,
-        integrationId,
-        timestamp: Date.now(),
-      }),
-    )
+    // Generate proper OAuth state with user ID
+    const state = generateOAuthState("facebook", userId || "anonymous", {
+      reconnect,
+      integrationId,
+    })
 
     const params = new URLSearchParams({
       client_id: clientId,
@@ -86,37 +75,23 @@ export class FacebookOAuthService {
   }
 
   static getRedirectUri(baseUrl: string): string {
-    return "https://chainreact.app/api/integrations/facebook/callback"
+    return `${baseUrl}/api/integrations/facebook/callback`
   }
 
   static async handleCallback(code: string, state: string, baseUrl: string): Promise<FacebookOAuthResult> {
     try {
-      const stateData = JSON.parse(atob(state))
-      const { provider, reconnect, integrationId } = stateData
+      // Parse state properly using the utility function
+      const stateData = parseOAuthState(state)
+      const { provider, userId, reconnect, integrationId } = stateData
 
       if (provider !== "facebook") {
         throw new Error("Invalid provider in state")
       }
 
       const { clientId, clientSecret } = this.getClientCredentials()
+      const redirectUri = `${baseUrl}/api/integrations/facebook/callback`
 
-      // Clear any existing tokens before requesting new ones
-      if (reconnect && integrationId) {
-        const supabase = createServerComponentClient({ cookies })
-        const { error: clearError } = await supabase
-          .from("integrations")
-          .update({
-            access_token: null,
-            refresh_token: null,
-            status: "reconnecting",
-          })
-          .eq("id", integrationId)
-
-        if (clearError) {
-          console.error("Error clearing existing tokens:", clearError)
-        }
-      }
-
+      // Exchange code for token
       const tokenResponse = await fetch("https://graph.facebook.com/v18.0/oauth/access_token", {
         method: "POST",
         headers: {
@@ -125,52 +100,25 @@ export class FacebookOAuthService {
         body: new URLSearchParams({
           client_id: clientId,
           client_secret: clientSecret,
-          redirect_uri: "https://chainreact.app/api/integrations/facebook/callback",
+          redirect_uri: redirectUri,
           code,
         }),
       })
 
       if (!tokenResponse.ok) {
         const errorData = await tokenResponse.text()
+        console.error("Facebook token exchange failed:", errorData)
         throw new Error(`Token exchange failed: ${errorData}`)
       }
 
       const tokenData = await tokenResponse.json()
       const { access_token, expires_in } = tokenData
 
-      // Get granted scopes from a debug token call
-      const debugTokenResponse = await fetch(
-        `https://graph.facebook.com/debug_token?input_token=${access_token}&access_token=${access_token}`,
-      )
-
-      let grantedScopes: string[] = []
-      if (debugTokenResponse.ok) {
-        const debugData = await debugTokenResponse.json()
-        grantedScopes = debugData.data?.scopes || []
-      } else {
-        // Fallback to default scopes if we can't get them from the debug token
-        grantedScopes = ["pages_manage_posts", "pages_read_engagement"]
+      if (!access_token) {
+        throw new Error("No access token received from Facebook")
       }
 
-      // Validate scopes
-      const scopeValidation = this.validateScopes(grantedScopes)
-
-      if (!scopeValidation.valid) {
-        return {
-          success: false,
-          redirectUrl: `${baseUrl}/integrations?error=insufficient_scopes&provider=facebook&missing=${scopeValidation.missing.join(",")}`,
-        }
-      }
-
-      // Validate token by making an API call
-      const isTokenValid = await this.validateToken(access_token)
-      if (!isTokenValid) {
-        return {
-          success: false,
-          redirectUrl: `${baseUrl}/integrations?error=invalid_token&provider=facebook`,
-        }
-      }
-
+      // Get user info first to get the user ID
       const userResponse = await fetch(
         `https://graph.facebook.com/me?fields=id,name,email&access_token=${access_token}`,
       )
@@ -182,15 +130,50 @@ export class FacebookOAuthService {
 
       const userData = await userResponse.json()
 
-      const supabase = createServerComponentClient({ cookies })
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+      // Get granted scopes from permissions endpoint
+      const permissionsResponse = await fetch(
+        `https://graph.facebook.com/${userData.id}/permissions?access_token=${access_token}`,
+      )
 
-      if (sessionError || !sessionData?.session) {
-        throw new Error("No active user session found")
+      let grantedScopes: string[] = []
+      if (permissionsResponse.ok) {
+        const permissionsData = await permissionsResponse.json()
+        grantedScopes =
+          permissionsData.data?.filter((perm: any) => perm.status === "granted")?.map((perm: any) => perm.permission) ||
+          []
+      } else {
+        // Fallback to basic scopes if we can't get permissions
+        grantedScopes = ["public_profile", "email"]
       }
 
+      console.log("Facebook granted scopes:", grantedScopes)
+
+      // Validate token by making an API call
+      const isTokenValid = await this.validateToken(access_token)
+      if (!isTokenValid) {
+        return {
+          success: false,
+          redirectUrl: `${baseUrl}/integrations?error=invalid_token&provider=facebook`,
+        }
+      }
+
+      // Get Supabase admin client
+      const supabase = createAdminSupabaseClient()
+      if (!supabase) {
+        throw new Error("Failed to create Supabase admin client")
+      }
+
+      // Get the actual user ID from the session if available
+      const effectiveUserId = userId
+
+      // If we don't have a user ID from state, this is an error
+      if (!effectiveUserId || effectiveUserId === "anonymous") {
+        throw new Error("No valid user ID found in OAuth state")
+      }
+
+      // Prepare integration data
       const integrationData = {
-        user_id: sessionData.session.user.id,
+        user_id: effectiveUserId,
         provider: "facebook",
         provider_user_id: userData.id,
         access_token,
@@ -201,29 +184,21 @@ export class FacebookOAuthService {
           user_name: userData.name,
           user_email: userData.email,
           connected_at: new Date().toISOString(),
+          facebook_user_id: userData.id,
         },
       }
 
-      if (reconnect && integrationId) {
-        const { error } = await supabase
-          .from("integrations")
-          .update({
-            ...integrationData,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", integrationId)
+      // Use the utility function to upsert the integration
+      await upsertIntegration(supabase, integrationData)
 
-        if (error) throw error
-      } else {
-        const { error } = await supabase.from("integrations").insert(integrationData)
-        if (error) throw error
-      }
+      console.log(`Successfully connected Facebook integration for user ${effectiveUserId}`)
 
       return {
         success: true,
-        redirectUrl: `${baseUrl}/integrations?success=facebook_connected`,
+        redirectUrl: `${baseUrl}/integrations?success=facebook_connected&provider=facebook`,
       }
     } catch (error: any) {
+      console.error("Facebook OAuth error:", error)
       return {
         success: false,
         redirectUrl: `${baseUrl}/integrations?error=callback_failed&provider=facebook&message=${encodeURIComponent(error.message)}`,

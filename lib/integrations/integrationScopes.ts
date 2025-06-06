@@ -226,6 +226,8 @@ export const INTEGRATION_SCOPES: Record<string, IntegrationScopeConfig> = {
       "facebook-post-to-page": ["pages_manage_posts"],
       "facebook-read-page-engagement": ["pages_read_engagement"],
       "facebook-get-pages": ["pages_show_list"],
+      "facebook-get-profile": ["public_profile"],
+      "facebook-get-email": ["email"],
     },
   },
   youtube: {
