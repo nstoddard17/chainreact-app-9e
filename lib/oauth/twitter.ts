@@ -10,15 +10,15 @@ export class TwitterOAuthService {
     const clientSecret = process.env.TWITTER_CLIENT_SECRET
 
     if (!clientId || !clientSecret) {
-      throw new Error("Missing Twitter OAuth configuration")
+      throw new Error("Missing X (Twitter) OAuth configuration")
     }
 
     return { clientId, clientSecret }
   }
 
-  static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string): string {
+  static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string, userId?: string): string {
     const { clientId } = this.getClientCredentials()
-    const redirectUri = "https://chainreact.app/api/integrations/twitter/callback"
+    const redirectUri = this.getRedirectUri(baseUrl)
 
     const scopes = ["tweet.read", "tweet.write", "users.read", "offline.access"]
 
@@ -27,6 +27,7 @@ export class TwitterOAuthService {
         provider: "twitter",
         reconnect,
         integrationId,
+        userId,
         requireFullScopes: true,
         timestamp: Date.now(),
       }),
@@ -46,7 +47,8 @@ export class TwitterOAuthService {
   }
 
   static getRedirectUri(baseUrl: string): string {
-    return "https://chainreact.app/api/integrations/twitter/callback"
+    // Use dynamic redirect URI based on environment
+    return `${baseUrl}/api/integrations/twitter/callback`
   }
 
   static async handleCallback(
@@ -65,6 +67,7 @@ export class TwitterOAuthService {
       }
 
       const { clientId, clientSecret } = this.getClientCredentials()
+      const redirectUri = this.getRedirectUri(baseUrl)
 
       const tokenResponse = await fetch("https://api.twitter.com/2/oauth2/token", {
         method: "POST",
@@ -76,7 +79,7 @@ export class TwitterOAuthService {
           code,
           grant_type: "authorization_code",
           client_id: clientId,
-          redirect_uri: "https://chainreact.app/api/integrations/twitter/callback",
+          redirect_uri: redirectUri,
           code_verifier: "challenge",
         }),
       })
@@ -96,16 +99,16 @@ export class TwitterOAuthService {
         const missingScopes = requiredScopes.filter((s) => !grantedScopes.includes(s))
 
         if (missingScopes.length > 0) {
-          console.error("Twitter scope validation failed:", { grantedScopes, missingScopes })
+          console.error("X (Twitter) scope validation failed:", { grantedScopes, missingScopes })
           return {
             success: false,
             redirectUrl: `${baseUrl}/integrations?error=insufficient_scopes&provider=twitter&message=${encodeURIComponent(
-              `Your connection is missing required permissions: ${missingScopes.join(", ")}. Please reconnect and accept all scopes.`,
+              `Your X connection is missing required permissions: ${missingScopes.join(", ")}. Please reconnect and accept all scopes.`,
             )}`,
             error: "Insufficient scopes",
           }
         }
-        console.log("Twitter scopes validated successfully:", grantedScopes)
+        console.log("X (Twitter) scopes validated successfully:", grantedScopes)
       }
 
       const userResponse = await fetch("https://api.twitter.com/2/users/me", {

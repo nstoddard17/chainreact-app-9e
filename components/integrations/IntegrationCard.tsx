@@ -52,7 +52,7 @@ const IntegrationCard: React.FC<IntegrationCardProps> = ({ provider }) => {
       console.error("Failed to connect:", error)
       toast({
         title: "Connection Failed",
-        description: error.message || `Failed to connect to ${provider.name}`,
+        description: error.message || `Failed to connect to ${provider.id === "twitter" ? "X" : provider.name}`,
         variant: "destructive",
         duration: 5000,
       })
@@ -69,14 +69,14 @@ const IntegrationCard: React.FC<IntegrationCardProps> = ({ provider }) => {
       await disconnectIntegration(provider.integration.id)
       toast({
         title: "Disconnected",
-        description: `${provider.name} has been disconnected`,
+        description: `${provider.id === "twitter" ? "X" : provider.name} has been disconnected`,
         duration: 3000,
       })
     } catch (error: any) {
       console.error("Failed to disconnect:", error)
       toast({
         title: "Disconnection Failed",
-        description: error.message || `Failed to disconnect ${provider.name}`,
+        description: error.message || `Failed to disconnect ${provider.id === "twitter" ? "X" : provider.name}`,
         variant: "destructive",
         duration: 5000,
       })
@@ -88,7 +88,7 @@ const IntegrationCard: React.FC<IntegrationCardProps> = ({ provider }) => {
   const handleConfigure = () => {
     toast({
       title: "Configuration",
-      description: `${provider.name} configuration coming soon`,
+      description: `${provider.id === "twitter" ? "X" : provider.name} configuration coming soon`,
       duration: 3000,
     })
   }
@@ -201,7 +201,7 @@ const IntegrationCard: React.FC<IntegrationCardProps> = ({ provider }) => {
             </Avatar>
             <div className="flex-1 min-w-0">
               <CardTitle className="text-lg font-bold text-slate-900 truncate group-hover:text-blue-600 transition-colors">
-                {provider.name}
+                {provider.id === "twitter" ? "X" : provider.name}
               </CardTitle>
               <div className="flex items-center gap-2 mt-2">
                 <Badge variant="secondary" className="text-xs bg-slate-100 text-slate-600 border-slate-200 font-medium">

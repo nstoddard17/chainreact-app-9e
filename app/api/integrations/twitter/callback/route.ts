@@ -22,15 +22,15 @@ export async function GET(request: NextRequest) {
   const state = searchParams.get("state")
   const error = searchParams.get("error")
 
-  console.log("Twitter OAuth callback:", { code: !!code, state, error })
+  console.log("X (Twitter) OAuth callback:", { code: !!code, state, error, baseUrl })
 
   if (error) {
-    console.error("Twitter OAuth error:", error)
+    console.error("X (Twitter) OAuth error:", error)
     return NextResponse.redirect(new URL("/integrations?error=oauth_error&provider=twitter", baseUrl))
   }
 
   if (!code || !state) {
-    console.error("Missing code or state in Twitter callback")
+    console.error("Missing code or state in X (Twitter) callback")
     return NextResponse.redirect(new URL("/integrations?error=missing_params&provider=twitter", baseUrl))
   }
 
@@ -55,9 +55,12 @@ export async function GET(request: NextRequest) {
     const clientSecret = process.env.TWITTER_CLIENT_SECRET
 
     if (!clientId || !clientSecret) {
-      console.error("Missing Twitter client ID or secret")
+      console.error("Missing X (Twitter) client ID or secret")
       return NextResponse.redirect(new URL("/integrations?error=missing_client_credentials&provider=twitter", baseUrl))
     }
+
+    // Use dynamic redirect URI
+    const redirectUri = `${baseUrl}/api/integrations/twitter/callback`
 
     // Exchange code for token
     const tokenResponse = await fetch("https://api.twitter.com/2/oauth2/token", {
@@ -70,13 +73,13 @@ export async function GET(request: NextRequest) {
         code,
         grant_type: "authorization_code",
         client_id: clientId,
-        redirect_uri: "https://chainreact.app/api/integrations/twitter/callback",
+        redirect_uri: redirectUri,
         code_verifier: "challenge",
       }),
     })
 
     if (!tokenResponse.ok) {
-      console.error("Twitter token exchange failed:", await tokenResponse.text())
+      console.error("X (Twitter) token exchange failed:", await tokenResponse.text())
       return NextResponse.redirect(new URL("/integrations?error=token_exchange_failed&provider=twitter", baseUrl))
     }
 
@@ -91,7 +94,7 @@ export async function GET(request: NextRequest) {
     })
 
     if (!userResponse.ok) {
-      console.error("Twitter user info failed:", await userResponse.text())
+      console.error("X (Twitter) user info failed:", await userResponse.text())
       return NextResponse.redirect(new URL("/integrations?error=user_info_failed&provider=twitter", baseUrl))
     }
 
@@ -129,7 +132,7 @@ export async function GET(request: NextRequest) {
       const { error } = await supabase.from("integrations").update(integrationData).eq("id", existingIntegration.id)
 
       if (error) {
-        console.error("Error updating Twitter integration:", error)
+        console.error("Error updating X (Twitter) integration:", error)
         return NextResponse.redirect(new URL("/integrations?error=database_update_failed&provider=twitter", baseUrl))
       }
     } else {
@@ -139,7 +142,7 @@ export async function GET(request: NextRequest) {
       })
 
       if (error) {
-        console.error("Error inserting Twitter integration:", error)
+        console.error("Error inserting X (Twitter) integration:", error)
         return NextResponse.redirect(new URL("/integrations?error=database_insert_failed&provider=twitter", baseUrl))
       }
     }
@@ -151,7 +154,7 @@ export async function GET(request: NextRequest) {
       new URL(`/integrations?success=twitter_connected&provider=twitter&t=${Date.now()}`, baseUrl),
     )
   } catch (error: any) {
-    console.error("Twitter OAuth callback error:", error)
+    console.error("X (Twitter) OAuth callback error:", error)
     return NextResponse.redirect(
       new URL(
         `/integrations?error=callback_failed&provider=twitter&message=${encodeURIComponent(error.message)}`,
