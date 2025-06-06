@@ -1,118 +1,37 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/utils/supabase/server"
-import { cookies } from "next/headers"
+import { TeamsOAuthService } from "@/lib/oauth/teams"
+import { createClient } from "@supabase/supabase-js"
 
-export async function GET(request: NextRequest) {
-  const cookieStore = cookies()
-  const supabase = createClient(cookieStore)
+const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
-  const { searchParams } = new URL(request.url)
-  const code = searchParams.get("code")
-  const state = searchParams.get("state")
+export const GET = async (request: NextRequest): Promise<NextResponse> => {
+  const url = new URL(request.url)
+  const code = url.searchParams.get("code")
+  const state = url.searchParams.get("state")
+  const error = url.searchParams.get("error")
 
-  if (!code) {
-    const baseUrl = "https://chainreact.app"
-    return NextResponse.redirect(`${baseUrl}/integrations?error=teams_no_code`)
+  if (error) {
+    return NextResponse.redirect(`https://chainreact.app/integrations?error=${error}&provider=teams`)
   }
 
-  if (!state) {
-    const baseUrl = "https://chainreact.app"
-    return NextResponse.redirect(`${baseUrl}/integrations?error=teams_no_state`)
-  }
-
-  const storedState = cookieStore.get("teams_oauth_state")?.value
-
-  if (state !== storedState) {
-    const baseUrl = "https://chainreact.app"
-    return NextResponse.redirect(`${baseUrl}/integrations?error=teams_invalid_state`)
+  if (!code || !state) {
+    return NextResponse.redirect(`https://chainreact.app/integrations?error=missing_params&provider=teams`)
   }
 
   try {
-    const redirectUri = "https://chainreact.app/api/integrations/teams/callback"
+    const stateData = JSON.parse(atob(state))
+    const { userId } = stateData
 
-    const tokenResponse = await fetch("https://login.microsoftonline.com/common/oauth2/v2.0/token", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: new URLSearchParams({
-        client_id: process.env.TEAMS_CLIENT_ID as string,
-        client_secret: process.env.TEAMS_CLIENT_SECRET as string,
-        code: code,
-        redirect_uri: redirectUri,
-        grant_type: "authorization_code",
-      }),
-    })
-
-    if (!tokenResponse.ok) {
-      console.error("Token request failed:", tokenResponse.status, await tokenResponse.text())
-      const baseUrl = "https://chainreact.app"
-      return NextResponse.redirect(`${baseUrl}/integrations?error=teams_token_error`)
+    if (!userId) {
+      throw new Error("Missing user ID in state")
     }
 
-    const tokenData = await tokenResponse.json()
-    const accessToken = tokenData.access_token
-
-    // Fetch user profile information
-    const profileResponse = await fetch("https://graph.microsoft.com/v1.0/me", {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    })
-
-    if (!profileResponse.ok) {
-      console.error("Profile request failed:", profileResponse.status, await profileResponse.text())
-      const baseUrl = "https://chainreact.app"
-      return NextResponse.redirect(`${baseUrl}/integrations?error=teams_profile_error`)
-    }
-
-    const profileData = await profileResponse.json()
-    const email = profileData.mail || profileData.userPrincipalName
-    const teamId = profileData.id
-    const displayName = profileData.displayName
-
-    if (!email) {
-      const baseUrl = "https://chainreact.app"
-      return NextResponse.redirect(`${baseUrl}/integrations?error=teams_no_email`)
-    }
-
-    const { data: existingUser, error: selectError } = await supabase
-      .from("users")
-      .select("*")
-      .eq("email", email)
-      .single()
-
-    if (selectError) {
-      console.error("Supabase select error:", selectError)
-      const baseUrl = "https://chainreact.app"
-      return NextResponse.redirect(`${baseUrl}/integrations?error=teams_supabase_error`)
-    }
-
-    if (!existingUser) {
-      const baseUrl = "https://chainreact.app"
-      return NextResponse.redirect(`${baseUrl}/integrations?error=teams_user_not_found`)
-    }
-
-    const userId = existingUser.id
-
-    const { error: teamsIntegrationError } = await supabase.from("teams_integration").insert({
-      user_id: userId,
-      team_id: teamId,
-      email: email,
-      access_token: accessToken,
-      display_name: displayName,
-    })
-
-    if (teamsIntegrationError) {
-      console.error("Supabase teams integration error:", teamsIntegrationError)
-      const baseUrl = "https://chainreact.app"
-      return NextResponse.redirect(`${baseUrl}/integrations?error=teams_integration_failed`)
-    }
-
-    return NextResponse.redirect(`https://chainreact.app/integrations?success=teams_connected`)
-  } catch (e) {
-    console.error("Teams OAuth error:", e)
-    const baseUrl = "https://chainreact.app"
-    return NextResponse.redirect(`${baseUrl}/integrations?error=teams_oauth_failed`)
+    const result = await TeamsOAuthService.handleCallback(code, state, supabase, userId)
+    return NextResponse.redirect(result.redirectUrl)
+  } catch (error: any) {
+    console.error("Teams OAuth callback error:", error)
+    return NextResponse.redirect(
+      `https://chainreact.app/integrations?error=callback_failed&provider=teams&message=${encodeURIComponent(error.message)}`,
+    )
   }
 }

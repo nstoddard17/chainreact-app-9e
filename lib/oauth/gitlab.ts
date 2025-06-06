@@ -1,12 +1,3 @@
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
-
-interface GitLabOAuthResult {
-  success: boolean
-  redirectUrl: string
-  error?: string
-}
-
 export class GitLabOAuthService {
   private static getClientCredentials() {
     const clientId = process.env.NEXT_PUBLIC_GITLAB_CLIENT_ID
@@ -19,23 +10,22 @@ export class GitLabOAuthService {
     return { clientId, clientSecret }
   }
 
+  static getRedirectUri(): string {
+    return "https://chainreact.app/api/integrations/gitlab/callback"
+  }
+
   static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string, userId?: string): string {
-    const clientId = process.env.NEXT_PUBLIC_GITLAB_CLIENT_ID
-    if (!clientId) {
-      throw new Error("Missing NEXT_PUBLIC_GITLAB_CLIENT_ID environment variable")
-    }
+    const { clientId } = this.getClientCredentials()
+    const redirectUri = this.getRedirectUri()
 
-    const redirectUri = `${baseUrl}/api/integrations/gitlab/callback`
-
-    // Updated scopes to use valid GitLab scopes
     const scopes = ["read_user", "read_api", "read_repository", "write_repository"]
 
     const state = btoa(
       JSON.stringify({
         provider: "gitlab",
+        userId,
         reconnect,
         integrationId,
-        userId,
         timestamp: Date.now(),
       }),
     )
@@ -51,33 +41,22 @@ export class GitLabOAuthService {
     return `https://gitlab.com/oauth/authorize?${params.toString()}`
   }
 
-  static getRedirectUri(baseUrl: string): string {
-    return `${baseUrl}/api/integrations/gitlab/callback`
-  }
-
-  static async handleCallback(code: string, state: string, baseUrl: string): Promise<GitLabOAuthResult> {
+  static async handleCallback(
+    code: string,
+    state: string,
+    supabase: any,
+    userId: string,
+  ): Promise<{ success: boolean; redirectUrl: string; error?: string }> {
     try {
-      let stateData: any = {}
-      try {
-        stateData = JSON.parse(atob(state))
-      } catch (e) {
-        console.error("Failed to parse state:", e)
-        throw new Error("Invalid state parameter")
-      }
-
-      const { provider, reconnect, integrationId, userId } = stateData
+      const stateData = JSON.parse(atob(state))
+      const { provider, reconnect, integrationId } = stateData
 
       if (provider !== "gitlab") {
         throw new Error("Invalid provider in state")
       }
 
-      if (!userId) {
-        console.error("Missing user ID in state:", stateData)
-        throw new Error("GitLab: Missing user ID in state")
-      }
-
       const { clientId, clientSecret } = this.getClientCredentials()
-      const redirectUri = this.getRedirectUri(baseUrl)
+      const redirectUri = this.getRedirectUri()
 
       const tokenResponse = await fetch("https://gitlab.com/oauth/token", {
         method: "POST",
@@ -95,7 +74,6 @@ export class GitLabOAuthService {
 
       if (!tokenResponse.ok) {
         const errorData = await tokenResponse.text()
-        console.error("GitLab token exchange failed:", errorData)
         throw new Error(`Token exchange failed: ${errorData}`)
       }
 
@@ -109,14 +87,10 @@ export class GitLabOAuthService {
       })
 
       if (!userResponse.ok) {
-        const errorData = await userResponse.text()
-        console.error("Failed to get GitLab user info:", errorData)
-        throw new Error(`Failed to get user info: ${errorData}`)
+        throw new Error(`Failed to get user info: ${userResponse.statusText}`)
       }
 
       const userData = await userResponse.json()
-
-      const supabase = createServerComponentClient({ cookies })
 
       const integrationData = {
         user_id: userId,
@@ -129,8 +103,8 @@ export class GitLabOAuthService {
         scopes: ["read_user", "read_api", "read_repository", "write_repository"],
         metadata: {
           username: userData.username,
-          user_name: userData.name,
-          user_email: userData.email,
+          name: userData.name,
+          email: userData.email,
           avatar_url: userData.avatar_url,
           connected_at: new Date().toISOString(),
         },
@@ -145,32 +119,22 @@ export class GitLabOAuthService {
           })
           .eq("id", integrationId)
 
-        if (error) {
-          console.error("Error updating GitLab integration:", error)
-          throw error
-        }
+        if (error) throw error
       } else {
         const { error } = await supabase.from("integrations").insert(integrationData)
-        if (error) {
-          console.error("Error inserting GitLab integration:", error)
-          throw error
-        }
+        if (error) throw error
       }
 
       return {
         success: true,
-        redirectUrl: `${baseUrl}/integrations?success=gitlab_connected`,
+        redirectUrl: `https://chainreact.app/integrations?success=gitlab_connected`,
       }
     } catch (error: any) {
-      console.error("GitLab OAuth error:", error)
       return {
         success: false,
-        redirectUrl: `${baseUrl}/integrations?error=callback_failed&provider=gitlab&message=${encodeURIComponent(error.message)}`,
+        redirectUrl: `https://chainreact.app/integrations?error=callback_failed&provider=gitlab&message=${encodeURIComponent(error.message)}`,
         error: error.message,
       }
     }
   }
 }
-
-// Export alias for compatibility
-export const GitLabOAuth = GitLabOAuthService

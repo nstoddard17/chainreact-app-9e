@@ -82,83 +82,17 @@ export class TrelloOAuthService {
       }),
     )
 
+    // Use Trello's proper OAuth 1.0a flow
     const params = new URLSearchParams({
-      response_type: "code",
-      client_id: clientId,
-      redirect_uri: redirectUri,
+      oauth_consumer_key: clientId,
+      oauth_callback: redirectUri,
       scope: "read,write",
-      state: state,
-      name: "ChainReact",
       expiration: "never",
+      name: "ChainReact",
+      state: state,
     })
 
     return `https://trello.com/1/authorize?${params.toString()}`
-  }
-
-  static async exchangeCodeForToken(code: string): Promise<{
-    access_token: string
-    refresh_token?: string
-    expires_in?: number
-  }> {
-    const { clientId, clientSecret } = this.getClientCredentials()
-    const redirectUri = this.getRedirectUri()
-
-    const response = await fetch("https://api.trello.com/1/OAuthGetAccessToken", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: new URLSearchParams({
-        grant_type: "authorization_code",
-        client_id: clientId,
-        client_secret: clientSecret,
-        redirect_uri: redirectUri,
-        code: code,
-      }),
-    })
-
-    if (!response.ok) {
-      throw new Error(`Failed to exchange code for tokens: ${response.statusText}`)
-    }
-
-    const data = await response.json()
-    return {
-      access_token: data.access_token,
-      refresh_token: data.refresh_token,
-      expires_in: data.expires_in,
-    }
-  }
-
-  static async refreshAccessToken(refreshToken: string): Promise<{
-    access_token: string
-    refresh_token?: string
-    expires_in?: number
-  }> {
-    const { clientId, clientSecret } = this.getClientCredentials()
-
-    const response = await fetch("https://api.trello.com/1/OAuthGetAccessToken", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: new URLSearchParams({
-        grant_type: "refresh_token",
-        client_id: clientId,
-        client_secret: clientSecret,
-        refresh_token: refreshToken,
-      }),
-    })
-
-    if (!response.ok) {
-      throw new Error(`Failed to refresh access token: ${response.statusText}`)
-    }
-
-    const data = await response.json()
-    return {
-      access_token: data.access_token,
-      refresh_token: data.refresh_token || refreshToken,
-      expires_in: data.expires_in,
-    }
   }
 
   static async handleCallback(
@@ -175,15 +109,13 @@ export class TrelloOAuthService {
         throw new Error("Invalid provider in state")
       }
 
-      const tokenData = await this.exchangeCodeForToken(code)
-      const { access_token, refresh_token } = tokenData
+      // For Trello OAuth 1.0a, the 'code' parameter is actually the token
+      const accessToken = code
 
       // Get user info from Trello
-      const userResponse = await fetch("https://api.trello.com/1/members/me", {
-        headers: {
-          Authorization: `OAuth ${access_token}`,
-        },
-      })
+      const userResponse = await fetch(
+        `https://api.trello.com/1/members/me?key=${process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID}&token=${accessToken}`,
+      )
 
       if (!userResponse.ok) {
         throw new Error(`Failed to get user info: ${userResponse.statusText}`)
@@ -195,8 +127,7 @@ export class TrelloOAuthService {
         user_id: userId,
         provider: "trello",
         provider_user_id: userData.id,
-        access_token,
-        refresh_token,
+        access_token: accessToken,
         status: "connected" as const,
         scopes: ["read", "write"],
         metadata: {

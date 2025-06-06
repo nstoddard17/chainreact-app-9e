@@ -255,7 +255,7 @@ const availableProviders: Provider[] = [
     logoUrl: "/placeholder.svg?height=40&width=40&text=DH",
     capabilities: ["Images", "Repositories", "Tags", "Webhooks"],
     scopes: ["repo:read", "repo:write"],
-    isAvailable: true,
+    isAvailable: false, // Set to false to show "Coming Soon"
   },
   {
     id: "onedrive",
@@ -318,7 +318,6 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
     try {
       console.log("Starting connection for provider:", providerId)
 
-      // Use getUser() which is more reliable for getting current user
       const {
         data: { user },
       } = await supabase.auth.getUser()
@@ -335,7 +334,6 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
 
       console.log("Making API call to generate auth URL")
 
-      // Generate OAuth URL - the API will handle authentication internally
       const response = await fetch(`/api/integrations/auth/generate-url`, {
         method: "POST",
         headers: {
@@ -358,7 +356,6 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
       const { authUrl } = await response.json()
       console.log("Generated auth URL, redirecting...")
 
-      // Redirect to OAuth provider
       window.location.href = authUrl
     } catch (error: any) {
       console.error("Failed to connect integration:", error)

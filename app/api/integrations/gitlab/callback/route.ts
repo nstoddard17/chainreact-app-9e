@@ -1,37 +1,37 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { GitLabOAuthService } from "@/lib/oauth/gitlab"
+import { createClient } from "@supabase/supabase-js"
 
-export async function GET(request: NextRequest) {
+const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+
+export const GET = async (request: NextRequest): Promise<NextResponse> => {
+  const url = new URL(request.url)
+  const code = url.searchParams.get("code")
+  const state = url.searchParams.get("state")
+  const error = url.searchParams.get("error")
+
+  if (error) {
+    return NextResponse.redirect(`https://chainreact.app/integrations?error=${error}&provider=gitlab`)
+  }
+
+  if (!code || !state) {
+    return NextResponse.redirect(`https://chainreact.app/integrations?error=missing_params&provider=gitlab`)
+  }
+
   try {
-    // Extract code and state from query parameters
-    const searchParams = request.nextUrl.searchParams
-    const code = searchParams.get("code")
-    const state = searchParams.get("state")
+    const stateData = JSON.parse(atob(state))
+    const { userId } = stateData
 
-    if (!code) {
-      console.error("GitLab callback: Missing code parameter")
-      return NextResponse.redirect(`${request.nextUrl.origin}/integrations?error=missing_code&provider=gitlab`)
+    if (!userId) {
+      throw new Error("Missing user ID in state")
     }
 
-    if (!state) {
-      console.error("GitLab callback: Missing state parameter")
-      return NextResponse.redirect(`${request.nextUrl.origin}/integrations?error=missing_state&provider=gitlab`)
-    }
-
-    // Get the base URL for redirects
-    const baseUrl = request.nextUrl.origin
-
-    // Handle the OAuth callback
-    const result = await GitLabOAuthService.handleCallback(code, state, baseUrl)
-
-    // Redirect based on the result
+    const result = await GitLabOAuthService.handleCallback(code, state, supabase, userId)
     return NextResponse.redirect(result.redirectUrl)
   } catch (error: any) {
-    console.error("GitLab callback error:", error)
+    console.error("GitLab OAuth callback error:", error)
     return NextResponse.redirect(
-      `${request.nextUrl.origin}/integrations?error=callback_failed&provider=gitlab&message=${encodeURIComponent(
-        error.message,
-      )}`,
+      `https://chainreact.app/integrations?error=callback_failed&provider=gitlab&message=${encodeURIComponent(error.message)}`,
     )
   }
 }
