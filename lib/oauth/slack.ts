@@ -26,6 +26,8 @@ export class SlackOAuthService extends BaseOAuthService {
     const scopes = [
       "chat:write",
       "chat:write.public",
+      "channels:write",
+      "files:write",
       "channels:read",
       "channels:join",
       "groups:read",
