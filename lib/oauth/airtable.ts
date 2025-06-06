@@ -166,7 +166,6 @@ export class AirtableOAuthService {
   public static async handleCallback(
     code: string,
     state: string,
-    baseUrl: string,
     supabase: any,
     userId: string,
   ): Promise<AirtableOAuthResult> {
@@ -260,13 +259,14 @@ export class AirtableOAuthService {
     }
   }
 
-  public static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string): string {
+  public static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string, userId?: string): string {
     const { clientId } = this.getClientCredentials()
     const redirectUri = "https://chainreact.app/api/integrations/airtable/callback"
 
     const state = btoa(
       JSON.stringify({
         provider: "airtable",
+        userId,
         reconnect,
         integrationId,
         timestamp: Date.now(),

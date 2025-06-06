@@ -10,15 +10,11 @@ export class GitLabOAuthService {
     return { clientId, clientSecret }
   }
 
-  static getRedirectUri(): string {
-    return "https://chainreact.app/api/integrations/gitlab/callback"
-  }
-
   static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string, userId?: string): string {
     const { clientId } = this.getClientCredentials()
-    const redirectUri = this.getRedirectUri()
+    const redirectUri = "https://chainreact.app/api/integrations/gitlab/callback"
 
-    const scopes = ["read_user", "read_api", "read_repository", "write_repository"]
+    const scopes = ["read_user", "read_repository", "write_repository", "api", "read_api"]
 
     const state = btoa(
       JSON.stringify({
@@ -41,6 +37,10 @@ export class GitLabOAuthService {
     return `https://gitlab.com/oauth/authorize?${params.toString()}`
   }
 
+  static getRedirectUri(): string {
+    return "https://chainreact.app/api/integrations/gitlab/callback"
+  }
+
   static async handleCallback(
     code: string,
     state: string,
@@ -56,7 +56,6 @@ export class GitLabOAuthService {
       }
 
       const { clientId, clientSecret } = this.getClientCredentials()
-      const redirectUri = this.getRedirectUri()
 
       const tokenResponse = await fetch("https://gitlab.com/oauth/token", {
         method: "POST",
@@ -68,7 +67,7 @@ export class GitLabOAuthService {
           client_secret: clientSecret,
           code,
           grant_type: "authorization_code",
-          redirect_uri: redirectUri,
+          redirect_uri: "https://chainreact.app/api/integrations/gitlab/callback",
         }),
       })
 
@@ -78,7 +77,7 @@ export class GitLabOAuthService {
       }
 
       const tokenData = await tokenResponse.json()
-      const { access_token, refresh_token, expires_in } = tokenData
+      const { access_token, refresh_token, expires_in, scope } = tokenData
 
       const userResponse = await fetch("https://gitlab.com/api/v4/user", {
         headers: {
@@ -100,7 +99,7 @@ export class GitLabOAuthService {
         refresh_token,
         expires_at: expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null,
         status: "connected" as const,
-        scopes: ["read_user", "read_api", "read_repository", "write_repository"],
+        scopes: scope ? scope.split(" ") : [],
         metadata: {
           username: userData.username,
           name: userData.name,

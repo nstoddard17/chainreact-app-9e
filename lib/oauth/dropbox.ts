@@ -16,13 +16,14 @@ export class DropboxOAuthService {
     return { clientId, clientSecret }
   }
 
-  static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string): string {
+  static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string, userId?: string): string {
     const { clientId } = this.getClientCredentials()
     const redirectUri = "https://chainreact.app/api/integrations/dropbox/callback"
 
     const state = btoa(
       JSON.stringify({
         provider: "dropbox",
+        userId,
         reconnect,
         integrationId,
         timestamp: Date.now(),

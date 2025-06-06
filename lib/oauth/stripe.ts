@@ -1,10 +1,10 @@
-export class OneDriveOAuthService {
+export class StripeOAuthService {
   private static getClientCredentials() {
-    const clientId = process.env.NEXT_PUBLIC_ONEDRIVE_CLIENT_ID
-    const clientSecret = process.env.ONEDRIVE_CLIENT_SECRET
+    const clientId = process.env.NEXT_PUBLIC_STRIPE_CLIENT_ID
+    const clientSecret = process.env.STRIPE_CLIENT_SECRET
 
     if (!clientId || !clientSecret) {
-      throw new Error("Missing OneDrive OAuth configuration")
+      throw new Error("Missing Stripe OAuth configuration")
     }
 
     return { clientId, clientSecret }
@@ -12,13 +12,11 @@ export class OneDriveOAuthService {
 
   static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string, userId?: string): string {
     const { clientId } = this.getClientCredentials()
-    const redirectUri = "https://chainreact.app/api/integrations/onedrive/callback"
-
-    const scopes = ["openid", "profile", "email", "offline_access", "Files.ReadWrite.All", "Sites.ReadWrite.All"]
+    const redirectUri = "https://chainreact.app/api/integrations/stripe/callback"
 
     const state = btoa(
       JSON.stringify({
-        provider: "onedrive",
+        provider: "stripe",
         userId,
         reconnect,
         integrationId,
@@ -27,19 +25,18 @@ export class OneDriveOAuthService {
     )
 
     const params = new URLSearchParams({
-      client_id: clientId,
-      redirect_uri: redirectUri,
       response_type: "code",
-      scope: scopes.join(" "),
-      response_mode: "query",
+      client_id: clientId,
+      scope: "read_write",
+      redirect_uri: redirectUri,
       state,
     })
 
-    return `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`
+    return `https://connect.stripe.com/oauth/authorize?${params.toString()}`
   }
 
   static getRedirectUri(): string {
-    return "https://chainreact.app/api/integrations/onedrive/callback"
+    return "https://chainreact.app/api/integrations/stripe/callback"
   }
 
   static async handleCallback(
@@ -52,22 +49,20 @@ export class OneDriveOAuthService {
       const stateData = JSON.parse(atob(state))
       const { provider, reconnect, integrationId } = stateData
 
-      if (provider !== "onedrive") {
+      if (provider !== "stripe") {
         throw new Error("Invalid provider in state")
       }
 
       const { clientId, clientSecret } = this.getClientCredentials()
 
-      const tokenResponse = await fetch("https://login.microsoftonline.com/common/oauth2/v2.0/token", {
+      const tokenResponse = await fetch("https://connect.stripe.com/oauth/token", {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
         },
         body: new URLSearchParams({
-          code,
-          client_id: clientId,
           client_secret: clientSecret,
-          redirect_uri: "https://chainreact.app/api/integrations/onedrive/callback",
+          code,
           grant_type: "authorization_code",
         }),
       })
@@ -78,32 +73,18 @@ export class OneDriveOAuthService {
       }
 
       const tokenData = await tokenResponse.json()
-      const { access_token, refresh_token, expires_in, scope } = tokenData
-
-      const userResponse = await fetch("https://graph.microsoft.com/v1.0/me", {
-        headers: {
-          Authorization: `Bearer ${access_token}`,
-        },
-      })
-
-      if (!userResponse.ok) {
-        throw new Error(`Failed to get user info: ${userResponse.statusText}`)
-      }
-
-      const userData = await userResponse.json()
+      const { access_token, stripe_user_id, stripe_publishable_key } = tokenData
 
       const integrationData = {
         user_id: userId,
-        provider: "onedrive",
-        provider_user_id: userData.id,
+        provider: "stripe",
+        provider_user_id: stripe_user_id,
         access_token,
-        refresh_token,
-        expires_at: expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null,
         status: "connected" as const,
-        scopes: scope ? scope.split(" ") : [],
+        scopes: ["read_write"],
         metadata: {
-          display_name: userData.displayName,
-          email: userData.userPrincipalName,
+          stripe_user_id,
+          stripe_publishable_key,
           connected_at: new Date().toISOString(),
         },
       }
@@ -125,12 +106,12 @@ export class OneDriveOAuthService {
 
       return {
         success: true,
-        redirectUrl: `https://chainreact.app/integrations?success=onedrive_connected`,
+        redirectUrl: `https://chainreact.app/integrations?success=stripe_connected`,
       }
     } catch (error: any) {
       return {
         success: false,
-        redirectUrl: `https://chainreact.app/integrations?error=callback_failed&provider=onedrive&message=${encodeURIComponent(error.message)}`,
+        redirectUrl: `https://chainreact.app/integrations?error=callback_failed&provider=stripe&message=${encodeURIComponent(error.message)}`,
         error: error.message,
       }
     }

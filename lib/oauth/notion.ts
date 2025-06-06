@@ -185,13 +185,14 @@ export class NotionOAuthService {
     }
   }
 
-  static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string): string {
+  static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string, userId?: string): string {
     const { clientId } = this.getClientCredentials()
     const redirectUri = "https://chainreact.app/api/integrations/notion/callback"
 
     const state = btoa(
       JSON.stringify({
         provider: "notion",
+        userId,
         reconnect,
         integrationId,
         requireFullScopes: true,
@@ -210,17 +211,11 @@ export class NotionOAuthService {
     return `https://api.notion.com/v1/oauth/authorize?${params.toString()}`
   }
 
-  static getRedirectUri(baseUrl: string): string {
+  static getRedirectUri(): string {
     return "https://chainreact.app/api/integrations/notion/callback"
   }
 
-  static async handleCallback(
-    code: string,
-    state: string,
-    baseUrl: string,
-    supabase: any,
-    userId: string,
-  ): Promise<NotionOAuthResult> {
+  static async handleCallback(code: string, state: string, supabase: any, userId: string): Promise<NotionOAuthResult> {
     try {
       const stateData = JSON.parse(atob(state))
       const { provider, reconnect, integrationId, requireFullScopes } = stateData
@@ -275,7 +270,7 @@ export class NotionOAuthService {
       if (!tokenValidation.valid) {
         return {
           success: false,
-          redirectUrl: `${baseUrl}/integrations?error=invalid_token&provider=notion&message=${encodeURIComponent(tokenValidation.error || "Token validation failed")}`,
+          redirectUrl: `https://chainreact.app/integrations?error=invalid_token&provider=notion&message=${encodeURIComponent(tokenValidation.error || "Token validation failed")}`,
         }
       }
 
@@ -285,7 +280,7 @@ export class NotionOAuthService {
       if (requireFullScopes && !scopeValidation.valid) {
         return {
           success: false,
-          redirectUrl: `${baseUrl}/integrations?error=insufficient_scopes&provider=notion&missing=${encodeURIComponent(scopeValidation.missing.join(","))}&message=${encodeURIComponent("Your connection is missing required permissions: " + scopeValidation.missing.join(", ") + ". Please reconnect and accept all scopes.")}`,
+          redirectUrl: `https://chainreact.app/integrations?error=insufficient_scopes&provider=notion&missing=${encodeURIComponent(scopeValidation.missing.join(","))}&message=${encodeURIComponent("Your connection is missing required permissions: " + scopeValidation.missing.join(", ") + ". Please reconnect and accept all scopes.")}`,
         }
       }
 
@@ -324,13 +319,13 @@ export class NotionOAuthService {
 
       return {
         success: true,
-        redirectUrl: `${baseUrl}/integrations?success=notion_connected&scopes=${encodeURIComponent(tokenValidation.grantedScopes.join(","))}`,
+        redirectUrl: `https://chainreact.app/integrations?success=notion_connected&scopes=${encodeURIComponent(tokenValidation.grantedScopes.join(","))}`,
       }
     } catch (error: any) {
       console.error("Notion OAuth callback error:", error)
       return {
         success: false,
-        redirectUrl: `${baseUrl}/integrations?error=callback_failed&provider=notion&message=${encodeURIComponent(error.message)}`,
+        redirectUrl: `https://chainreact.app/integrations?error=callback_failed&provider=notion&message=${encodeURIComponent(error.message)}`,
         error: error.message,
       }
     }

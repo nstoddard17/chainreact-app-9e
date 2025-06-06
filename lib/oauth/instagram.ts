@@ -9,8 +9,8 @@ interface InstagramOAuthResult {
 
 export class InstagramOAuthService {
   private static getClientCredentials() {
-    const clientId = process.env.NEXT_PUBLIC_FACEBOOK_CLIENT_ID
-    const clientSecret = process.env.FACEBOOK_CLIENT_SECRET
+    const clientId = process.env.NEXT_PUBLIC_INSTAGRAM_CLIENT_ID
+    const clientSecret = process.env.INSTAGRAM_CLIENT_SECRET
 
     if (!clientId || !clientSecret) {
       throw new Error("Missing Instagram OAuth configuration")
@@ -45,33 +45,20 @@ export class InstagramOAuthService {
     }
   }
 
-  static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string): string {
-    const { clientId } = this.getClientCredentials()
-    const redirectUri = "https://chainreact.app/api/integrations/instagram/callback"
+  static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string, userId?: string): string {
+    const clientId = process.env.NEXT_PUBLIC_INSTAGRAM_CLIENT_ID
+    if (!clientId) {
+      throw new Error("Missing NEXT_PUBLIC_INSTAGRAM_CLIENT_ID environment variable")
+    }
 
-    const scopes = ["instagram_basic", "instagram_content_publish", "pages_show_list", "pages_read_engagement"]
+    const redirectUri = `${baseUrl}/api/integrations/instagram/callback`
+    const scopes = "instagram_basic,instagram_content_publish"
+    const state = JSON.stringify({ userId, integrationId, reconnect })
 
-    const state = btoa(
-      JSON.stringify({
-        provider: "instagram",
-        reconnect,
-        integrationId,
-        timestamp: Date.now(),
-      }),
-    )
-
-    const params = new URLSearchParams({
-      client_id: clientId,
-      redirect_uri: redirectUri,
-      scope: scopes.join(","),
-      response_type: "code",
-      state,
-    })
-
-    return `https://www.facebook.com/v18.0/dialog/oauth?${params.toString()}`
+    return `https://api.instagram.com/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scopes}&response_type=code&state=${encodeURIComponent(state)}`
   }
 
-  static getRedirectUri(baseUrl: string): string {
+  static getRedirectUri(): string {
     return "https://chainreact.app/api/integrations/instagram/callback"
   }
 
