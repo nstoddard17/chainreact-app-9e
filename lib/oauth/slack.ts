@@ -16,15 +16,13 @@ export class SlackOAuthService extends BaseOAuthService {
   }
 
   static getRedirectUri(): string {
-    // Hardcoded redirect URI
     return "https://chainreact.app/api/integrations/slack/callback"
   }
 
-  static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string): string {
+  static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string, userId?: string): string {
     const { clientId } = this.getClientCredentials()
     const redirectUri = this.getRedirectUri()
 
-    // Define required scopes
     const scopes = [
       "chat:write",
       "chat:write.public",
@@ -41,6 +39,7 @@ export class SlackOAuthService extends BaseOAuthService {
     const state = btoa(
       JSON.stringify({
         provider: "slack",
+        userId,
         reconnect,
         integrationId,
         timestamp: Date.now(),
@@ -61,12 +60,7 @@ export class SlackOAuthService extends BaseOAuthService {
     return `https://slack.com/oauth/v2/authorize?${params.toString()}`
   }
 
-  static async exchangeCodeForToken(
-    code: string,
-    redirectUri: string,
-    clientId?: string,
-    clientSecret?: string,
-  ): Promise<any> {
+  static async exchangeCodeForToken(code: string, redirectUri: string): Promise<any> {
     const credentials = this.getClientCredentials()
 
     const response = await fetch("https://slack.com/api/oauth.v2.access", {
@@ -115,7 +109,6 @@ export class SlackOAuthService extends BaseOAuthService {
   }
 
   static parseScopes(tokenResponse: any): string[] {
-    // Slack returns scopes in authed_user.scope
     return tokenResponse.authed_user?.scope ? tokenResponse.authed_user.scope.split(",") : []
   }
 

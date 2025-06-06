@@ -39,14 +39,14 @@ interface IntegrationState {
   disconnectIntegration: (integrationId: string) => Promise<void>
 }
 
-// Define all available providers
+// Define all available providers with hardcoded redirect URIs
 const availableProviders: Provider[] = [
   {
     id: "google",
     name: "Google",
     description: "Connect your Google account to access Gmail, Drive, Calendar, and more",
     category: "Productivity",
-    logoUrl: "/integrations/google.svg",
+    logoUrl: "/placeholder.svg?height=40&width=40&text=G",
     capabilities: ["Email", "Calendar", "Drive", "Sheets"],
     scopes: ["email", "profile", "calendar", "drive"],
     isAvailable: true,
@@ -56,7 +56,7 @@ const availableProviders: Provider[] = [
     name: "Slack",
     description: "Send messages, create channels, and manage your Slack workspace",
     category: "Communication",
-    logoUrl: "/integrations/slack.svg",
+    logoUrl: "/placeholder.svg?height=40&width=40&text=S",
     capabilities: ["Messaging", "Channels", "Files", "Users"],
     scopes: ["chat:write", "channels:read", "users:read"],
     isAvailable: true,
@@ -66,7 +66,7 @@ const availableProviders: Provider[] = [
     name: "GitHub",
     description: "Manage repositories, issues, pull requests, and deployments",
     category: "Development",
-    logoUrl: "/integrations/github.svg",
+    logoUrl: "/placeholder.svg?height=40&width=40&text=GH",
     capabilities: ["Repositories", "Issues", "Pull Requests", "Actions"],
     scopes: ["repo", "user", "workflow"],
     isAvailable: true,
@@ -76,7 +76,7 @@ const availableProviders: Provider[] = [
     name: "Discord",
     description: "Send messages, manage servers, and interact with Discord communities",
     category: "Communication",
-    logoUrl: "/integrations/discord.svg",
+    logoUrl: "/placeholder.svg?height=40&width=40&text=D",
     capabilities: ["Messaging", "Servers", "Channels", "Webhooks"],
     scopes: ["bot", "identify", "guilds"],
     isAvailable: true,
@@ -86,7 +86,7 @@ const availableProviders: Provider[] = [
     name: "Microsoft Teams",
     description: "Send messages, schedule meetings, and collaborate with your team",
     category: "Productivity",
-    logoUrl: "/integrations/teams.svg",
+    logoUrl: "/placeholder.svg?height=40&width=40&text=T",
     capabilities: ["Messaging", "Meetings", "Files", "Channels"],
     scopes: ["Chat.ReadWrite", "Team.ReadBasic.All"],
     isAvailable: true,
@@ -96,7 +96,7 @@ const availableProviders: Provider[] = [
     name: "Trello",
     description: "Create cards, manage boards, and organize your projects",
     category: "Project Management",
-    logoUrl: "/integrations/trello.svg",
+    logoUrl: "/placeholder.svg?height=40&width=40&text=TR",
     capabilities: ["Boards", "Cards", "Lists", "Members"],
     scopes: ["read", "write"],
     isAvailable: true,
@@ -106,7 +106,7 @@ const availableProviders: Provider[] = [
     name: "Notion",
     description: "Create pages, manage databases, and organize your workspace",
     category: "Productivity",
-    logoUrl: "/integrations/notion.svg",
+    logoUrl: "/placeholder.svg?height=40&width=40&text=N",
     capabilities: ["Pages", "Databases", "Blocks", "Users"],
     scopes: ["read_content", "insert_content"],
     isAvailable: true,
@@ -116,7 +116,7 @@ const availableProviders: Provider[] = [
     name: "Airtable",
     description: "Manage records, create tables, and organize your data",
     category: "Database",
-    logoUrl: "/integrations/airtable.svg",
+    logoUrl: "/placeholder.svg?height=40&width=40&text=A",
     capabilities: ["Records", "Tables", "Views", "Attachments"],
     scopes: ["data.records:read", "data.records:write"],
     isAvailable: true,
@@ -126,7 +126,7 @@ const availableProviders: Provider[] = [
     name: "Dropbox",
     description: "Upload files, manage folders, and share content",
     category: "Storage",
-    logoUrl: "/integrations/dropbox.svg",
+    logoUrl: "/placeholder.svg?height=40&width=40&text=DB",
     capabilities: ["Files", "Folders", "Sharing", "Metadata"],
     scopes: ["files.content.write", "files.content.read"],
     isAvailable: true,
@@ -136,7 +136,7 @@ const availableProviders: Provider[] = [
     name: "HubSpot",
     description: "Manage contacts, deals, companies, and marketing campaigns",
     category: "CRM",
-    logoUrl: "/integrations/hubspot.svg",
+    logoUrl: "/placeholder.svg?height=40&width=40&text=H",
     capabilities: ["Contacts", "Deals", "Companies", "Marketing"],
     scopes: ["crm.objects.contacts.read", "crm.objects.deals.read"],
     isAvailable: true,
@@ -146,7 +146,7 @@ const availableProviders: Provider[] = [
     name: "LinkedIn",
     description: "Share posts, manage connections, and access professional data",
     category: "Social",
-    logoUrl: "/integrations/linkedin.svg",
+    logoUrl: "/placeholder.svg?height=40&width=40&text=LI",
     capabilities: ["Posts", "Connections", "Profile", "Companies"],
     scopes: ["r_liteprofile", "w_member_social"],
     isAvailable: true,
@@ -156,7 +156,7 @@ const availableProviders: Provider[] = [
     name: "Facebook",
     description: "Post content, manage pages, and access social insights",
     category: "Social",
-    logoUrl: "/integrations/facebook.svg",
+    logoUrl: "/placeholder.svg?height=40&width=40&text=F",
     capabilities: ["Posts", "Pages", "Insights", "Events"],
     scopes: ["pages_manage_posts", "pages_read_engagement"],
     isAvailable: true,
@@ -166,7 +166,7 @@ const availableProviders: Provider[] = [
     name: "Instagram",
     description: "Post photos, manage content, and access media insights",
     category: "Social",
-    logoUrl: "/integrations/instagram.svg",
+    logoUrl: "/placeholder.svg?height=40&width=40&text=IG",
     capabilities: ["Posts", "Stories", "Media", "Insights"],
     scopes: ["instagram_basic", "instagram_content_publish"],
     isAvailable: true,
@@ -176,7 +176,7 @@ const availableProviders: Provider[] = [
     name: "Twitter",
     description: "Post tweets, manage followers, and access social data",
     category: "Social",
-    logoUrl: "/integrations/twitter.svg",
+    logoUrl: "/placeholder.svg?height=40&width=40&text=TW",
     capabilities: ["Tweets", "Followers", "Direct Messages", "Analytics"],
     scopes: ["tweet.read", "tweet.write", "users.read"],
     isAvailable: true,
@@ -186,7 +186,7 @@ const availableProviders: Provider[] = [
     name: "YouTube",
     description: "Upload videos, manage channels, and access analytics",
     category: "Media",
-    logoUrl: "/integrations/youtube.svg",
+    logoUrl: "/placeholder.svg?height=40&width=40&text=YT",
     capabilities: ["Videos", "Channels", "Playlists", "Analytics"],
     scopes: ["youtube.upload", "youtube.readonly"],
     isAvailable: true,
@@ -196,7 +196,7 @@ const availableProviders: Provider[] = [
     name: "TikTok",
     description: "Post videos, manage content, and access creator tools",
     category: "Social",
-    logoUrl: "/integrations/tiktok.svg",
+    logoUrl: "/placeholder.svg?height=40&width=40&text=TT",
     capabilities: ["Videos", "Analytics", "User Info"],
     scopes: ["user.info.basic", "video.upload"],
     isAvailable: true,
@@ -206,7 +206,7 @@ const availableProviders: Provider[] = [
     name: "Mailchimp",
     description: "Manage email campaigns, lists, and marketing automation",
     category: "Marketing",
-    logoUrl: "/integrations/mailchimp.svg",
+    logoUrl: "/placeholder.svg?height=40&width=40&text=MC",
     capabilities: ["Campaigns", "Lists", "Automation", "Reports"],
     scopes: ["read", "write"],
     isAvailable: true,
@@ -216,7 +216,7 @@ const availableProviders: Provider[] = [
     name: "Shopify",
     description: "Manage products, orders, customers, and store data",
     category: "E-commerce",
-    logoUrl: "/integrations/shopify.svg",
+    logoUrl: "/placeholder.svg?height=40&width=40&text=SH",
     capabilities: ["Products", "Orders", "Customers", "Inventory"],
     scopes: ["read_products", "write_products", "read_orders"],
     isAvailable: true,
@@ -226,7 +226,7 @@ const availableProviders: Provider[] = [
     name: "Stripe",
     description: "Process payments, manage customers, and handle subscriptions",
     category: "Payments",
-    logoUrl: "/integrations/stripe.svg",
+    logoUrl: "/placeholder.svg?height=40&width=40&text=ST",
     capabilities: ["Payments", "Customers", "Subscriptions", "Invoices"],
     scopes: ["read_write"],
     isAvailable: true,
@@ -236,7 +236,7 @@ const availableProviders: Provider[] = [
     name: "PayPal",
     description: "Process payments, manage transactions, and handle disputes",
     category: "Payments",
-    logoUrl: "/integrations/paypal.svg",
+    logoUrl: "/placeholder.svg?height=40&width=40&text=PP",
     capabilities: ["Payments", "Transactions", "Disputes", "Invoices"],
     scopes: ["openid", "profile", "email"],
     isAvailable: true,
@@ -246,7 +246,7 @@ const availableProviders: Provider[] = [
     name: "GitLab",
     description: "Manage repositories, issues, merge requests, and CI/CD pipelines",
     category: "Development",
-    logoUrl: "/integrations/gitlab.svg",
+    logoUrl: "/placeholder.svg?height=40&width=40&text=GL",
     capabilities: ["Repositories", "Issues", "Merge Requests", "Pipelines"],
     scopes: ["api", "read_user", "read_repository"],
     isAvailable: true,
@@ -256,7 +256,7 @@ const availableProviders: Provider[] = [
     name: "Docker Hub",
     description: "Manage container images, repositories, and deployments",
     category: "Development",
-    logoUrl: "/integrations/docker.svg",
+    logoUrl: "/placeholder.svg?height=40&width=40&text=DH",
     capabilities: ["Images", "Repositories", "Tags", "Webhooks"],
     scopes: ["repo:read", "repo:write"],
     isAvailable: true,
@@ -266,7 +266,7 @@ const availableProviders: Provider[] = [
     name: "OneDrive",
     description: "Upload files, manage folders, and share documents",
     category: "Storage",
-    logoUrl: "/integrations/onedrive.svg",
+    logoUrl: "/placeholder.svg?height=40&width=40&text=OD",
     capabilities: ["Files", "Folders", "Sharing", "Sync"],
     scopes: ["Files.ReadWrite", "Files.ReadWrite.All"],
     isAvailable: true,
@@ -284,7 +284,6 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
   fetchIntegrations: async (forceRefresh = false) => {
     const state = get()
 
-    // Check cache if not forcing refresh
     if (!forceRefresh && state.lastFetch && Date.now() - state.lastFetch.getTime() < 30000) {
       return
     }
@@ -296,7 +295,23 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
         throw new Error("Supabase client not available")
       }
 
-      const { data, error } = await supabase.from("integrations").select("*").order("created_at", { ascending: false })
+      // Get current user
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser()
+
+      if (userError || !user) {
+        console.log("No authenticated user found")
+        set({ integrations: [], loading: false, error: null, lastFetch: new Date() })
+        return
+      }
+
+      const { data, error } = await supabase
+        .from("integrations")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
 
       if (error) {
         throw new Error(error.message)
@@ -324,7 +339,19 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
 
   connectIntegration: async (providerId: string) => {
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin
+      // Get current user
+      if (!supabase) {
+        throw new Error("Supabase client not available")
+      }
+
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser()
+
+      if (userError || !user) {
+        throw new Error("Please log in to connect integrations")
+      }
 
       // Generate OAuth URL
       const response = await fetch(`/api/integrations/auth/generate-url`, {
@@ -334,13 +361,13 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
         },
         body: JSON.stringify({
           provider: providerId,
-          baseUrl,
+          userId: user.id,
         }),
       })
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.message || "Failed to generate auth URL")
+        throw new Error(errorData.error || "Failed to generate auth URL")
       }
 
       const { authUrl } = await response.json()
@@ -365,7 +392,6 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
         throw new Error(error.message)
       }
 
-      // Refresh integrations
       await get().fetchIntegrations(true)
     } catch (error: any) {
       console.error("Failed to disconnect integration:", error)

@@ -1,5 +1,3 @@
-import { OAuthService } from "./oauthService"
-
 interface GitHubOAuthResult {
   success: boolean
   redirectUrl: string
@@ -18,15 +16,20 @@ export class GitHubOAuthService {
     return { clientId, clientSecret }
   }
 
-  static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string): string {
+  static getRedirectUri(): string {
+    return "https://chainreact.app/api/integrations/github/callback"
+  }
+
+  static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string, userId?: string): string {
     const { clientId } = this.getClientCredentials()
-    const redirectUri = "https://chainreact.app/api/integrations/github/callback"
+    const redirectUri = this.getRedirectUri()
 
     const scopes = ["user:email", "read:user", "repo", "workflow", "write:repo_hook", "read:org"]
 
     const state = btoa(
       JSON.stringify({
         provider: "github",
+        userId,
         reconnect,
         integrationId,
         requireFullScopes: true,
@@ -42,10 +45,6 @@ export class GitHubOAuthService {
     })
 
     return `https://github.com/login/oauth/authorize?${params.toString()}`
-  }
-
-  static getRedirectUri(baseUrl: string): string {
-    return "https://chainreact.app/api/integrations/github/callback"
   }
 
   static async handleCallback(
@@ -88,24 +87,6 @@ export class GitHubOAuthService {
 
       if (!access_token) {
         throw new Error("No access token received from GitHub")
-      }
-
-      // Validate scopes if required
-      if (requireFullScopes) {
-        console.log("Validating GitHub scopes...")
-        const validation = await OAuthService.validateToken("github", access_token)
-
-        if (!validation.valid) {
-          console.error("GitHub scope validation failed:", validation)
-          return {
-            success: false,
-            redirectUrl: `${baseUrl}/integrations?error=insufficient_scopes&provider=github&message=${encodeURIComponent(
-              `Your connection is missing required permissions: ${validation.missingScopes.join(", ")}. Please reconnect and accept all scopes.`,
-            )}`,
-            error: "Insufficient scopes",
-          }
-        }
-        console.log("GitHub scopes validated successfully:", validation.grantedScopes)
       }
 
       const userResponse = await fetch("https://api.github.com/user", {
@@ -158,12 +139,12 @@ export class GitHubOAuthService {
 
       return {
         success: true,
-        redirectUrl: `${baseUrl}/integrations?success=github_connected&provider=github&scopes_validated=${requireFullScopes}`,
+        redirectUrl: `https://chainreact.app/integrations?success=github_connected&provider=github`,
       }
     } catch (error: any) {
       return {
         success: false,
-        redirectUrl: `${baseUrl}/integrations?error=callback_failed&provider=github&message=${encodeURIComponent(error.message)}`,
+        redirectUrl: `https://chainreact.app/integrations?error=callback_failed&provider=github&message=${encodeURIComponent(error.message)}`,
         error: error.message,
       }
     }

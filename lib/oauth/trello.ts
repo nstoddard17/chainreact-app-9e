@@ -51,3 +51,187 @@ export async function deleteTrelloIntegration(userId: string) {
     return { success: false, error: error.message }
   }
 }
+
+export class TrelloOAuthService {
+  private static getClientCredentials() {
+    const clientId = process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID
+    const clientSecret = process.env.TRELLO_CLIENT_SECRET
+
+    if (!clientId || !clientSecret) {
+      throw new Error("Missing Trello OAuth configuration")
+    }
+
+    return { clientId, clientSecret }
+  }
+
+  static getRedirectUri(): string {
+    return "https://chainreact.app/api/integrations/trello/callback"
+  }
+
+  static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string, userId?: string): string {
+    const { clientId } = this.getClientCredentials()
+    const redirectUri = this.getRedirectUri()
+
+    const state = btoa(
+      JSON.stringify({
+        provider: "trello",
+        userId,
+        reconnect,
+        integrationId,
+        timestamp: Date.now(),
+      }),
+    )
+
+    const params = new URLSearchParams({
+      response_type: "code",
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      scope: "read,write",
+      state: state,
+      name: "ChainReact",
+      expiration: "never",
+    })
+
+    return `https://trello.com/1/authorize?${params.toString()}`
+  }
+
+  static async exchangeCodeForToken(code: string): Promise<{
+    access_token: string
+    refresh_token?: string
+    expires_in?: number
+  }> {
+    const { clientId, clientSecret } = this.getClientCredentials()
+    const redirectUri = this.getRedirectUri()
+
+    const response = await fetch("https://api.trello.com/1/OAuthGetAccessToken", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        grant_type: "authorization_code",
+        client_id: clientId,
+        client_secret: clientSecret,
+        redirect_uri: redirectUri,
+        code: code,
+      }),
+    })
+
+    if (!response.ok) {
+      throw new Error(`Failed to exchange code for tokens: ${response.statusText}`)
+    }
+
+    const data = await response.json()
+    return {
+      access_token: data.access_token,
+      refresh_token: data.refresh_token,
+      expires_in: data.expires_in,
+    }
+  }
+
+  static async refreshAccessToken(refreshToken: string): Promise<{
+    access_token: string
+    refresh_token?: string
+    expires_in?: number
+  }> {
+    const { clientId, clientSecret } = this.getClientCredentials()
+
+    const response = await fetch("https://api.trello.com/1/OAuthGetAccessToken", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        client_id: clientId,
+        client_secret: clientSecret,
+        refresh_token: refreshToken,
+      }),
+    })
+
+    if (!response.ok) {
+      throw new Error(`Failed to refresh access token: ${response.statusText}`)
+    }
+
+    const data = await response.json()
+    return {
+      access_token: data.access_token,
+      refresh_token: data.refresh_token || refreshToken,
+      expires_in: data.expires_in,
+    }
+  }
+
+  static async handleCallback(
+    code: string,
+    state: string,
+    supabase: any,
+    userId: string,
+  ): Promise<{ success: boolean; redirectUrl: string; error?: string }> {
+    try {
+      const stateData = JSON.parse(atob(state))
+      const { provider, reconnect, integrationId } = stateData
+
+      if (provider !== "trello") {
+        throw new Error("Invalid provider in state")
+      }
+
+      const tokenData = await this.exchangeCodeForToken(code)
+      const { access_token, refresh_token } = tokenData
+
+      // Get user info from Trello
+      const userResponse = await fetch("https://api.trello.com/1/members/me", {
+        headers: {
+          Authorization: `OAuth ${access_token}`,
+        },
+      })
+
+      if (!userResponse.ok) {
+        throw new Error(`Failed to get user info: ${userResponse.statusText}`)
+      }
+
+      const userData = await userResponse.json()
+
+      const integrationData = {
+        user_id: userId,
+        provider: "trello",
+        provider_user_id: userData.id,
+        access_token,
+        refresh_token,
+        status: "connected" as const,
+        scopes: ["read", "write"],
+        metadata: {
+          username: userData.username,
+          full_name: userData.fullName,
+          connected_at: new Date().toISOString(),
+        },
+      }
+
+      if (reconnect && integrationId) {
+        const { error } = await supabase
+          .from("integrations")
+          .update({
+            ...integrationData,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", integrationId)
+
+        if (error) throw error
+      } else {
+        const { error } = await supabase.from("integrations").insert(integrationData)
+        if (error) throw error
+      }
+
+      return {
+        success: true,
+        redirectUrl: `https://chainreact.app/integrations?success=trello_connected`,
+      }
+    } catch (error: any) {
+      console.error("Trello OAuth callback error:", error)
+      return {
+        success: false,
+        redirectUrl: `https://chainreact.app/integrations?error=callback_failed&provider=trello&message=${encodeURIComponent(error.message)}`,
+        error: error.message,
+      }
+    }
+  }
+}

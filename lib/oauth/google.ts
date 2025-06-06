@@ -17,7 +17,6 @@ export class GoogleOAuthService extends BaseOAuthService {
   }
 
   static getRedirectUri(): string {
-    // Hardcoded redirect URI
     return "https://chainreact.app/api/integrations/google/callback"
   }
 
@@ -25,7 +24,6 @@ export class GoogleOAuthService extends BaseOAuthService {
     const { clientId } = this.getClientCredentials()
     const redirectUri = this.getRedirectUri()
 
-    // Define required scopes
     const scopes = [
       "https://www.googleapis.com/auth/userinfo.email",
       "https://www.googleapis.com/auth/userinfo.profile",
@@ -41,7 +39,7 @@ export class GoogleOAuthService extends BaseOAuthService {
     const state = btoa(
       JSON.stringify({
         provider: "google",
-        userId: userId, // Ensure userId is included
+        userId: userId,
         reconnect,
         integrationId,
         timestamp: Date.now(),
@@ -61,12 +59,7 @@ export class GoogleOAuthService extends BaseOAuthService {
     return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`
   }
 
-  static async exchangeCodeForToken(
-    code: string,
-    redirectUri: string,
-    clientId?: string,
-    clientSecret?: string,
-  ): Promise<any> {
+  static async exchangeCodeForToken(code: string, redirectUri: string): Promise<any> {
     const credentials = this.getClientCredentials()
 
     const response = await fetch("https://oauth2.googleapis.com/token", {
@@ -114,12 +107,7 @@ export class GoogleOAuthService extends BaseOAuthService {
       "https://www.googleapis.com/auth/userinfo.email",
       "https://www.googleapis.com/auth/userinfo.profile",
       "https://www.googleapis.com/auth/calendar",
-      "https://www.googleapis.com/auth/calendar.events",
       "https://www.googleapis.com/auth/drive",
-      "https://www.googleapis.com/auth/drive.file",
-      "https://www.googleapis.com/auth/spreadsheets",
-      "https://www.googleapis.com/auth/gmail.send",
-      "https://www.googleapis.com/auth/gmail.modify",
     ]
   }
 
@@ -132,11 +120,9 @@ export class GoogleOAuthService extends BaseOAuthService {
     try {
       console.log(`Processing Google OAuth callback for provider: ${provider}`)
 
-      // Parse state
       const stateData = parseOAuthState(state)
       const { userId, reconnect, integrationId } = stateData
 
-      // Verify user ID matches if provided
       if (expectedUserId && userId !== expectedUserId) {
         console.error(`User ID mismatch: expected ${expectedUserId}, got ${userId}`)
         return {
@@ -155,7 +141,6 @@ export class GoogleOAuthService extends BaseOAuthService {
         }
       }
 
-      // Exchange code for token
       const redirectUri = this.getRedirectUri()
       const tokenResponse = await this.exchangeCodeForToken(code, redirectUri)
 
@@ -163,20 +148,15 @@ export class GoogleOAuthService extends BaseOAuthService {
         throw new Error("No access token received from Google")
       }
 
-      // Get user info
       const userInfo = await this.validateTokenAndGetUserInfo(tokenResponse.access_token)
-
-      // Parse scopes
       const grantedScopes = this.parseScopes(tokenResponse)
       const requiredScopes = this.getRequiredScopes()
 
-      // Create admin Supabase client
       const supabase = createAdminSupabaseClient()
       if (!supabase) {
         throw new Error("Failed to create Supabase admin client")
       }
 
-      // Prepare integration data
       const integrationData = {
         user_id: userId,
         provider: provider,
@@ -199,14 +179,13 @@ export class GoogleOAuthService extends BaseOAuthService {
         },
       }
 
-      // Save integration
       await upsertIntegration(supabase, integrationData)
 
       console.log(`Google OAuth callback completed successfully for user ${userId}`)
 
       return {
         success: true,
-        redirectUrl: `https://chainreact.app/integrations?success=true&provider=${provider}&reconnect=${reconnect || false}`,
+        redirectUrl: `https://chainreact.app/integrations?success=google_connected&provider=${provider}`,
       }
     } catch (error: any) {
       console.error("Google OAuth callback error:", error)
