@@ -190,14 +190,15 @@ export const INTEGRATION_SCOPES: Record<string, IntegrationScopeConfig> = {
       { scope: "email", description: "Access email address", required: true },
       { scope: "offline_access", description: "Allow offline access (refresh tokens)", required: true },
       { scope: "User.Read", description: "Read user profile", required: true },
-      { scope: "ChannelMessage.Send", description: "Send messages in channels", required: false },
       { scope: "Chat.ReadWrite", description: "Read and write chat messages", required: false },
+      { scope: "ChannelMessage.Send", description: "Send messages in channels", required: false },
       { scope: "Team.ReadBasic.All", description: "Read basic info about teams", required: false },
     ],
     components: {
-      "teams-send-message": ["ChannelMessage.Send"],
-      "teams-read-write-chat": ["Chat.ReadWrite"],
+      "teams-send-message": ["Chat.ReadWrite"],
+      "teams-send-channel-message": ["ChannelMessage.Send"],
       "teams-get-teams": ["Team.ReadBasic.All"],
+      "teams-get-user": ["User.Read"],
     },
   },
   trello: {
@@ -234,19 +235,31 @@ export const INTEGRATION_SCOPES: Record<string, IntegrationScopeConfig> = {
     provider: "youtube",
     scopes: [
       {
-        scope: "https://www.googleapis.com/auth/youtube.upload",
-        description: "Upload videos to your YouTube channel",
+        scope: "https://www.googleapis.com/auth/youtube.readonly",
+        description: "View your YouTube account",
         required: true,
       },
       {
-        scope: "https://www.googleapis.com/auth/youtube.readonly",
-        description: "View your YouTube account",
+        scope: "https://www.googleapis.com/auth/userinfo.profile",
+        description: "View basic profile info",
+        required: true,
+      },
+      {
+        scope: "https://www.googleapis.com/auth/userinfo.email",
+        description: "View email address",
+        required: true,
+      },
+      {
+        scope: "https://www.googleapis.com/auth/youtube.upload",
+        description: "Upload videos to your YouTube channel",
         required: false,
       },
     ],
     components: {
-      "youtube-upload-video": ["https://www.googleapis.com/auth/youtube.upload"],
       "youtube-get-channel": ["https://www.googleapis.com/auth/youtube.readonly"],
+      "youtube-get-videos": ["https://www.googleapis.com/auth/youtube.readonly"],
+      "youtube-upload-video": ["https://www.googleapis.com/auth/youtube.upload"],
+      "youtube-get-analytics": ["https://www.googleapis.com/auth/youtube.readonly"],
     },
   },
   mailchimp: {

@@ -24,6 +24,7 @@ export class TeamsOAuthService extends BaseOAuthService {
     const { clientId } = this.getClientCredentials()
     const redirectUri = this.getRedirectUri()
 
+    // Request scopes that Microsoft actually supports for Teams
     const scopes = [
       "openid",
       "profile",
@@ -117,9 +118,19 @@ export class TeamsOAuthService extends BaseOAuthService {
       const userData = await userResponse.json()
       console.log("Teams: User data received:", userData.displayName)
 
-      // Parse and store the granted scopes
-      const grantedScopes = scope ? scope.split(" ").filter((s) => s.trim()) : []
-      console.log("Teams: Granted scopes:", grantedScopes)
+      // Parse and store the granted scopes - handle Microsoft's scope format
+      let grantedScopes: string[] = []
+      if (scope) {
+        // Microsoft returns scopes separated by spaces, sometimes with extra formatting
+        grantedScopes = scope
+          .split(/\s+/) // Split on any whitespace
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0)
+          .filter((s) => !s.includes("http")) // Remove any URL-like scopes that might be malformed
+
+        console.log("Teams: Raw scope string:", scope)
+        console.log("Teams: Parsed scopes:", grantedScopes)
+      }
 
       const integrationData = {
         user_id: userId,
@@ -136,6 +147,16 @@ export class TeamsOAuthService extends BaseOAuthService {
           connected_at: new Date().toISOString(),
           scopes: grantedScopes, // Store scopes in metadata as well
           raw_scope_string: scope, // Store the raw scope string for debugging
+          requested_scopes: [
+            "openid",
+            "profile",
+            "email",
+            "offline_access",
+            "User.Read",
+            "Chat.ReadWrite",
+            "ChannelMessage.Send",
+            "Team.ReadBasic.All",
+          ],
         },
       }
 

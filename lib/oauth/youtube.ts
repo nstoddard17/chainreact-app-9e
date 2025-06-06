@@ -25,9 +25,10 @@ export class YouTubeOAuthService {
       throw new Error("Missing NEXT_PUBLIC_YOUTUBE_CLIENT_ID environment variable")
     }
 
+    // Use the exact redirect URI that should be registered in Google Cloud Console
     const redirectUri = "https://chainreact.app/api/integrations/youtube/callback"
 
-    // Use more compatible scopes to avoid "invalid request" error
+    // Use YouTube-specific scopes that are more likely to be approved
     const scopes = [
       "https://www.googleapis.com/auth/youtube.readonly",
       "https://www.googleapis.com/auth/userinfo.profile",
@@ -52,12 +53,14 @@ export class YouTubeOAuthService {
       access_type: "offline",
       prompt: reconnect ? "consent" : "select_account",
       state,
+      include_granted_scopes: "true", // This helps with incremental authorization
     })
 
     return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`
   }
 
   static getRedirectUri(baseUrl: string): string {
+    // Always return the production URL that should be registered in Google Cloud Console
     return "https://chainreact.app/api/integrations/youtube/callback"
   }
 
@@ -82,7 +85,7 @@ export class YouTubeOAuthService {
           client_secret: clientSecret,
           code,
           grant_type: "authorization_code",
-          redirect_uri: "https://chainreact.app/api/integrations/youtube/callback",
+          redirect_uri: "https://chainreact.app/api/integrations/youtube/callback", // Use exact same URI
         }),
       })
 
@@ -94,18 +97,48 @@ export class YouTubeOAuthService {
       const tokenData = await tokenResponse.json()
       const { access_token, refresh_token, expires_in } = tokenData
 
-      const userResponse = await fetch("https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true", {
-        headers: {
-          Authorization: `Bearer ${access_token}`,
-        },
-      })
+      // Try YouTube API first, then fall back to basic Google profile
+      let userData
+      let channelId
+      let channelTitle
 
-      if (!userResponse.ok) {
-        throw new Error("Failed to get user info")
+      try {
+        const userResponse = await fetch("https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true", {
+          headers: {
+            Authorization: `Bearer ${access_token}`,
+          },
+        })
+
+        if (userResponse.ok) {
+          userData = await userResponse.json()
+          const channel = userData.items?.[0]
+          channelId = channel?.id
+          channelTitle = channel?.snippet?.title
+        }
+      } catch (e) {
+        console.warn("YouTube API not accessible, using basic profile")
       }
 
-      const userData = await userResponse.json()
-      const channel = userData.items?.[0]
+      // Fall back to basic Google profile if YouTube API fails
+      if (!channelId) {
+        try {
+          const profileResponse = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+            headers: {
+              Authorization: `Bearer ${access_token}`,
+            },
+          })
+
+          if (profileResponse.ok) {
+            const profileData = await profileResponse.json()
+            channelId = profileData.id
+            channelTitle = profileData.name || "YouTube User"
+          }
+        } catch (e) {
+          console.error("Error fetching Google profile:", e)
+          channelId = `youtube_${Date.now()}`
+          channelTitle = "YouTube User"
+        }
+      }
 
       const supabase = createServerComponentClient({ cookies })
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
@@ -117,17 +150,17 @@ export class YouTubeOAuthService {
       const integrationData = {
         user_id: sessionData.session.user.id,
         provider: "youtube",
-        provider_user_id: channel?.id || "unknown",
+        provider_user_id: channelId,
         access_token,
         refresh_token,
-        expires_at: new Date(Date.now() + expires_in * 1000).toISOString(),
+        expires_at: expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null,
         status: "connected" as const,
-        scopes: ["https://www.googleapis.com/auth/youtube.readonly"],
+        scopes: tokenData.scope ? tokenData.scope.split(" ") : ["https://www.googleapis.com/auth/youtube.readonly"],
         metadata: {
-          channel_id: channel?.id,
-          channel_title: channel?.snippet?.title,
-          channel_description: channel?.snippet?.description,
+          channel_id: channelId,
+          channel_title: channelTitle,
           connected_at: new Date().toISOString(),
+          token_type: tokenData.token_type || "Bearer",
         },
       }
 

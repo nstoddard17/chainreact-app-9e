@@ -138,8 +138,8 @@ async function verifyMicrosoftToken(
     const userData = await userResponse.json()
     console.log("Microsoft user verified:", userData.displayName)
 
-    // Instead of testing individual endpoints, return the scopes that were granted during OAuth
-    // We'll get these from the stored integration data
+    // For Microsoft, we'll rely on the stored scopes rather than testing endpoints
+    // because Microsoft's Graph API permissions are complex and may require admin consent
     return { valid: true, scopes: [] } // Scopes will be filled from stored data
   } catch (error: any) {
     console.error("Microsoft token verification error:", error)
@@ -292,47 +292,20 @@ function analyzeIntegration(
   const missingScopes: string[] = []
   const recommendations: string[] = []
 
-  // Only check for scopes that we actually request
-  const scopesToCheck = requestedScopes.length > 0 ? requestedScopes : []
+  // For Teams, be more lenient about scope requirements
+  const isTeamsProvider = provider === "teams"
 
   // Analyze each component
   providerComponents.forEach(([componentName, config]) => {
     const hasRequiredScopes = config.scopes.every((scope) => {
-      // Only check if this scope is in our requested scopes list
-      if (scopesToCheck.length > 0 && !scopesToCheck.includes(scope)) {
-        return true // If we don't request this scope, consider it satisfied
+      // For Teams, check if we have the scope or if it's a basic scope that's usually granted
+      if (isTeamsProvider) {
+        const basicScopes = ["openid", "profile", "email", "User.Read"]
+        if (basicScopes.includes(scope)) {
+          return true // Assume basic scopes are always available
+        }
       }
 
-      // For Google scopes, handle readonly vs full access and scope hierarchy
-      if (scope.includes("googleapis.com/auth/")) {
-        // Handle readonly vs full access
-        if (scope.includes(".readonly")) {
-          const fullAccessScope = scope.replace(".readonly", "")
-          return grantedScopes.includes(scope) || grantedScopes.includes(fullAccessScope)
-        }
-
-        // Handle Gmail scope hierarchy - modify includes readonly
-        if (scope === "https://www.googleapis.com/auth/gmail.readonly") {
-          return grantedScopes.includes(scope) || grantedScopes.includes("https://www.googleapis.com/auth/gmail.modify")
-        }
-
-        // Handle Calendar scope hierarchy
-        if (scope === "https://www.googleapis.com/auth/calendar.events") {
-          return grantedScopes.includes(scope) || grantedScopes.includes("https://www.googleapis.com/auth/calendar")
-        }
-
-        // Handle Sheets scope hierarchy
-        if (scope === "https://www.googleapis.com/auth/spreadsheets.readonly") {
-          return grantedScopes.includes(scope) || grantedScopes.includes("https://www.googleapis.com/auth/spreadsheets")
-        }
-
-        // Handle Docs scope hierarchy
-        if (scope === "https://www.googleapis.com/auth/documents.readonly") {
-          return grantedScopes.includes(scope) || grantedScopes.includes("https://www.googleapis.com/auth/documents")
-        }
-
-        return grantedScopes.includes(scope)
-      }
       return grantedScopes.includes(scope)
     })
 
@@ -341,39 +314,9 @@ function analyzeIntegration(
     } else {
       unavailableComponents.push(componentName)
       config.scopes.forEach((scope) => {
-        // Only add to missing scopes if we actually request this scope
-        if (scopesToCheck.length === 0 || scopesToCheck.includes(scope)) {
-          let isMissing = !grantedScopes.includes(scope)
-
-          // Check for Google scope hierarchy
-          if (scope.includes("googleapis.com/auth/") && isMissing) {
-            if (
-              scope === "https://www.googleapis.com/auth/gmail.readonly" &&
-              grantedScopes.includes("https://www.googleapis.com/auth/gmail.modify")
-            ) {
-              isMissing = false
-            }
-            if (
-              scope === "https://www.googleapis.com/auth/calendar.events" &&
-              grantedScopes.includes("https://www.googleapis.com/auth/calendar")
-            ) {
-              isMissing = false
-            }
-            if (
-              scope === "https://www.googleapis.com/auth/spreadsheets.readonly" &&
-              grantedScopes.includes("https://www.googleapis.com/auth/spreadsheets")
-            ) {
-              isMissing = false
-            }
-            if (
-              scope === "https://www.googleapis.com/auth/documents.readonly" &&
-              grantedScopes.includes("https://www.googleapis.com/auth/documents")
-            ) {
-              isMissing = false
-            }
-          }
-
-          if (isMissing && !missingScopes.includes(scope)) {
+        if (!grantedScopes.includes(scope) && !missingScopes.includes(scope)) {
+          // For Teams, only mark advanced scopes as missing
+          if (!isTeamsProvider || !["openid", "profile", "email", "User.Read"].includes(scope)) {
             missingScopes.push(scope)
           }
         }
@@ -388,8 +331,13 @@ function analyzeIntegration(
     recommendations.push("Reconnect this integration - token is invalid or expired")
   } else if (unavailableComponents.length > 0 && !isDemo) {
     status = "⚠️ Connected but limited"
-    recommendations.push(`Missing ${missingScopes.length} required scopes`)
-    recommendations.push("Reconnect with expanded permissions to unlock more components")
+    if (isTeamsProvider) {
+      recommendations.push("Some Teams features require admin consent for your organization")
+      recommendations.push("Contact your IT admin to grant additional permissions")
+    } else {
+      recommendations.push(`Missing ${missingScopes.length} required scopes`)
+      recommendations.push("Reconnect with expanded permissions to unlock more components")
+    }
   } else {
     status = "✅ Connected & functional"
     if (isDemo) {
@@ -397,19 +345,10 @@ function analyzeIntegration(
     }
   }
 
-  // Add specific recommendations based on missing scopes
-  if (missingScopes.length > 0) {
-    if (provider.startsWith("google")) {
-      recommendations.push("When reconnecting, ensure you grant all requested Google permissions")
-    } else if (provider === "slack") {
-      recommendations.push("Ensure your Slack app has the required scopes configured")
-    } else if (provider === "github") {
-      recommendations.push("Grant repository access and workflow permissions when reconnecting")
-    } else if (provider === "discord") {
-      recommendations.push("Ensure you grant identify and guild permissions when reconnecting")
-    } else if (provider === "teams") {
-      recommendations.push("Ensure you grant all Microsoft Teams permissions when reconnecting")
-    }
+  // Add specific recommendations for Teams
+  if (isTeamsProvider && missingScopes.length > 0) {
+    recommendations.push("Microsoft Teams advanced features may require admin consent")
+    recommendations.push("Try reconnecting or contact your organization's admin")
   }
 
   return {
@@ -418,7 +357,7 @@ function analyzeIntegration(
     status,
     tokenValid,
     grantedScopes,
-    requiredScopes: scopesToCheck, // Only show scopes we actually request
+    requiredScopes: requestedScopes,
     missingScopes,
     availableComponents,
     unavailableComponents,
