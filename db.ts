@@ -16,11 +16,6 @@ export const db = createClient(supabaseUrl, supabaseServiceKey, {
   },
 })
 
-// Required function export
-export function someFunction() {
-  return "function result"
-}
-
 // Helper functions for database operations
 export async function getIntegration(userId: string, provider: string) {
   try {
