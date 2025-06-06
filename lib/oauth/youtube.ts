@@ -19,7 +19,7 @@ export class YouTubeOAuthService {
     return { clientId, clientSecret }
   }
 
-  static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string): string {
+  static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string, userId?: string): string {
     const clientId = process.env.NEXT_PUBLIC_YOUTUBE_CLIENT_ID
     if (!clientId) {
       throw new Error("Missing NEXT_PUBLIC_YOUTUBE_CLIENT_ID environment variable")
@@ -27,16 +27,17 @@ export class YouTubeOAuthService {
 
     const redirectUri = "https://chainreact.app/api/integrations/youtube/callback"
 
-    // Use more specific YouTube scopes to avoid "invalid request" error
+    // Use more compatible scopes to avoid "invalid request" error
     const scopes = [
       "https://www.googleapis.com/auth/youtube.readonly",
-      "https://www.googleapis.com/auth/youtube.upload",
       "https://www.googleapis.com/auth/userinfo.profile",
+      "https://www.googleapis.com/auth/userinfo.email",
     ]
 
     const state = btoa(
       JSON.stringify({
         provider: "youtube",
+        userId,
         reconnect,
         integrationId,
         timestamp: Date.now(),
@@ -51,7 +52,6 @@ export class YouTubeOAuthService {
       access_type: "offline",
       prompt: reconnect ? "consent" : "select_account",
       state,
-      include_granted_scopes: "true", // This helps with YouTube API validation
     })
 
     return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`
@@ -122,7 +122,7 @@ export class YouTubeOAuthService {
         refresh_token,
         expires_at: new Date(Date.now() + expires_in * 1000).toISOString(),
         status: "connected" as const,
-        scopes: ["https://www.googleapis.com/auth/youtube.upload", "https://www.googleapis.com/auth/youtube.readonly"],
+        scopes: ["https://www.googleapis.com/auth/youtube.readonly"],
         metadata: {
           channel_id: channel?.id,
           channel_title: channel?.snippet?.title,

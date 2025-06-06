@@ -1,29 +1,50 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { generateId } from "lucia"
-import { createClient } from "@/lib/supabase"
+import { createClient } from "@supabase/supabase-js"
+
+// Use direct Supabase client with service role for reliable database operations
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+if (!supabaseUrl || !supabaseKey) {
+  throw new Error("NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be defined")
+}
+
+const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    persistSession: false,
+  },
+})
 
 export const GET = async (request: NextRequest) => {
   const searchParams = request.nextUrl.searchParams
   const token = searchParams.get("token") // Trello returns token directly
   const state = searchParams.get("state")
+  const baseUrl = "https://chainreact.app"
 
   if (!token) {
-    const baseUrl = "https://chainreact.app"
+    console.error("No token received from Trello")
     return NextResponse.redirect(`${baseUrl}/integrations?error=trello_no_token`)
   }
 
   if (!state) {
-    const baseUrl = "https://chainreact.app"
+    console.error("No state received from Trello")
     return NextResponse.redirect(`${baseUrl}/integrations?error=trello_no_state`)
   }
 
   try {
     // Parse state to get user ID
-    const stateData = JSON.parse(atob(state))
+    let stateData
+    try {
+      stateData = JSON.parse(atob(state))
+    } catch (e) {
+      console.error("Failed to parse state:", e)
+      return NextResponse.redirect(`${baseUrl}/integrations?error=invalid_state&provider=trello`)
+    }
+
     const userId = stateData.userId
 
     if (!userId) {
-      const baseUrl = "https://chainreact.app"
+      console.error("No user ID in state")
       return NextResponse.redirect(`${baseUrl}/integrations?error=trello_no_user_id`)
     }
 
@@ -33,7 +54,7 @@ export const GET = async (request: NextRequest) => {
     )
 
     if (!meResponse.ok) {
-      const baseUrl = "https://chainreact.app"
+      console.error("Failed to fetch Trello user info:", await meResponse.text())
       return NextResponse.redirect(`${baseUrl}/integrations?error=trello_me_fetch_failed`)
     }
 
@@ -42,16 +63,21 @@ export const GET = async (request: NextRequest) => {
     const trelloUsername = meData.username
 
     if (!trelloUserId || !trelloUsername) {
-      const baseUrl = "https://chainreact.app"
+      console.error("Missing Trello user data")
       return NextResponse.redirect(`${baseUrl}/integrations?error=trello_no_user_data`)
     }
 
-    // Create Supabase client
-    const supabase = createClient()
+    const now = new Date().toISOString()
 
-    // Save integration to database
-    const { error } = await supabase.from("integrations").insert({
-      id: generateId(21),
+    // Check if integration exists
+    const { data: existingIntegration } = await supabase
+      .from("integrations")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("provider", "trello")
+      .maybeSingle()
+
+    const integrationData = {
       user_id: userId,
       provider: "trello",
       provider_user_id: trelloUserId,
@@ -60,20 +86,39 @@ export const GET = async (request: NextRequest) => {
       scopes: ["read", "write"],
       metadata: {
         username: trelloUsername,
-        connected_at: new Date().toISOString(),
+        full_name: meData.fullName,
+        connected_at: now,
       },
-    })
-
-    if (error) {
-      console.error("Error saving Trello integration:", error)
-      const baseUrl = "https://chainreact.app"
-      return NextResponse.redirect(`${baseUrl}/integrations?error=trello_db_error`)
+      updated_at: now,
     }
 
-    return NextResponse.redirect(`https://chainreact.app/integrations?success=trello_connected`)
-  } catch (e) {
-    console.error(e)
-    const baseUrl = "https://chainreact.app"
-    return NextResponse.redirect(`${baseUrl}/integrations?error=trello_general_error`)
+    if (existingIntegration) {
+      const { error } = await supabase.from("integrations").update(integrationData).eq("id", existingIntegration.id)
+
+      if (error) {
+        console.error("Error updating Trello integration:", error)
+        return NextResponse.redirect(`${baseUrl}/integrations?error=database_update_failed&provider=trello`)
+      }
+    } else {
+      const { error } = await supabase.from("integrations").insert({
+        ...integrationData,
+        created_at: now,
+      })
+
+      if (error) {
+        console.error("Error inserting Trello integration:", error)
+        return NextResponse.redirect(`${baseUrl}/integrations?error=database_insert_failed&provider=trello`)
+      }
+    }
+
+    // Add a delay to ensure database operations complete
+    await new Promise((resolve) => setTimeout(resolve, 500))
+
+    return NextResponse.redirect(`${baseUrl}/integrations?success=trello_connected&provider=trello&t=${Date.now()}`)
+  } catch (e: any) {
+    console.error("Error during Trello callback:", e)
+    return NextResponse.redirect(
+      `${baseUrl}/integrations?error=trello_general_error&message=${encodeURIComponent(e.message)}`,
+    )
   }
 }

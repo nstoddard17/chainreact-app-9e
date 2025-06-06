@@ -34,6 +34,7 @@ interface IntegrationState {
   fetchIntegrations: (forceRefresh?: boolean) => Promise<void>
   connectIntegration: (providerId: string) => Promise<void>
   disconnectIntegration: (integrationId: string) => Promise<void>
+  handleOAuthSuccess: () => void
 }
 
 const availableProviders: Provider[] = [
@@ -375,6 +376,26 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
     } catch (error: any) {
       console.error("Failed to disconnect integration:", error)
       throw error
+    }
+  },
+
+  handleOAuthSuccess: () => {
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search)
+      const success = urlParams.get("success")
+      const provider = urlParams.get("provider")
+
+      if (success && provider) {
+        console.log(`OAuth success for ${provider}, refreshing integrations...`)
+        // Add a small delay to ensure database operations are complete
+        setTimeout(() => {
+          get().fetchIntegrations(true)
+        }, 1000)
+
+        // Clean up URL parameters
+        const newUrl = window.location.pathname
+        window.history.replaceState({}, "", newUrl)
+      }
     }
   },
 }))
