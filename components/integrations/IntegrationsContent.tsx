@@ -47,9 +47,10 @@ export default function IntegrationsContent() {
     const provider = searchParams.get("provider")
 
     if (success) {
+      // Add a longer delay and force refresh
       setTimeout(async () => {
         try {
-          await fetchIntegrations(true)
+          await fetchIntegrations(true) // Force refresh
           toast({
             title: "Integration Connected",
             description: `Your ${provider || "integration"} has been successfully connected!`,
@@ -57,8 +58,12 @@ export default function IntegrationsContent() {
           })
         } catch (err) {
           console.error("Failed to refresh integrations after OAuth:", err)
+          // Try refreshing again after a short delay
+          setTimeout(() => {
+            fetchIntegrations(true)
+          }, 2000)
         }
-      }, 1000)
+      }, 2000) // Increased delay to ensure database has been updated
     } else if (error) {
       const message = searchParams.get("message") || "Failed to connect integration"
       toast({

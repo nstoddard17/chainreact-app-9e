@@ -1,4 +1,5 @@
 import { BaseOAuthService } from "./BaseOAuthService"
+import { saveIntegrationToDatabase, generateSuccessRedirect } from "./callbackHandler"
 
 export class TeamsOAuthService extends BaseOAuthService {
   private static getClientCredentials() {
@@ -51,7 +52,7 @@ export class TeamsOAuthService extends BaseOAuthService {
       scope: scopes.join(" "),
       response_mode: "query",
       state,
-      prompt: reconnect ? "consent" : "select_account",
+      prompt: "consent", // Always show consent screen
     })
 
     return `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`
@@ -124,24 +125,11 @@ export class TeamsOAuthService extends BaseOAuthService {
         },
       }
 
-      if (reconnect && integrationId) {
-        const { error } = await supabase
-          .from("integrations")
-          .update({
-            ...integrationData,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", integrationId)
-
-        if (error) throw error
-      } else {
-        const { error } = await supabase.from("integrations").insert(integrationData)
-        if (error) throw error
-      }
+      await saveIntegrationToDatabase(integrationData)
 
       return {
         success: true,
-        redirectUrl: `https://chainreact.app/integrations?success=teams_connected`,
+        redirectUrl: generateSuccessRedirect("teams"),
       }
     } catch (error: any) {
       return {

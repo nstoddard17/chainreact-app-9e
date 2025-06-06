@@ -11,10 +11,14 @@ export const GET = async (request: NextRequest): Promise<NextResponse> => {
   const error = url.searchParams.get("error")
 
   if (error) {
-    return NextResponse.redirect(`https://chainreact.app/integrations?error=${error}&provider=teams`)
+    console.error("Teams OAuth error:", error)
+    return NextResponse.redirect(
+      `https://chainreact.app/integrations?error=oauth_error&provider=teams&message=${encodeURIComponent(error)}`,
+    )
   }
 
   if (!code || !state) {
+    console.error("Missing code or state in Teams callback")
     return NextResponse.redirect(`https://chainreact.app/integrations?error=missing_params&provider=teams`)
   }
 
@@ -27,7 +31,12 @@ export const GET = async (request: NextRequest): Promise<NextResponse> => {
     }
 
     const result = await TeamsOAuthService.handleCallback(code, state, supabase, userId)
-    return NextResponse.redirect(result.redirectUrl)
+
+    if (result.success) {
+      return NextResponse.redirect(`https://chainreact.app/integrations?success=teams_connected&provider=teams`)
+    } else {
+      return NextResponse.redirect(result.redirectUrl)
+    }
   } catch (error: any) {
     console.error("Teams OAuth callback error:", error)
     return NextResponse.redirect(
