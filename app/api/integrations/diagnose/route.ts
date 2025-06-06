@@ -35,11 +35,9 @@ const COMPONENT_SCOPE_MAPPING = {
   discord_message: { scopes: ["identify"], provider: "discord" },
   discord_guild_info: { scopes: ["guilds"], provider: "discord" },
 
-  // Microsoft Teams components
-  teams_message: { scopes: ["Chat.ReadWrite"], provider: "teams" },
-  teams_send_channel_message: { scopes: ["ChannelMessage.Send"], provider: "teams" },
-  teams_get_teams: { scopes: ["Team.ReadBasic.All"], provider: "teams" },
+  // Microsoft Teams components - only basic functionality
   teams_user_info: { scopes: ["User.Read"], provider: "teams" },
+  teams_get_profile: { scopes: ["profile"], provider: "teams" },
 
   // Google Calendar components
   google_calendar_create: { scopes: ["https://www.googleapis.com/auth/calendar"], provider: "google-calendar" },
@@ -62,7 +60,9 @@ const COMPONENT_SCOPE_MAPPING = {
   youtube_get_videos: { scopes: ["https://www.googleapis.com/auth/youtube.readonly"], provider: "youtube" },
   youtube_upload_video: { scopes: ["https://www.googleapis.com/auth/youtube.upload"], provider: "youtube" },
 
-  // GitHub components
+  // GitHub components - basic functionality
+  github_get_user: { scopes: ["user:email"], provider: "github" },
+  github_get_repos: { scopes: ["public_repo"], provider: "github" },
   github_create_issue: { scopes: ["repo"], provider: "github" },
   github_create_pr: { scopes: ["repo"], provider: "github" },
 
@@ -299,10 +299,11 @@ function analyzeIntegration(
 
   // For Teams, be more lenient about scope requirements
   const isTeamsProvider = provider === "teams"
+  const isGitHubProvider = provider === "github"
 
   // Analyze each component
   providerComponents.forEach(([componentName, config]) => {
-    // Only check component scopes that are part of our required or optional scopes
+    // Only check component scopes that are part of our requested scopes
     const componentScopesToCheck = config.scopes.filter((scope) => getAllScopes(provider).includes(scope))
 
     // If no scopes to check (e.g., all component scopes are not in our requested scopes),
@@ -321,6 +322,17 @@ function analyzeIntegration(
         }
       }
 
+      // For GitHub, handle scope hierarchy
+      if (isGitHubProvider) {
+        // If we have 'repo' scope, we also have 'public_repo' and 'user:email'
+        if (scope === "public_repo" && grantedScopes.includes("repo")) {
+          return true
+        }
+        if (scope === "user:email" && (grantedScopes.includes("repo") || grantedScopes.includes("user"))) {
+          return true
+        }
+      }
+
       return grantedScopes.includes(scope)
     })
 
@@ -329,7 +341,19 @@ function analyzeIntegration(
     } else {
       unavailableComponents.push(componentName)
       componentScopesToCheck.forEach((scope) => {
-        if (!grantedScopes.includes(scope) && !missingScopes.includes(scope)) {
+        // Check if scope is missing considering GitHub scope hierarchy
+        let isMissing = !grantedScopes.includes(scope)
+
+        if (isGitHubProvider && isMissing) {
+          if (scope === "public_repo" && grantedScopes.includes("repo")) {
+            isMissing = false
+          }
+          if (scope === "user:email" && (grantedScopes.includes("repo") || grantedScopes.includes("user"))) {
+            isMissing = false
+          }
+        }
+
+        if (isMissing && !missingScopes.includes(scope)) {
           // For Teams, only mark advanced scopes as missing
           if (!isTeamsProvider || !["openid", "profile", "email", "User.Read"].includes(scope)) {
             missingScopes.push(scope)
@@ -339,8 +363,21 @@ function analyzeIntegration(
     }
   })
 
-  // Check for missing required scopes
-  const missingRequiredScopes = requiredScopes.filter((scope) => !grantedScopes.includes(scope))
+  // Check for missing required scopes with GitHub scope hierarchy
+  const missingRequiredScopes = requiredScopes.filter((scope) => {
+    let isMissing = !grantedScopes.includes(scope)
+
+    if (isGitHubProvider && isMissing) {
+      if (scope === "public_repo" && grantedScopes.includes("repo")) {
+        isMissing = false
+      }
+      if (scope === "user:email" && (grantedScopes.includes("repo") || grantedScopes.includes("user"))) {
+        isMissing = false
+      }
+    }
+
+    return isMissing
+  })
 
   // Determine status
   let status: DiagnosticResult["status"]
@@ -364,6 +401,8 @@ function analyzeIntegration(
     status = "✅ Connected & functional"
     if (isDemo) {
       recommendations.push("This is a demo connection - connect with real OAuth for full functionality")
+    } else if (isGitHubProvider) {
+      recommendations.push("All GitHub features are available with your current permissions")
     }
   }
 
