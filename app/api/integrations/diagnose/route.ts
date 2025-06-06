@@ -376,6 +376,19 @@ function analyzeIntegration(
       }
     }
 
+    // For Teams, be very lenient - if we have basic OIDC scopes, consider it complete
+    if (isTeamsProvider && isMissing) {
+      const basicTeamsScopes = ["openid", "profile", "email", "offline_access"]
+      if (basicTeamsScopes.includes(scope)) {
+        // Check if we have any of the equivalent scopes
+        if (scope === "openid" && grantedScopes.includes("openid")) isMissing = false
+        if (scope === "profile" && (grantedScopes.includes("profile") || grantedScopes.includes("User.Read")))
+          isMissing = false
+        if (scope === "email" && grantedScopes.includes("email")) isMissing = false
+        if (scope === "offline_access" && grantedScopes.includes("offline_access")) isMissing = false
+      }
+    }
+
     return isMissing
   })
 
@@ -384,19 +397,28 @@ function analyzeIntegration(
   if (!tokenValid && !isDemo) {
     status = "❌ Connected but broken"
     recommendations.push("Reconnect this integration - token is invalid or expired")
+  } else if (isTeamsProvider) {
+    // Special handling for Teams - if token is valid and we have basic scopes, consider it functional
+    const hasBasicTeamsScopes =
+      grantedScopes.includes("openid") &&
+      (grantedScopes.includes("profile") || grantedScopes.includes("User.Read")) &&
+      grantedScopes.includes("email")
+
+    if (hasBasicTeamsScopes) {
+      status = "✅ Connected & functional"
+      recommendations.push("Teams integration is working with your current permissions")
+    } else {
+      status = "⚠️ Connected but limited"
+      recommendations.push("Missing basic Teams authentication scopes")
+    }
   } else if (missingRequiredScopes.length > 0 && !isDemo) {
     status = "⚠️ Connected but limited"
     recommendations.push(`Missing ${missingRequiredScopes.length} required scopes`)
     recommendations.push("Reconnect with expanded permissions to unlock more components")
   } else if (unavailableComponents.length > 0 && !isDemo) {
     status = "⚠️ Connected but limited"
-    if (isTeamsProvider) {
-      recommendations.push("Some Teams features require admin consent for your organization")
-      recommendations.push("Contact your IT admin to grant additional permissions")
-    } else {
-      recommendations.push(`Some optional features are unavailable due to missing scopes`)
-      recommendations.push("Reconnect with expanded permissions to unlock more components")
-    }
+    recommendations.push(`Some optional features are unavailable due to missing scopes`)
+    recommendations.push("Reconnect with expanded permissions to unlock more components")
   } else {
     status = "✅ Connected & functional"
     if (isDemo) {
