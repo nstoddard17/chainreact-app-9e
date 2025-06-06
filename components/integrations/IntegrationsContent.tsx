@@ -292,9 +292,9 @@ export default function IntegrationsContent() {
     }
   }, [searchParams, toast, fetchIntegrations, clearCache, integrations.length])
 
-  const categories = Array.from(new Set(providers.map((p) => p.category)))
+  const categories = Array.from(new Set((providers || []).map((p) => p.category)))
 
-  const filteredProviders = providers.filter((provider) => {
+  const filteredProviders = (providers || []).filter((provider) => {
     const matchesSearch =
       provider.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       provider.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -306,9 +306,11 @@ export default function IntegrationsContent() {
   })
 
   // Merge providers with integration status
-  const providersWithStatus = filteredProviders.map((provider) => {
-    const connectedIntegration = integrations.find((i) => i?.provider === provider.id && i?.status === "connected")
-    const disconnectedIntegration = integrations.find(
+  const providersWithStatus = (filteredProviders || []).map((provider) => {
+    const connectedIntegration = (integrations || []).find(
+      (i) => i?.provider === provider.id && i?.status === "connected",
+    )
+    const disconnectedIntegration = (integrations || []).find(
       (i) => i?.provider === provider.id && i?.status === "disconnected",
     )
 
@@ -321,7 +323,7 @@ export default function IntegrationsContent() {
   })
 
   // Group by category
-  const groupedProviders = categories.reduce(
+  const groupedProviders = (categories || []).reduce(
     (acc, category) => {
       acc[category] = providersWithStatus.filter((p) => p.category === category)
       return acc
@@ -329,7 +331,7 @@ export default function IntegrationsContent() {
     {} as Record<string, typeof providersWithStatus>,
   )
 
-  const connectedCount = integrations.filter((i) => i?.status === "connected").length
+  const connectedCount = (integrations || []).filter((i) => i?.status === "connected").length
 
   const handleRefresh = async () => {
     try {
@@ -466,7 +468,7 @@ export default function IntegrationsContent() {
                   <Filter className="w-4 h-4" />
                   All Categories
                 </Button>
-                {categories.map((category) => (
+                {(categories || []).map((category) => (
                   <Button
                     key={category}
                     variant={selectedCategory === category ? "default" : "outline"}
@@ -489,7 +491,7 @@ export default function IntegrationsContent() {
                 <div>Connected integrations: {connectedCount}</div>
                 <div>
                   Connected providers:{" "}
-                  {providersWithStatus
+                  {(providersWithStatus || [])
                     .filter((p) => p.connected)
                     .map((p) => p.name)
                     .join(", ") || "None"}
@@ -508,7 +510,7 @@ export default function IntegrationsContent() {
                 <div>
                   <h2 className="text-xl font-semibold text-slate-900 mb-4">{selectedCategory}</h2>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {groupedProviders[selectedCategory]?.map((provider) => (
+                    {(groupedProviders[selectedCategory] || []).map((provider) => (
                       <IntegrationCard key={provider.id} provider={provider} />
                     ))}
                   </div>
@@ -525,7 +527,7 @@ export default function IntegrationsContent() {
                       </Badge>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {groupedProviders[category]?.map((provider) => (
+                      {(groupedProviders[category] || []).map((provider) => (
                         <IntegrationCard key={provider.id} provider={provider} />
                       ))}
                     </div>
