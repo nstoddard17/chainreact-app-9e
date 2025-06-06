@@ -260,25 +260,6 @@ export const INTEGRATION_SCOPES: Record<string, IntegrationScopeConfig> = {
       "facebook-get-pages": ["pages_show_list"],
     },
   },
-  youtube: {
-    provider: "youtube",
-    scopes: [
-      {
-        scope: "https://www.googleapis.com/auth/youtube.upload",
-        description: "Upload videos to your YouTube channel",
-        required: true,
-      },
-      {
-        scope: "https://www.googleapis.com/auth/youtube.readonly",
-        description: "View your YouTube account",
-        required: false,
-      },
-    ],
-    components: {
-      "youtube-upload-video": ["https://www.googleapis.com/auth/youtube.upload"],
-      "youtube-get-channel": ["https://www.googleapis.com/auth/youtube.readonly"],
-    },
-  },
   mailchimp: {
     provider: "mailchimp",
     scopes: [{ scope: "basic_access", description: "Access to Mailchimp account", required: true }],
