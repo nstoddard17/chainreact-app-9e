@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 import type { Database } from "@/types/supabase"
-import { getAllScopes } from "@/lib/integrations/integrationScopes"
+import { getAllScopes, getRequiredScopes } from "@/lib/integrations/integrationScopes"
 
 interface DiagnosticResult {
   integrationId: string
@@ -56,6 +56,11 @@ const COMPONENT_SCOPE_MAPPING = {
   // Gmail components
   gmail_send: { scopes: ["https://www.googleapis.com/auth/gmail.send"], provider: "gmail" },
   gmail_modify: { scopes: ["https://www.googleapis.com/auth/gmail.modify"], provider: "gmail" },
+
+  // YouTube components
+  youtube_get_channel: { scopes: ["https://www.googleapis.com/auth/youtube.readonly"], provider: "youtube" },
+  youtube_get_videos: { scopes: ["https://www.googleapis.com/auth/youtube.readonly"], provider: "youtube" },
+  youtube_upload_video: { scopes: ["https://www.googleapis.com/auth/youtube.upload"], provider: "youtube" },
 
   // GitHub components
   github_create_issue: { scopes: ["repo"], provider: "github" },
@@ -279,8 +284,8 @@ function analyzeIntegration(
   const provider = integration.provider
   const isDemo = integration.metadata?.demo === true
 
-  // Get the scopes we actually request for this provider
-  const requestedScopes = getAllScopes(provider)
+  // Get only the required scopes for this provider
+  const requiredScopes = getRequiredScopes(provider)
 
   // Get all components for this provider
   const providerComponents = Object.entries(COMPONENT_SCOPE_MAPPING).filter(
@@ -297,7 +302,17 @@ function analyzeIntegration(
 
   // Analyze each component
   providerComponents.forEach(([componentName, config]) => {
-    const hasRequiredScopes = config.scopes.every((scope) => {
+    // Only check component scopes that are part of our required or optional scopes
+    const componentScopesToCheck = config.scopes.filter((scope) => getAllScopes(provider).includes(scope))
+
+    // If no scopes to check (e.g., all component scopes are not in our requested scopes),
+    // consider the component available
+    if (componentScopesToCheck.length === 0) {
+      availableComponents.push(componentName)
+      return
+    }
+
+    const hasRequiredScopes = componentScopesToCheck.every((scope) => {
       // For Teams, check if we have the scope or if it's a basic scope that's usually granted
       if (isTeamsProvider) {
         const basicScopes = ["openid", "profile", "email", "User.Read"]
@@ -313,7 +328,7 @@ function analyzeIntegration(
       availableComponents.push(componentName)
     } else {
       unavailableComponents.push(componentName)
-      config.scopes.forEach((scope) => {
+      componentScopesToCheck.forEach((scope) => {
         if (!grantedScopes.includes(scope) && !missingScopes.includes(scope)) {
           // For Teams, only mark advanced scopes as missing
           if (!isTeamsProvider || !["openid", "profile", "email", "User.Read"].includes(scope)) {
@@ -324,18 +339,25 @@ function analyzeIntegration(
     }
   })
 
+  // Check for missing required scopes
+  const missingRequiredScopes = requiredScopes.filter((scope) => !grantedScopes.includes(scope))
+
   // Determine status
   let status: DiagnosticResult["status"]
   if (!tokenValid && !isDemo) {
     status = "❌ Connected but broken"
     recommendations.push("Reconnect this integration - token is invalid or expired")
+  } else if (missingRequiredScopes.length > 0 && !isDemo) {
+    status = "⚠️ Connected but limited"
+    recommendations.push(`Missing ${missingRequiredScopes.length} required scopes`)
+    recommendations.push("Reconnect with expanded permissions to unlock more components")
   } else if (unavailableComponents.length > 0 && !isDemo) {
     status = "⚠️ Connected but limited"
     if (isTeamsProvider) {
       recommendations.push("Some Teams features require admin consent for your organization")
       recommendations.push("Contact your IT admin to grant additional permissions")
     } else {
-      recommendations.push(`Missing ${missingScopes.length} required scopes`)
+      recommendations.push(`Some optional features are unavailable due to missing scopes`)
       recommendations.push("Reconnect with expanded permissions to unlock more components")
     }
   } else {
@@ -357,7 +379,7 @@ function analyzeIntegration(
     status,
     tokenValid,
     grantedScopes,
-    requiredScopes: requestedScopes,
+    requiredScopes,
     missingScopes,
     availableComponents,
     unavailableComponents,
