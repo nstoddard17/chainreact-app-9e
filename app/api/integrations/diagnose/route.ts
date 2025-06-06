@@ -379,8 +379,9 @@ function analyzeIntegration(
     return isMissing
   })
 
-  // Determine status
+  // Determine status with improved logic for Teams
   let status: DiagnosticResult["status"]
+
   if (!tokenValid && !isDemo) {
     status = "❌ Connected but broken"
     recommendations.push("Reconnect this integration - token is invalid or expired")
@@ -388,28 +389,45 @@ function analyzeIntegration(
     status = "⚠️ Connected but limited"
     recommendations.push(`Missing ${missingRequiredScopes.length} required scopes`)
     recommendations.push("Reconnect with expanded permissions to unlock more components")
-  } else if (unavailableComponents.length > 0 && !isDemo) {
-    status = "⚠️ Connected but limited"
-    if (isTeamsProvider) {
-      recommendations.push("Some Teams features require admin consent for your organization")
-      recommendations.push("Contact your IT admin to grant additional permissions")
-    } else {
-      recommendations.push(`Some optional features are unavailable due to missing scopes`)
-      recommendations.push("Reconnect with expanded permissions to unlock more components")
-    }
   } else {
-    status = "✅ Connected & functional"
-    if (isDemo) {
-      recommendations.push("This is a demo connection - connect with real OAuth for full functionality")
-    } else if (isGitHubProvider) {
-      recommendations.push("All GitHub features are available with your current permissions")
-    }
-  }
+    // If we have all required scopes, check if we have meaningful functionality
+    const hasAnyComponents = availableComponents.length > 0
 
-  // Add specific recommendations for Teams
-  if (isTeamsProvider && missingScopes.length > 0) {
-    recommendations.push("Microsoft Teams advanced features may require admin consent")
-    recommendations.push("Try reconnecting or contact your organization's admin")
+    if (!hasAnyComponents) {
+      status = "⚠️ Connected but limited"
+      recommendations.push("No functional components available with current permissions")
+    } else if (isTeamsProvider) {
+      // For Teams, if we have basic components and no missing required scopes, it's functional
+      status = "✅ Connected & functional"
+      recommendations.push("Teams integration is working with basic profile access")
+      if (unavailableComponents.length > 0) {
+        recommendations.push("Some advanced Teams features may require admin consent")
+      }
+    } else if (unavailableComponents.length > 0 && !isDemo) {
+      // Only mark as limited if we're missing components that require scopes we actually request
+      const missingImportantComponents = unavailableComponents.some((comp) => {
+        const componentConfig = COMPONENT_SCOPE_MAPPING[comp as keyof typeof COMPONENT_SCOPE_MAPPING]
+        return componentConfig && componentConfig.scopes.some((scope) => getAllScopes(provider).includes(scope))
+      })
+
+      if (missingImportantComponents) {
+        status = "⚠️ Connected but limited"
+        recommendations.push(`Some optional features are unavailable due to missing scopes`)
+        recommendations.push("Reconnect with expanded permissions to unlock more components")
+      } else {
+        status = "✅ Connected & functional"
+        if (isGitHubProvider) {
+          recommendations.push("All GitHub features are available with your current permissions")
+        }
+      }
+    } else {
+      status = "✅ Connected & functional"
+      if (isDemo) {
+        recommendations.push("This is a demo connection - connect with real OAuth for full functionality")
+      } else if (isGitHubProvider) {
+        recommendations.push("All GitHub features are available with your current permissions")
+      }
+    }
   }
 
   return {
