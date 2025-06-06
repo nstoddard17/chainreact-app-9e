@@ -7,17 +7,30 @@ export async function GET(request: NextRequest) {
   const code = searchParams.get("code")
   const state = searchParams.get("state")
   const error = searchParams.get("error")
+  const errorDescription = searchParams.get("error_description")
 
-  console.log("LinkedIn OAuth callback:", { code: !!code, state, error })
+  console.log("LinkedIn OAuth callback:", { code: !!code, state, error, errorDescription })
 
   if (error) {
-    console.error("LinkedIn OAuth error:", error)
-    return NextResponse.redirect(new URL("/integrations?error=oauth_error&provider=linkedin", baseUrl))
+    console.error("LinkedIn OAuth error:", error, errorDescription ? `(${errorDescription})` : "")
+    return NextResponse.redirect(
+      new URL(
+        `/integrations?error=oauth_error&provider=linkedin&message=${encodeURIComponent(
+          errorDescription || error || "OAuth error",
+        )}`,
+        baseUrl,
+      ),
+    )
   }
 
   if (!code || !state) {
-    console.error("Missing code or state in LinkedIn callback")
+    console.error("Missing code or state in LinkedIn callback", { code: !!code, state })
     return NextResponse.redirect(new URL("/integrations?error=missing_params&provider=linkedin", baseUrl))
+  }
+
+  if (typeof code !== "string" || code.trim() === "") {
+    console.error("Invalid authorization code received from LinkedIn:", { code })
+    return NextResponse.redirect(new URL("/integrations?error=invalid_code&provider=linkedin", baseUrl))
   }
 
   try {
@@ -27,6 +40,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL(result.redirectUrl, baseUrl))
   } catch (error: any) {
     console.error("LinkedIn OAuth callback error:", error)
+    console.error("LinkedIn OAuth Configuration Debugging:", {
+      clientId: process.env.LINKEDIN_CLIENT_ID ? "configured" : "not configured",
+      clientSecret: process.env.LINKEDIN_CLIENT_SECRET ? "configured" : "not configured",
+      redirectUri: process.env.LINKEDIN_REDIRECT_URI ? "configured" : "not configured",
+    })
     return NextResponse.redirect(
       new URL(
         `/integrations?error=callback_failed&provider=linkedin&message=${encodeURIComponent(error.message)}`,

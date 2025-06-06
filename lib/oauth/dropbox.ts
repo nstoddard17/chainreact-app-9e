@@ -24,9 +24,6 @@ export class DropboxOAuthService extends BaseOAuthService {
     const { clientId } = this.getClientCredentials()
     const redirectUri = this.getRedirectUri(baseUrl)
 
-    // Define required scopes
-    const scopes = ["files.content.write", "files.content.read"]
-
     const state = btoa(
       JSON.stringify({
         provider: "dropbox",
@@ -41,7 +38,6 @@ export class DropboxOAuthService extends BaseOAuthService {
       redirect_uri: redirectUri,
       response_type: "code",
       token_access_type: "offline",
-      scope: scopes.join(" "),
       state,
     })
 
@@ -100,9 +96,8 @@ export class DropboxOAuthService extends BaseOAuthService {
   }
 
   static parseScopes(tokenResponse: any): string[] {
-    // Dropbox doesn't return scopes in the token response
-    // We'll need to rely on what was requested
-    return ["files.content.write", "files.content.read"]
+    // Dropbox grants these scopes by default when using the files.content.write and files.content.read permissions
+    return ["account_info.read", "files.content.write", "files.content.read", "files.metadata.read"]
   }
 
   static getRequiredScopes(): string[] {

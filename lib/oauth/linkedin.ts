@@ -20,7 +20,7 @@ export class LinkedInOAuthService {
     const { clientId } = this.getClientCredentials()
     const redirectUri = "https://chainreact.app/api/integrations/linkedin/callback"
 
-    const scopes = ["r_liteprofile", "r_emailaddress", "w_member_social"]
+    const scopes = ["profile", "email", "w_member_social"]
 
     const state = btoa(
       JSON.stringify({
@@ -79,8 +79,16 @@ export class LinkedInOAuthService {
       })
 
       if (!tokenResponse.ok) {
-        const errorData = await tokenResponse.text()
-        throw new Error(`Token exchange failed: ${errorData}`)
+        const errorData = await tokenResponse.json()
+        let errorMessage = `Token exchange failed: ${tokenResponse.status} - ${tokenResponse.statusText}`
+
+        if (errorData && errorData.error_description) {
+          errorMessage += ` - ${errorData.error}: ${errorData.error_description}`
+        } else if (errorData && errorData.message) {
+          errorMessage += ` - ${errorData.message}`
+        }
+
+        throw new Error(errorMessage)
       }
 
       const tokenData = await tokenResponse.json()
@@ -92,25 +100,19 @@ export class LinkedInOAuthService {
         const grantedScopes: string[] = []
 
         // Test profile access
-        const profileResponse = await fetch(
-          "https://api.linkedin.com/v2/people/~:(id,localizedFirstName,localizedLastName)",
-          {
-            headers: { Authorization: `Bearer ${access_token}` },
-          },
-        )
+        const profileResponse = await fetch("https://api.linkedin.com/v2/userinfo", {
+          headers: { Authorization: `Bearer ${access_token}` },
+        })
         if (profileResponse.ok) {
-          grantedScopes.push("r_liteprofile")
+          grantedScopes.push("profile")
         }
 
         // Test email access
-        const emailResponse = await fetch(
-          "https://api.linkedin.com/v2/emailAddress?q=members&projection=(elements*(handle~))",
-          {
-            headers: { Authorization: `Bearer ${access_token}` },
-          },
-        )
+        const emailResponse = await fetch("https://api.linkedin.com/v2/userinfo", {
+          headers: { Authorization: `Bearer ${access_token}` },
+        })
         if (emailResponse.ok) {
-          grantedScopes.push("r_emailaddress")
+          grantedScopes.push("email")
         }
 
         // Test posting access (this might fail but we can check the error)
@@ -122,7 +124,7 @@ export class LinkedInOAuthService {
           grantedScopes.push("w_member_social")
         }
 
-        const requiredScopes = ["r_liteprofile", "r_emailaddress", "w_member_social"]
+        const requiredScopes = ["profile", "email", "w_member_social"]
         const missingScopes = requiredScopes.filter((s) => !grantedScopes.includes(s))
 
         if (missingScopes.length > 0) {
@@ -138,53 +140,37 @@ export class LinkedInOAuthService {
         console.log("LinkedIn scopes validated successfully:", grantedScopes)
       }
 
-      const userResponse = await fetch(
-        "https://api.linkedin.com/v2/people/~:(id,localizedFirstName,localizedLastName)",
-        {
-          headers: {
-            Authorization: `Bearer ${access_token}`,
-          },
+      const userResponse = await fetch("https://api.linkedin.com/v2/userinfo", {
+        headers: {
+          Authorization: `Bearer ${access_token}`,
         },
-      )
+      })
 
       if (!userResponse.ok) {
-        const errorData = await userResponse.text()
-        throw new Error(`Failed to get user info: ${errorData}`)
+        const errorData = await userResponse.json()
+        let errorMessage = `Failed to get user info: ${userResponse.status} - ${userResponse.statusText}`
+
+        if (errorData && errorData.message) {
+          errorMessage += ` - ${errorData.message}`
+        }
+
+        throw new Error(errorMessage)
       }
 
       const userData = await userResponse.json()
 
-      let email = null
-      try {
-        const emailResponse = await fetch(
-          "https://api.linkedin.com/v2/emailAddress?q=members&projection=(elements*(handle~))",
-          {
-            headers: {
-              Authorization: `Bearer ${access_token}`,
-            },
-          },
-        )
-
-        if (emailResponse.ok) {
-          const emailData = await emailResponse.json()
-          email = emailData.elements?.[0]?.["handle~"]?.emailAddress
-        }
-      } catch (error) {
-        console.log("Failed to get email from LinkedIn:", error)
-      }
-
       const integrationData = {
         user_id: userId,
         provider: "linkedin",
-        provider_user_id: userData.id,
+        provider_user_id: userData.sub,
         access_token,
         expires_at: expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null,
         status: "connected" as const,
-        scopes: ["r_liteprofile", "r_emailaddress", "w_member_social"],
+        scopes: ["profile", "email", "w_member_social"],
         metadata: {
-          first_name: userData.localizedFirstName,
-          last_name: userData.localizedLastName,
-          email: email,
+          first_name: userData.given_name,
+          last_name: userData.family_name,
+          email: userData.email,
           connected_at: new Date().toISOString(),
           scopes_validated: requireFullScopes,
         },

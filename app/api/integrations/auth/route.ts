@@ -5,7 +5,7 @@ import { generateOAuthUrl } from "@/lib/oauth"
 
 export async function POST(request: NextRequest) {
   try {
-    const { provider, reconnect = false, integrationId } = await request.json()
+    const { provider, reconnect = false, integrationId, userId } = await request.json()
 
     if (!provider) {
       return NextResponse.json({ error: "Provider is required" }, { status: 400 })
@@ -22,13 +22,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Authentication required" }, { status: 401 })
     }
 
+    // Use the userId from the request or fall back to session user ID
+    const finalUserId = userId || session.user.id
+
     // Get base URL from headers
     const host = request.headers.get("host")
     const protocol = request.headers.get("x-forwarded-proto") || "https"
     const baseUrl = `${protocol}://${host}`
 
     try {
-      const authUrl = generateOAuthUrl(provider, baseUrl, reconnect, integrationId)
+      const authUrl = generateOAuthUrl(provider, baseUrl, reconnect, integrationId, finalUserId)
 
       return NextResponse.json({
         success: true,

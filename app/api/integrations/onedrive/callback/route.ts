@@ -24,12 +24,16 @@ export async function GET(request: NextRequest) {
   try {
     // Decode state to get provider info
     const stateData = JSON.parse(atob(state))
-    const { provider, reconnect, integrationId } = stateData
+    const { provider, reconnect, integrationId, userId } = stateData
 
     console.log("Decoded state data:", stateData)
 
     if (provider !== "onedrive") {
       throw new Error("Invalid provider in state")
+    }
+
+    if (!userId) {
+      throw new Error("Missing user ID in state")
     }
 
     // Exchange code for access token
@@ -45,7 +49,7 @@ export async function GET(request: NextRequest) {
         code,
         grant_type: "authorization_code",
         redirect_uri: `${baseUrl}/api/integrations/onedrive/callback`,
-        scope: "https://graph.microsoft.com/Files.ReadWrite https://graph.microsoft.com/User.Read",
+        scope: "https://graph.microsoft.com/Files.ReadWrite https://graph.microsoft.com/User.Read offline_access",
       }),
     })
 
@@ -96,6 +100,12 @@ export async function GET(request: NextRequest) {
 
     console.log("OneDrive: Session successfully retrieved for user:", sessionData.session.user.id)
 
+    // Verify the user ID from the state matches the session user ID
+    if (userId !== sessionData.session.user.id) {
+      console.error("OneDrive: User ID mismatch:", { stateUserId: userId, sessionUserId: sessionData.session.user.id })
+      return NextResponse.redirect(new URL("/integrations?error=user_mismatch&provider=onedrive", baseUrl))
+    }
+
     const integrationData = {
       user_id: sessionData.session.user.id,
       provider: "onedrive",
@@ -104,7 +114,11 @@ export async function GET(request: NextRequest) {
       refresh_token,
       expires_at: expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null,
       status: "connected" as const,
-      scopes: ["https://graph.microsoft.com/Files.ReadWrite", "https://graph.microsoft.com/User.Read"],
+      scopes: [
+        "https://graph.microsoft.com/Files.ReadWrite",
+        "https://graph.microsoft.com/User.Read",
+        "offline_access",
+      ],
       metadata: {
         user_name: userData.displayName,
         user_email: userData.mail || userData.userPrincipalName,

@@ -19,18 +19,19 @@ export class MailchimpOAuthService {
     return { clientId, clientSecret }
   }
 
-  // Define required scopes for Mailchimp
+  // Updated to use Mailchimp's actual available scopes
   static getRequiredScopes() {
-    return ["campaigns:read", "campaigns:write", "lists:read", "lists:write", "reports:read"]
+    // Mailchimp doesn't use granular scopes like other providers
+    // The main scope is just access to the account
+    return []
   }
 
   // Validate scopes against required scopes
   static validateScopes(grantedScopes: string[]): { valid: boolean; missing: string[] } {
-    const requiredScopes = this.getRequiredScopes()
-    const missing = requiredScopes.filter((scope) => !grantedScopes.includes(scope))
+    // For Mailchimp, we don't validate specific scopes since they don't use them
     return {
-      valid: missing.length === 0,
-      missing,
+      valid: true,
+      missing: [],
     }
   }
 
@@ -69,6 +70,7 @@ export class MailchimpOAuthService {
       client_id: clientId,
       redirect_uri: redirectUri,
       state,
+      // Mailchimp doesn't use scopes in the authorization URL
     })
 
     return `https://login.mailchimp.com/oauth2/authorize?${params.toString()}`
@@ -122,11 +124,14 @@ export class MailchimpOAuthService {
 
       if (!tokenResponse.ok) {
         const errorData = await tokenResponse.text()
+        console.error("Mailchimp token exchange failed:", errorData)
         throw new Error(`Token exchange failed: ${errorData}`)
       }
 
       const tokenData = await tokenResponse.json()
       const { access_token, expires_in } = tokenData
+
+      console.log("Mailchimp token data:", { hasToken: !!access_token, expires_in })
 
       const userResponse = await fetch("https://login.mailchimp.com/oauth2/metadata", {
         headers: {
@@ -135,23 +140,16 @@ export class MailchimpOAuthService {
       })
 
       if (!userResponse.ok) {
+        const errorText = await userResponse.text()
+        console.error("Mailchimp user info failed:", errorText)
         throw new Error("Failed to get user info")
       }
 
       const userData = await userResponse.json()
+      console.log("Mailchimp user data:", userData)
 
-      // Get granted scopes from the token data or metadata
-      const grantedScopes = tokenData.scope ? tokenData.scope.split(" ") : ["campaigns:read", "lists:write"]
-
-      // Validate scopes
-      const scopeValidation = this.validateScopes(grantedScopes)
-
-      if (!scopeValidation.valid) {
-        return {
-          success: false,
-          redirectUrl: `${baseUrl}/integrations?error=insufficient_scopes&provider=mailchimp&missing=${scopeValidation.missing.join(",")}`,
-        }
-      }
+      // Mailchimp doesn't return scopes in the token response, so we assume basic access
+      const grantedScopes = ["basic_access"]
 
       // Validate token by making an API call
       const isTokenValid = await this.validateToken(access_token, userData)
@@ -205,6 +203,7 @@ export class MailchimpOAuthService {
         redirectUrl: `${baseUrl}/integrations?success=mailchimp_connected`,
       }
     } catch (error: any) {
+      console.error("Mailchimp OAuth callback error:", error)
       return {
         success: false,
         redirectUrl: `${baseUrl}/integrations?error=callback_failed&provider=mailchimp&message=${encodeURIComponent(error.message)}`,

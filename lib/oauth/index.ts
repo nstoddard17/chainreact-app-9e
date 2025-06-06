@@ -68,9 +68,30 @@ export function generateOAuthUrl(
   baseUrl: string,
   reconnect = false,
   integrationId?: string,
+  userId?: string,
 ): string {
   try {
     const service = getOAuthProvider(provider)
+
+    // For providers that need user ID in state, we'll handle it in the service
+    if (userId && (provider === "teams" || provider === "slack" || provider === "discord")) {
+      // Generate state with user ID for these providers
+      const state = btoa(
+        JSON.stringify({
+          provider,
+          userId,
+          reconnect,
+          integrationId,
+          timestamp: Date.now(),
+        }),
+      )
+
+      // Pass the state to the service if it supports it
+      if ("generateAuthUrlWithState" in service) {
+        return (service as any).generateAuthUrlWithState(baseUrl, state)
+      }
+    }
+
     return service.generateAuthUrl(baseUrl, reconnect, integrationId)
   } catch (error: any) {
     console.error(`Failed to generate OAuth URL for ${provider}:`, error)

@@ -16,17 +16,15 @@ export class HubSpotOAuthService {
     return { clientId, clientSecret }
   }
 
-  // Define required scopes for HubSpot
+  // Define required scopes for HubSpot (updated to current API)
   static getRequiredScopes() {
     return [
-      "contacts",
-      "content",
-      "forms",
-      "tickets",
-      "e-commerce",
-      "automation",
       "crm.objects.contacts.read",
       "crm.objects.contacts.write",
+      "crm.objects.companies.read",
+      "crm.objects.companies.write",
+      "crm.objects.deals.read",
+      "crm.objects.deals.write",
     ]
   }
 
@@ -43,7 +41,7 @@ export class HubSpotOAuthService {
   // Validate token by making an API call
   static async validateToken(accessToken: string): Promise<boolean> {
     try {
-      const response = await fetch("https://api.hubapi.com/crm/v3/objects/contacts", {
+      const response = await fetch("https://api.hubapi.com/crm/v3/objects/contacts?limit=1", {
         headers: {
           Authorization: `Bearer ${accessToken}`,
         },
@@ -60,14 +58,12 @@ export class HubSpotOAuthService {
     const redirectUri = "https://chainreact.app/api/integrations/hubspot/callback"
 
     const scopes = [
-      "contacts",
-      "content",
-      "forms",
-      "tickets",
-      "e-commerce",
-      "automation",
       "crm.objects.contacts.read",
       "crm.objects.contacts.write",
+      "crm.objects.companies.read",
+      "crm.objects.companies.write",
+      "crm.objects.deals.read",
+      "crm.objects.deals.write",
     ]
 
     const state = btoa(

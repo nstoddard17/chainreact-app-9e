@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Parse state to get user ID
+    // Parse state to get user ID and original provider
     let stateData
     try {
       stateData = parseOAuthState(state)
@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const { userId } = stateData
+    const { userId, provider: originalProvider } = stateData
 
     if (!userId) {
       return NextResponse.redirect(
@@ -57,11 +57,14 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    // Use the original provider (e.g., google-calendar, gmail) or default to google
+    const providerToStore = originalProvider || "google"
+
     // Create Supabase client
     const supabase = createServerSupabaseClient()
 
-    // Handle OAuth callback
-    const result = await GoogleOAuthService.handleCallback("google", code, state, userId)
+    // Handle OAuth callback using the original provider name
+    const result = await GoogleOAuthService.handleCallback(providerToStore, code, state, userId)
 
     // Redirect based on result
     return NextResponse.redirect(result.redirectUrl)

@@ -44,7 +44,7 @@ export class TrelloOAuthService {
 
   static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string): string {
     const { clientId } = this.getClientCredentials()
-    const redirectUri = "https://chainreact.app/api/integrations/trello/callback"
+    const redirectUri = `${baseUrl}/integrations/trello-auth`
 
     const scopes = ["read", "write", "account"]
 
@@ -72,7 +72,7 @@ export class TrelloOAuthService {
   }
 
   static getRedirectUri(baseUrl: string): string {
-    return "https://chainreact.app/api/integrations/trello/callback"
+    return `${baseUrl}/integrations/trello-auth`
   }
 
   static async handleCallback(

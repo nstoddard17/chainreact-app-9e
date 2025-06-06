@@ -33,6 +33,7 @@ interface IntegrationProvider {
   connected?: boolean
   integration?: Integration
   comingSoon?: boolean
+  oauthProvider?: string // Maps to the actual OAuth provider
 }
 
 interface IntegrationState {
@@ -105,7 +106,7 @@ const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
     requiresSetup: !process.env.NEXT_PUBLIC_TEAMS_CLIENT_ID,
   },
 
-  // Productivity
+  // Productivity - All Google services use the same OAuth provider
   {
     id: "google-calendar",
     name: "Google Calendar",
@@ -117,6 +118,7 @@ const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
     capabilities: ["Create events", "Update events", "Delete events", "List calendars"],
     category: "Productivity",
     requiresSetup: !process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
+    oauthProvider: "google", // Maps to the Google OAuth service
   },
   {
     id: "google-sheets",
@@ -129,6 +131,7 @@ const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
     capabilities: ["Read sheets", "Write data", "Create sheets", "Format cells"],
     category: "Productivity",
     requiresSetup: !process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
+    oauthProvider: "google", // Maps to the Google OAuth service
   },
   {
     id: "google-docs",
@@ -141,6 +144,20 @@ const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
     capabilities: ["Create documents", "Edit documents", "Share documents", "Format text"],
     category: "Productivity",
     requiresSetup: !process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
+    oauthProvider: "google", // Maps to the Google OAuth service
+  },
+  {
+    id: "gmail",
+    name: "Gmail",
+    description: "Send and manage emails",
+    icon: "#",
+    logoColor: "bg-red-500 text-white",
+    authType: "oauth",
+    scopes: ["https://www.googleapis.com/auth/gmail.modify"],
+    capabilities: ["Send emails", "Read messages", "Compose emails", "Manage labels", "Search inbox", "Modify emails"],
+    category: "Email",
+    requiresSetup: !process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
+    oauthProvider: "google", // Maps to the Google OAuth service
   },
   {
     id: "notion",
@@ -199,7 +216,7 @@ const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
     icon: "#",
     logoColor: "bg-orange-600 text-white",
     authType: "oauth",
-    scopes: ["api"],
+    scopes: ["read_user", "read_api", "read_repository", "write_repository"],
     capabilities: ["Manage projects", "Create issues", "Deploy pipelines", "Review code"],
     category: "Development",
     requiresSetup: !process.env.NEXT_PUBLIC_GITLAB_CLIENT_ID,
@@ -317,6 +334,7 @@ const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
     capabilities: ["Upload videos", "Manage playlists", "View analytics", "Moderate comments"],
     category: "Social Media",
     requiresSetup: !process.env.NEXT_PUBLIC_YOUTUBE_CLIENT_ID,
+    oauthProvider: "google", // Maps to the Google OAuth service
   },
   {
     id: "tiktok",
@@ -382,20 +400,6 @@ const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
     capabilities: ["Store files", "Share documents", "Collaborate", "Sync across devices"],
     category: "Cloud Storage",
     requiresSetup: !process.env.NEXT_PUBLIC_ONEDRIVE_CLIENT_ID,
-  },
-
-  // Email
-  {
-    id: "gmail",
-    name: "Gmail",
-    description: "Send and manage emails",
-    icon: "#",
-    logoColor: "bg-red-500 text-white",
-    authType: "oauth",
-    scopes: ["https://www.googleapis.com/auth/gmail.modify"],
-    capabilities: ["Send emails", "Read messages", "Compose emails", "Manage labels", "Search inbox", "Modify emails"],
-    category: "Email",
-    requiresSetup: !process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
   },
 ]
 
@@ -521,12 +525,16 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
 
           console.log(`Connecting ${provider}, forceOAuth: ${forceOAuth}`)
 
+          // Determine the actual OAuth provider to use
+          const oauthProvider = providerConfig.oauthProvider || provider
+          console.log(`Using OAuth provider: ${oauthProvider}`)
+
           const existingIntegration = get().integrations.find(
             (i) => i.provider === provider && i.status === "connected",
           )
 
           // For OAuth providers, start the OAuth flow
-          console.log(`Starting OAuth flow for ${provider}`)
+          console.log(`Starting OAuth flow for ${provider} using ${oauthProvider}`)
 
           const supabase = getSupabaseClient()
           if (!supabase) {
@@ -577,9 +585,11 @@ export const useIntegrationStore = create<IntegrationState & IntegrationActions>
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              provider,
+              provider: oauthProvider, // Use the mapped OAuth provider
+              originalProvider: provider, // Pass the original provider for database storage
               reconnect: !!disconnectedIntegration || !!existingIntegration,
               integrationId: disconnectedIntegration?.id || existingIntegration?.id,
+              userId: userId, // Explicitly pass the user ID
             }),
           })
 

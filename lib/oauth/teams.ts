@@ -36,12 +36,14 @@ export class TeamsOAuthService extends BaseOAuthService {
       "Team.ReadBasic.All",
     ]
 
+    // Create state parameter with proper structure
     const state = btoa(
       JSON.stringify({
         provider: "teams",
         reconnect,
         integrationId,
         timestamp: Date.now(),
+        // Note: userId will be added by the integration store
       }),
     )
 
@@ -57,6 +59,35 @@ export class TeamsOAuthService extends BaseOAuthService {
     if (reconnect) {
       params.append("prompt", "consent")
     }
+
+    return `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`
+  }
+
+  static generateAuthUrlWithState(baseUrl: string, state: string): string {
+    const { clientId } = this.getClientCredentials()
+    const redirectUri = this.getRedirectUri(baseUrl)
+
+    // Define required scopes
+    const scopes = [
+      "openid",
+      "profile",
+      "email",
+      "offline_access",
+      "User.Read",
+      "ChannelMessage.Send",
+      "Chat.ReadWrite",
+      "Team.ReadBasic.All",
+    ]
+
+    const params = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      response_type: "code",
+      scope: scopes.join(" "),
+      response_mode: "query",
+      state,
+      prompt: "consent", // Always prompt for consent to ensure fresh tokens
+    })
 
     return `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`
   }
