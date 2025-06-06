@@ -1,5 +1,5 @@
 import { create } from "zustand"
-import { createClient } from "@supabase/supabase-js"
+import { supabase } from "@/lib/supabase"
 
 interface Integration {
   id: string
@@ -269,9 +269,6 @@ const availableProviders: Provider[] = [
   },
 ]
 
-// Create Supabase client for client-side operations
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
-
 export const useIntegrationStore = create<IntegrationState>((set, get) => ({
   integrations: [],
   providers: availableProviders,
@@ -282,13 +279,12 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
     set({ loading: true, error: null })
 
     try {
-      // Get current user using getUser() instead of getSession()
       const {
         data: { user },
-        error: userError,
       } = await supabase.auth.getUser()
 
-      if (userError || !user) {
+      if (!user) {
+        console.log("No authenticated user found")
         set({ integrations: [], loading: false, error: null })
         return
       }
@@ -320,30 +316,30 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
 
   connectIntegration: async (providerId: string) => {
     try {
-      // Get current user
+      console.log("Starting connection for provider:", providerId)
+
+      // Use getUser() which is more reliable for getting current user
       const {
         data: { user },
-        error: userError,
       } = await supabase.auth.getUser()
 
-      if (userError || !user) {
-        throw new Error("Please log in to connect integrations")
+      console.log("User check:", {
+        hasUser: !!user,
+        userId: user?.id,
+      })
+
+      if (!user) {
+        console.error("No authenticated user found")
+        throw new Error("Authentication required. Please refresh the page and try again.")
       }
 
-      // Get auth token for API call
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-      if (!session?.access_token) {
-        throw new Error("No valid session found")
-      }
+      console.log("Making API call to generate auth URL")
 
-      // Generate OAuth URL
+      // Generate OAuth URL - the API will handle authentication internally
       const response = await fetch(`/api/integrations/auth/generate-url`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
           provider: providerId,
@@ -351,12 +347,16 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
         }),
       })
 
+      console.log("API response status:", response.status)
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
+        console.error("API error:", errorData)
         throw new Error(errorData.error || "Failed to generate auth URL")
       }
 
       const { authUrl } = await response.json()
+      console.log("Generated auth URL, redirecting...")
 
       // Redirect to OAuth provider
       window.location.href = authUrl

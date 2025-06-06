@@ -4,54 +4,44 @@ import { SlackOAuthService } from "@/lib/oauth/slack"
 import { GitHubOAuthService } from "@/lib/oauth/github"
 import { DiscordOAuthService } from "@/lib/oauth/discord"
 import { TrelloOAuthService } from "@/lib/oauth/trello"
-import { createClient } from "@supabase/supabase-js"
 
 export async function POST(request: NextRequest) {
   try {
     const { provider, userId } = await request.json()
 
+    console.log("Generate URL request:", { provider, userId })
+
     if (!provider) {
       return NextResponse.json({ error: "Provider is required" }, { status: 400 })
     }
 
-    // Get user ID from token if not provided
-    let actualUserId = userId
-    if (!actualUserId) {
-      const authHeader = request.headers.get("authorization")
-      if (authHeader?.startsWith("Bearer ")) {
-        const token = authHeader.substring(7)
-        const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_ANON_KEY!)
-        const { data } = await supabase.auth.getUser(token)
-        actualUserId = data?.user?.id
-      }
-    }
-
-    if (!actualUserId) {
-      return NextResponse.json({ error: "User authentication required" }, { status: 401 })
+    if (!userId) {
+      return NextResponse.json({ error: "User ID is required" }, { status: 400 })
     }
 
     let authUrl: string
 
     switch (provider.toLowerCase()) {
       case "google":
-        authUrl = GoogleOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, actualUserId)
+        authUrl = GoogleOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
         break
       case "slack":
-        authUrl = SlackOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, actualUserId)
+        authUrl = SlackOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
         break
       case "github":
-        authUrl = GitHubOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, actualUserId)
+        authUrl = GitHubOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
         break
       case "discord":
-        authUrl = DiscordOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, actualUserId)
+        authUrl = DiscordOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
         break
       case "trello":
-        authUrl = TrelloOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, actualUserId)
+        authUrl = TrelloOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
         break
       default:
         return NextResponse.json({ error: `Provider ${provider} not yet supported` }, { status: 400 })
     }
 
+    console.log("Generated auth URL successfully")
     return NextResponse.json({ authUrl })
   } catch (error: any) {
     console.error("Error generating auth URL:", error)

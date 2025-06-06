@@ -31,7 +31,9 @@ export async function middleware(request: NextRequest) {
     // For development, allow access to protected routes even without a session
     const isDevelopment = process.env.NODE_ENV === "development"
 
+    // Only redirect if we're sure there's no session and it's not development
     if (!session && isProtectedRoute && !isDevelopment) {
+      console.log("Middleware: No session found, redirecting to login")
       return NextResponse.redirect(new URL("/auth/login", request.url))
     }
 
@@ -50,6 +52,10 @@ export async function middleware(request: NextRequest) {
     }
   } catch (error) {
     console.error("Middleware error:", error)
+    // In case of error, don't redirect in development
+    if (process.env.NODE_ENV === "development") {
+      return res
+    }
     // Continue without tracking or redirecting in case of error
   }
 
