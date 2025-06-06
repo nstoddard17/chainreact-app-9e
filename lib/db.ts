@@ -1,11 +1,10 @@
 import { createClient } from "@supabase/supabase-js"
 import type { Database } from "@/types/supabase"
 
-// Use existing environment variables
 const supabaseUrl = process.env.SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
-// Export the db client as a named export
+// Create and export the db client
 export const db = createClient<Database>(supabaseUrl, supabaseServiceKey, {
   auth: {
     autoRefreshToken: false,
@@ -13,7 +12,12 @@ export const db = createClient<Database>(supabaseUrl, supabaseServiceKey, {
   },
 })
 
-// Helper functions for database operations
+// Required function export
+export const someFunction = () => {
+  return "function result"
+}
+
+// Helper functions
 export async function getIntegration(userId: string, provider: string) {
   const { data, error } = await db
     .from("integrations")
@@ -53,9 +57,4 @@ export async function getUserIntegrations(userId: string) {
   }
 
   return data || []
-}
-
-// Export a function that uses existing environment variables
-export function someFunction() {
-  return "Using existing environment variables"
 }
