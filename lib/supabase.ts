@@ -1,6 +1,9 @@
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import type { Database } from "@/types/supabase"
 
+// Re-export from supabase-exports
+export { supabase } from "./supabase-exports"
+
 // Check if Supabase is configured with exact environment variables
 export const isSupabaseConfigured = () => {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -72,6 +75,4 @@ export const getSupabaseClient = () => {
   return globalThis.__supabase_browser_client__
 }
 
-// For compatibility with existing code - only use on client side
-export const supabase = typeof window !== "undefined" ? getSupabaseClient() : null
 export const createClient = () => getSupabaseClient()

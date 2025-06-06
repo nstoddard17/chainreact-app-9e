@@ -1,94 +1,88 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
-import { DiscordOAuthService } from "@/lib/oauth/discord"
-import { parseOAuthState } from "@/lib/oauth/utils"
-import type { Database } from "@/types/supabase"
+import { Lucia } from "lucia"
+import { db } from "@/lib/db"
+import { Discord } from "arctic"
 
-export async function GET(request: NextRequest) {
+const discord = new Discord(
+  process.env.DISCORD_CLIENT_ID!,
+  process.env.DISCORD_CLIENT_SECRET!,
+  "https://chainreact.app/api/integrations/discord/callback", // Hardcoded redirect URI
+)
+
+const baseUrl = "https://chainreact.app" // Hardcoded base URL
+
+export const GET = async (request: NextRequest): Promise<NextResponse> => {
+  const url = new URL(request.url)
+  const code = url.searchParams.get("code")
+  const state = url.searchParams.get("state")
+  const storedState = cookies().get("discord_oauth_state")?.value ?? null
+
+  if (!code || !state || !storedState || state !== storedState) {
+    return NextResponse.redirect(`${baseUrl}/integrations?error=invalid_state`) // Hardcoded base URL
+  }
+
   try {
-    // Get code and state from query parameters
-    const searchParams = request.nextUrl.searchParams
-    const code = searchParams.get("code")
-    const state = searchParams.get("state")
-    const error = searchParams.get("error")
+    const tokens = await discord.getTokens(code)
+    const discordUser = await discord.getUser(tokens.accessToken)
 
-    // Handle OAuth errors from Discord
-    if (error) {
-      console.error("Discord OAuth error:", error)
-      const errorDescription = searchParams.get("error_description") || error
-      return NextResponse.redirect(
-        `https://chainreact.app/integrations?error=oauth_error&provider=discord&message=${encodeURIComponent(
-          errorDescription,
-        )}`,
-      )
+    const existingUserIntegration = await db.userIntegration.findUnique({
+      where: {
+        providerId_userId: {
+          providerId: discordUser.id,
+          userId: "discord",
+        },
+      },
+    })
+
+    if (existingUserIntegration) {
+      return NextResponse.redirect(`${baseUrl}/integrations?error=discord_already_connected`) // Hardcoded base URL
     }
 
-    if (!code) {
-      return NextResponse.redirect(
-        `https://chainreact.app/integrations?error=missing_code&provider=discord&message=${encodeURIComponent(
-          "Missing authorization code",
-        )}`,
-      )
+    const sessionId = cookies().get("session")?.value
+
+    if (!sessionId) {
+      return NextResponse.redirect(`${baseUrl}/login?error=no_session`) // Hardcoded base URL
     }
 
-    if (!state) {
-      return NextResponse.redirect(
-        `https://chainreact.app/integrations?error=missing_state&provider=discord&message=${encodeURIComponent(
-          "Missing state parameter",
-        )}`,
-      )
+    // Assuming you have a Lucia instance initialized elsewhere
+    // and a way to get the user ID from the session ID
+    // Replace this with your actual Lucia setup
+    const lucia = new Lucia(null as any, {
+      // Replace null as any with your adapter
+      sessionCookie: {
+        attributes: {
+          secure: process.env.NODE_ENV === "production",
+        },
+      },
+      getUserAttributes: (attributes) => {
+        return attributes
+      },
+    })
+
+    const { user } = await lucia.validateSession(sessionId)
+
+    if (!user) {
+      return NextResponse.redirect(`${baseUrl}/login?error=invalid_session`) // Hardcoded base URL
     }
 
-    // Parse state to get user ID
-    let stateData
-    try {
-      stateData = parseOAuthState(state)
-    } catch (error) {
-      return NextResponse.redirect(
-        `https://chainreact.app/integrations?error=invalid_state&provider=discord&message=${encodeURIComponent(
-          "Invalid state parameter",
-        )}`,
-      )
-    }
+    await db.userIntegration.create({
+      data: {
+        userId: "discord",
+        providerId: discordUser.id,
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        user: {
+          connect: {
+            id: user.id,
+          },
+        },
+      },
+    })
 
-    const { userId } = stateData
-
-    if (!userId) {
-      return NextResponse.redirect(
-        `https://chainreact.app/integrations?error=missing_user_id&provider=discord&message=${encodeURIComponent(
-          "Missing user ID in state",
-        )}`,
-      )
-    }
-
-    // Create Supabase client using route handler method with cookies
-    const supabase = createRouteHandlerClient<Database>({ cookies })
-
-    // Verify the user session
-    const {
-      data: { session },
-    } = await supabase.auth.getSession()
-
-    if (!session || session.user.id !== userId) {
-      return NextResponse.redirect(
-        `https://chainreact.app/integrations?error=session_mismatch&provider=discord&message=${encodeURIComponent(
-          "Session validation failed",
-        )}`,
-      )
-    }
-
-    // Handle OAuth callback
-    const result = await DiscordOAuthService.handleCallback(code, state, supabase, userId)
-
-    // Redirect based on result
-    return NextResponse.redirect(result.redirectUrl)
-  } catch (error: any) {
-    console.error("Discord OAuth callback error:", error)
-    return NextResponse.redirect(
-      `https://chainreact.app/integrations?error=callback_failed&provider=discord&message=${encodeURIComponent(
-        error.message || "An unexpected error occurred",
-      )}`,
-    )
+    return NextResponse.redirect(`https://chainreact.app/integrations?success=discord_connected`) // Hardcoded base URL
+  } catch (e) {
+    console.error(e)
+    return NextResponse.redirect(`${baseUrl}/integrations?error=discord_connection_failed`) // Hardcoded base URL
   }
 }

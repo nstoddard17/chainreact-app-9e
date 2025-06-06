@@ -1,18 +1,12 @@
-import { createClient } from "@supabase/supabase-js"
-import type { Database } from "@/types/supabase"
+// Re-export from db-exports
+export { db } from "./db-exports"
 
 const supabaseUrl = process.env.SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
-export const db = createClient<Database>(supabaseUrl, supabaseServiceKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false,
-  },
-})
-
 // Helper functions for database operations
 export async function getIntegration(userId: string, provider: string) {
+  const { db } = await import("./db-exports")
   const { data, error } = await db
     .from("integrations")
     .select("*")
@@ -28,6 +22,7 @@ export async function getIntegration(userId: string, provider: string) {
 }
 
 export async function upsertIntegration(integration: any) {
+  const { db } = await import("./db-exports")
   const { data, error } = await db
     .from("integrations")
     .upsert(integration, {
@@ -44,6 +39,7 @@ export async function upsertIntegration(integration: any) {
 }
 
 export async function getUserIntegrations(userId: string) {
+  const { db } = await import("./db-exports")
   const { data, error } = await db.from("integrations").select("*").eq("user_id", userId)
 
   if (error) {

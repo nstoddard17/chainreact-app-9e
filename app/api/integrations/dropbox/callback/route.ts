@@ -1,77 +1,84 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createServerSupabaseClient } from "@/lib/supabase-server"
-import { DropboxOAuthService } from "@/lib/oauth/dropbox"
-import { parseOAuthState } from "@/lib/oauth/utils"
+import { cookies } from "next/headers"
+import { Lucia } from "lucia"
+import { db } from "@/db"
+import { users } from "@/db/schema"
+import { eq } from "drizzle-orm"
 
-export async function GET(request: NextRequest) {
+export async function GET(request: NextRequest): Promise<NextResponse> {
+  const searchParams = request.nextUrl.searchParams
+  const code = searchParams.get("code")
+  const error = searchParams.get("error")
+
+  const baseUrl = "https://chainreact.app"
+  const redirectUri = "https://chainreact.app/api/integrations/dropbox/callback"
+
+  if (error) {
+    console.error("Dropbox authentication error:", error)
+    return NextResponse.redirect(`${baseUrl}/integrations?error=dropbox_auth_failed`)
+  }
+
+  if (!code) {
+    console.error("No code received from Dropbox")
+    return NextResponse.redirect(`${baseUrl}/integrations?error=no_code_received`)
+  }
+
   try {
-    // Get code and state from query parameters
-    const searchParams = request.nextUrl.searchParams
-    const code = searchParams.get("code")
-    const state = searchParams.get("state")
-    const error = searchParams.get("error")
-    const errorDescription = searchParams.get("error_description")
+    const tokenResponse = await fetch("https://api.dropboxapi.com/oauth2/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        code: code,
+        grant_type: "authorization_code",
+        client_id: process.env.DROPBOX_CLIENT_ID!,
+        client_secret: process.env.DROPBOX_CLIENT_SECRET!,
+        redirect_uri: redirectUri,
+      }),
+    })
 
-    if (error) {
-      return NextResponse.redirect(
-        `https://chainreact.app/integrations?error=provider_error&provider=dropbox&message=${encodeURIComponent(
-          `Dropbox returned an error: ${error} - ${errorDescription || ""}`,
-        )}`,
-      )
+    if (!tokenResponse.ok) {
+      console.error("Failed to retrieve token from Dropbox:", tokenResponse.status, await tokenResponse.text())
+      return NextResponse.redirect(`${baseUrl}/integrations?error=dropbox_token_failed`)
     }
 
-    if (!code) {
-      return NextResponse.redirect(
-        `https://chainreact.app/integrations?error=missing_code&provider=dropbox&message=${encodeURIComponent(
-          "Missing authorization code",
-        )}`,
-      )
+    const tokenData = await tokenResponse.json()
+    const accessToken = tokenData.access_token
+    const accountId = tokenData.account_id
+
+    if (!accessToken) {
+      console.error("No access token received from Dropbox")
+      return NextResponse.redirect(`${baseUrl}/integrations?error=no_access_token`)
     }
 
-    if (!state) {
-      return NextResponse.redirect(
-        `https://chainreact.app/integrations?error=missing_state&provider=dropbox&message=${encodeURIComponent(
-          "Missing state parameter",
-        )}`,
-      )
+    const sessionId = cookies().get("session")?.value
+
+    if (!sessionId) {
+      console.error("No session ID found")
+      return NextResponse.redirect(`${baseUrl}/integrations?error=no_session_id`)
     }
 
-    // Parse state to get user ID
-    let stateData
-    try {
-      stateData = parseOAuthState(state)
-    } catch (error) {
-      return NextResponse.redirect(
-        `https://chainreact.app/integrations?error=invalid_state&provider=dropbox&message=${encodeURIComponent(
-          "Invalid state parameter",
-        )}`,
-      )
+    const lucia = new Lucia(undefined, {
+      getSessionAttributes: (data) => data,
+    })
+
+    const { user } = await lucia.validateSession(sessionId)
+
+    if (!user) {
+      console.error("No user found")
+      return NextResponse.redirect(`${baseUrl}/integrations?error=no_user_found`)
     }
 
-    const { userId } = stateData
+    // Store the access token and account ID in the database
+    await db
+      .update(users)
+      .set({ dropbox_access_token: accessToken, dropbox_account_id: accountId })
+      .where(eq(users.id, user.id))
 
-    if (!userId) {
-      return NextResponse.redirect(
-        `https://chainreact.app/integrations?error=missing_user_id&provider=dropbox&message=${encodeURIComponent(
-          "Missing user ID in state",
-        )}`,
-      )
-    }
-
-    // Create Supabase client
-    const supabase = createServerSupabaseClient()
-
-    // Handle OAuth callback
-    const result = await DropboxOAuthService.handleCallback("dropbox", code, state, userId)
-
-    // Redirect based on result
-    return NextResponse.redirect(result.redirectUrl)
-  } catch (error: any) {
-    console.error("Dropbox OAuth callback error:", error)
-    return NextResponse.redirect(
-      `https://chainreact.app/integrations?error=callback_failed&provider=dropbox&message=${encodeURIComponent(
-        error.message || "An unexpected error occurred",
-      )}`,
-    )
+    return NextResponse.redirect(`https://chainreact.app/integrations?success=dropbox_connected`)
+  } catch (e) {
+    console.error("Error during Dropbox authentication:", e)
+    return NextResponse.redirect(`${baseUrl}/integrations?error=dropbox_auth_error`)
   }
 }

@@ -1,172 +1,104 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
+import { db } from "@/lib/db"
+import { onedrive_auth_state } from "@/lib/db/schema"
 
-export async function GET(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams
-  const baseUrl = new URL(request.url).origin
+export async function GET(req: NextRequest) {
+  const searchParams = req.nextUrl.searchParams
   const code = searchParams.get("code")
   const state = searchParams.get("state")
   const error = searchParams.get("error")
+  const error_description = searchParams.get("error_description")
 
-  console.log("OneDrive OAuth callback:", { code: !!code, state, error })
+  const baseUrl = "https://chainreact.app"
+  const redirectUri = "https://chainreact.app/api/integrations/onedrive/callback"
 
   if (error) {
-    console.error("OneDrive OAuth error:", error)
-    return NextResponse.redirect(new URL("/integrations?error=oauth_error&provider=onedrive", baseUrl))
+    console.error("OneDrive Auth Error:", error, error_description)
+    return NextResponse.redirect(`${baseUrl}/integrations?error=onedrive_auth_failed`)
   }
 
   if (!code || !state) {
-    console.error("Missing code or state in OneDrive callback")
-    return NextResponse.redirect(new URL("/integrations?error=missing_params&provider=onedrive", baseUrl))
+    console.error("Missing code or state")
+    return NextResponse.redirect(`${baseUrl}/integrations?error=missing_code_or_state`)
   }
 
   try {
-    // Decode state to get provider info
-    const stateData = JSON.parse(atob(state))
-    const { provider, reconnect, integrationId, userId } = stateData
+    const storedState = cookies().get("onedrive_auth_state")?.value
 
-    console.log("Decoded state data:", stateData)
-
-    if (provider !== "onedrive") {
-      throw new Error("Invalid provider in state")
+    if (!storedState || state !== storedState) {
+      console.error("State mismatch")
+      return NextResponse.redirect(`${baseUrl}/integrations?error=state_mismatch`)
     }
+
+    const userId = cookies().get("user_id")?.value
 
     if (!userId) {
-      throw new Error("Missing user ID in state")
+      console.error("Missing user ID")
+      return NextResponse.redirect(`${baseUrl}/integrations?error=missing_user_id`)
     }
 
-    // Exchange code for access token
-    console.log("Exchanging code for access token...")
-    const tokenResponse = await fetch("https://login.microsoftonline.com/common/oauth2/v2.0/token", {
+    const tokenEndpoint = "https://login.microsoftonline.com/common/oauth2/v2.0/token"
+    const clientId = process.env.ONEDRIVE_CLIENT_ID
+    const clientSecret = process.env.ONEDRIVE_CLIENT_SECRET
+
+    if (!clientId || !clientSecret) {
+      console.error("Missing OneDrive client ID or secret")
+      return NextResponse.redirect(`${baseUrl}/integrations?error=missing_client_credentials`)
+    }
+
+    const body = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      client_secret: clientSecret,
+      code: code,
+      grant_type: "authorization_code",
+    })
+
+    const response = await fetch(tokenEndpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
       },
-      body: new URLSearchParams({
-        client_id: process.env.NEXT_PUBLIC_ONEDRIVE_CLIENT_ID!,
-        client_secret: process.env.ONEDRIVE_CLIENT_SECRET!,
-        code,
-        grant_type: "authorization_code",
-        redirect_uri: `${baseUrl}/api/integrations/onedrive/callback`,
-        scope: "https://graph.microsoft.com/Files.ReadWrite https://graph.microsoft.com/User.Read offline_access",
-      }),
+      body,
     })
 
-    if (!tokenResponse.ok) {
-      const errorData = await tokenResponse.text()
-      console.error("OneDrive token exchange failed:", errorData)
-      throw new Error(`Failed to exchange code for token: ${errorData}`)
+    if (!response.ok) {
+      console.error("Token request failed", response)
+      return NextResponse.redirect(`${baseUrl}/integrations?error=token_request_failed`)
     }
 
-    const tokenData = await tokenResponse.json()
-    console.log("Token exchange successful:", { hasAccessToken: !!tokenData.access_token })
-    const { access_token, refresh_token, expires_in } = tokenData
+    const data = await response.json()
+    const accessToken = data.access_token
+    const refreshToken = data.refresh_token
+    const expires_in = data.expires_in
 
-    // Get user info from Microsoft Graph with proper headers
-    console.log("Fetching user info from Microsoft Graph...")
-    const userResponse = await fetch("https://graph.microsoft.com/v1.0/me", {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${access_token}`,
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
-    })
+    if (!accessToken || !refreshToken) {
+      console.error("Missing access token or refresh token")
+      return NextResponse.redirect(`${baseUrl}/integrations?error=missing_tokens`)
+    }
 
-    if (!userResponse.ok) {
-      const errorData = await userResponse.text()
-      console.error("Failed to get user info from Microsoft Graph:", {
-        status: userResponse.status,
-        statusText: userResponse.statusText,
-        error: errorData,
+    // Store the tokens in the database
+    await db
+      .insert(onedrive_auth_state)
+      .values({
+        userId: userId,
+        accessToken: accessToken,
+        refreshToken: refreshToken,
+        expiresIn: expires_in,
       })
-      throw new Error(`Failed to get user info: ${errorData}`)
-    }
+      .onConflictDoUpdate({
+        target: onedrive_auth_state.userId,
+        set: {
+          accessToken: accessToken,
+          refreshToken: refreshToken,
+          expiresIn: expires_in,
+        },
+      })
 
-    const userData = await userResponse.json()
-    console.log("User info fetched successfully:", { userId: userData.id, displayName: userData.displayName })
-
-    // Initialize Supabase client
-    const supabase = createRouteHandlerClient({ cookies })
-    const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
-
-    if (sessionError || !sessionData?.session) {
-      console.error("OneDrive: Session error:", sessionError)
-      return NextResponse.redirect(
-        new URL("/integrations?error=session_error&provider=onedrive&message=No+active+user+session+found", baseUrl),
-      )
-    }
-
-    console.log("OneDrive: Session successfully retrieved for user:", sessionData.session.user.id)
-
-    // Verify the user ID from the state matches the session user ID
-    if (userId !== sessionData.session.user.id) {
-      console.error("OneDrive: User ID mismatch:", { stateUserId: userId, sessionUserId: sessionData.session.user.id })
-      return NextResponse.redirect(new URL("/integrations?error=user_mismatch&provider=onedrive", baseUrl))
-    }
-
-    const integrationData = {
-      user_id: sessionData.session.user.id,
-      provider: "onedrive",
-      provider_user_id: userData.id,
-      access_token,
-      refresh_token,
-      expires_at: expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null,
-      status: "connected" as const,
-      scopes: [
-        "https://graph.microsoft.com/Files.ReadWrite",
-        "https://graph.microsoft.com/User.Read",
-        "offline_access",
-      ],
-      metadata: {
-        user_name: userData.displayName,
-        user_email: userData.mail || userData.userPrincipalName,
-        connected_at: new Date().toISOString(),
-      },
-    }
-
-    console.log("Saving integration to database...", {
-      userId: sessionData.session.user.id,
-      provider: "onedrive",
-      reconnect,
-      integrationId,
-    })
-
-    if (reconnect && integrationId) {
-      // Update existing integration
-      const { error } = await supabase
-        .from("integrations")
-        .update({
-          ...integrationData,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", integrationId)
-
-      if (error) {
-        console.error("Error updating integration:", error)
-        throw error
-      }
-      console.log("Integration updated successfully")
-    } else {
-      // Create new integration
-      const { error } = await supabase.from("integrations").insert(integrationData)
-      if (error) {
-        console.error("Error inserting integration:", error)
-        throw error
-      }
-      console.log("Integration created successfully")
-    }
-
-    console.log("OneDrive integration saved successfully")
-    return NextResponse.redirect(new URL("/integrations?success=onedrive_connected", baseUrl))
-  } catch (error: any) {
-    console.error("OneDrive OAuth callback error:", error)
-    return NextResponse.redirect(
-      new URL(
-        `/integrations?error=callback_failed&provider=onedrive&message=${encodeURIComponent(error.message)}`,
-        baseUrl,
-      ),
-    )
+    return NextResponse.redirect(`https://chainreact.app/integrations?success=onedrive_connected`)
+  } catch (e: any) {
+    console.error("Error during OneDrive auth:", e)
+    return NextResponse.redirect(`${baseUrl}/integrations?error=onedrive_auth_failed`)
   }
 }

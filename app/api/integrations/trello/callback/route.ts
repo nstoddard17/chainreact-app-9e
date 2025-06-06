@@ -1,102 +1,115 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
-import { TrelloOAuthService } from "@/lib/oauth/trello"
+import { generateId } from "lucia"
+import { db } from "@/db"
+import { trelloIntegrationTable } from "@/db/schema"
 
-export async function GET(request: NextRequest) {
+export const GET = async (request: NextRequest) => {
   const searchParams = request.nextUrl.searchParams
-  const baseUrl = new URL(request.url).origin
-  const token = searchParams.get("token")
+  const code = searchParams.get("code")
   const state = searchParams.get("state")
 
-  console.log("Trello OAuth callback (GET):", {
-    token: !!token,
-    state: !!state,
-    allParams: Object.fromEntries(searchParams.entries()),
-    url: request.url,
-  })
-
-  // For Trello's special flow, redirect to our auth page
-  if (!token && state) {
-    return NextResponse.redirect(new URL(`/integrations/trello-auth?state=${state}`, baseUrl))
-  }
-
-  if (!token) {
-    console.log("No token in query params, redirecting to client-side handler")
-    return NextResponse.redirect(new URL("/integrations?trello_auth=pending", baseUrl))
+  if (!code) {
+    const baseUrl = "https://chainreact.app"
+    return NextResponse.redirect(`${baseUrl}/integrations?error=trello_no_code`)
   }
 
   if (!state) {
-    console.error("Missing state in Trello callback")
-    return NextResponse.redirect(new URL("/integrations?error=missing_state&provider=trello", baseUrl))
+    const baseUrl = "https://chainreact.app"
+    return NextResponse.redirect(`${baseUrl}/integrations?error=trello_no_state`)
   }
 
-  return handleTrelloCallback(token, state, baseUrl)
-}
+  const storedState = cookies().get("trello_oauth_state")?.value
 
-export async function POST(request: NextRequest) {
-  const baseUrl = new URL(request.url).origin
+  if (!storedState) {
+    const baseUrl = "https://chainreact.app"
+    return NextResponse.redirect(`${baseUrl}/integrations?error=trello_no_stored_state`)
+  }
+
+  if (state !== storedState) {
+    const baseUrl = "https://chainreact.app"
+    return NextResponse.redirect(`${baseUrl}/integrations?error=trello_invalid_state`)
+  }
 
   try {
-    const body = await request.json()
-    const { token, state } = body
+    const redirectUri = "https://chainreact.app/api/integrations/trello/callback"
 
-    console.log("Trello OAuth callback (POST):", {
-      token: !!token,
-      state: !!state,
+    const tokenResponse = await fetch("https://trello.com/oauth/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        client_id: process.env.TRELLO_API_KEY as string,
+        client_secret: process.env.TRELLO_API_SECRET as string,
+        code,
+        redirect_uri: redirectUri,
+        grant_type: "authorization_code",
+      }),
     })
 
-    if (!token || !state) {
-      return NextResponse.json({ success: false, error: "Missing token or state" }, { status: 400 })
+    if (!tokenResponse.ok) {
+      const baseUrl = "https://chainreact.app"
+      return NextResponse.redirect(`${baseUrl}/integrations?error=trello_token_exchange_failed`)
     }
 
-    const result = await handleTrelloCallback(token, state, baseUrl)
+    const tokenData = await tokenResponse.json()
+    const accessToken = tokenData.access_token
 
-    // For POST requests, return JSON instead of redirecting
-    if (result.headers.get("location")) {
-      const redirectUrl = result.headers.get("location")
-      const success = redirectUrl?.includes("success=trello_connected")
+    if (!accessToken) {
+      const baseUrl = "https://chainreact.app"
+      return NextResponse.redirect(`${baseUrl}/integrations?error=trello_no_access_token`)
+    }
 
-      return NextResponse.json({
-        success,
-        redirectUrl,
-        error: success ? null : "Authorization failed",
+    const meResponse = await fetch("https://api.trello.com/1/members/me?fields=id,username", {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    })
+
+    if (!meResponse.ok) {
+      const baseUrl = "https://chainreact.app"
+      return NextResponse.redirect(`${baseUrl}/integrations?error=trello_me_fetch_failed`)
+    }
+
+    const meData = await meResponse.json()
+    const trelloUserId = meData.id
+    const trelloUsername = meData.username
+
+    if (!trelloUserId || !trelloUsername) {
+      const baseUrl = "https://chainreact.app"
+      return NextResponse.redirect(`${baseUrl}/integrations?error=trello_no_user_data`)
+    }
+
+    const sessionId = cookies().get("session")?.value
+
+    if (!sessionId) {
+      const baseUrl = "https://chainreact.app"
+      return NextResponse.redirect(`${baseUrl}/integrations?error=no_session`)
+    }
+
+    await db
+      .insert(trelloIntegrationTable)
+      .values({
+        id: generateId(21),
+        sessionId: sessionId,
+        trelloUserId: trelloUserId,
+        trelloUsername: trelloUsername,
+        accessToken: accessToken,
       })
-    }
+      .onConflictDoUpdate({
+        target: trelloIntegrationTable.sessionId,
+        set: {
+          trelloUserId: trelloUserId,
+          trelloUsername: trelloUsername,
+          accessToken: accessToken,
+        },
+      })
 
-    return NextResponse.json({ success: true })
-  } catch (error: any) {
-    console.error("Trello OAuth POST callback error:", error)
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 })
-  }
-}
-
-async function handleTrelloCallback(token: string, state: string, baseUrl: string) {
-  try {
-    // Initialize Supabase client
-    const supabase = createRouteHandlerClient({ cookies })
-    const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
-
-    if (sessionError || !sessionData?.session) {
-      console.error("Trello: Session error:", sessionError)
-      return NextResponse.redirect(
-        new URL("/integrations?error=session_error&provider=trello&message=No+active+user+session+found", baseUrl),
-      )
-    }
-
-    console.log("Trello: Session successfully retrieved for user:", sessionData.session.user.id)
-
-    const result = await TrelloOAuthService.handleCallback(token, state, baseUrl, supabase, sessionData.session.user.id)
-
-    console.log("Trello OAuth result:", result.success ? "success" : "failed")
-    return NextResponse.redirect(new URL(result.redirectUrl, baseUrl))
-  } catch (error: any) {
-    console.error("Trello OAuth callback error:", error)
-    return NextResponse.redirect(
-      new URL(
-        `/integrations?error=callback_failed&provider=trello&message=${encodeURIComponent(error.message)}`,
-        baseUrl,
-      ),
-    )
+    return NextResponse.redirect(`https://chainreact.app/integrations?success=trello_connected`)
+  } catch (e) {
+    console.error(e)
+    const baseUrl = "https://chainreact.app"
+    return NextResponse.redirect(`${baseUrl}/integrations?error=trello_general_error`)
   }
 }

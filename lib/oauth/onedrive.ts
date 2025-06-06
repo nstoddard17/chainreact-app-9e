@@ -1,56 +1,65 @@
-interface DropboxOAuthResult {
+interface OneDriveOAuthResult {
   success: boolean
   redirectUrl: string
   error?: string
 }
 
-export class DropboxOAuthService {
+export class OneDriveOAuthService {
   private static getClientCredentials() {
-    const clientId = process.env.NEXT_PUBLIC_DROPBOX_CLIENT_ID
-    const clientSecret = process.env.DROPBOX_CLIENT_SECRET
+    const clientId = process.env.NEXT_PUBLIC_ONEDRIVE_CLIENT_ID
+    const clientSecret = process.env.ONEDRIVE_CLIENT_SECRET
 
     if (!clientId || !clientSecret) {
-      throw new Error("Missing Dropbox OAuth configuration")
+      throw new Error("Missing OneDrive OAuth configuration")
     }
 
     return { clientId, clientSecret }
   }
 
-  static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string): string {
+  static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string, userId?: string): string {
     const { clientId } = this.getClientCredentials()
-    const redirectUri = "https://chainreact.app/api/integrations/dropbox/callback"
+    const redirectUri = "https://chainreact.app/api/integrations/onedrive/callback"
+
+    // Define required scopes for Microsoft Graph API
+    const scopes = ["offline_access", "User.Read", "Files.ReadWrite", "Files.ReadWrite.All"]
 
     const state = btoa(
       JSON.stringify({
-        provider: "dropbox",
+        provider: "onedrive",
+        userId,
         reconnect,
         integrationId,
         timestamp: Date.now(),
       }),
     )
 
-    // Dropbox doesn't use scope parameter in the authorization URL
     const params = new URLSearchParams({
       client_id: clientId,
       redirect_uri: redirectUri,
       response_type: "code",
-      token_access_type: "offline",
+      scope: scopes.join(" "),
+      response_mode: "query",
       state,
     })
 
-    return `https://www.dropbox.com/oauth2/authorize?${params.toString()}`
+    return `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`
   }
 
   static getRedirectUri(): string {
-    return "https://chainreact.app/api/integrations/dropbox/callback"
+    return "https://chainreact.app/api/integrations/onedrive/callback"
   }
 
-  static async handleCallback(code: string, state: string, supabase: any, userId: string): Promise<DropboxOAuthResult> {
+  static async handleCallback(
+    code: string,
+    state: string,
+    supabase: any,
+    userId: string,
+  ): Promise<OneDriveOAuthResult> {
     try {
       const stateData = JSON.parse(atob(state))
       const { provider, reconnect, integrationId } = stateData
 
-      if (provider !== "dropbox") {
+      if (provider !== "onedrive") {
         throw new Error("Invalid provider in state")
       }
 
@@ -58,17 +67,17 @@ export class DropboxOAuthService {
       const redirectUri = this.getRedirectUri()
 
       // Exchange code for token
-      const tokenResponse = await fetch("https://api.dropboxapi.com/oauth2/token", {
+      const tokenResponse = await fetch("https://login.microsoftonline.com/common/oauth2/v2.0/token", {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
         },
         body: new URLSearchParams({
-          code,
-          grant_type: "authorization_code",
           client_id: clientId,
           client_secret: clientSecret,
+          code,
           redirect_uri: redirectUri,
+          grant_type: "authorization_code",
         }),
       })
 
@@ -78,16 +87,13 @@ export class DropboxOAuthService {
       }
 
       const tokenData = await tokenResponse.json()
-      const { access_token, refresh_token, expires_in } = tokenData
+      const { access_token, refresh_token, expires_in, scope } = tokenData
 
-      // Get user info
-      const userResponse = await fetch("https://api.dropboxapi.com/2/users/get_current_account", {
-        method: "POST",
+      // Get user info from Microsoft Graph API
+      const userResponse = await fetch("https://graph.microsoft.com/v1.0/me", {
         headers: {
           Authorization: `Bearer ${access_token}`,
-          "Content-Type": "application/json",
         },
-        body: JSON.stringify(null),
       })
 
       if (!userResponse.ok) {
@@ -100,16 +106,16 @@ export class DropboxOAuthService {
       // Save integration
       const integrationData = {
         user_id: userId,
-        provider: "dropbox",
-        provider_user_id: userData.account_id,
+        provider: "onedrive",
+        provider_user_id: userData.id,
         access_token,
         refresh_token,
         expires_at: expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null,
         status: "connected" as const,
-        scopes: ["files.content.read", "files.content.write"],
+        scopes: scope ? scope.split(" ") : ["Files.ReadWrite", "User.Read"],
         metadata: {
-          email: userData.email,
-          name: userData.name.display_name,
+          display_name: userData.displayName,
+          email: userData.userPrincipalName,
           connected_at: new Date().toISOString(),
         },
       }
@@ -131,12 +137,12 @@ export class DropboxOAuthService {
 
       return {
         success: true,
-        redirectUrl: `https://chainreact.app/integrations?success=dropbox_connected`,
+        redirectUrl: `https://chainreact.app/integrations?success=onedrive_connected`,
       }
     } catch (error: any) {
       return {
         success: false,
-        redirectUrl: `https://chainreact.app/integrations?error=callback_failed&provider=dropbox&message=${encodeURIComponent(error.message)}`,
+        redirectUrl: `https://chainreact.app/integrations?error=callback_failed&provider=onedrive&message=${encodeURIComponent(error.message)}`,
         error: error.message,
       }
     }

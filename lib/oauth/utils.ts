@@ -44,6 +44,15 @@ export const createAdminSupabaseClient = () => {
  * Always uses the production domain to prevent redirect mismatches
  */
 export function getOAuthRedirectUri(provider: string): string {
+  // For Trello, we need to use the exact URL configured in their app settings
+  if (provider === "trello") {
+    return `https://chainreact.app/api/integrations/trello/callback`
+  }
+
+  return `https://chainreact.app/api/integrations/${provider}/callback`
+}
+
+export function getStandardRedirectUri(provider: string): string {
   return `https://chainreact.app/api/integrations/${provider}/callback`
 }
 

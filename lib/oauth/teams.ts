@@ -15,14 +15,14 @@ export class TeamsOAuthService extends BaseOAuthService {
     return { clientId, clientSecret }
   }
 
-  static getRedirectUri(baseUrl: string): string {
+  static getRedirectUri(): string {
     // Hardcoded redirect URI
     return "https://chainreact.app/api/integrations/teams/callback"
   }
 
   static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string): string {
     const { clientId } = this.getClientCredentials()
-    const redirectUri = this.getRedirectUri(baseUrl)
+    const redirectUri = this.getRedirectUri()
 
     // Define required scopes
     const scopes = [
@@ -65,7 +65,7 @@ export class TeamsOAuthService extends BaseOAuthService {
 
   static generateAuthUrlWithState(baseUrl: string, state: string): string {
     const { clientId } = this.getClientCredentials()
-    const redirectUri = this.getRedirectUri(baseUrl)
+    const redirectUri = this.getRedirectUri()
 
     // Define required scopes
     const scopes = [

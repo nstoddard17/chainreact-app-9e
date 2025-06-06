@@ -1,76 +1,50 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createServerSupabaseClient } from "@/lib/supabase-server"
-import { SlackOAuthService } from "@/lib/oauth/slack"
-import { parseOAuthState } from "@/lib/oauth/utils"
+import { getSlackClient } from "@/app/api/integrations/slack/slack-client"
 
-export async function GET(request: NextRequest) {
+export async function GET(req: NextRequest) {
+  const searchParams = req.nextUrl.searchParams
+  const code = searchParams.get("code")
+  const error = searchParams.get("error")
+
+  const baseUrl = "https://chainreact.app"
+
+  if (error) {
+    console.error("Error during Slack OAuth:", error)
+    return NextResponse.redirect(`${baseUrl}/integrations?error=slack_oauth_failed`)
+  }
+
+  if (!code) {
+    console.error("No code provided in Slack OAuth callback")
+    return NextResponse.redirect(`${baseUrl}/integrations?error=slack_oauth_failed`)
+  }
+
   try {
-    // Get code and state from query parameters
-    const searchParams = request.nextUrl.searchParams
-    const code = searchParams.get("code")
-    const state = searchParams.get("state")
-    const error = searchParams.get("error")
+    const redirectUri = "https://chainreact.app/api/integrations/slack/callback"
+    const slackClient = await getSlackClient()
+    const result = await slackClient.oauth.v2.access({
+      client_id: process.env.SLACK_CLIENT_ID,
+      client_secret: process.env.SLACK_CLIENT_SECRET,
+      code: code,
+      redirect_uri: redirectUri,
+    })
 
-    if (error) {
-      return NextResponse.redirect(
-        `https://chainreact.app/integrations?error=provider_error&provider=slack&message=${encodeURIComponent(
-          `Slack returned an error: ${error}`,
-        )}`,
-      )
+    if (!result.ok) {
+      console.error("Slack OAuth failed:", result.error)
+      return NextResponse.redirect(`${baseUrl}/integrations?error=slack_oauth_failed`)
     }
 
-    if (!code) {
-      return NextResponse.redirect(
-        `https://chainreact.app/integrations?error=missing_code&provider=slack&message=${encodeURIComponent(
-          "Missing authorization code",
-        )}`,
-      )
-    }
+    // TODO: Store the access token and other relevant information in your database
+    // You can access the team ID, user ID, and access token from the result object.
+    // Example:
+    const accessToken = result.access_token
+    const teamId = result.team?.id
+    const userId = result.authed_user?.id
 
-    if (!state) {
-      return NextResponse.redirect(
-        `https://chainreact.app/integrations?error=missing_state&provider=slack&message=${encodeURIComponent(
-          "Missing state parameter",
-        )}`,
-      )
-    }
+    console.log("Slack OAuth successful:", { accessToken, teamId, userId })
 
-    // Parse state to get user ID
-    let stateData
-    try {
-      stateData = parseOAuthState(state)
-    } catch (error) {
-      return NextResponse.redirect(
-        `https://chainreact.app/integrations?error=invalid_state&provider=slack&message=${encodeURIComponent(
-          "Invalid state parameter",
-        )}`,
-      )
-    }
-
-    const { userId } = stateData
-
-    if (!userId) {
-      return NextResponse.redirect(
-        `https://chainreact.app/integrations?error=missing_user_id&provider=slack&message=${encodeURIComponent(
-          "Missing user ID in state",
-        )}`,
-      )
-    }
-
-    // Create Supabase client
-    const supabase = createServerSupabaseClient()
-
-    // Handle OAuth callback
-    const result = await SlackOAuthService.handleCallback("slack", code, state, userId)
-
-    // Redirect based on result
-    return NextResponse.redirect(result.redirectUrl)
-  } catch (error: any) {
-    console.error("Slack OAuth callback error:", error)
-    return NextResponse.redirect(
-      `https://chainreact.app/integrations?error=callback_failed&provider=slack&message=${encodeURIComponent(
-        error.message || "An unexpected error occurred",
-      )}`,
-    )
+    return NextResponse.redirect(`https://chainreact.app/integrations?success=slack_connected`)
+  } catch (e: any) {
+    console.error("Error during Slack OAuth:", e)
+    return NextResponse.redirect(`${baseUrl}/integrations?error=slack_oauth_failed`)
   }
 }

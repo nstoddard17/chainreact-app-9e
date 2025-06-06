@@ -44,35 +44,33 @@ export class TrelloOAuthService {
 
   static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string): string {
     const { clientId } = this.getClientCredentials()
-    const redirectUri = `${baseUrl}/integrations/trello-auth`
-
-    const scopes = ["read", "write", "account"]
+    const redirectUri = "https://chainreact.app/api/integrations/trello/callback"
 
     const state = btoa(
       JSON.stringify({
         provider: "trello",
         reconnect,
         integrationId,
-        scopes,
         timestamp: Date.now(),
       }),
     )
 
     const params = new URLSearchParams({
       key: clientId,
-      name: "ChainReact",
-      scope: scopes.join(","),
-      response_type: "token",
       callback_method: "postMessage",
       return_url: redirectUri,
+      scope: "read,write,account",
+      expiration: "never",
+      name: "ChainReact",
+      response_type: "token",
       state,
     })
 
     return `https://trello.com/1/authorize?${params.toString()}`
   }
 
-  static getRedirectUri(baseUrl: string): string {
-    return `${baseUrl}/integrations/trello-auth`
+  static getRedirectUri(): string {
+    return "https://chainreact.app/api/integrations/trello/callback"
   }
 
   static async handleCallback(
@@ -83,8 +81,9 @@ export class TrelloOAuthService {
     userId: string,
   ): Promise<TrelloOAuthResult> {
     try {
+      // Decode state to get provider info
       const stateData = JSON.parse(atob(state))
-      const { provider, reconnect, integrationId, scopes } = stateData
+      const { provider, reconnect, integrationId } = stateData
 
       if (provider !== "trello") {
         throw new Error("Invalid provider in state")
@@ -106,27 +105,15 @@ export class TrelloOAuthService {
         }
       }
 
+      // Get credentials securely
       const { clientId } = this.getClientCredentials()
-
-      // Get granted scopes from the state (Trello doesn't return scopes in token response)
-      const grantedScopes = scopes || ["read", "write"]
-
-      // Validate scopes
-      const scopeValidation = this.validateScopes(grantedScopes)
-
-      if (!scopeValidation.valid) {
-        return {
-          success: false,
-          redirectUrl: `${baseUrl}/integrations?error=insufficient_scopes&provider=trello&missing=${scopeValidation.missing.join(",")}`,
-        }
-      }
 
       // Validate token by making an API call
       const isTokenValid = await this.validateToken(token, clientId)
       if (!isTokenValid) {
         return {
           success: false,
-          redirectUrl: `${baseUrl}/integrations?error=invalid_token&provider=trello`,
+          redirectUrl: `https://chainreact.app/integrations?error=invalid_token&provider=trello`,
         }
       }
 
@@ -134,8 +121,8 @@ export class TrelloOAuthService {
       const userResponse = await fetch(`https://api.trello.com/1/members/me?key=${clientId}&token=${token}`)
 
       if (!userResponse.ok) {
-        const errorText = await userResponse.text()
-        throw new Error(`Failed to get user info: ${userResponse.status}`)
+        const errorData = await userResponse.text()
+        throw new Error(`Failed to get user info: ${errorData}`)
       }
 
       const userData = await userResponse.json()
@@ -146,11 +133,11 @@ export class TrelloOAuthService {
         provider_user_id: userData.id,
         access_token: token,
         status: "connected" as const,
-        scopes: grantedScopes,
+        scopes: ["read", "write", "account"],
         metadata: {
-          user_name: userData.fullName,
           username: userData.username,
-          user_email: userData.email,
+          full_name: userData.fullName,
+          email: userData.email,
           connected_at: new Date().toISOString(),
         },
       }
@@ -164,20 +151,24 @@ export class TrelloOAuthService {
           })
           .eq("id", integrationId)
 
-        if (error) throw error
+        if (error) {
+          throw error
+        }
       } else {
         const { error } = await supabase.from("integrations").insert(integrationData)
-        if (error) throw error
+        if (error) {
+          throw error
+        }
       }
 
       return {
         success: true,
-        redirectUrl: `${baseUrl}/integrations?success=trello_connected`,
+        redirectUrl: `https://chainreact.app/integrations?success=trello_connected`,
       }
     } catch (error: any) {
       return {
         success: false,
-        redirectUrl: `${baseUrl}/integrations?error=callback_failed&provider=trello&message=${encodeURIComponent(error.message)}`,
+        redirectUrl: `https://chainreact.app/integrations?error=callback_failed&provider=trello&message=${encodeURIComponent(error.message)}`,
         error: error.message,
       }
     }

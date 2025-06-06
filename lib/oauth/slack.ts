@@ -15,14 +15,14 @@ export class SlackOAuthService extends BaseOAuthService {
     return { clientId, clientSecret }
   }
 
-  static getRedirectUri(baseUrl: string): string {
+  static getRedirectUri(): string {
     // Hardcoded redirect URI
     return "https://chainreact.app/api/integrations/slack/callback"
   }
 
   static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string): string {
     const { clientId } = this.getClientCredentials()
-    const redirectUri = this.getRedirectUri(baseUrl)
+    const redirectUri = this.getRedirectUri()
 
     // Define required scopes
     const scopes = [

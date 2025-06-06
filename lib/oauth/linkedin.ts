@@ -20,7 +20,8 @@ export class LinkedInOAuthService {
     const { clientId } = this.getClientCredentials()
     const redirectUri = "https://chainreact.app/api/integrations/linkedin/callback"
 
-    const scopes = ["profile", "email", "w_member_social"]
+    // Use the correct LinkedIn v2 scopes
+    const scopes = ["openid", "profile", "email", "w_member_social"]
 
     const state = btoa(
       JSON.stringify({
@@ -43,7 +44,7 @@ export class LinkedInOAuthService {
     return `https://www.linkedin.com/oauth/v2/authorization?${params.toString()}`
   }
 
-  static getRedirectUri(baseUrl: string): string {
+  static getRedirectUri(): string {
     return "https://chainreact.app/api/integrations/linkedin/callback"
   }
 
@@ -96,48 +97,49 @@ export class LinkedInOAuthService {
 
       // Validate scopes if required
       if (requireFullScopes) {
-        // LinkedIn doesn't return scopes in token response, so we test endpoints
         const grantedScopes: string[] = []
 
-        // Test profile access
-        const profileResponse = await fetch("https://api.linkedin.com/v2/userinfo", {
-          headers: { Authorization: `Bearer ${access_token}` },
-        })
-        if (profileResponse.ok) {
-          grantedScopes.push("profile")
-        }
+        try {
+          // Test profile and email access with userinfo endpoint
+          const userinfoResponse = await fetch("https://api.linkedin.com/v2/userinfo", {
+            headers: { Authorization: `Bearer ${access_token}` },
+          })
 
-        // Test email access
-        const emailResponse = await fetch("https://api.linkedin.com/v2/userinfo", {
-          headers: { Authorization: `Bearer ${access_token}` },
-        })
-        if (emailResponse.ok) {
-          grantedScopes.push("email")
-        }
-
-        // Test posting access (this might fail but we can check the error)
-        const postResponse = await fetch("https://api.linkedin.com/v2/people/~", {
-          headers: { Authorization: `Bearer ${access_token}` },
-        })
-        if (postResponse.ok || postResponse.status === 403) {
-          // 403 means we have the scope but not permission to this specific action
-          grantedScopes.push("w_member_social")
-        }
-
-        const requiredScopes = ["profile", "email", "w_member_social"]
-        const missingScopes = requiredScopes.filter((s) => !grantedScopes.includes(s))
-
-        if (missingScopes.length > 0) {
-          console.error("LinkedIn scope validation failed:", { grantedScopes, missingScopes })
-          return {
-            success: false,
-            redirectUrl: `${baseUrl}/integrations?error=insufficient_scopes&provider=linkedin&message=${encodeURIComponent(
-              `Your connection is missing required permissions: ${missingScopes.join(", ")}. Please reconnect and accept all scopes.`,
-            )}`,
-            error: "Insufficient scopes",
+          if (userinfoResponse.ok) {
+            const userinfo = await userinfoResponse.json()
+            if (userinfo.sub) grantedScopes.push("openid")
+            if (userinfo.name || userinfo.given_name) grantedScopes.push("profile")
+            if (userinfo.email) grantedScopes.push("email")
           }
+
+          // Test posting capability
+          const profileResponse = await fetch("https://api.linkedin.com/v2/people/~", {
+            headers: { Authorization: `Bearer ${access_token}` },
+          })
+
+          if (profileResponse.ok || profileResponse.status === 403) {
+            // 403 means we have the scope but specific permission denied
+            grantedScopes.push("w_member_social")
+          }
+
+          const requiredScopes = ["openid", "profile", "email"]
+          const missingScopes = requiredScopes.filter((s) => !grantedScopes.includes(s))
+
+          if (missingScopes.length > 0) {
+            console.error("LinkedIn scope validation failed:", { grantedScopes, missingScopes })
+            return {
+              success: false,
+              redirectUrl: `https://chainreact.app/integrations?error=insufficient_scopes&provider=linkedin&message=${encodeURIComponent(
+                `Your connection is missing required permissions: ${missingScopes.join(", ")}. Please reconnect and accept all scopes.`,
+              )}`,
+              error: "Insufficient scopes",
+            }
+          }
+          console.log("LinkedIn scopes validated successfully:", grantedScopes)
+        } catch (scopeError) {
+          console.error("LinkedIn scope validation error:", scopeError)
+          // Continue without failing if scope validation has issues
         }
-        console.log("LinkedIn scopes validated successfully:", grantedScopes)
       }
 
       const userResponse = await fetch("https://api.linkedin.com/v2/userinfo", {
@@ -166,7 +168,7 @@ export class LinkedInOAuthService {
         access_token,
         expires_at: expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null,
         status: "connected" as const,
-        scopes: ["profile", "email", "w_member_social"],
+        scopes: ["openid", "profile", "email", "w_member_social"],
         metadata: {
           first_name: userData.given_name,
           last_name: userData.family_name,
@@ -193,12 +195,12 @@ export class LinkedInOAuthService {
 
       return {
         success: true,
-        redirectUrl: `${baseUrl}/integrations?success=linkedin_connected&provider=linkedin&scopes_validated=${requireFullScopes}`,
+        redirectUrl: `https://chainreact.app/integrations?success=linkedin_connected&provider=linkedin&scopes_validated=${requireFullScopes}`,
       }
     } catch (error: any) {
       return {
         success: false,
-        redirectUrl: `${baseUrl}/integrations?error=callback_failed&provider=linkedin&message=${encodeURIComponent(error.message)}`,
+        redirectUrl: `https://chainreact.app/integrations?error=callback_failed&provider=linkedin&message=${encodeURIComponent(error.message)}`,
         error: error.message,
       }
     }

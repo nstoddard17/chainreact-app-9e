@@ -289,6 +289,20 @@ export const INTEGRATION_SCOPES: Record<string, IntegrationScopeConfig> = {
       "hubspot-read-deals": ["crm.objects.deals.read"],
     },
   },
+  linkedin: {
+    provider: "linkedin",
+    scopes: [
+      { scope: "openid", description: "Authenticate with LinkedIn", required: true },
+      { scope: "profile", description: "Access basic profile info", required: true },
+      { scope: "email", description: "Access email address", required: true },
+      { scope: "w_member_social", description: "Post content on your behalf", required: false },
+    ],
+    components: {
+      "linkedin-post": ["w_member_social"],
+      "linkedin-get-profile": ["profile"],
+      "linkedin-get-email": ["email"],
+    },
+  },
 }
 
 export function getRequiredScopes(provider: string): string[] {

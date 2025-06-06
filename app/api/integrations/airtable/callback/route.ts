@@ -1,58 +1,91 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
-import { AirtableOAuthService } from "@/lib/oauth/airtable"
 
 export async function GET(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams
-  const baseUrl = new URL(request.url).origin
-  const code = searchParams.get("code")
-  const state = searchParams.get("state")
-  const error = searchParams.get("error")
-
-  // Handle OAuth errors
-  if (error) {
-    console.error("Airtable OAuth error:", error)
-    return NextResponse.redirect(new URL(`/integrations?error=oauth_error&provider=airtable`, baseUrl))
-  }
-
-  // Validate required parameters
-  if (!code || !state) {
-    console.error("Missing code or state in Airtable callback")
-    return NextResponse.redirect(new URL(`/integrations?error=missing_params&provider=airtable`, baseUrl))
-  }
-
   try {
-    // Initialize Supabase client
-    const supabase = createRouteHandlerClient({ cookies })
+    const { searchParams } = new URL(request.url)
+    const code = searchParams.get("code")
+    const state = searchParams.get("state")
 
-    // Get current session
-    const {
-      data: { session },
-      error: sessionError,
-    } = await supabase.auth.getSession()
-
-    if (sessionError || !session) {
-      console.error("Airtable: Session error:", sessionError)
-      return NextResponse.redirect(
-        new URL(`/integrations?error=session_error&provider=airtable&message=No+active+user+session+found`, baseUrl),
-      )
+    if (!code) {
+      const error = searchParams.get("error")
+      const error_description = searchParams.get("error_description")
+      console.error("Airtable OAuth Error:", error, error_description)
+      const baseUrl = "https://chainreact.app"
+      return NextResponse.redirect(`${baseUrl}/integrations?error=airtable_auth_failed`)
     }
 
-    console.log("Airtable: Session successfully retrieved for user:", session.user.id)
+    if (!state) {
+      console.error("Missing state parameter")
+      const baseUrl = "https://chainreact.app"
+      return NextResponse.redirect(`${baseUrl}/integrations?error=missing_state`)
+    }
 
-    // Handle the OAuth callback using the secure service
-    const result = await AirtableOAuthService.handleCallback(code, state, baseUrl, supabase, session.user.id)
+    const storedState = cookies().get("airtable_oauth_state")?.value
 
-    // Redirect based on result
-    return NextResponse.redirect(new URL(result.redirectUrl, baseUrl))
-  } catch (error: any) {
-    console.error("Unexpected error in Airtable callback:", error)
-    return NextResponse.redirect(
-      new URL(
-        `/integrations?error=unexpected_error&provider=airtable&message=${encodeURIComponent(error.message)}`,
-        baseUrl,
-      ),
-    )
+    if (state !== storedState) {
+      console.error("State mismatch")
+      const baseUrl = "https://chainreact.app"
+      return NextResponse.redirect(`${baseUrl}/integrations?error=state_mismatch`)
+    }
+
+    cookies().delete("airtable_oauth_state")
+
+    const redirectUri = "https://chainreact.app/api/integrations/airtable/callback"
+    const clientId = process.env.AIRTABLE_CLIENT_ID
+    const clientSecret = process.env.AIRTABLE_CLIENT_SECRET
+
+    if (!clientId || !clientSecret) {
+      console.error("Missing Airtable client ID or secret")
+      const baseUrl = "https://chainreact.app"
+      return NextResponse.redirect(`${baseUrl}/integrations?error=missing_credentials`)
+    }
+
+    const tokenEndpoint = "https://airtable.com/oauth/v2/token"
+
+    const params = new URLSearchParams({
+      grant_type: "authorization_code",
+      code: code,
+      redirect_uri: redirectUri,
+    })
+
+    const authString = `${clientId}:${clientSecret}`
+    const encodedAuth = Buffer.from(authString).toString("base64")
+
+    const response = await fetch(tokenEndpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Authorization: `Basic ${encodedAuth}`,
+      },
+      body: params,
+    })
+
+    if (!response.ok) {
+      console.error("Failed to retrieve Airtable access token", response.status, await response.text())
+      const baseUrl = "https://chainreact.app"
+      return NextResponse.redirect(`${baseUrl}/integrations?error=token_retrieval_failed`)
+    }
+
+    const data = await response.json()
+    const accessToken = data.access_token
+
+    if (!accessToken) {
+      console.error("Missing access token in response")
+      const baseUrl = "https://chainreact.app"
+      return NextResponse.redirect(`${baseUrl}/integrations?error=missing_access_token`)
+    }
+
+    cookies().set("airtable_access_token", accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+    })
+
+    return NextResponse.redirect(`https://chainreact.app/integrations?success=airtable_connected`)
+  } catch (error) {
+    console.error("Airtable OAuth Callback Error:", error)
+    const baseUrl = "https://chainreact.app"
+    return NextResponse.redirect(`${baseUrl}/integrations?error=airtable_callback_error`)
   }
 }

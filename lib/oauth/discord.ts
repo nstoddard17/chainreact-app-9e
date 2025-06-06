@@ -1,4 +1,4 @@
-import { upsertIntegration, parseOAuthState, getOAuthRedirectUri } from "./utils"
+import { upsertIntegration, parseOAuthState } from "./utils"
 
 interface DiscordOAuthResult {
   success: boolean
@@ -20,7 +20,7 @@ export class DiscordOAuthService {
 
   static generateAuthUrl(userId: string, reconnect = false, integrationId?: string): string {
     const { clientId } = this.getClientCredentials()
-    const redirectUri = getOAuthRedirectUri("discord")
+    const redirectUri = "https://chainreact.app/api/integrations/discord/callback"
 
     // Only require essential scopes for message functionality
     const requiredScopes = ["identify", "guilds", "guilds.join", "messages.read"]
@@ -120,7 +120,7 @@ export class DiscordOAuthService {
       }
 
       const { clientId, clientSecret } = this.getClientCredentials()
-      const redirectUri = getOAuthRedirectUri("discord")
+      const redirectUri = "https://chainreact.app/api/integrations/discord/callback"
 
       console.log("Discord OAuth callback - using redirect URI:", redirectUri)
 

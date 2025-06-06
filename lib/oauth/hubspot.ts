@@ -85,7 +85,7 @@ export class HubSpotOAuthService {
     return `https://app.hubspot.com/oauth/authorize?${params.toString()}`
   }
 
-  static getRedirectUri(baseUrl: string): string {
+  static getRedirectUri(): string {
     return "https://chainreact.app/api/integrations/hubspot/callback"
   }
 
@@ -156,7 +156,7 @@ export class HubSpotOAuthService {
       if (!scopeValidation.valid) {
         return {
           success: false,
-          redirectUrl: `${baseUrl}/integrations?error=insufficient_scopes&provider=hubspot&missing=${scopeValidation.missing.join(",")}`,
+          redirectUrl: `https://chainreact.app/integrations?error=insufficient_scopes&provider=hubspot&missing=${scopeValidation.missing.join(",")}`,
         }
       }
 
@@ -165,7 +165,7 @@ export class HubSpotOAuthService {
       if (!isTokenValid) {
         return {
           success: false,
-          redirectUrl: `${baseUrl}/integrations?error=invalid_token&provider=hubspot`,
+          redirectUrl: `https://chainreact.app/integrations?error=invalid_token&provider=hubspot`,
         }
       }
 
@@ -217,12 +217,12 @@ export class HubSpotOAuthService {
 
       return {
         success: true,
-        redirectUrl: `${baseUrl}/integrations?success=hubspot_connected`,
+        redirectUrl: `https://chainreact.app/integrations?success=hubspot_connected`,
       }
     } catch (error: any) {
       return {
         success: false,
-        redirectUrl: `${baseUrl}/integrations?error=callback_failed&provider=hubspot&message=${encodeURIComponent(error.message)}`,
+        redirectUrl: `https://chainreact.app/integrations?error=callback_failed&provider=hubspot&message=${encodeURIComponent(error.message)}`,
         error: error.message,
       }
     }
