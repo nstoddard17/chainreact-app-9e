@@ -175,10 +175,23 @@ export function generateOAuthState(
  */
 export function parseOAuthState(state: string): any {
   try {
-    return JSON.parse(atob(state))
+    // First try standard base64 decoding
+    return JSON.parse(Buffer.from(state, "base64").toString())
   } catch (error) {
-    console.error("Invalid OAuth state parameter:", error)
-    throw new Error("Invalid OAuth state parameter")
+    // If that fails, try URL-safe base64 decoding
+    try {
+      const base64 = state.replace(/-/g, "+").replace(/_/g, "/")
+      return JSON.parse(Buffer.from(base64, "base64").toString())
+    } catch (innerError) {
+      // If both fail, try direct JSON parsing (some providers might not encode)
+      try {
+        return JSON.parse(state)
+      } catch (finalError) {
+        // If all parsing attempts fail
+        console.error("Failed to parse OAuth state:", finalError)
+        throw new Error("Invalid OAuth state format")
+      }
+    }
   }
 }
 

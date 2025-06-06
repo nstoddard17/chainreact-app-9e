@@ -1,5 +1,5 @@
 import { BaseOAuthService } from "./BaseOAuthService"
-import { parseOAuthState, createAdminSupabaseClient, upsertIntegration, validateScopes } from "./utils"
+import { createAdminSupabaseClient, upsertIntegration, validateScopes } from "./utils"
 
 export class GoogleOAuthService extends BaseOAuthService {
   private static getClientCredentials() {
@@ -36,7 +36,7 @@ export class GoogleOAuthService extends BaseOAuthService {
       "https://www.googleapis.com/auth/gmail.modify",
     ]
 
-    const state = btoa(
+    const state = Buffer.from(
       JSON.stringify({
         provider: "google",
         userId: userId,
@@ -44,7 +44,7 @@ export class GoogleOAuthService extends BaseOAuthService {
         integrationId,
         timestamp: Date.now(),
       }),
-    )
+    ).toString("base64")
 
     const params = new URLSearchParams({
       client_id: clientId,
@@ -120,20 +120,22 @@ export class GoogleOAuthService extends BaseOAuthService {
     try {
       console.log(`Processing Google OAuth callback for provider: ${provider}`)
 
-      const stateData = parseOAuthState(state)
-      const { userId, reconnect, integrationId } = stateData
-
-      if (expectedUserId && userId !== expectedUserId) {
-        console.error(`User ID mismatch: expected ${expectedUserId}, got ${userId}`)
-        return {
-          success: false,
-          redirectUrl: `https://chainreact.app/integrations?error=user_mismatch&provider=${provider}`,
-          error: "User ID mismatch",
-        }
+      // Parse state
+      let stateData
+      try {
+        stateData = JSON.parse(Buffer.from(state, "base64").toString())
+      } catch (error) {
+        console.error("Failed to parse state:", error)
+        stateData = { userId: expectedUserId }
       }
 
-      if (!userId) {
-        console.error("Missing user ID in state")
+      const { userId, reconnect, integrationId } = stateData
+
+      // Use either the userId from state or the expectedUserId
+      const finalUserId = userId || expectedUserId
+
+      if (!finalUserId) {
+        console.error("Missing user ID in state and no expected user ID provided")
         return {
           success: false,
           redirectUrl: `https://chainreact.app/integrations?error=missing_user_id&provider=${provider}`,
@@ -158,7 +160,7 @@ export class GoogleOAuthService extends BaseOAuthService {
       }
 
       const integrationData = {
-        user_id: userId,
+        user_id: finalUserId,
         provider: provider,
         provider_user_id: userInfo.id,
         status: "connected" as const,
@@ -181,11 +183,11 @@ export class GoogleOAuthService extends BaseOAuthService {
 
       await upsertIntegration(supabase, integrationData)
 
-      console.log(`Google OAuth callback completed successfully for user ${userId}`)
+      console.log(`Google OAuth callback completed successfully for user ${finalUserId}`)
 
       return {
         success: true,
-        redirectUrl: `https://chainreact.app/integrations?success=google_connected&provider=${provider}`,
+        redirectUrl: `https://chainreact.app/integrations?success=true&provider=${provider}`,
       }
     } catch (error: any) {
       console.error("Google OAuth callback error:", error)
