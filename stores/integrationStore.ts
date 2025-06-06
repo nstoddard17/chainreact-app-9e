@@ -351,6 +351,12 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
         console.error("API error:", errorData)
+
+        // Handle configuration errors specifically
+        if (response.status === 503) {
+          throw new Error(errorData.error || `${providerId} integration is not configured. Please contact support.`)
+        }
+
         throw new Error(errorData.error || "Failed to generate auth URL")
       }
 

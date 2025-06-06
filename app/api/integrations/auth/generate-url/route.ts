@@ -38,78 +38,96 @@ export async function POST(request: NextRequest) {
 
     let authUrl: string
 
-    switch (provider.toLowerCase()) {
-      case "google":
-        authUrl = GoogleOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
-        break
-      case "slack":
-        authUrl = SlackOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
-        break
-      case "github":
-        authUrl = GitHubOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
-        break
-      case "discord":
-        authUrl = DiscordOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
-        break
-      case "trello":
-        authUrl = TrelloOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
-        break
-      case "teams":
-        authUrl = TeamsOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
-        break
-      case "notion":
-        authUrl = NotionOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
-        break
-      case "airtable":
-        authUrl = AirtableOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
-        break
-      case "dropbox":
-        authUrl = DropboxOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
-        break
-      case "hubspot":
-        authUrl = HubSpotOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
-        break
-      case "linkedin":
-        authUrl = LinkedInOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
-        break
-      case "facebook":
-        authUrl = FacebookOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
-        break
-      case "instagram":
-        authUrl = InstagramOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
-        break
-      case "twitter":
-        authUrl = TwitterOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
-        break
-      case "tiktok":
-        authUrl = TikTokOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
-        break
-      case "youtube":
-        authUrl = YouTubeOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
-        break
-      case "mailchimp":
-        authUrl = MailchimpOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
-        break
-      case "shopify":
-        authUrl = ShopifyOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
-        break
-      case "stripe":
-        authUrl = StripeOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
-        break
-      case "paypal":
-        authUrl = PayPalOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
-        break
-      case "gitlab":
-        authUrl = GitLabOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
-        break
-      case "onedrive":
-        authUrl = OneDriveOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
-        break
-      case "docker":
-        // Docker is marked as coming soon, return a friendly message
-        return NextResponse.json({ error: "Docker Hub integration is coming soon" }, { status: 400 })
-      default:
-        return NextResponse.json({ error: `Provider ${provider} not yet supported` }, { status: 400 })
+    try {
+      switch (provider.toLowerCase()) {
+        case "google":
+          authUrl = GoogleOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
+          break
+        case "slack":
+          authUrl = SlackOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
+          break
+        case "github":
+          authUrl = GitHubOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
+          break
+        case "discord":
+          authUrl = DiscordOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
+          break
+        case "trello":
+          authUrl = TrelloOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
+          break
+        case "teams":
+          authUrl = TeamsOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
+          break
+        case "notion":
+          authUrl = NotionOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
+          break
+        case "airtable":
+          authUrl = AirtableOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
+          break
+        case "dropbox":
+          authUrl = DropboxOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
+          break
+        case "hubspot":
+          authUrl = HubSpotOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
+          break
+        case "linkedin":
+          authUrl = LinkedInOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
+          break
+        case "facebook":
+          authUrl = FacebookOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
+          break
+        case "instagram":
+          authUrl = InstagramOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
+          break
+        case "twitter":
+          authUrl = TwitterOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
+          break
+        case "tiktok":
+          authUrl = TikTokOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
+          break
+        case "youtube":
+          authUrl = YouTubeOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
+          break
+        case "mailchimp":
+          authUrl = MailchimpOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
+          break
+        case "shopify":
+          authUrl = ShopifyOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
+          break
+        case "stripe":
+          authUrl = StripeOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
+          break
+        case "paypal":
+          authUrl = PayPalOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
+          break
+        case "gitlab":
+          authUrl = GitLabOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
+          break
+        case "onedrive":
+          authUrl = OneDriveOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
+          break
+        case "docker":
+          // Docker is marked as coming soon, return a friendly message
+          return NextResponse.json({ error: "Docker Hub integration is coming soon" }, { status: 400 })
+        default:
+          return NextResponse.json({ error: `Provider ${provider} not yet supported` }, { status: 400 })
+      }
+    } catch (configError: any) {
+      console.error(`Configuration error for ${provider}:`, configError)
+
+      // Check if it's a configuration error
+      if (configError.message.includes("Missing") && configError.message.includes("OAuth configuration")) {
+        return NextResponse.json(
+          {
+            error: `${provider} integration is not configured. Please contact support to enable this integration.`,
+            details: configError.message,
+          },
+          { status: 503 },
+        ) // Service Unavailable
+      }
+
+      // Re-throw other errors
+      throw configError
     }
 
     console.log("Generated auth URL successfully")

@@ -11,8 +11,20 @@ export class FacebookOAuthService {
     const clientId = process.env.NEXT_PUBLIC_FACEBOOK_CLIENT_ID
     const clientSecret = process.env.FACEBOOK_CLIENT_SECRET
 
+    console.log("Facebook OAuth config check:", {
+      hasClientId: !!clientId,
+      hasClientSecret: !!clientSecret,
+      clientIdLength: clientId?.length || 0,
+    })
+
     if (!clientId || !clientSecret) {
-      throw new Error("Missing Facebook OAuth configuration")
+      const missing = []
+      if (!clientId) missing.push("NEXT_PUBLIC_FACEBOOK_CLIENT_ID")
+      if (!clientSecret) missing.push("FACEBOOK_CLIENT_SECRET")
+
+      throw new Error(
+        `Missing Facebook OAuth configuration: ${missing.join(", ")}. Please contact support to enable Facebook integration.`,
+      )
     }
 
     return { clientId, clientSecret }
@@ -45,33 +57,40 @@ export class FacebookOAuthService {
   }
 
   static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string, userId?: string): string {
-    const { clientId } = this.getClientCredentials()
-    const redirectUri = `${baseUrl}/api/integrations/facebook/callback`
+    try {
+      const { clientId } = this.getClientCredentials()
+      const redirectUri = `${baseUrl}/api/integrations/facebook/callback`
 
-    const scopes = [
-      "public_profile",
-      "email",
-      "pages_show_list",
-      "pages_manage_posts",
-      "pages_read_engagement",
-      "pages_manage_metadata",
-    ]
+      const scopes = [
+        "public_profile",
+        "email",
+        "pages_show_list",
+        "pages_manage_posts",
+        "pages_read_engagement",
+        "pages_manage_metadata",
+      ]
 
-    // Generate proper OAuth state with user ID
-    const state = generateOAuthState("facebook", userId || "anonymous", {
-      reconnect,
-      integrationId,
-    })
+      // Generate proper OAuth state with user ID
+      const state = generateOAuthState("facebook", userId || "anonymous", {
+        reconnect,
+        integrationId,
+      })
 
-    const params = new URLSearchParams({
-      client_id: clientId,
-      redirect_uri: redirectUri,
-      scope: scopes.join(","),
-      response_type: "code",
-      state,
-    })
+      const params = new URLSearchParams({
+        client_id: clientId,
+        redirect_uri: redirectUri,
+        scope: scopes.join(","),
+        response_type: "code",
+        state,
+      })
 
-    return `https://www.facebook.com/v18.0/dialog/oauth?${params.toString()}`
+      const authUrl = `https://www.facebook.com/v18.0/dialog/oauth?${params.toString()}`
+      console.log("Generated Facebook auth URL successfully")
+      return authUrl
+    } catch (error: any) {
+      console.error("Error generating Facebook auth URL:", error)
+      throw error
+    }
   }
 
   static getRedirectUri(baseUrl: string): string {
