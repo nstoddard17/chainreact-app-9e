@@ -7,7 +7,7 @@ import { useIntegrationStore } from "@/stores/integrationStore"
 import IntegrationCard from "./IntegrationCard"
 import IntegrationDiagnostics from "./IntegrationDiagnostics"
 import { Input } from "@/components/ui/input"
-import { Search, Loader2, Filter, CheckCircle, AlertCircle, Stethoscope } from "lucide-react"
+import { Search, Loader2, Filter, CheckCircle, AlertCircle, Stethoscope, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -20,7 +20,9 @@ export default function IntegrationsContent() {
   const [localLoading, setLocalLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [processingTrello, setProcessingTrello] = useState(false)
+
   const { integrations, providers, loading, error, fetchIntegrations, clearCache } = useIntegrationStore()
+
   const searchParams = useSearchParams()
   const { toast } = useToast()
 
@@ -30,7 +32,7 @@ export default function IntegrationsContent() {
       try {
         setLocalLoading(true)
         setLoadError(null)
-        await fetchIntegrations(true) // Force refresh on initial load
+        await fetchIntegrations(true)
       } catch (err: any) {
         console.error("Failed to load integrations:", err)
         setLoadError(err.message || "Failed to load integrations")
@@ -40,241 +42,33 @@ export default function IntegrationsContent() {
     }
 
     loadData()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []) // Empty dependency array to run only once on mount
+  }, [fetchIntegrations])
 
-  // Handle Trello token from URL fragment
+  // Handle OAuth callback success/error messages
   useEffect(() => {
-    const handleTrelloAuth = async () => {
-      // Check if we have a trello_state parameter (indicates returning from Trello OAuth)
-      const trelloState = searchParams.get("trello_state")
-      const trelloAuth = searchParams.get("trello_auth")
-
-      if (trelloState || trelloAuth === "pending") {
-        // Get token from URL fragment
-        const hash = window.location.hash
-        if (hash && hash.includes("token=")) {
-          setProcessingTrello(true)
-          try {
-            // Extract token from hash
-            const token = hash.split("token=")[1].split("&")[0]
-            console.log("Extracted Trello token from URL fragment")
-
-            // Extract state from query parameter
-            const state = trelloState || ""
-
-            // Send token to our backend
-            const response = await fetch(`/api/integrations/trello/callback?token=${token}&state=${state}`)
-
-            if (!response.ok) {
-              const errorData = await response.json().catch(() => ({}))
-              throw new Error(errorData.message || "Failed to process Trello integration")
-            }
-
-            // Clear cache and refresh integrations
-            clearCache()
-            await fetchIntegrations(true)
-
-            // Show success toast
-            toast({
-              title: "Trello Connected",
-              description: "Your Trello integration has been successfully connected!",
-              duration: 5000,
-            })
-
-            // Clean up URL
-            const url = new URL(window.location.href)
-            url.hash = ""
-            url.searchParams.delete("trello_state")
-            url.searchParams.delete("trello_auth")
-            window.history.replaceState({}, "", url.toString())
-          } catch (err: any) {
-            console.error("Failed to process Trello token:", err)
-            toast({
-              title: "Connection Failed",
-              description: `Failed to connect Trello: ${err.message}`,
-              variant: "destructive",
-              duration: 7000,
-            })
-          } finally {
-            setProcessingTrello(false)
-          }
-        } else if (trelloAuth === "pending") {
-          // If we have trello_auth=pending but no token in the hash,
-          // the user probably closed the Trello auth window without authorizing
-          toast({
-            title: "Connection Cancelled",
-            description: "Trello authorization was cancelled or failed.",
-            variant: "destructive",
-            duration: 5000,
-          })
-
-          // Clean up URL
-          const url = new URL(window.location.href)
-          url.searchParams.delete("trello_auth")
-          window.history.replaceState({}, "", url.toString())
-        }
-      }
-    }
-
-    handleTrelloAuth()
-  }, [searchParams, toast, clearCache, fetchIntegrations])
-
-  // Handle URL parameters for OAuth callbacks
-  useEffect(() => {
-    // Handle success/error messages from OAuth callbacks
     const success = searchParams.get("success")
     const error = searchParams.get("error")
-    const details = searchParams.get("details")
-    const message = searchParams.get("message")
     const provider = searchParams.get("provider")
 
-    // Log all search params for debugging
-    const allParams = {}
-    searchParams.forEach((value, key) => {
-      allParams[key] = value
-    })
-
-    if (Object.keys(allParams).length > 0) {
-      console.log("URL search params:", allParams)
-    }
-
     if (success) {
-      console.log("OAuth success detected:", { success, provider })
-
-      // Clear cache and force refresh integrations data
       clearCache()
-
-      // Add a longer delay to ensure the database has been updated
       setTimeout(async () => {
         try {
-          console.log("Refreshing integrations after OAuth success...")
           await fetchIntegrations(true)
-
-          console.log("Current integrations after refresh:", integrations.length)
-
-          // Show success toast based on the success type
-          if (success.includes("github")) {
-            toast({
-              title: "GitHub Connected",
-              description: "Your GitHub integration has been successfully connected!",
-              duration: 5000,
-            })
-          } else if (success.includes("slack")) {
-            toast({
-              title: "Slack Connected",
-              description: "Your Slack integration has been successfully connected!",
-              duration: 5000,
-            })
-          } else if (success.includes("google")) {
-            toast({
-              title: "Google Connected",
-              description: "Your Google integration has been successfully connected!",
-              duration: 5000,
-            })
-          } else if (success.includes("discord")) {
-            toast({
-              title: "Discord Connected",
-              description: "Your Discord integration has been successfully connected!",
-              duration: 5000,
-            })
-          } else if (success.includes("teams")) {
-            toast({
-              title: "Teams Connected",
-              description: "Your Microsoft Teams integration has been successfully connected!",
-              duration: 5000,
-            })
-          } else if (success.includes("trello")) {
-            toast({
-              title: "Trello Connected",
-              description: "Your Trello integration has been successfully connected!",
-              duration: 5000,
-            })
-          } else {
-            // Generic success message
-            toast({
-              title: "Integration Connected",
-              description: "Your integration has been successfully connected!",
-              duration: 5000,
-            })
-          }
+          toast({
+            title: "Integration Connected",
+            description: `Your ${provider || "integration"} has been successfully connected!`,
+            duration: 5000,
+          })
         } catch (err) {
           console.error("Failed to refresh integrations after OAuth:", err)
-          toast({
-            title: "Refresh Failed",
-            description: "Integration connected but failed to refresh the page. Please refresh manually.",
-            variant: "destructive",
-          })
         }
-      }, 2000) // Increased delay to 2 seconds to ensure database is updated
+      }, 1000)
     } else if (error) {
-      console.log("OAuth error detected - Raw values:", {
-        error,
-        details,
-        message,
-        provider,
-      })
-
-      let errorMessage = "Failed to connect integration"
-
-      // Use the message parameter if available, otherwise decode details
-      if (message) {
-        errorMessage = decodeURIComponent(message)
-      } else if (details) {
-        errorMessage = decodeURIComponent(details)
-      } else {
-        // Map error codes to user-friendly messages
-        switch (error) {
-          case "oauth_error":
-            errorMessage = "OAuth authentication failed"
-            break
-          case "oauth_failed":
-            errorMessage = "OAuth authentication failed"
-            break
-          case "connection_failed":
-            errorMessage = "Connection failed"
-            break
-          case "missing_code":
-            errorMessage = "Missing authorization code"
-            break
-          case "missing_params":
-            errorMessage = "Missing required parameters"
-            break
-          case "missing_state":
-            errorMessage = "Missing state parameter"
-            break
-          case "session_expired":
-            errorMessage = "Your session has expired. Please log in again."
-            break
-          case "database_error":
-            errorMessage = "Database error occurred while saving integration"
-            break
-          case "token_exchange_failed":
-            errorMessage = "Failed to exchange authorization code for access token"
-            break
-          case "callback_failed":
-            errorMessage = "OAuth callback failed"
-            break
-          case "invalid_state":
-            errorMessage = "Invalid state parameter - possible CSRF attack"
-            break
-          case "provider_error":
-            errorMessage = "Provider returned an error"
-            break
-          default:
-            errorMessage = `Integration error: ${error}`
-        }
-      }
-
-      if (provider) {
-        errorMessage = `${provider.charAt(0).toUpperCase() + provider.slice(1)}: ${errorMessage}`
-      }
-
-      console.error("OAuth connection failed:", errorMessage)
-
+      const message = searchParams.get("message") || "Failed to connect integration"
       toast({
         title: "Connection Failed",
-        description: errorMessage,
+        description: decodeURIComponent(message),
         variant: "destructive",
         duration: 7000,
       })
@@ -285,15 +79,16 @@ export default function IntegrationsContent() {
       const url = new URL(window.location.href)
       url.searchParams.delete("success")
       url.searchParams.delete("error")
-      url.searchParams.delete("details")
       url.searchParams.delete("message")
       url.searchParams.delete("provider")
       window.history.replaceState({}, "", url.toString())
     }
-  }, [searchParams, toast, fetchIntegrations, clearCache, integrations.length])
+  }, [searchParams, toast, fetchIntegrations, clearCache])
 
+  // Get unique categories from providers
   const categories = Array.from(new Set((providers || []).map((p) => p.category)))
 
+  // Filter providers based on search and category
   const filteredProviders = (providers || []).filter((provider) => {
     const matchesSearch =
       provider.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -322,7 +117,7 @@ export default function IntegrationsContent() {
     }
   })
 
-  // Group by category
+  // Group providers by category
   const groupedProviders = (categories || []).reduce(
     (acc, category) => {
       acc[category] = providersWithStatus.filter((p) => p.category === category)
@@ -337,7 +132,7 @@ export default function IntegrationsContent() {
     try {
       setLocalLoading(true)
       setLoadError(null)
-      clearCache() // Clear cache before refreshing
+      clearCache()
       await fetchIntegrations(true)
       toast({
         title: "Refreshed",
@@ -354,15 +149,6 @@ export default function IntegrationsContent() {
     } finally {
       setLocalLoading(false)
     }
-  }
-
-  const handleClearCache = () => {
-    clearCache()
-    toast({
-      title: "Cache Cleared",
-      description: "Integration cache has been cleared.",
-    })
-    handleRefresh()
   }
 
   // Show loading state
@@ -394,13 +180,6 @@ export default function IntegrationsContent() {
               <Button onClick={handleRefresh} className="bg-white text-black border border-slate-200">
                 Try Again
               </Button>
-              <Button
-                onClick={handleClearCache}
-                variant="outline"
-                className="bg-white text-black border border-slate-200"
-              >
-                Clear Cache
-              </Button>
             </div>
           </div>
         </div>
@@ -429,7 +208,7 @@ export default function IntegrationsContent() {
               className="bg-white text-black border border-slate-200 hover:bg-slate-100"
               disabled={loading}
             >
-              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Refresh"}
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
             </Button>
           </div>
         </div>
@@ -483,26 +262,6 @@ export default function IntegrationsContent() {
                 ))}
               </div>
             </div>
-
-            {/* Debug info - remove in production */}
-            {process.env.NODE_ENV === "development" && (
-              <div className="bg-gray-100 p-4 rounded-lg text-xs">
-                <div>Total integrations: {integrations.length}</div>
-                <div>Connected integrations: {connectedCount}</div>
-                <div>
-                  Connected providers:{" "}
-                  {(providersWithStatus || [])
-                    .filter((p) => p.connected)
-                    .map((p) => p.name)
-                    .join(", ") || "None"}
-                </div>
-                <div className="mt-2">
-                  <Button onClick={handleClearCache} size="sm" variant="outline" className="text-xs h-6">
-                    Clear Cache
-                  </Button>
-                </div>
-              </div>
-            )}
 
             {/* Integrations by Category */}
             {selectedCategory ? (
