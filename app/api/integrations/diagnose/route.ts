@@ -316,7 +316,7 @@ function analyzeIntegration(
     const hasRequiredScopes = componentScopesToCheck.every((scope) => {
       // For Teams, check if we have the scope or if it's a basic scope that's usually granted
       if (isTeamsProvider) {
-        const basicScopes = ["openid", "profile", "email", "User.Read"]
+        const basicScopes = ["openid", "profile", "email", "offline_access", "User.Read"]
         if (basicScopes.includes(scope)) {
           return true // Assume basic scopes are always available
         }
@@ -355,7 +355,7 @@ function analyzeIntegration(
 
         if (isMissing && !missingScopes.includes(scope)) {
           // For Teams, only mark advanced scopes as missing
-          if (!isTeamsProvider || !["openid", "profile", "email", "User.Read"].includes(scope)) {
+          if (!isTeamsProvider || !["openid", "profile", "email", "offline_access", "User.Read"].includes(scope)) {
             missingScopes.push(scope)
           }
         }
