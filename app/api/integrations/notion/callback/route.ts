@@ -1,121 +1,71 @@
-import { type NextRequest, NextResponse } from "next/server"
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
+import { NextResponse } from "next/server"
 
-const notionClientId = process.env.NEXT_PUBLIC_NOTION_CLIENT_ID
-const notionClientSecret = process.env.NOTION_CLIENT_SECRET
+import type { NextRequest } from "next/server"
 
-if (!notionClientId || !notionClientSecret) {
-  throw new Error("NEXT_PUBLIC_NOTION_CLIENT_ID and NOTION_CLIENT_SECRET must be defined")
-}
+export const dynamic = "force-dynamic"
 
 export async function GET(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams
-  const code = searchParams.get("code")
-  const state = searchParams.get("state")
-  const error = searchParams.get("error")
+  const requestUrl = new URL(request.url)
+  const code = requestUrl.searchParams.get("code")
+  const userId = requestUrl.searchParams.get("user_id")
 
-  console.log("Notion OAuth callback:", { code: !!code, state, error })
-
-  if (error) {
-    console.error("Notion OAuth error:", error)
-    return NextResponse.redirect(
-      `https://chainreact.app/integrations?error=oauth_error&message=${encodeURIComponent(error)}&provider=notion`,
-    )
-  }
-
-  if (!code || !state) {
-    console.error("Missing code or state in Notion callback")
-    return NextResponse.redirect(`https://chainreact.app/integrations?error=missing_params&provider=notion`)
-  }
-
-  try {
-    // Parse state to get user ID
-    let userId: string
-    try {
-      const stateData = JSON.parse(atob(state))
-      userId = stateData.userId
-      if (!userId) {
-        throw new Error("No user ID in state")
-      }
-    } catch (stateError) {
-      console.error("Notion: Invalid state parameter:", stateError)
-      return NextResponse.redirect(
-        `https://chainreact.app/integrations?error=invalid_state&provider=notion&message=Invalid+state+parameter`,
-      )
-    }
-
-    // Initialize Supabase client
+  if (code && userId) {
     const supabase = createRouteHandlerClient({ cookies })
 
-    console.log("Notion: Processing OAuth for user:", userId)
+    // Exchange the code for the session
+    const { data: tokenData, error: tokenError } = await supabase.auth.exchangeCodeForSession(code)
 
-    // Exchange code for token
-    const tokenResponse = await fetch("https://api.notion.com/v1/oauth/token", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Basic ${Buffer.from(notionClientId + ":" + notionClientSecret).toString("base64")}`,
-      },
-      body: JSON.stringify({
-        grant_type: "authorization_code",
-        code,
-        redirect_uri: "https://chainreact.app/api/integrations/notion/callback",
-      }),
-    })
-
-    if (!tokenResponse.ok) {
-      const errorData = await tokenResponse.text()
-      console.error("Notion token exchange failed:", errorData)
-      throw new Error(`Token exchange failed: ${errorData}`)
+    if (tokenError) {
+      console.error("Error exchanging code for session:", tokenError)
+      return NextResponse.redirect(`${requestUrl.origin}/auth/error?error=invalid_token`)
     }
 
-    const tokenData = await tokenResponse.json()
-    const { access_token, workspace_name, workspace_id, bot_id, owner } = tokenData
+    const { access_token } = tokenData.session
 
-    console.log("Notion token data received:", {
-      hasToken: !!access_token,
-      workspace_name,
-      workspace_id,
-      bot_id: !!bot_id,
-    })
-
-    // Test the token by making a simple API call
-    const grantedScopes = ["read_user"]
-    try {
-      const userResponse = await fetch("https://api.notion.com/v1/users/me", {
-        headers: {
-          Authorization: `Bearer ${access_token}`,
-          "Notion-Version": "2022-06-28",
-        },
-      })
-
-      if (userResponse.ok) {
-        grantedScopes.push("read_content")
-      }
-    } catch (testError) {
-      console.warn("Notion token test failed, but proceeding:", testError)
+    // Fetch user info from Notion API
+    const notionApiUrl = "https://api.notion.com/v1/users/me"
+    const headers = {
+      Authorization: `Bearer ${access_token}`,
+      "Notion-Version": "2022-06-28",
     }
 
-    const now = new Date().toISOString()
+    const [userInfoResponse, botInfoResponse] = await Promise.all([
+      fetch(notionApiUrl, { headers }),
+      fetch("https://api.notion.com/v1/bots/me", { headers }),
+    ])
+
+    if (!userInfoResponse.ok) {
+      console.error("Failed to fetch Notion user info:", userInfoResponse.status, userInfoResponse.statusText)
+      return NextResponse.redirect(`${requestUrl.origin}/auth/error?error=failed_user_info`)
+    }
+
+    if (!botInfoResponse.ok) {
+      console.error("Failed to fetch Notion bot info:", botInfoResponse.status, botInfoResponse.statusText)
+      return NextResponse.redirect(`${requestUrl.origin}/auth/error?error=failed_bot_info`)
+    }
+
+    const userInfo = await userInfoResponse.json()
+    const botInfo = await botInfoResponse.json()
+
     const integrationData = {
       user_id: userId,
       provider: "notion",
-      provider_user_id: bot_id || workspace_id || owner?.user?.id || "unknown",
+      provider_user_id: botInfo.owner?.user?.id || botInfo.owner?.workspace?.id || "unknown",
       access_token,
       status: "connected" as const,
-      scopes: grantedScopes,
+      scopes: ["read_content", "insert_content", "update_content"],
       metadata: {
-        workspace_name,
-        workspace_id,
-        bot_id,
-        owner,
-        connected_at: now,
+        workspace_name: botInfo.workspace_name,
+        workspace_id: botInfo.workspace_id,
+        bot_id: botInfo.id,
+        owner: botInfo.owner,
+        connected_at: new Date().toISOString(),
       },
-      updated_at: now,
     }
 
-    // Check if integration exists and update or insert
+    // Use proper upsert with conflict resolution
     const { data: existingIntegration } = await supabase
       .from("integrations")
       .select("id")
@@ -124,31 +74,34 @@ export async function GET(request: NextRequest) {
       .maybeSingle()
 
     if (existingIntegration) {
-      const { error } = await supabase.from("integrations").update(integrationData).eq("id", existingIntegration.id)
+      const { error: updateError } = await supabase
+        .from("integrations")
+        .update({
+          ...integrationData,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", existingIntegration.id)
 
-      if (error) {
-        console.error("Error updating Notion integration:", error)
-        throw error
+      if (updateError) {
+        console.error("Failed to update Notion integration:", updateError)
+        throw updateError
       }
     } else {
-      const { error } = await supabase.from("integrations").insert({
+      const { error: insertError } = await supabase.from("integrations").insert({
         ...integrationData,
-        created_at: now,
+        created_at: new Date().toISOString(),
       })
 
-      if (error) {
-        console.error("Error inserting Notion integration:", error)
-        throw error
+      if (insertError) {
+        console.error("Failed to insert Notion integration:", insertError)
+        throw insertError
       }
     }
 
-    console.log("Notion integration saved successfully")
-    return NextResponse.redirect(`https://chainreact.app/integrations?success=notion_connected&provider=notion`)
-  } catch (error: any) {
-    console.error("Notion OAuth callback error:", error)
-    const errorMessage = encodeURIComponent(error.message || "Unknown error occurred")
-    return NextResponse.redirect(
-      `https://chainreact.app/integrations?error=callback_failed&provider=notion&message=${errorMessage}`,
-    )
+    // URL to redirect to after sign in process completes
+    return NextResponse.redirect(`${requestUrl.origin}/integrations`)
   }
+
+  // URL to redirect to if code is not found
+  return NextResponse.redirect(`${requestUrl.origin}/auth/error?error=no_code`)
 }

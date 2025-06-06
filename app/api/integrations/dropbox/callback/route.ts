@@ -1,111 +1,74 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { createClient } from "@supabase/supabase-js"
+import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
+import { cookies } from "next/headers"
+import { NextResponse } from "next/server"
 
-// Use direct Supabase client with service role for reliable database operations
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+import type { NextRequest } from "next/server"
 
-if (!supabaseUrl || !supabaseKey) {
-  throw new Error("NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be defined")
-}
+export const dynamic = "force-dynamic"
 
-const supabase = createClient(supabaseUrl, supabaseKey, {
-  auth: {
-    persistSession: false,
-  },
-})
+export async function GET(request: NextRequest) {
+  const requestUrl = new URL(request.url)
+  const code = requestUrl.searchParams.get("code")
 
-export async function GET(request: NextRequest): Promise<NextResponse> {
-  const searchParams = request.nextUrl.searchParams
-  const code = searchParams.get("code")
-  const error = searchParams.get("error")
-  const state = searchParams.get("state")
+  if (code) {
+    const supabase = createRouteHandlerClient({ cookies })
 
-  const baseUrl = "https://chainreact.app"
-  const redirectUri = "https://chainreact.app/api/integrations/dropbox/callback"
+    // Exchange the code for the session
+    const {
+      data: { session },
+      error,
+    } = await supabase.auth.exchangeCodeForSession(code)
 
-  if (error) {
-    console.error("Dropbox authentication error:", error)
-    return NextResponse.redirect(
-      `${baseUrl}/integrations?error=dropbox_auth_failed&message=${encodeURIComponent(error)}`,
-    )
-  }
-
-  if (!code) {
-    console.error("No code received from Dropbox")
-    return NextResponse.redirect(`${baseUrl}/integrations?error=no_code_received&provider=dropbox`)
-  }
-
-  if (!state) {
-    console.error("No state received from Dropbox")
-    return NextResponse.redirect(`${baseUrl}/integrations?error=no_state_received&provider=dropbox`)
-  }
-
-  try {
-    // Parse state to get user ID
-    let stateData
-    try {
-      stateData = JSON.parse(atob(state))
-    } catch (e) {
-      console.error("Failed to parse state:", e)
-      return NextResponse.redirect(`${baseUrl}/integrations?error=invalid_state&provider=dropbox`)
+    if (error) {
+      console.error("Error exchanging code for session:", error)
+      return NextResponse.redirect(`${requestUrl.origin}/login?error=Could not authenticate`)
     }
 
-    const userId = stateData.userId
-
-    if (!userId) {
-      console.error("No user ID in state")
-      return NextResponse.redirect(`${baseUrl}/integrations?error=no_user_id&provider=dropbox`)
+    if (!session?.user) {
+      console.error("No user found in session")
+      return NextResponse.redirect(`${requestUrl.origin}/login?error=Could not authenticate`)
     }
 
-    const tokenResponse = await fetch("https://api.dropboxapi.com/oauth2/token", {
+    const { access_token, refresh_token, expires_in, user } = session
+
+    const expiresAt = new Date(Date.now() + expires_in * 1000).toISOString()
+    const userId = user.id
+
+    // Fetch user info from Dropbox API
+    const userInfoResponse = await fetch("https://api.dropboxapi.com/2/users/get_current_account", {
       method: "POST",
       headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: new URLSearchParams({
-        code: code,
-        grant_type: "authorization_code",
-        client_id: process.env.NEXT_PUBLIC_DROPBOX_CLIENT_ID!,
-        client_secret: process.env.DROPBOX_CLIENT_SECRET!,
-        redirect_uri: redirectUri,
-      }),
-    })
-
-    if (!tokenResponse.ok) {
-      console.error("Failed to retrieve token from Dropbox:", tokenResponse.status, await tokenResponse.text())
-      return NextResponse.redirect(`${baseUrl}/integrations?error=dropbox_token_failed`)
-    }
-
-    const tokenData = await tokenResponse.json()
-    const accessToken = tokenData.access_token
-    const refreshToken = tokenData.refresh_token
-    const accountId = tokenData.account_id
-
-    if (!accessToken) {
-      console.error("No access token received from Dropbox")
-      return NextResponse.redirect(`${baseUrl}/integrations?error=no_access_token&provider=dropbox`)
-    }
-
-    // Get user info
-    const userResponse = await fetch("https://api.dropboxapi.com/2/users/get_current_account", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
+        Authorization: `Bearer ${access_token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(null),
     })
 
-    if (!userResponse.ok) {
-      console.error("Failed to get Dropbox user info:", await userResponse.text())
-      return NextResponse.redirect(`${baseUrl}/integrations?error=user_info_failed&provider=dropbox`)
+    if (!userInfoResponse.ok) {
+      console.error("Error fetching user info from Dropbox:", userInfoResponse.status, await userInfoResponse.text())
+      return NextResponse.redirect(`${requestUrl.origin}/login?error=Could not authenticate`)
     }
 
-    const userData = await userResponse.json()
-    const now = new Date().toISOString()
+    const userInfo = await userInfoResponse.json()
 
-    // Check if integration exists
+    // Update the database save operation
+    const integrationData = {
+      user_id: userId,
+      provider: "dropbox",
+      provider_user_id: userInfo.account_id,
+      access_token,
+      refresh_token,
+      expires_at: expiresAt,
+      status: "connected" as const,
+      scopes: ["files.content.read", "files.content.write"],
+      metadata: {
+        account_id: userInfo.account_id,
+        name: userInfo.name?.display_name,
+        email: userInfo.email,
+        connected_at: new Date().toISOString(),
+      },
+    }
+
+    // Use proper upsert logic
     const { data: existingIntegration } = await supabase
       .from("integrations")
       .select("id")
@@ -113,50 +76,25 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       .eq("provider", "dropbox")
       .maybeSingle()
 
-    const integrationData = {
-      user_id: userId,
-      provider: "dropbox",
-      provider_user_id: accountId,
-      access_token: accessToken,
-      refresh_token: refreshToken,
-      expires_at: tokenData.expires_in ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString() : null,
-      status: "connected",
-      scopes: ["files.content.read", "files.content.write"],
-      metadata: {
-        email: userData.email,
-        name: userData.name.display_name,
-        connected_at: now,
-      },
-      updated_at: now,
-    }
-
     if (existingIntegration) {
-      const { error } = await supabase.from("integrations").update(integrationData).eq("id", existingIntegration.id)
-
-      if (error) {
-        console.error("Error updating Dropbox integration:", error)
-        return NextResponse.redirect(`${baseUrl}/integrations?error=database_update_failed&provider=dropbox`)
-      }
+      await supabase
+        .from("integrations")
+        .update({
+          ...integrationData,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", existingIntegration.id)
     } else {
-      const { error } = await supabase.from("integrations").insert({
+      await supabase.from("integrations").insert({
         ...integrationData,
-        created_at: now,
+        created_at: new Date().toISOString(),
       })
-
-      if (error) {
-        console.error("Error inserting Dropbox integration:", error)
-        return NextResponse.redirect(`${baseUrl}/integrations?error=database_insert_failed&provider=dropbox`)
-      }
     }
 
-    // Add a delay to ensure database operations complete
-    await new Promise((resolve) => setTimeout(resolve, 500))
-
-    return NextResponse.redirect(`${baseUrl}/integrations?success=dropbox_connected&provider=dropbox&t=${Date.now()}`)
-  } catch (e: any) {
-    console.error("Error during Dropbox authentication:", e)
-    return NextResponse.redirect(
-      `${baseUrl}/integrations?error=dropbox_auth_error&message=${encodeURIComponent(e.message)}`,
-    )
+    // Redirect to home page after successful authentication
+    return NextResponse.redirect(`${requestUrl.origin}/`)
   }
+
+  // URL to redirect to after sign in process completes
+  return NextResponse.redirect(`${requestUrl.origin}/login?error=No code provided`)
 }
