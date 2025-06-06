@@ -347,69 +347,6 @@ async function verifyDropboxToken(accessToken: string): Promise<{ valid: boolean
   }
 }
 
-async function verifyTrelloToken(accessToken: string): Promise<{ valid: boolean; scopes: string[]; error?: string }> {
-  try {
-    // Test the token by getting user info
-    const response = await fetch(`https://api.trello.com/1/members/me?token=${accessToken}`)
-
-    if (!response.ok) {
-      const error = await response.json()
-      return { valid: false, scopes: [], error: error.message || "Token validation failed" }
-    }
-
-    // Trello doesn't return scopes in the same way, so we assume basic scopes if token works
-    const scopes = ["read", "write"]
-    return { valid: true, scopes }
-  } catch (error: any) {
-    return { valid: false, scopes: [], error: error.message }
-  }
-}
-
-async function verifyNotionToken(accessToken: string): Promise<{ valid: boolean; scopes: string[]; error?: string }> {
-  try {
-    // Test the token by making an API call
-    const response = await fetch("https://api.notion.com/v1/users/me", {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Notion-Version": "2022-06-28",
-      },
-    })
-
-    if (!response.ok) {
-      const error = await response.json()
-      return { valid: false, scopes: [], error: error.message || "Token validation failed" }
-    }
-
-    // Notion uses different scope structure
-    const scopes = ["read_content", "insert_content", "update_content"]
-    return { valid: true, scopes }
-  } catch (error: any) {
-    return { valid: false, scopes: [], error: error.message }
-  }
-}
-
-async function verifyAirtableToken(accessToken: string): Promise<{ valid: boolean; scopes: string[]; error?: string }> {
-  try {
-    // Test the token by getting user info
-    const response = await fetch("https://api.airtable.com/v0/meta/whoami", {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    })
-
-    if (!response.ok) {
-      const error = await response.json()
-      return { valid: false, scopes: [], error: error.error?.message || "Token validation failed" }
-    }
-
-    // Airtable scopes
-    const scopes = ["data.records:read", "data.records:write", "schema.bases:read"]
-    return { valid: true, scopes }
-  } catch (error: any) {
-    return { valid: false, scopes: [], error: error.message }
-  }
-}
-
 function analyzeIntegration(
   integration: any,
   tokenValid: boolean,
@@ -565,7 +502,6 @@ export async function GET(request: NextRequest) {
           case "google-docs":
           case "gmail":
           case "youtube":
-          case "google":
             verificationResult = await verifyGoogleToken(accessToken)
             break
           case "teams":
@@ -581,35 +517,11 @@ export async function GET(request: NextRequest) {
           case "dropbox":
             verificationResult = await verifyDropboxToken(accessToken)
             break
-          case "trello":
-            verificationResult = await verifyTrelloToken(accessToken)
-            break
-          case "notion":
-            verificationResult = await verifyNotionToken(accessToken)
-            break
-          case "airtable":
-            verificationResult = await verifyAirtableToken(accessToken)
-            break
-          case "gitlab":
-            // Add GitLab verification
-            const gitlabResponse = await fetch("https://gitlab.com/api/v4/user", {
-              headers: { Authorization: `Bearer ${accessToken}` },
-            })
-            if (gitlabResponse.ok) {
-              verificationResult = {
-                valid: true,
-                scopes: ["read_user", "read_api", "read_repository", "write_repository"],
-              }
-            } else {
-              verificationResult = { valid: false, scopes: [], error: "GitLab token validation failed" }
-            }
-            break
           default:
-            // For other providers, trust stored scopes but mark as potentially invalid
+            // For other providers, trust stored scopes
             verificationResult = {
-              valid: !!accessToken,
+              valid: true,
               scopes: metadata?.scopes || integration.scopes || [],
-              error: accessToken ? undefined : "No access token found",
             }
         }
 

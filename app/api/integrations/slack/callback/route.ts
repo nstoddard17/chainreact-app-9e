@@ -8,6 +8,7 @@ if (!slackClientId || !slackClientSecret) {
   throw new Error("NEXT_PUBLIC_SLACK_CLIENT_ID and SLACK_CLIENT_SECRET must be defined")
 }
 
+// Use direct Supabase client with service role for reliable database operations
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
@@ -29,14 +30,12 @@ export async function GET(request: NextRequest) {
 
   if (error) {
     console.error("Slack OAuth error:", error)
-    return NextResponse.redirect(`https://chainreact.app/integrations?error=slack_oauth_failed&message=${error}`)
+    return NextResponse.redirect(`https://chainreact.app/integrations?error=slack_oauth_failed`)
   }
 
   if (!code || !state) {
     console.error("Missing code or state in Slack callback")
-    return NextResponse.redirect(
-      `https://chainreact.app/integrations?error=slack_oauth_failed&message=missing_parameters`,
-    )
+    return NextResponse.redirect(`https://chainreact.app/integrations?error=slack_oauth_failed`)
   }
 
   try {
@@ -56,7 +55,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(`https://chainreact.app/integrations?error=missing_user_id`)
     }
 
-    console.log("Exchanging code for token...")
     // Exchange code for token
     const tokenResponse = await fetch("https://slack.com/api/oauth.v2.access", {
       method: "POST",
@@ -72,7 +70,6 @@ export async function GET(request: NextRequest) {
     })
 
     const tokenData = await tokenResponse.json()
-    console.log("Token response:", JSON.stringify(tokenData, null, 2))
 
     if (!tokenData.ok) {
       console.error("Slack token exchange error:", tokenData)
@@ -81,76 +78,35 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Slack OAuth v2 returns different token structure
-    const botToken = tokenData.access_token // Bot token
-    const userToken = tokenData.authed_user?.access_token // User token
-    const teamInfo = tokenData.team
-    const authedUser = tokenData.authed_user
-    const botUserId = tokenData.bot_user_id
+    // Use authed_user.id from token response as provider_user_id
+    const providerUserId = tokenData.authed_user?.id
 
-    if (!botToken) {
-      console.error("No bot token in response")
-      return NextResponse.redirect(`https://chainreact.app/integrations?error=missing_bot_token`)
-    }
-
-    // Use bot token to get team/workspace info
-    console.log("Getting team info...")
-    const teamInfoResponse = await fetch("https://slack.com/api/team.info", {
-      headers: {
-        Authorization: `Bearer ${botToken}`,
-      },
-    })
-
-    const teamInfoData = await teamInfoResponse.json()
-    console.log("Team info:", JSON.stringify(teamInfoData, null, 2))
-
-    // Get bot info
-    console.log("Getting bot info...")
-    const botInfoResponse = await fetch("https://slack.com/api/auth.test", {
-      headers: {
-        Authorization: `Bearer ${botToken}`,
-      },
-    })
-
-    const botInfoData = await botInfoResponse.json()
-    console.log("Bot info:", JSON.stringify(botInfoData, null, 2))
-
-    if (!botInfoData.ok) {
-      console.error("Bot info error:", botInfoData)
-      return NextResponse.redirect(
-        `https://chainreact.app/integrations?error=bot_info_failed&message=${encodeURIComponent(botInfoData.error || "Unknown error")}`,
-      )
+    if (!providerUserId) {
+      console.error("No user ID in token response:", tokenData)
+      return NextResponse.redirect(`https://chainreact.app/integrations?error=missing_provider_user_id`)
     }
 
     const now = new Date().toISOString()
-
-    // Extract all granted scopes
-    const botScopes = tokenData.scope ? tokenData.scope.split(",") : []
-    const userScopes = authedUser?.scope ? authedUser.scope.split(",") : []
-    const allScopes = [...botScopes, ...userScopes]
-
     const integrationData = {
       user_id: userId,
       provider: "slack",
-      provider_user_id: authedUser?.id || botInfoData.user_id,
-      access_token: botToken, // Store bot token as primary
-      refresh_token: tokenData.refresh_token,
+      provider_user_id: providerUserId,
+      access_token: tokenData.authed_user.access_token || tokenData.access_token,
+      refresh_token: tokenData.authed_user.refresh_token || tokenData.refresh_token,
       expires_at: tokenData.expires_in ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString() : null,
       status: "connected",
-      scopes: allScopes,
+      scopes: tokenData.authed_user.scope
+        ? tokenData.authed_user.scope.split(",")
+        : tokenData.scope
+          ? tokenData.scope.split(",")
+          : [],
       metadata: {
-        team_name: teamInfo?.name || teamInfoData?.team?.name || "Unknown Team",
-        team_id: teamInfo?.id || teamInfoData?.team?.id || "unknown",
-        user_token: userToken, // Store user token in metadata
-        bot_user_id: botUserId || botInfoData.user_id,
+        team_name: tokenData.team?.name || "Unknown Team",
+        team_id: tokenData.team?.id || "unknown",
         connected_at: now,
-        app_id: tokenData.app_id,
-        is_enterprise_install: tokenData.is_enterprise_install,
       },
       updated_at: now,
     }
-
-    console.log("Integration data:", JSON.stringify(integrationData, null, 2))
 
     // Check if integration exists and update or insert
     const { data: existingIntegration } = await supabase
@@ -161,17 +117,13 @@ export async function GET(request: NextRequest) {
       .maybeSingle()
 
     if (existingIntegration) {
-      console.log("Updating existing integration:", existingIntegration.id)
       const { error } = await supabase.from("integrations").update(integrationData).eq("id", existingIntegration.id)
 
       if (error) {
         console.error("Error updating Slack integration:", error)
-        return NextResponse.redirect(
-          `https://chainreact.app/integrations?error=database_update_failed&message=${encodeURIComponent(error.message)}`,
-        )
+        return NextResponse.redirect(`https://chainreact.app/integrations?error=database_update_failed`)
       }
     } else {
-      console.log("Creating new integration")
       const { error } = await supabase.from("integrations").insert({
         ...integrationData,
         created_at: now,
@@ -179,14 +131,12 @@ export async function GET(request: NextRequest) {
 
       if (error) {
         console.error("Error inserting Slack integration:", error)
-        return NextResponse.redirect(
-          `https://chainreact.app/integrations?error=database_insert_failed&message=${encodeURIComponent(error.message)}`,
-        )
+        return NextResponse.redirect(`https://chainreact.app/integrations?error=database_insert_failed`)
       }
     }
 
     // Add a delay to ensure database operations complete
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+    await new Promise((resolve) => setTimeout(resolve, 500))
 
     return NextResponse.redirect(
       `https://chainreact.app/integrations?success=slack_connected&provider=slack&t=${Date.now()}`,

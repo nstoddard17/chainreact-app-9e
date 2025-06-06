@@ -9,22 +9,24 @@ export class NotionOAuthService {
     const clientId = process.env.NEXT_PUBLIC_NOTION_CLIENT_ID
     const clientSecret = process.env.NOTION_CLIENT_SECRET
 
-    if (!clientId) {
-      throw new Error("Missing NEXT_PUBLIC_NOTION_CLIENT_ID environment variable")
-    }
-    if (!clientSecret) {
-      throw new Error("Missing NOTION_CLIENT_SECRET environment variable")
+    if (!clientId || !clientSecret) {
+      throw new Error("Missing Notion OAuth configuration")
     }
 
     return { clientId, clientSecret }
   }
 
+  // Define required scopes for Notion
   static getRequiredScopes() {
     return ["read_user", "read_content", "update_content", "insert_content"]
   }
 
+  // Validate scopes against required scopes
   static validateScopes(grantedCapabilities: string[]): { valid: boolean; missing: string[] } {
     const requiredScopes = this.getRequiredScopes()
+
+    // Notion uses "capabilities" instead of traditional scopes
+    // Map capabilities to our required scopes
     const scopeMapping: Record<string, string[]> = {
       read_user: ["read_user"],
       read_content: ["read_content", "read_database", "read_page"],
@@ -33,6 +35,8 @@ export class NotionOAuthService {
     }
 
     const grantedScopes: string[] = []
+
+    // Convert Notion capabilities to our scope format
     grantedCapabilities.forEach((capability) => {
       Object.entries(scopeMapping).forEach(([scope, capabilities]) => {
         if (capabilities.some((cap) => capability.includes(cap))) {
@@ -48,6 +52,7 @@ export class NotionOAuthService {
     }
   }
 
+  // Validate token by making API calls to test permissions
   static async validateToken(
     accessToken: string,
   ): Promise<{ valid: boolean; grantedScopes: string[]; error?: string }> {
@@ -83,13 +88,91 @@ export class NotionOAuthService {
 
       if (searchResponse.ok) {
         grantedScopes.push("read_content")
-        grantedScopes.push("update_content")
-        grantedScopes.push("insert_content")
+
+        const searchData = await searchResponse.json()
+
+        // If we have databases, test update and insert permissions
+        if (searchData.results && searchData.results.length > 0) {
+          const databaseId = searchData.results[0].id
+
+          // Test database query (read content)
+          const queryResponse = await fetch(`https://api.notion.com/v1/databases/${databaseId}/query`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "Notion-Version": "2022-06-28",
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ page_size: 1 }),
+          })
+
+          if (queryResponse.ok) {
+            // Test create page (insert content)
+            const createPageResponse = await fetch("https://api.notion.com/v1/pages", {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+                "Notion-Version": "2022-06-28",
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                parent: { database_id: databaseId },
+                properties: {
+                  title: {
+                    title: [{ text: { content: "Test Page - ChainReact" } }],
+                  },
+                },
+              }),
+            })
+
+            // Check if we can create (even if it fails due to schema, a 400 with validation error means we have permission)
+            if (createPageResponse.ok || createPageResponse.status === 400) {
+              grantedScopes.push("insert_content")
+
+              // If page was created successfully, test update
+              if (createPageResponse.ok) {
+                const pageData = await createPageResponse.json()
+                const pageId = pageData.id
+
+                const updateResponse = await fetch(`https://api.notion.com/v1/pages/${pageId}`, {
+                  method: "PATCH",
+                  headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                    "Notion-Version": "2022-06-28",
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    properties: {
+                      title: {
+                        title: [{ text: { content: "Updated Test Page - ChainReact" } }],
+                      },
+                    },
+                  }),
+                })
+
+                if (updateResponse.ok) {
+                  grantedScopes.push("update_content")
+                }
+
+                // Clean up test page
+                await fetch(`https://api.notion.com/v1/pages/${pageId}`, {
+                  method: "PATCH",
+                  headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                    "Notion-Version": "2022-06-28",
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({ archived: true }),
+                })
+              }
+            }
+          }
+        }
       }
 
       const uniqueScopes = [...new Set(grantedScopes)]
       return {
-        valid: uniqueScopes.length >= 1,
+        valid: uniqueScopes.length >= 2, // At minimum need read_user and read_content
         grantedScopes: uniqueScopes,
       }
     } catch (error: any) {
@@ -103,10 +186,6 @@ export class NotionOAuthService {
   }
 
   static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string, userId?: string): string {
-    if (!userId) {
-      throw new Error("User ID is required for Notion OAuth")
-    }
-
     const { clientId } = this.getClientCredentials()
     const redirectUri = "https://chainreact.app/api/integrations/notion/callback"
 
@@ -116,7 +195,7 @@ export class NotionOAuthService {
         userId,
         reconnect,
         integrationId,
-        requireFullScopes: false,
+        requireFullScopes: false, // Changed to false to allow partial scopes
         timestamp: Date.now(),
       }),
     )
@@ -138,14 +217,6 @@ export class NotionOAuthService {
 
   static async handleCallback(code: string, state: string, supabase: any, userId: string): Promise<NotionOAuthResult> {
     try {
-      if (!code) {
-        throw new Error("Missing authorization code from Notion")
-      }
-
-      if (!state) {
-        throw new Error("Missing state parameter from Notion")
-      }
-
       const stateData = JSON.parse(atob(state))
       const { provider, reconnect, integrationId } = stateData
 
@@ -153,8 +224,21 @@ export class NotionOAuthService {
         throw new Error("Invalid provider in state")
       }
 
-      if (!userId) {
-        throw new Error("User ID is required")
+      // Clear any existing tokens before requesting new ones
+      if (reconnect && integrationId) {
+        const { error: clearError } = await supabase
+          .from("integrations")
+          .update({
+            access_token: null,
+            refresh_token: null,
+            status: "reconnecting",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", integrationId)
+
+        if (clearError) {
+          console.error("Error clearing existing tokens:", clearError)
+        }
       }
 
       const { clientId, clientSecret } = this.getClientCredentials()
@@ -174,17 +258,19 @@ export class NotionOAuthService {
 
       if (!tokenResponse.ok) {
         const errorData = await tokenResponse.text()
-        throw new Error(`Notion token exchange failed: ${errorData}`)
+        throw new Error(`Token exchange failed: ${errorData}`)
       }
 
       const tokenData = await tokenResponse.json()
       const { access_token, workspace_name, workspace_id, bot_id, owner } = tokenData
 
-      if (!access_token) {
-        throw new Error("No access token received from Notion")
-      }
-
+      // Validate token and get actual granted scopes
       const tokenValidation = await this.validateToken(access_token)
+
+      if (!tokenValidation.valid) {
+        console.warn("Notion token validation failed, but proceeding with connection:", tokenValidation.error)
+        // Don't fail the connection, just log the warning
+      }
 
       const integrationData = {
         user_id: userId,
@@ -216,11 +302,13 @@ export class NotionOAuthService {
           .eq("id", integrationId)
 
         if (updateError) {
+          console.error("Error updating Notion integration:", updateError)
           throw updateError
         }
       } else {
         const { error: insertError } = await supabase.from("integrations").insert(integrationData)
         if (insertError) {
+          console.error("Error inserting Notion integration:", insertError)
           throw insertError
         }
       }

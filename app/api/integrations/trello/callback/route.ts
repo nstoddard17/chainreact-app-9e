@@ -83,7 +83,7 @@ export const GET = async (request: NextRequest) => {
       provider_user_id: trelloUserId,
       access_token: token,
       status: "connected",
-      scopes: ["read", "write", "account"],
+      scopes: ["read", "write"],
       metadata: {
         username: trelloUsername,
         full_name: meData.fullName,

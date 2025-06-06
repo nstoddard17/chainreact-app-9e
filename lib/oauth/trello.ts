@@ -4,10 +4,6 @@ import { eq } from "drizzle-orm"
 
 export async function getTrelloIntegration(userId: string) {
   try {
-    if (!userId) {
-      throw new Error("User ID is required")
-    }
-
     const trelloIntegration = await db
       .select()
       .from(trelloIntegrationTable)
@@ -21,13 +17,6 @@ export async function getTrelloIntegration(userId: string) {
 
 export async function createTrelloIntegration(userId: string, accessToken: string, refreshToken: string) {
   try {
-    if (!userId) {
-      throw new Error("User ID is required")
-    }
-    if (!accessToken) {
-      throw new Error("Access token is required")
-    }
-
     await db.insert(trelloIntegrationTable).values({
       userId: userId,
       accessToken: accessToken,
@@ -42,13 +31,6 @@ export async function createTrelloIntegration(userId: string, accessToken: strin
 
 export async function updateTrelloIntegration(userId: string, accessToken: string, refreshToken: string) {
   try {
-    if (!userId) {
-      throw new Error("User ID is required")
-    }
-    if (!accessToken) {
-      throw new Error("Access token is required")
-    }
-
     await db
       .update(trelloIntegrationTable)
       .set({ accessToken: accessToken, refreshToken: refreshToken })
@@ -62,10 +44,6 @@ export async function updateTrelloIntegration(userId: string, accessToken: strin
 
 export async function deleteTrelloIntegration(userId: string) {
   try {
-    if (!userId) {
-      throw new Error("User ID is required")
-    }
-
     await db.delete(trelloIntegrationTable).where(eq(trelloIntegrationTable.userId, userId))
     return { success: true }
   } catch (error: any) {
@@ -79,11 +57,8 @@ export class TrelloOAuthService {
     const clientId = process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID
     const clientSecret = process.env.TRELLO_CLIENT_SECRET
 
-    if (!clientId) {
-      throw new Error("Missing NEXT_PUBLIC_TRELLO_CLIENT_ID environment variable")
-    }
-    if (!clientSecret) {
-      throw new Error("Missing TRELLO_CLIENT_SECRET environment variable")
+    if (!clientId || !clientSecret) {
+      throw new Error("Missing Trello OAuth configuration")
     }
 
     return { clientId, clientSecret }
@@ -93,15 +68,7 @@ export class TrelloOAuthService {
     return "https://chainreact.app/api/integrations/trello/callback"
   }
 
-  static getRequiredScopes(): string[] {
-    return ["read", "write", "account"]
-  }
-
   static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string, userId?: string): string {
-    if (!userId) {
-      throw new Error("User ID is required for Trello OAuth")
-    }
-
     const { clientId } = this.getClientCredentials()
     const redirectUri = this.getRedirectUri()
 
@@ -115,17 +82,19 @@ export class TrelloOAuthService {
       }),
     )
 
-    // Enhanced scopes for comprehensive Trello functionality
+    // Trello uses a different OAuth flow than standard OAuth 2.0
+    // It requires the API key as 'key' parameter, not 'client_id'
     const params = new URLSearchParams({
       key: clientId,
       return_url: redirectUri,
-      scope: "read,write,account",
+      scope: "read,write",
       expiration: "never",
-      name: "ChainReact Workflow Automation",
+      name: "ChainReact",
       response_type: "token",
       state: state,
     })
 
+    // Use the correct Trello authorization endpoint
     return `https://trello.com/1/authorize?${params.toString()}`
   }
 
@@ -136,18 +105,6 @@ export class TrelloOAuthService {
     userId: string,
   ): Promise<{ success: boolean; redirectUrl: string; error?: string }> {
     try {
-      if (!code) {
-        throw new Error("Missing authorization token from Trello")
-      }
-
-      if (!state) {
-        throw new Error("Missing state parameter from Trello")
-      }
-
-      if (!userId) {
-        throw new Error("User ID is required")
-      }
-
       const stateData = JSON.parse(atob(state))
       const { provider, reconnect, integrationId } = stateData
 
@@ -155,22 +112,19 @@ export class TrelloOAuthService {
         throw new Error("Invalid provider in state")
       }
 
+      // For Trello OAuth 1.0a, the 'code' parameter is actually the token
       const accessToken = code
 
-      // Get user info from Trello with enhanced error handling
+      // Get user info from Trello
       const userResponse = await fetch(
         `https://api.trello.com/1/members/me?key=${process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID}&token=${accessToken}`,
       )
 
       if (!userResponse.ok) {
-        throw new Error(`Failed to get Trello user info: ${userResponse.statusText}`)
+        throw new Error(`Failed to get user info: ${userResponse.statusText}`)
       }
 
       const userData = await userResponse.json()
-
-      if (!userData.id) {
-        throw new Error("Invalid user data received from Trello")
-      }
 
       const integrationData = {
         user_id: userId,
@@ -178,12 +132,10 @@ export class TrelloOAuthService {
         provider_user_id: userData.id,
         access_token: accessToken,
         status: "connected" as const,
-        scopes: ["read", "write", "account"],
+        scopes: ["read", "write"],
         metadata: {
           username: userData.username,
           full_name: userData.fullName,
-          email: userData.email,
-          avatar_url: userData.avatarUrl,
           connected_at: new Date().toISOString(),
         },
       }

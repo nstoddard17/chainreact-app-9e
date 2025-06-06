@@ -23,23 +23,18 @@ export class SlackOAuthService extends BaseOAuthService {
     const { clientId } = this.getClientCredentials()
     const redirectUri = this.getRedirectUri()
 
-    // Required bot scopes for Slack API v2
-    const botScopes = [
-      "channels:read",
-      "channels:write",
-      "channels:join",
+    const scopes = [
       "chat:write",
-      "files:write",
+      "chat:write.public",
+      "channels:read",
+      "channels:join",
       "groups:read",
       "im:read",
-      "mpim:read",
-      "reactions:write",
-      "team:read",
       "users:read",
+      "team:read",
+      "files:write",
+      "reactions:write",
     ]
-
-    // User scopes - these are for the installing user
-    const userScopes = ["identity.basic", "identity.email", "identity.team"]
 
     const state = btoa(
       JSON.stringify({
@@ -53,11 +48,14 @@ export class SlackOAuthService extends BaseOAuthService {
 
     const params = new URLSearchParams({
       client_id: clientId,
-      scope: botScopes.join(","), // Bot scopes go in 'scope'
-      user_scope: userScopes.join(","), // User scopes go in 'user_scope'
       redirect_uri: redirectUri,
+      scope: scopes.join(","),
       state,
     })
+
+    if (reconnect) {
+      params.append("force", "true")
+    }
 
     return `https://slack.com/oauth/v2/authorize?${params.toString()}`
   }
@@ -92,9 +90,10 @@ export class SlackOAuthService extends BaseOAuthService {
   }
 
   static async validateTokenAndGetUserInfo(accessToken: string): Promise<any> {
-    // Use auth.test instead of users.identity for bot tokens
-    const response = await fetch("https://slack.com/api/auth.test", {
-      headers: { Authorization: `Bearer ${accessToken}` },
+    const response = await fetch("https://slack.com/api/users.identity", {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
     })
 
     if (!response.ok) {
@@ -110,13 +109,19 @@ export class SlackOAuthService extends BaseOAuthService {
   }
 
   static parseScopes(tokenResponse: any): string[] {
-    // Slack returns both bot and user scopes
-    const botScopes = tokenResponse.scope ? tokenResponse.scope.split(",") : []
-    const userScopes = tokenResponse.authed_user?.scope ? tokenResponse.authed_user.scope.split(",") : []
-    return [...botScopes, ...userScopes]
+    return tokenResponse.authed_user?.scope ? tokenResponse.authed_user.scope.split(",") : []
   }
 
   static getRequiredScopes(): string[] {
-    return ["chat:write", "channels:read", "users:read", "files:write"]
+    return [
+      "chat:write",
+      "chat:write.public",
+      "channels:read",
+      "channels:join",
+      "groups:read",
+      "im:read",
+      "users:read",
+      "team:read",
+    ]
   }
 }

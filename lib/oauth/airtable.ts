@@ -23,29 +23,19 @@ export class AirtableOAuthService {
     const clientId = process.env.NEXT_PUBLIC_AIRTABLE_CLIENT_ID
     const clientSecret = process.env.AIRTABLE_CLIENT_SECRET
 
-    if (!clientId) {
-      throw new Error("Missing NEXT_PUBLIC_AIRTABLE_CLIENT_ID environment variable")
-    }
-    if (!clientSecret) {
-      throw new Error("Missing AIRTABLE_CLIENT_SECRET environment variable")
+    if (!clientId || !clientSecret) {
+      throw new Error("Missing Airtable OAuth credentials")
     }
 
     return { clientId, clientSecret }
   }
 
-  // Enhanced scopes for comprehensive Airtable functionality
+  // Define required scopes for Airtable
   static getRequiredScopes() {
-    return [
-      "data.records:read",
-      "data.records:write",
-      "schema.bases:read",
-      "schema.bases:write",
-      "data.recordComments:read",
-      "data.recordComments:write",
-      "webhook:manage",
-    ]
+    return ["data.records:read", "data.records:write", "schema.bases:read", "schema.bases:write"]
   }
 
+  // Validate scopes against required scopes
   static validateScopes(grantedScopes: string[]): { valid: boolean; missing: string[] } {
     const requiredScopes = this.getRequiredScopes()
     const missing = requiredScopes.filter((scope) => !grantedScopes.includes(scope))
@@ -55,6 +45,7 @@ export class AirtableOAuthService {
     }
   }
 
+  // Validate token by making an API call
   static async validateToken(accessToken: string): Promise<boolean> {
     try {
       const response = await fetch("https://api.airtable.com/v0/meta/whoami", {
@@ -119,10 +110,6 @@ export class AirtableOAuthService {
     stateData: any,
     grantedScopes: string[],
   ): Promise<void> {
-    if (!userId) {
-      throw new Error("User ID is required")
-    }
-
     const integrationData = {
       user_id: userId,
       provider: "airtable",
@@ -139,7 +126,15 @@ export class AirtableOAuthService {
       },
     }
 
+    console.log("Saving integration to database...", {
+      userId: userId,
+      provider: "airtable",
+      reconnect: stateData.reconnect,
+      integrationId: stateData.integrationId,
+    })
+
     if (stateData.reconnect && stateData.integrationId) {
+      // Update existing integration
       const { error } = await supabase
         .from("integrations")
         .update({
@@ -149,13 +144,18 @@ export class AirtableOAuthService {
         .eq("id", stateData.integrationId)
 
       if (error) {
+        console.error("Error updating integration:", error)
         throw error
       }
+      console.log("Integration updated successfully")
     } else {
+      // Create new integration
       const { error } = await supabase.from("integrations").insert(integrationData)
       if (error) {
+        console.error("Error inserting integration:", error)
         throw error
       }
+      console.log("Integration created successfully")
     }
   }
 
@@ -170,31 +170,54 @@ export class AirtableOAuthService {
     userId: string,
   ): Promise<AirtableOAuthResult> {
     try {
-      if (!code) {
-        throw new Error("Missing authorization code from Airtable")
+      console.log("Airtable OAuth callback:", { code: !!code, state })
+
+      if (!code || !state) {
+        console.error("Missing code or state in Airtable callback")
+        return {
+          success: false,
+          error: "missing_params",
+          redirectUrl: `https://chainreact.app/integrations?error=missing_params&provider=airtable`,
+        }
       }
 
-      if (!state) {
-        throw new Error("Missing state parameter from Airtable")
-      }
-
-      if (!userId) {
-        throw new Error("User ID is required")
-      }
-
+      // Decode state to get provider info
       const stateData = JSON.parse(atob(state))
       const { provider, reconnect, integrationId } = stateData
+
+      console.log("Decoded state data:", stateData)
 
       if (provider !== "airtable") {
         throw new Error("Invalid provider in state")
       }
 
-      const tokenData = await this.exchangeCodeForToken(code)
+      // Clear any existing tokens before requesting new ones
+      if (reconnect && integrationId) {
+        const { error: clearError } = await supabase
+          .from("integrations")
+          .update({
+            access_token: null,
+            refresh_token: null,
+            status: "reconnecting",
+          })
+          .eq("id", integrationId)
 
+        if (clearError) {
+          console.error("Error clearing existing tokens:", clearError)
+        }
+      }
+
+      // Exchange code for access token
+      console.log("Exchanging code for access token...")
+      const tokenData = await this.exchangeCodeForToken(code)
+      console.log("Token exchange successful:", { hasAccessToken: !!tokenData.access_token })
+
+      // Get granted scopes from the token data
       const grantedScopes = tokenData.scope
         ? tokenData.scope.split(" ")
         : ["data.records:read", "data.records:write", "schema.bases:read"]
 
+      // Validate scopes
       const scopeValidation = this.validateScopes(grantedScopes)
 
       if (!scopeValidation.valid) {
@@ -204,6 +227,7 @@ export class AirtableOAuthService {
         }
       }
 
+      // Validate token by making an API call
       const isTokenValid = await this.validateToken(tokenData.access_token)
       if (!isTokenValid) {
         return {
@@ -212,9 +236,15 @@ export class AirtableOAuthService {
         }
       }
 
+      // Get user info from Airtable
+      console.log("Fetching user info from Airtable...")
       const userData = await this.getUserInfo(tokenData.access_token)
+      console.log("User info fetched successfully:", { userId: userData.id })
+
+      // Save integration to database
       await this.saveIntegration(supabase, userId, tokenData, userData, stateData, grantedScopes)
 
+      console.log("Airtable integration saved successfully")
       return {
         success: true,
         redirectUrl: `https://chainreact.app/integrations?success=airtable_connected`,
@@ -230,10 +260,6 @@ export class AirtableOAuthService {
   }
 
   public static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string, userId?: string): string {
-    if (!userId) {
-      throw new Error("User ID is required for Airtable OAuth")
-    }
-
     const { clientId } = this.getClientCredentials()
     const redirectUri = "https://chainreact.app/api/integrations/airtable/callback"
 
@@ -252,8 +278,7 @@ export class AirtableOAuthService {
       redirect_uri: redirectUri,
       response_type: "code",
       state,
-      scope:
-        "data.records:read data.records:write schema.bases:read schema.bases:write data.recordComments:read data.recordComments:write webhook:manage",
+      scope: "data.records:read data.records:write schema.bases:read schema.bases:write",
     })
 
     return `https://airtable.com/oauth2/v1/authorize?${params.toString()}`

@@ -1,75 +1,87 @@
-import { cookies } from "next/headers"
-import { NextResponse } from "next/server"
-import { type CookieOptions, createServerClient } from "@supabase/ssr"
+import { type NextRequest, NextResponse } from "next/server"
+import { createClient } from "@supabase/supabase-js"
 
-const gitlab = {
-  clientId: process.env.GITLAB_CLIENT_ID ?? "",
-  clientSecret: process.env.GITLAB_CLIENT_SECRET ?? "",
-  redirectUri: process.env.GITLAB_REDIRECT_URI ?? "",
+// Use direct Supabase client with service role for reliable database operations
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+if (!supabaseUrl || !supabaseKey) {
+  throw new Error("NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be defined")
 }
 
-export async function GET(request: Request) {
-  const { searchParams, origin } = new URL(request.url)
-  const code = searchParams.get("code")
-  const next = searchParams.get("next") ?? origin
-  if (!code) {
-    console.error("No code provided")
-    return NextResponse.redirect(`${origin}/login?error=NoCodeProvided`)
+const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    persistSession: false,
+  },
+})
+
+export const GET = async (request: NextRequest): Promise<NextResponse> => {
+  const url = new URL(request.url)
+  const code = url.searchParams.get("code")
+  const state = url.searchParams.get("state")
+  const error = url.searchParams.get("error")
+  const errorDescription = url.searchParams.get("error_description")
+
+  if (error) {
+    console.error("GitLab OAuth error:", error, errorDescription)
+    return NextResponse.redirect(
+      `https://chainreact.app/integrations?error=${error}&provider=gitlab&message=${encodeURIComponent(
+        errorDescription || "Authorization failed",
+      )}`,
+    )
   }
 
-  const cookieStore = cookies()
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value
-        },
-        set(name: string, value: string, options: CookieOptions) {
-          cookieStore.set({ name, value, ...options })
-        },
-        remove(name: string, options: CookieOptions) {
-          cookieStore.delete({ name, ...options })
-        },
-      },
-    },
-  )
+  if (!code || !state) {
+    return NextResponse.redirect(`https://chainreact.app/integrations?error=missing_params&provider=gitlab`)
+  }
 
   try {
-    // Exchange code for access token
+    let stateData: any = {}
+    try {
+      stateData = JSON.parse(atob(state))
+    } catch (e) {
+      console.error("Failed to parse state:", e)
+      return NextResponse.redirect(`https://chainreact.app/integrations?error=invalid_state&provider=gitlab`)
+    }
+
+    const { userId } = stateData
+
+    if (!userId) {
+      return NextResponse.redirect(`https://chainreact.app/integrations?error=missing_user_id&provider=gitlab`)
+    }
+
+    const clientId = process.env.NEXT_PUBLIC_GITLAB_CLIENT_ID
+    const clientSecret = process.env.GITLAB_CLIENT_SECRET
+
+    if (!clientId || !clientSecret) {
+      return NextResponse.redirect(`https://chainreact.app/integrations?error=missing_credentials&provider=gitlab`)
+    }
+
+    // Exchange code for token
     const tokenResponse = await fetch("https://gitlab.com/oauth/token", {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
-        Accept: "application/json",
       },
       body: new URLSearchParams({
-        client_id: gitlab.clientId,
-        client_secret: gitlab.clientSecret,
-        code: code,
+        client_id: clientId,
+        client_secret: clientSecret,
+        code,
         grant_type: "authorization_code",
-        redirect_uri: gitlab.redirectUri,
+        redirect_uri: "https://chainreact.app/api/integrations/gitlab/callback",
       }),
     })
 
     if (!tokenResponse.ok) {
-      console.error("Token exchange failed:", tokenResponse.statusText)
-      return NextResponse.redirect(`${origin}/login?error=TokenExchangeFailed`)
+      const errorText = await tokenResponse.text()
+      console.error("GitLab token exchange failed:", errorText)
+      return NextResponse.redirect(`https://chainreact.app/integrations?error=token_exchange_failed&provider=gitlab`)
     }
 
     const tokenData = await tokenResponse.json()
-    const access_token = tokenData.access_token
-    const refresh_token = tokenData.refresh_token
-    const expires_in = tokenData.expires_in
+    const { access_token, refresh_token, expires_in } = tokenData
 
-    if (!access_token) {
-      console.error("No access token received")
-      return NextResponse.redirect(`${origin}/login?error=NoAccessToken`)
-    }
-
-    // Fetch user info from GitLab
+    // Get user info
     const userResponse = await fetch("https://gitlab.com/api/v4/user", {
       headers: {
         Authorization: `Bearer ${access_token}`,
@@ -77,62 +89,69 @@ export async function GET(request: Request) {
     })
 
     if (!userResponse.ok) {
-      console.error("Failed to fetch user info:", userResponse.statusText)
-      return NextResponse.redirect(`${origin}/login?error=UserInfoFetchFailed`)
+      console.error("GitLab user info failed:", await userResponse.text())
+      return NextResponse.redirect(`https://chainreact.app/integrations?error=user_info_failed&provider=gitlab`)
     }
 
-    const userInfo = await userResponse.json()
+    const userData = await userResponse.json()
+    const now = new Date().toISOString()
 
-    // Get or create user in Supabase
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      console.error("No user found in Supabase")
-      return NextResponse.redirect(`${origin}/login?error=NoUserFound`)
-    }
-
-    const userId = user.id
-
-    const expiresAt = new Date(Date.now() + expires_in * 1000).toISOString()
-
-    // Update the database save operation with proper error handling
     const integrationData = {
       user_id: userId,
       provider: "gitlab",
-      provider_user_id: userInfo.id.toString(),
+      provider_user_id: userData.id.toString(),
       access_token,
       refresh_token,
-      expires_at: expiresAt,
-      status: "connected" as const,
+      expires_at: expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null,
+      status: "connected",
       scopes: ["read_user", "read_api", "read_repository", "write_repository"],
       metadata: {
-        username: userInfo.username,
-        name: userInfo.name,
-        email: userInfo.email,
-        avatar_url: userInfo.avatar_url,
-        connected_at: new Date().toISOString(),
+        username: userData.username,
+        name: userData.name,
+        email: userData.email,
+        avatar_url: userData.avatar_url,
+        connected_at: now,
       },
+      updated_at: now,
     }
 
-    // Add delay to ensure database operation completes
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+    // Check if integration exists
+    const { data: existingIntegration } = await supabase
+      .from("integrations")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("provider", "gitlab")
+      .maybeSingle()
 
-    const { error: dbError } = await supabase.from("integrations").upsert(integrationData, {
-      onConflict: "user_id,provider",
-      ignoreDuplicates: false,
-    })
+    if (existingIntegration) {
+      const { error } = await supabase.from("integrations").update(integrationData).eq("id", existingIntegration.id)
 
-    if (dbError) {
-      console.error("Database error:", dbError)
-      throw dbError
+      if (error) {
+        console.error("Error updating GitLab integration:", error)
+        return NextResponse.redirect(`https://chainreact.app/integrations?error=database_update_failed&provider=gitlab`)
+      }
+    } else {
+      const { error } = await supabase.from("integrations").insert({
+        ...integrationData,
+        created_at: now,
+      })
+
+      if (error) {
+        console.error("Error inserting GitLab integration:", error)
+        return NextResponse.redirect(`https://chainreact.app/integrations?error=database_insert_failed&provider=gitlab`)
+      }
     }
 
-    // Redirect to success page
-    return NextResponse.redirect(`${origin}/account`)
-  } catch (error) {
-    console.error("Unexpected error:", error)
-    return NextResponse.redirect(`${origin}/login?error=UnexpectedError`)
+    // Add a delay to ensure database operations complete
+    await new Promise((resolve) => setTimeout(resolve, 500))
+
+    return NextResponse.redirect(
+      `https://chainreact.app/integrations?success=gitlab_connected&provider=gitlab&t=${Date.now()}`,
+    )
+  } catch (error: any) {
+    console.error("GitLab OAuth callback error:", error)
+    return NextResponse.redirect(
+      `https://chainreact.app/integrations?error=callback_failed&provider=gitlab&message=${encodeURIComponent(error.message)}`,
+    )
   }
 }
