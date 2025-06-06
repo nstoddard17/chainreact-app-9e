@@ -4,10 +4,8 @@ import type { Database } from "@/types/supabase"
 
 /**
  * Create admin client only for server-side operations
- * This should only be called from server-side code (API routes, server actions)
  */
 export const createAdminSupabaseClient = () => {
-  // Ensure this only runs on the server
   if (typeof window !== "undefined") {
     console.warn("Warning: Attempted to create admin Supabase client on the client side")
     return null
@@ -20,15 +18,7 @@ export const createAdminSupabaseClient = () => {
     const missingVars = []
     if (!supabaseUrl) missingVars.push("SUPABASE_URL")
     if (!supabaseServiceKey) missingVars.push("SUPABASE_SERVICE_ROLE_KEY")
-
-    const errorMessage = `Missing required Supabase admin environment variables: ${missingVars.join(", ")}`
-
-    if (process.env.NODE_ENV === "development") {
-      throw new Error(errorMessage)
-    } else {
-      console.error(errorMessage)
-      throw new Error("Server configuration error")
-    }
+    throw new Error(`Missing required Supabase admin environment variables: ${missingVars.join(", ")}`)
   }
 
   return createClient<Database>(supabaseUrl, supabaseServiceKey, {
@@ -41,13 +31,8 @@ export const createAdminSupabaseClient = () => {
 
 /**
  * Get hardcoded redirect URI for OAuth providers
- * Always uses the production domain to prevent redirect mismatches
  */
 export function getOAuthRedirectUri(provider: string): string {
-  return `https://chainreact.app/api/integrations/${provider}/callback`
-}
-
-export function getStandardRedirectUri(provider: string): string {
   return `https://chainreact.app/api/integrations/${provider}/callback`
 }
 
@@ -61,8 +46,7 @@ export function getAbsoluteBaseUrl(request: Request | NextRequest): string {
 }
 
 /**
- * Upsert integration data to avoid duplicate key constraint violations
- * This is atomic and safe for concurrent operations
+ * Upsert integration data safely
  */
 export async function upsertIntegration(
   supabase: any,
@@ -76,16 +60,11 @@ export async function upsertIntegration(
     refresh_token?: string
     expires_at?: string | null
     metadata: any
-    organization_id?: string
   },
 ): Promise<any> {
   try {
-    console.log(`Upserting integration for user ${integrationData.user_id} and provider ${integrationData.provider}`)
-
-    // Add timestamps
     const now = new Date().toISOString()
 
-    // First, try to save to the main integrations table
     const mainIntegrationData = {
       user_id: integrationData.user_id,
       provider: integrationData.provider,
@@ -99,30 +78,28 @@ export async function upsertIntegration(
       updated_at: now,
     }
 
-    // Check if integration exists in main table
-    const { data: existingMainIntegration, error: findMainError } = await supabase
+    // Check if integration exists
+    const { data: existingIntegration, error: findError } = await supabase
       .from("integrations")
       .select("id")
       .eq("user_id", integrationData.user_id)
       .eq("provider", integrationData.provider)
       .maybeSingle()
 
-    if (findMainError) {
-      console.error("Error checking for existing main integration:", findMainError)
+    if (findError) {
+      console.error("Error checking for existing integration:", findError)
     }
 
-    let mainResult
-    if (existingMainIntegration) {
-      console.log(`Updating existing main integration: ${existingMainIntegration.id}`)
-      mainResult = await supabase
+    let result
+    if (existingIntegration) {
+      result = await supabase
         .from("integrations")
         .update(mainIntegrationData)
-        .eq("id", existingMainIntegration.id)
+        .eq("id", existingIntegration.id)
         .select()
         .single()
     } else {
-      console.log("Creating new main integration")
-      mainResult = await supabase
+      result = await supabase
         .from("integrations")
         .insert({
           ...mainIntegrationData,
@@ -132,14 +109,12 @@ export async function upsertIntegration(
         .single()
     }
 
-    if (mainResult.error) {
-      console.error("Error upserting main integration:", mainResult.error)
-    } else {
-      console.log("Main integration saved successfully:", mainResult.data)
+    if (result.error) {
+      console.error("Error upserting integration:", result.error)
+      throw result.error
     }
 
-    // Return the main result
-    return mainResult.data
+    return result.data
   } catch (error) {
     console.error("Error in upsertIntegration:", error)
     throw error
@@ -155,7 +130,6 @@ export function generateOAuthState(
   options: {
     reconnect?: boolean
     integrationId?: string
-    requireFullScopes?: boolean
   } = {},
 ): string {
   const state = {
@@ -164,10 +138,9 @@ export function generateOAuthState(
     timestamp: Date.now(),
     reconnect: options.reconnect || false,
     integrationId: options.integrationId,
-    requireFullScopes: options.requireFullScopes !== false, // Default to true
   }
 
-  return btoa(JSON.stringify(state))
+  return Buffer.from(JSON.stringify(state)).toString("base64")
 }
 
 /**
@@ -175,23 +148,43 @@ export function generateOAuthState(
  */
 export function parseOAuthState(state: string): any {
   try {
-    // First try standard base64 decoding
     return JSON.parse(Buffer.from(state, "base64").toString())
   } catch (error) {
-    // If that fails, try URL-safe base64 decoding
-    try {
-      const base64 = state.replace(/-/g, "+").replace(/_/g, "/")
-      return JSON.parse(Buffer.from(base64, "base64").toString())
-    } catch (innerError) {
-      // If both fail, try direct JSON parsing (some providers might not encode)
-      try {
-        return JSON.parse(state)
-      } catch (finalError) {
-        // If all parsing attempts fail
-        console.error("Failed to parse OAuth state:", finalError)
-        throw new Error("Invalid OAuth state format")
-      }
+    console.error("Failed to parse OAuth state:", error)
+    throw new Error("Invalid OAuth state parameter")
+  }
+}
+
+/**
+ * Get user from request using getUser() instead of getSession()
+ */
+export async function getUserFromRequest(request: NextRequest): Promise<string | null> {
+  try {
+    const supabaseUrl = process.env.SUPABASE_URL
+    const supabaseAnonKey = process.env.SUPABASE_ANON_KEY
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      return null
     }
+
+    const authHeader = request.headers.get("authorization")
+    if (!authHeader?.startsWith("Bearer ")) {
+      return null
+    }
+
+    const token = authHeader.substring(7)
+    const supabase = createClient(supabaseUrl, supabaseAnonKey)
+
+    const { data, error } = await supabase.auth.getUser(token)
+
+    if (error || !data?.user?.id) {
+      return null
+    }
+
+    return data.user.id
+  } catch (error) {
+    console.error("Error getting user from request:", error)
+    return null
   }
 }
 
@@ -265,35 +258,34 @@ export function validateScopes(
 }
 
 /**
- * Get required scopes for a provider
+ * Get required scopes for each provider
  */
 export function getRequiredScopes(provider: string): string[] {
-  switch (provider) {
+  switch (provider.toLowerCase()) {
     case "slack":
-      return [
-        "chat:write",
-        "chat:write.public",
-        "channels:read",
-        "channels:join",
-        "groups:read",
-        "im:read",
-        "users:read",
-        "team:read",
-        "files:write",
-        "reactions:write",
-      ]
+      return ["chat:write", "channels:read", "users:read"]
     case "discord":
-      // Only require essential scopes for Discord
-      return ["identify", "guilds", "guilds.join", "messages.read"]
-    case "dropbox":
-      return ["files.content.write", "files.content.read"]
+      return ["identify", "guilds"]
     case "google":
       return ["https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"]
     case "github":
       return ["repo", "user"]
+    case "trello":
+      return ["read", "write"]
+    case "notion":
+      return ["read_content", "insert_content"]
+    case "airtable":
+      return ["data.records:read", "data.records:write"]
+    case "dropbox":
+      return ["files.content.read", "files.content.write"]
+    case "hubspot":
+      return ["crm.objects.contacts.read", "crm.objects.deals.read"]
+    case "linkedin":
+      return ["r_liteprofile", "w_member_social"]
+    case "facebook":
+      return ["pages_manage_posts", "pages_read_engagement"]
     case "teams":
-      return ["openid", "profile", "email", "offline_access", "User.Read"]
-    // Add other providers as needed
+      return ["User.Read", "Chat.ReadWrite"]
     default:
       return []
   }

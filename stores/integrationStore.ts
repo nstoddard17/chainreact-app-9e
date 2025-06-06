@@ -1,5 +1,5 @@
 import { create } from "zustand"
-import { supabase } from "@/lib/supabase"
+import { createClient } from "@supabase/supabase-js"
 
 interface Integration {
   id: string
@@ -12,6 +12,7 @@ interface Integration {
   created_at: string
   updated_at: string
   metadata?: any
+  scopes?: string[]
 }
 
 interface Provider {
@@ -22,7 +23,6 @@ interface Provider {
   logoUrl: string
   capabilities: string[]
   scopes: string[]
-  authUrl?: string
   isAvailable: boolean
 }
 
@@ -31,15 +31,11 @@ interface IntegrationState {
   providers: Provider[]
   loading: boolean
   error: string | null
-  cache: Map<string, any>
-  lastFetch: Date | null
   fetchIntegrations: (forceRefresh?: boolean) => Promise<void>
-  clearCache: () => void
   connectIntegration: (providerId: string) => Promise<void>
   disconnectIntegration: (integrationId: string) => Promise<void>
 }
 
-// Define all available providers with hardcoded redirect URIs
 const availableProviders: Provider[] = [
   {
     id: "google",
@@ -273,37 +269,27 @@ const availableProviders: Provider[] = [
   },
 ]
 
+// Create Supabase client for client-side operations
+const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+
 export const useIntegrationStore = create<IntegrationState>((set, get) => ({
   integrations: [],
   providers: availableProviders,
   loading: false,
   error: null,
-  cache: new Map(),
-  lastFetch: null,
 
   fetchIntegrations: async (forceRefresh = false) => {
-    const state = get()
-
-    if (!forceRefresh && state.lastFetch && Date.now() - state.lastFetch.getTime() < 30000) {
-      return
-    }
-
     set({ loading: true, error: null })
 
     try {
-      if (!supabase) {
-        throw new Error("Supabase client not available")
-      }
-
-      // Get current user
+      // Get current user using getUser() instead of getSession()
       const {
         data: { user },
         error: userError,
       } = await supabase.auth.getUser()
 
       if (userError || !user) {
-        console.log("No authenticated user found")
-        set({ integrations: [], loading: false, error: null, lastFetch: new Date() })
+        set({ integrations: [], loading: false, error: null })
         return
       }
 
@@ -318,10 +304,9 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
       }
 
       set({
-        integrations: Array.isArray(data) ? data : [],
+        integrations: data || [],
         loading: false,
         error: null,
-        lastFetch: new Date(),
       })
     } catch (error: any) {
       console.error("Failed to fetch integrations:", error)
@@ -333,17 +318,9 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
     }
   },
 
-  clearCache: () => {
-    set({ cache: new Map(), lastFetch: null })
-  },
-
   connectIntegration: async (providerId: string) => {
     try {
       // Get current user
-      if (!supabase) {
-        throw new Error("Supabase client not available")
-      }
-
       const {
         data: { user },
         error: userError,
@@ -353,11 +330,20 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
         throw new Error("Please log in to connect integrations")
       }
 
+      // Get auth token for API call
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+      if (!session?.access_token) {
+        throw new Error("No valid session found")
+      }
+
       // Generate OAuth URL
       const response = await fetch(`/api/integrations/auth/generate-url`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
           provider: providerId,
@@ -382,10 +368,6 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
 
   disconnectIntegration: async (integrationId: string) => {
     try {
-      if (!supabase) {
-        throw new Error("Supabase client not available")
-      }
-
       const { error } = await supabase.from("integrations").update({ status: "disconnected" }).eq("id", integrationId)
 
       if (error) {
