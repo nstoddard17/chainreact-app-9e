@@ -1,17 +1,15 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { cookies } from "next/headers"
 import { generateId } from "lucia"
-import { db } from "@/db"
-import { trelloIntegrationTable } from "@/db/schema"
+import { createClient } from "@/lib/supabase"
 
 export const GET = async (request: NextRequest) => {
   const searchParams = request.nextUrl.searchParams
-  const code = searchParams.get("code")
+  const token = searchParams.get("token") // Trello returns token directly
   const state = searchParams.get("state")
 
-  if (!code) {
+  if (!token) {
     const baseUrl = "https://chainreact.app"
-    return NextResponse.redirect(`${baseUrl}/integrations?error=trello_no_code`)
+    return NextResponse.redirect(`${baseUrl}/integrations?error=trello_no_token`)
   }
 
   if (!state) {
@@ -19,53 +17,20 @@ export const GET = async (request: NextRequest) => {
     return NextResponse.redirect(`${baseUrl}/integrations?error=trello_no_state`)
   }
 
-  const storedState = cookies().get("trello_oauth_state")?.value
-
-  if (!storedState) {
-    const baseUrl = "https://chainreact.app"
-    return NextResponse.redirect(`${baseUrl}/integrations?error=trello_no_stored_state`)
-  }
-
-  if (state !== storedState) {
-    const baseUrl = "https://chainreact.app"
-    return NextResponse.redirect(`${baseUrl}/integrations?error=trello_invalid_state`)
-  }
-
   try {
-    const redirectUri = "https://chainreact.app/api/integrations/trello/callback"
+    // Parse state to get user ID
+    const stateData = JSON.parse(atob(state))
+    const userId = stateData.userId
 
-    const tokenResponse = await fetch("https://trello.com/oauth/token", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: new URLSearchParams({
-        client_id: process.env.TRELLO_API_KEY as string,
-        client_secret: process.env.TRELLO_API_SECRET as string,
-        code,
-        redirect_uri: redirectUri,
-        grant_type: "authorization_code",
-      }),
-    })
-
-    if (!tokenResponse.ok) {
+    if (!userId) {
       const baseUrl = "https://chainreact.app"
-      return NextResponse.redirect(`${baseUrl}/integrations?error=trello_token_exchange_failed`)
+      return NextResponse.redirect(`${baseUrl}/integrations?error=trello_no_user_id`)
     }
 
-    const tokenData = await tokenResponse.json()
-    const accessToken = tokenData.access_token
-
-    if (!accessToken) {
-      const baseUrl = "https://chainreact.app"
-      return NextResponse.redirect(`${baseUrl}/integrations?error=trello_no_access_token`)
-    }
-
-    const meResponse = await fetch("https://api.trello.com/1/members/me?fields=id,username", {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    })
+    // Get user info from Trello
+    const meResponse = await fetch(
+      `https://api.trello.com/1/members/me?key=${process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID}&token=${token}`,
+    )
 
     if (!meResponse.ok) {
       const baseUrl = "https://chainreact.app"
@@ -81,30 +46,29 @@ export const GET = async (request: NextRequest) => {
       return NextResponse.redirect(`${baseUrl}/integrations?error=trello_no_user_data`)
     }
 
-    const sessionId = cookies().get("session")?.value
+    // Create Supabase client
+    const supabase = createClient()
 
-    if (!sessionId) {
+    // Save integration to database
+    const { error } = await supabase.from("integrations").insert({
+      id: generateId(21),
+      user_id: userId,
+      provider: "trello",
+      provider_user_id: trelloUserId,
+      access_token: token,
+      status: "connected",
+      scopes: ["read", "write"],
+      metadata: {
+        username: trelloUsername,
+        connected_at: new Date().toISOString(),
+      },
+    })
+
+    if (error) {
+      console.error("Error saving Trello integration:", error)
       const baseUrl = "https://chainreact.app"
-      return NextResponse.redirect(`${baseUrl}/integrations?error=no_session`)
+      return NextResponse.redirect(`${baseUrl}/integrations?error=trello_db_error`)
     }
-
-    await db
-      .insert(trelloIntegrationTable)
-      .values({
-        id: generateId(21),
-        sessionId: sessionId,
-        trelloUserId: trelloUserId,
-        trelloUsername: trelloUsername,
-        accessToken: accessToken,
-      })
-      .onConflictDoUpdate({
-        target: trelloIntegrationTable.sessionId,
-        set: {
-          trelloUserId: trelloUserId,
-          trelloUsername: trelloUsername,
-          accessToken: accessToken,
-        },
-      })
 
     return NextResponse.redirect(`https://chainreact.app/integrations?success=trello_connected`)
   } catch (e) {

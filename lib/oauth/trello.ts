@@ -82,16 +82,19 @@ export class TrelloOAuthService {
       }),
     )
 
-    // Use Trello's proper OAuth 1.0a flow
+    // Trello uses a different OAuth flow than standard OAuth 2.0
+    // It requires the API key as 'key' parameter, not 'client_id'
     const params = new URLSearchParams({
-      oauth_consumer_key: clientId,
-      oauth_callback: redirectUri,
+      key: clientId,
+      return_url: redirectUri,
       scope: "read,write",
       expiration: "never",
       name: "ChainReact",
+      response_type: "token",
       state: state,
     })
 
+    // Use the correct Trello authorization endpoint
     return `https://trello.com/1/authorize?${params.toString()}`
   }
 

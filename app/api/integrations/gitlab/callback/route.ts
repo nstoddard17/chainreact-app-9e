@@ -9,9 +9,15 @@ export const GET = async (request: NextRequest): Promise<NextResponse> => {
   const code = url.searchParams.get("code")
   const state = url.searchParams.get("state")
   const error = url.searchParams.get("error")
+  const errorDescription = url.searchParams.get("error_description")
 
   if (error) {
-    return NextResponse.redirect(`https://chainreact.app/integrations?error=${error}&provider=gitlab`)
+    console.error("GitLab OAuth error:", error, errorDescription)
+    return NextResponse.redirect(
+      `https://chainreact.app/integrations?error=${error}&provider=gitlab&message=${encodeURIComponent(
+        errorDescription || "Authorization failed",
+      )}`,
+    )
   }
 
   if (!code || !state) {
@@ -19,7 +25,14 @@ export const GET = async (request: NextRequest): Promise<NextResponse> => {
   }
 
   try {
-    const stateData = JSON.parse(atob(state))
+    let stateData: any = {}
+    try {
+      stateData = JSON.parse(atob(state))
+    } catch (e) {
+      console.error("Failed to parse state:", e)
+      throw new Error("Invalid state parameter")
+    }
+
     const { userId } = stateData
 
     if (!userId) {

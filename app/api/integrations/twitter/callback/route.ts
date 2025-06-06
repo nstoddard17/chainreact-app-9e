@@ -23,7 +23,6 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Initialize Supabase client
     const supabase = createRouteHandlerClient({ cookies })
     const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
 

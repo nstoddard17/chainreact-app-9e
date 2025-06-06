@@ -1,4 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
+import { cookies } from "next/headers"
 import { MailchimpOAuthService } from "@/lib/oauth/mailchimp"
 
 export async function GET(request: NextRequest) {
@@ -21,6 +23,14 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    const supabase = createRouteHandlerClient({ cookies })
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+
+    if (sessionError || !sessionData?.session) {
+      console.error("Mailchimp: Session error:", sessionError)
+      return NextResponse.redirect(new URL("/integrations?error=session_error", baseUrl))
+    }
+
     const result = await MailchimpOAuthService.handleCallback(code, state, baseUrl)
 
     console.log("Mailchimp OAuth result:", result.success ? "success" : "failed")

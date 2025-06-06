@@ -30,7 +30,6 @@ export class DropboxOAuthService {
       }),
     )
 
-    // Dropbox doesn't use scope parameter in the authorization URL
     const params = new URLSearchParams({
       client_id: clientId,
       redirect_uri: redirectUri,
@@ -58,7 +57,6 @@ export class DropboxOAuthService {
       const { clientId, clientSecret } = this.getClientCredentials()
       const redirectUri = this.getRedirectUri()
 
-      // Exchange code for token
       const tokenResponse = await fetch("https://api.dropboxapi.com/oauth2/token", {
         method: "POST",
         headers: {
@@ -81,7 +79,6 @@ export class DropboxOAuthService {
       const tokenData = await tokenResponse.json()
       const { access_token, refresh_token, expires_in } = tokenData
 
-      // Get user info
       const userResponse = await fetch("https://api.dropboxapi.com/2/users/get_current_account", {
         method: "POST",
         headers: {
@@ -98,7 +95,6 @@ export class DropboxOAuthService {
 
       const userData = await userResponse.json()
 
-      // Save integration
       const integrationData = {
         user_id: userId,
         provider: "dropbox",

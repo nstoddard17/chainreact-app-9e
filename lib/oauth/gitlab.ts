@@ -14,7 +14,8 @@ export class GitLabOAuthService {
     const { clientId } = this.getClientCredentials()
     const redirectUri = "https://chainreact.app/api/integrations/gitlab/callback"
 
-    const scopes = ["read_user", "read_repository", "write_repository", "api", "read_api"]
+    // Fix: Use only valid GitLab scopes
+    const scopes = ["read_user", "read_api", "read_repository", "write_repository"]
 
     const state = btoa(
       JSON.stringify({

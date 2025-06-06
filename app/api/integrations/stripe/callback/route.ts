@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getSupabaseClient } from "@/lib/supabase"
+import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
+import { cookies } from "next/headers"
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
@@ -20,7 +21,6 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Decode state to get provider info
     const stateData = JSON.parse(atob(state))
     const { provider, reconnect, integrationId } = stateData
 
@@ -28,7 +28,6 @@ export async function GET(request: NextRequest) {
       throw new Error("Invalid provider in state")
     }
 
-    // Exchange code for access token
     const tokenResponse = await fetch("https://connect.stripe.com/oauth/token", {
       method: "POST",
       headers: {
@@ -51,18 +50,15 @@ export async function GET(request: NextRequest) {
     const tokenData = await tokenResponse.json()
     const { access_token, refresh_token, stripe_user_id, stripe_publishable_key } = tokenData
 
-    // Store integration in Supabase
-    const supabase = getSupabaseClient()
-    const {
-      data: { session },
-    } = await supabase.auth.getSession()
+    const supabase = createRouteHandlerClient({ cookies })
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
 
-    if (!session) {
+    if (sessionError || !sessionData?.session) {
       throw new Error("No session found")
     }
 
     const integrationData = {
-      user_id: session.user.id,
+      user_id: sessionData.session.user.id,
       provider: "stripe",
       provider_user_id: stripe_user_id,
       access_token,
@@ -77,7 +73,6 @@ export async function GET(request: NextRequest) {
     }
 
     if (reconnect && integrationId) {
-      // Update existing integration
       const { error } = await supabase
         .from("integrations")
         .update({
@@ -88,7 +83,6 @@ export async function GET(request: NextRequest) {
 
       if (error) throw error
     } else {
-      // Create new integration
       const { error } = await supabase.from("integrations").insert(integrationData)
       if (error) throw error
     }

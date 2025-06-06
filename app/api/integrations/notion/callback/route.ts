@@ -25,20 +25,27 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Initialize Supabase client
-    const supabase = createRouteHandlerClient({ cookies })
-    const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
-
-    if (sessionError || !sessionData?.session) {
-      console.error("Notion: Session error:", sessionError)
+    // Parse state to get user ID
+    let userId: string
+    try {
+      const stateData = JSON.parse(atob(state))
+      userId = stateData.userId
+      if (!userId) {
+        throw new Error("No user ID in state")
+      }
+    } catch (stateError) {
+      console.error("Notion: Invalid state parameter:", stateError)
       return NextResponse.redirect(
-        new URL("/integrations?error=session_error&provider=notion&message=No+active+user+session+found", baseUrl),
+        new URL("/integrations?error=invalid_state&provider=notion&message=Invalid+state+parameter", baseUrl),
       )
     }
 
-    console.log("Notion: Session successfully retrieved for user:", sessionData.session.user.id)
+    // Initialize Supabase client
+    const supabase = createRouteHandlerClient({ cookies })
 
-    const result = await NotionOAuthService.handleCallback(code, state, baseUrl, supabase, sessionData.session.user.id)
+    console.log("Notion: Processing OAuth for user:", userId)
+
+    const result = await NotionOAuthService.handleCallback(code, state, supabase, userId)
 
     console.log("Notion OAuth result:", result.success ? "success" : "failed")
     return NextResponse.redirect(new URL(result.redirectUrl, baseUrl))

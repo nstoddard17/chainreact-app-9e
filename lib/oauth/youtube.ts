@@ -27,12 +27,11 @@ export class YouTubeOAuthService {
 
     const redirectUri = "https://chainreact.app/api/integrations/youtube/callback"
 
+    // Use more specific YouTube scopes to avoid "invalid request" error
     const scopes = [
-      "https://www.googleapis.com/auth/youtube",
-      "https://www.googleapis.com/auth/youtube.upload",
       "https://www.googleapis.com/auth/youtube.readonly",
+      "https://www.googleapis.com/auth/youtube.upload",
       "https://www.googleapis.com/auth/userinfo.profile",
-      "https://www.googleapis.com/auth/userinfo.email",
     ]
 
     const state = btoa(
@@ -52,6 +51,7 @@ export class YouTubeOAuthService {
       access_type: "offline",
       prompt: reconnect ? "consent" : "select_account",
       state,
+      include_granted_scopes: "true", // This helps with YouTube API validation
     })
 
     return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`
@@ -160,5 +160,4 @@ export class YouTubeOAuthService {
   }
 }
 
-// Export alias for compatibility
 export const YoutubeOAuth = YouTubeOAuthService
