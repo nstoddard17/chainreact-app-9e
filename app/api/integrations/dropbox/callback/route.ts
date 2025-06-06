@@ -1,90 +1,84 @@
-import { db } from "@/lib/db"
-import { dropboxIntegration } from "@/lib/db/schema"
-import { eq } from "drizzle-orm"
 import { type NextRequest, NextResponse } from "next/server"
+import { cookies } from "next/headers"
+import { Lucia } from "lucia"
+import { db } from "@/db"
+import { users } from "@/db/schema"
+import { eq } from "drizzle-orm"
 
-export async function GET(req: NextRequest) {
+export async function GET(request: NextRequest): Promise<NextResponse> {
+  const searchParams = request.nextUrl.searchParams
+  const code = searchParams.get("code")
+  const error = searchParams.get("error")
+
+  const baseUrl = "https://chainreact.app"
+  const redirectUri = "https://chainreact.app/api/integrations/dropbox/callback"
+
+  if (error) {
+    console.error("Dropbox authentication error:", error)
+    return NextResponse.redirect(`${baseUrl}/integrations?error=dropbox_auth_failed`)
+  }
+
+  if (!code) {
+    console.error("No code received from Dropbox")
+    return NextResponse.redirect(`${baseUrl}/integrations?error=no_code_received`)
+  }
+
   try {
-    const code = req.nextUrl.searchParams.get("code")
-    const state = req.nextUrl.searchParams.get("state")
-
-    if (!code) {
-      return NextResponse.json({ error: "No code provided" }, { status: 400 })
-    }
-
-    if (!state) {
-      return NextResponse.json({ error: "No state provided" }, { status: 400 })
-    }
-
-    // TODO: Verify state
-
-    const clientId = process.env.DROPBOX_CLIENT_ID
-    const clientSecret = process.env.DROPBOX_CLIENT_SECRET
-    const redirectUri = process.env.DROPBOX_REDIRECT_URI
-
-    if (!clientId || !clientSecret || !redirectUri) {
-      console.error("Missing Dropbox environment variables")
-      return NextResponse.json({ error: "Missing Dropbox environment variables" }, { status: 500 })
-    }
-
-    const tokenUrl = "https://api.dropboxapi.com/oauth2/token"
-
-    const params = new URLSearchParams()
-    params.append("code", code)
-    params.append("grant_type", "authorization_code")
-    params.append("client_id", clientId)
-    params.append("client_secret", clientSecret)
-    params.append("redirect_uri", redirectUri)
-
-    const response = await fetch(tokenUrl, {
+    const tokenResponse = await fetch("https://api.dropboxapi.com/oauth2/token", {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
       },
-      body: params,
+      body: new URLSearchParams({
+        code: code,
+        grant_type: "authorization_code",
+        client_id: process.env.DROPBOX_CLIENT_ID!,
+        client_secret: process.env.DROPBOX_CLIENT_SECRET!,
+        redirect_uri: redirectUri,
+      }),
     })
 
-    if (!response.ok) {
-      console.error("Failed to retrieve access token from Dropbox:", response.status, response.statusText)
-      const errorText = await response.text()
-      console.error("Error response:", errorText)
-      return NextResponse.json({ error: "Failed to retrieve access token from Dropbox" }, { status: 500 })
+    if (!tokenResponse.ok) {
+      console.error("Failed to retrieve token from Dropbox:", tokenResponse.status, await tokenResponse.text())
+      return NextResponse.redirect(`${baseUrl}/integrations?error=dropbox_token_failed`)
     }
 
-    const data = await response.json()
-    const accessToken = data.access_token
-    const accountId = data.account_id
+    const tokenData = await tokenResponse.json()
+    const accessToken = tokenData.access_token
+    const accountId = tokenData.account_id
 
-    if (!accessToken || !accountId) {
-      console.error("Missing access token or account ID from Dropbox response")
-      return NextResponse.json({ error: "Missing access token or account ID from Dropbox response" }, { status: 500 })
+    if (!accessToken) {
+      console.error("No access token received from Dropbox")
+      return NextResponse.redirect(`${baseUrl}/integrations?error=no_access_token`)
+    }
+
+    const sessionId = cookies().get("session")?.value
+
+    if (!sessionId) {
+      console.error("No session ID found")
+      return NextResponse.redirect(`${baseUrl}/integrations?error=no_session_id`)
+    }
+
+    const lucia = new Lucia(undefined, {
+      getSessionAttributes: (data) => data,
+    })
+
+    const { user } = await lucia.validateSession(sessionId)
+
+    if (!user) {
+      console.error("No user found")
+      return NextResponse.redirect(`${baseUrl}/integrations?error=no_user_found`)
     }
 
     // Store the access token and account ID in the database
-    try {
-      const existingIntegration = await db
-        .select()
-        .from(dropboxIntegration)
-        .where(eq(dropboxIntegration.accountId, accountId))
+    await db
+      .update(users)
+      .set({ dropbox_access_token: accessToken, dropbox_account_id: accountId })
+      .where(eq(users.id, user.id))
 
-      if (existingIntegration.length > 0) {
-        // Update existing integration
-        await db
-          .update(dropboxIntegration)
-          .set({ accessToken: accessToken })
-          .where(eq(dropboxIntegration.accountId, accountId))
-      } else {
-        // Create new integration
-        await db.insert(dropboxIntegration).values({ accountId: accountId, accessToken: accessToken })
-      }
-
-      return NextResponse.json({ message: "Dropbox integration successful" }, { status: 200 })
-    } catch (error) {
-      console.error("Failed to store Dropbox integration in database:", error)
-      return NextResponse.json({ error: "Failed to store Dropbox integration in database" }, { status: 500 })
-    }
-  } catch (error) {
-    console.error("Error during Dropbox callback:", error)
-    return NextResponse.json({ error: "Error during Dropbox callback" }, { status: 500 })
+    return NextResponse.redirect(`https://chainreact.app/integrations?success=dropbox_connected`)
+  } catch (e) {
+    console.error("Error during Dropbox authentication:", e)
+    return NextResponse.redirect(`${baseUrl}/integrations?error=dropbox_auth_error`)
   }
 }

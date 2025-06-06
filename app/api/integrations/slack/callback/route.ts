@@ -1,24 +1,50 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { eq } from "drizzle-orm"
+import { getSlackClient } from "@/app/api/integrations/slack/slack-client"
 
-import { db } from "@/lib/db"
-import { users } from "@/lib/db/schema"
+export async function GET(req: NextRequest) {
+  const searchParams = req.nextUrl.searchParams
+  const code = searchParams.get("code")
+  const error = searchParams.get("error")
 
-export async function POST(req: NextRequest) {
+  const baseUrl = "https://chainreact.app"
+
+  if (error) {
+    console.error("Error during Slack OAuth:", error)
+    return NextResponse.redirect(`${baseUrl}/integrations?error=slack_oauth_failed`)
+  }
+
+  if (!code) {
+    console.error("No code provided in Slack OAuth callback")
+    return NextResponse.redirect(`${baseUrl}/integrations?error=slack_oauth_failed`)
+  }
+
   try {
-    const body = await req.json()
-    const { userId, slackId } = body
+    const redirectUri = "https://chainreact.app/api/integrations/slack/callback"
+    const slackClient = await getSlackClient()
+    const result = await slackClient.oauth.v2.access({
+      client_id: process.env.SLACK_CLIENT_ID,
+      client_secret: process.env.SLACK_CLIENT_SECRET,
+      code: code,
+      redirect_uri: redirectUri,
+    })
 
-    if (!userId || !slackId) {
-      return new NextResponse("Missing user ID or Slack ID", { status: 400 })
+    if (!result.ok) {
+      console.error("Slack OAuth failed:", result.error)
+      return NextResponse.redirect(`${baseUrl}/integrations?error=slack_oauth_failed`)
     }
 
-    // Update the user's Slack ID in the database
-    await db.update(users).set({ slackId: slackId }).where(eq(users.id, userId))
+    // TODO: Store the access token and other relevant information in your database
+    // You can access the team ID, user ID, and access token from the result object.
+    // Example:
+    const accessToken = result.access_token
+    const teamId = result.team?.id
+    const userId = result.authed_user?.id
 
-    return NextResponse.json({ message: "Slack ID updated successfully" })
-  } catch (error) {
-    console.error("Error updating Slack ID:", error)
-    return new NextResponse("Internal Server Error", { status: 500 })
+    console.log("Slack OAuth successful:", { accessToken, teamId, userId })
+
+    return NextResponse.redirect(`https://chainreact.app/integrations?success=slack_connected`)
+  } catch (e: any) {
+    console.error("Error during Slack OAuth:", e)
+    return NextResponse.redirect(`${baseUrl}/integrations?error=slack_oauth_failed`)
   }
 }

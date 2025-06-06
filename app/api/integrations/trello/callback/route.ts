@@ -1,73 +1,115 @@
-import { db } from "@/lib/db"
-import { trelloIntegration } from "@/lib/db/schema"
-import { eq } from "drizzle-orm"
 import { type NextRequest, NextResponse } from "next/server"
+import { cookies } from "next/headers"
+import { generateId } from "lucia"
+import { db } from "@/db"
+import { trelloIntegrationTable } from "@/db/schema"
 
-export async function GET(req: NextRequest) {
+export const GET = async (request: NextRequest) => {
+  const searchParams = request.nextUrl.searchParams
+  const code = searchParams.get("code")
+  const state = searchParams.get("state")
+
+  if (!code) {
+    const baseUrl = "https://chainreact.app"
+    return NextResponse.redirect(`${baseUrl}/integrations?error=trello_no_code`)
+  }
+
+  if (!state) {
+    const baseUrl = "https://chainreact.app"
+    return NextResponse.redirect(`${baseUrl}/integrations?error=trello_no_state`)
+  }
+
+  const storedState = cookies().get("trello_oauth_state")?.value
+
+  if (!storedState) {
+    const baseUrl = "https://chainreact.app"
+    return NextResponse.redirect(`${baseUrl}/integrations?error=trello_no_stored_state`)
+  }
+
+  if (state !== storedState) {
+    const baseUrl = "https://chainreact.app"
+    return NextResponse.redirect(`${baseUrl}/integrations?error=trello_invalid_state`)
+  }
+
   try {
-    const searchParams = req.nextUrl.searchParams
-    const code = searchParams.get("code")
-    const state = searchParams.get("state")
+    const redirectUri = "https://chainreact.app/api/integrations/trello/callback"
 
-    if (!code || !state) {
-      return NextResponse.json({ error: "Missing code or state" }, { status: 400 })
-    }
-
-    // Fetch the Trello integration from the database using the state as the integrationId
-    const integrations = await db.select().from(trelloIntegration).where(eq(trelloIntegration.integrationId, state))
-
-    if (!integrations || integrations.length === 0) {
-      return NextResponse.json({ error: "Integration not found" }, { status: 404 })
-    }
-
-    const integration = integrations[0]
-
-    // Exchange the code for an access token
-    const tokenUrl = "https://trello.com/1/OAuthGetAccessToken"
-    const apiKey = process.env.TRELLO_API_KEY
-    const tokenSecret = process.env.TRELLO_API_SECRET
-
-    if (!apiKey || !tokenSecret) {
-      console.error("Trello API key or secret not found in environment variables.")
-      return NextResponse.json({ error: "Missing Trello API key or secret" }, { status: 500 })
-    }
-
-    const tokenParams = new URLSearchParams({
-      oauth_consumer_key: apiKey,
-      oauth_token: code,
-      oauth_signature_method: "PLAINTEXT",
-      oauth_timestamp: Date.now().toString(),
-      oauth_nonce: Math.random().toString(36).substring(2),
-      oauth_version: "1.0",
-      oauth_signature: `${tokenSecret}&`,
-    })
-
-    const tokenResponse = await fetch(`${tokenUrl}?${tokenParams.toString()}`, {
-      method: "GET",
+    const tokenResponse = await fetch("https://trello.com/oauth/token", {
+      method: "POST",
       headers: {
-        Accept: "application/json",
+        "Content-Type": "application/x-www-form-urlencoded",
       },
+      body: new URLSearchParams({
+        client_id: process.env.TRELLO_API_KEY as string,
+        client_secret: process.env.TRELLO_API_SECRET as string,
+        code,
+        redirect_uri: redirectUri,
+        grant_type: "authorization_code",
+      }),
     })
 
     if (!tokenResponse.ok) {
-      console.error("Failed to exchange code for token:", tokenResponse.status, await tokenResponse.text())
-      return NextResponse.json({ error: "Failed to exchange code for token" }, { status: 500 })
+      const baseUrl = "https://chainreact.app"
+      return NextResponse.redirect(`${baseUrl}/integrations?error=trello_token_exchange_failed`)
     }
 
-    const tokenData = await tokenResponse.text()
-    const oauthToken = tokenData.split("oauth_token=")[1].split("&")[0]
-    const oauthTokenSecret = tokenData.split("oauth_token_secret=")[1].split("&")[0]
+    const tokenData = await tokenResponse.json()
+    const accessToken = tokenData.access_token
 
-    // Update the Trello integration in the database with the access token and secret
+    if (!accessToken) {
+      const baseUrl = "https://chainreact.app"
+      return NextResponse.redirect(`${baseUrl}/integrations?error=trello_no_access_token`)
+    }
+
+    const meResponse = await fetch("https://api.trello.com/1/members/me?fields=id,username", {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    })
+
+    if (!meResponse.ok) {
+      const baseUrl = "https://chainreact.app"
+      return NextResponse.redirect(`${baseUrl}/integrations?error=trello_me_fetch_failed`)
+    }
+
+    const meData = await meResponse.json()
+    const trelloUserId = meData.id
+    const trelloUsername = meData.username
+
+    if (!trelloUserId || !trelloUsername) {
+      const baseUrl = "https://chainreact.app"
+      return NextResponse.redirect(`${baseUrl}/integrations?error=trello_no_user_data`)
+    }
+
+    const sessionId = cookies().get("session")?.value
+
+    if (!sessionId) {
+      const baseUrl = "https://chainreact.app"
+      return NextResponse.redirect(`${baseUrl}/integrations?error=no_session`)
+    }
+
     await db
-      .update(trelloIntegration)
-      .set({ accessToken: oauthToken, accessTokenSecret: oauthTokenSecret })
-      .where(eq(trelloIntegration.integrationId, state))
+      .insert(trelloIntegrationTable)
+      .values({
+        id: generateId(21),
+        sessionId: sessionId,
+        trelloUserId: trelloUserId,
+        trelloUsername: trelloUsername,
+        accessToken: accessToken,
+      })
+      .onConflictDoUpdate({
+        target: trelloIntegrationTable.sessionId,
+        set: {
+          trelloUserId: trelloUserId,
+          trelloUsername: trelloUsername,
+          accessToken: accessToken,
+        },
+      })
 
-    // Redirect the user back to the success page
-    return NextResponse.redirect(new URL("/integrations/success", req.url))
-  } catch (error) {
-    console.error("Trello callback error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return NextResponse.redirect(`https://chainreact.app/integrations?success=trello_connected`)
+  } catch (e) {
+    console.error(e)
+    const baseUrl = "https://chainreact.app"
+    return NextResponse.redirect(`${baseUrl}/integrations?error=trello_general_error`)
   }
 }

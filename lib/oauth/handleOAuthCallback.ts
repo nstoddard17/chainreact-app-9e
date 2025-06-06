@@ -1,41 +1,78 @@
-import { lucia } from "@/lib/auth"
-import { OAuthRequestError } from "@lucia-auth/oauth"
-import { cookies } from "next/headers"
+import { type NextRequest, NextResponse } from "next/server"
+import { getAbsoluteBaseUrl, getOAuthRedirectUri, parseOAuthState, validateSession } from "./utils"
+import type { BaseOAuthService } from "./BaseOAuthService"
 
-export async function handleOAuthCallback(provider: any, context: any) {
+export async function handleOAuthCallback(
+  request: NextRequest,
+  provider: string,
+  oauthService: typeof BaseOAuthService,
+): Promise<NextResponse> {
   try {
-    const { existingUser, providerUser, createUser } = await context.validate()
+    const { searchParams } = new URL(request.url)
+    const baseUrl = getAbsoluteBaseUrl(request)
+    const redirectUri = getOAuthRedirectUri(baseUrl, provider)
 
-    const getUser = async () => {
-      if (existingUser) return existingUser
-      const user = await createUser({
-        attributes: {
-          // whatever user information you want to store
-          email: providerUser.email,
-          email_verified: providerUser.email_verified,
-          name: providerUser.name,
-          picture: providerUser.picture,
-        },
-      })
-      return user
+    console.log(`${provider} OAuth callback - using redirect URI:`, redirectUri)
+
+    const code = searchParams.get("code")
+    const state = searchParams.get("state")
+    const error = searchParams.get("error")
+
+    // Handle OAuth errors from provider
+    if (error) {
+      console.error(`${provider} OAuth error:`, error)
+      return NextResponse.redirect(
+        `${baseUrl}/integrations?error=oauth_denied&provider=${provider}&message=${encodeURIComponent(error)}`,
+      )
     }
 
-    const user = await getUser()
-
-    const session = await lucia.createSession(user.userId, {})
-    const sessionCookie = lucia.createSessionCookie(session.id)
-    cookies().set(sessionCookie.name, sessionCookie.value, sessionCookie.attributes)
-    return
-  } catch (e) {
-    console.error(e)
-    if (e instanceof OAuthRequestError) {
-      // invalid code
-      return new Response(null, {
-        status: 400,
-      })
+    // Validate required parameters
+    if (!code || !state) {
+      console.error(`Missing code or state in ${provider} callback`)
+      return NextResponse.redirect(
+        `${baseUrl}/integrations?error=missing_params&provider=${provider}&message=Authorization+code+or+state+not+received`,
+      )
     }
-    return new Response(null, {
-      status: 500,
-    })
+
+    // Parse state to get user information
+    let stateData
+    try {
+      stateData = parseOAuthState(state)
+    } catch (error) {
+      console.error("Invalid state parameter:", error)
+      return NextResponse.redirect(
+        `${baseUrl}/integrations?error=invalid_state&provider=${provider}&message=Invalid+state+parameter`,
+      )
+    }
+
+    // Get user ID from state or session
+    let userId = stateData.userId
+
+    // If no user ID in state, validate session
+    if (!userId) {
+      userId = await validateSession(request)
+    }
+
+    // If still no user ID, redirect to error
+    if (!userId) {
+      console.error(`No user ID found in ${provider} OAuth callback`)
+      return NextResponse.redirect(
+        `${baseUrl}/integrations?error=session_error&provider=${provider}&message=Please+log+in+again`,
+      )
+    }
+
+    // Handle the OAuth callback
+    const result = await oauthService.handleCallback(code, state, redirectUri, userId)
+
+    // Redirect based on result
+    return NextResponse.redirect(result.redirectUrl)
+  } catch (error: any) {
+    console.error(`${provider} OAuth callback error:`, error)
+    const baseUrl = getAbsoluteBaseUrl(request)
+    return NextResponse.redirect(
+      `${baseUrl}/integrations?error=callback_failed&provider=${provider}&message=${encodeURIComponent(
+        error.message || "An unexpected error occurred",
+      )}`,
+    )
   }
 }
