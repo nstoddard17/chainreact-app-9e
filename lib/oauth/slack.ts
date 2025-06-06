@@ -23,9 +23,10 @@ export class SlackOAuthService extends BaseOAuthService {
     const { clientId } = this.getClientCredentials()
     const redirectUri = this.getRedirectUri()
 
-    // Bot scopes - these are for your app's bot user
+    // Required bot scopes for Slack API v2
     const botScopes = [
       "channels:read",
+      "channels:write",
       "channels:join",
       "chat:write",
       "files:write",
@@ -35,7 +36,6 @@ export class SlackOAuthService extends BaseOAuthService {
       "reactions:write",
       "team:read",
       "users:read",
-      "users:read.email",
     ]
 
     // User scopes - these are for the installing user
@@ -58,9 +58,6 @@ export class SlackOAuthService extends BaseOAuthService {
       redirect_uri: redirectUri,
       state,
     })
-
-    // Only add granular_bot_scope for newer apps that support it
-    // For most cases, the regular 'scope' parameter is sufficient
 
     return `https://slack.com/oauth/v2/authorize?${params.toString()}`
   }
@@ -97,9 +94,7 @@ export class SlackOAuthService extends BaseOAuthService {
   static async validateTokenAndGetUserInfo(accessToken: string): Promise<any> {
     // Use auth.test instead of users.identity for bot tokens
     const response = await fetch("https://slack.com/api/auth.test", {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
+      headers: { Authorization: `Bearer ${accessToken}` },
     })
 
     if (!response.ok) {
@@ -122,6 +117,6 @@ export class SlackOAuthService extends BaseOAuthService {
   }
 
   static getRequiredScopes(): string[] {
-    return ["channels:read", "chat:write", "users:read", "team:read"]
+    return ["chat:write", "channels:read", "users:read", "files:write"]
   }
 }
