@@ -191,10 +191,10 @@ export const INTEGRATION_SCOPES: Record<string, IntegrationScopeConfig> = {
       { scope: "profile", description: "Access basic profile info", required: true },
       { scope: "email", description: "Access email address", required: true },
       { scope: "offline_access", description: "Allow offline access (refresh tokens)", required: true },
-      { scope: "User.Read", description: "Read user profile", required: true },
+      // Remove User.Read as it may not be consistently granted
     ],
     components: {
-      "teams-get-user": ["User.Read"],
+      "teams-get-user": ["profile"], // Change from User.Read to profile
       "teams-get-profile": ["profile"],
     },
   },
