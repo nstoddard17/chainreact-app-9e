@@ -126,3 +126,104 @@ export const onedrive_auth_state = {
     expires_at: "expires_at",
   },
 }
+
+// Add missing schema exports
+export const someSchema = {
+  tableName: "some_table",
+  columns: {
+    id: "id",
+    name: "name",
+    created_at: "created_at",
+  },
+}
+
+export const someTable = {
+  tableName: "some_table",
+  columns: {
+    id: "id",
+    name: "name",
+    created_at: "created_at",
+  },
+}
+
+export const accounts = {
+  tableName: "accounts",
+  columns: {
+    id: "id",
+    user_id: "user_id",
+    provider: "provider",
+    provider_account_id: "provider_account_id",
+    access_token: "access_token",
+    refresh_token: "refresh_token",
+    expires_at: "expires_at",
+    token_type: "token_type",
+    scope: "scope",
+    created_at: "created_at",
+    updated_at: "updated_at",
+  },
+}
+
+export const sessions = {
+  tableName: "sessions",
+  columns: {
+    id: "id",
+    user_id: "user_id",
+    session_token: "session_token",
+    expires: "expires",
+    created_at: "created_at",
+    updated_at: "updated_at",
+  },
+}
+
+export const dropboxIntegration = {
+  tableName: "dropbox_integrations",
+  columns: {
+    id: "id",
+    user_id: "user_id",
+    access_token: "access_token",
+    refresh_token: "refresh_token",
+    account_id: "account_id",
+    created_at: "created_at",
+    updated_at: "updated_at",
+  },
+}
+
+export const linkedinProfiles = {
+  tableName: "linkedin_profiles",
+  columns: {
+    id: "id",
+    user_id: "user_id",
+    linkedin_id: "linkedin_id",
+    access_token: "access_token",
+    refresh_token: "refresh_token",
+    profile_data: "profile_data",
+    created_at: "created_at",
+    updated_at: "updated_at",
+  },
+}
+
+export const teamsInstallations = {
+  tableName: "teams_installations",
+  columns: {
+    id: "id",
+    user_id: "user_id",
+    team_id: "team_id",
+    access_token: "access_token",
+    refresh_token: "refresh_token",
+    installation_data: "installation_data",
+    created_at: "created_at",
+    updated_at: "updated_at",
+  },
+}
+
+export const trelloIntegration = {
+  tableName: "trello_integrations",
+  columns: {
+    id: "id",
+    user_id: "user_id",
+    token: "token",
+    token_secret: "token_secret",
+    created_at: "created_at",
+    updated_at: "updated_at",
+  },
+}

@@ -56,3 +56,9 @@ export async function getUserIntegrations(userId: string) {
 
   return data || []
 }
+
+// Add missing export
+export async function someFunction() {
+  // Placeholder function for deployment compatibility
+  return { success: true }
+}

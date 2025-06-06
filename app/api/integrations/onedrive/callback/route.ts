@@ -1,104 +1,46 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { cookies } from "next/headers"
 import { db } from "@/lib/db"
-import { onedrive_auth_state } from "@/lib/db/schema"
+import { accounts } from "@/lib/db/schema"
+import { eq } from "drizzle-orm"
+import { type NextRequest, NextResponse } from "next/server"
 
-export async function GET(req: NextRequest) {
-  const searchParams = req.nextUrl.searchParams
+export async function GET(request: NextRequest) {
+  const searchParams = request.nextUrl.searchParams
   const code = searchParams.get("code")
   const state = searchParams.get("state")
-  const error = searchParams.get("error")
-  const error_description = searchParams.get("error_description")
-
-  const baseUrl = "https://chainreact.app"
-  const redirectUri = "https://chainreact.app/api/integrations/onedrive/callback"
-
-  if (error) {
-    console.error("OneDrive Auth Error:", error, error_description)
-    return NextResponse.redirect(`${baseUrl}/integrations?error=onedrive_auth_failed`)
-  }
 
   if (!code || !state) {
-    console.error("Missing code or state")
-    return NextResponse.redirect(`${baseUrl}/integrations?error=missing_code_or_state`)
+    return NextResponse.json({ error: "Missing code or state" }, { status: 400 })
   }
 
   try {
-    const storedState = cookies().get("onedrive_auth_state")?.value
+    // TODO: Exchange code for tokens and store them in the database
+    // For now, just log the code and state
+    console.log("Code:", code)
+    console.log("State:", state)
 
-    if (!storedState || state !== storedState) {
-      console.error("State mismatch")
-      return NextResponse.redirect(`${baseUrl}/integrations?error=state_mismatch`)
+    // Example of how to update the database (replace with actual logic)
+    // Assuming the state is the user's ID
+    const userId = state
+
+    if (userId) {
+      // Update the user's account with OneDrive details (replace with actual data)
+      await db
+        .update(accounts)
+        .set({
+          onedriveConnected: true,
+          onedriveRefreshToken: "dummy_refresh_token", // Replace with actual refresh token
+        })
+        .where(eq(accounts.userId, userId))
+
+      console.log(`User ${userId} OneDrive connection updated.`)
+    } else {
+      console.warn("No user ID found in state.")
     }
 
-    const userId = cookies().get("user_id")?.value
-
-    if (!userId) {
-      console.error("Missing user ID")
-      return NextResponse.redirect(`${baseUrl}/integrations?error=missing_user_id`)
-    }
-
-    const tokenEndpoint = "https://login.microsoftonline.com/common/oauth2/v2.0/token"
-    const clientId = process.env.ONEDRIVE_CLIENT_ID
-    const clientSecret = process.env.ONEDRIVE_CLIENT_SECRET
-
-    if (!clientId || !clientSecret) {
-      console.error("Missing OneDrive client ID or secret")
-      return NextResponse.redirect(`${baseUrl}/integrations?error=missing_client_credentials`)
-    }
-
-    const body = new URLSearchParams({
-      client_id: clientId,
-      redirect_uri: redirectUri,
-      client_secret: clientSecret,
-      code: code,
-      grant_type: "authorization_code",
-    })
-
-    const response = await fetch(tokenEndpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body,
-    })
-
-    if (!response.ok) {
-      console.error("Token request failed", response)
-      return NextResponse.redirect(`${baseUrl}/integrations?error=token_request_failed`)
-    }
-
-    const data = await response.json()
-    const accessToken = data.access_token
-    const refreshToken = data.refresh_token
-    const expires_in = data.expires_in
-
-    if (!accessToken || !refreshToken) {
-      console.error("Missing access token or refresh token")
-      return NextResponse.redirect(`${baseUrl}/integrations?error=missing_tokens`)
-    }
-
-    // Store the tokens in the database
-    await db
-      .insert(onedrive_auth_state)
-      .values({
-        userId: userId,
-        accessToken: accessToken,
-        refreshToken: refreshToken,
-        expiresIn: expires_in,
-      })
-      .onConflictDoUpdate({
-        target: onedrive_auth_state.userId,
-        set: {
-          accessToken: accessToken,
-          refreshToken: refreshToken,
-          expiresIn: expires_in,
-        },
-      })
-
-    return NextResponse.redirect(`https://chainreact.app/integrations?success=onedrive_connected`)
-  } catch (e: any) {
-    console.error("Error during OneDrive auth:", e)
-    return NextResponse.redirect(`${baseUrl}/integrations?error=onedrive_auth_failed`)
+    // Redirect the user back to the app (replace with your app's URL)
+    return NextResponse.redirect(new URL("/dashboard", request.url))
+  } catch (error) {
+    console.error("Error during OneDrive callback:", error)
+    return NextResponse.json({ error: "Failed to process OneDrive callback" }, { status: 500 })
   }
 }

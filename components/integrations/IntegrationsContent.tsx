@@ -1,8 +1,10 @@
-const IntegrationsContent = () => {
+import type React from "react"
+
+const IntegrationsContent: React.FC = () => {
   return (
     <div>
-      <h1>Integrations Content</h1>
-      {/* Your integrations content here */}
+      <h1>Integrations</h1>
+      <p>This page will display available integrations.</p>
     </div>
   )
 }

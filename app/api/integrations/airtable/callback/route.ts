@@ -1,91 +1,94 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { cookies } from "next/headers"
+import { db } from "@/lib/db"
+import { accounts, integrations } from "@/lib/db/schema"
+import { eq } from "drizzle-orm"
 
 export async function GET(request: NextRequest) {
+  const searchParams = request.nextUrl.searchParams
+  const code = searchParams.get("code")
+  const state = searchParams.get("state")
+
+  if (!code || !state) {
+    return NextResponse.json({ error: "Missing code or state" }, { status: 400 })
+  }
+
   try {
-    const { searchParams } = new URL(request.url)
-    const code = searchParams.get("code")
-    const state = searchParams.get("state")
+    // Fetch integration details from the database using the state
+    const integrationDetails = await db.select().from(integrations).where(eq(integrations.id, state))
 
-    if (!code) {
-      const error = searchParams.get("error")
-      const error_description = searchParams.get("error_description")
-      console.error("Airtable OAuth Error:", error, error_description)
-      const baseUrl = "https://chainreact.app"
-      return NextResponse.redirect(`${baseUrl}/integrations?error=airtable_auth_failed`)
+    if (!integrationDetails || integrationDetails.length === 0) {
+      return NextResponse.json({ error: "Invalid state" }, { status: 400 })
     }
 
-    if (!state) {
-      console.error("Missing state parameter")
-      const baseUrl = "https://chainreact.app"
-      return NextResponse.redirect(`${baseUrl}/integrations?error=missing_state`)
-    }
+    const integration = integrationDetails[0]
 
-    const storedState = cookies().get("airtable_oauth_state")?.value
-
-    if (state !== storedState) {
-      console.error("State mismatch")
-      const baseUrl = "https://chainreact.app"
-      return NextResponse.redirect(`${baseUrl}/integrations?error=state_mismatch`)
-    }
-
-    cookies().delete("airtable_oauth_state")
-
-    const redirectUri = "https://chainreact.app/api/integrations/airtable/callback"
+    // Exchange the code for an access token using Airtable's API
+    const tokenEndpoint = "https://airtable.com/oauth2/token"
     const clientId = process.env.AIRTABLE_CLIENT_ID
     const clientSecret = process.env.AIRTABLE_CLIENT_SECRET
+    const redirectUri = process.env.NEXT_PUBLIC_AIRTABLE_REDIRECT_URI
 
-    if (!clientId || !clientSecret) {
-      console.error("Missing Airtable client ID or secret")
-      const baseUrl = "https://chainreact.app"
-      return NextResponse.redirect(`${baseUrl}/integrations?error=missing_credentials`)
+    if (!clientId || !clientSecret || !redirectUri) {
+      console.error("Missing Airtable environment variables")
+      return NextResponse.json({ error: "Missing Airtable environment variables" }, { status: 500 })
     }
 
-    const tokenEndpoint = "https://airtable.com/oauth/v2/token"
+    const tokenParams = new URLSearchParams()
+    tokenParams.append("grant_type", "authorization_code")
+    tokenParams.append("code", code)
+    tokenParams.append("redirect_uri", redirectUri)
+    tokenParams.append("client_id", clientId)
+    tokenParams.append("client_secret", clientSecret)
 
-    const params = new URLSearchParams({
-      grant_type: "authorization_code",
-      code: code,
-      redirect_uri: redirectUri,
-    })
-
-    const authString = `${clientId}:${clientSecret}`
-    const encodedAuth = Buffer.from(authString).toString("base64")
-
-    const response = await fetch(tokenEndpoint, {
+    const tokenResponse = await fetch(tokenEndpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
-        Authorization: `Basic ${encodedAuth}`,
       },
-      body: params,
+      body: tokenParams,
     })
 
-    if (!response.ok) {
-      console.error("Failed to retrieve Airtable access token", response.status, await response.text())
-      const baseUrl = "https://chainreact.app"
-      return NextResponse.redirect(`${baseUrl}/integrations?error=token_retrieval_failed`)
+    if (!tokenResponse.ok) {
+      console.error("Airtable token exchange failed:", tokenResponse.status, await tokenResponse.text())
+      return NextResponse.json({ error: "Airtable token exchange failed" }, { status: 500 })
     }
 
-    const data = await response.json()
-    const accessToken = data.access_token
+    const tokenData = await tokenResponse.json()
+    const accessToken = tokenData.access_token
+    const refreshToken = tokenData.refresh_token
 
     if (!accessToken) {
-      console.error("Missing access token in response")
-      const baseUrl = "https://chainreact.app"
-      return NextResponse.redirect(`${baseUrl}/integrations?error=missing_access_token`)
+      console.error("Missing access token from Airtable")
+      return NextResponse.json({ error: "Missing access token from Airtable" }, { status: 500 })
     }
 
-    cookies().set("airtable_access_token", accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
-    })
+    // Store the access token and other relevant data in your database, associated with the user and integration
+    // Assuming you have a table named 'accounts' to store user-specific data
+    // and you want to associate the Airtable access token with a specific account.
 
-    return NextResponse.redirect(`https://chainreact.app/integrations?success=airtable_connected`)
+    // For simplicity, let's assume you have the account ID available.  In a real application,
+    // you would likely retrieve the account ID based on the user's session or authentication context.
+    const accountId = integration.accountId // Replace with the actual account ID retrieval logic
+
+    if (!accountId) {
+      console.error("Missing account ID")
+      return NextResponse.json({ error: "Missing account ID" }, { status: 500 })
+    }
+
+    // Update the account with the Airtable access token
+    await db
+      .update(accounts)
+      .set({
+        airtableAccessToken: accessToken,
+        airtableRefreshToken: refreshToken,
+      })
+      .where(eq(accounts.id, accountId))
+
+    // Redirect the user to a success page or back to your application
+    const successRedirectUrl = `/integrations/success?integrationId=${integration.id}` // Replace with your actual success page URL
+    return NextResponse.redirect(new URL(successRedirectUrl, request.url))
   } catch (error) {
-    console.error("Airtable OAuth Callback Error:", error)
-    const baseUrl = "https://chainreact.app"
-    return NextResponse.redirect(`${baseUrl}/integrations?error=airtable_callback_error`)
+    console.error("Error during Airtable callback:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

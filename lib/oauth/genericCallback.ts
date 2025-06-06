@@ -1,79 +1,135 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { createClient } from "@supabase/supabase-js"
-import { parseOAuthState } from "./utils"
+// lib/oauth/genericCallback.ts
 
-const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false,
-  },
-})
+// This file will contain the generic callback logic for OAuth providers.
+// It will handle tasks like:
+// 1. Verifying the state parameter.
+// 2. Exchanging the authorization code for an access token.
+// 3. Fetching user profile information from the provider.
+// 4. Creating or updating the user in the database.
+// 5. Creating a session for the user.
+// 6. Redirecting the user to the appropriate page.
 
-export async function handleGenericOAuthCallback(request: NextRequest, provider: string, oauthService: any) {
+import { db } from "@/lib/db"
+import { accounts, sessions, users } from "@/lib/db/schema"
+import { generateId } from "lucia"
+import { OAuth2RequestError } from "arctic"
+import { eq } from "drizzle-orm"
+import { cookies } from "next/headers"
+import { lucia } from "@/lib/auth"
+
+export async function genericCallback(
+  providerName: string,
+  clientId: string,
+  clientSecret: string,
+  redirectUri: string,
+  code: string,
+  state: string,
+  expectedState: string,
+  getUser: (accessToken: string) => Promise<{
+    userId: string
+    email: string
+    name: string
+  }>,
+) {
+  if (state !== expectedState) {
+    throw new Error("Invalid state")
+  }
+
   try {
-    const { searchParams } = new URL(request.url)
-    const code = searchParams.get("code")
-    const state = searchParams.get("state")
-    const error = searchParams.get("error")
+    const tokens = await exchangeCode(code, clientId, clientSecret, redirectUri)
+    const userProfile = await getUser(tokens.accessToken)
 
-    console.log(`${provider} OAuth callback received:`, { code: !!code, state: !!state, error })
+    const existingUser = await db.query.users.findFirst({
+      where: eq(users.email, userProfile.email),
+    })
 
-    if (error) {
-      console.error(`${provider} OAuth error:`, error)
-      const baseUrl = new URL(request.url).origin
-      return NextResponse.redirect(
-        new URL(`/integrations?error=oauth_denied&provider=${provider}&message=${encodeURIComponent(error)}`, baseUrl),
-      )
+    if (existingUser) {
+      // User exists, create a session for them
+      const sessionId = generateId(40)
+      await db.insert(sessions).values({
+        id: sessionId,
+        userId: existingUser.id,
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+      })
+
+      const sessionCookie = lucia.createSessionCookie(sessionId)
+      cookies().set(sessionCookie.name, sessionCookie.value, sessionCookie.attributes)
+      return
     }
 
-    if (!code || !state) {
-      console.error(`Missing code or state in ${provider} OAuth callback`)
-      const baseUrl = new URL(request.url).origin
-      return NextResponse.redirect(new URL(`/integrations?error=missing_params&provider=${provider}`, baseUrl))
+    // User does not exist, create a new user and account
+    const userId = generateId(15)
+    await db.insert(users).values({
+      id: userId,
+      email: userProfile.email,
+      name: userProfile.name,
+    })
+
+    await db.insert(accounts).values({
+      userId: userId,
+      provider: providerName,
+      providerAccountId: userProfile.userId,
+    })
+
+    const sessionId = generateId(40)
+    await db.insert(sessions).values({
+      id: sessionId,
+      userId: userId,
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+    })
+
+    const sessionCookie = lucia.createSessionCookie(sessionId)
+    cookies().set(sessionCookie.name, sessionCookie.value, sessionCookie.attributes)
+  } catch (e) {
+    console.error("OAuth callback error:", e)
+    if (e instanceof OAuth2RequestError) {
+      // invalid code, invalid redirect URI, or invalid client
+      return new Response(null, {
+        status: 400,
+      })
     }
+    return new Response(null, {
+      status: 500,
+    })
+  }
+}
 
-    // Parse state to get user information
-    let stateData
-    try {
-      stateData = parseOAuthState(state)
-    } catch (error) {
-      console.error("Invalid state parameter:", error)
-      const baseUrl = new URL(request.url).origin
-      return NextResponse.redirect(new URL(`/integrations?error=invalid_state&provider=${provider}`, baseUrl))
-    }
+async function exchangeCode(
+  code: string,
+  clientId: string,
+  clientSecret: string,
+  redirectUri: string,
+): Promise<{ accessToken: string; refreshToken: string | null }> {
+  const tokenEndpoint = "https://example.com/oauth/token" // Replace with actual token endpoint
 
-    // Get user session to determine user_id
-    let userId = stateData.userId
+  const response = await fetch(tokenEndpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      code,
+      redirect_uri: redirectUri,
+      grant_type: "authorization_code",
+    }),
+  })
 
-    if (!userId) {
-      // Try to get user from session if not in state
-      const sessionCookie = request.cookies.get("sb-access-token")?.value
-      if (sessionCookie) {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser(sessionCookie)
-        userId = user?.id
-      }
-    }
+  if (!response.ok) {
+    console.error("Token exchange failed:", response.status, response.statusText)
+    throw new Error(`Token exchange failed: ${response.status} ${response.statusText}`)
+  }
 
-    if (!userId) {
-      console.error(`No user ID found in ${provider} OAuth callback`)
-      const baseUrl = new URL(request.url).origin
-      return NextResponse.redirect(new URL(`/integrations?error=no_user&provider=${provider}`, baseUrl))
-    }
+  const tokens = await response.json()
 
-    // Handle the OAuth callback
-    const result = await oauthService.handleCallback(code, state, supabase, userId)
+  if (!tokens.access_token) {
+    console.error("Missing access token in response:", tokens)
+    throw new Error("Missing access token in response")
+  }
 
-    return NextResponse.redirect(new URL(result.redirectUrl))
-  } catch (error: any) {
-    console.error(`${provider} OAuth callback error:`, error)
-    const baseUrl = new URL(request.url).origin
-    return NextResponse.redirect(
-      new URL(
-        `/integrations?error=callback_failed&provider=${provider}&message=${encodeURIComponent(error.message)}`,
-        baseUrl,
-      ),
-    )
+  return {
+    accessToken: tokens.access_token,
+    refreshToken: tokens.refresh_token || null,
   }
 }

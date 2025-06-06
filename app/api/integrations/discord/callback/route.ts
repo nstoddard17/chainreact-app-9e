@@ -1,88 +1,63 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { cookies } from "next/headers"
-import { Lucia } from "lucia"
 import { db } from "@/lib/db"
-import { Discord } from "arctic"
+import { accounts } from "@/lib/db/schema"
+import { discord } from "@/lib/discord"
+import { type NextRequest, NextResponse } from "next/server"
+import { getSession } from "next-auth/react"
 
-const discord = new Discord(
-  process.env.DISCORD_CLIENT_ID!,
-  process.env.DISCORD_CLIENT_SECRET!,
-  "https://chainreact.app/api/integrations/discord/callback", // Hardcoded redirect URI
-)
+export async function GET(req: NextRequest) {
+  const code = req.nextUrl.searchParams.get("code")
+  const state = req.nextUrl.searchParams.get("state")
 
-const baseUrl = "https://chainreact.app" // Hardcoded base URL
+  if (!code) {
+    return NextResponse.json({ error: "No code provided" }, { status: 400 })
+  }
 
-export const GET = async (request: NextRequest): Promise<NextResponse> => {
-  const url = new URL(request.url)
-  const code = url.searchParams.get("code")
-  const state = url.searchParams.get("state")
-  const storedState = cookies().get("discord_oauth_state")?.value ?? null
-
-  if (!code || !state || !storedState || state !== storedState) {
-    return NextResponse.redirect(`${baseUrl}/integrations?error=invalid_state`) // Hardcoded base URL
+  if (!state) {
+    return NextResponse.json({ error: "No state provided" }, { status: 400 })
   }
 
   try {
-    const tokens = await discord.getTokens(code)
-    const discordUser = await discord.getUser(tokens.accessToken)
+    const tokenResponse = await discord.getToken(code)
+    const discordUser = await discord.getUser(tokenResponse.access_token)
 
-    const existingUserIntegration = await db.userIntegration.findUnique({
-      where: {
-        providerId_userId: {
-          providerId: discordUser.id,
-          userId: "discord",
-        },
-      },
+    const existingAccount = await db.query.accounts.findFirst({
+      where: (accounts, { eq }) => eq(accounts.providerAccountId, discordUser.id),
     })
 
-    if (existingUserIntegration) {
-      return NextResponse.redirect(`${baseUrl}/integrations?error=discord_already_connected`) // Hardcoded base URL
+    if (existingAccount) {
+      // Account exists, return success
+      return NextResponse.json({ success: true })
     }
 
-    const sessionId = cookies().get("session")?.value
+    const session = await getSession()
 
-    if (!sessionId) {
-      return NextResponse.redirect(`${baseUrl}/login?error=no_session`) // Hardcoded base URL
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: "No session found" }, { status: 401 })
     }
 
-    // Assuming you have a Lucia instance initialized elsewhere
-    // and a way to get the user ID from the session ID
-    // Replace this with your actual Lucia setup
-    const lucia = new Lucia(null as any, {
-      // Replace null as any with your adapter
-      sessionCookie: {
-        attributes: {
-          secure: process.env.NODE_ENV === "production",
-        },
-      },
-      getUserAttributes: (attributes) => {
-        return attributes
-      },
+    const existingUser = await db.query.users.findFirst({
+      where: (users, { eq }) => eq(users.email, session.user.email!),
     })
 
-    const { user } = await lucia.validateSession(sessionId)
-
-    if (!user) {
-      return NextResponse.redirect(`${baseUrl}/login?error=invalid_session`) // Hardcoded base URL
+    if (!existingUser) {
+      return NextResponse.json({ error: "No user found" }, { status: 404 })
     }
 
-    await db.userIntegration.create({
-      data: {
-        userId: "discord",
-        providerId: discordUser.id,
-        accessToken: tokens.accessToken,
-        refreshToken: tokens.refreshToken,
-        user: {
-          connect: {
-            id: user.id,
-          },
-        },
-      },
+    await db.insert(accounts).values({
+      userId: existingUser.id,
+      type: "oauth",
+      provider: "discord",
+      providerAccountId: discordUser.id,
+      access_token: tokenResponse.access_token,
+      expires_at: tokenResponse.expires_in ? Math.floor(Date.now() / 1000 + tokenResponse.expires_in) : null,
+      token_type: tokenResponse.token_type,
+      scope: tokenResponse.scope,
+      refresh_token: tokenResponse.refresh_token,
     })
 
-    return NextResponse.redirect(`https://chainreact.app/integrations?success=discord_connected`) // Hardcoded base URL
-  } catch (e) {
-    console.error(e)
-    return NextResponse.redirect(`${baseUrl}/integrations?error=discord_connection_failed`) // Hardcoded base URL
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error("Discord callback error:", error)
+    return NextResponse.json({ error: "Failed to authenticate with Discord" }, { status: 500 })
   }
 }
