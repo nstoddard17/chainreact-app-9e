@@ -502,7 +502,19 @@ export async function GET(request: NextRequest) {
           case "google-docs":
           case "gmail":
           case "youtube":
-            verificationResult = await verifyGoogleToken(accessToken)
+            // For Google services, look for the main "google" integration
+            const googleIntegration = integrations?.find((int) => int.provider === "google")
+            if (googleIntegration?.metadata?.access_token || googleIntegration?.access_token) {
+              const googleToken = googleIntegration.metadata?.access_token || googleIntegration.access_token
+              verificationResult = await verifyGoogleToken(googleToken)
+            } else {
+              // If no main Google integration, this service is not connected
+              verificationResult = {
+                valid: false,
+                scopes: [],
+                error: "No Google integration found - connect Google first",
+              }
+            }
             break
           case "teams":
           case "onedrive":
@@ -533,6 +545,18 @@ export async function GET(request: NextRequest) {
         tokenValid = false
         grantedScopes = metadata?.scopes || integration.scopes || []
         errorMessage = "No access token found"
+      }
+
+      // For Google services, use the main Google integration data
+      if (provider.startsWith("google") || provider === "gmail" || provider === "youtube") {
+        const googleIntegration = integrations?.find((int) => int.provider === "google")
+        if (googleIntegration) {
+          const diagnostic = analyzeIntegration(googleIntegration, tokenValid, grantedScopes, errorMessage)
+          // Override the provider to match the specific service
+          diagnostic.provider = provider
+          diagnostics.push(diagnostic)
+          continue
+        }
       }
 
       const diagnostic = analyzeIntegration(integration, tokenValid, grantedScopes, errorMessage)
