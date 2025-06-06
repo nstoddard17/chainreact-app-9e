@@ -1,15 +1,7 @@
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
-import type { Database } from "@/types/supabase"
+```ts file="lib/db-exports.ts"
+[v0-no-op-code-block-prefix]
 
-// Create a client
-const createBrowserClient = () => {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  return createClientComponentClient<Database>({
-    supabaseUrl,
-    supabaseKey: supabaseAnonKey,
-  })
-}
+``\`ts file="lib/db/schema-exports.ts"
+[v0-no-op-code-block-prefix]
 
-// Create and export the supabase client
-export const supabase = typeof window !== "undefined" ? createBrowserClient() : null
+Now let me fix the main files with proper exports:

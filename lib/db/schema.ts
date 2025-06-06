@@ -1,6 +1,3 @@
-// Re-export from schema-exports
-export { users, trelloIntegrationTable } from "./schema-exports"
-
 export interface OAuthAccount {
   id: string
   user_id: string
@@ -92,6 +89,30 @@ export interface Template {
   created_by: string
   created_at: string
   updated_at: string
+}
+
+// Schema definitions for required exports
+export const users = {
+  tableName: "users",
+  columns: {
+    id: "id",
+    email: "email",
+    name: "name",
+    created_at: "created_at",
+    updated_at: "updated_at",
+  },
+}
+
+export const trelloIntegrationTable = {
+  tableName: "trello_integrations",
+  columns: {
+    id: "id",
+    user_id: "user_id",
+    token: "token",
+    token_secret: "token_secret",
+    created_at: "created_at",
+    updated_at: "updated_at",
+  },
 }
 
 export const onedrive_auth_state = {

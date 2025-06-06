@@ -6,9 +6,3 @@ export function createClient() {
   const cookieStore = cookies()
   return createServerComponentClient<Database>({ cookies: () => cookieStore })
 }
-
-// Alternative server client for API routes
-export async function createServerClient() {
-  const cookieStore = cookies()
-  return createServerComponentClient<Database>({ cookies: () => cookieStore })
-}
