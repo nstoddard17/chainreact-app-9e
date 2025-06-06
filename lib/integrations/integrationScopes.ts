@@ -47,6 +47,11 @@ export const INTEGRATION_SCOPES: Record<string, IntegrationScopeConfig> = {
         required: false,
       },
       {
+        scope: "https://www.googleapis.com/auth/gmail.readonly",
+        description: "Read emails",
+        required: false,
+      },
+      {
         scope: "https://www.googleapis.com/auth/gmail.modify",
         description: "Read and modify emails",
         required: false,
@@ -76,35 +81,10 @@ export const INTEGRATION_SCOPES: Record<string, IntegrationScopeConfig> = {
         description: "View and edit Google Sheets",
         required: false,
       },
-      {
-        scope: "https://www.googleapis.com/auth/documents",
-        description: "View and edit Google Docs",
-        required: false,
-      },
-      // YouTube scopes
-      {
-        scope: "https://www.googleapis.com/auth/youtube",
-        description: "Manage your YouTube account",
-        required: false,
-      },
-      {
-        scope: "https://www.googleapis.com/auth/youtube.upload",
-        description: "Upload videos to your YouTube channel",
-        required: false,
-      },
-      {
-        scope: "https://www.googleapis.com/auth/youtubepartner",
-        description: "View and manage your assets and associated content on YouTube",
-        required: false,
-      },
-      {
-        scope: "https://www.googleapis.com/auth/youtube.force-ssl",
-        description: "See, edit, and permanently delete your YouTube videos, ratings, comments and captions",
-        required: false,
-      },
     ],
     components: {
       "gmail-send-email": ["https://www.googleapis.com/auth/gmail.send"],
+      "gmail-read-emails": ["https://www.googleapis.com/auth/gmail.readonly"],
       "gmail-modify-emails": ["https://www.googleapis.com/auth/gmail.modify"],
       "drive-upload-file": ["https://www.googleapis.com/auth/drive.file"],
       "drive-full-access": ["https://www.googleapis.com/auth/drive"],
@@ -112,12 +92,6 @@ export const INTEGRATION_SCOPES: Record<string, IntegrationScopeConfig> = {
       "calendar-create-event": ["https://www.googleapis.com/auth/calendar.events"],
       "sheets-read-data": ["https://www.googleapis.com/auth/spreadsheets"],
       "sheets-write-data": ["https://www.googleapis.com/auth/spreadsheets"],
-      "docs-read-data": ["https://www.googleapis.com/auth/documents"],
-      "docs-write-data": ["https://www.googleapis.com/auth/documents"],
-      "youtube-upload-video": ["https://www.googleapis.com/auth/youtube.upload"],
-      "youtube-manage-account": ["https://www.googleapis.com/auth/youtube"],
-      "youtube-manage-content": ["https://www.googleapis.com/auth/youtube.force-ssl"],
-      "youtube-partner-content": ["https://www.googleapis.com/auth/youtubepartner"],
     },
   },
   discord: {
@@ -219,15 +193,11 @@ export const INTEGRATION_SCOPES: Record<string, IntegrationScopeConfig> = {
       { scope: "ChannelMessage.Send", description: "Send messages in channels", required: false },
       { scope: "Chat.ReadWrite", description: "Read and write chat messages", required: false },
       { scope: "Team.ReadBasic.All", description: "Read basic info about teams", required: false },
-      { scope: "OnlineMeetings.ReadWrite", description: "Create and manage online meetings", required: false },
-      { scope: "Calendars.ReadWrite", description: "Read and write calendar events", required: false },
     ],
     components: {
       "teams-send-message": ["ChannelMessage.Send"],
       "teams-read-write-chat": ["Chat.ReadWrite"],
       "teams-get-teams": ["Team.ReadBasic.All"],
-      "teams-create-meeting": ["OnlineMeetings.ReadWrite"],
-      "teams-manage-calendar": ["Calendars.ReadWrite"],
     },
   },
   trello: {
@@ -258,6 +228,25 @@ export const INTEGRATION_SCOPES: Record<string, IntegrationScopeConfig> = {
       "facebook-post-to-page": ["pages_manage_posts"],
       "facebook-read-page-engagement": ["pages_read_engagement"],
       "facebook-get-pages": ["pages_show_list"],
+    },
+  },
+  youtube: {
+    provider: "youtube",
+    scopes: [
+      {
+        scope: "https://www.googleapis.com/auth/youtube.upload",
+        description: "Upload videos to your YouTube channel",
+        required: true,
+      },
+      {
+        scope: "https://www.googleapis.com/auth/youtube.readonly",
+        description: "View your YouTube account",
+        required: false,
+      },
+    ],
+    components: {
+      "youtube-upload-video": ["https://www.googleapis.com/auth/youtube.upload"],
+      "youtube-get-channel": ["https://www.googleapis.com/auth/youtube.readonly"],
     },
   },
   mailchimp: {
@@ -422,7 +411,6 @@ export function generateOAuthUrlWithScopes(provider: string, baseUrl: string, st
     case "google-sheets":
     case "google-docs":
     case "youtube":
-    case "google":
       if (process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) {
         const scopesParam = allScopes.join(" ")
         return `https://accounts.google.com/o/oauth2/v2/auth?client_id=${

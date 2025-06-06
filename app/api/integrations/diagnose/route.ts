@@ -55,12 +55,6 @@ const COMPONENT_SCOPE_MAPPING = {
   gmail_send: { scopes: ["https://www.googleapis.com/auth/gmail.send"], provider: "gmail" },
   gmail_modify: { scopes: ["https://www.googleapis.com/auth/gmail.modify"], provider: "gmail" },
 
-  // YouTube components
-  youtube_upload: { scopes: ["https://www.googleapis.com/auth/youtube.upload"], provider: "youtube" },
-  youtube_manage: { scopes: ["https://www.googleapis.com/auth/youtube"], provider: "youtube" },
-  youtube_partner: { scopes: ["https://www.googleapis.com/auth/youtubepartner"], provider: "youtube" },
-  youtube_force_ssl: { scopes: ["https://www.googleapis.com/auth/youtube.force-ssl"], provider: "youtube" },
-
   // GitHub components
   github_create_issue: { scopes: ["repo"], provider: "github" },
   github_create_pr: { scopes: ["repo"], provider: "github" },
@@ -154,7 +148,7 @@ async function verifyMicrosoftToken(
       scopes.push("Calendars.ReadWrite")
     }
 
-    // Test online meetings
+    // Test online meetings - this might require different permissions
     const meetingsResponse = await fetch("https://graph.microsoft.com/v1.0/me/onlineMeetings", {
       headers: { Authorization: `Bearer ${accessToken}` },
     })
@@ -303,46 +297,6 @@ function analyzeIntegration(
   // Get the scopes we actually request for this provider
   const requestedScopes = getAllScopes(provider)
 
-  // Filter granted scopes to only show relevant ones for this provider
-  let filteredGrantedScopes = grantedScopes
-
-  if (provider !== "google") {
-    // For specific Google services, only show scopes relevant to that service
-    switch (provider) {
-      case "youtube":
-        filteredGrantedScopes = grantedScopes.filter((scope) => scope.includes("youtube") || scope.includes("userinfo"))
-        break
-      case "gmail":
-        filteredGrantedScopes = grantedScopes.filter((scope) => scope.includes("gmail") || scope.includes("userinfo"))
-        break
-      case "google-calendar":
-        filteredGrantedScopes = grantedScopes.filter(
-          (scope) => scope.includes("calendar") || scope.includes("userinfo"),
-        )
-        break
-      case "google-sheets":
-        filteredGrantedScopes = grantedScopes.filter(
-          (scope) => scope.includes("spreadsheets") || scope.includes("userinfo"),
-        )
-        break
-      case "google-docs":
-        filteredGrantedScopes = grantedScopes.filter(
-          (scope) => scope.includes("documents") || scope.includes("userinfo"),
-        )
-        break
-      case "slack":
-        filteredGrantedScopes = grantedScopes.filter((scope) => !scope.includes("googleapis.com"))
-        break
-      case "teams":
-      case "onedrive":
-        filteredGrantedScopes = grantedScopes.filter((scope) => !scope.includes("googleapis.com"))
-        break
-      default:
-        // For other providers, show all granted scopes
-        filteredGrantedScopes = grantedScopes
-    }
-  }
-
   // Get all components for this provider
   const providerComponents = Object.entries(COMPONENT_SCOPE_MAPPING).filter(
     ([_, config]) => config.provider === provider,
@@ -460,7 +414,7 @@ function analyzeIntegration(
 
   // Add specific recommendations based on missing scopes
   if (missingScopes.length > 0) {
-    if (provider.startsWith("google") || provider === "youtube") {
+    if (provider.startsWith("google")) {
       recommendations.push("When reconnecting, ensure you grant all requested Google permissions")
     } else if (provider === "slack") {
       recommendations.push("Ensure your Slack app has the required scopes configured")
@@ -478,7 +432,7 @@ function analyzeIntegration(
     provider,
     status,
     tokenValid,
-    grantedScopes: filteredGrantedScopes, // Use filtered scopes here
+    grantedScopes,
     requiredScopes: scopesToCheck, // Only show scopes we actually request
     missingScopes,
     availableComponents,
