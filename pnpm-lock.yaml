@@ -10,7 +10,7 @@ importers:
     dependencies:
       '@ai-sdk/openai':
         specifier: latest
-        version: 1.3.22(zod@3.25.55)
+        version: 1.3.22(zod@3.25.53)
       '@aws-sdk/client-rds-data':
         specifier: latest
         version: 3.825.0
@@ -31,7 +31,7 @@ importers:
         version: 0.15.8
       '@neondatabase/serverless':
         specifier: latest
-        version: 1.0.1
+        version: 1.0.0
       '@op-engineering/op-sqlite':
         specifier: latest
         version: 14.0.3(react-native@0.79.3(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0)
@@ -130,13 +130,10 @@ importers:
         version: 7.9.2
       '@supabase/auth-helpers-nextjs':
         specifier: latest
-        version: 0.10.0(@supabase/supabase-js@2.50.0(bufferutil@4.0.9))
-      '@supabase/ssr':
-        specifier: latest
-        version: 0.6.1(@supabase/supabase-js@2.50.0(bufferutil@4.0.9))
+        version: 0.10.0(@supabase/supabase-js@2.49.10(bufferutil@4.0.9))
       '@supabase/supabase-js':
         specifier: latest
-        version: 2.50.0(bufferutil@4.0.9)
+        version: 2.49.10(bufferutil@4.0.9)
       '@tidbcloud/serverless':
         specifier: latest
         version: 0.2.0
@@ -163,7 +160,7 @@ importers:
         version: 12.6.4(@types/react@19.0.0)(immer@10.1.1)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       ai:
         specifier: latest
-        version: 4.3.16(react@19.0.0)(zod@3.25.55)
+        version: 4.3.16(react@19.0.0)(zod@3.25.53)
       autoprefixer:
         specifier: ^10.4.20
         version: 10.4.20(postcss@8.5.0)
@@ -190,7 +187,7 @@ importers:
         version: 4.1.0
       drizzle-orm:
         specifier: latest
-        version: 0.44.2(0d37056fd471a0d7e978c950a1488131)
+        version: 0.44.2(f006040528fb8743c573cb6e9786640a)
       embla-carousel-react:
         specifier: 8.5.1
         version: 8.5.1(react@19.0.0)
@@ -226,7 +223,7 @@ importers:
         version: 0.4.4(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       openai:
         specifier: latest
-        version: 5.1.1(ws@8.18.2(bufferutil@4.0.9))(zod@3.25.55)
+        version: 5.1.1(ws@8.18.2(bufferutil@4.0.9))(zod@3.25.53)
       pg:
         specifier: latest
         version: 8.16.0
@@ -280,7 +277,7 @@ importers:
         version: 8.18.2(bufferutil@4.0.9)
       zod:
         specifier: latest
-        version: 3.25.55
+        version: 3.25.53
       zustand:
         specifier: latest
         version: 5.0.5(@types/react@19.0.0)(immer@10.1.1)(react@19.0.0)(use-sync-external-store@1.5.0(react@19.0.0))
@@ -1296,8 +1293,8 @@ packages:
   '@neondatabase/serverless@0.9.5':
     resolution: {integrity: sha512-siFas6gItqv6wD/pZnvdu34wEqgG3nSE6zWZdq5j2DEsa+VvX8i/5HXJOo06qrw5axPXn+lGCxeR+NLaSPIXug==}
 
-  '@neondatabase/serverless@1.0.1':
-    resolution: {integrity: sha512-O6yC5TT0jbw86VZVkmnzCZJB0hfxBl0JJz6f+3KHoZabjb/X08r9eFA+vuY06z1/qaovykvdkrXYq3SPUuvogA==}
+  '@neondatabase/serverless@1.0.0':
+    resolution: {integrity: sha512-XWmEeWpBXIoksZSDN74kftfTnXFEGZ3iX8jbANWBc+ag6dsiQuvuR4LgB0WdCOKMb5AQgjqgufc0TgAsZubUYw==}
     engines: {node: '>=19.0.0'}
 
   '@next/env@15.2.4':
@@ -2323,8 +2320,8 @@ packages:
     peerDependencies:
       '@supabase/supabase-js': ^2.39.8
 
-  '@supabase/auth-js@2.70.0':
-    resolution: {integrity: sha512-BaAK/tOAZFJtzF1sE3gJ2FwTjLf4ky3PSvcvLGEgEmO4BSBkwWKu8l67rLLIBZPDnCyV7Owk2uPyKHa0kj5QGg==}
+  '@supabase/auth-js@2.69.1':
+    resolution: {integrity: sha512-FILtt5WjCNzmReeRLq5wRs3iShwmnWgBvxHfqapC/VoljJl+W8hDAyFmf1NVw3zH+ZjZ05AKxiKxVeb0HNWRMQ==}
 
   '@supabase/functions-js@2.4.4':
     resolution: {integrity: sha512-WL2p6r4AXNGwop7iwvul2BvOtuJ1YQy8EbOd0dhG1oN1q8el/BIRSFCFnWAMM/vJJlHWLi4ad22sKbKr9mvjoA==}
@@ -2347,8 +2344,8 @@ packages:
   '@supabase/storage-js@2.7.1':
     resolution: {integrity: sha512-asYHcyDR1fKqrMpytAS1zjyEfvxuOIp1CIXX7ji4lHHcJKqyk+sLl/Vxgm4sN6u8zvuUtae9e4kDxQP2qrwWBA==}
 
-  '@supabase/supabase-js@2.50.0':
-    resolution: {integrity: sha512-M1Gd5tPaaghYZ9OjeO1iORRqbTWFEz/cF3pPubRnMPzA+A8SiUsXXWDP+DWsASZcjEcVEcVQIAF38i5wrijYOg==}
+  '@supabase/supabase-js@2.49.10':
+    resolution: {integrity: sha512-IRPcIdncuhD2m1eZ2Fkg0S1fq9SXlHfmAetBxPN66kVFtTucR8b01xKuVmKqcIJokB17umMf1bmqyS8yboXGsw==}
 
   '@swc/counter@0.1.3':
     resolution: {integrity: sha512-e2BR4lsJkkRlKZ/qCHPw9ZaSxc0MVUd7gtbtaB7aMvHeJVYe8sOB8DBZkP2DtISHGSku9sCK6T6cnY0CtXrOCQ==}
@@ -5644,8 +5641,8 @@ packages:
     peerDependencies:
       zod: ^3.24.1
 
-  zod@3.25.55:
-    resolution: {integrity: sha512-219huNnkSLQnLsQ3uaRjXsxMrVm5C9W3OOpEVt2k5tvMKuA8nBSu38e0B//a+he9Iq2dvmk2VyYVlHqiHa4YBA==}
+  zod@3.25.53:
+    resolution: {integrity: sha512-BKOKoY3XcGUVkqaalCtFK15LhwR0G0i65AClFpWSXLN2gJNBGlTktukHgwexCTa/dAacPPp9ReryXPWyeZF4LQ==}
 
   zustand@4.5.7:
     resolution: {integrity: sha512-CHOUy7mu3lbD6o6LJLfllpjkzhHXSBlX8B9+qPddUsIfeF5S/UZ5q0kmCsnRqT1UHFQZchNFDDzMbQsuesHWlw==}
@@ -5684,39 +5681,39 @@ snapshots:
 
   '@0no-co/graphql.web@1.1.2': {}
 
-  '@ai-sdk/openai@1.3.22(zod@3.25.55)':
+  '@ai-sdk/openai@1.3.22(zod@3.25.53)':
     dependencies:
       '@ai-sdk/provider': 1.1.3
-      '@ai-sdk/provider-utils': 2.2.8(zod@3.25.55)
-      zod: 3.25.55
+      '@ai-sdk/provider-utils': 2.2.8(zod@3.25.53)
+      zod: 3.25.53
 
-  '@ai-sdk/provider-utils@2.2.8(zod@3.25.55)':
+  '@ai-sdk/provider-utils@2.2.8(zod@3.25.53)':
     dependencies:
       '@ai-sdk/provider': 1.1.3
       nanoid: 3.3.11
       secure-json-parse: 2.7.0
-      zod: 3.25.55
+      zod: 3.25.53
 
   '@ai-sdk/provider@1.1.3':
     dependencies:
       json-schema: 0.4.0
 
-  '@ai-sdk/react@1.2.12(react@19.0.0)(zod@3.25.55)':
+  '@ai-sdk/react@1.2.12(react@19.0.0)(zod@3.25.53)':
     dependencies:
-      '@ai-sdk/provider-utils': 2.2.8(zod@3.25.55)
-      '@ai-sdk/ui-utils': 1.2.11(zod@3.25.55)
+      '@ai-sdk/provider-utils': 2.2.8(zod@3.25.53)
+      '@ai-sdk/ui-utils': 1.2.11(zod@3.25.53)
       react: 19.0.0
       swr: 2.3.3(react@19.0.0)
       throttleit: 2.1.0
     optionalDependencies:
-      zod: 3.25.55
+      zod: 3.25.53
 
-  '@ai-sdk/ui-utils@1.2.11(zod@3.25.55)':
+  '@ai-sdk/ui-utils@1.2.11(zod@3.25.53)':
     dependencies:
       '@ai-sdk/provider': 1.1.3
-      '@ai-sdk/provider-utils': 2.2.8(zod@3.25.55)
-      zod: 3.25.55
-      zod-to-json-schema: 3.24.5(zod@3.25.55)
+      '@ai-sdk/provider-utils': 2.2.8(zod@3.25.53)
+      zod: 3.25.53
+      zod-to-json-schema: 3.24.5(zod@3.25.53)
 
   '@alloc/quick-lru@5.2.0': {}
 
@@ -7190,7 +7187,7 @@ snapshots:
     dependencies:
       '@types/pg': 8.11.6
 
-  '@neondatabase/serverless@1.0.1':
+  '@neondatabase/serverless@1.0.0':
     dependencies:
       '@types/node': 22.15.30
       '@types/pg': 8.15.4
@@ -8378,18 +8375,18 @@ snapshots:
       '@smithy/util-buffer-from': 4.0.0
       tslib: 2.8.1
 
-  '@supabase/auth-helpers-nextjs@0.10.0(@supabase/supabase-js@2.50.0(bufferutil@4.0.9))':
+  '@supabase/auth-helpers-nextjs@0.10.0(@supabase/supabase-js@2.49.10(bufferutil@4.0.9))':
     dependencies:
-      '@supabase/auth-helpers-shared': 0.7.0(@supabase/supabase-js@2.50.0(bufferutil@4.0.9))
-      '@supabase/supabase-js': 2.50.0(bufferutil@4.0.9)
+      '@supabase/auth-helpers-shared': 0.7.0(@supabase/supabase-js@2.49.10(bufferutil@4.0.9))
+      '@supabase/supabase-js': 2.49.10(bufferutil@4.0.9)
       set-cookie-parser: 2.7.1
 
-  '@supabase/auth-helpers-shared@0.7.0(@supabase/supabase-js@2.50.0(bufferutil@4.0.9))':
+  '@supabase/auth-helpers-shared@0.7.0(@supabase/supabase-js@2.49.10(bufferutil@4.0.9))':
     dependencies:
-      '@supabase/supabase-js': 2.50.0(bufferutil@4.0.9)
+      '@supabase/supabase-js': 2.49.10(bufferutil@4.0.9)
       jose: 4.15.9
 
-  '@supabase/auth-js@2.70.0':
+  '@supabase/auth-js@2.69.1':
     dependencies:
       '@supabase/node-fetch': 2.6.15
 
@@ -8424,9 +8421,9 @@ snapshots:
     dependencies:
       '@supabase/node-fetch': 2.6.15
 
-  '@supabase/supabase-js@2.50.0(bufferutil@4.0.9)':
+  '@supabase/supabase-js@2.49.10(bufferutil@4.0.9)':
     dependencies:
-      '@supabase/auth-js': 2.70.0
+      '@supabase/auth-js': 2.69.1
       '@supabase/functions-js': 2.4.4
       '@supabase/node-fetch': 2.6.15
       '@supabase/postgrest-js': 1.19.4
@@ -8663,15 +8660,15 @@ snapshots:
       indent-string: 4.0.0
     optional: true
 
-  ai@4.3.16(react@19.0.0)(zod@3.25.55):
+  ai@4.3.16(react@19.0.0)(zod@3.25.53):
     dependencies:
       '@ai-sdk/provider': 1.1.3
-      '@ai-sdk/provider-utils': 2.2.8(zod@3.25.55)
-      '@ai-sdk/react': 1.2.12(react@19.0.0)(zod@3.25.55)
-      '@ai-sdk/ui-utils': 1.2.11(zod@3.25.55)
+      '@ai-sdk/provider-utils': 2.2.8(zod@3.25.53)
+      '@ai-sdk/react': 1.2.12(react@19.0.0)(zod@3.25.53)
+      '@ai-sdk/ui-utils': 1.2.11(zod@3.25.53)
       '@opentelemetry/api': 1.9.0
       jsondiffpatch: 0.6.0
-      zod: 3.25.55
+      zod: 3.25.53
     optionalDependencies:
       react: 19.0.0
 
@@ -9345,14 +9342,14 @@ snapshots:
 
   dotenv@16.4.7: {}
 
-  drizzle-orm@0.44.2(0d37056fd471a0d7e978c950a1488131):
+  drizzle-orm@0.44.2(f006040528fb8743c573cb6e9786640a):
     optionalDependencies:
       '@aws-sdk/client-rds-data': 3.825.0
       '@cloudflare/workers-types': 4.20250606.0
       '@electric-sql/pglite': 0.3.3
       '@libsql/client': 0.15.8(bufferutil@4.0.9)
       '@libsql/client-wasm': 0.15.8
-      '@neondatabase/serverless': 1.0.1
+      '@neondatabase/serverless': 1.0.0
       '@op-engineering/op-sqlite': 14.0.3(react-native@0.79.3(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0)
       '@opentelemetry/api': 1.9.0
       '@planetscale/database': 1.19.0
@@ -10669,10 +10666,10 @@ snapshots:
       is-docker: 2.2.1
       is-wsl: 2.2.0
 
-  openai@5.1.1(ws@8.18.2(bufferutil@4.0.9))(zod@3.25.55):
+  openai@5.1.1(ws@8.18.2(bufferutil@4.0.9))(zod@3.25.53):
     optionalDependencies:
       ws: 8.18.2(bufferutil@4.0.9)
-      zod: 3.25.55
+      zod: 3.25.53
 
   ora@3.4.0:
     dependencies:
@@ -11878,11 +11875,11 @@ snapshots:
 
   yocto-queue@0.1.0: {}
 
-  zod-to-json-schema@3.24.5(zod@3.25.55):
+  zod-to-json-schema@3.24.5(zod@3.25.53):
     dependencies:
-      zod: 3.25.55
+      zod: 3.25.53
 
-  zod@3.25.55: {}
+  zod@3.25.53: {}
 
   zustand@4.5.7(@types/react@19.0.0)(immer@10.1.1)(react@19.0.0):
     dependencies:

@@ -5,11 +5,8 @@ export class GoogleOAuthService {
     const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET
 
-    if (!clientId) {
-      throw new Error("Missing NEXT_PUBLIC_GOOGLE_CLIENT_ID environment variable")
-    }
-    if (!clientSecret) {
-      throw new Error("Missing GOOGLE_CLIENT_SECRET environment variable")
+    if (!clientId || !clientSecret) {
+      throw new Error("Missing Google OAuth credentials")
     }
 
     return { clientId, clientSecret }
@@ -23,17 +20,13 @@ export class GoogleOAuthService {
     const { clientId } = this.getClientCredentials()
     const redirectUri = this.getRedirectUri()
 
-    // Enhanced scopes for better functionality
     const scopes = [
       "https://www.googleapis.com/auth/userinfo.email",
       "https://www.googleapis.com/auth/userinfo.profile",
-      "https://www.googleapis.com/auth/calendar",
-      "https://www.googleapis.com/auth/calendar.events",
-      "https://www.googleapis.com/auth/drive",
       "https://www.googleapis.com/auth/drive.file",
-      "https://www.googleapis.com/auth/spreadsheets",
+      "https://www.googleapis.com/auth/calendar.events",
       "https://www.googleapis.com/auth/gmail.send",
-      "https://www.googleapis.com/auth/gmail.modify",
+      "https://www.googleapis.com/auth/spreadsheets",
     ]
 
     const state = userId ? generateOAuthState("google", userId, { reconnect, integrationId }) : ""
@@ -44,7 +37,7 @@ export class GoogleOAuthService {
       response_type: "code",
       scope: scopes.join(" "),
       access_type: "offline",
-      prompt: reconnect ? "consent" : "select_account",
+      prompt: "consent",
       ...(state && { state }),
     })
 
@@ -71,7 +64,7 @@ export class GoogleOAuthService {
 
     if (!response.ok) {
       const error = await response.text()
-      throw new Error(`Google token exchange failed: ${error}`)
+      throw new Error(`Token exchange failed: ${error}`)
     }
 
     return response.json()
@@ -85,7 +78,7 @@ export class GoogleOAuthService {
     })
 
     if (!response.ok) {
-      throw new Error(`Failed to get Google user info: ${response.statusText}`)
+      throw new Error("Failed to get user info")
     }
 
     return response.json()
