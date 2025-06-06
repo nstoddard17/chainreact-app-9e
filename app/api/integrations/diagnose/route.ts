@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 import type { Database } from "@/types/supabase"
+import { getAllScopes } from "@/lib/integrations/integrationScopes"
 
 interface DiagnosticResult {
   integrationId: string
@@ -22,9 +23,9 @@ interface DiagnosticResult {
   }
 }
 
-// Component definitions with their required scopes
+// Component definitions with their required scopes - only components we actually support
 const COMPONENT_SCOPE_MAPPING = {
-  // Slack components - only include scopes we actually use
+  // Slack components
   slack_message: { scopes: ["chat:write"], provider: "slack" },
   slack_user_info: { scopes: ["users:read"], provider: "slack" },
   slack_channels_list: { scopes: ["channels:read"], provider: "slack" },
@@ -32,7 +33,6 @@ const COMPONENT_SCOPE_MAPPING = {
   // Discord components
   discord_message: { scopes: ["identify"], provider: "discord" },
   discord_guild_info: { scopes: ["guilds"], provider: "discord" },
-  discord_read_messages: { scopes: ["messages.read"], provider: "discord" },
 
   // Microsoft Teams components
   teams_message: { scopes: ["Chat.ReadWrite"], provider: "teams" },
@@ -42,12 +42,10 @@ const COMPONENT_SCOPE_MAPPING = {
   // Google Calendar components
   google_calendar_create: { scopes: ["https://www.googleapis.com/auth/calendar"], provider: "google-calendar" },
   google_calendar_read: { scopes: ["https://www.googleapis.com/auth/calendar.readonly"], provider: "google-calendar" },
-  google_calendar_events: { scopes: ["https://www.googleapis.com/auth/calendar.events"], provider: "google-calendar" },
 
   // Google Sheets components
   google_sheets_append: { scopes: ["https://www.googleapis.com/auth/spreadsheets"], provider: "google-sheets" },
   google_sheets_read: { scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"], provider: "google-sheets" },
-  google_sheets_create: { scopes: ["https://www.googleapis.com/auth/spreadsheets"], provider: "google-sheets" },
 
   // Google Docs components
   google_docs_create: { scopes: ["https://www.googleapis.com/auth/documents"], provider: "google-docs" },
@@ -55,23 +53,25 @@ const COMPONENT_SCOPE_MAPPING = {
 
   // Gmail components
   gmail_send: { scopes: ["https://www.googleapis.com/auth/gmail.send"], provider: "gmail" },
-  gmail_read: { scopes: ["https://www.googleapis.com/auth/gmail.readonly"], provider: "gmail" },
   gmail_modify: { scopes: ["https://www.googleapis.com/auth/gmail.modify"], provider: "gmail" },
+
+  // YouTube components
+  youtube_upload: { scopes: ["https://www.googleapis.com/auth/youtube.upload"], provider: "youtube" },
+  youtube_manage: { scopes: ["https://www.googleapis.com/auth/youtube"], provider: "youtube" },
+  youtube_partner: { scopes: ["https://www.googleapis.com/auth/youtubepartner"], provider: "youtube" },
+  youtube_force_ssl: { scopes: ["https://www.googleapis.com/auth/youtube.force-ssl"], provider: "youtube" },
 
   // GitHub components
   github_create_issue: { scopes: ["repo"], provider: "github" },
   github_create_pr: { scopes: ["repo"], provider: "github" },
-  github_workflow: { scopes: ["workflow"], provider: "github" },
 
-  // Notion components - use actual Notion scopes
-  notion_create_page: { scopes: [], provider: "notion" }, // Notion doesn't use granular scopes
+  // Notion components
+  notion_create_page: { scopes: [], provider: "notion" },
   notion_read_page: { scopes: [], provider: "notion" },
-  notion_update_page: { scopes: [], provider: "notion" },
 
   // Airtable components
   airtable_create_record: { scopes: ["data.records:write"], provider: "airtable" },
   airtable_read_records: { scopes: ["data.records:read"], provider: "airtable" },
-  airtable_update_record: { scopes: ["data.records:write"], provider: "airtable" },
 
   // Trello components
   trello_create_card: { scopes: ["write"], provider: "trello" },
@@ -80,16 +80,12 @@ const COMPONENT_SCOPE_MAPPING = {
   // Dropbox components
   dropbox_upload: { scopes: ["files.content.write"], provider: "dropbox" },
   dropbox_download: { scopes: ["files.content.read"], provider: "dropbox" },
-  dropbox_share: { scopes: ["sharing.write"], provider: "dropbox" },
 }
 
 async function verifyDiscordToken(accessToken: string): Promise<{ valid: boolean; scopes: string[]; error?: string }> {
   try {
-    // Test the token by making an API call to users/@me
     const response = await fetch("https://discord.com/api/users/@me", {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
+      headers: { Authorization: `Bearer ${accessToken}` },
     })
 
     if (!response.ok) {
@@ -97,9 +93,7 @@ async function verifyDiscordToken(accessToken: string): Promise<{ valid: boolean
       return { valid: false, scopes: [], error: error.message || "Token validation failed" }
     }
 
-    // For Discord, we can't get scopes from the API, so we assume basic scopes if token works
-    const scopes = ["identify", "guilds", "guilds.join", "messages.read"]
-
+    const scopes = ["identify", "guilds"]
     return { valid: true, scopes }
   } catch (error: any) {
     return { valid: false, scopes: [], error: error.message }
@@ -108,7 +102,6 @@ async function verifyDiscordToken(accessToken: string): Promise<{ valid: boolean
 
 async function verifyGoogleToken(accessToken: string): Promise<{ valid: boolean; scopes: string[]; error?: string }> {
   try {
-    // First, check token info
     const tokenInfoResponse = await fetch(`https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=${accessToken}`)
     const tokenInfo = await tokenInfoResponse.json()
 
@@ -116,7 +109,6 @@ async function verifyGoogleToken(accessToken: string): Promise<{ valid: boolean;
       return { valid: false, scopes: [], error: tokenInfo.error_description || tokenInfo.error }
     }
 
-    // Get user info to verify token is still valid
     const userInfoResponse = await fetch(`https://www.googleapis.com/oauth2/v2/userinfo?access_token=${accessToken}`)
     const userInfo = await userInfoResponse.json()
 
@@ -124,9 +116,7 @@ async function verifyGoogleToken(accessToken: string): Promise<{ valid: boolean;
       return { valid: false, scopes: [], error: userInfo.error.message || "User info fetch failed" }
     }
 
-    // Extract scopes from token info
     const scopes = tokenInfo.scope ? tokenInfo.scope.split(" ") : []
-
     return { valid: true, scopes }
   } catch (error: any) {
     return { valid: false, scopes: [], error: error.message }
@@ -137,7 +127,6 @@ async function verifyMicrosoftToken(
   accessToken: string,
 ): Promise<{ valid: boolean; scopes: string[]; error?: string }> {
   try {
-    // Check user info
     const userResponse = await fetch("https://graph.microsoft.com/v1.0/me", {
       headers: { Authorization: `Bearer ${accessToken}` },
     })
@@ -147,57 +136,30 @@ async function verifyMicrosoftToken(
       return { valid: false, scopes: [], error: error.error?.message || "Token validation failed" }
     }
 
-    // Test specific endpoints to determine granted scopes
     const scopes: string[] = []
-
-    // Test calendar access
-    const calendarResponse = await fetch("https://graph.microsoft.com/v1.0/me/calendar", {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    })
-    if (calendarResponse.ok) {
-      scopes.push("Calendars.Read")
-
-      // Test calendar write access
-      const testEvent = {
-        subject: "Test Event - ChainReact Diagnostic",
-        start: { dateTime: new Date().toISOString(), timeZone: "UTC" },
-        end: { dateTime: new Date(Date.now() + 3600000).toISOString(), timeZone: "UTC" },
-      }
-
-      const createResponse = await fetch("https://graph.microsoft.com/v1.0/me/events", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(testEvent),
-      })
-
-      if (createResponse.ok) {
-        scopes.push("Calendars.ReadWrite")
-        // Clean up test event
-        const eventData = await createResponse.json()
-        await fetch(`https://graph.microsoft.com/v1.0/me/events/${eventData.id}`, {
-          method: "DELETE",
-          headers: { Authorization: `Bearer ${accessToken}` },
-        })
-      }
-    }
 
     // Test chat access
     const chatResponse = await fetch("https://graph.microsoft.com/v1.0/me/chats", {
       headers: { Authorization: `Bearer ${accessToken}` },
     })
     if (chatResponse.ok) {
-      scopes.push("Chat.Read", "Chat.ReadWrite")
+      scopes.push("Chat.ReadWrite")
     }
 
-    // Test files access
-    const filesResponse = await fetch("https://graph.microsoft.com/v1.0/me/drive/root/children", {
+    // Test calendar access
+    const calendarResponse = await fetch("https://graph.microsoft.com/v1.0/me/calendar", {
       headers: { Authorization: `Bearer ${accessToken}` },
     })
-    if (filesResponse.ok) {
-      scopes.push("Files.Read", "Files.ReadWrite")
+    if (calendarResponse.ok) {
+      scopes.push("Calendars.ReadWrite")
+    }
+
+    // Test online meetings
+    const meetingsResponse = await fetch("https://graph.microsoft.com/v1.0/me/onlineMeetings", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+    if (meetingsResponse.ok) {
+      scopes.push("OnlineMeetings.ReadWrite")
     }
 
     return { valid: true, scopes }
@@ -208,7 +170,6 @@ async function verifyMicrosoftToken(
 
 async function verifySlackToken(accessToken: string): Promise<{ valid: boolean; scopes: string[]; error?: string }> {
   try {
-    // Test auth
     const authResponse = await fetch("https://slack.com/api/auth.test", {
       headers: { Authorization: `Bearer ${accessToken}` },
     })
@@ -218,7 +179,6 @@ async function verifySlackToken(accessToken: string): Promise<{ valid: boolean; 
       return { valid: false, scopes: [], error: authData.error || "Auth test failed" }
     }
 
-    // Test specific endpoints to determine scopes
     const scopes: string[] = []
 
     // Test chat:write
@@ -256,15 +216,6 @@ async function verifySlackToken(accessToken: string): Promise<{ valid: boolean; 
       scopes.push("users:read")
     }
 
-    // Test files:write
-    const filesResponse = await fetch("https://slack.com/api/files.list", {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    })
-    const filesData = await filesResponse.json()
-    if (filesData.ok) {
-      scopes.push("files:read")
-    }
-
     return { valid: true, scopes }
   } catch (error: any) {
     return { valid: false, scopes: [], error: error.message }
@@ -273,7 +224,6 @@ async function verifySlackToken(accessToken: string): Promise<{ valid: boolean; 
 
 async function verifyGitHubToken(accessToken: string): Promise<{ valid: boolean; scopes: string[]; error?: string }> {
   try {
-    // Get user info and check scopes
     const userResponse = await fetch("https://api.github.com/user", {
       headers: { Authorization: `Bearer ${accessToken}` },
     })
@@ -283,7 +233,6 @@ async function verifyGitHubToken(accessToken: string): Promise<{ valid: boolean;
       return { valid: false, scopes: [], error: error.message || "Token validation failed" }
     }
 
-    // GitHub returns scopes in the X-OAuth-Scopes header
     const scopesHeader = userResponse.headers.get("X-OAuth-Scopes")
     const scopes = scopesHeader ? scopesHeader.split(", ").map((s) => s.trim()) : []
 
@@ -295,7 +244,6 @@ async function verifyGitHubToken(accessToken: string): Promise<{ valid: boolean;
 
 async function verifyDropboxToken(accessToken: string): Promise<{ valid: boolean; scopes: string[]; error?: string }> {
   try {
-    // Get current account info
     const accountResponse = await fetch("https://api.dropboxapi.com/2/users/get_current_account", {
       method: "POST",
       headers: { Authorization: `Bearer ${accessToken}` },
@@ -306,10 +254,8 @@ async function verifyDropboxToken(accessToken: string): Promise<{ valid: boolean
       return { valid: false, scopes: [], error: error.error_summary || "Token validation failed" }
     }
 
-    // Test specific endpoints to determine scopes
     const scopes: string[] = []
 
-    // Test files.content.read
     const listResponse = await fetch("https://api.dropboxapi.com/2/files/list_folder", {
       method: "POST",
       headers: {
@@ -323,7 +269,6 @@ async function verifyDropboxToken(accessToken: string): Promise<{ valid: boolean
       scopes.push("files.content.read")
     }
 
-    // Test files.content.write by attempting to create a folder
     const createResponse = await fetch("https://api.dropboxapi.com/2/files/create_folder_v2", {
       method: "POST",
       headers: {
@@ -355,6 +300,49 @@ function analyzeIntegration(
   const provider = integration.provider
   const isDemo = integration.metadata?.demo === true
 
+  // Get the scopes we actually request for this provider
+  const requestedScopes = getAllScopes(provider)
+
+  // Filter granted scopes to only show relevant ones for this provider
+  let filteredGrantedScopes = grantedScopes
+
+  if (provider !== "google") {
+    // For specific Google services, only show scopes relevant to that service
+    switch (provider) {
+      case "youtube":
+        filteredGrantedScopes = grantedScopes.filter((scope) => scope.includes("youtube") || scope.includes("userinfo"))
+        break
+      case "gmail":
+        filteredGrantedScopes = grantedScopes.filter((scope) => scope.includes("gmail") || scope.includes("userinfo"))
+        break
+      case "google-calendar":
+        filteredGrantedScopes = grantedScopes.filter(
+          (scope) => scope.includes("calendar") || scope.includes("userinfo"),
+        )
+        break
+      case "google-sheets":
+        filteredGrantedScopes = grantedScopes.filter(
+          (scope) => scope.includes("spreadsheets") || scope.includes("userinfo"),
+        )
+        break
+      case "google-docs":
+        filteredGrantedScopes = grantedScopes.filter(
+          (scope) => scope.includes("documents") || scope.includes("userinfo"),
+        )
+        break
+      case "slack":
+        filteredGrantedScopes = grantedScopes.filter((scope) => !scope.includes("googleapis.com"))
+        break
+      case "teams":
+      case "onedrive":
+        filteredGrantedScopes = grantedScopes.filter((scope) => !scope.includes("googleapis.com"))
+        break
+      default:
+        // For other providers, show all granted scopes
+        filteredGrantedScopes = grantedScopes
+    }
+  }
+
   // Get all components for this provider
   const providerComponents = Object.entries(COMPONENT_SCOPE_MAPPING).filter(
     ([_, config]) => config.provider === provider,
@@ -365,9 +353,17 @@ function analyzeIntegration(
   const missingScopes: string[] = []
   const recommendations: string[] = []
 
+  // Only check for scopes that we actually request
+  const scopesToCheck = requestedScopes.length > 0 ? requestedScopes : []
+
   // Analyze each component
   providerComponents.forEach(([componentName, config]) => {
     const hasRequiredScopes = config.scopes.every((scope) => {
+      // Only check if this scope is in our requested scopes list
+      if (scopesToCheck.length > 0 && !scopesToCheck.includes(scope)) {
+        return true // If we don't request this scope, consider it satisfied
+      }
+
       // For Google scopes, handle readonly vs full access and scope hierarchy
       if (scope.includes("googleapis.com/auth/")) {
         // Handle readonly vs full access
@@ -381,17 +377,17 @@ function analyzeIntegration(
           return grantedScopes.includes(scope) || grantedScopes.includes("https://www.googleapis.com/auth/gmail.modify")
         }
 
-        // Handle Calendar scope hierarchy - full calendar includes events
+        // Handle Calendar scope hierarchy
         if (scope === "https://www.googleapis.com/auth/calendar.events") {
           return grantedScopes.includes(scope) || grantedScopes.includes("https://www.googleapis.com/auth/calendar")
         }
 
-        // Handle Sheets scope hierarchy - full spreadsheets includes readonly
+        // Handle Sheets scope hierarchy
         if (scope === "https://www.googleapis.com/auth/spreadsheets.readonly") {
           return grantedScopes.includes(scope) || grantedScopes.includes("https://www.googleapis.com/auth/spreadsheets")
         }
 
-        // Handle Docs scope hierarchy - full documents includes readonly
+        // Handle Docs scope hierarchy
         if (scope === "https://www.googleapis.com/auth/documents.readonly") {
           return grantedScopes.includes(scope) || grantedScopes.includes("https://www.googleapis.com/auth/documents")
         }
@@ -406,39 +402,41 @@ function analyzeIntegration(
     } else {
       unavailableComponents.push(componentName)
       config.scopes.forEach((scope) => {
-        // Only add to missing scopes if no higher-level scope covers it
-        let isMissing = !grantedScopes.includes(scope)
+        // Only add to missing scopes if we actually request this scope
+        if (scopesToCheck.length === 0 || scopesToCheck.includes(scope)) {
+          let isMissing = !grantedScopes.includes(scope)
 
-        // Check for Google scope hierarchy
-        if (scope.includes("googleapis.com/auth/") && isMissing) {
-          if (
-            scope === "https://www.googleapis.com/auth/gmail.readonly" &&
-            grantedScopes.includes("https://www.googleapis.com/auth/gmail.modify")
-          ) {
-            isMissing = false
+          // Check for Google scope hierarchy
+          if (scope.includes("googleapis.com/auth/") && isMissing) {
+            if (
+              scope === "https://www.googleapis.com/auth/gmail.readonly" &&
+              grantedScopes.includes("https://www.googleapis.com/auth/gmail.modify")
+            ) {
+              isMissing = false
+            }
+            if (
+              scope === "https://www.googleapis.com/auth/calendar.events" &&
+              grantedScopes.includes("https://www.googleapis.com/auth/calendar")
+            ) {
+              isMissing = false
+            }
+            if (
+              scope === "https://www.googleapis.com/auth/spreadsheets.readonly" &&
+              grantedScopes.includes("https://www.googleapis.com/auth/spreadsheets")
+            ) {
+              isMissing = false
+            }
+            if (
+              scope === "https://www.googleapis.com/auth/documents.readonly" &&
+              grantedScopes.includes("https://www.googleapis.com/auth/documents")
+            ) {
+              isMissing = false
+            }
           }
-          if (
-            scope === "https://www.googleapis.com/auth/calendar.events" &&
-            grantedScopes.includes("https://www.googleapis.com/auth/calendar")
-          ) {
-            isMissing = false
-          }
-          if (
-            scope === "https://www.googleapis.com/auth/spreadsheets.readonly" &&
-            grantedScopes.includes("https://www.googleapis.com/auth/spreadsheets")
-          ) {
-            isMissing = false
-          }
-          if (
-            scope === "https://www.googleapis.com/auth/documents.readonly" &&
-            grantedScopes.includes("https://www.googleapis.com/auth/documents")
-          ) {
-            isMissing = false
-          }
-        }
 
-        if (isMissing && !missingScopes.includes(scope)) {
-          missingScopes.push(scope)
+          if (isMissing && !missingScopes.includes(scope)) {
+            missingScopes.push(scope)
+          }
         }
       })
     }
@@ -462,7 +460,7 @@ function analyzeIntegration(
 
   // Add specific recommendations based on missing scopes
   if (missingScopes.length > 0) {
-    if (provider.startsWith("google")) {
+    if (provider.startsWith("google") || provider === "youtube") {
       recommendations.push("When reconnecting, ensure you grant all requested Google permissions")
     } else if (provider === "slack") {
       recommendations.push("Ensure your Slack app has the required scopes configured")
@@ -470,6 +468,8 @@ function analyzeIntegration(
       recommendations.push("Grant repository access and workflow permissions when reconnecting")
     } else if (provider === "discord") {
       recommendations.push("Ensure you grant identify and guild permissions when reconnecting")
+    } else if (provider === "teams") {
+      recommendations.push("Ensure you grant all Microsoft Teams permissions when reconnecting")
     }
   }
 
@@ -478,8 +478,8 @@ function analyzeIntegration(
     provider,
     status,
     tokenValid,
-    grantedScopes,
-    requiredScopes: [...new Set(providerComponents.flatMap(([_, config]) => config.scopes))],
+    grantedScopes: filteredGrantedScopes, // Use filtered scopes here
+    requiredScopes: scopesToCheck, // Only show scopes we actually request
     missingScopes,
     availableComponents,
     unavailableComponents,
@@ -495,10 +495,8 @@ function analyzeIntegration(
 
 export async function GET(request: NextRequest) {
   try {
-    // Create Supabase client for route handler with cookies
     const supabase = createRouteHandlerClient<Database>({ cookies })
 
-    // Get the current session
     const {
       data: { session },
       error: sessionError,
@@ -515,7 +513,6 @@ export async function GET(request: NextRequest) {
 
     const userId = session.user.id
 
-    // Get all connected integrations
     const { data: integrations, error } = await supabase
       .from("integrations")
       .select("*")
@@ -538,11 +535,9 @@ export async function GET(request: NextRequest) {
       let errorMessage: string | undefined
 
       if (metadata?.demo) {
-        // Demo integration - assume all scopes are available
         tokenValid = true
         grantedScopes = metadata?.scopes || []
       } else if (accessToken) {
-        // Real OAuth integration - verify token
         let verificationResult
 
         switch (provider) {
@@ -554,13 +549,11 @@ export async function GET(request: NextRequest) {
           case "google-docs":
           case "gmail":
           case "youtube":
-            // For Google services, look for the main "google" integration
             const googleIntegration = integrations?.find((int) => int.provider === "google")
             if (googleIntegration?.metadata?.access_token || googleIntegration?.access_token) {
               const googleToken = googleIntegration.metadata?.access_token || googleIntegration.access_token
               verificationResult = await verifyGoogleToken(googleToken)
             } else {
-              // If no main Google integration, try the current integration token
               verificationResult = await verifyGoogleToken(accessToken)
             }
             break
@@ -578,7 +571,6 @@ export async function GET(request: NextRequest) {
             verificationResult = await verifyDropboxToken(accessToken)
             break
           default:
-            // For other providers, trust stored scopes
             verificationResult = {
               valid: true,
               scopes: metadata?.scopes || integration.scopes || [],
@@ -589,7 +581,6 @@ export async function GET(request: NextRequest) {
         grantedScopes = verificationResult.scopes
         errorMessage = verificationResult.error
       } else {
-        // No access token - likely API key or broken integration
         tokenValid = false
         grantedScopes = metadata?.scopes || integration.scopes || []
         errorMessage = "No access token found"
@@ -599,7 +590,6 @@ export async function GET(request: NextRequest) {
       if (provider.startsWith("google") || provider === "gmail" || provider === "youtube") {
         const googleIntegration = integrations?.find((int) => int.provider === "google")
         if (googleIntegration && (googleIntegration.metadata?.access_token || googleIntegration.access_token)) {
-          // Use the Google integration's token and scopes
           const diagnostic = analyzeIntegration(integration, tokenValid, grantedScopes, errorMessage)
           diagnostic.provider = provider
           diagnostics.push(diagnostic)

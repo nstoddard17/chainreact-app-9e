@@ -30,13 +30,10 @@ export class TeamsOAuthService extends BaseOAuthService {
       "email",
       "offline_access",
       "User.Read",
-      "ChannelMessage.Send",
       "Chat.ReadWrite",
-      "Team.ReadBasic.All",
       "OnlineMeetings.ReadWrite",
-      "Calendars.ReadWrite"
+      "Calendars.ReadWrite",
     ]
-
 
     const state = btoa(
       JSON.stringify({
