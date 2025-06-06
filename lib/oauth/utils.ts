@@ -44,11 +44,6 @@ export const createAdminSupabaseClient = () => {
  * Always uses the production domain to prevent redirect mismatches
  */
 export function getOAuthRedirectUri(provider: string): string {
-  // For Trello, we need to use the exact URL configured in their app settings
-  if (provider === "trello") {
-    return `https://chainreact.app/api/integrations/trello/callback`
-  }
-
   return `https://chainreact.app/api/integrations/${provider}/callback`
 }
 
@@ -143,68 +138,8 @@ export async function upsertIntegration(
       console.log("Main integration saved successfully:", mainResult.data)
     }
 
-    // Also save to advanced_integrations table for compatibility
-    const advancedIntegrationData = {
-      user_id: integrationData.user_id,
-      provider: integrationData.provider,
-      integration_name: integrationData.provider,
-      status: integrationData.status,
-      configuration: {
-        scopes: integrationData.scopes,
-        provider_user_id: integrationData.provider_user_id,
-      },
-      credentials: {
-        access_token: integrationData.access_token,
-        refresh_token: integrationData.refresh_token,
-        expires_at: integrationData.expires_at,
-      },
-      metadata: integrationData.metadata,
-      organization_id: integrationData.organization_id,
-      updated_at: now,
-      last_sync_at: now,
-    }
-
-    // Check if integration exists in advanced table
-    const { data: existingAdvancedIntegration, error: findAdvancedError } = await supabase
-      .from("advanced_integrations")
-      .select("id")
-      .eq("user_id", integrationData.user_id)
-      .eq("provider", integrationData.provider)
-      .maybeSingle()
-
-    if (findAdvancedError) {
-      console.error("Error checking for existing advanced integration:", findAdvancedError)
-    }
-
-    let advancedResult
-    if (existingAdvancedIntegration) {
-      console.log(`Updating existing advanced integration: ${existingAdvancedIntegration.id}`)
-      advancedResult = await supabase
-        .from("advanced_integrations")
-        .update(advancedIntegrationData)
-        .eq("id", existingAdvancedIntegration.id)
-        .select()
-        .single()
-    } else {
-      console.log("Creating new advanced integration")
-      advancedResult = await supabase
-        .from("advanced_integrations")
-        .insert({
-          ...advancedIntegrationData,
-          created_at: now,
-        })
-        .select()
-        .single()
-    }
-
-    if (advancedResult.error) {
-      console.error("Error upserting advanced integration:", advancedResult.error)
-    } else {
-      console.log("Advanced integration saved successfully:", advancedResult.data)
-    }
-
-    // Return the main result or advanced result if main failed
-    return mainResult.data || advancedResult.data
+    // Return the main result
+    return mainResult.data
   } catch (error) {
     console.error("Error in upsertIntegration:", error)
     throw error

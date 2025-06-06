@@ -1,18 +1,15 @@
 interface HubSpotConfig {
   accessToken: string
   refreshToken?: string
-  expiresAt?: number
+  clientId?: string
+  clientSecret?: string
 }
 
 export class HubSpotClient {
-  private accessToken: string
-  private refreshToken?: string
-  private expiresAt?: number
+  private config: HubSpotConfig
 
   constructor(config: HubSpotConfig) {
-    this.accessToken = config.accessToken
-    this.refreshToken = config.refreshToken
-    this.expiresAt = config.expiresAt
+    this.config = config
   }
 
   async makeRequest(endpoint: string, options: RequestInit = {}) {
@@ -21,7 +18,7 @@ export class HubSpotClient {
     const response = await fetch(url, {
       ...options,
       headers: {
-        Authorization: `Bearer ${this.accessToken}`,
+        Authorization: `Bearer ${this.config.accessToken}`,
         "Content-Type": "application/json",
         ...options.headers,
       },
@@ -34,8 +31,8 @@ export class HubSpotClient {
     return response.json()
   }
 
-  async getContacts() {
-    return this.makeRequest("/crm/v3/objects/contacts")
+  async getContacts(limit = 100) {
+    return this.makeRequest(`/crm/v3/objects/contacts?limit=${limit}`)
   }
 
   async createContact(properties: Record<string, any>) {
@@ -45,8 +42,8 @@ export class HubSpotClient {
     })
   }
 
-  async getCompanies() {
-    return this.makeRequest("/crm/v3/objects/companies")
+  async getCompanies(limit = 100) {
+    return this.makeRequest(`/crm/v3/objects/companies?limit=${limit}`)
   }
 
   async createCompany(properties: Record<string, any>) {
@@ -56,8 +53,8 @@ export class HubSpotClient {
     })
   }
 
-  async getDeals() {
-    return this.makeRequest("/crm/v3/objects/deals")
+  async getDeals(limit = 100) {
+    return this.makeRequest(`/crm/v3/objects/deals?limit=${limit}`)
   }
 
   async createDeal(properties: Record<string, any>) {
@@ -68,6 +65,11 @@ export class HubSpotClient {
   }
 }
 
-export function getHubSpotClient(config: HubSpotConfig): HubSpotClient {
-  return new HubSpotClient(config)
+export function getHubSpotClient(accessToken: string, refreshToken?: string): HubSpotClient {
+  return new HubSpotClient({
+    accessToken,
+    refreshToken,
+    clientId: process.env.NEXT_PUBLIC_HUBSPOT_CLIENT_ID,
+    clientSecret: process.env.HUBSPOT_CLIENT_SECRET,
+  })
 }

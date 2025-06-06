@@ -11,6 +11,7 @@
   "dependencies": {
     "@ai-sdk/openai": "latest",
     "@aws-sdk/client-rds-data": "latest",
+    "@clerk/nextjs": "latest",
     "@cloudflare/workers-types": "latest",
     "@electric-sql/pglite": "latest",
     "@hookform/resolvers": "^3.9.1",
@@ -85,7 +86,6 @@
     "next-themes": "^0.4.4",
     "openai": "latest",
     "pg": "latest",
-    "pinia": "latest",
     "postgres": "latest",
     "react": "^19",
     "react-day-picker": "8.10.1",
@@ -101,7 +101,6 @@
     "tailwindcss-animate": "^1.0.7",
     "use-sync-external-store": "latest",
     "vaul": "^0.9.6",
-    "vue": "latest",
     "ws": "latest",
     "zod": "latest",
     "zustand": "latest"

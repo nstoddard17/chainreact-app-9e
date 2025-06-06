@@ -1,55 +1,40 @@
-interface SlackConfig {
-  accessToken: string
-  teamId?: string
-}
+import { WebClient } from "@slack/web-api"
 
-export class SlackClient {
-  private accessToken: string
-  private teamId?: string
+let slackClient: WebClient | null = null
 
-  constructor(config: SlackConfig) {
-    this.accessToken = config.accessToken
-    this.teamId = config.teamId
-  }
+export async function getSlackClient(token?: string): Promise<WebClient> {
+  if (!slackClient || token) {
+    const accessToken = token || process.env.SLACK_BOT_TOKEN
 
-  async makeRequest(endpoint: string, options: RequestInit = {}) {
-    const url = `https://slack.com/api/${endpoint}`
-
-    const response = await fetch(url, {
-      ...options,
-      headers: {
-        Authorization: `Bearer ${this.accessToken}`,
-        "Content-Type": "application/json",
-        ...options.headers,
-      },
-    })
-
-    if (!response.ok) {
-      throw new Error(`Slack API error: ${response.status} ${response.statusText}`)
+    if (!accessToken) {
+      throw new Error("Slack access token is required")
     }
 
-    return response.json()
+    slackClient = new WebClient(accessToken)
   }
 
-  async postMessage(channel: string, text: string) {
-    return this.makeRequest("chat.postMessage", {
-      method: "POST",
-      body: JSON.stringify({
-        channel,
-        text,
-      }),
-    })
-  }
-
-  async getChannels() {
-    return this.makeRequest("conversations.list")
-  }
-
-  async getUserInfo() {
-    return this.makeRequest("auth.test")
-  }
+  return slackClient
 }
 
-export function getSlackClient(config: SlackConfig): SlackClient {
-  return new SlackClient(config)
+export async function sendSlackMessage(channel: string, text: string, token?: string): Promise<any> {
+  const client = await getSlackClient(token)
+
+  return client.chat.postMessage({
+    channel,
+    text,
+  })
+}
+
+export async function getSlackChannels(token?: string): Promise<any> {
+  const client = await getSlackClient(token)
+
+  return client.conversations.list({
+    types: "public_channel,private_channel",
+  })
+}
+
+export async function getSlackUsers(token?: string): Promise<any> {
+  const client = await getSlackClient(token)
+
+  return client.users.list()
 }

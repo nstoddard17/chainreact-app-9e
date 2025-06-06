@@ -91,7 +91,7 @@ export interface Template {
   updated_at: string
 }
 
-// Schema definitions for required exports
+// Required schema exports
 export const users = {
   tableName: "users",
   columns: {

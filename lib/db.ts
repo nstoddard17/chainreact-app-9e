@@ -4,13 +4,16 @@ import type { Database } from "@/types/supabase"
 const supabaseUrl = process.env.SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
-// Create and export the database client
-export const db = createClient<Database>(supabaseUrl, supabaseServiceKey, {
+// Create the database client
+const dbClient = createClient<Database>(supabaseUrl, supabaseServiceKey, {
   auth: {
     autoRefreshToken: false,
     persistSession: false,
   },
 })
+
+// Export as named export
+export const db = dbClient
 
 // Helper functions for database operations
 export async function getIntegration(userId: string, provider: string) {
@@ -53,5 +56,3 @@ export async function getUserIntegrations(userId: string) {
 
   return data || []
 }
-
-// Named export: db is already exported above

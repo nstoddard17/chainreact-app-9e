@@ -1,69 +1,110 @@
-import { defineStore } from "pinia"
-import { supabase } from "@/supabase"
+import { create } from "zustand"
+import type { Database } from "@/types/supabase"
+import { supabase } from "@/lib/supabase"
+
+type Integration = Database["public"]["Tables"]["integrations"]["Row"]
 
 interface IntegrationState {
-  loading: boolean
+  integrations: Integration[]
+  isLoading: boolean
   error: string | null
+  fetchIntegrations: (userId: string) => Promise<void>
+  createIntegration: (
+    integrationData: Omit<Integration, "id" | "created_at" | "user_id">,
+    userId: string,
+  ) => Promise<void>
+  updateIntegration: (id: string, updates: Partial<Omit<Integration, "id" | "created_at" | "user_id">>) => Promise<void>
+  deleteIntegration: (id: string) => Promise<void>
 }
 
-export const useIntegrationStore = defineStore("integration", {
-  state: (): IntegrationState => ({
-    loading: false,
-    error: null,
-  }),
-  actions: {
-    setLoading(loading: boolean) {
-      this.loading = loading
-    },
-    setError(error: string | null) {
-      this.error = error
-    },
-    clearError() {
-      this.error = null
-    },
-    async connectIntegration(provider: string, reconnect = false, integrationId?: string) {
-      try {
-        this.setLoading(true)
-        this.clearError()
-
-        // Get current user
-        const {
-          data: { user },
-        } = await supabase.auth.getUser()
-        if (!user) {
-          throw new Error("User not authenticated")
-        }
-
-        console.log(`Connecting to ${provider} for user ${user.id}`)
-
-        // Generate auth URL with user ID
-        let authUrl: string
-
-        switch (provider) {
-          case "google":
-          case "google-calendar":
-          case "gmail":
-            const { GoogleOAuthService } = await import("@/lib/oauth/google")
-            authUrl = GoogleOAuthService.generateAuthUrl(
-              window.location.origin,
-              reconnect,
-              integrationId,
-              user.id, // Pass user ID
-            )
-            break
-          // Add other providers here
-          default:
-            throw new Error(`Unsupported provider: ${provider}`)
-        }
-
-        // Redirect to auth URL
-        window.location.href = authUrl
-      } catch (error: any) {
-        console.error(`Error connecting to ${provider}:`, error)
-        this.setError(error.message)
-      } finally {
-        this.setLoading(false)
+export const useIntegrationStore = create<IntegrationState>((set) => ({
+  integrations: [],
+  isLoading: false,
+  error: null,
+  fetchIntegrations: async (userId: string) => {
+    set({ isLoading: true, error: null })
+    try {
+      if (!supabase) {
+        throw new Error("Supabase client not available")
       }
-    },
+
+      const { data, error } = await supabase.from("integrations").select("*").eq("user_id", userId)
+
+      if (error) {
+        throw new Error(error.message)
+      }
+
+      set({ integrations: data || [], isLoading: false })
+    } catch (error: any) {
+      set({ error: error.message, isLoading: false })
+    }
   },
-})
+  createIntegration: async (integrationData: Omit<Integration, "id" | "created_at" | "user_id">, userId: string) => {
+    set({ isLoading: true, error: null })
+    try {
+      if (!supabase) {
+        throw new Error("Supabase client not available")
+      }
+
+      const { data, error } = await supabase
+        .from("integrations")
+        .insert([{ ...integrationData, user_id: userId }])
+        .select()
+
+      if (error) {
+        throw new Error(error.message)
+      }
+
+      set((state) => ({
+        integrations: [...state.integrations, data![0]],
+        isLoading: false,
+      }))
+    } catch (error: any) {
+      set({ error: error.message, isLoading: false })
+    }
+  },
+  updateIntegration: async (id: string, updates: Partial<Omit<Integration, "id" | "created_at" | "user_id">>) => {
+    set({ isLoading: true, error: null })
+    try {
+      if (!supabase) {
+        throw new Error("Supabase client not available")
+      }
+
+      const { data, error } = await supabase.from("integrations").update(updates).eq("id", id).select()
+
+      if (error) {
+        throw new Error(error.message)
+      }
+
+      set((state) => ({
+        integrations: state.integrations.map((integration) =>
+          integration.id === id ? { ...integration, ...data![0] } : integration,
+        ),
+        isLoading: false,
+      }))
+    } catch (error: any) {
+      set({ error: error.message, isLoading: false })
+    }
+  },
+  deleteIntegration: async (id: string) => {
+    set({ isLoading: true, error: null })
+    try {
+      if (!supabase) {
+        throw new Error("Supabase client not available")
+      }
+
+      const { error } = await supabase.from("integrations").delete().eq("id", id)
+
+      if (error) {
+        throw new Error(error.message)
+      }
+
+      set((state) => ({
+        integrations: state.integrations.filter((integration) => integration.id !== id),
+        isLoading: false,
+      }))
+    } catch (error: any) {
+      set({ error: error.message, isLoading: false })
+    }
+  },
+}))

@@ -1,114 +1,27 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
-import { generateOAuthUrl } from "@/lib/oauth"
+import { eq } from "drizzle-orm"
 
-export async function POST(request: NextRequest) {
+import { db } from "@/lib/db"
+import { users } from "@/lib/db/schema"
+
+export async function GET(req: NextRequest) {
   try {
-    const { provider, reconnect = false, integrationId, userId } = await request.json()
+    const url = new URL(req.url)
+    const email = url.searchParams.get("email")
 
-    if (!provider) {
-      return NextResponse.json({ error: "Provider is required" }, { status: 400 })
+    if (!email) {
+      return NextResponse.json({ user: null, message: "Email parameter is required" }, { status: 400 })
     }
 
-    // Verify user session
-    const supabase = createRouteHandlerClient({ cookies })
-    const {
-      data: { session },
-      error: sessionError,
-    } = await supabase.auth.getSession()
+    const user = await db.select().from(users).where(eq(users.email, email))
 
-    if (sessionError || !session) {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 })
+    if (!user || user.length === 0) {
+      return NextResponse.json({ user: null, message: "User not found" }, { status: 404 })
     }
 
-    // Use the userId from the request or fall back to session user ID
-    const finalUserId = userId || session.user.id
-
-    // Get base URL from headers
-    const host = request.headers.get("host")
-    const protocol = request.headers.get("x-forwarded-proto") || "https"
-    const baseUrl = `${protocol}://${host}`
-
-    try {
-      const authUrl = generateOAuthUrl(provider, baseUrl, reconnect, integrationId, finalUserId)
-
-      return NextResponse.json({
-        success: true,
-        authUrl,
-        provider,
-      })
-    } catch (error: any) {
-      console.error(`OAuth configuration error for ${provider}:`, error)
-
-      // Check if it's a missing environment variable error
-      if (error.message.includes("Missing") && error.message.includes("environment variable")) {
-        return NextResponse.json(
-          {
-            error: `OAuth not configured for ${getProviderDisplayName(provider)}`,
-            details: error.message,
-            configurationError: true,
-          },
-          { status: 500 },
-        )
-      }
-
-      // Check if it's an unsupported provider error
-      if (error.message.includes("Unsupported OAuth provider")) {
-        return NextResponse.json(
-          {
-            error: `${getProviderDisplayName(provider)} integration is not yet supported`,
-            details: error.message,
-            unsupportedProvider: true,
-          },
-          { status: 400 },
-        )
-      }
-
-      return NextResponse.json(
-        {
-          error: `OAuth configuration error for ${getProviderDisplayName(provider)}`,
-          details: error.message,
-        },
-        { status: 500 },
-      )
-    }
-  } catch (error: any) {
-    console.error("Auth route error:", error)
-    return NextResponse.json(
-      {
-        error: "Internal server error",
-        details: error.message,
-      },
-      { status: 500 },
-    )
+    return NextResponse.json({ user: user[0], message: "User found" }, { status: 200 })
+  } catch (error) {
+    console.error("[INTEGRATIONS_AUTH_GET]", error)
+    return NextResponse.json({ user: null, message: "Internal error" }, { status: 500 })
   }
-}
-
-function getProviderDisplayName(provider: string): string {
-  const displayNames: Record<string, string> = {
-    google: "Google",
-    teams: "Microsoft Teams",
-    slack: "Slack",
-    dropbox: "Dropbox",
-    github: "GitHub",
-    twitter: "Twitter",
-    linkedin: "LinkedIn",
-    facebook: "Facebook",
-    instagram: "Instagram",
-    tiktok: "TikTok",
-    paypal: "PayPal",
-    shopify: "Shopify",
-    trello: "Trello",
-    notion: "Notion",
-    youtube: "YouTube",
-    docker: "Docker",
-    gitlab: "GitLab",
-    airtable: "Airtable",
-    mailchimp: "Mailchimp",
-    hubspot: "HubSpot",
-    discord: "Discord",
-  }
-
-  return displayNames[provider] || provider.charAt(0).toUpperCase() + provider.slice(1)
 }

@@ -75,9 +75,6 @@ export const getSupabaseClient = () => {
 // For compatibility with existing code - only use on client side
 const supabaseClient = typeof window !== "undefined" ? getSupabaseClient() : null
 
-// Named exports
-export { supabaseClient as supabase }
+// Single named export to avoid conflicts
+export const supabase = supabaseClient
 export const createClient = () => getSupabaseClient()
-
-// Required named export for deployment
-export const supabase = typeof window !== "undefined" ? getSupabaseClient() : null
