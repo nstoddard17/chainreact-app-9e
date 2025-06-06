@@ -31,8 +31,8 @@ export class TeamsOAuthService extends BaseOAuthService {
       "offline_access",
       "User.Read",
       "Chat.ReadWrite",
-      "OnlineMeetings.ReadWrite",
-      "Calendars.ReadWrite",
+      "ChannelMessage.Send",
+      "Team.ReadBasic.All",
     ]
 
     const state = btoa(
@@ -75,6 +75,8 @@ export class TeamsOAuthService extends BaseOAuthService {
       const { clientId, clientSecret } = this.getClientCredentials()
       const redirectUri = this.getRedirectUri()
 
+      console.log("Teams: Exchanging code for token...")
+
       const tokenResponse = await fetch("https://login.microsoftonline.com/common/oauth2/v2.0/token", {
         method: "POST",
         headers: {
@@ -91,11 +93,14 @@ export class TeamsOAuthService extends BaseOAuthService {
 
       if (!tokenResponse.ok) {
         const errorData = await tokenResponse.text()
+        console.error("Teams token exchange failed:", errorData)
         throw new Error(`Token exchange failed: ${errorData}`)
       }
 
       const tokenData = await tokenResponse.json()
       const { access_token, refresh_token, expires_in, scope } = tokenData
+
+      console.log("Teams: Token received, scope:", scope)
 
       const userResponse = await fetch("https://graph.microsoft.com/v1.0/me", {
         headers: {
@@ -104,10 +109,17 @@ export class TeamsOAuthService extends BaseOAuthService {
       })
 
       if (!userResponse.ok) {
+        const errorText = await userResponse.text()
+        console.error("Teams user info failed:", errorText)
         throw new Error(`Failed to get user info: ${userResponse.statusText}`)
       }
 
       const userData = await userResponse.json()
+      console.log("Teams: User data received:", userData.displayName)
+
+      // Parse and store the granted scopes
+      const grantedScopes = scope ? scope.split(" ").filter((s) => s.trim()) : []
+      console.log("Teams: Granted scopes:", grantedScopes)
 
       const integrationData = {
         user_id: userId,
@@ -117,14 +129,17 @@ export class TeamsOAuthService extends BaseOAuthService {
         refresh_token,
         expires_at: expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null,
         status: "connected" as const,
-        scopes: scope ? scope.split(" ") : [],
+        scopes: grantedScopes,
         metadata: {
           display_name: userData.displayName,
-          email: userData.userPrincipalName,
+          email: userData.userPrincipalName || userData.mail,
           connected_at: new Date().toISOString(),
+          scopes: grantedScopes, // Store scopes in metadata as well
+          raw_scope_string: scope, // Store the raw scope string for debugging
         },
       }
 
+      console.log("Teams: Saving integration data with scopes:", grantedScopes)
       await saveIntegrationToDatabase(integrationData)
 
       return {
@@ -132,6 +147,7 @@ export class TeamsOAuthService extends BaseOAuthService {
         redirectUrl: generateSuccessRedirect("teams"),
       }
     } catch (error: any) {
+      console.error("Teams OAuth callback error:", error)
       return {
         success: false,
         redirectUrl: `https://chainreact.app/integrations?error=callback_failed&provider=teams&message=${encodeURIComponent(error.message)}`,

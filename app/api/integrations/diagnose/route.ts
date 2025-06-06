@@ -20,6 +20,7 @@ interface DiagnosticResult {
     lastVerified?: string
     errorMessage?: string
     connectionType?: "oauth" | "demo" | "api_key"
+    rawScopeString?: string
   }
 }
 
@@ -36,8 +37,9 @@ const COMPONENT_SCOPE_MAPPING = {
 
   // Microsoft Teams components
   teams_message: { scopes: ["Chat.ReadWrite"], provider: "teams" },
-  teams_meeting: { scopes: ["OnlineMeetings.ReadWrite"], provider: "teams" },
-  teams_calendar: { scopes: ["Calendars.ReadWrite"], provider: "teams" },
+  teams_send_channel_message: { scopes: ["ChannelMessage.Send"], provider: "teams" },
+  teams_get_teams: { scopes: ["Team.ReadBasic.All"], provider: "teams" },
+  teams_user_info: { scopes: ["User.Read"], provider: "teams" },
 
   // Google Calendar components
   google_calendar_create: { scopes: ["https://www.googleapis.com/auth/calendar"], provider: "google-calendar" },
@@ -121,43 +123,26 @@ async function verifyMicrosoftToken(
   accessToken: string,
 ): Promise<{ valid: boolean; scopes: string[]; error?: string }> {
   try {
+    console.log("Verifying Microsoft token...")
+
     const userResponse = await fetch("https://graph.microsoft.com/v1.0/me", {
       headers: { Authorization: `Bearer ${accessToken}` },
     })
 
     if (!userResponse.ok) {
       const error = await userResponse.json()
+      console.error("Microsoft user verification failed:", error)
       return { valid: false, scopes: [], error: error.error?.message || "Token validation failed" }
     }
 
-    const scopes: string[] = []
+    const userData = await userResponse.json()
+    console.log("Microsoft user verified:", userData.displayName)
 
-    // Test chat access
-    const chatResponse = await fetch("https://graph.microsoft.com/v1.0/me/chats", {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    })
-    if (chatResponse.ok) {
-      scopes.push("Chat.ReadWrite")
-    }
-
-    // Test calendar access
-    const calendarResponse = await fetch("https://graph.microsoft.com/v1.0/me/calendar", {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    })
-    if (calendarResponse.ok) {
-      scopes.push("Calendars.ReadWrite")
-    }
-
-    // Test online meetings - this might require different permissions
-    const meetingsResponse = await fetch("https://graph.microsoft.com/v1.0/me/onlineMeetings", {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    })
-    if (meetingsResponse.ok) {
-      scopes.push("OnlineMeetings.ReadWrite")
-    }
-
-    return { valid: true, scopes }
+    // Instead of testing individual endpoints, return the scopes that were granted during OAuth
+    // We'll get these from the stored integration data
+    return { valid: true, scopes: [] } // Scopes will be filled from stored data
   } catch (error: any) {
+    console.error("Microsoft token verification error:", error)
     return { valid: false, scopes: [], error: error.message }
   }
 }
@@ -443,6 +428,7 @@ function analyzeIntegration(
       lastVerified: integration.metadata?.last_verified,
       errorMessage: error,
       connectionType: isDemo ? "demo" : integration.metadata?.access_token ? "oauth" : "api_key",
+      rawScopeString: integration.metadata?.raw_scope_string,
     },
   }
 }
@@ -514,6 +500,12 @@ export async function GET(request: NextRequest) {
           case "teams":
           case "onedrive":
             verificationResult = await verifyMicrosoftToken(accessToken)
+            // For Teams, use the stored scopes instead of trying to verify each one
+            if (verificationResult.valid) {
+              const storedScopes = integration.scopes || metadata?.scopes || []
+              verificationResult.scopes = storedScopes
+              console.log("Teams: Using stored scopes:", storedScopes)
+            }
             break
           case "slack":
             verificationResult = await verifySlackToken(accessToken)
