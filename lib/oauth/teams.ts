@@ -25,15 +25,23 @@ export class TeamsOAuthService extends BaseOAuthService {
     const redirectUri = this.getRedirectUri()
 
     const scopes = [
-      "openid",
-      "profile",
-      "email",
-      "offline_access",
-      "User.Read",
-      "Chat.ReadWrite",
-      "OnlineMeetings.ReadWrite",
-      "Calendars.ReadWrite",
-    ]
+    "openid",
+    "profile",
+    "email",
+    "offline_access",
+    "User.Read",
+    "Chat.ReadWrite",
+    "ChannelMessage.Send",
+    "OnlineMeetings.ReadWrite",
+    "Calendars.ReadWrite",
+    "Team.ReadBasic.All",
+    "Team.ReadWrite.All",
+    "ChannelSettings.ReadWrite.All",
+    "Group.ReadWrite.All",
+    "Directory.Read.All",
+    "TeamsAppInstallation.ReadWriteSelfForTeam"
+  ]
+
 
     const state = btoa(
       JSON.stringify({

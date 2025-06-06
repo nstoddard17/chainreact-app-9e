@@ -29,10 +29,12 @@ export class YouTubeOAuthService {
 
     // Use more compatible scopes to avoid "invalid request" error
     const scopes = [
-      "https://www.googleapis.com/auth/youtube.readonly",
+      "https://www.googleapis.com/auth/youtube",
       "https://www.googleapis.com/auth/userinfo.profile",
       "https://www.googleapis.com/auth/userinfo.email",
+      "openid",
     ]
+
 
     const state = btoa(
       JSON.stringify({
