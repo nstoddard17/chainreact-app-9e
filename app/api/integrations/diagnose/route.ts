@@ -368,12 +368,34 @@ function analyzeIntegration(
   // Analyze each component
   providerComponents.forEach(([componentName, config]) => {
     const hasRequiredScopes = config.scopes.every((scope) => {
-      // For Google scopes, handle readonly vs full access
+      // For Google scopes, handle readonly vs full access and scope hierarchy
       if (scope.includes("googleapis.com/auth/")) {
+        // Handle readonly vs full access
         if (scope.includes(".readonly")) {
           const fullAccessScope = scope.replace(".readonly", "")
           return grantedScopes.includes(scope) || grantedScopes.includes(fullAccessScope)
         }
+
+        // Handle Gmail scope hierarchy - modify includes readonly
+        if (scope === "https://www.googleapis.com/auth/gmail.readonly") {
+          return grantedScopes.includes(scope) || grantedScopes.includes("https://www.googleapis.com/auth/gmail.modify")
+        }
+
+        // Handle Calendar scope hierarchy - full calendar includes events
+        if (scope === "https://www.googleapis.com/auth/calendar.events") {
+          return grantedScopes.includes(scope) || grantedScopes.includes("https://www.googleapis.com/auth/calendar")
+        }
+
+        // Handle Sheets scope hierarchy - full spreadsheets includes readonly
+        if (scope === "https://www.googleapis.com/auth/spreadsheets.readonly") {
+          return grantedScopes.includes(scope) || grantedScopes.includes("https://www.googleapis.com/auth/spreadsheets")
+        }
+
+        // Handle Docs scope hierarchy - full documents includes readonly
+        if (scope === "https://www.googleapis.com/auth/documents.readonly") {
+          return grantedScopes.includes(scope) || grantedScopes.includes("https://www.googleapis.com/auth/documents")
+        }
+
         return grantedScopes.includes(scope)
       }
       return grantedScopes.includes(scope)
@@ -384,7 +406,38 @@ function analyzeIntegration(
     } else {
       unavailableComponents.push(componentName)
       config.scopes.forEach((scope) => {
-        if (!grantedScopes.includes(scope) && !missingScopes.includes(scope)) {
+        // Only add to missing scopes if no higher-level scope covers it
+        let isMissing = !grantedScopes.includes(scope)
+
+        // Check for Google scope hierarchy
+        if (scope.includes("googleapis.com/auth/") && isMissing) {
+          if (
+            scope === "https://www.googleapis.com/auth/gmail.readonly" &&
+            grantedScopes.includes("https://www.googleapis.com/auth/gmail.modify")
+          ) {
+            isMissing = false
+          }
+          if (
+            scope === "https://www.googleapis.com/auth/calendar.events" &&
+            grantedScopes.includes("https://www.googleapis.com/auth/calendar")
+          ) {
+            isMissing = false
+          }
+          if (
+            scope === "https://www.googleapis.com/auth/spreadsheets.readonly" &&
+            grantedScopes.includes("https://www.googleapis.com/auth/spreadsheets")
+          ) {
+            isMissing = false
+          }
+          if (
+            scope === "https://www.googleapis.com/auth/documents.readonly" &&
+            grantedScopes.includes("https://www.googleapis.com/auth/documents")
+          ) {
+            isMissing = false
+          }
+        }
+
+        if (isMissing && !missingScopes.includes(scope)) {
           missingScopes.push(scope)
         }
       })
