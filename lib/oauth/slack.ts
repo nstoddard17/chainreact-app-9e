@@ -27,8 +27,9 @@ export class SlackOAuthService extends BaseOAuthService {
     const botScopes = [
       "channels:read",
       "channels:history",
+      "channels:write", // This IS a valid scope for creating channels
       "chat:write",
-      "files:write",
+      "files:write", // This IS a valid scope for uploading files
       "groups:read",
       "im:read",
       "mpim:read",
