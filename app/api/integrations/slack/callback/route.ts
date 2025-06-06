@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createClient } from "@supabase/supabase-js"
+import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
+import { cookies } from "next/headers"
 
 const slackClientId = process.env.NEXT_PUBLIC_SLACK_CLIENT_ID
 const slackClientSecret = process.env.SLACK_CLIENT_SECRET
@@ -7,19 +8,6 @@ const slackClientSecret = process.env.SLACK_CLIENT_SECRET
 if (!slackClientId || !slackClientSecret) {
   throw new Error("NEXT_PUBLIC_SLACK_CLIENT_ID and SLACK_CLIENT_SECRET must be defined")
 }
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-if (!supabaseUrl || !supabaseKey) {
-  throw new Error("NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be defined")
-}
-
-const supabase = createClient(supabaseUrl, supabaseKey, {
-  auth: {
-    persistSession: false,
-  },
-})
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
@@ -45,6 +33,9 @@ export async function GET(request: NextRequest) {
     if (!userId) {
       throw new Error("No user ID in state")
     }
+
+    // Initialize Supabase client
+    const supabase = createRouteHandlerClient({ cookies })
 
     // Exchange code for token
     const tokenResponse = await fetch("https://slack.com/api/oauth.v2.access", {
@@ -82,6 +73,7 @@ export async function GET(request: NextRequest) {
       throw new Error(userData.error)
     }
 
+    const now = new Date().toISOString()
     const integrationData = {
       user_id: userId,
       provider: "slack",
@@ -95,8 +87,9 @@ export async function GET(request: NextRequest) {
         team_name: userData.team.name,
         team_id: userData.team.id,
         user_name: userData.user.name,
-        connected_at: new Date().toISOString(),
+        connected_at: now,
       },
+      updated_at: now,
     }
 
     // Check if integration exists and update or insert
@@ -105,21 +98,25 @@ export async function GET(request: NextRequest) {
       .select("id")
       .eq("user_id", userId)
       .eq("provider", "slack")
-      .single()
+      .maybeSingle()
 
     if (existingIntegration) {
-      const { error } = await supabase
-        .from("integrations")
-        .update({ ...integrationData, updated_at: new Date().toISOString() })
-        .eq("id", existingIntegration.id)
+      const { error } = await supabase.from("integrations").update(integrationData).eq("id", existingIntegration.id)
 
-      if (error) throw error
+      if (error) {
+        console.error("Error updating Slack integration:", error)
+        throw error
+      }
     } else {
-      const { error } = await supabase
-        .from("integrations")
-        .insert({ ...integrationData, created_at: new Date().toISOString() })
+      const { error } = await supabase.from("integrations").insert({
+        ...integrationData,
+        created_at: now,
+      })
 
-      if (error) throw error
+      if (error) {
+        console.error("Error inserting Slack integration:", error)
+        throw error
+      }
     }
 
     return NextResponse.redirect(`https://chainreact.app/integrations?success=slack_connected&provider=slack`)
