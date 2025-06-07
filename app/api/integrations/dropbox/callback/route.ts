@@ -1,6 +1,7 @@
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
+import { validateAndUpdateIntegrationScopes } from "@/lib/integrations/scopeValidation"
 
 // Use direct Supabase client with service role for reliable database operations
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -82,6 +83,17 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const accessToken = tokenData.access_token
     const refreshToken = tokenData.refresh_token
     const accountId = tokenData.account_id
+    let grantedScopes: string[] = []
+    if (tokenData.scope) {
+      if (typeof tokenData.scope === "string") {
+        grantedScopes = tokenData.scope.split(/\s+/).map((s: string) => s.trim()).filter((s: string) => s)
+      } else if (Array.isArray(tokenData.scope)) {
+        grantedScopes = tokenData.scope
+      }
+    }
+    if (grantedScopes.length === 0) {
+      grantedScopes = ["files.content.read", "files.content.write"]
+    }
 
     if (!accessToken) {
       console.error("No access token received from Dropbox")
@@ -121,8 +133,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       access_token: accessToken,
       refresh_token: refreshToken,
       expires_at: tokenData.expires_in ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString() : null,
-      status: "connected",
-      scopes: ["files.content.read", "files.content.write"],
+      status: "connected" as const,
+      scopes: grantedScopes,
+      granted_scopes: grantedScopes,
       metadata: {
         email: userData.email,
         name: userData.name.display_name,
@@ -131,22 +144,42 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       updated_at: now,
     }
 
+    let integrationId: string | undefined
     if (existingIntegration) {
-      const { error } = await supabase.from("integrations").update(integrationData).eq("id", existingIntegration.id)
+      const { data, error } = await supabase
+        .from("integrations")
+        .update(integrationData)
+        .eq("id", existingIntegration.id)
+        .select("id")
+        .single()
 
       if (error) {
         console.error("Error updating Dropbox integration:", error)
         return NextResponse.redirect(`${baseUrl}/integrations?error=database_update_failed&provider=dropbox`)
       }
+      integrationId = data.id
     } else {
-      const { error } = await supabase.from("integrations").insert({
-        ...integrationData,
-        created_at: now,
-      })
+      const { data, error } = await supabase
+        .from("integrations")
+        .insert({
+          ...integrationData,
+          created_at: now,
+        })
+        .select("id")
+        .single()
 
       if (error) {
         console.error("Error inserting Dropbox integration:", error)
         return NextResponse.redirect(`${baseUrl}/integrations?error=database_insert_failed&provider=dropbox`)
+      }
+      integrationId = data.id
+    }
+
+    if (integrationId) {
+      try {
+        await validateAndUpdateIntegrationScopes(integrationId, grantedScopes)
+      } catch (err) {
+        console.error("Dropbox scope validation failed:", err)
       }
     }
 
