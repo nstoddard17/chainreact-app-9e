@@ -98,21 +98,41 @@ export async function GET(request: NextRequest) {
       }),
     })
 
-    if (!tokenResponse.ok) {
-      const errorText = await tokenResponse.text()
-      console.error("X (Twitter) token exchange failed:", errorText)
-      return NextResponse.redirect(new URL("/integrations?error=token_exchange_failed&provider=twitter", baseUrl))
+    const tokenResponseText = await tokenResponse.text()
+    console.log("Token response status:", tokenResponse.status)
+    console.log("Token response headers:", Object.fromEntries(tokenResponse.headers.entries()))
+
+    let tokenData
+    try {
+      tokenData = JSON.parse(tokenResponseText)
+      console.log("Token data parsed successfully:", {
+        hasAccessToken: !!tokenData.access_token,
+        hasRefreshToken: !!tokenData.refresh_token,
+        expiresIn: tokenData.expires_in,
+        scope: tokenData.scope,
+      })
+    } catch (e) {
+      console.error("Failed to parse token response:", e)
+      console.error("Raw token response:", tokenResponseText)
+      return NextResponse.redirect(
+        new URL(
+          `/integrations?error=token_parse_failed&provider=twitter&message=${encodeURIComponent("Failed to parse token response")}`,
+          baseUrl,
+        ),
+      )
     }
 
-    const tokenData = await tokenResponse.json()
-    const { access_token, refresh_token, expires_in, scope } = tokenData
+    if (!tokenResponse.ok) {
+      console.error("X (Twitter) token exchange failed:", tokenResponseText)
+      return NextResponse.redirect(
+        new URL(
+          `/integrations?error=token_exchange_failed&provider=twitter&message=${encodeURIComponent(tokenResponseText)}`,
+          baseUrl,
+        ),
+      )
+    }
 
-    console.log("Token exchange successful:", {
-      hasAccessToken: !!access_token,
-      hasRefreshToken: !!refresh_token,
-      expiresIn: expires_in,
-      scope,
-    })
+    const { access_token, refresh_token, expires_in, scope } = tokenData
 
     // Get user info
     const userResponse = await fetch("https://api.twitter.com/2/users/me", {
@@ -124,7 +144,12 @@ export async function GET(request: NextRequest) {
     if (!userResponse.ok) {
       const errorText = await userResponse.text()
       console.error("X (Twitter) user info failed:", errorText)
-      return NextResponse.redirect(new URL("/integrations?error=user_info_failed&provider=twitter", baseUrl))
+      return NextResponse.redirect(
+        new URL(
+          `/integrations?error=user_info_failed&provider=twitter&message=${encodeURIComponent(errorText)}`,
+          baseUrl,
+        ),
+      )
     }
 
     const userData = await userResponse.json()
@@ -168,7 +193,6 @@ export async function GET(request: NextRequest) {
         access_token, // Store in metadata as backup
         refresh_token, // Store in metadata as backup
       },
-      updated_at: now,
     }
 
     console.log("Integration data to save:", {
@@ -183,45 +207,52 @@ export async function GET(request: NextRequest) {
     })
 
     let result
-    if (existingIntegration) {
-      console.log("Updating existing integration:", existingIntegration.id)
-      result = await supabase
-        .from("integrations")
-        .update(integrationData)
-        .eq("id", existingIntegration.id)
-        .select()
-        .single()
+    try {
+      if (existingIntegration) {
+        console.log("Updating existing integration:", existingIntegration.id)
+        result = await supabase
+          .from("integrations")
+          .update({
+            ...integrationData,
+            updated_at: now,
+          })
+          .eq("id", existingIntegration.id)
+          .select()
+      } else {
+        console.log("Creating new integration")
+        result = await supabase
+          .from("integrations")
+          .insert({
+            ...integrationData,
+            created_at: now,
+            updated_at: now,
+          })
+          .select()
+      }
+
+      console.log("Database operation result:", {
+        success: !result.error,
+        error: result.error,
+        data: result.data ? `${result.data.length} records` : null,
+      })
 
       if (result.error) {
-        console.error("Error updating X (Twitter) integration:", result.error)
-        return NextResponse.redirect(new URL("/integrations?error=database_update_failed&provider=twitter", baseUrl))
+        throw result.error
       }
-    } else {
-      console.log("Creating new integration")
-      result = await supabase
-        .from("integrations")
-        .insert({
-          ...integrationData,
-          created_at: now,
-        })
-        .select()
-        .single()
-
-      if (result.error) {
-        console.error("Error inserting X (Twitter) integration:", result.error)
-        return NextResponse.redirect(new URL("/integrations?error=database_insert_failed&provider=twitter", baseUrl))
-      }
+    } catch (dbError: any) {
+      console.error("Database operation failed:", dbError)
+      return NextResponse.redirect(
+        new URL(
+          `/integrations?error=database_operation_failed&provider=twitter&message=${encodeURIComponent(dbError.message || "Unknown database error")}`,
+          baseUrl,
+        ),
+      )
     }
 
-    console.log("Integration saved successfully:", {
-      id: result.data?.id,
-      provider: result.data?.provider,
-      status: result.data?.status,
-    })
-
     // Add a longer delay to ensure database operations complete
-    await new Promise((resolve) => setTimeout(resolve, 1500))
+    await new Promise((resolve) => setTimeout(resolve, 2000))
 
+    // Add a timestamp to force page refresh
     return NextResponse.redirect(
       new URL(`/integrations?success=twitter_connected&provider=twitter&t=${Date.now()}`, baseUrl),
     )
@@ -229,7 +260,7 @@ export async function GET(request: NextRequest) {
     console.error("X (Twitter) OAuth callback error:", error)
     return NextResponse.redirect(
       new URL(
-        `/integrations?error=callback_failed&provider=twitter&message=${encodeURIComponent(error.message)}`,
+        `/integrations?error=callback_failed&provider=twitter&message=${encodeURIComponent(error.message || "Unknown error")}`,
         baseUrl,
       ),
     )
