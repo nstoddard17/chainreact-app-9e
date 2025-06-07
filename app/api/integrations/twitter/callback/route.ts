@@ -39,6 +39,7 @@ export async function GET(request: NextRequest) {
     let stateData
     try {
       stateData = JSON.parse(atob(state))
+      console.log("Parsed state data:", stateData)
     } catch (e) {
       console.error("Failed to parse state:", e)
       return NextResponse.redirect(new URL("/integrations?error=invalid_state&provider=twitter", baseUrl))
@@ -62,6 +63,12 @@ export async function GET(request: NextRequest) {
     // Use dynamic redirect URI
     const redirectUri = `${baseUrl}/api/integrations/twitter/callback`
 
+    console.log("Exchanging code for token with:", {
+      clientId,
+      redirectUri,
+      hasClientSecret: !!clientSecret,
+    })
+
     // Exchange code for token
     const tokenResponse = await fetch("https://api.twitter.com/2/oauth2/token", {
       method: "POST",
@@ -79,12 +86,20 @@ export async function GET(request: NextRequest) {
     })
 
     if (!tokenResponse.ok) {
-      console.error("X (Twitter) token exchange failed:", await tokenResponse.text())
+      const errorText = await tokenResponse.text()
+      console.error("X (Twitter) token exchange failed:", errorText)
       return NextResponse.redirect(new URL("/integrations?error=token_exchange_failed&provider=twitter", baseUrl))
     }
 
     const tokenData = await tokenResponse.json()
     const { access_token, refresh_token, expires_in, scope } = tokenData
+
+    console.log("Token exchange successful:", {
+      hasAccessToken: !!access_token,
+      hasRefreshToken: !!refresh_token,
+      expiresIn: expires_in,
+      scope,
+    })
 
     // Get user info
     const userResponse = await fetch("https://api.twitter.com/2/users/me", {
@@ -94,13 +109,20 @@ export async function GET(request: NextRequest) {
     })
 
     if (!userResponse.ok) {
-      console.error("X (Twitter) user info failed:", await userResponse.text())
+      const errorText = await userResponse.text()
+      console.error("X (Twitter) user info failed:", errorText)
       return NextResponse.redirect(new URL("/integrations?error=user_info_failed&provider=twitter", baseUrl))
     }
 
     const userData = await userResponse.json()
     const user = userData.data
     const now = new Date().toISOString()
+
+    console.log("User info retrieved:", {
+      userId: user.id,
+      username: user.username,
+      name: user.name,
+    })
 
     // Check if integration exists
     const { data: existingIntegration } = await supabase
@@ -109,6 +131,8 @@ export async function GET(request: NextRequest) {
       .eq("user_id", userId)
       .eq("provider", "twitter")
       .maybeSingle()
+
+    console.log("Existing integration check:", { exists: !!existingIntegration })
 
     const integrationData = {
       user_id: userId,
@@ -124,11 +148,14 @@ export async function GET(request: NextRequest) {
         user_name: user.name,
         connected_at: now,
         scopes_validated: true,
+        access_token, // Store in metadata as backup
+        refresh_token, // Store in metadata as backup
       },
       updated_at: now,
     }
 
     if (existingIntegration) {
+      console.log("Updating existing integration:", existingIntegration.id)
       const { error } = await supabase.from("integrations").update(integrationData).eq("id", existingIntegration.id)
 
       if (error) {
@@ -136,6 +163,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.redirect(new URL("/integrations?error=database_update_failed&provider=twitter", baseUrl))
       }
     } else {
+      console.log("Creating new integration")
       const { error } = await supabase.from("integrations").insert({
         ...integrationData,
         created_at: now,
@@ -147,8 +175,10 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    console.log("Integration saved successfully")
+
     // Add a delay to ensure database operations complete
-    await new Promise((resolve) => setTimeout(resolve, 500))
+    await new Promise((resolve) => setTimeout(resolve, 1000))
 
     return NextResponse.redirect(
       new URL(`/integrations?success=twitter_connected&provider=twitter&t=${Date.now()}`, baseUrl),
