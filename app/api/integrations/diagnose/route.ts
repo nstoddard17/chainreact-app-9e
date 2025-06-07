@@ -211,6 +211,19 @@ async function verifyMicrosoftToken(
   try {
     console.log("Verifying Microsoft token...")
 
+    // Check if token looks like a valid JWT or Bearer token
+    if (!accessToken || accessToken.length < 50) {
+      return { valid: false, scopes: [], error: "Access token appears to be invalid or too short" }
+    }
+
+    // Log token format for debugging (without exposing the token)
+    console.log("Microsoft token format:", {
+      length: accessToken.length,
+      startsWithEy: accessToken.startsWith("ey"),
+      hasDots: accessToken.includes("."),
+      dotCount: (accessToken.match(/\./g) || []).length,
+    })
+
     const userResponse = await fetch("https://graph.microsoft.com/v1.0/me", {
       headers: { Authorization: `Bearer ${accessToken}` },
     })
@@ -224,9 +237,7 @@ async function verifyMicrosoftToken(
     const userData = await userResponse.json()
     console.log("Microsoft user verified:", userData.displayName)
 
-    // For Microsoft, we'll rely on the stored scopes rather than testing endpoints
-    // because Microsoft's Graph API permissions are complex and may require admin consent
-    return { valid: true, scopes: [] } // Scopes will be filled from stored data
+    return { valid: true, scopes: [] }
   } catch (error: any) {
     console.error("Microsoft token verification error:", error)
     return { valid: false, scopes: [], error: error.message }

@@ -103,6 +103,27 @@ export class TeamsOAuthService extends BaseOAuthService {
       const tokenData = await tokenResponse.json()
       const { access_token, refresh_token, expires_in, scope } = tokenData
 
+      // Validate the access token format
+      if (!access_token || typeof access_token !== "string") {
+        throw new Error("Invalid access token received from Microsoft")
+      }
+
+      // Log token info for debugging (without exposing the actual token)
+      console.log("Teams: Token received", {
+        hasAccessToken: !!access_token,
+        accessTokenLength: access_token.length,
+        accessTokenStart: access_token.substring(0, 20) + "...",
+        hasRefreshToken: !!refresh_token,
+        expiresIn: expires_in,
+        scope: scope,
+      })
+
+      // Ensure we're storing the access token correctly
+      if (access_token.length < 50) {
+        console.error("Teams: Access token seems too short:", access_token.length)
+        throw new Error("Received access token appears to be invalid (too short)")
+      }
+
       console.log("Teams: Token received, scope:", scope)
 
       const userResponse = await fetch("https://graph.microsoft.com/v1.0/me", {
@@ -138,8 +159,8 @@ export class TeamsOAuthService extends BaseOAuthService {
         user_id: userId,
         provider: "teams",
         provider_user_id: userData.id,
-        access_token,
-        refresh_token,
+        access_token: access_token, // Ensure we're using the correct variable
+        refresh_token: refresh_token,
         expires_at: expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null,
         status: "connected" as const,
         scopes: grantedScopes,
@@ -148,8 +169,10 @@ export class TeamsOAuthService extends BaseOAuthService {
           display_name: userData.displayName,
           email: userData.userPrincipalName || userData.mail,
           connected_at: new Date().toISOString(),
-          scopes: grantedScopes, // Store scopes in metadata as well
-          raw_scope_string: scope, // Store the raw scope string for debugging
+          scopes: grantedScopes,
+          raw_scope_string: scope,
+          access_token: access_token, // Store in metadata as backup
+          token_type: tokenData.token_type || "Bearer",
           requested_scopes: [
             "openid",
             "profile",
