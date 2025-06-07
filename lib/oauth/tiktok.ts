@@ -1,3 +1,4 @@
+import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 
@@ -58,7 +59,7 @@ export class TikTokOAuthService {
 
   static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string): string {
     const { clientId } = this.getClientCredentials()
-    const redirectUri = "https://chainreact.app/api/integrations/tiktok/callback"
+    const redirectUri = `${getBaseUrl()}/api/integrations/tiktok/callback`
 
     const scopes = ["user.info.basic", "video.upload", "video.list", "comment.list", "comment.create"]
 
@@ -83,7 +84,7 @@ export class TikTokOAuthService {
   }
 
   static getRedirectUri(baseUrl: string): string {
-    return "https://chainreact.app/api/integrations/tiktok/callback"
+    return `${getBaseUrl()}/api/integrations/tiktok/callback`
   }
 
   static async handleCallback(code: string, state: string, baseUrl: string): Promise<TikTokOAuthResult> {
@@ -124,7 +125,7 @@ export class TikTokOAuthService {
           client_secret: clientSecret,
           code,
           grant_type: "authorization_code",
-          redirect_uri: "https://chainreact.app/api/integrations/tiktok/callback",
+          redirect_uri: `${getBaseUrl()}/api/integrations/tiktok/callback`,
         }),
       })
 

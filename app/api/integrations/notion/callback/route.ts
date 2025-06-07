@@ -1,3 +1,4 @@
+import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 import { type NextRequest, NextResponse } from "next/server"
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
@@ -20,13 +21,13 @@ export async function GET(request: NextRequest) {
   if (error) {
     console.error("Notion OAuth error:", error)
     return NextResponse.redirect(
-      `https://chainreact.app/integrations?error=oauth_error&message=${encodeURIComponent(error)}&provider=notion`,
+      `${getBaseUrl(request)}/integrations?error=oauth_error&message=${encodeURIComponent(error)}&provider=notion`,
     )
   }
 
   if (!code || !state) {
     console.error("Missing code or state in Notion callback")
-    return NextResponse.redirect(`https://chainreact.app/integrations?error=missing_params&provider=notion`)
+    return NextResponse.redirect(`${getBaseUrl(request)}/integrations?error=missing_params&provider=notion`)
   }
 
   try {
@@ -41,7 +42,7 @@ export async function GET(request: NextRequest) {
     } catch (stateError) {
       console.error("Notion: Invalid state parameter:", stateError)
       return NextResponse.redirect(
-        `https://chainreact.app/integrations?error=invalid_state&provider=notion&message=Invalid+state+parameter`,
+        `${getBaseUrl(request)}/integrations?error=invalid_state&provider=notion&message=Invalid+state+parameter`,
       )
     }
 
@@ -60,7 +61,7 @@ export async function GET(request: NextRequest) {
       body: JSON.stringify({
         grant_type: "authorization_code",
         code,
-        redirect_uri: "https://chainreact.app/api/integrations/notion/callback",
+        redirect_uri: `${getBaseUrl(request)}/api/integrations/notion/callback`,
       }),
     })
 
@@ -143,12 +144,12 @@ export async function GET(request: NextRequest) {
     }
 
     console.log("Notion integration saved successfully")
-    return NextResponse.redirect(`https://chainreact.app/integrations?success=notion_connected&provider=notion`)
+    return NextResponse.redirect(`${getBaseUrl(request)}/integrations?success=notion_connected&provider=notion`)
   } catch (error: any) {
     console.error("Notion OAuth callback error:", error)
     const errorMessage = encodeURIComponent(error.message || "Unknown error occurred")
     return NextResponse.redirect(
-      `https://chainreact.app/integrations?error=callback_failed&provider=notion&message=${errorMessage}`,
+      `${getBaseUrl(request)}/integrations?error=callback_failed&provider=notion&message=${errorMessage}`,
     )
   }
 }

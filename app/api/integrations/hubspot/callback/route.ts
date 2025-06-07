@@ -1,3 +1,4 @@
+import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 
@@ -18,7 +19,7 @@ const supabase = createClient(supabaseUrl, supabaseKey, {
 export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get("code")
   const state = request.nextUrl.searchParams.get("state")
-  const baseUrl = "https://chainreact.app"
+  const baseUrl = getBaseUrl(request)
 
   if (!code || !state) {
     console.error("No code or state received")
@@ -60,7 +61,7 @@ export async function GET(request: NextRequest) {
         grant_type: "authorization_code",
         client_id: clientId,
         client_secret: clientSecret,
-        redirect_uri: "https://chainreact.app/api/integrations/hubspot/callback",
+        redirect_uri: `${getBaseUrl(request)}/api/integrations/hubspot/callback`,
         code,
       }),
     })

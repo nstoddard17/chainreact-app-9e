@@ -1,3 +1,4 @@
+import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 
@@ -25,14 +26,14 @@ export const GET = async (request: NextRequest): Promise<NextResponse> => {
   if (error) {
     console.error("GitLab OAuth error:", error, errorDescription)
     return NextResponse.redirect(
-      `https://chainreact.app/integrations?error=${error}&provider=gitlab&message=${encodeURIComponent(
+      `${getBaseUrl(request)}/integrations?error=${error}&provider=gitlab&message=${encodeURIComponent(
         errorDescription || "Authorization failed",
       )}`,
     )
   }
 
   if (!code || !state) {
-    return NextResponse.redirect(`https://chainreact.app/integrations?error=missing_params&provider=gitlab`)
+    return NextResponse.redirect(`${getBaseUrl(request)}/integrations?error=missing_params&provider=gitlab`)
   }
 
   try {
@@ -41,20 +42,20 @@ export const GET = async (request: NextRequest): Promise<NextResponse> => {
       stateData = JSON.parse(atob(state))
     } catch (e) {
       console.error("Failed to parse state:", e)
-      return NextResponse.redirect(`https://chainreact.app/integrations?error=invalid_state&provider=gitlab`)
+      return NextResponse.redirect(`${getBaseUrl(request)}/integrations?error=invalid_state&provider=gitlab`)
     }
 
     const { userId } = stateData
 
     if (!userId) {
-      return NextResponse.redirect(`https://chainreact.app/integrations?error=missing_user_id&provider=gitlab`)
+      return NextResponse.redirect(`${getBaseUrl(request)}/integrations?error=missing_user_id&provider=gitlab`)
     }
 
     const clientId = process.env.NEXT_PUBLIC_GITLAB_CLIENT_ID
     const clientSecret = process.env.GITLAB_CLIENT_SECRET
 
     if (!clientId || !clientSecret) {
-      return NextResponse.redirect(`https://chainreact.app/integrations?error=missing_credentials&provider=gitlab`)
+      return NextResponse.redirect(`${getBaseUrl(request)}/integrations?error=missing_credentials&provider=gitlab`)
     }
 
     // Exchange code for token
@@ -68,14 +69,14 @@ export const GET = async (request: NextRequest): Promise<NextResponse> => {
         client_secret: clientSecret,
         code,
         grant_type: "authorization_code",
-        redirect_uri: "https://chainreact.app/api/integrations/gitlab/callback",
+        redirect_uri: `${getBaseUrl(request)}/api/integrations/gitlab/callback`,
       }),
     })
 
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text()
       console.error("GitLab token exchange failed:", errorText)
-      return NextResponse.redirect(`https://chainreact.app/integrations?error=token_exchange_failed&provider=gitlab`)
+      return NextResponse.redirect(`${getBaseUrl(request)}/integrations?error=token_exchange_failed&provider=gitlab`)
     }
 
     const tokenData = await tokenResponse.json()
@@ -90,7 +91,7 @@ export const GET = async (request: NextRequest): Promise<NextResponse> => {
 
     if (!userResponse.ok) {
       console.error("GitLab user info failed:", await userResponse.text())
-      return NextResponse.redirect(`https://chainreact.app/integrations?error=user_info_failed&provider=gitlab`)
+      return NextResponse.redirect(`${getBaseUrl(request)}/integrations?error=user_info_failed&provider=gitlab`)
     }
 
     const userData = await userResponse.json()
@@ -128,7 +129,7 @@ export const GET = async (request: NextRequest): Promise<NextResponse> => {
 
       if (error) {
         console.error("Error updating GitLab integration:", error)
-        return NextResponse.redirect(`https://chainreact.app/integrations?error=database_update_failed&provider=gitlab`)
+        return NextResponse.redirect(`${getBaseUrl(request)}/integrations?error=database_update_failed&provider=gitlab`)
       }
     } else {
       const { error } = await supabase.from("integrations").insert({
@@ -138,7 +139,7 @@ export const GET = async (request: NextRequest): Promise<NextResponse> => {
 
       if (error) {
         console.error("Error inserting GitLab integration:", error)
-        return NextResponse.redirect(`https://chainreact.app/integrations?error=database_insert_failed&provider=gitlab`)
+        return NextResponse.redirect(`${getBaseUrl(request)}/integrations?error=database_insert_failed&provider=gitlab`)
       }
     }
 
@@ -146,12 +147,12 @@ export const GET = async (request: NextRequest): Promise<NextResponse> => {
     await new Promise((resolve) => setTimeout(resolve, 500))
 
     return NextResponse.redirect(
-      `https://chainreact.app/integrations?success=gitlab_connected&provider=gitlab&t=${Date.now()}`,
+      `${getBaseUrl(request)}/integrations?success=gitlab_connected&provider=gitlab&t=${Date.now()}`,
     )
   } catch (error: any) {
     console.error("GitLab OAuth callback error:", error)
     return NextResponse.redirect(
-      `https://chainreact.app/integrations?error=callback_failed&provider=gitlab&message=${encodeURIComponent(error.message)}`,
+      `${getBaseUrl(request)}/integrations?error=callback_failed&provider=gitlab&message=${encodeURIComponent(error.message)}`,
     )
   }
 }

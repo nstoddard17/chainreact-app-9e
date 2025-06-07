@@ -1,3 +1,4 @@
+import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 
@@ -19,7 +20,7 @@ export const GET = async (request: NextRequest) => {
   const searchParams = request.nextUrl.searchParams
   const token = searchParams.get("token") // Trello returns token directly
   const state = searchParams.get("state")
-  const baseUrl = "https://chainreact.app"
+  const baseUrl = getBaseUrl(request)
 
   if (!token) {
     console.error("No token received from Trello")

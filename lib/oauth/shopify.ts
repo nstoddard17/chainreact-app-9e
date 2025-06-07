@@ -1,3 +1,4 @@
+import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 
@@ -60,7 +61,7 @@ export class ShopifyOAuthService {
 
   static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string): string {
     const { clientId } = this.getClientCredentials()
-    const redirectUri = "https://chainreact.app/api/integrations/shopify/callback"
+    const redirectUri = `${getBaseUrl()}/api/integrations/shopify/callback`
 
     const scopes = [
       "read_products",
@@ -96,7 +97,7 @@ export class ShopifyOAuthService {
   }
 
   static getRedirectUri(baseUrl: string): string {
-    return "https://chainreact.app/api/integrations/shopify/callback"
+    return `${getBaseUrl()}/api/integrations/shopify/callback`
   }
 
   static async handleCallback(code: string, state: string, shop: string, baseUrl: string): Promise<ShopifyOAuthResult> {

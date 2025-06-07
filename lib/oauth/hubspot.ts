@@ -1,3 +1,4 @@
+import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 interface HubSpotOAuthResult {
   success: boolean
   redirectUrl: string
@@ -55,7 +56,7 @@ export class HubSpotOAuthService {
 
   static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string): string {
     const { clientId } = this.getClientCredentials()
-    const redirectUri = "https://chainreact.app/api/integrations/hubspot/callback"
+    const redirectUri = `${getBaseUrl()}/api/integrations/hubspot/callback`
 
     const scopes = [
       "crm.objects.contacts.read",
@@ -86,7 +87,7 @@ export class HubSpotOAuthService {
   }
 
   static getRedirectUri(): string {
-    return "https://chainreact.app/api/integrations/hubspot/callback"
+    return `${getBaseUrl()}/api/integrations/hubspot/callback`
   }
 
   static async handleCallback(
@@ -134,7 +135,7 @@ export class HubSpotOAuthService {
           grant_type: "authorization_code",
           client_id: clientId,
           client_secret: clientSecret,
-          redirect_uri: "https://chainreact.app/api/integrations/hubspot/callback",
+          redirect_uri: `${getBaseUrl()}/api/integrations/hubspot/callback`,
           code,
         }),
       })
@@ -156,7 +157,7 @@ export class HubSpotOAuthService {
       if (!scopeValidation.valid) {
         return {
           success: false,
-          redirectUrl: `https://chainreact.app/integrations?error=insufficient_scopes&provider=hubspot&missing=${scopeValidation.missing.join(",")}`,
+          redirectUrl: `${getBaseUrl()}/integrations?error=insufficient_scopes&provider=hubspot&missing=${scopeValidation.missing.join(",")}`,
         }
       }
 
@@ -165,7 +166,7 @@ export class HubSpotOAuthService {
       if (!isTokenValid) {
         return {
           success: false,
-          redirectUrl: `https://chainreact.app/integrations?error=invalid_token&provider=hubspot`,
+          redirectUrl: `${getBaseUrl()}/integrations?error=invalid_token&provider=hubspot`,
         }
       }
 
@@ -217,12 +218,12 @@ export class HubSpotOAuthService {
 
       return {
         success: true,
-        redirectUrl: `https://chainreact.app/integrations?success=hubspot_connected`,
+        redirectUrl: `${getBaseUrl()}/integrations?success=hubspot_connected`,
       }
     } catch (error: any) {
       return {
         success: false,
-        redirectUrl: `https://chainreact.app/integrations?error=callback_failed&provider=hubspot&message=${encodeURIComponent(error.message)}`,
+        redirectUrl: `${getBaseUrl()}/integrations?error=callback_failed&provider=hubspot&message=${encodeURIComponent(error.message)}`,
         error: error.message,
       }
     }

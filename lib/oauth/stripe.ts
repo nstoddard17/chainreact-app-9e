@@ -1,3 +1,4 @@
+import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 export class StripeOAuthService {
   private static getClientCredentials() {
     const clientId = process.env.NEXT_PUBLIC_STRIPE_CLIENT_ID
@@ -12,7 +13,7 @@ export class StripeOAuthService {
 
   static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string, userId?: string): string {
     const { clientId } = this.getClientCredentials()
-    const redirectUri = "https://chainreact.app/api/integrations/stripe/callback"
+    const redirectUri = `${getBaseUrl()}/api/integrations/stripe/callback`
 
     const state = btoa(
       JSON.stringify({
@@ -36,7 +37,7 @@ export class StripeOAuthService {
   }
 
   static getRedirectUri(): string {
-    return "https://chainreact.app/api/integrations/stripe/callback"
+    return `${getBaseUrl()}/api/integrations/stripe/callback`
   }
 
   static async handleCallback(
@@ -106,12 +107,12 @@ export class StripeOAuthService {
 
       return {
         success: true,
-        redirectUrl: `https://chainreact.app/integrations?success=stripe_connected`,
+        redirectUrl: `${getBaseUrl()}/integrations?success=stripe_connected`,
       }
     } catch (error: any) {
       return {
         success: false,
-        redirectUrl: `https://chainreact.app/integrations?error=callback_failed&provider=stripe&message=${encodeURIComponent(error.message)}`,
+        redirectUrl: `${getBaseUrl()}/integrations?error=callback_failed&provider=stripe&message=${encodeURIComponent(error.message)}`,
         error: error.message,
       }
     }

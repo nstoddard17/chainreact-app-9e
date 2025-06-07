@@ -1,3 +1,4 @@
+import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 import { type NextRequest, NextResponse } from "next/server"
 import { cookies } from "next/headers"
 
@@ -11,13 +12,13 @@ export async function GET(request: NextRequest) {
       const error = searchParams.get("error")
       const error_description = searchParams.get("error_description")
       console.error("Airtable OAuth Error:", error, error_description)
-      const baseUrl = "https://chainreact.app"
+      const baseUrl = getBaseUrl(request)
       return NextResponse.redirect(`${baseUrl}/integrations?error=airtable_auth_failed`)
     }
 
     if (!state) {
       console.error("Missing state parameter")
-      const baseUrl = "https://chainreact.app"
+      const baseUrl = getBaseUrl(request)
       return NextResponse.redirect(`${baseUrl}/integrations?error=missing_state`)
     }
 
@@ -25,19 +26,19 @@ export async function GET(request: NextRequest) {
 
     if (state !== storedState) {
       console.error("State mismatch")
-      const baseUrl = "https://chainreact.app"
+      const baseUrl = getBaseUrl(request)
       return NextResponse.redirect(`${baseUrl}/integrations?error=state_mismatch`)
     }
 
     cookies().delete("airtable_oauth_state")
 
-    const redirectUri = "https://chainreact.app/api/integrations/airtable/callback"
+    const redirectUri = `${getBaseUrl(request)}/api/integrations/airtable/callback`
     const clientId = process.env.AIRTABLE_CLIENT_ID
     const clientSecret = process.env.AIRTABLE_CLIENT_SECRET
 
     if (!clientId || !clientSecret) {
       console.error("Missing Airtable client ID or secret")
-      const baseUrl = "https://chainreact.app"
+      const baseUrl = getBaseUrl(request)
       return NextResponse.redirect(`${baseUrl}/integrations?error=missing_credentials`)
     }
 
@@ -63,7 +64,7 @@ export async function GET(request: NextRequest) {
 
     if (!response.ok) {
       console.error("Failed to retrieve Airtable access token", response.status, await response.text())
-      const baseUrl = "https://chainreact.app"
+      const baseUrl = getBaseUrl(request)
       return NextResponse.redirect(`${baseUrl}/integrations?error=token_retrieval_failed`)
     }
 
@@ -72,7 +73,7 @@ export async function GET(request: NextRequest) {
 
     if (!accessToken) {
       console.error("Missing access token in response")
-      const baseUrl = "https://chainreact.app"
+      const baseUrl = getBaseUrl(request)
       return NextResponse.redirect(`${baseUrl}/integrations?error=missing_access_token`)
     }
 
@@ -82,10 +83,10 @@ export async function GET(request: NextRequest) {
       path: "/",
     })
 
-    return NextResponse.redirect(`https://chainreact.app/integrations?success=airtable_connected`)
+    return NextResponse.redirect(`${getBaseUrl(request)}/integrations?success=airtable_connected`)
   } catch (error) {
     console.error("Airtable OAuth Callback Error:", error)
-    const baseUrl = "https://chainreact.app"
+    const baseUrl = getBaseUrl(request)
     return NextResponse.redirect(`${baseUrl}/integrations?error=airtable_callback_error`)
   }
 }

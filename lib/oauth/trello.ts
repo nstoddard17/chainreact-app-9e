@@ -1,3 +1,4 @@
+import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 import { db } from "@/lib/db"
 import { trelloIntegrationTable } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
@@ -65,7 +66,7 @@ export class TrelloOAuthService {
   }
 
   static getRedirectUri(): string {
-    return "https://chainreact.app/api/integrations/trello/callback"
+    return `${getBaseUrl()}/api/integrations/trello/callback`
   }
 
   static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string, userId?: string): string {
@@ -157,13 +158,13 @@ export class TrelloOAuthService {
 
       return {
         success: true,
-        redirectUrl: `https://chainreact.app/integrations?success=trello_connected`,
+        redirectUrl: `${getBaseUrl()}/integrations?success=trello_connected`,
       }
     } catch (error: any) {
       console.error("Trello OAuth callback error:", error)
       return {
         success: false,
-        redirectUrl: `https://chainreact.app/integrations?error=callback_failed&provider=trello&message=${encodeURIComponent(error.message)}`,
+        redirectUrl: `${getBaseUrl()}/integrations?error=callback_failed&provider=trello&message=${encodeURIComponent(error.message)}`,
         error: error.message,
       }
     }

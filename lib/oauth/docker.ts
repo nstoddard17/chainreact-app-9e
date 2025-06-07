@@ -1,3 +1,4 @@
+import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 
@@ -25,7 +26,7 @@ export class DockerOAuthService {
       throw new Error("Missing NEXT_PUBLIC_DOCKER_CLIENT_ID environment variable")
     }
 
-    const redirectUri = "https://chainreact.app/api/integrations/docker/callback"
+    const redirectUri = `${getBaseUrl()}/api/integrations/docker/callback`
 
     const scopes = ["repo:admin", "repo:write", "repo:read"]
 
@@ -50,7 +51,7 @@ export class DockerOAuthService {
   }
 
   static getRedirectUri(baseUrl: string): string {
-    return "https://chainreact.app/api/integrations/docker/callback"
+    return `${getBaseUrl()}/api/integrations/docker/callback`
   }
 
   static async handleCallback(code: string, state: string, baseUrl: string): Promise<DockerOAuthResult> {
@@ -73,7 +74,7 @@ export class DockerOAuthService {
           grant_type: "authorization_code",
           client_id: clientId,
           client_secret: clientSecret,
-          redirect_uri: "https://chainreact.app/api/integrations/docker/callback",
+          redirect_uri: `${getBaseUrl()}/api/integrations/docker/callback`,
           code,
         }),
       })

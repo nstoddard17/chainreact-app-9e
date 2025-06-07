@@ -1,3 +1,4 @@
+import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 interface NotionOAuthResult {
   success: boolean
   redirectUrl: string
@@ -187,7 +188,7 @@ export class NotionOAuthService {
 
   static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string, userId?: string): string {
     const { clientId } = this.getClientCredentials()
-    const redirectUri = "https://chainreact.app/api/integrations/notion/callback"
+    const redirectUri = `${getBaseUrl()}/api/integrations/notion/callback`
 
     const state = btoa(
       JSON.stringify({
@@ -212,7 +213,7 @@ export class NotionOAuthService {
   }
 
   static getRedirectUri(): string {
-    return "https://chainreact.app/api/integrations/notion/callback"
+    return `${getBaseUrl()}/api/integrations/notion/callback`
   }
 
   static async handleCallback(code: string, state: string, supabase: any, userId: string): Promise<NotionOAuthResult> {
@@ -252,7 +253,7 @@ export class NotionOAuthService {
         body: JSON.stringify({
           grant_type: "authorization_code",
           code,
-          redirect_uri: "https://chainreact.app/api/integrations/notion/callback",
+          redirect_uri: `${getBaseUrl()}/api/integrations/notion/callback`,
         }),
       })
 
@@ -315,13 +316,13 @@ export class NotionOAuthService {
 
       return {
         success: true,
-        redirectUrl: `https://chainreact.app/integrations?success=notion_connected&provider=notion`,
+        redirectUrl: `${getBaseUrl()}/integrations?success=notion_connected&provider=notion`,
       }
     } catch (error: any) {
       console.error("Notion OAuth callback error:", error)
       return {
         success: false,
-        redirectUrl: `https://chainreact.app/integrations?error=callback_failed&provider=notion&message=${encodeURIComponent(error.message)}`,
+        redirectUrl: `${getBaseUrl()}/integrations?error=callback_failed&provider=notion&message=${encodeURIComponent(error.message)}`,
         error: error.message,
       }
     }
