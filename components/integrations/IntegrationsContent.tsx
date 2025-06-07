@@ -127,11 +127,8 @@ export default function IntegrationsContent() {
 
   const handleRefresh = async () => {
     try {
-      // First refresh tokens
+      // First try to refresh tokens, then fetch updated integration data
       const refreshResult = await refreshTokens()
-
-      // Then fetch updated integration data
-      await fetchIntegrations(true)
 
       if (refreshResult.refreshedCount > 0) {
         toast({
@@ -141,7 +138,7 @@ export default function IntegrationsContent() {
       } else {
         toast({
           title: "Refreshed",
-          description: "Integration data has been refreshed. No tokens needed refreshing.",
+          description: "Integration data has been refreshed.",
         })
       }
     } catch (err: any) {
