@@ -24,3 +24,6 @@ export const createServerSupabaseClient = () => {
 
   return createRouteHandlerClient<Database>({ cookies })
 }
+
+// Add the missing createClient export for compatibility
+export const createClient = createServerSupabaseClient

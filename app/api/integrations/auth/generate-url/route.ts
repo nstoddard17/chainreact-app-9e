@@ -40,8 +40,144 @@ export async function POST(request: NextRequest) {
         case "dropbox":
           authUrl = DropboxOAuthService.generateAuthUrl(baseUrl, reconnect, integrationId, userId)
           break
+        case "gmail":
+          const gmailScopes = [
+            "https://www.googleapis.com/auth/userinfo.email",
+            "https://www.googleapis.com/auth/userinfo.profile",
+            "https://www.googleapis.com/auth/gmail.send",
+            "https://www.googleapis.com/auth/gmail.modify",
+            "https://www.googleapis.com/auth/gmail.readonly",
+          ]
+          const gmailState = btoa(
+            JSON.stringify({
+              provider: "gmail",
+              userId,
+              reconnect,
+              integrationId,
+              timestamp: Date.now(),
+            }),
+          )
+          const gmailParams = new URLSearchParams({
+            client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!,
+            redirect_uri: `${baseUrl}/api/integrations/gmail/callback`,
+            response_type: "code",
+            scope: gmailScopes.join(" "),
+            access_type: "offline",
+            prompt: "consent",
+            state: gmailState,
+          })
+          authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${gmailParams.toString()}`
+          break
+        case "google-drive":
+          const driveScopes = [
+            "https://www.googleapis.com/auth/userinfo.email",
+            "https://www.googleapis.com/auth/userinfo.profile",
+            "https://www.googleapis.com/auth/drive",
+            "https://www.googleapis.com/auth/drive.file",
+          ]
+          const driveState = btoa(
+            JSON.stringify({
+              provider: "google-drive",
+              userId,
+              reconnect,
+              integrationId,
+              timestamp: Date.now(),
+            }),
+          )
+          const driveParams = new URLSearchParams({
+            client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!,
+            redirect_uri: `${baseUrl}/api/integrations/google-drive/callback`,
+            response_type: "code",
+            scope: driveScopes.join(" "),
+            access_type: "offline",
+            prompt: "consent",
+            state: driveState,
+          })
+          authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${driveParams.toString()}`
+          break
+        case "google-calendar":
+          const calendarScopes = [
+            "https://www.googleapis.com/auth/userinfo.email",
+            "https://www.googleapis.com/auth/userinfo.profile",
+            "https://www.googleapis.com/auth/calendar",
+            "https://www.googleapis.com/auth/calendar.events",
+          ]
+          const calendarState = btoa(
+            JSON.stringify({
+              provider: "google-calendar",
+              userId,
+              reconnect,
+              integrationId,
+              timestamp: Date.now(),
+            }),
+          )
+          const calendarParams = new URLSearchParams({
+            client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!,
+            redirect_uri: `${baseUrl}/api/integrations/google-calendar/callback`,
+            response_type: "code",
+            scope: calendarScopes.join(" "),
+            access_type: "offline",
+            prompt: "consent",
+            state: calendarState,
+          })
+          authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${calendarParams.toString()}`
+          break
+        case "google-sheets":
+          const sheetsScopes = [
+            "https://www.googleapis.com/auth/userinfo.email",
+            "https://www.googleapis.com/auth/userinfo.profile",
+            "https://www.googleapis.com/auth/spreadsheets",
+          ]
+          const sheetsState = btoa(
+            JSON.stringify({
+              provider: "google-sheets",
+              userId,
+              reconnect,
+              integrationId,
+              timestamp: Date.now(),
+            }),
+          )
+          const sheetsParams = new URLSearchParams({
+            client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!,
+            redirect_uri: `${baseUrl}/api/integrations/google-sheets/callback`,
+            response_type: "code",
+            scope: sheetsScopes.join(" "),
+            access_type: "offline",
+            prompt: "consent",
+            state: sheetsState,
+          })
+          authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${sheetsParams.toString()}`
+          break
+        case "google-docs":
+          const docsScopes = [
+            "https://www.googleapis.com/auth/userinfo.email",
+            "https://www.googleapis.com/auth/userinfo.profile",
+            "https://www.googleapis.com/auth/documents",
+            "https://www.googleapis.com/auth/drive.file",
+          ]
+          const docsState = btoa(
+            JSON.stringify({
+              provider: "google-docs",
+              userId,
+              reconnect,
+              integrationId,
+              timestamp: Date.now(),
+            }),
+          )
+          const docsParams = new URLSearchParams({
+            client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!,
+            redirect_uri: `${baseUrl}/api/integrations/google-docs/callback`,
+            response_type: "code",
+            scope: docsScopes.join(" "),
+            access_type: "offline",
+            prompt: "consent",
+            state: docsState,
+          })
+          authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${docsParams.toString()}`
+          break
         case "google":
-          const googleScopes = [
+          // Keep the old google case for backward compatibility, but redirect to gmail
+          const legacyGoogleScopes = [
             "https://www.googleapis.com/auth/userinfo.email",
             "https://www.googleapis.com/auth/userinfo.profile",
             "https://www.googleapis.com/auth/calendar",
@@ -51,7 +187,7 @@ export async function POST(request: NextRequest) {
             "https://www.googleapis.com/auth/gmail.send",
             "https://www.googleapis.com/auth/youtube.readonly",
           ]
-          const googleState = btoa(
+          const legacyGoogleState = btoa(
             JSON.stringify({
               provider: "google",
               userId,
@@ -60,16 +196,16 @@ export async function POST(request: NextRequest) {
               timestamp: Date.now(),
             }),
           )
-          const googleParams = new URLSearchParams({
+          const legacyGoogleParams = new URLSearchParams({
             client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!,
             redirect_uri: `${baseUrl}/api/integrations/google/callback`,
             response_type: "code",
-            scope: googleScopes.join(" "),
+            scope: legacyGoogleScopes.join(" "),
             access_type: "offline",
             prompt: "consent",
-            state: googleState,
+            state: legacyGoogleState,
           })
-          authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${googleParams.toString()}`
+          authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${legacyGoogleParams.toString()}`
           break
         case "github":
           const githubState = btoa(

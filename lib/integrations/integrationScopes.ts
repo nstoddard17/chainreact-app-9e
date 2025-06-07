@@ -151,6 +151,40 @@ export const INTEGRATION_SCOPES: Record<string, IntegrationScopeConfig> = {
       "sheets-format-cells": ["https://www.googleapis.com/auth/spreadsheets"],
     },
   },
+  "google-docs": {
+    provider: "google-docs",
+    scopes: [
+      {
+        scope: "https://www.googleapis.com/auth/userinfo.email",
+        description: "View email address",
+        required: true,
+      },
+      {
+        scope: "https://www.googleapis.com/auth/userinfo.profile",
+        description: "View basic profile info",
+        required: true,
+      },
+      {
+        scope: "https://www.googleapis.com/auth/documents",
+        description: "View and edit Google Docs",
+        required: true,
+      },
+      {
+        scope: "https://www.googleapis.com/auth/drive.file",
+        description: "View and manage Google Drive files created by this app",
+        required: false,
+      },
+    ],
+    components: {
+      "docs-read-document": ["https://www.googleapis.com/auth/documents"],
+      "docs-create-document": ["https://www.googleapis.com/auth/documents"],
+      "docs-edit-document": ["https://www.googleapis.com/auth/documents"],
+      "docs-share-document": [
+        "https://www.googleapis.com/auth/documents",
+        "https://www.googleapis.com/auth/drive.file",
+      ],
+    },
+  },
   discord: {
     provider: "discord",
     scopes: [

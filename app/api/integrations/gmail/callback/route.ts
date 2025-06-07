@@ -1,89 +1,126 @@
-import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 import { type NextRequest, NextResponse } from "next/server"
-import { GmailOAuthService } from "@/lib/oauth/gmail"
-import { createAdminSupabaseClient, upsertIntegration, parseOAuthState } from "@/lib/oauth/utils"
+import { handleOAuthCallback } from "@/lib/oauth/handleOAuthCallback"
 
 export async function GET(request: NextRequest) {
+  console.log("Gmail OAuth callback received")
+
   try {
-    const { searchParams } = new URL(request.url)
+    const searchParams = request.nextUrl.searchParams
     const code = searchParams.get("code")
     const state = searchParams.get("state")
     const error = searchParams.get("error")
 
-    // Handle OAuth errors
+    console.log("Gmail callback params:", {
+      hasCode: !!code,
+      hasState: !!state,
+      error,
+    })
+
     if (error) {
       console.error("Gmail OAuth error:", error)
+      const errorDescription = searchParams.get("error_description")
       return NextResponse.redirect(
-        `${getBaseUrl(request)}/integrations?error=true&message=${encodeURIComponent("Gmail authorization failed")}&provider=gmail`,
+        new URL(
+          `/integrations?error=${encodeURIComponent(error)}&description=${encodeURIComponent(errorDescription || "")}&provider=gmail`,
+          request.url,
+        ),
       )
     }
 
-    if (!code) {
-      return NextResponse.redirect(
-        `${getBaseUrl(request)}/integrations?error=true&message=${encodeURIComponent("No authorization code received")}&provider=gmail`,
-      )
+    if (!code || !state) {
+      console.error("Missing code or state in Gmail callback")
+      return NextResponse.redirect(new URL("/integrations?error=missing_parameters&provider=gmail", request.url))
     }
 
-    // Parse state to get user ID
-    let userId: string | null = null
-    if (state) {
-      try {
-        const stateData = parseOAuthState(state)
-        userId = stateData.userId
-      } catch (error) {
-        console.error("Failed to parse state:", error)
-      }
+    // Parse state
+    let stateData
+    try {
+      stateData = JSON.parse(atob(state))
+      console.log("Gmail parsed state:", stateData)
+    } catch (error) {
+      console.error("Invalid state parameter in Gmail callback:", error)
+      return NextResponse.redirect(new URL("/integrations?error=invalid_state&provider=gmail", request.url))
+    }
+
+    const { userId, reconnect, integrationId } = stateData
+
+    if (!userId) {
+      console.error("Missing userId in Gmail state")
+      return NextResponse.redirect(new URL("/integrations?error=missing_user_id&provider=gmail", request.url))
     }
 
     // Exchange code for tokens
-    const tokenData = await GmailOAuthService.exchangeCodeForTokens(code)
-
-    if (!tokenData.access_token) {
-      throw new Error("No access token received")
-    }
-
-    // Get user info from Google
-    const userInfo = await GmailOAuthService.getUserInfo(tokenData.access_token)
-
-    // Calculate expiry time
-    const expiresAt = tokenData.expires_in ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString() : null
-
-    // Save integration to database
-    const supabase = createAdminSupabaseClient()
-    if (!supabase) {
-      throw new Error("Failed to create Supabase client")
-    }
-
-    // If no userId from state, this is an error
-    if (!userId) {
-      throw new Error("No user ID found in OAuth state")
-    }
-
-    const integrationData = {
-      user_id: userId,
-      provider: "gmail",
-      provider_user_id: userInfo.id,
-      status: "connected" as const,
-      access_token: tokenData.access_token,
-      refresh_token: tokenData.refresh_token,
-      expires_at: expiresAt,
-      scopes: tokenData.scope ? tokenData.scope.split(" ") : [],
-      metadata: {
-        email: userInfo.email,
-        name: userInfo.name,
-        picture: userInfo.picture,
-        verified_email: userInfo.verified_email,
+    const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
       },
+      body: new URLSearchParams({
+        client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!,
+        client_secret: process.env.GOOGLE_CLIENT_SECRET!,
+        code,
+        grant_type: "authorization_code",
+        redirect_uri: `${new URL(request.url).origin}/api/integrations/gmail/callback`,
+      }),
+    })
+
+    if (!tokenResponse.ok) {
+      const errorData = await tokenResponse.text()
+      console.error("Gmail token exchange failed:", errorData)
+      return NextResponse.redirect(new URL("/integrations?error=token_exchange_failed&provider=gmail", request.url))
     }
 
-    await upsertIntegration(supabase, integrationData)
+    const tokens = await tokenResponse.json()
+    console.log("Gmail tokens received:", {
+      hasAccessToken: !!tokens.access_token,
+      hasRefreshToken: !!tokens.refresh_token,
+      expiresIn: tokens.expires_in,
+    })
 
-    // Redirect back to integrations page with success
-    return NextResponse.redirect(`${getBaseUrl(request)}/integrations?success=true&provider=gmail`)
+    // Get user info
+    const userResponse = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+      headers: {
+        Authorization: `Bearer ${tokens.access_token}`,
+      },
+    })
+
+    if (!userResponse.ok) {
+      console.error("Failed to get Gmail user info")
+      return NextResponse.redirect(new URL("/integrations?error=user_info_failed&provider=gmail", request.url))
+    }
+
+    const userInfo = await userResponse.json()
+    console.log("Gmail user info:", {
+      email: userInfo.email,
+      name: userInfo.name,
+    })
+
+    // Handle the OAuth callback
+    const result = await handleOAuthCallback({
+      provider: "gmail",
+      code,
+      state: stateData,
+      tokens,
+      userInfo,
+      request,
+    })
+
+    if (result.success) {
+      console.log("Gmail integration saved successfully")
+      return NextResponse.redirect(new URL("/integrations?success=true&provider=gmail", request.url))
+    } else {
+      console.error("Failed to save Gmail integration:", result.error)
+      return NextResponse.redirect(
+        new URL(`/integrations?error=${encodeURIComponent(result.error)}&provider=gmail`, request.url),
+      )
+    }
   } catch (error: any) {
-    console.error("Gmail OAuth callback error:", error)
+    console.error("Gmail callback error:", error)
     return NextResponse.redirect(
-      `${getBaseUrl(request)}/integrations?error=true&message=${encodeURIComponent(error.message || "Gmail integration failed")}&provider=gmail`,
+      new URL(
+        `/integrations?error=${encodeURIComponent(error.message || "Unknown error")}&provider=gmail`,
+        request.url,
+      ),
     )
   }
 }
