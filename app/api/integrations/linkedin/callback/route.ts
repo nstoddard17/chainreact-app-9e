@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
     const state = searchParams.get("state")
 
     if (!code || !state) {
-      const baseUrl = getBaseUrl(request)
+      const baseUrl = getBaseUrl(req)
       return NextResponse.redirect(`${baseUrl}/integrations?error=missing_code_or_state`)
     }
 
@@ -20,22 +20,22 @@ export async function GET(req: NextRequest) {
 
     if (sessionError || !sessionData?.session) {
       console.error("LinkedIn: Session error:", sessionError)
-      const baseUrl = getBaseUrl(request)
+      const baseUrl = getBaseUrl(req)
       return NextResponse.redirect(`${baseUrl}/integrations?error=session_error`)
     }
 
     const result = await LinkedInOAuthService.handleCallback(
       code,
       state,
-      getBaseUrl(request),
+      getBaseUrl(req),
       supabase,
       sessionData.session.user.id,
     )
 
-    return NextResponse.redirect(new URL(result.redirectUrl, getBaseUrl(request)))
+    return NextResponse.redirect(new URL(result.redirectUrl, getBaseUrl(req)))
   } catch (error) {
     console.error("LinkedIn Callback Error:", error)
-    const baseUrl = getBaseUrl(request)
+    const baseUrl = getBaseUrl(req)
     return NextResponse.redirect(`${baseUrl}/integrations?error=callback_error`)
   }
 }
