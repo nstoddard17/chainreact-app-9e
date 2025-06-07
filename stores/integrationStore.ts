@@ -371,20 +371,20 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
         })),
       )
 
-      // Debug: Check specifically for YouTube
-      const youtubeIntegration = data?.find((i) => i.provider === "youtube")
-      if (youtubeIntegration) {
-        console.log("Found YouTube integration:", {
-          id: youtubeIntegration.id,
-          provider: youtubeIntegration.provider,
-          status: youtubeIntegration.status,
-          created_at: youtubeIntegration.created_at,
-          updated_at: youtubeIntegration.updated_at,
-          hasAccessToken: !!youtubeIntegration.access_token,
-          metadata: youtubeIntegration.metadata,
+      // Debug: Check specifically for OneDrive
+      const onedriveIntegration = data?.find((i) => i.provider === "onedrive")
+      if (onedriveIntegration) {
+        console.log("Found OneDrive integration:", {
+          id: onedriveIntegration.id,
+          provider: onedriveIntegration.provider,
+          status: onedriveIntegration.status,
+          created_at: onedriveIntegration.created_at,
+          updated_at: onedriveIntegration.updated_at,
+          hasAccessToken: !!onedriveIntegration.access_token,
+          metadata: onedriveIntegration.metadata,
         })
       } else {
-        console.log("No YouTube integration found in database")
+        console.log("No OneDrive integration found in database")
       }
 
       set({
@@ -472,14 +472,7 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
       const { authUrl } = await response.json()
       console.log("Generated auth URL, redirecting...")
 
-      // For Teams, add a timestamp to prevent caching issues
-      if (providerId === "teams") {
-        const url = new URL(authUrl)
-        url.searchParams.append("_t", Date.now().toString())
-        window.location.href = url.toString()
-      } else {
-        window.location.href = authUrl
-      }
+      window.location.href = authUrl
     } catch (error: any) {
       console.error("Failed to connect integration:", error)
       throw error

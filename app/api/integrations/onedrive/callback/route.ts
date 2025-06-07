@@ -24,18 +24,27 @@ export async function GET(req: NextRequest) {
   const error_description = searchParams.get("error_description")
 
   const baseUrl = getBaseUrl(req)
-  const redirectUri = `${getBaseUrl(req)}/api/integrations/onedrive/callback`
+  const redirectUri = `${baseUrl}/api/integrations/onedrive/callback`
+
+  console.log("OneDrive callback received:", {
+    hasCode: !!code,
+    hasState: !!state,
+    error,
+    error_description,
+  })
 
   if (error) {
     console.error("OneDrive Auth Error:", error, error_description)
     return NextResponse.redirect(
-      `${baseUrl}/integrations?error=onedrive_auth_failed&message=${encodeURIComponent(error_description || error)}`,
+      `${baseUrl}/integrations?error=true&provider=onedrive&message=${encodeURIComponent(error_description || error)}`,
     )
   }
 
   if (!code || !state) {
     console.error("Missing code or state")
-    return NextResponse.redirect(`${baseUrl}/integrations?error=missing_code_or_state&provider=onedrive`)
+    return NextResponse.redirect(
+      `${baseUrl}/integrations?error=true&provider=onedrive&message=${encodeURIComponent("Missing authorization code or state")}`,
+    )
   }
 
   try {
@@ -43,16 +52,21 @@ export async function GET(req: NextRequest) {
     let stateData
     try {
       stateData = JSON.parse(atob(state))
+      console.log("Parsed state data:", stateData)
     } catch (e) {
       console.error("Failed to parse state:", e)
-      return NextResponse.redirect(`${baseUrl}/integrations?error=invalid_state&provider=onedrive`)
+      return NextResponse.redirect(
+        `${baseUrl}/integrations?error=true&provider=onedrive&message=${encodeURIComponent("Invalid state parameter")}`,
+      )
     }
 
     const userId = stateData.userId
 
     if (!userId) {
       console.error("No user ID in state")
-      return NextResponse.redirect(`${baseUrl}/integrations?error=missing_user_id&provider=onedrive`)
+      return NextResponse.redirect(
+        `${baseUrl}/integrations?error=true&provider=onedrive&message=${encodeURIComponent("Missing user ID in state")}`,
+      )
     }
 
     const clientId = process.env.NEXT_PUBLIC_ONEDRIVE_CLIENT_ID
@@ -60,8 +74,12 @@ export async function GET(req: NextRequest) {
 
     if (!clientId || !clientSecret) {
       console.error("Missing OneDrive client ID or secret")
-      return NextResponse.redirect(`${baseUrl}/integrations?error=missing_client_credentials&provider=onedrive`)
+      return NextResponse.redirect(
+        `${baseUrl}/integrations?error=true&provider=onedrive&message=${encodeURIComponent("OneDrive OAuth not configured")}`,
+      )
     }
+
+    console.log("Exchanging code for tokens...")
 
     const tokenEndpoint = "https://login.microsoftonline.com/common/oauth2/v2.0/token"
     const body = new URLSearchParams({
@@ -81,8 +99,11 @@ export async function GET(req: NextRequest) {
     })
 
     if (!response.ok) {
-      console.error("Token request failed", response.status, await response.text())
-      return NextResponse.redirect(`${baseUrl}/integrations?error=token_request_failed&provider=onedrive`)
+      const errorText = await response.text()
+      console.error("Token request failed", response.status, errorText)
+      return NextResponse.redirect(
+        `${baseUrl}/integrations?error=true&provider=onedrive&message=${encodeURIComponent("Failed to exchange authorization code for tokens")}`,
+      )
     }
 
     const data = await response.json()
@@ -90,12 +111,21 @@ export async function GET(req: NextRequest) {
     const refreshToken = data.refresh_token
     const expires_in = data.expires_in
 
+    console.log("Token exchange successful:", {
+      hasAccessToken: !!accessToken,
+      hasRefreshToken: !!refreshToken,
+      expires_in,
+    })
+
     if (!accessToken || !refreshToken) {
       console.error("Missing access token or refresh token")
-      return NextResponse.redirect(`${baseUrl}/integrations?error=missing_tokens&provider=onedrive`)
+      return NextResponse.redirect(
+        `${baseUrl}/integrations?error=true&provider=onedrive&message=${encodeURIComponent("Missing tokens in response")}`,
+      )
     }
 
     // Get user info
+    console.log("Fetching user info...")
     const userResponse = await fetch("https://graph.microsoft.com/v1.0/me", {
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -103,20 +133,37 @@ export async function GET(req: NextRequest) {
     })
 
     if (!userResponse.ok) {
-      console.error("Failed to get OneDrive user info:", await userResponse.text())
-      return NextResponse.redirect(`${baseUrl}/integrations?error=user_info_failed&provider=onedrive`)
+      const errorText = await userResponse.text()
+      console.error("Failed to get OneDrive user info:", errorText)
+      return NextResponse.redirect(
+        `${baseUrl}/integrations?error=true&provider=onedrive&message=${encodeURIComponent("Failed to get user information")}`,
+      )
     }
 
     const userData = await userResponse.json()
+    console.log("User data retrieved:", {
+      id: userData.id,
+      displayName: userData.displayName,
+      email: userData.userPrincipalName,
+    })
+
     const now = new Date().toISOString()
 
     // Check if integration exists
-    const { data: existingIntegration } = await supabase
+    console.log("Checking for existing integration...")
+    const { data: existingIntegration, error: selectError } = await supabase
       .from("integrations")
       .select("id")
       .eq("user_id", userId)
       .eq("provider", "onedrive")
       .maybeSingle()
+
+    if (selectError) {
+      console.error("Error checking for existing integration:", selectError)
+      return NextResponse.redirect(
+        `${baseUrl}/integrations?error=true&provider=onedrive&message=${encodeURIComponent("Database error checking existing integration")}`,
+      )
+    }
 
     const integrationData = {
       user_id: userId,
@@ -125,7 +172,7 @@ export async function GET(req: NextRequest) {
       access_token: accessToken,
       refresh_token: refreshToken,
       expires_at: expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null,
-      status: "connected",
+      status: "connected" as const,
       scopes: data.scope ? data.scope.split(" ") : [],
       metadata: {
         display_name: userData.displayName,
@@ -135,33 +182,49 @@ export async function GET(req: NextRequest) {
       updated_at: now,
     }
 
-    if (existingIntegration) {
-      const { error } = await supabase.from("integrations").update(integrationData).eq("id", existingIntegration.id)
+    console.log("Saving integration data:", {
+      provider: integrationData.provider,
+      status: integrationData.status,
+      hasExisting: !!existingIntegration,
+    })
 
-      if (error) {
-        console.error("Error updating OneDrive integration:", error)
-        return NextResponse.redirect(`${baseUrl}/integrations?error=database_update_failed&provider=onedrive`)
+    if (existingIntegration) {
+      const { error: updateError } = await supabase
+        .from("integrations")
+        .update(integrationData)
+        .eq("id", existingIntegration.id)
+
+      if (updateError) {
+        console.error("Error updating OneDrive integration:", updateError)
+        return NextResponse.redirect(
+          `${baseUrl}/integrations?error=true&provider=onedrive&message=${encodeURIComponent("Failed to update integration in database")}`,
+        )
       }
+      console.log("Integration updated successfully")
     } else {
-      const { error } = await supabase.from("integrations").insert({
+      const { error: insertError } = await supabase.from("integrations").insert({
         ...integrationData,
         created_at: now,
       })
 
-      if (error) {
-        console.error("Error inserting OneDrive integration:", error)
-        return NextResponse.redirect(`${baseUrl}/integrations?error=database_insert_failed&provider=onedrive`)
+      if (insertError) {
+        console.error("Error inserting OneDrive integration:", insertError)
+        return NextResponse.redirect(
+          `${baseUrl}/integrations?error=true&provider=onedrive&message=${encodeURIComponent("Failed to save integration to database")}`,
+        )
       }
+      console.log("Integration created successfully")
     }
 
     // Add a delay to ensure database operations complete
-    await new Promise((resolve) => setTimeout(resolve, 500))
+    await new Promise((resolve) => setTimeout(resolve, 1000))
 
-    return NextResponse.redirect(`${baseUrl}/integrations?success=onedrive_connected&provider=onedrive&t=${Date.now()}`)
+    console.log("OneDrive integration completed successfully, redirecting...")
+    return NextResponse.redirect(`${baseUrl}/integrations?success=true&provider=onedrive&t=${Date.now()}`)
   } catch (e: any) {
     console.error("Error during OneDrive auth:", e)
     return NextResponse.redirect(
-      `${baseUrl}/integrations?error=onedrive_auth_failed&message=${encodeURIComponent(e.message)}`,
+      `${baseUrl}/integrations?error=true&provider=onedrive&message=${encodeURIComponent(e.message || "Unknown error occurred")}`,
     )
   }
 }
