@@ -1,7 +1,9 @@
+import { getBaseUrl } from "@/lib/utils"
+
 export const discord = {
   clientId: process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID,
   clientSecret: process.env.DISCORD_CLIENT_SECRET,
-  redirectUri: `${process.env.NEXT_PUBLIC_SITE_URL}/api/integrations/discord/callback`,
+  redirectUri: `${getBaseUrl()}/api/integrations/discord/callback`,
 
   getAuthUrl(state: string) {
     const params = new URLSearchParams({

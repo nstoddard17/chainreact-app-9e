@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
+import { getBaseUrl } from "@/lib/utils"
 
 // Use direct Supabase client with service role for reliable database operations
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -70,7 +71,7 @@ export async function GET(request: NextRequest) {
         client_secret: clientSecret,
         code,
         grant_type: "authorization_code",
-        redirect_uri: "https://chainreact.app/api/integrations/youtube/callback", // Exact same URI
+        redirect_uri: `${getBaseUrl()}/api/integrations/youtube/callback`, // Exact same URI
       }),
     })
 

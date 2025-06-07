@@ -1,3 +1,5 @@
+import { getBaseUrl } from "@/lib/utils"
+
 interface GitHubOAuthResult {
   success: boolean
   redirectUrl: string
@@ -17,7 +19,7 @@ export class GitHubOAuthService {
   }
 
   static getRedirectUri(): string {
-    return "https://chainreact.app/api/integrations/github/callback"
+    return `${getBaseUrl()}/api/integrations/github/callback`
   }
 
   static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string, userId?: string): string {
@@ -139,12 +141,12 @@ export class GitHubOAuthService {
 
       return {
         success: true,
-        redirectUrl: `https://chainreact.app/integrations?success=github_connected&provider=github`,
+        redirectUrl: `${getBaseUrl()}/integrations?success=github_connected&provider=github`,
       }
     } catch (error: any) {
       return {
         success: false,
-        redirectUrl: `https://chainreact.app/integrations?error=callback_failed&provider=github&message=${encodeURIComponent(error.message)}`,
+        redirectUrl: `${getBaseUrl()}/integrations?error=callback_failed&provider=github&message=${encodeURIComponent(error.message)}`,
         error: error.message,
       }
     }

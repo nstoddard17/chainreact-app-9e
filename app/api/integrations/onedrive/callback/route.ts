@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
+import { getBaseUrl } from "@/lib/utils"
 
 // Use direct Supabase client with service role for reliable database operations
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -22,8 +23,8 @@ export async function GET(req: NextRequest) {
   const error = searchParams.get("error")
   const error_description = searchParams.get("error_description")
 
-  const baseUrl = "https://chainreact.app"
-  const redirectUri = "https://chainreact.app/api/integrations/onedrive/callback"
+  const baseUrl = getBaseUrl()
+  const redirectUri = `${getBaseUrl()}/api/integrations/onedrive/callback`
 
   if (error) {
     console.error("OneDrive Auth Error:", error, error_description)

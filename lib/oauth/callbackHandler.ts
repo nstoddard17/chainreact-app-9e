@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js"
+import { getBaseUrl } from "@/lib/utils"
 
 const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
@@ -62,7 +63,7 @@ export async function saveIntegrationToDatabase(integrationData: IntegrationData
 }
 
 export function generateSuccessRedirect(provider: string): string {
-  return `https://chainreact.app/integrations?success=${provider}_connected&provider=${provider}`
+  return `${getBaseUrl()}/integrations?success=${provider}_connected&provider=${provider}`
 }
 
 export function generateErrorRedirect(provider: string, error: string, message?: string): string {
@@ -75,5 +76,5 @@ export function generateErrorRedirect(provider: string, error: string, message?:
     params.append("message", message)
   }
 
-  return `https://chainreact.app/integrations?${params.toString()}`
+  return `${getBaseUrl()}/integrations?${params.toString()}`
 }

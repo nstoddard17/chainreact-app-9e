@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js"
 import type { NextRequest } from "next/server"
 import type { Database } from "@/types/supabase"
+import { getBaseUrl } from "@/lib/utils"
 
 /**
  * Create admin client only for server-side operations
@@ -33,7 +34,7 @@ export const createAdminSupabaseClient = () => {
  * Get hardcoded redirect URI for OAuth providers
  */
 export function getOAuthRedirectUri(provider: string): string {
-  return `https://chainreact.app/api/integrations/${provider}/callback`
+  return `${getBaseUrl()}/api/integrations/${provider}/callback`
 }
 
 /**
@@ -42,7 +43,7 @@ export function getOAuthRedirectUri(provider: string): string {
  */
 export function getAbsoluteBaseUrl(request: Request | NextRequest): string {
   // Always return production URL for OAuth consistency
-  return "https://chainreact.app"
+  return getBaseUrl()
 }
 
 /**

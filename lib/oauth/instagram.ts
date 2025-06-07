@@ -1,5 +1,6 @@
 import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
+import { getBaseUrl } from "@/lib/utils"
 
 interface InstagramOAuthResult {
   success: boolean
@@ -51,7 +52,7 @@ export class InstagramOAuthService {
       throw new Error("Missing NEXT_PUBLIC_INSTAGRAM_CLIENT_ID environment variable")
     }
 
-    const redirectUri = `${baseUrl}/api/integrations/instagram/callback`
+    const redirectUri = `${getBaseUrl()}/api/integrations/instagram/callback`
     const scopes = "instagram_basic,instagram_content_publish"
     const state = JSON.stringify({ userId, integrationId, reconnect })
 
@@ -59,7 +60,7 @@ export class InstagramOAuthService {
   }
 
   static getRedirectUri(): string {
-    return "https://chainreact.app/api/integrations/instagram/callback"
+    return `${getBaseUrl()}/api/integrations/instagram/callback`
   }
 
   static async handleCallback(code: string, state: string, baseUrl: string): Promise<InstagramOAuthResult> {
@@ -98,7 +99,7 @@ export class InstagramOAuthService {
         body: new URLSearchParams({
           client_id: clientId,
           client_secret: clientSecret,
-          redirect_uri: "https://chainreact.app/api/integrations/instagram/callback",
+          redirect_uri: `${getBaseUrl()}/api/integrations/instagram/callback`,
           code,
         }),
       })

@@ -1,4 +1,5 @@
 import { createAdminSupabaseClient, upsertIntegration, validateScopes, getRequiredScopes } from "./utils"
+import { getBaseUrl } from "@/lib/utils"
 
 export interface OAuthResult {
   success: boolean
@@ -11,7 +12,7 @@ export class BaseOAuthService {
    * Get hardcoded redirect URI for a provider
    */
   static getRedirectUri(provider: string): string {
-    return `https://chainreact.app/api/integrations/${provider}/callback`
+    return `${getBaseUrl()}/api/integrations/${provider}/callback`
   }
 
   /**
@@ -87,7 +88,7 @@ export class BaseOAuthService {
 
         return {
           success: false,
-          redirectUrl: `https://chainreact.app/integrations?error=insufficient_scopes&provider=${provider}&message=${encodeURIComponent(
+          redirectUrl: `${getBaseUrl()}/integrations?error=insufficient_scopes&provider=${provider}&message=${encodeURIComponent(
             `Missing required permissions: ${scopeValidation.missingScopes.join(", ")}. Please reconnect and accept all permissions.`,
           )}`,
           error: "Insufficient scopes",
@@ -128,19 +129,19 @@ export class BaseOAuthService {
         await upsertIntegration(adminSupabase, integrationData)
       }
 
-      return {
-        success: true,
-        redirectUrl: `https://chainreact.app/integrations?success=${provider}_connected&provider=${provider}`,
-      }
+        return {
+          success: true,
+          redirectUrl: `${getBaseUrl()}/integrations?success=${provider}_connected&provider=${provider}`,
+        }
     } catch (error: any) {
       console.error(`${provider} OAuth callback error:`, error)
-      return {
-        success: false,
-        redirectUrl: `https://chainreact.app/integrations?error=callback_failed&provider=${provider}&message=${encodeURIComponent(
-          error.message,
-        )}`,
-        error: error.message,
-      }
+        return {
+          success: false,
+          redirectUrl: `${getBaseUrl()}/integrations?error=callback_failed&provider=${provider}&message=${encodeURIComponent(
+            error.message,
+          )}`,
+          error: error.message,
+        }
     }
   }
 }

@@ -10,7 +10,7 @@ export async function handleOAuthCallback(
   try {
     const { searchParams } = new URL(request.url)
     const baseUrl = getAbsoluteBaseUrl(request)
-    const redirectUri = getOAuthRedirectUri(baseUrl, provider)
+    const redirectUri = getOAuthRedirectUri(provider)
 
     console.log(`${provider} OAuth callback - using redirect URI:`, redirectUri)
 

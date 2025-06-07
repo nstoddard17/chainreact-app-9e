@@ -2,6 +2,7 @@ import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 import { db } from "@/lib/db"
+import { getBaseUrl } from "@/lib/utils"
 
 async function getTrelloToken(userId: string) {
   const trelloIntegration = await db.trelloIntegration.findUnique({
@@ -30,7 +31,7 @@ async function TrelloAuthPage() {
   }
 
   const trelloApiKey = process.env.TRELLO_API_KEY
-  const trelloAuthUrl = `https://trello.com/1/authorize?expiration=never&name=Taskify&scope=read,write,account&response_type=token&key=${trelloApiKey}&return_url=${process.env.NEXT_PUBLIC_SITE_URL}/integrations/trello-auth/callback`
+  const trelloAuthUrl = `https://trello.com/1/authorize?expiration=never&name=Taskify&scope=read,write,account&response_type=token&key=${trelloApiKey}&return_url=${getBaseUrl()}/integrations/trello-auth/callback`
 
   return (
     <div className="flex flex-col items-center justify-center h-screen">

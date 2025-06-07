@@ -1,3 +1,5 @@
+import { getBaseUrl } from "@/lib/utils"
+
 export class OneDriveOAuthService {
   private static getClientCredentials() {
     const clientId = process.env.NEXT_PUBLIC_ONEDRIVE_CLIENT_ID
@@ -12,7 +14,7 @@ export class OneDriveOAuthService {
 
   static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string, userId?: string): string {
     const { clientId } = this.getClientCredentials()
-    const redirectUri = "https://chainreact.app/api/integrations/onedrive/callback"
+    const redirectUri = `${getBaseUrl()}/api/integrations/onedrive/callback`
 
     const scopes = ["openid", "profile", "email", "offline_access", "Files.ReadWrite.All", "Sites.ReadWrite.All"]
 
@@ -39,7 +41,7 @@ export class OneDriveOAuthService {
   }
 
   static getRedirectUri(): string {
-    return "https://chainreact.app/api/integrations/onedrive/callback"
+    return `${getBaseUrl()}/api/integrations/onedrive/callback`
   }
 
   static async handleCallback(
@@ -67,7 +69,7 @@ export class OneDriveOAuthService {
           code,
           client_id: clientId,
           client_secret: clientSecret,
-          redirect_uri: "https://chainreact.app/api/integrations/onedrive/callback",
+          redirect_uri: `${getBaseUrl()}/api/integrations/onedrive/callback`,
           grant_type: "authorization_code",
         }),
       })
@@ -125,12 +127,12 @@ export class OneDriveOAuthService {
 
       return {
         success: true,
-        redirectUrl: `https://chainreact.app/integrations?success=onedrive_connected`,
+        redirectUrl: `${getBaseUrl()}/integrations?success=onedrive_connected`,
       }
     } catch (error: any) {
       return {
         success: false,
-        redirectUrl: `https://chainreact.app/integrations?error=callback_failed&provider=onedrive&message=${encodeURIComponent(error.message)}`,
+        redirectUrl: `${getBaseUrl()}/integrations?error=callback_failed&provider=onedrive&message=${encodeURIComponent(error.message)}`,
         error: error.message,
       }
     }

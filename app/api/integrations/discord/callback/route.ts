@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { createClient } from "@/utils/supabase/server"
+import { getBaseUrl } from "@/lib/utils"
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -14,7 +15,7 @@ export async function GET(request: Request) {
     const tokenEndpoint = "https://discord.com/api/oauth2/token"
     const client_id = process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID
     const client_secret = process.env.DISCORD_CLIENT_SECRET
-    const redirect_uri = "https://chainreact.app/api/integrations/discord/callback"
+    const redirect_uri = `${getBaseUrl()}/api/integrations/discord/callback`
 
     const tokenParams = new URLSearchParams({
       client_id: client_id || "",
@@ -37,7 +38,7 @@ export async function GET(request: Request) {
     if (tokenData.error) {
       console.error("Error exchanging code for token:", tokenData.error_description || tokenData.error)
       return NextResponse.redirect(
-        `https://chainreact.app/integrations?error=discord_token_exchange_failed&description=${tokenData.error_description || tokenData.error}`,
+        `${getBaseUrl()}/integrations?error=discord_token_exchange_failed&description=${tokenData.error_description || tokenData.error}`,
       )
     }
 
@@ -54,7 +55,7 @@ export async function GET(request: Request) {
     if (userData.error) {
       console.error("Error fetching user data:", userData.error)
       return NextResponse.redirect(
-        `https://chainreact.app/integrations?error=discord_user_fetch_failed&description=${userData.error}`,
+        `${getBaseUrl()}/integrations?error=discord_user_fetch_failed&description=${userData.error}`,
       )
     }
 
@@ -63,7 +64,7 @@ export async function GET(request: Request) {
 
     if (!userId) {
       console.error("No user ID found in session.")
-      return NextResponse.redirect(`https://chainreact.app/integrations?error=no_user_session`)
+      return NextResponse.redirect(`${getBaseUrl()}/integrations?error=no_user_session`)
     }
 
     // After successful token exchange and user info retrieval, add:
@@ -108,8 +109,8 @@ export async function GET(request: Request) {
       if (error) throw error
     }
 
-    return NextResponse.redirect(`https://chainreact.app/integrations?success=discord_connected&provider=discord`)
+    return NextResponse.redirect(`${getBaseUrl()}/integrations?success=discord_connected&provider=discord`)
   } else {
-    return NextResponse.redirect(`https://chainreact.app/integrations?error=discord_no_code`)
+    return NextResponse.redirect(`${getBaseUrl()}/integrations?error=discord_no_code`)
   }
 }

@@ -1,4 +1,5 @@
 import { BaseOAuthService } from "./BaseOAuthService"
+import { getBaseUrl } from "@/lib/utils"
 
 export class SlackOAuthService extends BaseOAuthService {
   private static getClientCredentials() {
@@ -16,7 +17,7 @@ export class SlackOAuthService extends BaseOAuthService {
   }
 
   static getRedirectUri(): string {
-    return "https://chainreact.app/api/integrations/slack/callback"
+    return `${getBaseUrl()}/api/integrations/slack/callback`
   }
 
   static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string, userId?: string): string {

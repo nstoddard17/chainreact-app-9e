@@ -1,4 +1,5 @@
 import { upsertIntegration, parseOAuthState } from "./utils"
+import { getBaseUrl } from "@/lib/utils"
 
 interface DiscordOAuthResult {
   success: boolean
@@ -19,7 +20,7 @@ export class DiscordOAuthService {
   }
 
   static getRedirectUri(): string {
-    return "https://chainreact.app/api/integrations/discord/callback"
+    return `${getBaseUrl()}/api/integrations/discord/callback`
   }
 
   static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string, userId?: string): string {
@@ -116,7 +117,7 @@ export class DiscordOAuthService {
         console.error("Discord scope validation failed: missing identify scope")
         return {
           success: false,
-          redirectUrl: `https://chainreact.app/integrations?error=insufficient_scopes&provider=discord&message=${encodeURIComponent(
+          redirectUrl: `${getBaseUrl()}/integrations?error=insufficient_scopes&provider=discord&message=${encodeURIComponent(
             "Your Discord connection is missing the 'identify' permission. Please reconnect and accept all permissions.",
           )}`,
           error: "Insufficient scopes",
@@ -174,13 +175,13 @@ export class DiscordOAuthService {
 
       return {
         success: true,
-        redirectUrl: `https://chainreact.app/integrations?success=discord_connected&provider=discord`,
+        redirectUrl: `${getBaseUrl()}/integrations?success=discord_connected&provider=discord`,
       }
     } catch (error: any) {
       console.error("Discord OAuth callback error:", error)
       return {
         success: false,
-        redirectUrl: `https://chainreact.app/integrations?error=callback_failed&provider=discord&message=${encodeURIComponent(error.message)}`,
+        redirectUrl: `${getBaseUrl()}/integrations?error=callback_failed&provider=discord&message=${encodeURIComponent(error.message)}`,
         error: error.message,
       }
     }
