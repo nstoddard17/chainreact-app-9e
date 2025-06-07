@@ -157,14 +157,15 @@ export async function GET(request: NextRequest) {
       .eq("provider", "youtube")
       .maybeSingle()
 
+    // Ensure status is explicitly set to "connected"
     const integrationData = {
       user_id: userId,
       provider: "youtube",
       provider_user_id: channelId,
       access_token,
       refresh_token,
-      expires_at: expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null,
-      status: "connected",
+      expires_at: expires_in ? Math.floor(Date.now() / 1000) + expires_in : null,
+      status: "connected", // Explicitly set status to connected
       scopes: tokenData.scope ? tokenData.scope.split(" ") : ["https://www.googleapis.com/auth/youtube.readonly"],
       granted_scopes: tokenData.scope
         ? tokenData.scope.split(" ")
@@ -178,9 +179,19 @@ export async function GET(request: NextRequest) {
       updated_at: now,
     }
 
+    console.log("YouTube integration data to save:", {
+      ...integrationData,
+      access_token: access_token ? "[REDACTED]" : null,
+      refresh_token: refresh_token ? "[REDACTED]" : null,
+    })
+
     if (existingIntegration) {
       console.log("Updating existing YouTube integration:", existingIntegration.id)
-      const { error } = await supabase.from("integrations").update(integrationData).eq("id", existingIntegration.id)
+      const { error, data } = await supabase
+        .from("integrations")
+        .update(integrationData)
+        .eq("id", existingIntegration.id)
+        .select()
 
       if (error) {
         console.error("Error updating YouTube integration:", error)
@@ -188,12 +199,17 @@ export async function GET(request: NextRequest) {
           new URL("/integrations?error=true&provider=youtube&message=Database+update+failed", baseUrl),
         )
       }
+
+      console.log("Updated YouTube integration:", data?.[0]?.id)
     } else {
       console.log("Creating new YouTube integration")
-      const { error } = await supabase.from("integrations").insert({
-        ...integrationData,
-        created_at: now,
-      })
+      const { error, data } = await supabase
+        .from("integrations")
+        .insert({
+          ...integrationData,
+          created_at: now,
+        })
+        .select()
 
       if (error) {
         console.error("Error inserting YouTube integration:", error)
@@ -201,6 +217,8 @@ export async function GET(request: NextRequest) {
           new URL("/integrations?error=true&provider=youtube&message=Database+insert+failed", baseUrl),
         )
       }
+
+      console.log("Created YouTube integration:", data?.[0]?.id)
     }
 
     // Add a delay to ensure database operations complete
