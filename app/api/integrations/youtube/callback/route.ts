@@ -1,3 +1,4 @@
+import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 
@@ -70,7 +71,7 @@ export async function GET(request: NextRequest) {
         client_secret: clientSecret,
         code,
         grant_type: "authorization_code",
-        redirect_uri: "https://chainreact.app/api/integrations/youtube/callback", // Exact same URI
+        redirect_uri: `${getBaseUrl(request)}/api/integrations/youtube/callback`, // Exact same URI
       }),
     })
 

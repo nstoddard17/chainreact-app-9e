@@ -1,3 +1,4 @@
+import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 
@@ -58,7 +59,7 @@ export class PayPalOAuthService {
 
   static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string): string {
     const { clientId } = this.getClientCredentials()
-    const redirectUri = "https://chainreact.app/api/integrations/paypal/callback"
+    const redirectUri = `${getBaseUrl()}/api/integrations/paypal/callback`
 
     const scopes = [
       "https://uri.paypal.com/services/payments/payment",
@@ -90,7 +91,7 @@ export class PayPalOAuthService {
   }
 
   static getRedirectUri(baseUrl: string): string {
-    return "https://chainreact.app/api/integrations/paypal/callback"
+    return `${getBaseUrl()}/api/integrations/paypal/callback`
   }
 
   static async handleCallback(code: string, state: string, baseUrl: string): Promise<PayPalOAuthResult> {
@@ -130,7 +131,7 @@ export class PayPalOAuthService {
         body: new URLSearchParams({
           grant_type: "authorization_code",
           code,
-          redirect_uri: "https://chainreact.app/api/integrations/paypal/callback",
+          redirect_uri: `${getBaseUrl()}/api/integrations/paypal/callback`,
         }),
       })
 

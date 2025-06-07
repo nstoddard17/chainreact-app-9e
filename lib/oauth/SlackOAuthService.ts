@@ -17,7 +17,7 @@ export class SlackOAuthService extends BaseOAuthService {
         client_id: clientId,
         client_secret: clientSecret,
         code,
-        redirect_uri: "https://chainreact.app/api/integrations/slack/callback",
+        redirect_uri: redirectUri,
       }),
     })
 

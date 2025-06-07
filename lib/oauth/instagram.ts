@@ -1,3 +1,4 @@
+import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 
@@ -59,7 +60,7 @@ export class InstagramOAuthService {
   }
 
   static getRedirectUri(): string {
-    return "https://chainreact.app/api/integrations/instagram/callback"
+    return `${getBaseUrl()}/api/integrations/instagram/callback`
   }
 
   static async handleCallback(code: string, state: string, baseUrl: string): Promise<InstagramOAuthResult> {
@@ -98,7 +99,7 @@ export class InstagramOAuthService {
         body: new URLSearchParams({
           client_id: clientId,
           client_secret: clientSecret,
-          redirect_uri: "https://chainreact.app/api/integrations/instagram/callback",
+          redirect_uri: `${getBaseUrl()}/api/integrations/instagram/callback`,
           code,
         }),
       })

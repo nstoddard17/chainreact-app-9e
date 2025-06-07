@@ -1,4 +1,5 @@
 import { createAdminSupabaseClient, upsertIntegration, validateScopes, getRequiredScopes } from "./utils"
+import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 
 export interface OAuthResult {
   success: boolean
@@ -11,7 +12,8 @@ export class BaseOAuthService {
    * Get hardcoded redirect URI for a provider
    */
   static getRedirectUri(provider: string): string {
-    return `https://chainreact.app/api/integrations/${provider}/callback`
+    const baseUrl = getBaseUrl()
+    return `${baseUrl}/api/integrations/${provider}/callback`
   }
 
   /**
@@ -65,8 +67,9 @@ export class BaseOAuthService {
         throw new Error(`Missing ${provider} OAuth configuration`)
       }
 
-      // Use hardcoded redirect URI
+      // Use redirect URI derived from base URL
       const redirectUri = this.getRedirectUri(provider)
+      const baseUrl = getBaseUrl()
 
       // Exchange code for token
       const tokenResponse = await this.exchangeCodeForToken(code, redirectUri, clientId, clientSecret)
@@ -87,7 +90,7 @@ export class BaseOAuthService {
 
         return {
           success: false,
-          redirectUrl: `https://chainreact.app/integrations?error=insufficient_scopes&provider=${provider}&message=${encodeURIComponent(
+          redirectUrl: `${baseUrl}/integrations?error=insufficient_scopes&provider=${provider}&message=${encodeURIComponent(
             `Missing required permissions: ${scopeValidation.missingScopes.join(", ")}. Please reconnect and accept all permissions.`,
           )}`,
           error: "Insufficient scopes",
@@ -130,13 +133,13 @@ export class BaseOAuthService {
 
       return {
         success: true,
-        redirectUrl: `https://chainreact.app/integrations?success=${provider}_connected&provider=${provider}`,
+        redirectUrl: `${baseUrl}/integrations?success=${provider}_connected&provider=${provider}`,
       }
     } catch (error: any) {
       console.error(`${provider} OAuth callback error:`, error)
       return {
         success: false,
-        redirectUrl: `https://chainreact.app/integrations?error=callback_failed&provider=${provider}&message=${encodeURIComponent(
+        redirectUrl: `${baseUrl}/integrations?error=callback_failed&provider=${provider}&message=${encodeURIComponent(
           error.message,
         )}`,
         error: error.message,

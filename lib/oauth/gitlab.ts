@@ -1,3 +1,4 @@
+import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 export class GitLabOAuthService {
   private static getClientCredentials() {
     const clientId = process.env.NEXT_PUBLIC_GITLAB_CLIENT_ID
@@ -12,7 +13,7 @@ export class GitLabOAuthService {
 
   static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string, userId?: string): string {
     const { clientId } = this.getClientCredentials()
-    const redirectUri = "https://chainreact.app/api/integrations/gitlab/callback"
+    const redirectUri = `${getBaseUrl()}/api/integrations/gitlab/callback`
 
     // Fix: Use only valid GitLab scopes
     const scopes = ["read_user", "read_api", "read_repository", "write_repository"]
@@ -39,7 +40,7 @@ export class GitLabOAuthService {
   }
 
   static getRedirectUri(): string {
-    return "https://chainreact.app/api/integrations/gitlab/callback"
+    return `${getBaseUrl()}/api/integrations/gitlab/callback`
   }
 
   static async handleCallback(
@@ -68,7 +69,7 @@ export class GitLabOAuthService {
           client_secret: clientSecret,
           code,
           grant_type: "authorization_code",
-          redirect_uri: "https://chainreact.app/api/integrations/gitlab/callback",
+          redirect_uri: `${getBaseUrl()}/api/integrations/gitlab/callback`,
         }),
       })
 
@@ -127,12 +128,12 @@ export class GitLabOAuthService {
 
       return {
         success: true,
-        redirectUrl: `https://chainreact.app/integrations?success=gitlab_connected`,
+        redirectUrl: `${getBaseUrl()}/integrations?success=gitlab_connected`,
       }
     } catch (error: any) {
       return {
         success: false,
-        redirectUrl: `https://chainreact.app/integrations?error=callback_failed&provider=gitlab&message=${encodeURIComponent(error.message)}`,
+        redirectUrl: `${getBaseUrl()}/integrations?error=callback_failed&provider=gitlab&message=${encodeURIComponent(error.message)}`,
         error: error.message,
       }
     }

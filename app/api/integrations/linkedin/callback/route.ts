@@ -1,3 +1,4 @@
+import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 import { type NextRequest, NextResponse } from "next/server"
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
@@ -10,7 +11,7 @@ export async function GET(req: NextRequest) {
     const state = searchParams.get("state")
 
     if (!code || !state) {
-      const baseUrl = "https://chainreact.app"
+      const baseUrl = getBaseUrl(request)
       return NextResponse.redirect(`${baseUrl}/integrations?error=missing_code_or_state`)
     }
 
@@ -19,22 +20,22 @@ export async function GET(req: NextRequest) {
 
     if (sessionError || !sessionData?.session) {
       console.error("LinkedIn: Session error:", sessionError)
-      const baseUrl = "https://chainreact.app"
+      const baseUrl = getBaseUrl(request)
       return NextResponse.redirect(`${baseUrl}/integrations?error=session_error`)
     }
 
     const result = await LinkedInOAuthService.handleCallback(
       code,
       state,
-      "https://chainreact.app",
+      getBaseUrl(request),
       supabase,
       sessionData.session.user.id,
     )
 
-    return NextResponse.redirect(new URL(result.redirectUrl, "https://chainreact.app"))
+    return NextResponse.redirect(new URL(result.redirectUrl, getBaseUrl(request)))
   } catch (error) {
     console.error("LinkedIn Callback Error:", error)
-    const baseUrl = "https://chainreact.app"
+    const baseUrl = getBaseUrl(request)
     return NextResponse.redirect(`${baseUrl}/integrations?error=callback_error`)
   }
 }
