@@ -30,8 +30,10 @@ interface IntegrationState {
   integrations: Integration[]
   providers: Provider[]
   loading: boolean
+  verifyingScopes: boolean
   error: string | null
   fetchIntegrations: (forceRefresh?: boolean) => Promise<void>
+  verifyIntegrationScopes: () => Promise<void>
   connectIntegration: (providerId: string) => Promise<void>
   disconnectIntegration: (integrationId: string) => Promise<void>
   handleOAuthSuccess: () => void
@@ -274,6 +276,7 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
   integrations: [],
   providers: availableProviders,
   loading: false,
+  verifyingScopes: false,
   error: null,
 
   fetchIntegrations: async (forceRefresh = false) => {
@@ -312,6 +315,26 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
         loading: false,
         error: error.message || "Failed to fetch integrations",
       })
+    }
+  },
+
+  verifyIntegrationScopes: async () => {
+    set({ verifyingScopes: true })
+    try {
+      const response = await fetch('/api/integrations/verify-scopes')
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || 'Failed to verify integration scopes')
+      }
+      const { integrations } = await response.json()
+      if (integrations) {
+        set({ integrations })
+      }
+    } catch (error: any) {
+      console.error('Failed to verify integration scopes:', error)
+      throw error
+    } finally {
+      set({ verifyingScopes: false })
     }
   },
 
