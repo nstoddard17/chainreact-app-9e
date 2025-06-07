@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
+import { validateAndUpdateIntegrationScopes } from "@/lib/integrations/scopeValidation"
 
 // Use direct Supabase client with service role for reliable database operations
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -77,13 +78,16 @@ export const GET = async (request: NextRequest) => {
       .eq("provider", "trello")
       .maybeSingle()
 
+    const grantedScopes = ["read", "write"]
+
     const integrationData = {
       user_id: userId,
       provider: "trello",
       provider_user_id: trelloUserId,
       access_token: token,
-      status: "connected",
-      scopes: ["read", "write"],
+      status: "connected" as const,
+      scopes: grantedScopes,
+      granted_scopes: grantedScopes,
       metadata: {
         username: trelloUsername,
         full_name: meData.fullName,
@@ -92,22 +96,42 @@ export const GET = async (request: NextRequest) => {
       updated_at: now,
     }
 
+    let integrationId: string | undefined
     if (existingIntegration) {
-      const { error } = await supabase.from("integrations").update(integrationData).eq("id", existingIntegration.id)
+      const { data, error } = await supabase
+        .from("integrations")
+        .update(integrationData)
+        .eq("id", existingIntegration.id)
+        .select("id")
+        .single()
 
       if (error) {
         console.error("Error updating Trello integration:", error)
         return NextResponse.redirect(`${baseUrl}/integrations?error=database_update_failed&provider=trello`)
       }
+      integrationId = data.id
     } else {
-      const { error } = await supabase.from("integrations").insert({
-        ...integrationData,
-        created_at: now,
-      })
+      const { data, error } = await supabase
+        .from("integrations")
+        .insert({
+          ...integrationData,
+          created_at: now,
+        })
+        .select("id")
+        .single()
 
       if (error) {
         console.error("Error inserting Trello integration:", error)
         return NextResponse.redirect(`${baseUrl}/integrations?error=database_insert_failed&provider=trello`)
+      }
+      integrationId = data.id
+    }
+
+    if (integrationId) {
+      try {
+        await validateAndUpdateIntegrationScopes(integrationId, grantedScopes)
+      } catch (err) {
+        console.error("Trello scope validation failed:", err)
       }
     }
 

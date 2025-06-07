@@ -11,10 +11,11 @@ interface IntegrationData {
   expires_at?: string | null
   status: "connected"
   scopes: string[]
+  granted_scopes?: string[]
   metadata: any
 }
 
-export async function saveIntegrationToDatabase(integrationData: IntegrationData): Promise<void> {
+export async function saveIntegrationToDatabase(integrationData: IntegrationData): Promise<string> {
   try {
     // Check if integration already exists
     const { data: existingIntegration } = await supabase
@@ -26,35 +27,45 @@ export async function saveIntegrationToDatabase(integrationData: IntegrationData
 
     const now = new Date().toISOString()
 
+    let integrationId
     if (existingIntegration) {
       // Update existing integration
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("integrations")
         .update({
           ...integrationData,
           updated_at: now,
         })
         .eq("id", existingIntegration.id)
+        .select("id")
+        .single()
 
       if (error) {
         console.error("Error updating integration:", error)
         throw error
       }
+      integrationId = data.id
     } else {
       // Create new integration
-      const { error } = await supabase.from("integrations").insert({
-        ...integrationData,
-        created_at: now,
-        updated_at: now,
-      })
+      const { data, error } = await supabase
+        .from("integrations")
+        .insert({
+          ...integrationData,
+          created_at: now,
+          updated_at: now,
+        })
+        .select("id")
+        .single()
 
       if (error) {
         console.error("Error creating integration:", error)
         throw error
       }
+      integrationId = data.id
     }
 
     console.log(`Successfully saved ${integrationData.provider} integration for user ${integrationData.user_id}`)
+    return integrationId
   } catch (error) {
     console.error("Failed to save integration to database:", error)
     throw error
