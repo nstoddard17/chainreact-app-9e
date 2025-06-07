@@ -6,32 +6,65 @@ import { createClient } from "@supabase/supabase-js"
 const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
 export const GET = async (request: NextRequest): Promise<NextResponse> => {
+  console.log("Teams callback route - Request received")
+
   const url = new URL(request.url)
   const code = url.searchParams.get("code")
   const state = url.searchParams.get("state")
   const error = url.searchParams.get("error")
+  const errorDescription = url.searchParams.get("error_description")
+
+  console.log("Teams callback route - Query parameters:", {
+    hasCode: !!code,
+    hasState: !!state,
+    hasError: !!error,
+    hasErrorDescription: !!errorDescription,
+  })
 
   if (error) {
-    console.error("Teams OAuth error:", error)
+    console.error("Teams callback route - OAuth error:", error, errorDescription)
     return NextResponse.redirect(
-      `${getBaseUrl(request)}/integrations?error=oauth_error&provider=teams&message=${encodeURIComponent(error)}`,
+      `${getBaseUrl(request)}/integrations?error=oauth_error&provider=teams&message=${encodeURIComponent(errorDescription || error)}`,
     )
   }
 
   if (!code || !state) {
-    console.error("Missing code or state in Teams callback")
+    console.error("Teams callback route - Missing code or state")
     return NextResponse.redirect(`${getBaseUrl(request)}/integrations?error=missing_params&provider=teams`)
   }
 
   try {
-    const stateData = JSON.parse(atob(state))
+    let stateData: any
+    try {
+      stateData = JSON.parse(atob(state))
+      console.log("Teams callback route - Parsed state:", {
+        provider: stateData.provider,
+        hasUserId: !!stateData.userId,
+      })
+    } catch (stateError) {
+      console.error("Teams callback route - Failed to parse state:", stateError)
+      return NextResponse.redirect(
+        `${getBaseUrl(request)}/integrations?error=invalid_state&provider=teams&message=Could not parse state parameter`,
+      )
+    }
+
     const { userId } = stateData
 
     if (!userId) {
-      throw new Error("Missing user ID in state")
+      console.error("Teams callback route - Missing user ID in state")
+      return NextResponse.redirect(
+        `${getBaseUrl(request)}/integrations?error=missing_user_id&provider=teams&message=User ID missing from state`,
+      )
     }
 
+    console.log("Teams callback route - Handling callback with TeamsOAuthService")
     const result = await TeamsOAuthService.handleCallback(code, state, supabase, userId)
+
+    console.log("Teams callback route - Callback result:", {
+      success: result.success,
+      hasRedirectUrl: !!result.redirectUrl,
+      hasError: !!result.error,
+    })
 
     if (result.success) {
       return NextResponse.redirect(`${getBaseUrl(request)}/integrations?success=teams_connected&provider=teams`)
@@ -39,7 +72,7 @@ export const GET = async (request: NextRequest): Promise<NextResponse> => {
       return NextResponse.redirect(result.redirectUrl)
     }
   } catch (error: any) {
-    console.error("Teams OAuth callback error:", error)
+    console.error("Teams callback route - Unhandled error:", error)
     return NextResponse.redirect(
       `${getBaseUrl(request)}/integrations?error=callback_failed&provider=teams&message=${encodeURIComponent(error.message)}`,
     )

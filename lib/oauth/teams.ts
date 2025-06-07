@@ -18,47 +18,64 @@ export class TeamsOAuthService extends BaseOAuthService {
     return { clientId, clientSecret }
   }
 
-  static getRedirectUri(): string {
-    return `${getBaseUrl()}/api/integrations/teams/callback`
+  static getRedirectUri(baseUrl?: string): string {
+    const base = baseUrl || getBaseUrl()
+    return `${base}/api/integrations/teams/callback`
   }
 
   static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string, userId?: string): string {
-    const { clientId } = this.getClientCredentials()
-    const redirectUri = this.getRedirectUri()
+    try {
+      const { clientId } = this.getClientCredentials()
+      const redirectUri = this.getRedirectUri(baseUrl)
 
-    // Request scopes that Microsoft actually supports for Teams
-    const scopes = [
-      "openid",
-      "profile",
-      "email",
-      "offline_access",
-      "User.Read",
-      "Chat.ReadWrite",
-      "ChannelMessage.Send",
-      "Team.ReadBasic.All",
-    ]
+      console.log("Teams OAuth - Generating auth URL with:", {
+        baseUrl,
+        redirectUri,
+        clientIdExists: !!clientId,
+        clientIdLength: clientId?.length,
+        userId: userId?.substring(0, 8) + "...",
+      })
 
-    const state = btoa(
-      JSON.stringify({
-        provider: "teams",
-        userId,
-        reconnect,
-        integrationId,
-        timestamp: Date.now(),
-      }),
-    )
+      // Request scopes that Microsoft actually supports for Teams
+      const scopes = [
+        "openid",
+        "profile",
+        "email",
+        "offline_access",
+        "User.Read",
+        "Chat.ReadWrite",
+        "ChannelMessage.Send",
+        "Team.ReadBasic.All",
+      ]
 
-    const params = new URLSearchParams({
-      client_id: clientId,
-      redirect_uri: redirectUri,
-      response_type: "code",
-      scope: scopes.join(" "),
-      response_mode: "query",
-      state,
-      prompt: "consent", // Always show consent screen
-    })
+      const state = btoa(
+        JSON.stringify({
+          provider: "teams",
+          userId,
+          reconnect,
+          integrationId,
+          timestamp: Date.now(),
+        }),
+      )
 
-    return `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`
+      const params = new URLSearchParams({
+        client_id: clientId,
+        redirect_uri: redirectUri,
+        response_type: "code",
+        scope: scopes.join(" "),
+        response_mode: "query",
+        state,
+        prompt: "consent", // Always show consent screen
+      })
+
+      const authUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`
+      console.log("Teams OAuth - Generated auth URL:", authUrl.substring(0, 100) + "...")
+
+      return authUrl
+    } catch (error) {
+      console.error("Teams OAuth - Error generating auth URL:", error)
+      throw error
+    }
   }
 
   static async handleCallback(
@@ -68,7 +85,26 @@ export class TeamsOAuthService extends BaseOAuthService {
     userId: string,
   ): Promise<{ success: boolean; redirectUrl: string; error?: string }> {
     try {
-      const stateData = JSON.parse(atob(state))
+      console.log("Teams OAuth - Handling callback with code and state:", {
+        codeExists: !!code,
+        codeLength: code?.length,
+        stateExists: !!state,
+        stateLength: state?.length,
+      })
+
+      let stateData: any
+      try {
+        stateData = JSON.parse(atob(state))
+        console.log("Teams OAuth - Parsed state data:", {
+          provider: stateData.provider,
+          hasUserId: !!stateData.userId,
+          timestamp: stateData.timestamp,
+        })
+      } catch (stateError) {
+        console.error("Teams OAuth - Failed to parse state:", stateError)
+        throw new Error("Invalid state parameter")
+      }
+
       const { provider, reconnect, integrationId } = stateData
 
       if (provider !== "teams") {
@@ -78,7 +114,7 @@ export class TeamsOAuthService extends BaseOAuthService {
       const { clientId, clientSecret } = this.getClientCredentials()
       const redirectUri = this.getRedirectUri()
 
-      console.log("Teams: Exchanging code for token...")
+      console.log("Teams OAuth - Exchanging code for token...")
 
       const tokenResponse = await fetch("https://login.microsoftonline.com/common/oauth2/v2.0/token", {
         method: "POST",
@@ -94,13 +130,22 @@ export class TeamsOAuthService extends BaseOAuthService {
         }),
       })
 
+      console.log("Teams OAuth - Token response status:", tokenResponse.status)
+
       if (!tokenResponse.ok) {
-        const errorData = await tokenResponse.text()
-        console.error("Teams token exchange failed:", errorData)
-        throw new Error(`Token exchange failed: ${errorData}`)
+        const errorText = await tokenResponse.text()
+        console.error("Teams OAuth - Token exchange failed:", errorText)
+        throw new Error(`Token exchange failed: ${errorText}`)
       }
 
       const tokenData = await tokenResponse.json()
+      console.log("Teams OAuth - Token received:", {
+        hasAccessToken: !!tokenData.access_token,
+        hasRefreshToken: !!tokenData.refresh_token,
+        expiresIn: tokenData.expires_in,
+        hasScope: !!tokenData.scope,
+      })
+
       const { access_token, refresh_token, expires_in, scope } = tokenData
 
       // Validate the access token format
@@ -108,24 +153,7 @@ export class TeamsOAuthService extends BaseOAuthService {
         throw new Error("Invalid access token received from Microsoft")
       }
 
-      // Log token info for debugging (without exposing the actual token)
-      console.log("Teams: Token received", {
-        hasAccessToken: !!access_token,
-        accessTokenLength: access_token.length,
-        accessTokenStart: access_token.substring(0, 20) + "...",
-        hasRefreshToken: !!refresh_token,
-        expiresIn: expires_in,
-        scope: scope,
-      })
-
-      // Ensure we're storing the access token correctly
-      if (access_token.length < 50) {
-        console.error("Teams: Access token seems too short:", access_token.length)
-        throw new Error("Received access token appears to be invalid (too short)")
-      }
-
-      console.log("Teams: Token received, scope:", scope)
-
+      console.log("Teams OAuth - Fetching user info...")
       const userResponse = await fetch("https://graph.microsoft.com/v1.0/me", {
         headers: {
           Authorization: `Bearer ${access_token}`,
@@ -134,12 +162,16 @@ export class TeamsOAuthService extends BaseOAuthService {
 
       if (!userResponse.ok) {
         const errorText = await userResponse.text()
-        console.error("Teams user info failed:", errorText)
+        console.error("Teams OAuth - User info failed:", errorText)
         throw new Error(`Failed to get user info: ${userResponse.statusText}`)
       }
 
       const userData = await userResponse.json()
-      console.log("Teams: User data received:", userData.displayName)
+      console.log("Teams OAuth - User data received:", {
+        displayName: userData.displayName,
+        id: userData.id,
+        email: userData.userPrincipalName || userData.mail,
+      })
 
       // Parse and store the granted scopes - handle Microsoft's scope format
       let grantedScopes: string[] = []
@@ -147,20 +179,19 @@ export class TeamsOAuthService extends BaseOAuthService {
         // Microsoft returns scopes separated by spaces, sometimes with extra formatting
         grantedScopes = scope
           .split(/\s+/) // Split on any whitespace
-          .map((s) => s.trim())
-          .filter((s) => s.length > 0)
-          .filter((s) => !s.includes("http")) // Remove any URL-like scopes that might be malformed
+          .map((s: string) => s.trim())
+          .filter((s: string) => s.length > 0)
+          .filter((s: string) => !s.includes("http")) // Remove any URL-like scopes that might be malformed
 
-        console.log("Teams: Raw scope string:", scope)
-        console.log("Teams: Parsed scopes:", grantedScopes)
+        console.log("Teams OAuth - Parsed scopes:", grantedScopes)
       }
 
       const integrationData = {
         user_id: userId,
         provider: "teams",
         provider_user_id: userData.id,
-        access_token: access_token, // Ensure we're using the correct variable
-        refresh_token: refresh_token,
+        access_token,
+        refresh_token,
         expires_at: expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null,
         status: "connected" as const,
         scopes: grantedScopes,
@@ -171,7 +202,6 @@ export class TeamsOAuthService extends BaseOAuthService {
           connected_at: new Date().toISOString(),
           scopes: grantedScopes,
           raw_scope_string: scope,
-          access_token: access_token, // Store in metadata as backup
           token_type: tokenData.token_type || "Bearer",
           requested_scopes: [
             "openid",
@@ -186,21 +216,25 @@ export class TeamsOAuthService extends BaseOAuthService {
         },
       }
 
-      console.log("Teams: Saving integration data with scopes:", grantedScopes)
+      console.log("Teams OAuth - Saving integration data...")
       const savedIntegrationId = await saveIntegrationToDatabase(integrationData)
+      console.log("Teams OAuth - Integration saved with ID:", savedIntegrationId)
 
       try {
         await validateAndUpdateIntegrationScopes(savedIntegrationId, grantedScopes)
       } catch (err) {
-        console.error("Teams scope validation failed:", err)
+        console.error("Teams OAuth - Scope validation failed:", err)
       }
+
+      const successRedirect = generateSuccessRedirect("teams")
+      console.log("Teams OAuth - Redirecting to:", successRedirect)
 
       return {
         success: true,
-        redirectUrl: generateSuccessRedirect("teams"),
+        redirectUrl: successRedirect,
       }
     } catch (error: any) {
-      console.error("Teams OAuth callback error:", error)
+      console.error("Teams OAuth - Callback error:", error)
       return {
         success: false,
         redirectUrl: `${getBaseUrl()}/integrations?error=callback_failed&provider=teams&message=${encodeURIComponent(error.message)}`,

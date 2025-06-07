@@ -11,13 +11,14 @@ import { Search, Loader2, Filter, CheckCircle, Stethoscope, RefreshCw } from "lu
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { useSearchParams } from "next/navigation"
+import { useSearchParams, useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
 
 export default function IntegrationsContent() {
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [localLoading, setLocalLoading] = useState(true)
+  const router = useRouter()
 
   const { integrations, providers, loading, refreshing, error, fetchIntegrations, refreshTokens } =
     useIntegrationStore()
@@ -46,11 +47,17 @@ export default function IntegrationsContent() {
     const success = searchParams.get("success")
     const error = searchParams.get("error")
     const provider = searchParams.get("provider")
+    const message = searchParams.get("message")
+
+    if (success || error) {
+      console.log("OAuth callback detected:", { success, error, provider, message })
+    }
 
     if (success) {
       // Add a longer delay and force refresh
       setTimeout(async () => {
         try {
+          console.log("Refreshing integrations after OAuth success")
           await fetchIntegrations(true) // Force refresh
           toast({
             title: "Integration Connected",
@@ -66,25 +73,24 @@ export default function IntegrationsContent() {
         }
       }, 2000) // Increased delay to ensure database has been updated
     } else if (error) {
-      const message = searchParams.get("message") || "Failed to connect integration"
+      const errorMsg = message || "Failed to connect integration"
+      console.error("OAuth error:", { error, provider, message: errorMsg })
       toast({
         title: "Connection Failed",
-        description: decodeURIComponent(message),
+        description: decodeURIComponent(errorMsg),
         variant: "destructive",
         duration: 7000,
       })
     }
 
     // Clean up URL parameters
-    if (success || error) {
-      const url = new URL(window.location.href)
-      url.searchParams.delete("success")
-      url.searchParams.delete("error")
-      url.searchParams.delete("message")
-      url.searchParams.delete("provider")
-      window.history.replaceState({}, "", url.toString())
+    if ((success || error) && typeof window !== "undefined") {
+      // Use setTimeout to ensure the toast has time to display
+      setTimeout(() => {
+        router.replace("/integrations")
+      }, 100)
     }
-  }, [searchParams, toast, fetchIntegrations])
+  }, [searchParams, toast, fetchIntegrations, router])
 
   // Get unique categories from providers
   const categories = Array.from(new Set(providers.map((p) => p.category)))

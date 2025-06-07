@@ -320,7 +320,7 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
         throw new Error(error.message)
       }
 
-      console.log("Fetched integrations:", data)
+      console.log("Fetched integrations:", data?.length || 0)
 
       set({
         integrations: data || [],
@@ -407,7 +407,14 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
       const { authUrl } = await response.json()
       console.log("Generated auth URL, redirecting...")
 
-      window.location.href = authUrl
+      // For Teams, add a timestamp to prevent caching issues
+      if (providerId === "teams") {
+        const url = new URL(authUrl)
+        url.searchParams.append("_t", Date.now().toString())
+        window.location.href = url.toString()
+      } else {
+        window.location.href = authUrl
+      }
     } catch (error: any) {
       console.error("Failed to connect integration:", error)
       throw error
