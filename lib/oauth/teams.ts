@@ -42,10 +42,10 @@ export class TeamsOAuthService extends BaseOAuthService {
         "profile",
         "email",
         "offline_access",
-        "User.Read",
-        "Chat.ReadWrite",
-        "ChannelMessage.Send",
-        "Team.ReadBasic.All",
+        "https://graph.microsoft.com/User.Read",
+        "https://graph.microsoft.com/Chat.ReadWrite",
+        "https://graph.microsoft.com/ChannelMessage.Send",
+        "https://graph.microsoft.com/Team.ReadBasic.All",
       ]
 
       const state = btoa(
