@@ -1,32 +1,30 @@
 import { generateOAuthState } from "@/lib/oauth/state"
 
-export class YoutubeOAuth {
+export class YouTubeOAuthService {
   static getClientCredentials() {
-    const clientId = process.env.YOUTUBE_CLIENT_ID
-    const clientSecret = process.env.YOUTUBE_CLIENT_SECRET
+    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET
 
     if (!clientId || !clientSecret) {
-      throw new Error("Missing YouTube client ID or secret")
+      throw new Error("Missing YouTube/Google OAuth configuration")
     }
 
     return { clientId, clientSecret }
   }
 
-  static getRedirectUri() {
-    const redirectUri = process.env.YOUTUBE_REDIRECT_URI
-
-    if (!redirectUri) {
-      throw new Error("Missing YouTube redirect URI")
-    }
-
-    return redirectUri
+  static getRedirectUri(baseUrl: string) {
+    return `${baseUrl}/api/integrations/youtube/callback`
   }
 
   static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string, userId?: string): string {
-    const { clientId } = this.getClientCredentials()
-    const redirectUri = this.getRedirectUri()
+    if (!userId) {
+      throw new Error("User ID is required for YouTube OAuth")
+    }
 
-    // YouTube-specific scopes
+    const { clientId } = this.getClientCredentials()
+    const redirectUri = this.getRedirectUri(baseUrl)
+
+    // YouTube-specific scopes (using Google OAuth)
     const scopes = [
       "https://www.googleapis.com/auth/youtube.readonly",
       "https://www.googleapis.com/auth/userinfo.profile",
@@ -34,7 +32,7 @@ export class YoutubeOAuth {
       "https://www.googleapis.com/auth/youtube.upload",
     ]
 
-    const state = userId ? generateOAuthState("youtube", userId, { reconnect, integrationId }) : ""
+    const state = generateOAuthState("youtube", userId, { reconnect, integrationId })
 
     const params = new URLSearchParams({
       client_id: clientId,
@@ -43,15 +41,18 @@ export class YoutubeOAuth {
       scope: scopes.join(" "),
       access_type: "offline",
       prompt: reconnect ? "consent" : "select_account",
-      ...(state && { state }),
+      state,
     })
 
-    return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`
+    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`
+    console.log("Generated YouTube auth URL:", authUrl.substring(0, 100) + "...")
+
+    return authUrl
   }
 
-  static async getToken(code: string) {
+  static async getToken(code: string, baseUrl: string) {
     const { clientId, clientSecret } = this.getClientCredentials()
-    const redirectUri = this.getRedirectUri()
+    const redirectUri = this.getRedirectUri(baseUrl)
 
     const params = new URLSearchParams({
       client_id: clientId,
@@ -107,3 +108,6 @@ export class YoutubeOAuth {
     return data
   }
 }
+
+// Keep the old export for backward compatibility
+export const YoutubeOAuth = YouTubeOAuthService
