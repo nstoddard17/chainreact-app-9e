@@ -243,7 +243,9 @@ export async function POST(request: NextRequest) {
             client_id: process.env.NEXT_PUBLIC_TEAMS_CLIENT_ID!,
             response_type: "code",
             redirect_uri: `${baseUrl}/api/integrations/teams/callback`,
-            scope: "openid profile email offline_access User.Read Chat.ReadWrite",
+            scope:
+              "openid profile email offline_access https://graph.microsoft.com/User.Read https://graph.microsoft.com/Chat.ReadWrite https://graph.microsoft.com/ChannelMessage.Send https://graph.microsoft.com/Team.ReadBasic.All",
+            prompt: "consent", // Force consent screen
             state: teamsState,
           })
           authUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${teamsParams.toString()}`
