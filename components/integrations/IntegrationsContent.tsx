@@ -53,57 +53,62 @@ export default function IntegrationsContent() {
     const message = searchParams.get("message")
     const timestamp = searchParams.get("t")
 
-    if (success || error) {
+    if ((success || error) && provider) {
       console.log("OAuth callback detected:", { success, error, provider, message, timestamp })
       setOauthProcessed(true)
-    }
 
-    if (success === "true") {
-      // Force refresh integrations with a delay to ensure database has been updated
-      const refreshIntegrationsList = async () => {
-        try {
-          console.log(`Refreshing integrations after ${provider} OAuth success`)
-          await fetchIntegrations(true)
+      // Force refresh integrations immediately to ensure we have the latest data
+      fetchIntegrations(true).catch((err) => {
+        console.error("Failed to refresh integrations on callback:", err)
+      })
 
-          toast({
-            title: "Integration Connected",
-            description: `Your ${provider || "integration"} has been successfully connected!`,
-            duration: 5000,
-          })
-        } catch (err) {
-          console.error("Failed to refresh integrations after OAuth:", err)
+      if (success === "true") {
+        // Force refresh integrations with a delay to ensure database has been updated
+        const refreshIntegrationsList = async () => {
+          try {
+            console.log(`Refreshing integrations after ${provider} OAuth success`)
+            await fetchIntegrations(true)
 
-          // Try refreshing again after a short delay
-          setTimeout(async () => {
-            try {
-              await fetchIntegrations(true)
-            } catch (retryErr) {
-              console.error("Failed to refresh integrations on retry:", retryErr)
-            }
-          }, 2000)
+            toast({
+              title: "Integration Connected",
+              description: `Your ${provider} integration has been successfully connected!`,
+              duration: 5000,
+            })
+          } catch (err) {
+            console.error("Failed to refresh integrations after OAuth:", err)
+
+            // Try refreshing again after a short delay
+            setTimeout(async () => {
+              try {
+                await fetchIntegrations(true)
+              } catch (retryErr) {
+                console.error("Failed to refresh integrations on retry:", retryErr)
+              }
+            }, 2000)
+          }
         }
+
+        // Add a delay to ensure database operations are complete
+        setTimeout(refreshIntegrationsList, 1500)
+      } else if (error) {
+        const errorMsg = message || "Failed to connect integration"
+        console.error("OAuth error:", { error, provider, message: errorMsg })
+
+        toast({
+          title: "Connection Failed",
+          description: decodeURIComponent(errorMsg),
+          variant: "destructive",
+          duration: 7000,
+        })
       }
 
-      // Add a delay to ensure database operations are complete
-      setTimeout(refreshIntegrationsList, 1000)
-    } else if (error) {
-      const errorMsg = message || "Failed to connect integration"
-      console.error("OAuth error:", { error, provider, message: errorMsg })
-
-      toast({
-        title: "Connection Failed",
-        description: decodeURIComponent(errorMsg),
-        variant: "destructive",
-        duration: 7000,
-      })
-    }
-
-    // Clean up URL parameters
-    if ((success || error) && typeof window !== "undefined") {
-      // Use setTimeout to ensure the toast has time to display
-      setTimeout(() => {
-        router.replace("/integrations")
-      }, 100)
+      // Clean up URL parameters
+      if (typeof window !== "undefined") {
+        // Use setTimeout to ensure the toast has time to display
+        setTimeout(() => {
+          router.replace("/integrations")
+        }, 100)
+      }
     }
   }, [searchParams, toast, fetchIntegrations, router, oauthProcessed])
 

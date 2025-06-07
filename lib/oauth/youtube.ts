@@ -1,18 +1,20 @@
 import { generateOAuthState } from "@/lib/oauth/state"
 
-export class YouTubeOAuthService {
+export class YoutubeOAuth {
   static getClientCredentials() {
-    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
-    const clientSecret = process.env.GOOGLE_CLIENT_SECRET
+    // Try YouTube-specific credentials first, fall back to Google credentials
+    const clientId = process.env.NEXT_PUBLIC_YOUTUBE_CLIENT_ID || process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
+    const clientSecret = process.env.YOUTUBE_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET
 
     if (!clientId || !clientSecret) {
-      throw new Error("Missing YouTube/Google OAuth configuration")
+      throw new Error("Missing YouTube/Google OAuth credentials")
     }
 
     return { clientId, clientSecret }
   }
 
   static getRedirectUri(baseUrl: string) {
+    // Use the provided baseUrl to construct the redirect URI
     return `${baseUrl}/api/integrations/youtube/callback`
   }
 
@@ -24,7 +26,7 @@ export class YouTubeOAuthService {
     const { clientId } = this.getClientCredentials()
     const redirectUri = this.getRedirectUri(baseUrl)
 
-    // YouTube-specific scopes (using Google OAuth)
+    // YouTube-specific scopes
     const scopes = [
       "https://www.googleapis.com/auth/youtube.readonly",
       "https://www.googleapis.com/auth/userinfo.profile",
@@ -45,7 +47,7 @@ export class YouTubeOAuthService {
     })
 
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`
-    console.log("Generated YouTube auth URL:", authUrl.substring(0, 100) + "...")
+    console.log("Generated YouTube auth URL (first 100 chars):", authUrl.substring(0, 100) + "...")
 
     return authUrl
   }
@@ -109,5 +111,13 @@ export class YouTubeOAuthService {
   }
 }
 
-// Keep the old export for backward compatibility
-export const YoutubeOAuth = YouTubeOAuthService
+// Add the state utility function if it doesn't exist
+// export function generateOAuthState(provider: string, userId: string, options: any = {}) {
+//   const stateData = {
+//     provider,
+//     userId,
+//     timestamp: Date.now(),
+//     ...options,
+//   }
+//   return btoa(JSON.stringify(stateData))
+// }
