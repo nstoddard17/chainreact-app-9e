@@ -24,29 +24,65 @@ export class NotionOAuthService {
 
   // Validate scopes against required scopes
   static validateScopes(grantedCapabilities: string[]): { valid: boolean; missing: string[] } {
-    const requiredScopes = this.getRequiredScopes()
-
-    // Notion uses "capabilities" instead of traditional scopes
-    // Map capabilities to our required scopes
-    const scopeMapping: Record<string, string[]> = {
-      read_user: ["read_user"],
-      read_content: ["read_content", "read_database", "read_page"],
-      update_content: ["update_content", "update_database", "update_page"],
-      insert_content: ["insert_content", "create_page", "create_database"],
-    }
-
-    const grantedScopes: string[] = []
+    const requiredScopes = ["read_user", "read_content"]
+    const optionalScopes = ["update_content", "insert_content"]
 
     // Convert Notion capabilities to our scope format
-    grantedCapabilities.forEach((capability) => {
-      Object.entries(scopeMapping).forEach(([scope, capabilities]) => {
-        if (capabilities.some((cap) => capability.includes(cap))) {
-          grantedScopes.push(scope)
-        }
-      })
-    })
+    const grantedScopes: string[] = []
+
+    // Check for user access
+    if (grantedCapabilities.some((cap) => cap.includes("read_user") || cap.includes("user"))) {
+      grantedScopes.push("read_user")
+    }
+
+    // Check for content read access
+    if (
+      grantedCapabilities.some(
+        (cap) =>
+          cap.includes("read_content") ||
+          cap.includes("read_database") ||
+          cap.includes("read_page") ||
+          cap.includes("read_block"),
+      )
+    ) {
+      grantedScopes.push("read_content")
+    }
+
+    // Check for content update access
+    if (
+      grantedCapabilities.some(
+        (cap) =>
+          cap.includes("update_content") ||
+          cap.includes("update_database") ||
+          cap.includes("update_page") ||
+          cap.includes("update_block"),
+      )
+    ) {
+      grantedScopes.push("update_content")
+    }
+
+    // Check for content creation access
+    if (
+      grantedCapabilities.some(
+        (cap) =>
+          cap.includes("insert_content") ||
+          cap.includes("create_page") ||
+          cap.includes("create_database") ||
+          cap.includes("create_block"),
+      )
+    ) {
+      grantedScopes.push("insert_content")
+    }
 
     const missing = requiredScopes.filter((scope) => !grantedScopes.includes(scope))
+
+    console.log("Notion scope validation:", {
+      grantedCapabilities,
+      grantedScopes,
+      requiredScopes,
+      missing,
+    })
+
     return {
       valid: missing.length === 0,
       missing,
@@ -268,10 +304,8 @@ export class NotionOAuthService {
       // Validate token and get actual granted scopes
       const tokenValidation = await this.validateToken(access_token)
 
-      if (!tokenValidation.valid) {
-        console.warn("Notion token validation failed, but proceeding with connection:", tokenValidation.error)
-        // Don't fail the connection, just log the warning
-      }
+      // Validate scopes and get missing ones
+      const scopeValidation = this.validateScopes(tokenValidation.grantedScopes || [])
 
       const integrationData = {
         user_id: userId,
@@ -280,6 +314,9 @@ export class NotionOAuthService {
         access_token,
         status: "connected" as const,
         scopes: tokenValidation.grantedScopes || ["read_user"],
+        granted_scopes: tokenValidation.grantedScopes || ["read_user"],
+        missing_scopes: scopeValidation.missing || [],
+        scope_validation_status: scopeValidation.valid ? "valid" : "partial",
         metadata: {
           workspace_name,
           workspace_id,
@@ -288,6 +325,7 @@ export class NotionOAuthService {
           connected_at: new Date().toISOString(),
           validated_scopes: tokenValidation.grantedScopes || [],
           token_validation_error: tokenValidation.error,
+          scope_validation: scopeValidation,
         },
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),

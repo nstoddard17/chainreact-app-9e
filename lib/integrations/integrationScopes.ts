@@ -252,12 +252,17 @@ export const INTEGRATION_SCOPES: Record<string, IntegrationScopeConfig> = {
   },
   notion: {
     provider: "notion",
-    scopes: [{ scope: "read", description: "Read workspace content", required: true }],
+    scopes: [
+      { scope: "read_user", description: "Read user information", required: true },
+      { scope: "read_content", description: "Read workspace content", required: true },
+      { scope: "update_content", description: "Update pages and databases", required: false },
+      { scope: "insert_content", description: "Create new pages and databases", required: false },
+    ],
     components: {
-      "notion-create-page": [],
-      "notion-read-page": [],
-      "notion-update-page": [],
-      "notion-delete-page": [],
+      "notion-read-page": ["read_user", "read_content"],
+      "notion-create-page": ["read_user", "insert_content"],
+      "notion-update-page": ["read_user", "update_content"],
+      "notion-delete-page": ["read_user", "update_content"],
     },
   },
   airtable: {
