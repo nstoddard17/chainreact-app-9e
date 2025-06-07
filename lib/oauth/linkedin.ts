@@ -1,4 +1,5 @@
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
+
 interface LinkedInOAuthResult {
   success: boolean
   redirectUrl: string
@@ -17,7 +18,7 @@ export class LinkedInOAuthService {
     return { clientId, clientSecret }
   }
 
-  static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string): string {
+  static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string, userId?: string): string {
     const { clientId } = this.getClientCredentials()
     const redirectUri = `${getBaseUrl()}/api/integrations/linkedin/callback`
 
@@ -27,6 +28,7 @@ export class LinkedInOAuthService {
     const state = btoa(
       JSON.stringify({
         provider: "linkedin",
+        userId,
         reconnect,
         integrationId,
         requireFullScopes: true,
