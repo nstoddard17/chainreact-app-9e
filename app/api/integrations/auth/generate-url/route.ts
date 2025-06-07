@@ -1,136 +1,183 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { GoogleOAuthService } from "@/lib/oauth/google"
-import { SlackOAuthService } from "@/lib/oauth/slack"
-import { GitHubOAuthService } from "@/lib/oauth/github"
-import { DiscordOAuthService } from "@/lib/oauth/discord"
-import { TrelloOAuthService } from "@/lib/oauth/trello"
-import { TeamsOAuthService } from "@/lib/oauth/teams"
-import { NotionOAuthService } from "@/lib/oauth/notion"
-import { AirtableOAuthService } from "@/lib/oauth/airtable"
-import { DropboxOAuthService } from "@/lib/oauth/dropbox"
-import { HubSpotOAuthService } from "@/lib/oauth/hubspot"
-import { LinkedInOAuthService } from "@/lib/oauth/linkedin"
-import { FacebookOAuthService } from "@/lib/oauth/facebook"
-import { InstagramOAuthService } from "@/lib/oauth/instagram"
-import { TwitterOAuthService } from "@/lib/oauth/twitter"
-import { TikTokOAuthService } from "@/lib/oauth/tiktok"
-import { YouTubeOAuthService } from "@/lib/oauth/youtube"
-import { MailchimpOAuthService } from "@/lib/oauth/mailchimp"
-import { ShopifyOAuthService } from "@/lib/oauth/shopify"
-import { StripeOAuthService } from "@/lib/oauth/stripe"
-import { PayPalOAuthService } from "@/lib/oauth/paypal"
-import { GitLabOAuthService } from "@/lib/oauth/gitlab"
-import { OneDriveOAuthService } from "@/lib/oauth/onedrive"
+import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
+import { cookies } from "next/headers"
+import type { Database } from "@/types/supabase"
 
 export async function POST(request: NextRequest) {
   try {
+    const supabase = createRouteHandlerClient<Database>({ cookies })
     const { provider, userId } = await request.json()
 
-    console.log("Generate URL request:", { provider, userId })
+    console.log("Generate auth URL request:", { provider, userId })
 
     if (!provider) {
       return NextResponse.json({ error: "Provider is required" }, { status: 400 })
     }
 
-    if (!userId) {
-      return NextResponse.json({ error: "User ID is required" }, { status: 400 })
+    // Get the current user if userId not provided
+    let currentUserId = userId
+    if (!currentUserId) {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser()
+
+      if (userError || !user) {
+        console.error("User authentication error:", userError)
+        return NextResponse.json({ error: "Authentication required" }, { status: 401 })
+      }
+      currentUserId = user.id
     }
+
+    console.log("Using user ID:", currentUserId)
+
+    const baseUrl = new URL(request.url).origin
 
     let authUrl: string
 
-    try {
-      switch (provider.toLowerCase()) {
-        case "google":
-          authUrl = GoogleOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
-          break
-        case "slack":
-          authUrl = SlackOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
-          break
-        case "github":
-          authUrl = GitHubOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
-          break
-        case "discord":
-          authUrl = DiscordOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
-          break
-        case "trello":
-          authUrl = TrelloOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
-          break
-        case "teams":
-          authUrl = TeamsOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
-          break
-        case "notion":
-          authUrl = NotionOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
-          break
-        case "airtable":
-          authUrl = AirtableOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
-          break
-        case "dropbox":
-          authUrl = DropboxOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
-          break
-        case "hubspot":
-          authUrl = HubSpotOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
-          break
-        case "linkedin":
-          authUrl = LinkedInOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
-          break
-        case "facebook":
-          authUrl = FacebookOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
-          break
-        case "instagram":
-          authUrl = InstagramOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
-          break
-        case "twitter":
-          authUrl = TwitterOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
-          break
-        case "tiktok":
-          authUrl = TikTokOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
-          break
-        case "youtube":
-          authUrl = YouTubeOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
-          break
-        case "mailchimp":
-          authUrl = MailchimpOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
-          break
-        case "shopify":
-          authUrl = ShopifyOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
-          break
-        case "stripe":
-          authUrl = StripeOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
-          break
-        case "paypal":
-          authUrl = PayPalOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
-          break
-        case "gitlab":
-          authUrl = GitLabOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
-          break
-        case "onedrive":
-          authUrl = OneDriveOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
-          break
-        case "docker":
-          // Docker is marked as coming soon, return a friendly message
-          return NextResponse.json({ error: "Docker Hub integration is coming soon" }, { status: 400 })
-        default:
-          return NextResponse.json({ error: `Provider ${provider} not yet supported` }, { status: 400 })
-      }
-    } catch (configError: any) {
-      console.error(`Configuration error for ${provider}:`, configError)
+    switch (provider) {
+      case "google":
+        const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
+        if (!googleClientId) {
+          return NextResponse.json({ error: "Google OAuth not configured" }, { status: 503 })
+        }
 
-      // Check if it's a configuration error
-      if (configError.message.includes("Missing") && configError.message.includes("OAuth configuration")) {
-        return NextResponse.json(
-          {
-            error: `${provider} integration is not configured. Please contact support to enable this integration.`,
-            details: configError.message,
-          },
-          { status: 503 },
-        ) // Service Unavailable
-      }
+        const googleScopes = [
+          "openid",
+          "profile",
+          "email",
+          "https://www.googleapis.com/auth/calendar",
+          "https://www.googleapis.com/auth/spreadsheets",
+          "https://www.googleapis.com/auth/documents",
+          "https://www.googleapis.com/auth/gmail.modify",
+          "https://www.googleapis.com/auth/youtube",
+        ]
 
-      // Re-throw other errors
-      throw configError
+        const googleState = btoa(JSON.stringify({ provider: "google", userId: currentUserId }))
+
+        authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${new URLSearchParams({
+          client_id: googleClientId,
+          redirect_uri: `${baseUrl}/api/integrations/google/callback`,
+          response_type: "code",
+          scope: googleScopes.join(" "),
+          access_type: "offline",
+          prompt: "consent",
+          state: googleState,
+        }).toString()}`
+        break
+
+      case "slack":
+        const slackClientId = process.env.NEXT_PUBLIC_SLACK_CLIENT_ID
+        if (!slackClientId) {
+          return NextResponse.json({ error: "Slack OAuth not configured" }, { status: 503 })
+        }
+
+        const slackScopes = ["chat:write", "channels:read", "users:read", "files:write"]
+        const slackState = btoa(JSON.stringify({ provider: "slack", userId: currentUserId }))
+
+        authUrl = `https://slack.com/oauth/v2/authorize?${new URLSearchParams({
+          client_id: slackClientId,
+          scope: slackScopes.join(","),
+          redirect_uri: `${baseUrl}/api/integrations/slack/callback`,
+          state: slackState,
+        }).toString()}`
+        break
+
+      case "github":
+        const githubClientId = process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID
+        if (!githubClientId) {
+          return NextResponse.json({ error: "GitHub OAuth not configured" }, { status: 503 })
+        }
+
+        const githubScopes = ["user:email", "repo", "workflow"]
+        const githubState = btoa(JSON.stringify({ provider: "github", userId: currentUserId }))
+
+        authUrl = `https://github.com/login/oauth/authorize?${new URLSearchParams({
+          client_id: githubClientId,
+          scope: githubScopes.join(" "),
+          redirect_uri: `${baseUrl}/api/integrations/github/callback`,
+          state: githubState,
+        }).toString()}`
+        break
+
+      case "discord":
+        const discordClientId = process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID
+        if (!discordClientId) {
+          return NextResponse.json({ error: "Discord OAuth not configured" }, { status: 503 })
+        }
+
+        const discordScopes = ["identify", "guilds", "guilds.join", "messages.read"]
+        const discordState = btoa(JSON.stringify({ provider: "discord", userId: currentUserId }))
+
+        authUrl = `https://discord.com/api/oauth2/authorize?${new URLSearchParams({
+          client_id: discordClientId,
+          redirect_uri: `${baseUrl}/api/integrations/discord/callback`,
+          response_type: "code",
+          scope: discordScopes.join(" "),
+          state: discordState,
+        }).toString()}`
+        break
+
+      case "twitter":
+        const twitterClientId = process.env.NEXT_PUBLIC_TWITTER_CLIENT_ID
+        if (!twitterClientId) {
+          return NextResponse.json({ error: "X (Twitter) OAuth not configured" }, { status: 503 })
+        }
+
+        const twitterScopes = ["tweet.read", "tweet.write", "users.read", "offline.access"]
+        const twitterState = btoa(JSON.stringify({ provider: "twitter", userId: currentUserId }))
+
+        authUrl = `https://twitter.com/i/oauth2/authorize?${new URLSearchParams({
+          response_type: "code",
+          client_id: twitterClientId,
+          redirect_uri: `${baseUrl}/api/integrations/twitter/callback`,
+          scope: twitterScopes.join(" "),
+          state: twitterState,
+          code_challenge: "challenge",
+          code_challenge_method: "plain",
+        }).toString()}`
+        break
+
+      case "teams":
+        const teamsClientId = process.env.NEXT_PUBLIC_TEAMS_CLIENT_ID
+        if (!teamsClientId) {
+          return NextResponse.json({ error: "Microsoft Teams OAuth not configured" }, { status: 503 })
+        }
+
+        const teamsScopes = ["openid", "profile", "email", "offline_access", "User.Read", "Chat.ReadWrite"]
+        const teamsState = btoa(JSON.stringify({ provider: "teams", userId: currentUserId }))
+
+        authUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${new URLSearchParams({
+          client_id: teamsClientId,
+          response_type: "code",
+          redirect_uri: `${baseUrl}/api/integrations/teams/callback`,
+          scope: teamsScopes.join(" "),
+          state: teamsState,
+        }).toString()}`
+        break
+
+      case "facebook":
+        const facebookClientId = process.env.NEXT_PUBLIC_FACEBOOK_CLIENT_ID
+        if (!facebookClientId) {
+          return NextResponse.json({ error: "Facebook OAuth not configured" }, { status: 503 })
+        }
+
+        const facebookScopes = ["public_profile", "email", "pages_show_list", "pages_manage_posts"]
+        const facebookState = btoa(JSON.stringify({ provider: "facebook", userId: currentUserId }))
+
+        authUrl = `https://www.facebook.com/v18.0/dialog/oauth?${new URLSearchParams({
+          client_id: facebookClientId,
+          redirect_uri: `${baseUrl}/api/integrations/facebook/callback`,
+          scope: facebookScopes.join(","),
+          state: facebookState,
+        }).toString()}`
+        break
+
+      default:
+        return NextResponse.json({ error: `Provider ${provider} not supported yet` }, { status: 400 })
     }
 
-    console.log("Generated auth URL successfully")
+    console.log("Generated auth URL for", provider)
     return NextResponse.json({ authUrl })
   } catch (error: any) {
     console.error("Error generating auth URL:", error)
