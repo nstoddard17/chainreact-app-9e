@@ -29,13 +29,13 @@ export async function GET(req: NextRequest) {
   if (error) {
     console.error("OneDrive Auth Error:", error, error_description)
     return NextResponse.redirect(
-      `${baseUrl}/integrations?error=true&provider=onedrive&message=${encodeURIComponent(error_description || error)}`,
+      `${baseUrl}/integrations?error=onedrive_auth_failed&message=${encodeURIComponent(error_description || error)}`,
     )
   }
 
   if (!code || !state) {
     console.error("Missing code or state")
-    return NextResponse.redirect(`${baseUrl}/integrations?error=true&provider=onedrive`)
+    return NextResponse.redirect(`${baseUrl}/integrations?error=missing_code_or_state&provider=onedrive`)
   }
 
   try {
@@ -45,14 +45,14 @@ export async function GET(req: NextRequest) {
       stateData = JSON.parse(atob(state))
     } catch (e) {
       console.error("Failed to parse state:", e)
-      return NextResponse.redirect(`${baseUrl}/integrations?error=true&provider=onedrive`)
+      return NextResponse.redirect(`${baseUrl}/integrations?error=invalid_state&provider=onedrive`)
     }
 
     const userId = stateData.userId
 
     if (!userId) {
       console.error("No user ID in state")
-      return NextResponse.redirect(`${baseUrl}/integrations?error=true&provider=onedrive`)
+      return NextResponse.redirect(`${baseUrl}/integrations?error=missing_user_id&provider=onedrive`)
     }
 
     const clientId = process.env.NEXT_PUBLIC_ONEDRIVE_CLIENT_ID
@@ -60,7 +60,7 @@ export async function GET(req: NextRequest) {
 
     if (!clientId || !clientSecret) {
       console.error("Missing OneDrive client ID or secret")
-      return NextResponse.redirect(`${baseUrl}/integrations?error=true&provider=onedrive`)
+      return NextResponse.redirect(`${baseUrl}/integrations?error=missing_client_credentials&provider=onedrive`)
     }
 
     const tokenEndpoint = "https://login.microsoftonline.com/common/oauth2/v2.0/token"
@@ -82,7 +82,7 @@ export async function GET(req: NextRequest) {
 
     if (!response.ok) {
       console.error("Token request failed", response.status, await response.text())
-      return NextResponse.redirect(`${baseUrl}/integrations?error=true&provider=onedrive`)
+      return NextResponse.redirect(`${baseUrl}/integrations?error=token_request_failed&provider=onedrive`)
     }
 
     const data = await response.json()
@@ -92,7 +92,7 @@ export async function GET(req: NextRequest) {
 
     if (!accessToken || !refreshToken) {
       console.error("Missing access token or refresh token")
-      return NextResponse.redirect(`${baseUrl}/integrations?error=true&provider=onedrive`)
+      return NextResponse.redirect(`${baseUrl}/integrations?error=missing_tokens&provider=onedrive`)
     }
 
     // Get user info
@@ -104,7 +104,7 @@ export async function GET(req: NextRequest) {
 
     if (!userResponse.ok) {
       console.error("Failed to get OneDrive user info:", await userResponse.text())
-      return NextResponse.redirect(`${baseUrl}/integrations?error=true&provider=onedrive`)
+      return NextResponse.redirect(`${baseUrl}/integrations?error=user_info_failed&provider=onedrive`)
     }
 
     const userData = await userResponse.json()
@@ -135,20 +135,12 @@ export async function GET(req: NextRequest) {
       updated_at: now,
     }
 
-    console.log("OneDrive: About to save integration data:", {
-      userId,
-      provider: "onedrive",
-      status: "connected",
-      hasAccessToken: !!accessToken,
-      hasRefreshToken: !!refreshToken,
-    })
-
     if (existingIntegration) {
       const { error } = await supabase.from("integrations").update(integrationData).eq("id", existingIntegration.id)
 
       if (error) {
         console.error("Error updating OneDrive integration:", error)
-        return NextResponse.redirect(`${baseUrl}/integrations?error=true&provider=onedrive`)
+        return NextResponse.redirect(`${baseUrl}/integrations?error=database_update_failed&provider=onedrive`)
       }
     } else {
       const { error } = await supabase.from("integrations").insert({
@@ -158,18 +150,18 @@ export async function GET(req: NextRequest) {
 
       if (error) {
         console.error("Error inserting OneDrive integration:", error)
-        return NextResponse.redirect(`${baseUrl}/integrations?error=true&provider=onedrive`)
+        return NextResponse.redirect(`${baseUrl}/integrations?error=database_insert_failed&provider=onedrive`)
       }
     }
 
     // Add a delay to ensure database operations complete
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+    await new Promise((resolve) => setTimeout(resolve, 500))
 
-    return NextResponse.redirect(
-      `${baseUrl}/integrations?success=true&provider=onedrive&connected=true&t=${Date.now()}`,
-    )
+    return NextResponse.redirect(`${baseUrl}/integrations?success=true&provider=onedrive&t=${Date.now()}`)
   } catch (e: any) {
     console.error("Error during OneDrive auth:", e)
-    return NextResponse.redirect(`${baseUrl}/integrations?error=true&message=${encodeURIComponent(e.message)}`)
+    return NextResponse.redirect(
+      `${baseUrl}/integrations?error=onedrive_auth_failed&message=${encodeURIComponent(e.message)}`,
+    )
   }
 }

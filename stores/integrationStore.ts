@@ -387,22 +387,6 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
         console.log("No YouTube integration found in database")
       }
 
-      // Debug: Check specifically for OneDrive
-      const onedriveIntegration = data?.find((i) => i.provider === "onedrive")
-      if (onedriveIntegration) {
-        console.log("Found OneDrive integration:", {
-          id: onedriveIntegration.id,
-          provider: onedriveIntegration.provider,
-          status: onedriveIntegration.status,
-          created_at: onedriveIntegration.created_at,
-          updated_at: onedriveIntegration.updated_at,
-          hasAccessToken: !!onedriveIntegration.access_token,
-          metadata: onedriveIntegration.metadata,
-        })
-      } else {
-        console.log("No OneDrive integration found in database")
-      }
-
       set({
         integrations: data || [],
         loading: false,
@@ -593,31 +577,12 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
       const success = urlParams.get("success")
       const provider = urlParams.get("provider")
 
-      if ((success === "true" || success === "onedrive_connected") && provider) {
+      if (success && provider) {
         console.log(`OAuth success for ${provider}, refreshing integrations...`)
-
-        // Immediate refresh
-        get().fetchIntegrations(true)
-
-        // Additional refreshes with longer delays for OneDrive
-        if (provider === "onedrive") {
-          setTimeout(() => {
-            get().fetchIntegrations(true)
-          }, 1500)
-
-          setTimeout(() => {
-            get().fetchIntegrations(true)
-          }, 3000)
-
-          setTimeout(() => {
-            get().fetchIntegrations(true)
-          }, 5000)
-        } else {
-          // Standard refresh for other providers
-          setTimeout(() => {
-            get().fetchIntegrations(true)
-          }, 2000)
-        }
+        // Add a longer delay to ensure database operations are complete
+        setTimeout(() => {
+          get().fetchIntegrations(true)
+        }, 2000)
 
         // Clean up URL parameters
         const newUrl = window.location.pathname
