@@ -21,6 +21,7 @@ import { GmailOAuthService } from "./gmail"
 import { GoogleDriveOAuthService } from "./google-drive"
 import { GoogleCalendarOAuthService } from "./google-calendar"
 import { GoogleSheetsOAuthService } from "./google-sheets"
+import { GoogleDocsOAuthService } from "./google-docs"
 
 export interface OAuthProvider {
   generateAuthUrl(baseUrl: string, reconnect?: boolean, integrationId?: string, userId?: string): string
@@ -36,6 +37,7 @@ export const oauthProviders = {
   "google-drive": GoogleDriveOAuthService,
   "google-calendar": GoogleCalendarOAuthService,
   "google-sheets": GoogleSheetsOAuthService,
+  "google-docs": GoogleDocsOAuthService,
   slack: SlackOAuthService,
   teams: TeamsOAuthService,
   twitter: TwitterOAuthService,

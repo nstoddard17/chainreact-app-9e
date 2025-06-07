@@ -88,6 +88,16 @@ const availableProviders: Provider[] = [
     isAvailable: true,
   },
   {
+    id: "google-docs",
+    name: "Google Docs",
+    description: "Create, edit, and collaborate on documents",
+    category: "Productivity",
+    logoUrl: "/placeholder.svg?height=40&width=40&text=GD",
+    capabilities: ["Create Documents", "Edit Content", "Share Documents", "Comments"],
+    scopes: ["documents"],
+    isAvailable: true,
+  },
+  {
     id: "youtube",
     name: "YouTube",
     description: "Upload videos, manage channels, and access analytics",
