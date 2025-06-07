@@ -101,10 +101,66 @@ async function verifyDiscordToken(accessToken: string): Promise<{ valid: boolean
   }
 }
 
-async function verifyGoogleToken(accessToken: string): Promise<{ valid: boolean; scopes: string[]; error?: string }> {
+async function refreshGoogleToken(
+  refreshToken: string,
+): Promise<{ valid: boolean; accessToken?: string; error?: string }> {
   try {
-    const tokenInfoResponse = await fetch(`https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=${accessToken}`)
-    const tokenInfo = await tokenInfoResponse.json()
+    const response = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!,
+        client_secret: process.env.GOOGLE_CLIENT_SECRET!,
+        refresh_token: refreshToken,
+        grant_type: "refresh_token",
+      }),
+    })
+
+    if (!response.ok) {
+      const error = await response.text()
+      return { valid: false, error: `Token refresh failed: ${error}` }
+    }
+
+    const data = await response.json()
+    return { valid: true, accessToken: data.access_token }
+  } catch (error: any) {
+    return { valid: false, error: error.message }
+  }
+}
+
+async function verifyGoogleToken(
+  accessToken: string,
+  refreshToken?: string,
+): Promise<{ valid: boolean; scopes: string[]; error?: string; newAccessToken?: string }> {
+  try {
+    // First try with the current access token
+    let tokenInfoResponse = await fetch(`https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=${accessToken}`)
+    let tokenInfo = await tokenInfoResponse.json()
+
+    // If token is expired and we have a refresh token, try to refresh
+    if (tokenInfo.error && refreshToken) {
+      console.log("Google token expired, attempting refresh...")
+      const refreshResult = await refreshGoogleToken(refreshToken)
+
+      if (refreshResult.valid && refreshResult.accessToken) {
+        // Try again with the new token
+        tokenInfoResponse = await fetch(
+          `https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=${refreshResult.accessToken}`,
+        )
+        tokenInfo = await tokenInfoResponse.json()
+
+        if (!tokenInfo.error) {
+          console.log("Google token successfully refreshed")
+          return {
+            valid: true,
+            scopes: tokenInfo.scope ? tokenInfo.scope.split(" ") : [],
+            newAccessToken: refreshResult.accessToken,
+          }
+        }
+      }
+    }
 
     if (tokenInfo.error) {
       return { valid: false, scopes: [], error: tokenInfo.error_description || tokenInfo.error }
@@ -514,7 +570,29 @@ export async function GET(request: NextRequest) {
             const googleIntegration = integrations?.find((int) => int.provider === "google")
             if (googleIntegration?.metadata?.access_token || googleIntegration?.access_token) {
               const googleToken = googleIntegration.metadata?.access_token || googleIntegration.access_token
-              verificationResult = await verifyGoogleToken(googleToken)
+              const googleRefreshToken = googleIntegration.metadata?.refresh_token || googleIntegration.refresh_token
+              verificationResult = await verifyGoogleToken(googleToken, googleRefreshToken)
+
+              // If we got a new access token, update the database
+              if (verificationResult.newAccessToken) {
+                try {
+                  await supabase
+                    .from("integrations")
+                    .update({
+                      access_token: verificationResult.newAccessToken,
+                      metadata: {
+                        ...googleIntegration.metadata,
+                        access_token: verificationResult.newAccessToken,
+                        last_refreshed: new Date().toISOString(),
+                      },
+                      updated_at: new Date().toISOString(),
+                    })
+                    .eq("id", googleIntegration.id)
+                  console.log("Updated Google access token in database")
+                } catch (updateError) {
+                  console.error("Failed to update Google token:", updateError)
+                }
+              }
             } else {
               verificationResult = await verifyGoogleToken(accessToken)
             }
