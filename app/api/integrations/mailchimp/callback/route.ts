@@ -1,3 +1,4 @@
+import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 
@@ -71,7 +72,7 @@ export async function GET(request: NextRequest) {
         grant_type: "authorization_code",
         client_id: clientId,
         client_secret: clientSecret,
-        redirect_uri: "https://chainreact.app/api/integrations/mailchimp/callback",
+        redirect_uri: `${getBaseUrl(request)}/api/integrations/mailchimp/callback`,
         code,
       }),
     })

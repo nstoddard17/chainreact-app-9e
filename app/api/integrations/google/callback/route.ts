@@ -1,3 +1,4 @@
+import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 import { type NextRequest, NextResponse } from "next/server"
 import { GoogleOAuthService } from "@/lib/oauth/google"
 import { createAdminSupabaseClient, upsertIntegration, parseOAuthState } from "@/lib/oauth/utils"
@@ -13,13 +14,13 @@ export async function GET(request: NextRequest) {
     if (error) {
       console.error("OAuth error:", error)
       return NextResponse.redirect(
-        `https://chainreact.app/integrations?error=true&message=${encodeURIComponent("OAuth authorization failed")}&provider=google`,
+        `${getBaseUrl(request)}/integrations?error=true&message=${encodeURIComponent("OAuth authorization failed")}&provider=google`,
       )
     }
 
     if (!code) {
       return NextResponse.redirect(
-        `https://chainreact.app/integrations?error=true&message=${encodeURIComponent("No authorization code received")}&provider=google`,
+        `${getBaseUrl(request)}/integrations?error=true&message=${encodeURIComponent("No authorization code received")}&provider=google`,
       )
     }
 
@@ -78,11 +79,11 @@ export async function GET(request: NextRequest) {
     await upsertIntegration(supabase, integrationData)
 
     // Redirect back to integrations page with success
-    return NextResponse.redirect(`https://chainreact.app/integrations?success=true&provider=google`)
+    return NextResponse.redirect(`${getBaseUrl(request)}/integrations?success=true&provider=google`)
   } catch (error: any) {
     console.error("Google OAuth callback error:", error)
     return NextResponse.redirect(
-      `https://chainreact.app/integrations?error=true&message=${encodeURIComponent(error.message || "Integration failed")}&provider=google`,
+      `${getBaseUrl(request)}/integrations?error=true&message=${encodeURIComponent(error.message || "Integration failed")}&provider=google`,
     )
   }
 }

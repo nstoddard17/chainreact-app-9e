@@ -1,3 +1,4 @@
+import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 import { BaseOAuthService } from "./BaseOAuthService"
 import { saveIntegrationToDatabase, generateSuccessRedirect } from "./callbackHandler"
 
@@ -17,7 +18,7 @@ export class TeamsOAuthService extends BaseOAuthService {
   }
 
   static getRedirectUri(): string {
-    return "https://chainreact.app/api/integrations/teams/callback"
+    return `${getBaseUrl()}/api/integrations/teams/callback`
   }
 
   static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string, userId?: string): string {
@@ -171,7 +172,7 @@ export class TeamsOAuthService extends BaseOAuthService {
       console.error("Teams OAuth callback error:", error)
       return {
         success: false,
-        redirectUrl: `https://chainreact.app/integrations?error=callback_failed&provider=teams&message=${encodeURIComponent(error.message)}`,
+        redirectUrl: `${getBaseUrl()}/integrations?error=callback_failed&provider=teams&message=${encodeURIComponent(error.message)}`,
         error: error.message,
       }
     }

@@ -1,3 +1,4 @@
+import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 interface DropboxOAuthResult {
   success: boolean
   redirectUrl: string
@@ -18,7 +19,7 @@ export class DropboxOAuthService {
 
   static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string, userId?: string): string {
     const { clientId } = this.getClientCredentials()
-    const redirectUri = "https://chainreact.app/api/integrations/dropbox/callback"
+    const redirectUri = `${getBaseUrl()}/api/integrations/dropbox/callback`
 
     const state = btoa(
       JSON.stringify({
@@ -42,7 +43,7 @@ export class DropboxOAuthService {
   }
 
   static getRedirectUri(): string {
-    return "https://chainreact.app/api/integrations/dropbox/callback"
+    return `${getBaseUrl()}/api/integrations/dropbox/callback`
   }
 
   static async handleCallback(code: string, state: string, supabase: any, userId: string): Promise<DropboxOAuthResult> {
@@ -128,12 +129,12 @@ export class DropboxOAuthService {
 
       return {
         success: true,
-        redirectUrl: `https://chainreact.app/integrations?success=dropbox_connected`,
+        redirectUrl: `${getBaseUrl()}/integrations?success=dropbox_connected`,
       }
     } catch (error: any) {
       return {
         success: false,
-        redirectUrl: `https://chainreact.app/integrations?error=callback_failed&provider=dropbox&message=${encodeURIComponent(error.message)}`,
+        redirectUrl: `${getBaseUrl()}/integrations?error=callback_failed&provider=dropbox&message=${encodeURIComponent(error.message)}`,
         error: error.message,
       }
     }

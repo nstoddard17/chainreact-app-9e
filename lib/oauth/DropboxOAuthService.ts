@@ -18,7 +18,7 @@ export class DropboxOAuthService extends BaseOAuthService {
         grant_type: "authorization_code",
         client_id: clientId,
         client_secret: clientSecret,
-        redirect_uri: "https://chainreact.app/api/integrations/dropbox/callback",
+        redirect_uri: redirectUri,
       }),
     })
 

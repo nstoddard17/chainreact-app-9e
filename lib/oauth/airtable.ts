@@ -1,3 +1,4 @@
+import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 interface AirtableTokenResponse {
   access_token: string
   refresh_token?: string
@@ -62,7 +63,7 @@ export class AirtableOAuthService {
 
   private static async exchangeCodeForToken(code: string): Promise<AirtableTokenResponse> {
     const { clientId, clientSecret } = this.getClientCredentials()
-    const redirectUri = "https://chainreact.app/api/integrations/airtable/callback"
+    const redirectUri = `${getBaseUrl()}/api/integrations/airtable/callback`
 
     const tokenResponse = await fetch("https://airtable.com/oauth2/v1/token", {
       method: "POST",
@@ -160,7 +161,7 @@ export class AirtableOAuthService {
   }
 
   public static getRedirectUri(): string {
-    return "https://chainreact.app/api/integrations/airtable/callback"
+    return `${getBaseUrl()}/api/integrations/airtable/callback`
   }
 
   public static async handleCallback(
@@ -177,7 +178,7 @@ export class AirtableOAuthService {
         return {
           success: false,
           error: "missing_params",
-          redirectUrl: `https://chainreact.app/integrations?error=missing_params&provider=airtable`,
+          redirectUrl: `${getBaseUrl()}/integrations?error=missing_params&provider=airtable`,
         }
       }
 
@@ -223,7 +224,7 @@ export class AirtableOAuthService {
       if (!scopeValidation.valid) {
         return {
           success: false,
-          redirectUrl: `https://chainreact.app/integrations?error=insufficient_scopes&provider=airtable&missing=${scopeValidation.missing.join(",")}`,
+          redirectUrl: `${getBaseUrl()}/integrations?error=insufficient_scopes&provider=airtable&missing=${scopeValidation.missing.join(",")}`,
         }
       }
 
@@ -232,7 +233,7 @@ export class AirtableOAuthService {
       if (!isTokenValid) {
         return {
           success: false,
-          redirectUrl: `https://chainreact.app/integrations?error=invalid_token&provider=airtable`,
+          redirectUrl: `${getBaseUrl()}/integrations?error=invalid_token&provider=airtable`,
         }
       }
 
@@ -247,21 +248,21 @@ export class AirtableOAuthService {
       console.log("Airtable integration saved successfully")
       return {
         success: true,
-        redirectUrl: `https://chainreact.app/integrations?success=airtable_connected`,
+        redirectUrl: `${getBaseUrl()}/integrations?success=airtable_connected`,
       }
     } catch (error: any) {
       console.error("Airtable OAuth callback error:", error)
       return {
         success: false,
         error: error.message,
-        redirectUrl: `https://chainreact.app/integrations?error=callback_failed&provider=airtable&message=${encodeURIComponent(error.message)}`,
+        redirectUrl: `${getBaseUrl()}/integrations?error=callback_failed&provider=airtable&message=${encodeURIComponent(error.message)}`,
       }
     }
   }
 
   public static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string, userId?: string): string {
     const { clientId } = this.getClientCredentials()
-    const redirectUri = "https://chainreact.app/api/integrations/airtable/callback"
+    const redirectUri = `${getBaseUrl()}/api/integrations/airtable/callback`
 
     const state = btoa(
       JSON.stringify({

@@ -1,3 +1,4 @@
+import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 
@@ -21,8 +22,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const error = searchParams.get("error")
   const state = searchParams.get("state")
 
-  const baseUrl = "https://chainreact.app"
-  const redirectUri = "https://chainreact.app/api/integrations/dropbox/callback"
+  const baseUrl = getBaseUrl(request)
+  const redirectUri = `${getBaseUrl(request)}/api/integrations/dropbox/callback`
 
   if (error) {
     console.error("Dropbox authentication error:", error)

@@ -1,3 +1,4 @@
+import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 interface LinkedInOAuthResult {
   success: boolean
   redirectUrl: string
@@ -18,7 +19,7 @@ export class LinkedInOAuthService {
 
   static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string): string {
     const { clientId } = this.getClientCredentials()
-    const redirectUri = "https://chainreact.app/api/integrations/linkedin/callback"
+    const redirectUri = `${getBaseUrl()}/api/integrations/linkedin/callback`
 
     // Use the correct LinkedIn v2 scopes
     const scopes = ["openid", "profile", "email", "w_member_social"]
@@ -45,7 +46,7 @@ export class LinkedInOAuthService {
   }
 
   static getRedirectUri(): string {
-    return "https://chainreact.app/api/integrations/linkedin/callback"
+    return `${getBaseUrl()}/api/integrations/linkedin/callback`
   }
 
   static async handleCallback(
@@ -73,7 +74,7 @@ export class LinkedInOAuthService {
         body: new URLSearchParams({
           grant_type: "authorization_code",
           code,
-          redirect_uri: "https://chainreact.app/api/integrations/linkedin/callback",
+          redirect_uri: `${getBaseUrl()}/api/integrations/linkedin/callback`,
           client_id: clientId,
           client_secret: clientSecret,
         }),
@@ -129,7 +130,7 @@ export class LinkedInOAuthService {
             console.error("LinkedIn scope validation failed:", { grantedScopes, missingScopes })
             return {
               success: false,
-              redirectUrl: `https://chainreact.app/integrations?error=insufficient_scopes&provider=linkedin&message=${encodeURIComponent(
+              redirectUrl: `${getBaseUrl()}/integrations?error=insufficient_scopes&provider=linkedin&message=${encodeURIComponent(
                 `Your connection is missing required permissions: ${missingScopes.join(", ")}. Please reconnect and accept all scopes.`,
               )}`,
               error: "Insufficient scopes",
@@ -195,12 +196,12 @@ export class LinkedInOAuthService {
 
       return {
         success: true,
-        redirectUrl: `https://chainreact.app/integrations?success=linkedin_connected&provider=linkedin&scopes_validated=${requireFullScopes}`,
+        redirectUrl: `${getBaseUrl()}/integrations?success=linkedin_connected&provider=linkedin&scopes_validated=${requireFullScopes}`,
       }
     } catch (error: any) {
       return {
         success: false,
-        redirectUrl: `https://chainreact.app/integrations?error=callback_failed&provider=linkedin&message=${encodeURIComponent(error.message)}`,
+        redirectUrl: `${getBaseUrl()}/integrations?error=callback_failed&provider=linkedin&message=${encodeURIComponent(error.message)}`,
         error: error.message,
       }
     }

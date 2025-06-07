@@ -1,3 +1,4 @@
+import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 
@@ -54,7 +55,7 @@ export class MailchimpOAuthService {
 
   static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string): string {
     const { clientId } = this.getClientCredentials()
-    const redirectUri = "https://chainreact.app/api/integrations/mailchimp/callback"
+    const redirectUri = `${getBaseUrl()}/api/integrations/mailchimp/callback`
 
     const state = btoa(
       JSON.stringify({
@@ -77,7 +78,7 @@ export class MailchimpOAuthService {
   }
 
   static getRedirectUri(baseUrl: string): string {
-    return "https://chainreact.app/api/integrations/mailchimp/callback"
+    return `${getBaseUrl()}/api/integrations/mailchimp/callback`
   }
 
   static async handleCallback(code: string, state: string, baseUrl: string): Promise<MailchimpOAuthResult> {
@@ -117,7 +118,7 @@ export class MailchimpOAuthService {
           grant_type: "authorization_code",
           client_id: clientId,
           client_secret: clientSecret,
-          redirect_uri: "https://chainreact.app/api/integrations/mailchimp/callback",
+          redirect_uri: `${getBaseUrl()}/api/integrations/mailchimp/callback`,
           code,
         }),
       })

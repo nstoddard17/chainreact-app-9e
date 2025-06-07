@@ -1,3 +1,4 @@
+import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 
@@ -26,7 +27,7 @@ export class YouTubeOAuthService {
     }
 
     // Use the exact redirect URI that should be registered in Google Cloud Console
-    const redirectUri = "https://chainreact.app/api/integrations/youtube/callback"
+    const redirectUri = `${getBaseUrl()}/api/integrations/youtube/callback`
 
     // Use YouTube-specific scopes that are more likely to be approved
     const scopes = [
@@ -61,7 +62,7 @@ export class YouTubeOAuthService {
 
   static getRedirectUri(baseUrl: string): string {
     // Always return the production URL that should be registered in Google Cloud Console
-    return "https://chainreact.app/api/integrations/youtube/callback"
+    return `${getBaseUrl()}/api/integrations/youtube/callback`
   }
 
   static async handleCallback(code: string, state: string, baseUrl: string): Promise<YouTubeOAuthResult> {
@@ -85,7 +86,7 @@ export class YouTubeOAuthService {
           client_secret: clientSecret,
           code,
           grant_type: "authorization_code",
-          redirect_uri: "https://chainreact.app/api/integrations/youtube/callback", // Use exact same URI
+          redirect_uri: `${getBaseUrl()}/api/integrations/youtube/callback`, // Use exact same URI
         }),
       })
 

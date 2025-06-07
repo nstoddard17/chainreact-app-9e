@@ -18,7 +18,7 @@ export class DiscordOAuthService extends BaseOAuthService {
         client_secret: clientSecret,
         grant_type: "authorization_code",
         code,
-        redirect_uri: "https://chainreact.app/api/integrations/discord/callback",
+        redirect_uri: redirectUri,
       }),
     })
 
