@@ -1,6 +1,7 @@
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 import { BaseOAuthService } from "./BaseOAuthService"
 import { saveIntegrationToDatabase, generateSuccessRedirect } from "./callbackHandler"
+import { validateAndUpdateIntegrationScopes } from "../integrations/scopeValidation"
 
 export class TeamsOAuthService extends BaseOAuthService {
   private static getClientCredentials() {
@@ -142,6 +143,7 @@ export class TeamsOAuthService extends BaseOAuthService {
         expires_at: expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null,
         status: "connected" as const,
         scopes: grantedScopes,
+        granted_scopes: grantedScopes,
         metadata: {
           display_name: userData.displayName,
           email: userData.userPrincipalName || userData.mail,
@@ -162,7 +164,13 @@ export class TeamsOAuthService extends BaseOAuthService {
       }
 
       console.log("Teams: Saving integration data with scopes:", grantedScopes)
-      await saveIntegrationToDatabase(integrationData)
+      const integrationId = await saveIntegrationToDatabase(integrationData)
+
+      try {
+        await validateAndUpdateIntegrationScopes(integrationId, grantedScopes)
+      } catch (err) {
+        console.error("Teams scope validation failed:", err)
+      }
 
       return {
         success: true,
