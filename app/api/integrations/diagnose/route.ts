@@ -81,31 +81,6 @@ const COMPONENT_SCOPE_MAPPING = {
   // Dropbox components
   dropbox_upload: { scopes: ["files.content.write"], provider: "dropbox" },
   dropbox_download: { scopes: ["files.content.read"], provider: "dropbox" },
-
-  // Twitter/X components
-  twitter_post_tweet: { scopes: ["tweet.write"], provider: "twitter" },
-  twitter_read_tweets: { scopes: ["tweet.read"], provider: "twitter" },
-  twitter_get_user: { scopes: ["users.read"], provider: "twitter" },
-}
-
-async function verifyTwitterToken(accessToken: string): Promise<{ valid: boolean; scopes: string[]; error?: string }> {
-  try {
-    const response = await fetch("https://api.twitter.com/2/users/me", {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    })
-
-    if (!response.ok) {
-      const error = await response.json()
-      return { valid: false, scopes: [], error: error.detail || error.title || "Token validation failed" }
-    }
-
-    // For Twitter, we need to check the scopes from the stored data since the API doesn't return them
-    // We'll assume the token is valid if the user info call succeeds
-    const scopes = ["tweet.read", "tweet.write", "users.read"] // Default scopes we request
-    return { valid: true, scopes }
-  } catch (error: any) {
-    return { valid: false, scopes: [], error: error.message }
-  }
 }
 
 async function verifyDiscordToken(accessToken: string): Promise<{ valid: boolean; scopes: string[]; error?: string }> {
@@ -381,7 +356,6 @@ function analyzeIntegration(
   // For Teams, be more lenient about scope requirements
   const isTeamsProvider = provider === "teams"
   const isGitHubProvider = provider === "github"
-  const isTwitterProvider = provider === "twitter"
 
   // Analyze each component
   providerComponents.forEach(([componentName, config]) => {
@@ -493,15 +467,6 @@ function analyzeIntegration(
       status = "⚠️ Connected but limited"
       recommendations.push("Missing basic Teams authentication scopes")
     }
-  } else if (isTwitterProvider) {
-    // Special handling for Twitter/X
-    if (tokenValid) {
-      status = "✅ Connected & functional"
-      recommendations.push("X integration is working - you can post tweets and read user data")
-    } else {
-      status = "❌ Connected but broken"
-      recommendations.push("X token is invalid - please reconnect")
-    }
   } else if (missingRequiredScopes.length > 0 && !isDemo) {
     status = "⚠️ Connected but limited"
     recommendations.push(`Missing ${missingRequiredScopes.length} required scopes`)
@@ -594,14 +559,6 @@ export async function GET(request: NextRequest) {
         let verificationResult
 
         switch (provider) {
-          case "twitter":
-            verificationResult = await verifyTwitterToken(accessToken)
-            // Use stored scopes for Twitter since API doesn't return them
-            if (verificationResult.valid) {
-              const storedScopes = integration.scopes || metadata?.scopes || []
-              verificationResult.scopes = storedScopes.length > 0 ? storedScopes : verificationResult.scopes
-            }
-            break
           case "discord":
             verificationResult = await verifyDiscordToken(accessToken)
             break

@@ -179,7 +179,7 @@ const availableProviders: Provider[] = [
   },
   {
     id: "twitter",
-    name: "X",
+    name: "X (Twitter)",
     description: "Post tweets, manage followers, and access social data",
     category: "Social",
     logoUrl: "/placeholder.svg?height=40&width=40&text=X",
@@ -307,8 +307,6 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
         return
       }
 
-      console.log("Fetching integrations for user:", user.id)
-
       const { data, error } = await supabase
         .from("integrations")
         .select("*")
@@ -316,11 +314,8 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
         .order("created_at", { ascending: false })
 
       if (error) {
-        console.error("Supabase error:", error)
         throw new Error(error.message)
       }
-
-      console.log("Fetched integrations:", data)
 
       set({
         integrations: data || [],
@@ -507,10 +502,10 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
 
       if (success && provider) {
         console.log(`OAuth success for ${provider}, refreshing integrations...`)
-        // Add a longer delay to ensure database operations are complete
+        // Add a small delay to ensure database operations are complete
         setTimeout(() => {
           get().fetchIntegrations(true)
-        }, 2000)
+        }, 1000)
 
         // Clean up URL parameters
         const newUrl = window.location.pathname
