@@ -1,103 +1,173 @@
+import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 import { type NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase-server"
-import { handleOAuthCallback } from "@/lib/oauth/handleOAuthCallback"
+import { createClient } from "@supabase/supabase-js"
+
+// Use direct Supabase client with service role for reliable database operations
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+if (!supabaseUrl || !supabaseKey) {
+  throw new Error("NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be defined")
+}
+
+const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    persistSession: false,
+  },
+})
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
+  const baseUrl = new URL(request.url).origin
   const code = searchParams.get("code")
   const state = searchParams.get("state")
   const error = searchParams.get("error")
 
+  console.log("Google Docs OAuth callback:", { code: !!code, state, error })
+
   if (error) {
     console.error("Google Docs OAuth error:", error)
-    return NextResponse.redirect(new URL("/integrations?error=oauth_error", request.url))
+    return NextResponse.redirect(new URL("/integrations?error=oauth_error&provider=google-docs", baseUrl))
   }
 
   if (!code || !state) {
     console.error("Missing code or state in Google Docs callback")
-    return NextResponse.redirect(new URL("/integrations?error=missing_params", request.url))
+    return NextResponse.redirect(new URL("/integrations?error=missing_params&provider=google-docs", baseUrl))
   }
 
   try {
-    // Parse state parameter
-    const decodedState = JSON.parse(atob(state))
-    const { userId, provider, reconnect, integrationId } = decodedState
-
-    if (!userId || provider !== "google-docs") {
-      console.error("Invalid state parameter in Google Docs callback")
-      return NextResponse.redirect(new URL("/integrations?error=invalid_state", request.url))
+    // Parse state to get user ID
+    let stateData
+    try {
+      stateData = JSON.parse(atob(state))
+    } catch (e) {
+      console.error("Failed to parse state:", e)
+      return NextResponse.redirect(new URL("/integrations?error=invalid_state&provider=google-docs", baseUrl))
     }
 
-    const supabase = createClient()
+    const userId = stateData.userId
 
-    // Exchange code for tokens
+    if (!userId) {
+      console.error("No user ID in state")
+      return NextResponse.redirect(new URL("/integrations?error=missing_user_id&provider=google-docs", baseUrl))
+    }
+
+    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET
+
+    if (!clientId || !clientSecret) {
+      console.error("Missing Google client ID or secret")
+      return NextResponse.redirect(
+        new URL("/integrations?error=missing_client_credentials&provider=google-docs", baseUrl),
+      )
+    }
+
+    // Exchange code for token
     const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
       },
       body: new URLSearchParams({
+        client_id: clientId,
+        client_secret: clientSecret,
         code,
-        client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!,
-        client_secret: process.env.GOOGLE_CLIENT_SECRET!,
-        redirect_uri: `${new URL(request.url).origin}/api/integrations/google-docs/callback`,
         grant_type: "authorization_code",
+        redirect_uri: `${getBaseUrl(request)}/api/integrations/google-docs/callback`,
       }),
     })
 
     if (!tokenResponse.ok) {
-      const errorData = await tokenResponse.json()
-      console.error("Failed to exchange code for tokens:", errorData)
-      return NextResponse.redirect(new URL("/integrations?error=token_exchange_failed", request.url))
+      const errorText = await tokenResponse.text()
+      console.error("Google Docs token exchange failed:", errorText)
+      return NextResponse.redirect(
+        new URL(
+          `/integrations?error=token_exchange_failed&provider=google-docs&message=${encodeURIComponent(errorText)}`,
+          baseUrl,
+        ),
+      )
     }
 
     const tokenData = await tokenResponse.json()
-    const { access_token, refresh_token, expires_in, scope } = tokenData
+    const { access_token, refresh_token, expires_in } = tokenData
 
     // Get user info from Google
-    const userInfoResponse = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+    const userResponse = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
       headers: {
         Authorization: `Bearer ${access_token}`,
       },
     })
 
-    if (!userInfoResponse.ok) {
-      console.error("Failed to get user info from Google")
-      return NextResponse.redirect(new URL("/integrations?error=user_info_failed", request.url))
+    if (!userResponse.ok) {
+      console.error("Failed to get Google user info:", await userResponse.text())
+      return NextResponse.redirect(new URL("/integrations?error=user_info_failed&provider=google-docs", baseUrl))
     }
 
-    const userInfo = await userInfoResponse.json()
+    const userData = await userResponse.json()
 
-    // Calculate expiration time
-    const expiresAt = new Date(Date.now() + expires_in * 1000).toISOString()
+    const now = new Date().toISOString()
 
-    // Save integration to database
-    const result = await handleOAuthCallback({
+    // Check if integration exists
+    const { data: existingIntegration } = await supabase
+      .from("integrations")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("provider", "google-docs")
+      .maybeSingle()
+
+    const integrationData = {
+      user_id: userId,
       provider: "google-docs",
-      userId,
-      accessToken: access_token,
-      refreshToken: refresh_token,
-      expiresAt,
+      provider_user_id: userData.id,
+      access_token,
+      refresh_token,
+      expires_at: expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null,
+      status: "connected",
+      scopes: tokenData.scope ? tokenData.scope.split(" ") : [],
       metadata: {
-        email: userInfo.email,
-        name: userInfo.name,
-        picture: userInfo.picture,
-        scopes: scope.split(" "),
+        email: userData.email,
+        name: userData.name,
+        picture: userData.picture,
+        verified_email: userData.verified_email,
+        connected_at: now,
       },
-      scopes: scope.split(" "),
-      reconnect,
-      integrationId,
-      supabase,
-    })
-
-    if (!result.success) {
-      console.error("Failed to save Google Docs integration:", result.error)
-      return NextResponse.redirect(new URL(`/integrations?error=${result.error}`, request.url))
+      updated_at: now,
     }
 
-    return NextResponse.redirect(new URL("/integrations?success=true&provider=google-docs", request.url))
+    if (existingIntegration) {
+      const { error } = await supabase.from("integrations").update(integrationData).eq("id", existingIntegration.id)
+
+      if (error) {
+        console.error("Error updating Google Docs integration:", error)
+        return NextResponse.redirect(
+          new URL("/integrations?error=database_update_failed&provider=google-docs", baseUrl),
+        )
+      }
+    } else {
+      const { error } = await supabase.from("integrations").insert({
+        ...integrationData,
+        created_at: now,
+      })
+
+      if (error) {
+        console.error("Error inserting Google Docs integration:", error)
+        return NextResponse.redirect(
+          new URL("/integrations?error=database_insert_failed&provider=google-docs", baseUrl),
+        )
+      }
+    }
+
+    // Add a delay to ensure database operations complete
+    await new Promise((resolve) => setTimeout(resolve, 500))
+
+    return NextResponse.redirect(new URL(`/integrations?success=true&provider=google-docs&t=${Date.now()}`, baseUrl))
   } catch (error: any) {
-    console.error("Error in Google Docs callback:", error)
-    return NextResponse.redirect(new URL(`/integrations?error=${encodeURIComponent(error.message)}`, request.url))
+    console.error("Google Docs OAuth callback error:", error)
+    return NextResponse.redirect(
+      new URL(
+        `/integrations?error=callback_failed&provider=google-docs&message=${encodeURIComponent(error.message)}`,
+        baseUrl,
+      ),
+    )
   }
 }

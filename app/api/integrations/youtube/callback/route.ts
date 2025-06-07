@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
         client_secret: clientSecret,
         code,
         grant_type: "authorization_code",
-        redirect_uri: `${getBaseUrl(request)}/api/integrations/youtube/callback`, // Exact same URI
+        redirect_uri: `${getBaseUrl(request)}/api/integrations/youtube/callback`,
       }),
     })
 
@@ -191,9 +191,7 @@ export async function GET(request: NextRequest) {
     // Add a delay to ensure database operations complete
     await new Promise((resolve) => setTimeout(resolve, 500))
 
-    return NextResponse.redirect(
-      new URL(`/integrations?success=youtube_connected&provider=youtube&t=${Date.now()}`, baseUrl),
-    )
+    return NextResponse.redirect(new URL(`/integrations?success=true&provider=youtube&t=${Date.now()}`, baseUrl))
   } catch (error: any) {
     console.error("YouTube OAuth callback error:", error)
     return NextResponse.redirect(
