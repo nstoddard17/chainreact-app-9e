@@ -1,438 +1,331 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState, useEffect } from "react"
+import ScopeValidationAlert from "./ScopeValidationAlert"
+import AppLayout from "@/components/layout/AppLayout"
 import { useIntegrationStore } from "@/stores/integrationStore"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Badge } from "@/components/ui/badge"
-import { Skeleton } from "@/components/ui/skeleton"
-import { AlertCircle, CheckCircle, RefreshCw } from "lucide-react"
-import { useSearchParams } from "next/navigation"
-import { useToast } from "@/components/ui/use-toast"
+import IntegrationCard from "./IntegrationCard"
 import IntegrationDiagnostics from "./IntegrationDiagnostics"
+import { Input } from "@/components/ui/input"
+import { Search, Loader2, Filter, CheckCircle, Stethoscope, RefreshCw } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useSearchParams } from "next/navigation"
+import { useToast } from "@/hooks/use-toast"
 
 export default function IntegrationsContent() {
-  const {
-    integrations,
-    providers,
-    loading,
-    error,
-    fetchIntegrations,
-    connectIntegration,
-    disconnectIntegration,
-    refreshTokens,
-    handleOAuthSuccess,
-  } = useIntegrationStore()
-  const [connecting, setConnecting] = useState<string | null>(null)
-  const [disconnecting, setDisconnecting] = useState<string | null>(null)
-  const [refreshing, setRefreshing] = useState(false)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+  const [localLoading, setLocalLoading] = useState(true)
+
+  const { integrations, providers, loading, refreshing, error, fetchIntegrations, refreshTokens } =
+    useIntegrationStore()
+
   const searchParams = useSearchParams()
   const { toast } = useToast()
 
-  // Handle OAuth success/error from URL params
+  // Handle initial data loading
   useEffect(() => {
-    const success = searchParams?.get("success")
-    const error = searchParams?.get("error")
-    const provider = searchParams?.get("provider")
-    const message = searchParams?.get("message")
-
-    if (success && provider) {
-      toast({
-        title: "Integration Connected",
-        description: `Successfully connected ${provider}`,
-        variant: "default",
-      })
-
-      console.log("OAuth success detected in URL, handling...")
-      handleOAuthSuccess()
-
-      // Force refresh after a delay
-      setTimeout(() => {
-        console.log("Forcing integration refresh after delay")
-        fetchIntegrations(true)
-      }, 2000)
+    const loadData = async () => {
+      try {
+        setLocalLoading(true)
+        await fetchIntegrations(true)
+      } catch (err: any) {
+        console.error("Failed to load integrations:", err)
+      } finally {
+        setLocalLoading(false)
+      }
     }
 
-    if (error && provider) {
+    loadData()
+  }, [fetchIntegrations])
+
+  // Handle OAuth callback messages
+  useEffect(() => {
+    const success = searchParams.get("success")
+    const error = searchParams.get("error")
+    const provider = searchParams.get("provider")
+
+    if (success) {
+      // Add a longer delay and force refresh
+      setTimeout(async () => {
+        try {
+          await fetchIntegrations(true) // Force refresh
+          toast({
+            title: "Integration Connected",
+            description: `Your ${provider || "integration"} has been successfully connected!`,
+            duration: 5000,
+          })
+        } catch (err) {
+          console.error("Failed to refresh integrations after OAuth:", err)
+          // Try refreshing again after a short delay
+          setTimeout(() => {
+            fetchIntegrations(true)
+          }, 2000)
+        }
+      }, 2000) // Increased delay to ensure database has been updated
+    } else if (error) {
+      const message = searchParams.get("message") || "Failed to connect integration"
       toast({
-        title: "Integration Error",
-        description: message || `Failed to connect ${provider}: ${error}`,
+        title: "Connection Failed",
+        description: decodeURIComponent(message),
         variant: "destructive",
+        duration: 7000,
       })
     }
 
-    // Clean up URL parameters if they exist
-    if ((success || error) && typeof window !== "undefined") {
+    // Clean up URL parameters
+    if (success || error) {
       const url = new URL(window.location.href)
-      url.search = ""
+      url.searchParams.delete("success")
+      url.searchParams.delete("error")
+      url.searchParams.delete("message")
+      url.searchParams.delete("provider")
       window.history.replaceState({}, "", url.toString())
     }
-  }, [searchParams, toast, handleOAuthSuccess, fetchIntegrations])
+  }, [searchParams, toast, fetchIntegrations])
 
-  // Initial fetch
-  useEffect(() => {
-    fetchIntegrations()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  // Get unique categories from providers
+  const categories = Array.from(new Set(providers.map((p) => p.category)))
 
-  const handleConnect = async (providerId: string) => {
-    try {
-      setConnecting(providerId)
-      await connectIntegration(providerId)
-    } catch (error: any) {
-      toast({
-        title: "Connection Error",
-        description: error.message || "Failed to start connection process",
-        variant: "destructive",
-      })
-    } finally {
-      setConnecting(null)
+  // Filter providers based on search and category
+  const filteredProviders = providers.filter((provider) => {
+    const matchesSearch =
+      provider.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      provider.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      provider.capabilities.some((cap) => cap.toLowerCase().includes(searchTerm.toLowerCase()))
+
+    const matchesCategory = !selectedCategory || provider.category === selectedCategory
+
+    return matchesSearch && matchesCategory
+  })
+
+  // Merge providers with integration status
+  const providersWithStatus = filteredProviders.map((provider) => {
+    const connectedIntegration = integrations.find((i) => i.provider === provider.id && i.status === "connected")
+    const disconnectedIntegration = integrations.find((i) => i.provider === provider.id && i.status === "disconnected")
+
+    return {
+      ...provider,
+      connected: !!connectedIntegration,
+      wasConnected: !!disconnectedIntegration,
+      integration: connectedIntegration || disconnectedIntegration || null,
     }
-  }
+  })
 
-  const handleDisconnect = async (integrationId: string, provider: string) => {
+  // Group providers by category
+  const groupedProviders = categories.reduce(
+    (acc, category) => {
+      acc[category] = providersWithStatus.filter((p) => p.category === category)
+      return acc
+    },
+    {} as Record<string, typeof providersWithStatus>,
+  )
+
+  const connectedCount = integrations.filter((i) => i.status === "connected").length
+
+  const handleRefresh = async () => {
     try {
-      setDisconnecting(integrationId)
-      await disconnectIntegration(integrationId)
-      toast({
-        title: "Integration Disconnected",
-        description: `Successfully disconnected ${provider}`,
-      })
-    } catch (error: any) {
-      toast({
-        title: "Disconnection Error",
-        description: error.message || "Failed to disconnect integration",
-        variant: "destructive",
-      })
-    } finally {
-      setDisconnecting(null)
-    }
-  }
+      // First try to refresh tokens, then fetch updated integration data
+      const refreshResult = await refreshTokens()
 
-  const handleRefreshTokens = async () => {
-    try {
-      setRefreshing(true)
-      const result = await refreshTokens()
-
-      if (result.success) {
+      if (refreshResult.refreshedCount > 0) {
         toast({
           title: "Tokens Refreshed",
-          description:
-            result.refreshedCount > 0
-              ? `Successfully refreshed ${result.refreshedCount} integration tokens`
-              : "Integration data refreshed",
+          description: `Refreshed ${refreshResult.refreshedCount} integration${refreshResult.refreshedCount > 1 ? "s" : ""}`,
         })
       } else {
         toast({
-          title: "Refresh Failed",
-          description: result.message || "Failed to refresh tokens",
-          variant: "destructive",
+          title: "Refreshed",
+          description: "Integration data has been refreshed.",
         })
       }
-    } catch (error: any) {
+    } catch (err: any) {
       toast({
-        title: "Refresh Error",
-        description: error.message || "Failed to refresh tokens",
+        title: "Refresh Failed",
+        description: "Could not refresh integration data. Please try again.",
         variant: "destructive",
       })
-    } finally {
-      setRefreshing(false)
     }
   }
 
-  // Group providers by category
-  const groupedProviders = providers.reduce(
-    (acc, provider) => {
-      const category = provider.category || "Other"
-      if (!acc[category]) {
-        acc[category] = []
-      }
-      acc[category].push(provider)
-      return acc
-    },
-    {} as Record<string, typeof providers>,
-  )
-
-  // Sort categories
-  const sortedCategories = Object.keys(groupedProviders).sort((a, b) => {
-    const order = [
-      "Productivity",
-      "Communication",
-      "Development",
-      "Social",
-      "Storage",
-      "Project Management",
-      "Marketing",
-      "CRM",
-      "E-commerce",
-      "Payments",
-      "Other",
-    ]
-    return order.indexOf(a) - order.indexOf(b)
-  })
+  // Show loading state
+  if (localLoading) {
+    return (
+      <AppLayout>
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+          <div className="container mx-auto px-4 py-8">
+            <div className="flex flex-col items-center justify-center h-64 space-y-4">
+              <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+              <p className="text-slate-600 font-medium">Loading integrations...</p>
+            </div>
+          </div>
+        </div>
+      </AppLayout>
+    )
+  }
 
   return (
-    <div className="container mx-auto py-8">
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-3xl font-bold">Integrations</h1>
-          <p className="text-muted-foreground mt-1">Connect your favorite tools and services</p>
-        </div>
-        <Button
-          variant="outline"
-          onClick={() => {
-            fetchIntegrations(true)
-            handleRefreshTokens()
-          }}
-          disabled={loading || refreshing}
-        >
-          <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
-          Refresh
-        </Button>
-      </div>
+    <AppLayout>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+        <div className="container mx-auto px-4 py-8">
+          <ScopeValidationAlert />
 
-      {error && (
-        <Alert variant="destructive" className="mb-6">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Error</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-
-      <Tabs defaultValue="available">
-        <TabsList className="mb-6">
-          <TabsTrigger value="available">Available Integrations</TabsTrigger>
-          <TabsTrigger value="connected">
-            Connected
-            {integrations.length > 0 && (
-              <Badge variant="secondary" className="ml-2">
-                {integrations.length}
-              </Badge>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="diagnostics">Diagnostics</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="available">
-          {loading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[1, 2, 3, 4, 5, 6].map((i) => (
-                <Card key={i} className="overflow-hidden">
-                  <CardHeader className="pb-2">
-                    <Skeleton className="h-8 w-8 rounded-full mb-2" />
-                    <Skeleton className="h-5 w-40" />
-                    <Skeleton className="h-4 w-full mt-2" />
-                  </CardHeader>
-                  <CardContent>
-                    <Skeleton className="h-4 w-full" />
-                    <Skeleton className="h-4 w-2/3 mt-2" />
-                  </CardContent>
-                  <CardFooter>
-                    <Skeleton className="h-10 w-full" />
-                  </CardFooter>
-                </Card>
-              ))}
+          <div className="space-y-8">
+            {/* Header Section */}
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+              <div className="space-y-2">
+                <h1 className="text-4xl font-bold text-slate-900 tracking-tight">Integrations</h1>
+                <p className="text-lg text-slate-600">
+                  Connect your favorite tools and services to automate your workflows
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <Badge
+                  variant="secondary"
+                  className="text-sm font-medium bg-green-100 text-green-800 border-green-200 px-3 py-1"
+                >
+                  <CheckCircle className="w-4 h-4 mr-2 text-green-600" />
+                  {connectedCount} Connected
+                </Badge>
+                <Button
+                  onClick={handleRefresh}
+                  variant="outline"
+                  size="sm"
+                  disabled={loading || refreshing}
+                  className="bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-colors"
+                >
+                  {loading || refreshing ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="w-4 h-4" />
+                  )}
+                  <span className="ml-2 hidden sm:inline">Refresh</span>
+                </Button>
+              </div>
             </div>
-          ) : (
-            <div>
-              {sortedCategories.map((category) => (
-                <div key={category} className="mb-8">
-                  <h2 className="text-xl font-semibold mb-4">{category}</h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {groupedProviders[category].map((provider) => {
-                      const isConnected = integrations.some(
-                        (i) => i.provider === provider.id && i.status === "connected",
-                      )
-                      return (
-                        <Card key={provider.id} className="overflow-hidden">
-                          <CardHeader className="pb-2">
-                            <div className="flex items-center gap-3">
-                              <div className="h-8 w-8 rounded-full overflow-hidden bg-muted flex items-center justify-center">
-                                <img
-                                  src={provider.logoUrl || "/placeholder.svg"}
-                                  alt={provider.name}
-                                  className="h-full w-full object-cover"
-                                />
-                              </div>
-                              <CardTitle className="text-lg">{provider.name}</CardTitle>
-                            </div>
-                            <CardDescription className="mt-2">{provider.description}</CardDescription>
-                          </CardHeader>
-                          <CardContent className="pb-2">
-                            <div className="flex flex-wrap gap-2">
-                              {provider.capabilities.map((capability) => (
-                                <Badge key={capability} variant="secondary">
-                                  {capability}
-                                </Badge>
-                              ))}
-                            </div>
-                          </CardContent>
-                          <CardFooter>
-                            {isConnected ? (
-                              <Button
-                                variant="outline"
-                                className="w-full"
-                                onClick={() => {
-                                  const integration = integrations.find(
-                                    (i) => i.provider === provider.id && i.status === "connected",
-                                  )
-                                  if (integration) {
-                                    handleDisconnect(integration.id, provider.name)
-                                  }
-                                }}
-                                disabled={
-                                  disconnecting ===
-                                  integrations.find((i) => i.provider === provider.id && i.status === "connected")?.id
-                                }
-                              >
-                                {disconnecting ===
-                                integrations.find((i) => i.provider === provider.id && i.status === "connected")?.id ? (
-                                  <>
-                                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                                    Disconnecting...
-                                  </>
-                                ) : (
-                                  <>
-                                    <CheckCircle className="mr-2 h-4 w-4" />
-                                    Connected
-                                  </>
-                                )}
-                              </Button>
-                            ) : provider.isAvailable ? (
-                              <Button
-                                className="w-full"
-                                onClick={() => handleConnect(provider.id)}
-                                disabled={connecting === provider.id}
-                              >
-                                {connecting === provider.id ? (
-                                  <>
-                                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                                    Connecting...
-                                  </>
-                                ) : (
-                                  "Connect"
-                                )}
-                              </Button>
-                            ) : (
-                              <Button className="w-full" disabled>
-                                Coming Soon
-                              </Button>
-                            )}
-                          </CardFooter>
-                        </Card>
-                      )
-                    })}
+
+            {/* Tabs */}
+            <Tabs defaultValue="integrations" className="w-full">
+              <TabsList className="grid w-full grid-cols-2 bg-white border border-slate-200 p-1 rounded-lg shadow-sm">
+                <TabsTrigger
+                  value="integrations"
+                  className="data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-sm font-medium transition-all"
+                >
+                  Integrations
+                </TabsTrigger>
+                <TabsTrigger
+                  value="diagnostics"
+                  className="flex items-center gap-2 data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-sm font-medium transition-all"
+                >
+                  <Stethoscope className="h-4 w-4" />
+                  Diagnostics
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="integrations" className="space-y-8 mt-8">
+                {/* Search and Filters */}
+                <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+                  <div className="flex flex-col lg:flex-row gap-4">
+                    <div className="relative flex-1 max-w-md">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
+                      <Input
+                        placeholder="Search integrations..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-11 h-11 bg-slate-50 border-slate-200 focus:border-blue-500 focus:ring-blue-500 text-slate-900 placeholder:text-slate-500"
+                      />
+                    </div>
+
+                    <div className="flex gap-2 flex-wrap">
+                      <Button
+                        variant={selectedCategory === null ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setSelectedCategory(null)}
+                        className={`flex items-center gap-2 h-11 px-4 font-medium transition-all ${
+                          selectedCategory === null
+                            ? "bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
+                            : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300"
+                        }`}
+                      >
+                        <Filter className="w-4 h-4" />
+                        All Categories
+                      </Button>
+                      {categories.map((category) => (
+                        <Button
+                          key={category}
+                          variant={selectedCategory === category ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setSelectedCategory(category)}
+                          className={`h-11 px-4 font-medium transition-all ${
+                            selectedCategory === category
+                              ? "bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
+                              : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300"
+                          }`}
+                        >
+                          {category}
+                        </Button>
+                      ))}
+                    </div>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
-        </TabsContent>
 
-        <TabsContent value="connected">
-          {loading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[1, 2, 3].map((i) => (
-                <Card key={i} className="overflow-hidden">
-                  <CardHeader className="pb-2">
-                    <Skeleton className="h-8 w-8 rounded-full mb-2" />
-                    <Skeleton className="h-5 w-40" />
-                  </CardHeader>
-                  <CardContent>
-                    <Skeleton className="h-4 w-full" />
-                    <Skeleton className="h-4 w-2/3 mt-2" />
-                  </CardContent>
-                  <CardFooter>
-                    <Skeleton className="h-10 w-full" />
-                  </CardFooter>
-                </Card>
-              ))}
-            </div>
-          ) : integrations.length === 0 ? (
-            <div className="text-center py-12">
-              <h3 className="text-lg font-medium mb-2">No Connected Integrations</h3>
-              <p className="text-muted-foreground mb-6">Connect your first integration to get started</p>
-              <Button onClick={() => document.querySelector('[data-value="available"]')?.click()}>
-                Browse Available Integrations
-              </Button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {integrations.map((integration) => {
-                const provider = providers.find((p) => p.id === integration.provider)
-                if (!provider) return null
-
-                return (
-                  <Card key={integration.id} className="overflow-hidden">
-                    <CardHeader className="pb-2">
-                      <div className="flex items-center gap-3">
-                        <div className="h-8 w-8 rounded-full overflow-hidden bg-muted flex items-center justify-center">
-                          <img
-                            src={provider.logoUrl || "/placeholder.svg"}
-                            alt={provider.name}
-                            className="h-full w-full object-cover"
-                          />
+                {/* Integrations by Category */}
+                {selectedCategory ? (
+                  <div className="space-y-6">
+                    <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+                      <div className="flex items-center justify-between mb-6">
+                        <h2 className="text-2xl font-bold text-slate-900">{selectedCategory}</h2>
+                        <Badge variant="outline" className="bg-slate-50 text-slate-700 border-slate-200 font-medium">
+                          {groupedProviders[selectedCategory]?.length || 0} integrations
+                        </Badge>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {groupedProviders[selectedCategory]?.map((provider) => (
+                          <IntegrationCard key={provider.id} provider={provider} />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-8">
+                    {categories.map((category) => (
+                      <div key={category} className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+                        <div className="flex items-center justify-between mb-6">
+                          <h2 className="text-2xl font-bold text-slate-900">{category}</h2>
+                          <Badge variant="outline" className="bg-slate-50 text-slate-700 border-slate-200 font-medium">
+                            {groupedProviders[category]?.length || 0} integrations
+                          </Badge>
                         </div>
-                        <div>
-                          <CardTitle className="text-lg">{provider.name}</CardTitle>
-                          <CardDescription>
-                            {integration.metadata?.username || integration.metadata?.user_name || "Connected"}
-                          </CardDescription>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                          {groupedProviders[category]?.map((provider) => (
+                            <IntegrationCard key={provider.id} provider={provider} />
+                          ))}
                         </div>
                       </div>
-                    </CardHeader>
-                    <CardContent className="pb-2">
-                      <div className="text-sm">
-                        <div className="flex justify-between mb-1">
-                          <span className="text-muted-foreground">Status:</span>
-                          <span className="font-medium">{integration.status}</span>
-                        </div>
-                        <div className="flex justify-between mb-1">
-                          <span className="text-muted-foreground">Connected:</span>
-                          <span className="font-medium">
-                            {new Date(
-                              integration.metadata?.connected_at || integration.created_at,
-                            ).toLocaleDateString()}
-                          </span>
-                        </div>
-                        {integration.scopes && integration.scopes.length > 0 && (
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Scopes:</span>
-                            <span className="font-medium">{integration.scopes.length}</span>
-                          </div>
-                        )}
-                      </div>
-                    </CardContent>
-                    <CardFooter>
-                      <Button
-                        variant="outline"
-                        className="w-full"
-                        onClick={() => handleDisconnect(integration.id, provider.name)}
-                        disabled={disconnecting === integration.id}
-                      >
-                        {disconnecting === integration.id ? (
-                          <>
-                            <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                            Disconnecting...
-                          </>
-                        ) : (
-                          "Disconnect"
-                        )}
-                      </Button>
-                    </CardFooter>
-                  </Card>
-                )
-              })}
-            </div>
-          )}
-        </TabsContent>
+                    ))}
+                  </div>
+                )}
 
-        <TabsContent value="diagnostics">
-          <IntegrationDiagnostics />
-        </TabsContent>
-      </Tabs>
-    </div>
+                {/* No Results State */}
+                {filteredProviders.length === 0 && (
+                  <div className="bg-white rounded-xl border border-slate-200 p-12 shadow-sm text-center">
+                    <div className="text-slate-400 text-xl font-medium mb-2">No integrations found</div>
+                    <p className="text-slate-500">Try adjusting your search or filter criteria</p>
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="diagnostics" className="mt-8">
+                <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
+                  <IntegrationDiagnostics />
+                </div>
+              </TabsContent>
+            </Tabs>
+          </div>
+        </div>
+      </div>
+    </AppLayout>
   )
 }
