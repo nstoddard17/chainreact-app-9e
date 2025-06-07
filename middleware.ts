@@ -1,72 +1,108 @@
-import { createServerClient } from "@supabase/ssr"
-import { NextResponse, type NextRequest } from "next/server"
+import { NextResponse } from "next/server"
+import type { NextRequest } from "next/server"
+import { createMiddlewareClient } from "@supabase/auth-helpers-nextjs"
 
 export async function middleware(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({
-    request,
-  })
+  const res = NextResponse.next()
 
-  const supabase = createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_ANON_KEY!, {
-    cookies: {
-      getAll() {
-        return request.cookies.getAll()
-      },
-      setAll(cookiesToSet) {
-        cookiesToSet.forEach(({ name, value, options }) => request.cookies.set(name, value))
-        supabaseResponse = NextResponse.next({
-          request,
-        })
-        cookiesToSet.forEach(({ name, value, options }) => supabaseResponse.cookies.set(name, value, options))
-      },
-    },
-  })
+  try {
+    // Create middleware client (this is separate from the browser client)
+    const supabase = createMiddlewareClient({ req: request, res })
 
-  // IMPORTANT: Don't run auth checks on API routes, especially OAuth callbacks
-  if (request.nextUrl.pathname.startsWith("/api/")) {
-    return supabaseResponse
+    // Check if user is authenticated
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
+
+    // If no session and trying to access protected routes, redirect to login
+    const url = request.nextUrl.pathname
+    const isProtectedRoute =
+      url.startsWith("/dashboard") ||
+      url.startsWith("/workflows") ||
+      url.startsWith("/integrations") ||
+      url.startsWith("/analytics") ||
+      url.startsWith("/settings") ||
+      url.startsWith("/teams") ||
+      url.startsWith("/templates") ||
+      url.startsWith("/enterprise") ||
+      url.startsWith("/learn") ||
+      url.startsWith("/community")
+
+    // For development, allow access to protected routes even without a session
+    const isDevelopment = process.env.NODE_ENV === "development"
+
+    // Only redirect if we're sure there's no session and it's not development
+    if (!session && isProtectedRoute && !isDevelopment) {
+      console.log("Middleware: No session found, redirecting to login")
+      return NextResponse.redirect(new URL("/auth/login", request.url))
+    }
+
+    // If session exists, track API usage for specific endpoints
+    if (session && url.startsWith("/api/")) {
+      if (url.startsWith("/api/workflows/execute")) {
+        // Track workflow execution
+        await trackUsage(supabase, session.user.id, "execution", "run")
+      } else if (url.startsWith("/api/workflows") && request.method === "POST") {
+        // Track workflow creation
+        await trackUsage(supabase, session.user.id, "workflow", "create")
+      } else if (url.startsWith("/api/integrations") && request.method === "POST") {
+        // Track integration creation
+        await trackUsage(supabase, session.user.id, "integration", "connect")
+      }
+    }
+  } catch (error) {
+    console.error("Middleware error:", error)
+    // In case of error, don't redirect in development
+    if (process.env.NODE_ENV === "development") {
+      return res
+    }
+    // Continue without tracking or redirecting in case of error
   }
 
-  // Don't run auth checks on public routes
-  const publicRoutes = [
-    "/",
-    "/auth/login",
-    "/auth/register",
-    "/privacy",
-    "/terms",
-    "/support",
-    "/learn",
-    "/community",
-    "/enterprise",
-  ]
+  return res
+}
 
-  if (publicRoutes.includes(request.nextUrl.pathname)) {
-    return supabaseResponse
+async function trackUsage(supabase: any, userId: string, resourceType: string, action: string) {
+  try {
+    // Log the usage
+    await supabase.from("usage_logs").insert({
+      user_id: userId,
+      resource_type: resourceType,
+      action,
+      quantity: 1,
+    })
+
+    // Update monthly usage
+    const currentDate = new Date()
+    const year = currentDate.getFullYear()
+    const month = currentDate.getMonth() + 1
+
+    const updateField = getUsageField(resourceType)
+    if (updateField) {
+      await supabase.rpc("increment_monthly_usage", {
+        p_user_id: userId,
+        p_year: year,
+        p_month: month,
+        p_field: updateField,
+        p_increment: 1,
+      })
+    }
+  } catch (error) {
+    console.error("Usage tracking error:", error)
   }
+}
 
-  // Check auth for protected routes
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    // Redirect to login if not authenticated
-    const url = request.nextUrl.clone()
-    url.pathname = "/auth/login"
-    return NextResponse.redirect(url)
+function getUsageField(resourceType: string): string | null {
+  const fieldMap: Record<string, string> = {
+    workflow: "workflow_count",
+    execution: "execution_count",
+    integration: "integration_count",
+    storage: "storage_used_mb",
+    team_member: "team_member_count",
   }
-
-  return supabaseResponse
+  return fieldMap[resourceType] || null
 }
 
 export const config = {
-  matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * Feel free to modify this pattern to include more paths.
-     */
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
-  ],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.svg).*)"],
 }

@@ -1,3 +1,4 @@
+import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 
@@ -19,19 +20,8 @@ const supabase = createClient(supabaseUrl, supabaseKey, {
   },
 })
 
-// Handle both GET and POST requests
 export async function GET(request: NextRequest) {
-  return handleCallback(request)
-}
-
-export async function POST(request: NextRequest) {
-  return handleCallback(request)
-}
-
-async function handleCallback(request: NextRequest) {
   console.log("=== YouTube OAuth Callback Started ===")
-  console.log("Request URL:", request.url)
-  console.log("Request method:", request.method)
 
   const searchParams = request.nextUrl.searchParams
   const baseUrl = new URL(request.url).origin
@@ -45,12 +35,6 @@ async function handleCallback(request: NextRequest) {
     error,
     baseUrl,
   })
-
-  // If no OAuth parameters, this might be a direct access - redirect to integrations
-  if (!code && !state && !error) {
-    console.log("No OAuth parameters found, redirecting to integrations page")
-    return NextResponse.redirect(new URL("/integrations", baseUrl))
-  }
 
   if (error) {
     console.error("YouTube OAuth error:", error)
@@ -86,16 +70,17 @@ async function handleCallback(request: NextRequest) {
 
     console.log("Processing YouTube OAuth for user:", userId)
 
-    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
-    const clientSecret = process.env.GOOGLE_CLIENT_SECRET
+    const clientId = process.env.NEXT_PUBLIC_YOUTUBE_CLIENT_ID || process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
+    const clientSecret = process.env.YOUTUBE_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET
 
     console.log("OAuth credentials check:", {
       hasClientId: !!clientId,
       hasClientSecret: !!clientSecret,
+      clientIdSource: process.env.NEXT_PUBLIC_YOUTUBE_CLIENT_ID ? "YouTube" : "Google",
     })
 
     if (!clientId || !clientSecret) {
-      console.error("Missing Google client ID or secret")
+      console.error("Missing YouTube client ID or secret")
       return NextResponse.redirect(
         new URL("/integrations?error=true&provider=youtube&message=Missing+credentials", baseUrl),
       )
@@ -113,7 +98,7 @@ async function handleCallback(request: NextRequest) {
         client_secret: clientSecret,
         code,
         grant_type: "authorization_code",
-        redirect_uri: `${baseUrl}/api/integrations/youtube/callback`,
+        redirect_uri: `${getBaseUrl(request)}/api/integrations/youtube/callback`,
       }),
     })
 
@@ -126,7 +111,7 @@ async function handleCallback(request: NextRequest) {
       })
       return NextResponse.redirect(
         new URL(
-          `/integrations?error=true&provider=youtube&message=${encodeURIComponent("Token exchange failed: " + errorText)}`,
+          `/integrations?error=true&provider=youtube&message=${encodeURIComponent("Token exchange failed")}`,
           baseUrl,
         ),
       )
@@ -144,6 +129,7 @@ async function handleCallback(request: NextRequest) {
 
     // Get user info - first try YouTube API
     console.log("Fetching YouTube channel info...")
+    let userData
     let channelId
     let channelTitle
     let channelDescription
@@ -156,7 +142,7 @@ async function handleCallback(request: NextRequest) {
       })
 
       if (userResponse.ok) {
-        const userData = await userResponse.json()
+        userData = await userResponse.json()
         const channel = userData.items?.[0]
         channelId = channel?.id
         channelTitle = channel?.snippet?.title
@@ -164,6 +150,8 @@ async function handleCallback(request: NextRequest) {
         console.log("YouTube channel info:", { channelId, channelTitle })
       } else {
         console.warn("Could not get YouTube channel info, status:", userResponse.status)
+        const errorText = await userResponse.text()
+        console.warn("YouTube API error:", errorText)
       }
     } catch (e) {
       console.warn("Error fetching YouTube channel:", e)
@@ -184,6 +172,10 @@ async function handleCallback(request: NextRequest) {
           channelId = profileData.id
           channelTitle = profileData.name
           console.log("Google profile info:", { channelId, channelTitle })
+        } else {
+          console.error("Failed to get Google profile:", profileResponse.status)
+          const errorText = await profileResponse.text()
+          console.error("Google profile error:", errorText)
         }
       } catch (e) {
         console.error("Error fetching Google profile:", e)
@@ -193,9 +185,27 @@ async function handleCallback(request: NextRequest) {
     if (!channelId) {
       channelId = `unknown_${Date.now()}`
       channelTitle = "Unknown Channel"
+      console.log("Using fallback channel info:", { channelId, channelTitle })
     }
 
     const now = new Date().toISOString()
+
+    // Test database connection first
+    console.log("Testing database connection...")
+    try {
+      const { data: testData, error: testError } = await supabase.from("integrations").select("count").limit(1)
+
+      if (testError) {
+        console.error("Database connection test failed:", testError)
+        throw new Error(`Database connection failed: ${testError.message}`)
+      }
+      console.log("Database connection successful")
+    } catch (dbError) {
+      console.error("Database connection error:", dbError)
+      return NextResponse.redirect(
+        new URL("/integrations?error=true&provider=youtube&message=Database+connection+failed", baseUrl),
+      )
+    }
 
     // Check if integration exists
     console.log("Checking for existing integration...")
@@ -238,10 +248,27 @@ async function handleCallback(request: NextRequest) {
       updated_at: now,
     }
 
+    console.log("Integration data prepared:", {
+      user_id: integrationData.user_id,
+      provider: integrationData.provider,
+      provider_user_id: integrationData.provider_user_id,
+      status: integrationData.status,
+      hasAccessToken: !!integrationData.access_token,
+      hasRefreshToken: !!integrationData.refresh_token,
+      expires_at: integrationData.expires_at,
+      scopes: integrationData.scopes,
+    })
+
     let result
     if (existingIntegration) {
       console.log("Updating existing YouTube integration:", existingIntegration.id)
       result = await supabase.from("integrations").update(integrationData).eq("id", existingIntegration.id).select()
+
+      console.log("Update result:", {
+        error: result.error,
+        dataCount: result.data?.length,
+        updatedId: result.data?.[0]?.id,
+      })
     } else {
       console.log("Creating new YouTube integration")
       result = await supabase
@@ -251,10 +278,22 @@ async function handleCallback(request: NextRequest) {
           created_at: now,
         })
         .select()
+
+      console.log("Insert result:", {
+        error: result.error,
+        dataCount: result.data?.length,
+        insertedId: result.data?.[0]?.id,
+      })
     }
 
     if (result.error) {
-      console.error("Database operation failed:", result.error)
+      console.error("Database operation failed:", {
+        error: result.error,
+        code: result.error.code,
+        message: result.error.message,
+        details: result.error.details,
+        hint: result.error.hint,
+      })
       return NextResponse.redirect(
         new URL(
           `/integrations?error=true&provider=youtube&message=${encodeURIComponent(result.error.message)}`,
@@ -264,8 +303,28 @@ async function handleCallback(request: NextRequest) {
     }
 
     console.log("YouTube integration saved successfully:", result.data?.[0]?.id)
+
+    // Verify the save by reading it back
+    console.log("Verifying saved integration...")
+    const { data: verifyData, error: verifyError } = await supabase
+      .from("integrations")
+      .select("id, provider, status, user_id")
+      .eq("user_id", userId)
+      .eq("provider", "youtube")
+      .maybeSingle()
+
+    if (verifyError) {
+      console.error("Verification failed:", verifyError)
+    } else {
+      console.log("Verification successful:", verifyData)
+    }
+
     console.log("=== YouTube OAuth Callback Completed Successfully ===")
 
+    // Add a delay to ensure database operations complete
+    await new Promise((resolve) => setTimeout(resolve, 1000))
+
+    // Use the correct success parameter format that the UI is expecting
     return NextResponse.redirect(new URL(`/integrations?success=true&provider=youtube&t=${Date.now()}`, baseUrl))
   } catch (error: any) {
     console.error("YouTube OAuth callback error:", {
