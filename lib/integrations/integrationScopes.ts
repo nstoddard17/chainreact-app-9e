@@ -287,11 +287,29 @@ export const INTEGRATION_SCOPES: Record<string, IntegrationScopeConfig> = {
       { scope: "profile", description: "Access basic profile info", required: true },
       { scope: "email", description: "Access email address", required: true },
       { scope: "offline_access", description: "Allow offline access (refresh tokens)", required: true },
-      // Remove User.Read as it may not be consistently granted
+      { scope: "https://graph.microsoft.com/User.Read", description: "Read user profile", required: true },
+      {
+        scope: "https://graph.microsoft.com/Chat.ReadWrite",
+        description: "Read and write chat messages",
+        required: false,
+      },
+      {
+        scope: "https://graph.microsoft.com/ChannelMessage.Send",
+        description: "Send messages to channels",
+        required: false,
+      },
+      {
+        scope: "https://graph.microsoft.com/Team.ReadBasic.All",
+        description: "Read basic team information",
+        required: false,
+      },
     ],
     components: {
-      "teams-get-user": ["profile"], // Change from User.Read to profile
+      "teams-get-user": ["https://graph.microsoft.com/User.Read"],
       "teams-get-profile": ["profile"],
+      "teams-send-message": ["https://graph.microsoft.com/Chat.ReadWrite"],
+      "teams-send-channel-message": ["https://graph.microsoft.com/ChannelMessage.Send"],
+      "teams-get-teams": ["https://graph.microsoft.com/Team.ReadBasic.All"],
     },
   },
   trello: {
