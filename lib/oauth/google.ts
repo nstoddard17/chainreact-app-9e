@@ -45,7 +45,7 @@ export class GoogleOAuthService {
       response_type: "code",
       scope: scopes.join(" "),
       access_type: "offline",
-      prompt: reconnect ? "consent" : "select_account",
+      prompt: "consent", // Always force consent to ensure refresh token
       ...(state && { state }),
     })
 
