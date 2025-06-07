@@ -361,6 +361,31 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
       }
 
       console.log("Fetched integrations:", data?.length || 0)
+      console.log(
+        "Integration details:",
+        data?.map((i) => ({
+          id: i.id,
+          provider: i.provider,
+          status: i.status,
+          created_at: i.created_at,
+        })),
+      )
+
+      // Debug: Check specifically for YouTube
+      const youtubeIntegration = data?.find((i) => i.provider === "youtube")
+      if (youtubeIntegration) {
+        console.log("Found YouTube integration:", {
+          id: youtubeIntegration.id,
+          provider: youtubeIntegration.provider,
+          status: youtubeIntegration.status,
+          created_at: youtubeIntegration.created_at,
+          updated_at: youtubeIntegration.updated_at,
+          hasAccessToken: !!youtubeIntegration.access_token,
+          metadata: youtubeIntegration.metadata,
+        })
+      } else {
+        console.log("No YouTube integration found in database")
+      }
 
       set({
         integrations: data || [],

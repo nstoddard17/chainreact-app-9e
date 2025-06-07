@@ -57,17 +57,26 @@ export default function IntegrationsContent() {
       console.log("OAuth callback detected:", { success, error, provider, message, timestamp })
       setOauthProcessed(true)
 
-      // Force refresh integrations immediately to ensure we have the latest data
-      fetchIntegrations(true).catch((err) => {
-        console.error("Failed to refresh integrations on callback:", err)
-      })
-
       if (success === "true") {
-        // Force refresh integrations with a delay to ensure database has been updated
+        // Force refresh integrations with multiple attempts
         const refreshIntegrationsList = async () => {
           try {
             console.log(`Refreshing integrations after ${provider} OAuth success`)
+
+            // First immediate refresh
             await fetchIntegrations(true)
+
+            // Second refresh after 1 second
+            setTimeout(async () => {
+              await fetchIntegrations(true)
+              console.log("Second refresh completed")
+            }, 1000)
+
+            // Third refresh after 3 seconds
+            setTimeout(async () => {
+              await fetchIntegrations(true)
+              console.log("Third refresh completed")
+            }, 3000)
 
             toast({
               title: "Integration Connected",
@@ -76,20 +85,11 @@ export default function IntegrationsContent() {
             })
           } catch (err) {
             console.error("Failed to refresh integrations after OAuth:", err)
-
-            // Try refreshing again after a short delay
-            setTimeout(async () => {
-              try {
-                await fetchIntegrations(true)
-              } catch (retryErr) {
-                console.error("Failed to refresh integrations on retry:", retryErr)
-              }
-            }, 2000)
           }
         }
 
-        // Add a delay to ensure database operations are complete
-        setTimeout(refreshIntegrationsList, 1500)
+        // Start the refresh process immediately
+        refreshIntegrationsList()
       } else if (error) {
         const errorMsg = message || "Failed to connect integration"
         console.error("OAuth error:", { error, provider, message: errorMsg })
@@ -102,13 +102,12 @@ export default function IntegrationsContent() {
         })
       }
 
-      // Clean up URL parameters
-      if (typeof window !== "undefined") {
-        // Use setTimeout to ensure the toast has time to display
-        setTimeout(() => {
+      // Clean up URL parameters after a delay
+      setTimeout(() => {
+        if (typeof window !== "undefined") {
           router.replace("/integrations")
-        }, 100)
-      }
+        }
+      }, 1000)
     }
   }, [searchParams, toast, fetchIntegrations, router, oauthProcessed])
 
@@ -132,6 +131,34 @@ export default function IntegrationsContent() {
     const connectedIntegration = integrations.find((i) => i.provider === provider.id && i.status === "connected")
     const disconnectedIntegration = integrations.find((i) => i.provider === provider.id && i.status === "disconnected")
 
+    // Debug logging for YouTube specifically
+    if (provider.id === "youtube") {
+      console.log("YouTube provider mapping:", {
+        providerId: provider.id,
+        connectedIntegration: connectedIntegration
+          ? {
+              id: connectedIntegration.id,
+              provider: connectedIntegration.provider,
+              status: connectedIntegration.status,
+            }
+          : null,
+        disconnectedIntegration: disconnectedIntegration
+          ? {
+              id: disconnectedIntegration.id,
+              provider: disconnectedIntegration.provider,
+              status: disconnectedIntegration.status,
+            }
+          : null,
+        allYouTubeIntegrations: integrations
+          .filter((i) => i.provider === "youtube")
+          .map((i) => ({
+            id: i.id,
+            provider: i.provider,
+            status: i.status,
+          })),
+      })
+    }
+
     return {
       ...provider,
       connected: !!connectedIntegration,
@@ -153,20 +180,13 @@ export default function IntegrationsContent() {
 
   const handleRefresh = async () => {
     try {
-      // First try to refresh tokens, then fetch updated integration data
-      const refreshResult = await refreshTokens()
+      console.log("Manual refresh triggered")
+      await fetchIntegrations(true)
 
-      if (refreshResult.refreshedCount > 0) {
-        toast({
-          title: "Tokens Refreshed",
-          description: `Refreshed ${refreshResult.refreshedCount} integration${refreshResult.refreshedCount > 1 ? "s" : ""}`,
-        })
-      } else {
-        toast({
-          title: "Refreshed",
-          description: "Integration data has been refreshed.",
-        })
-      }
+      toast({
+        title: "Refreshed",
+        description: "Integration data has been refreshed.",
+      })
     } catch (err: any) {
       toast({
         title: "Refresh Failed",
@@ -206,6 +226,11 @@ export default function IntegrationsContent() {
                 <p className="text-lg text-slate-600">
                   Connect your favorite tools and services to automate your workflows
                 </p>
+                {/* Debug info */}
+                <div className="text-xs text-gray-500">
+                  Total integrations: {integrations.length} | Connected: {connectedCount} | YouTube connected:{" "}
+                  {integrations.find((i) => i.provider === "youtube" && i.status === "connected") ? "Yes" : "No"}
+                </div>
               </div>
               <div className="flex items-center gap-3">
                 <Badge
