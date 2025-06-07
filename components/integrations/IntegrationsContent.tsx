@@ -58,7 +58,7 @@ export default function IntegrationsContent() {
       setOauthProcessed(true)
 
       if (success === "true") {
-        // Force refresh integrations with multiple attempts
+        // Force refresh integrations with multiple attempts to ensure we get the latest data
         const refreshIntegrationsList = async () => {
           try {
             console.log(`Refreshing integrations after ${provider} OAuth success`)
@@ -66,16 +66,23 @@ export default function IntegrationsContent() {
             // First immediate refresh
             await fetchIntegrations(true)
 
-            // Second refresh after 1 second
+            // Schedule additional refreshes to ensure we get the latest data
             setTimeout(async () => {
-              await fetchIntegrations(true)
-              console.log("Second refresh completed")
-            }, 1000)
+              try {
+                await fetchIntegrations(true)
+                console.log("Second refresh completed")
+              } catch (err) {
+                console.error("Error in second refresh:", err)
+              }
+            }, 1500)
 
-            // Third refresh after 3 seconds
             setTimeout(async () => {
-              await fetchIntegrations(true)
-              console.log("Third refresh completed")
+              try {
+                await fetchIntegrations(true)
+                console.log("Third refresh completed")
+              } catch (err) {
+                console.error("Error in third refresh:", err)
+              }
             }, 3000)
 
             toast({
@@ -88,7 +95,6 @@ export default function IntegrationsContent() {
           }
         }
 
-        // Start the refresh process immediately
         refreshIntegrationsList()
       } else if (error) {
         const errorMsg = message || "Failed to connect integration"
@@ -130,34 +136,6 @@ export default function IntegrationsContent() {
   const providersWithStatus = filteredProviders.map((provider) => {
     const connectedIntegration = integrations.find((i) => i.provider === provider.id && i.status === "connected")
     const disconnectedIntegration = integrations.find((i) => i.provider === provider.id && i.status === "disconnected")
-
-    // Debug logging for YouTube specifically
-    if (provider.id === "youtube") {
-      console.log("YouTube provider mapping:", {
-        providerId: provider.id,
-        connectedIntegration: connectedIntegration
-          ? {
-              id: connectedIntegration.id,
-              provider: connectedIntegration.provider,
-              status: connectedIntegration.status,
-            }
-          : null,
-        disconnectedIntegration: disconnectedIntegration
-          ? {
-              id: disconnectedIntegration.id,
-              provider: disconnectedIntegration.provider,
-              status: disconnectedIntegration.status,
-            }
-          : null,
-        allYouTubeIntegrations: integrations
-          .filter((i) => i.provider === "youtube")
-          .map((i) => ({
-            id: i.id,
-            provider: i.provider,
-            status: i.status,
-          })),
-      })
-    }
 
     return {
       ...provider,
@@ -226,11 +204,6 @@ export default function IntegrationsContent() {
                 <p className="text-lg text-slate-600">
                   Connect your favorite tools and services to automate your workflows
                 </p>
-                {/* Debug info */}
-                <div className="text-xs text-gray-500">
-                  Total integrations: {integrations.length} | Connected: {connectedCount} | YouTube connected:{" "}
-                  {integrations.find((i) => i.provider === "youtube" && i.status === "connected") ? "Yes" : "No"}
-                </div>
               </div>
               <div className="flex items-center gap-3">
                 <Badge
