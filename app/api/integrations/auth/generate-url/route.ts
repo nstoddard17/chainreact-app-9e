@@ -4,6 +4,7 @@ import { DiscordOAuthService } from "@/lib/oauth/discord"
 import { TrelloOAuthService } from "@/lib/oauth/trello"
 import { DropboxOAuthService } from "@/lib/oauth/dropbox"
 import { TwitterOAuthService } from "@/lib/oauth/twitter"
+import { LinkedInOAuthService } from "@/lib/oauth/linkedin"
 import { getAbsoluteBaseUrl } from "@/lib/oauth/utils"
 
 export async function POST(request: NextRequest) {
@@ -39,6 +40,9 @@ export async function POST(request: NextRequest) {
           break
         case "dropbox":
           authUrl = DropboxOAuthService.generateAuthUrl(baseUrl, reconnect, integrationId, userId)
+          break
+        case "linkedin":
+          authUrl = LinkedInOAuthService.generateAuthUrl(baseUrl, reconnect, integrationId, userId)
           break
         case "gmail":
           const gmailScopes = [
@@ -302,25 +306,6 @@ export async function POST(request: NextRequest) {
             state: hubspotState,
           })
           authUrl = `https://app.hubspot.com/oauth/authorize?${hubspotParams.toString()}`
-          break
-        case "linkedin":
-          const linkedinState = btoa(
-            JSON.stringify({
-              provider: "linkedin",
-              userId,
-              reconnect,
-              integrationId,
-              timestamp: Date.now(),
-            }),
-          )
-          const linkedinParams = new URLSearchParams({
-            response_type: "code",
-            client_id: process.env.NEXT_PUBLIC_LINKEDIN_CLIENT_ID!,
-            redirect_uri: `${baseUrl}/api/integrations/linkedin/callback`,
-            state: linkedinState,
-            scope: "r_liteprofile w_member_social",
-          })
-          authUrl = `https://www.linkedin.com/oauth/v2/authorization?${linkedinParams.toString()}`
           break
         case "facebook":
           const facebookState = btoa(
