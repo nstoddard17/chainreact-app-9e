@@ -19,7 +19,8 @@ export default function IntegrationsContent() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [localLoading, setLocalLoading] = useState(true)
 
-  const { integrations, providers, loading, error, fetchIntegrations } = useIntegrationStore()
+  const { integrations, providers, loading, refreshing, error, fetchIntegrations, refreshTokens } =
+    useIntegrationStore()
 
   const searchParams = useSearchParams()
   const { toast } = useToast()
@@ -126,11 +127,23 @@ export default function IntegrationsContent() {
 
   const handleRefresh = async () => {
     try {
+      // First refresh tokens
+      const refreshResult = await refreshTokens()
+
+      // Then fetch updated integration data
       await fetchIntegrations(true)
-      toast({
-        title: "Refreshed",
-        description: "Integration data has been refreshed.",
-      })
+
+      if (refreshResult.refreshedCount > 0) {
+        toast({
+          title: "Tokens Refreshed",
+          description: `Refreshed ${refreshResult.refreshedCount} integration${refreshResult.refreshedCount > 1 ? "s" : ""}`,
+        })
+      } else {
+        toast({
+          title: "Refreshed",
+          description: "Integration data has been refreshed. No tokens needed refreshing.",
+        })
+      }
     } catch (err: any) {
       toast({
         title: "Refresh Failed",
@@ -183,10 +196,14 @@ export default function IntegrationsContent() {
                   onClick={handleRefresh}
                   variant="outline"
                   size="sm"
-                  disabled={loading}
+                  disabled={loading || refreshing}
                   className="bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-colors"
                 >
-                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                  {loading || refreshing ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="w-4 h-4" />
+                  )}
                   <span className="ml-2 hidden sm:inline">Refresh</span>
                 </Button>
               </div>
