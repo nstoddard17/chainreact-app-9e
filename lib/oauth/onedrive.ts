@@ -22,10 +22,13 @@ export class OneDriveOAuthService {
 
     // Microsoft Graph scopes - be very explicit about what we need
     const scopes = [
+      "openid",
+      "profile",
+      "email",
+      "offline_access",
       "https://graph.microsoft.com/User.Read",
       "https://graph.microsoft.com/Files.ReadWrite.All",
       "https://graph.microsoft.com/Sites.ReadWrite.All",
-      "offline_access",
     ]
 
     const state = btoa(
@@ -46,7 +49,7 @@ export class OneDriveOAuthService {
       response_type: "code",
       scope: scopes.join(" "),
       response_mode: "query",
-      prompt: "consent", // Force consent screen
+      prompt: "admin_consent", // Changed from "consent" to "admin_consent"
       state,
     })
 
