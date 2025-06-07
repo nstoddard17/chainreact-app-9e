@@ -2,7 +2,6 @@ import { AirtableOAuthService } from "./airtable"
 import { DiscordOAuthService } from "./discord"
 import { DropboxOAuthService } from "./dropbox"
 import { GitHubOAuthService } from "./github"
-import { GoogleOAuthService } from "./google"
 import { SlackOAuthService } from "./slack"
 import { TeamsOAuthService } from "./teams"
 import { TwitterOAuthService } from "./twitter"
@@ -18,6 +17,10 @@ import { TrelloOAuthService } from "./trello"
 import { YouTubeOAuthService } from "./youtube"
 import { DockerOAuthService } from "./docker"
 import { GitLabOAuthService } from "./gitlab"
+import { GmailOAuthService } from "./gmail"
+import { GoogleDriveOAuthService } from "./google-drive"
+import { GoogleCalendarOAuthService } from "./google-calendar"
+import { GoogleSheetsOAuthService } from "./google-sheets"
 
 export interface OAuthProvider {
   generateAuthUrl(baseUrl: string, reconnect?: boolean, integrationId?: string, userId?: string): string
@@ -29,7 +32,10 @@ export const oauthProviders = {
   discord: DiscordOAuthService,
   dropbox: DropboxOAuthService,
   github: GitHubOAuthService,
-  google: GoogleOAuthService,
+  gmail: GmailOAuthService,
+  "google-drive": GoogleDriveOAuthService,
+  "google-calendar": GoogleCalendarOAuthService,
+  "google-sheets": GoogleSheetsOAuthService,
   slack: SlackOAuthService,
   teams: TeamsOAuthService,
   twitter: TwitterOAuthService,

@@ -28,8 +28,8 @@ export const INTEGRATION_SCOPES: Record<string, IntegrationScopeConfig> = {
       "slack-get-messages": ["channels:history"],
     },
   },
-  google: {
-    provider: "google",
+  gmail: {
+    provider: "gmail",
     scopes: [
       {
         scope: "https://www.googleapis.com/auth/userinfo.email",
@@ -44,7 +44,7 @@ export const INTEGRATION_SCOPES: Record<string, IntegrationScopeConfig> = {
       {
         scope: "https://www.googleapis.com/auth/gmail.send",
         description: "Send emails",
-        required: false,
+        required: true,
       },
       {
         scope: "https://www.googleapis.com/auth/gmail.readonly",
@@ -56,42 +56,99 @@ export const INTEGRATION_SCOPES: Record<string, IntegrationScopeConfig> = {
         description: "Read and modify emails",
         required: false,
       },
+    ],
+    components: {
+      "gmail-send-email": ["https://www.googleapis.com/auth/gmail.send"],
+      "gmail-read-emails": ["https://www.googleapis.com/auth/gmail.readonly"],
+      "gmail-modify-emails": ["https://www.googleapis.com/auth/gmail.modify"],
+    },
+  },
+  "google-drive": {
+    provider: "google-drive",
+    scopes: [
+      {
+        scope: "https://www.googleapis.com/auth/userinfo.email",
+        description: "View email address",
+        required: true,
+      },
+      {
+        scope: "https://www.googleapis.com/auth/userinfo.profile",
+        description: "View basic profile info",
+        required: true,
+      },
       {
         scope: "https://www.googleapis.com/auth/drive",
         description: "Full access to Google Drive",
-        required: false,
+        required: true,
       },
       {
         scope: "https://www.googleapis.com/auth/drive.file",
         description: "View and manage Google Drive files created by this app",
         required: false,
       },
+    ],
+    components: {
+      "drive-upload-file": ["https://www.googleapis.com/auth/drive.file"],
+      "drive-full-access": ["https://www.googleapis.com/auth/drive"],
+      "drive-create-folder": ["https://www.googleapis.com/auth/drive"],
+      "drive-share-file": ["https://www.googleapis.com/auth/drive"],
+    },
+  },
+  "google-calendar": {
+    provider: "google-calendar",
+    scopes: [
+      {
+        scope: "https://www.googleapis.com/auth/userinfo.email",
+        description: "View email address",
+        required: true,
+      },
+      {
+        scope: "https://www.googleapis.com/auth/userinfo.profile",
+        description: "View basic profile info",
+        required: true,
+      },
       {
         scope: "https://www.googleapis.com/auth/calendar",
         description: "View and manage calendar",
-        required: false,
+        required: true,
       },
       {
         scope: "https://www.googleapis.com/auth/calendar.events",
         description: "View and edit calendar events",
         required: false,
       },
+    ],
+    components: {
+      "calendar-read-events": ["https://www.googleapis.com/auth/calendar"],
+      "calendar-create-event": ["https://www.googleapis.com/auth/calendar.events"],
+      "calendar-update-event": ["https://www.googleapis.com/auth/calendar"],
+      "calendar-delete-event": ["https://www.googleapis.com/auth/calendar"],
+    },
+  },
+  "google-sheets": {
+    provider: "google-sheets",
+    scopes: [
+      {
+        scope: "https://www.googleapis.com/auth/userinfo.email",
+        description: "View email address",
+        required: true,
+      },
+      {
+        scope: "https://www.googleapis.com/auth/userinfo.profile",
+        description: "View basic profile info",
+        required: true,
+      },
       {
         scope: "https://www.googleapis.com/auth/spreadsheets",
         description: "View and edit Google Sheets",
-        required: false,
+        required: true,
       },
     ],
     components: {
-      "gmail-send-email": ["https://www.googleapis.com/auth/gmail.send"],
-      "gmail-read-emails": ["https://www.googleapis.com/auth/gmail.readonly"],
-      "gmail-modify-emails": ["https://www.googleapis.com/auth/gmail.modify"],
-      "drive-upload-file": ["https://www.googleapis.com/auth/drive.file"],
-      "drive-full-access": ["https://www.googleapis.com/auth/drive"],
-      "calendar-read-events": ["https://www.googleapis.com/auth/calendar"],
-      "calendar-create-event": ["https://www.googleapis.com/auth/calendar.events"],
       "sheets-read-data": ["https://www.googleapis.com/auth/spreadsheets"],
       "sheets-write-data": ["https://www.googleapis.com/auth/spreadsheets"],
+      "sheets-create-sheet": ["https://www.googleapis.com/auth/spreadsheets"],
+      "sheets-format-cells": ["https://www.googleapis.com/auth/spreadsheets"],
     },
   },
   discord: {
