@@ -387,7 +387,29 @@ function analyzeIntegration(
   const availableComponents: string[] = []
   const unavailableComponents: string[] = []
   const missingScopes: string[] = []
-  const recommendations: string[] = []
+
+  // Special handling for Notion scopes
+  if (provider === "notion") {
+    const notionRequiredScopes = ["read_user", "read_content"]
+    const notionMissingScopes = notionRequiredScopes.filter((scope) => !grantedScopes.includes(scope))
+
+    if (notionMissingScopes.length > 0) {
+      missingScopes.push(...notionMissingScopes)
+      console.log(`Notion missing required scopes: ${notionMissingScopes.join(", ")}`)
+    }
+
+    // Check for optional scopes
+    const notionOptionalScopes = ["update_content", "insert_content"]
+    const missingOptionalScopes = notionOptionalScopes.filter((scope) => !grantedScopes.includes(scope))
+
+    const recommendations: string[] = []
+    if (missingOptionalScopes.length > 0) {
+      console.log(`Notion missing optional scopes: ${missingOptionalScopes.join(", ")}`)
+      recommendations.push(
+        `Missing optional scopes: ${missingOptionalScopes.join(", ")} - reconnect for full functionality`,
+      )
+    }
+  }
 
   // For Teams, be more lenient about scope requirements
   const isTeamsProvider = provider === "teams"
@@ -484,6 +506,8 @@ function analyzeIntegration(
 
     return isMissing
   })
+
+  const recommendations: string[] = []
 
   // Determine status
   let status: DiagnosticResult["status"]
