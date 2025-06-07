@@ -371,6 +371,22 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
         })),
       )
 
+      // Debug: Check specifically for YouTube
+      const youtubeIntegration = data?.find((i) => i.provider === "youtube")
+      if (youtubeIntegration) {
+        console.log("Found YouTube integration:", {
+          id: youtubeIntegration.id,
+          provider: youtubeIntegration.provider,
+          status: youtubeIntegration.status,
+          created_at: youtubeIntegration.created_at,
+          updated_at: youtubeIntegration.updated_at,
+          hasAccessToken: !!youtubeIntegration.access_token,
+          metadata: youtubeIntegration.metadata,
+        })
+      } else {
+        console.log("No YouTube integration found in database")
+      }
+
       // Debug: Check specifically for OneDrive
       const onedriveIntegration = data?.find((i) => i.provider === "onedrive")
       if (onedriveIntegration) {
@@ -472,7 +488,14 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
       const { authUrl } = await response.json()
       console.log("Generated auth URL, redirecting...")
 
-      window.location.href = authUrl
+      // For Teams, add a timestamp to prevent caching issues
+      if (providerId === "teams") {
+        const url = new URL(authUrl)
+        url.searchParams.append("_t", Date.now().toString())
+        window.location.href = url.toString()
+      } else {
+        window.location.href = authUrl
+      }
     } catch (error: any) {
       console.error("Failed to connect integration:", error)
       throw error
@@ -570,12 +593,31 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
       const success = urlParams.get("success")
       const provider = urlParams.get("provider")
 
-      if (success && provider) {
+      if ((success === "true" || success === "onedrive_connected") && provider) {
         console.log(`OAuth success for ${provider}, refreshing integrations...`)
-        // Add a longer delay to ensure database operations are complete
-        setTimeout(() => {
-          get().fetchIntegrations(true)
-        }, 2000)
+
+        // Immediate refresh
+        get().fetchIntegrations(true)
+
+        // Additional refreshes with longer delays for OneDrive
+        if (provider === "onedrive") {
+          setTimeout(() => {
+            get().fetchIntegrations(true)
+          }, 1500)
+
+          setTimeout(() => {
+            get().fetchIntegrations(true)
+          }, 3000)
+
+          setTimeout(() => {
+            get().fetchIntegrations(true)
+          }, 5000)
+        } else {
+          // Standard refresh for other providers
+          setTimeout(() => {
+            get().fetchIntegrations(true)
+          }, 2000)
+        }
 
         // Clean up URL parameters
         const newUrl = window.location.pathname
