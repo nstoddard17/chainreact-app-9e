@@ -10,7 +10,9 @@ export class TwitterOAuthService {
     const clientSecret = process.env.TWITTER_CLIENT_SECRET
 
     if (!clientId || !clientSecret) {
-      throw new Error("Missing X (Twitter) OAuth configuration")
+      throw new Error(
+        "Missing X (Twitter) OAuth configuration. Please check NEXT_PUBLIC_TWITTER_CLIENT_ID and TWITTER_CLIENT_SECRET environment variables.",
+      )
     }
 
     return { clientId, clientSecret }
@@ -20,6 +22,7 @@ export class TwitterOAuthService {
     const { clientId } = this.getClientCredentials()
     const redirectUri = this.getRedirectUri(baseUrl)
 
+    // Use only the essential scopes that Twitter definitely supports
     const scopes = ["tweet.read", "tweet.write", "users.read", "offline.access"]
 
     const state = btoa(
@@ -28,10 +31,16 @@ export class TwitterOAuthService {
         reconnect,
         integrationId,
         userId,
-        requireFullScopes: true,
         timestamp: Date.now(),
       }),
     )
+
+    console.log("Twitter OAuth URL generation:", {
+      clientId,
+      redirectUri,
+      scopes,
+      baseUrl,
+    })
 
     const params = new URLSearchParams({
       response_type: "code",
@@ -43,12 +52,16 @@ export class TwitterOAuthService {
       code_challenge_method: "plain",
     })
 
-    return `https://twitter.com/i/oauth2/authorize?${params.toString()}`
+    const authUrl = `https://twitter.com/i/oauth2/authorize?${params.toString()}`
+    console.log("Generated Twitter auth URL:", authUrl)
+
+    return authUrl
   }
 
   static getRedirectUri(baseUrl: string): string {
-    // Use dynamic redirect URI based on environment
-    return `${baseUrl}/api/integrations/twitter/callback`
+    // Ensure we're using the exact same URL format that's registered in Twitter
+    const cleanBaseUrl = baseUrl.replace(/\/$/, "") // Remove trailing slash
+    return `${cleanBaseUrl}/api/integrations/twitter/callback`
   }
 
   static async handleCallback(
@@ -60,7 +73,7 @@ export class TwitterOAuthService {
   ): Promise<TwitterOAuthResult> {
     try {
       const stateData = JSON.parse(atob(state))
-      const { provider, reconnect, integrationId, requireFullScopes } = stateData
+      const { provider, reconnect, integrationId } = stateData
 
       if (provider !== "twitter") {
         throw new Error("Invalid provider in state")
@@ -68,6 +81,13 @@ export class TwitterOAuthService {
 
       const { clientId, clientSecret } = this.getClientCredentials()
       const redirectUri = this.getRedirectUri(baseUrl)
+
+      console.log("Twitter token exchange:", {
+        clientId,
+        redirectUri,
+        hasCode: !!code,
+        hasClientSecret: !!clientSecret,
+      })
 
       const tokenResponse = await fetch("https://api.twitter.com/2/oauth2/token", {
         method: "POST",
@@ -86,30 +106,19 @@ export class TwitterOAuthService {
 
       if (!tokenResponse.ok) {
         const errorData = await tokenResponse.text()
+        console.error("Twitter token exchange failed:", errorData)
         throw new Error(`Token exchange failed: ${errorData}`)
       }
 
       const tokenData = await tokenResponse.json()
       const { access_token, refresh_token, expires_in, scope } = tokenData
 
-      // Validate scopes if required
-      if (requireFullScopes) {
-        const grantedScopes = scope ? scope.split(" ") : []
-        const requiredScopes = ["tweet.read", "tweet.write", "users.read"]
-        const missingScopes = requiredScopes.filter((s) => !grantedScopes.includes(s))
-
-        if (missingScopes.length > 0) {
-          console.error("X (Twitter) scope validation failed:", { grantedScopes, missingScopes })
-          return {
-            success: false,
-            redirectUrl: `${baseUrl}/integrations?error=insufficient_scopes&provider=twitter&message=${encodeURIComponent(
-              `Your X connection is missing required permissions: ${missingScopes.join(", ")}. Please reconnect and accept all scopes.`,
-            )}`,
-            error: "Insufficient scopes",
-          }
-        }
-        console.log("X (Twitter) scopes validated successfully:", grantedScopes)
-      }
+      console.log("Twitter token exchange successful:", {
+        hasAccessToken: !!access_token,
+        hasRefreshToken: !!refresh_token,
+        expiresIn: expires_in,
+        scope,
+      })
 
       const userResponse = await fetch("https://api.twitter.com/2/users/me", {
         headers: {
@@ -119,6 +128,7 @@ export class TwitterOAuthService {
 
       if (!userResponse.ok) {
         const errorData = await userResponse.text()
+        console.error("Twitter user info failed:", errorData)
         throw new Error(`Failed to get user info: ${errorData}`)
       }
 
@@ -138,7 +148,8 @@ export class TwitterOAuthService {
           username: user.username,
           user_name: user.name,
           connected_at: new Date().toISOString(),
-          scopes_validated: requireFullScopes,
+          access_token, // Backup storage
+          refresh_token, // Backup storage
         },
       }
 
@@ -159,9 +170,10 @@ export class TwitterOAuthService {
 
       return {
         success: true,
-        redirectUrl: `${baseUrl}/integrations?success=twitter_connected&provider=twitter&scopes_validated=${requireFullScopes}`,
+        redirectUrl: `${baseUrl}/integrations?success=twitter_connected&provider=twitter&t=${Date.now()}`,
       }
     } catch (error: any) {
+      console.error("Twitter OAuth callback error:", error)
       return {
         success: false,
         redirectUrl: `${baseUrl}/integrations?error=callback_failed&provider=twitter&message=${encodeURIComponent(error.message)}`,

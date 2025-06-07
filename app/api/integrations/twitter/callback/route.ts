@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
+import { TwitterOAuthService } from "@/lib/oauth/twitter"
 
 // Use direct Supabase client with service role for reliable database operations
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -21,12 +22,23 @@ export async function GET(request: NextRequest) {
   const code = searchParams.get("code")
   const state = searchParams.get("state")
   const error = searchParams.get("error")
+  const errorDescription = searchParams.get("error_description")
 
-  console.log("X (Twitter) OAuth callback:", { code: !!code, state, error, baseUrl })
+  console.log("X (Twitter) OAuth callback received:", {
+    hasCode: !!code,
+    hasState: !!state,
+    error,
+    errorDescription,
+    baseUrl,
+    fullUrl: request.url,
+  })
 
   if (error) {
-    console.error("X (Twitter) OAuth error:", error)
-    return NextResponse.redirect(new URL("/integrations?error=oauth_error&provider=twitter", baseUrl))
+    console.error("X (Twitter) OAuth error:", { error, errorDescription })
+    const errorMessage = errorDescription || error
+    return NextResponse.redirect(
+      new URL(`/integrations?error=oauth_error&provider=twitter&message=${encodeURIComponent(errorMessage)}`, baseUrl),
+    )
   }
 
   if (!code || !state) {
@@ -52,137 +64,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL("/integrations?error=missing_user_id&provider=twitter", baseUrl))
     }
 
-    const clientId = process.env.NEXT_PUBLIC_TWITTER_CLIENT_ID
-    const clientSecret = process.env.TWITTER_CLIENT_SECRET
+    console.log("Processing Twitter OAuth for user:", userId)
 
-    if (!clientId || !clientSecret) {
-      console.error("Missing X (Twitter) client ID or secret")
-      return NextResponse.redirect(new URL("/integrations?error=missing_client_credentials&provider=twitter", baseUrl))
-    }
+    // Use the TwitterOAuthService to handle the callback
+    const result = await TwitterOAuthService.handleCallback(code, state, baseUrl, supabase, userId)
 
-    // Use dynamic redirect URI
-    const redirectUri = `${baseUrl}/api/integrations/twitter/callback`
-
-    console.log("Exchanging code for token with:", {
-      clientId,
-      redirectUri,
-      hasClientSecret: !!clientSecret,
-    })
-
-    // Exchange code for token
-    const tokenResponse = await fetch("https://api.twitter.com/2/oauth2/token", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        Authorization: `Basic ${Buffer.from(clientId + ":" + clientSecret).toString("base64")}`,
-      },
-      body: new URLSearchParams({
-        code,
-        grant_type: "authorization_code",
-        client_id: clientId,
-        redirect_uri: redirectUri,
-        code_verifier: "challenge",
-      }),
-    })
-
-    if (!tokenResponse.ok) {
-      const errorText = await tokenResponse.text()
-      console.error("X (Twitter) token exchange failed:", errorText)
-      return NextResponse.redirect(new URL("/integrations?error=token_exchange_failed&provider=twitter", baseUrl))
-    }
-
-    const tokenData = await tokenResponse.json()
-    const { access_token, refresh_token, expires_in, scope } = tokenData
-
-    console.log("Token exchange successful:", {
-      hasAccessToken: !!access_token,
-      hasRefreshToken: !!refresh_token,
-      expiresIn: expires_in,
-      scope,
-    })
-
-    // Get user info
-    const userResponse = await fetch("https://api.twitter.com/2/users/me", {
-      headers: {
-        Authorization: `Bearer ${access_token}`,
-      },
-    })
-
-    if (!userResponse.ok) {
-      const errorText = await userResponse.text()
-      console.error("X (Twitter) user info failed:", errorText)
-      return NextResponse.redirect(new URL("/integrations?error=user_info_failed&provider=twitter", baseUrl))
-    }
-
-    const userData = await userResponse.json()
-    const user = userData.data
-    const now = new Date().toISOString()
-
-    console.log("User info retrieved:", {
-      userId: user.id,
-      username: user.username,
-      name: user.name,
-    })
-
-    // Check if integration exists
-    const { data: existingIntegration } = await supabase
-      .from("integrations")
-      .select("id")
-      .eq("user_id", userId)
-      .eq("provider", "twitter")
-      .maybeSingle()
-
-    console.log("Existing integration check:", { exists: !!existingIntegration })
-
-    const integrationData = {
-      user_id: userId,
-      provider: "twitter",
-      provider_user_id: user.id,
-      access_token,
-      refresh_token,
-      expires_at: expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null,
-      status: "connected",
-      scopes: scope ? scope.split(" ") : [],
-      metadata: {
-        username: user.username,
-        user_name: user.name,
-        connected_at: now,
-        scopes_validated: true,
-        access_token, // Store in metadata as backup
-        refresh_token, // Store in metadata as backup
-      },
-      updated_at: now,
-    }
-
-    if (existingIntegration) {
-      console.log("Updating existing integration:", existingIntegration.id)
-      const { error } = await supabase.from("integrations").update(integrationData).eq("id", existingIntegration.id)
-
-      if (error) {
-        console.error("Error updating X (Twitter) integration:", error)
-        return NextResponse.redirect(new URL("/integrations?error=database_update_failed&provider=twitter", baseUrl))
-      }
+    if (result.success) {
+      console.log("Twitter OAuth successful, redirecting to:", result.redirectUrl)
+      // Add a delay to ensure database operations complete
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+      return NextResponse.redirect(new URL(result.redirectUrl))
     } else {
-      console.log("Creating new integration")
-      const { error } = await supabase.from("integrations").insert({
-        ...integrationData,
-        created_at: now,
-      })
-
-      if (error) {
-        console.error("Error inserting X (Twitter) integration:", error)
-        return NextResponse.redirect(new URL("/integrations?error=database_insert_failed&provider=twitter", baseUrl))
-      }
+      console.error("Twitter OAuth failed:", result.error)
+      return NextResponse.redirect(new URL(result.redirectUrl))
     }
-
-    console.log("Integration saved successfully")
-
-    // Add a delay to ensure database operations complete
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-
-    return NextResponse.redirect(
-      new URL(`/integrations?success=twitter_connected&provider=twitter&t=${Date.now()}`, baseUrl),
-    )
   } catch (error: any) {
     console.error("X (Twitter) OAuth callback error:", error)
     return NextResponse.redirect(

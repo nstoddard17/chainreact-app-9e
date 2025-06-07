@@ -124,18 +124,13 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ error: "X (Twitter) OAuth not configured" }, { status: 503 })
         }
 
-        const twitterScopes = ["tweet.read", "tweet.write", "users.read", "offline.access"]
-        const twitterState = btoa(JSON.stringify({ provider: "twitter", userId: currentUserId }))
-
-        authUrl = `https://twitter.com/i/oauth2/authorize?${new URLSearchParams({
-          response_type: "code",
-          client_id: twitterClientId,
-          redirect_uri: `${baseUrl}/api/integrations/twitter/callback`,
-          scope: twitterScopes.join(" "),
-          state: twitterState,
-          code_challenge: "challenge",
-          code_challenge_method: "plain",
-        }).toString()}`
+        try {
+          const { TwitterOAuthService } = await import("@/lib/oauth/twitter")
+          authUrl = TwitterOAuthService.generateAuthUrl(baseUrl, false, undefined, currentUserId)
+        } catch (error: any) {
+          console.error("Twitter auth URL generation error:", error)
+          return NextResponse.json({ error: error.message }, { status: 500 })
+        }
         break
 
       case "teams":
