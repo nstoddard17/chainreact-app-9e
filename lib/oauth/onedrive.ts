@@ -1,5 +1,4 @@
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
-
 export class OneDriveOAuthService {
   private static getClientCredentials() {
     const clientId = process.env.NEXT_PUBLIC_ONEDRIVE_CLIENT_ID
@@ -13,20 +12,10 @@ export class OneDriveOAuthService {
   }
 
   static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string, userId?: string): string {
-    console.log("OneDrive generateAuthUrl called with:", { baseUrl, reconnect, integrationId, userId })
-
     const { clientId } = this.getClientCredentials()
     const redirectUri = `${getBaseUrl()}/api/integrations/onedrive/callback`
 
-    console.log("OneDrive OAuth config:", { clientId: clientId?.substring(0, 8) + "...", redirectUri })
-
-    // Microsoft Graph scopes - be very explicit about what we need
-    const scopes = [
-      "https://graph.microsoft.com/User.Read",
-      "https://graph.microsoft.com/Files.ReadWrite.All",
-      "https://graph.microsoft.com/Sites.ReadWrite.All",
-      "offline_access",
-    ]
+    const scopes = ["openid", "profile", "email", "offline_access", "Files.ReadWrite.All", "Sites.ReadWrite.All"]
 
     const state = btoa(
       JSON.stringify({
@@ -38,23 +27,16 @@ export class OneDriveOAuthService {
       }),
     )
 
-    console.log("OneDrive state data:", { provider: "onedrive", userId, reconnect, integrationId })
-
     const params = new URLSearchParams({
       client_id: clientId,
       redirect_uri: redirectUri,
       response_type: "code",
       scope: scopes.join(" "),
       response_mode: "query",
-      prompt: "consent", // Force consent screen
       state,
     })
 
-    const authUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`
-    console.log("Generated OneDrive authUrl:", authUrl)
-    console.log("OneDrive scopes being requested:", scopes.join(" "))
-
-    return authUrl
+    return `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`
   }
 
   static getRedirectUri(): string {
@@ -99,7 +81,6 @@ export class OneDriveOAuthService {
       const tokenData = await tokenResponse.json()
       const { access_token, refresh_token, expires_in, scope } = tokenData
 
-      // Use the correct /me endpoint
       const userResponse = await fetch("https://graph.microsoft.com/v1.0/me", {
         headers: {
           Authorization: `Bearer ${access_token}`,
@@ -123,7 +104,7 @@ export class OneDriveOAuthService {
         scopes: scope ? scope.split(" ") : [],
         metadata: {
           display_name: userData.displayName,
-          email: userData.userPrincipalName || userData.mail,
+          email: userData.userPrincipalName,
           connected_at: new Date().toISOString(),
         },
       }
@@ -155,44 +136,4 @@ export class OneDriveOAuthService {
       }
     }
   }
-}
-
-export async function generateAuthUrl(state: string): Promise<string> {
-  console.log("Generating OneDrive auth URL with state:", state)
-
-  const service = new OneDriveOAuthService()
-  const authUrl = service.generateAuthUrl(state)
-
-  console.log("Generated OneDrive auth URL:", authUrl)
-  return authUrl
-}
-
-export async function handleCallback(code: string): Promise<any> {
-  const clientId = process.env.NEXT_PUBLIC_ONEDRIVE_CLIENT_ID
-  const clientSecret = process.env.ONEDRIVE_CLIENT_SECRET
-  const redirectUri = `${getBaseUrl()}/api/integrations/onedrive/callback`
-
-  const tokenResponse = await fetch("https://login.microsoftonline.com/common/oauth2/v2.0/token", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: new URLSearchParams({
-      client_id: clientId!,
-      client_secret: clientSecret!,
-      code,
-      redirect_uri: redirectUri,
-      grant_type: "authorization_code",
-    }),
-  })
-
-  const tokenData = await tokenResponse.json()
-  console.log("OneDrive token data:", {
-    hasAccessToken: !!tokenData.access_token,
-    hasRefreshToken: !!tokenData.refresh_token,
-    scope: tokenData.scope,
-    tokenType: tokenData.token_type,
-  })
-
-  return tokenData
 }

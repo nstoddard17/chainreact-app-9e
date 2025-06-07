@@ -85,45 +85,29 @@ export async function GET(req: NextRequest) {
       return NextResponse.redirect(`${baseUrl}/integrations?error=token_request_failed&provider=onedrive`)
     }
 
-    const tokenData = await response.json()
-    const accessToken = tokenData.access_token
-    const refreshToken = tokenData.refresh_token
-    const expires_in = tokenData.expires_in
-
-    console.log("OneDrive token data:", {
-      hasAccessToken: !!accessToken,
-      hasRefreshToken: !!refreshToken,
-      scope: tokenData.scope,
-      tokenType: tokenData.token_type,
-    })
+    const data = await response.json()
+    const accessToken = data.access_token
+    const refreshToken = data.refresh_token
+    const expires_in = data.expires_in
 
     if (!accessToken || !refreshToken) {
       console.error("Missing access token or refresh token")
       return NextResponse.redirect(`${baseUrl}/integrations?error=missing_tokens&provider=onedrive`)
     }
 
-    // Get user info using the correct /me endpoint
-    console.log("Making Graph API request to /me with token:", accessToken.substring(0, 20) + "...")
+    // Get user info
     const userResponse = await fetch("https://graph.microsoft.com/v1.0/me", {
       headers: {
         Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
       },
     })
 
-    console.log("Graph API response status:", userResponse.status)
-
     if (!userResponse.ok) {
-      const errorText = await userResponse.text()
-      console.error("Failed to get OneDrive user info:", errorText)
-      return NextResponse.redirect(
-        `${baseUrl}/integrations?error=user_info_failed&provider=onedrive&details=${encodeURIComponent(errorText)}`,
-      )
+      console.error("Failed to get OneDrive user info:", await userResponse.text())
+      return NextResponse.redirect(`${baseUrl}/integrations?error=user_info_failed&provider=onedrive`)
     }
 
     const userData = await userResponse.json()
-    console.log("User data received:", userData)
-
     const now = new Date().toISOString()
 
     // Check if integration exists
@@ -142,10 +126,10 @@ export async function GET(req: NextRequest) {
       refresh_token: refreshToken,
       expires_at: expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null,
       status: "connected",
-      scopes: tokenData.scope ? tokenData.scope.split(" ") : [],
+      scopes: data.scope ? data.scope.split(" ") : [],
       metadata: {
         display_name: userData.displayName,
-        email: userData.userPrincipalName || userData.mail,
+        email: userData.userPrincipalName,
         connected_at: now,
       },
       updated_at: now,
