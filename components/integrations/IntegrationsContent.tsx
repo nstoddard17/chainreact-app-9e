@@ -70,7 +70,7 @@ export default function IntegrationsContent() {
             setTimeout(async () => {
               try {
                 await fetchIntegrations(true)
-                console.log("Second refresh completed")
+                console.log("Second refresh completed for", provider)
               } catch (err) {
                 console.error("Error in second refresh:", err)
               }
@@ -79,11 +79,23 @@ export default function IntegrationsContent() {
             setTimeout(async () => {
               try {
                 await fetchIntegrations(true)
-                console.log("Third refresh completed")
+                console.log("Third refresh completed for", provider)
               } catch (err) {
                 console.error("Error in third refresh:", err)
               }
             }, 3000)
+
+            // Additional refresh for OneDrive specifically
+            if (provider === "onedrive") {
+              setTimeout(async () => {
+                try {
+                  await fetchIntegrations(true)
+                  console.log("Fourth refresh completed for OneDrive")
+                } catch (err) {
+                  console.error("Error in fourth refresh:", err)
+                }
+              }, 5000)
+            }
 
             toast({
               title: "Integration Connected",
@@ -96,7 +108,7 @@ export default function IntegrationsContent() {
         }
 
         refreshIntegrationsList()
-      } else if (error) {
+      } else if (error === "true") {
         const errorMsg = message || "Failed to connect integration"
         console.error("OAuth error:", { error, provider, message: errorMsg })
 
