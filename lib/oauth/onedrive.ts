@@ -1,5 +1,4 @@
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
-
 export class OneDriveOAuthService {
   private static getClientCredentials() {
     const clientId = process.env.NEXT_PUBLIC_ONEDRIVE_CLIENT_ID
@@ -14,7 +13,7 @@ export class OneDriveOAuthService {
 
   static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string, userId?: string): string {
     const { clientId } = this.getClientCredentials()
-    const redirectUri = `${baseUrl}/api/integrations/onedrive/callback`
+    const redirectUri = `${getBaseUrl()}/api/integrations/onedrive/callback`
 
     const scopes = ["openid", "profile", "email", "offline_access", "Files.ReadWrite.All", "Sites.ReadWrite.All"]
 
@@ -127,12 +126,12 @@ export class OneDriveOAuthService {
 
       return {
         success: true,
-        redirectUrl: `${getBaseUrl()}/integrations?success=true&provider=onedrive`,
+        redirectUrl: `${getBaseUrl()}/integrations?success=onedrive_connected`,
       }
     } catch (error: any) {
       return {
         success: false,
-        redirectUrl: `${getBaseUrl()}/integrations?error=true&provider=onedrive&message=${encodeURIComponent(error.message)}`,
+        redirectUrl: `${getBaseUrl()}/integrations?error=callback_failed&provider=onedrive&message=${encodeURIComponent(error.message)}`,
         error: error.message,
       }
     }
