@@ -164,10 +164,10 @@ export class TeamsOAuthService extends BaseOAuthService {
       }
 
       console.log("Teams: Saving integration data with scopes:", grantedScopes)
-      const integrationId = await saveIntegrationToDatabase(integrationData)
+      const savedIntegrationId = await saveIntegrationToDatabase(integrationData)
 
       try {
-        await validateAndUpdateIntegrationScopes(integrationId, grantedScopes)
+        await validateAndUpdateIntegrationScopes(savedIntegrationId, grantedScopes)
       } catch (err) {
         console.error("Teams scope validation failed:", err)
       }
