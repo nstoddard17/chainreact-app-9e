@@ -16,7 +16,15 @@ export class OneDriveOAuthService {
     const { clientId } = this.getClientCredentials()
     const redirectUri = `${getBaseUrl()}/api/integrations/onedrive/callback`
 
-    const scopes = ["openid", "profile", "email", "offline_access", "Files.ReadWrite.All", "Sites.ReadWrite.All"]
+    const scopes = [
+      "openid",
+      "profile",
+      "email",
+      "offline_access",
+      "User.Read",
+      "Files.ReadWrite.All",
+      "Sites.ReadWrite.All",
+    ]
 
     const state = btoa(
       JSON.stringify({

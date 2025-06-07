@@ -85,10 +85,17 @@ export async function GET(req: NextRequest) {
       return NextResponse.redirect(`${baseUrl}/integrations?error=token_request_failed&provider=onedrive`)
     }
 
-    const data = await response.json()
-    const accessToken = data.access_token
-    const refreshToken = data.refresh_token
-    const expires_in = data.expires_in
+    const tokenData = await response.json()
+    const accessToken = tokenData.access_token
+    const refreshToken = tokenData.refresh_token
+    const expires_in = tokenData.expires_in
+
+    console.log("OneDrive token data:", {
+      hasAccessToken: !!accessToken,
+      hasRefreshToken: !!refreshToken,
+      scope: tokenData.scope,
+      tokenType: tokenData.token_type,
+    })
 
     if (!accessToken || !refreshToken) {
       console.error("Missing access token or refresh token")
@@ -96,15 +103,23 @@ export async function GET(req: NextRequest) {
     }
 
     // Get user info
+    console.log("Making Graph API request with token:", accessToken.substring(0, 20) + "...")
     const userResponse = await fetch("https://graph.microsoft.com/v1.0/me", {
       headers: {
         Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
       },
     })
 
+    console.log("Graph API response status:", userResponse.status)
+    console.log("Graph API response headers:", Object.fromEntries(userResponse.headers.entries()))
+
     if (!userResponse.ok) {
-      console.error("Failed to get OneDrive user info:", await userResponse.text())
-      return NextResponse.redirect(`${baseUrl}/integrations?error=user_info_failed&provider=onedrive`)
+      const errorText = await userResponse.text()
+      console.error("Failed to get OneDrive user info:", errorText)
+      return NextResponse.redirect(
+        `${baseUrl}/integrations?error=user_info_failed&provider=onedrive&details=${encodeURIComponent(errorText)}`,
+      )
     }
 
     const userData = await userResponse.json()
@@ -126,7 +141,7 @@ export async function GET(req: NextRequest) {
       refresh_token: refreshToken,
       expires_at: expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null,
       status: "connected",
-      scopes: data.scope ? data.scope.split(" ") : [],
+      scopes: tokenData.scope ? tokenData.scope.split(" ") : [],
       metadata: {
         display_name: userData.displayName,
         email: userData.userPrincipalName,
