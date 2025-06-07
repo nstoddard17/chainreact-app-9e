@@ -15,7 +15,13 @@ export class OneDriveOAuthService {
     const { clientId } = this.getClientCredentials()
     const redirectUri = `${getBaseUrl()}/api/integrations/onedrive/callback`
 
-    const scopes = ["openid", "profile", "email", "offline_access", "Files.ReadWrite.All", "Sites.ReadWrite.All"]
+    // Microsoft Graph scopes - include User.Read for profile access
+    const scopes = [
+      "https://graph.microsoft.com/User.Read",
+      "https://graph.microsoft.com/Files.ReadWrite.All",
+      "https://graph.microsoft.com/Sites.ReadWrite.All",
+      "offline_access",
+    ]
 
     const state = btoa(
       JSON.stringify({
@@ -33,6 +39,7 @@ export class OneDriveOAuthService {
       response_type: "code",
       scope: scopes.join(" "),
       response_mode: "query",
+      prompt: "consent", // Force consent screen
       state,
     })
 

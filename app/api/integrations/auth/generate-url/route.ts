@@ -515,7 +515,9 @@ export async function POST(request: NextRequest) {
             client_id: process.env.NEXT_PUBLIC_ONEDRIVE_CLIENT_ID!,
             response_type: "code",
             redirect_uri: `${baseUrl}/api/integrations/onedrive/callback`,
-            scope: "Files.ReadWrite Files.ReadWrite.All offline_access",
+            scope:
+              "https://graph.microsoft.com/User.Read https://graph.microsoft.com/Files.ReadWrite.All https://graph.microsoft.com/Sites.ReadWrite.All offline_access",
+            prompt: "consent", // Force consent screen
             state: onedriveState,
           })
           authUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${onedriveParams.toString()}`
