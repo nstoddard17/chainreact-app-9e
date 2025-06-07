@@ -50,7 +50,6 @@
     "@radix-ui/react-tooltip": "latest",
     "@slack/web-api": "latest",
     "@supabase/auth-helpers-nextjs": "latest",
-    "@supabase/ssr": "latest",
     "@supabase/supabase-js": "latest",
     "@tidbcloud/serverless": "latest",
     "@types/better-sqlite3": "latest",
