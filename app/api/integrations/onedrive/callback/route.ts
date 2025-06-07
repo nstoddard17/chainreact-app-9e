@@ -157,7 +157,7 @@ export async function GET(req: NextRequest) {
     // Add a delay to ensure database operations complete
     await new Promise((resolve) => setTimeout(resolve, 500))
 
-    return NextResponse.redirect(`${baseUrl}/integrations?success=true&provider=onedrive&t=${Date.now()}`)
+    return NextResponse.redirect(`${baseUrl}/integrations?success=onedrive_connected&provider=onedrive&t=${Date.now()}`)
   } catch (e: any) {
     console.error("Error during OneDrive auth:", e)
     return NextResponse.redirect(
