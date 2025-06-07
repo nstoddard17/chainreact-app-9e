@@ -1,4 +1,5 @@
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
+
 export class OneDriveOAuthService {
   private static getClientCredentials() {
     const clientId = process.env.NEXT_PUBLIC_ONEDRIVE_CLIENT_ID
@@ -36,7 +37,10 @@ export class OneDriveOAuthService {
       state,
     })
 
-    return `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`
+    const authUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`
+    console.log("Generated OneDrive authUrl:", authUrl) // ADDED LOGGING
+
+    return authUrl
   }
 
   static getRedirectUri(): string {
