@@ -16,14 +16,12 @@ export class OneDriveOAuthService {
     const { clientId } = this.getClientCredentials()
     const redirectUri = `${getBaseUrl()}/api/integrations/onedrive/callback`
 
+    // Microsoft Graph scopes - be very explicit about what we need
     const scopes = [
-      "openid",
-      "profile",
-      "email",
+      "https://graph.microsoft.com/User.Read",
+      "https://graph.microsoft.com/Files.ReadWrite.All",
+      "https://graph.microsoft.com/Sites.ReadWrite.All",
       "offline_access",
-      "User.Read",
-      "Files.ReadWrite.All",
-      "Sites.ReadWrite.All",
     ]
 
     const state = btoa(
@@ -43,12 +41,11 @@ export class OneDriveOAuthService {
       scope: scopes.join(" "),
       response_mode: "query",
       prompt: "consent", // Force consent screen
-      access_type: "offline", // Ensure we get refresh tokens
       state,
     })
 
     const authUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`
-    console.log("Generated OneDrive authUrl:", authUrl) // ADDED LOGGING
+    console.log("Generated OneDrive authUrl:", authUrl)
 
     return authUrl
   }
@@ -95,6 +92,7 @@ export class OneDriveOAuthService {
       const tokenData = await tokenResponse.json()
       const { access_token, refresh_token, expires_in, scope } = tokenData
 
+      // Use the correct /me endpoint
       const userResponse = await fetch("https://graph.microsoft.com/v1.0/me", {
         headers: {
           Authorization: `Bearer ${access_token}`,
@@ -118,7 +116,7 @@ export class OneDriveOAuthService {
         scopes: scope ? scope.split(" ") : [],
         metadata: {
           display_name: userData.displayName,
-          email: userData.userPrincipalName,
+          email: userData.userPrincipalName || userData.mail,
           connected_at: new Date().toISOString(),
         },
       }

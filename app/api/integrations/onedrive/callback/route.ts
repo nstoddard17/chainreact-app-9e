@@ -102,8 +102,8 @@ export async function GET(req: NextRequest) {
       return NextResponse.redirect(`${baseUrl}/integrations?error=missing_tokens&provider=onedrive`)
     }
 
-    // Get user info
-    console.log("Making Graph API request with token:", accessToken.substring(0, 20) + "...")
+    // Get user info using the correct /me endpoint
+    console.log("Making Graph API request to /me with token:", accessToken.substring(0, 20) + "...")
     const userResponse = await fetch("https://graph.microsoft.com/v1.0/me", {
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -112,7 +112,6 @@ export async function GET(req: NextRequest) {
     })
 
     console.log("Graph API response status:", userResponse.status)
-    console.log("Graph API response headers:", Object.fromEntries(userResponse.headers.entries()))
 
     if (!userResponse.ok) {
       const errorText = await userResponse.text()
@@ -123,6 +122,8 @@ export async function GET(req: NextRequest) {
     }
 
     const userData = await userResponse.json()
+    console.log("User data received:", userData)
+
     const now = new Date().toISOString()
 
     // Check if integration exists
@@ -144,7 +145,7 @@ export async function GET(req: NextRequest) {
       scopes: tokenData.scope ? tokenData.scope.split(" ") : [],
       metadata: {
         display_name: userData.displayName,
-        email: userData.userPrincipalName,
+        email: userData.userPrincipalName || userData.mail,
         connected_at: now,
       },
       updated_at: now,
