@@ -42,6 +42,8 @@ export class OneDriveOAuthService {
       response_type: "code",
       scope: scopes.join(" "),
       response_mode: "query",
+      prompt: "consent", // Force consent screen
+      access_type: "offline", // Ensure we get refresh tokens
       state,
     })
 
