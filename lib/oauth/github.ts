@@ -44,7 +44,13 @@ export class GitHubOAuthService {
       scope: scopes.join(" "),
       state,
       prompt: "consent",
+      allow_signup: "true",
+      login: "",
+      response_type: "code",
     })
+
+    // Add cache-busting parameter to force fresh auth
+    params.append("t", Date.now().toString())
 
     return `https://github.com/login/oauth/authorize?${params.toString()}`
   }
