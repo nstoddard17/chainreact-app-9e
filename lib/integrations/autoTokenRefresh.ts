@@ -37,15 +37,36 @@ export async function withAutoRefresh<T>(
     throw new Error(`No active ${provider} integration found`)
   }
 
-  // Check if token needs refresh (within 30 minutes of expiry)
-  const now = Math.floor(Date.now() / 1000)
-  const expiresAt = integration.expires_at ? new Date(integration.expires_at).getTime() / 1000 : 0
-  const needsRefresh = expiresAt > 0 && expiresAt - now < 1800 // 30 minutes
+  const isGoogleOrMicrosoft = [
+    "google",
+    "youtube",
+    "gmail",
+    "google-calendar",
+    "google-docs",
+    "google-drive",
+    "google-sheets",
+    "teams",
+    "onedrive",
+  ].includes(provider)
+
+  // For Google/Microsoft, always refresh before API calls to ensure fresh tokens
+  // For others, only refresh if expiring soon
+  let needsRefresh = false
+
+  if (isGoogleOrMicrosoft && integration.refresh_token) {
+    // Always refresh Google/Microsoft tokens before API calls
+    needsRefresh = true
+  } else if (integration.expires_at) {
+    // For other providers, check if token expires within 30 minutes
+    const now = Math.floor(Date.now() / 1000)
+    const expiresAt = new Date(integration.expires_at).getTime() / 1000
+    needsRefresh = expiresAt - now < 1800 // 30 minutes
+  }
 
   let currentToken = integration.access_token
 
   if (needsRefresh) {
-    console.log(`Token for ${provider} expires soon, refreshing...`)
+    console.log(`Refreshing token for ${provider}...`)
     const refreshResult = await refreshTokenIfNeeded(integration)
 
     if (refreshResult.success && refreshResult.newToken) {
@@ -53,16 +74,19 @@ export async function withAutoRefresh<T>(
       console.log(`Successfully refreshed ${provider} token`)
     } else if (!refreshResult.success) {
       console.error(`Failed to refresh ${provider} token:`, refreshResult.message)
-      // Mark integration as disconnected
-      await supabase
-        .from("integrations")
-        .update({
-          status: "disconnected",
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", integration.id)
 
-      throw new Error(`Token refresh failed for ${provider}: ${refreshResult.message}`)
+      // For Google/Microsoft, don't mark as disconnected immediately - they should keep working
+      if (!isGoogleOrMicrosoft) {
+        await supabase
+          .from("integrations")
+          .update({
+            status: "disconnected",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", integration.id)
+
+        throw new Error(`Token refresh failed for ${provider}: ${refreshResult.message}`)
+      }
     }
   }
 
@@ -80,14 +104,16 @@ export async function withAutoRefresh<T>(
         console.log(`Retry with refreshed ${provider} token`)
         return await apiCall(refreshResult.newToken)
       } else {
-        // Mark as disconnected if refresh fails
-        await supabase
-          .from("integrations")
-          .update({
-            status: "disconnected",
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", integration.id)
+        // Only mark as disconnected if it's not Google/Microsoft or if refresh completely fails
+        if (!isGoogleOrMicrosoft) {
+          await supabase
+            .from("integrations")
+            .update({
+              status: "disconnected",
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", integration.id)
+        }
 
         throw new Error(`Authentication failed for ${provider} and token refresh unsuccessful`)
       }
@@ -123,6 +149,7 @@ function isAuthError(error: any): boolean {
 
 /**
  * Background job to refresh tokens that are expiring soon
+ * Runs more frequently for Google/Microsoft tokens
  */
 export async function refreshExpiringTokens(): Promise<void> {
   const supabase = createAdminSupabaseClient()
@@ -132,38 +159,62 @@ export async function refreshExpiringTokens(): Promise<void> {
   }
 
   try {
-    // Find integrations with tokens expiring in the next 2 hours
-    const twoHoursFromNow = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString()
-
+    // Get all connected integrations with refresh tokens
     const { data: integrations, error } = await supabase
       .from("integrations")
       .select("*")
       .eq("status", "connected")
       .not("refresh_token", "is", null)
-      .lt("expires_at", twoHoursFromNow)
 
     if (error) {
-      console.error("Error fetching expiring integrations:", error)
+      console.error("Error fetching integrations for refresh:", error)
       return
     }
 
     if (!integrations || integrations.length === 0) {
-      console.log("No tokens need refreshing")
+      console.log("No integrations with refresh tokens found")
       return
     }
 
-    console.log(`Found ${integrations.length} tokens that need refreshing`)
+    console.log(`Found ${integrations.length} integrations with refresh tokens`)
 
     // Refresh each token
     for (const integration of integrations) {
       try {
-        const result = await refreshTokenIfNeeded(integration)
-        if (result.success) {
-          console.log(`Successfully refreshed token for ${integration.provider} (user: ${integration.user_id})`)
-        } else {
-          console.warn(
-            `Failed to refresh token for ${integration.provider} (user: ${integration.user_id}): ${result.message}`,
-          )
+        const isGoogleOrMicrosoft = [
+          "google",
+          "youtube",
+          "gmail",
+          "google-calendar",
+          "google-docs",
+          "google-drive",
+          "google-sheets",
+          "teams",
+          "onedrive",
+        ].includes(integration.provider)
+
+        // For Google/Microsoft, refresh more frequently
+        // For others, only refresh if expiring soon
+        let shouldRefresh = false
+
+        if (isGoogleOrMicrosoft) {
+          // Refresh Google/Microsoft tokens every time the job runs
+          shouldRefresh = true
+        } else if (integration.expires_at) {
+          // For others, only refresh if expiring in next 2 hours
+          const twoHoursFromNow = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString()
+          shouldRefresh = integration.expires_at < twoHoursFromNow
+        }
+
+        if (shouldRefresh) {
+          const result = await refreshTokenIfNeeded(integration)
+          if (result.success) {
+            console.log(`Successfully refreshed token for ${integration.provider} (user: ${integration.user_id})`)
+          } else {
+            console.warn(
+              `Failed to refresh token for ${integration.provider} (user: ${integration.user_id}): ${result.message}`,
+            )
+          }
         }
       } catch (error) {
         console.error(`Error refreshing token for ${integration.provider} (user: ${integration.user_id}):`, error)

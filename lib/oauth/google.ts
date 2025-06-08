@@ -35,6 +35,8 @@ export class GoogleOAuthService {
       "https://www.googleapis.com/auth/gmail.send",
       "https://www.googleapis.com/auth/gmail.modify",
       "https://www.googleapis.com/auth/documents",
+      "https://www.googleapis.com/auth/youtube.readonly",
+      "https://www.googleapis.com/auth/youtube.upload",
     ]
 
     const state = userId ? generateOAuthState("google", userId, { reconnect, integrationId }) : ""
@@ -44,8 +46,9 @@ export class GoogleOAuthService {
       redirect_uri: redirectUri,
       response_type: "code",
       scope: scopes.join(" "),
-      access_type: "offline",
+      access_type: "offline", // Critical for refresh tokens
       prompt: "consent", // Always force consent to ensure refresh token
+      include_granted_scopes: "true", // Include previously granted scopes
       ...(state && { state }),
     })
 
@@ -75,7 +78,14 @@ export class GoogleOAuthService {
       throw new Error(`Google token exchange failed: ${error}`)
     }
 
-    return response.json()
+    const tokenData = await response.json()
+
+    // Ensure we got a refresh token
+    if (!tokenData.refresh_token) {
+      console.warn("Google did not provide a refresh token. User may need to revoke and re-authorize.")
+    }
+
+    return tokenData
   }
 
   static async getUserInfo(accessToken: string): Promise<any> {
