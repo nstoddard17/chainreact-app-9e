@@ -41,7 +41,7 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
       await disconnectIntegration(provider.integration.id)
       toast({
         title: "Integration Disconnected",
-        description: `${provider.name} has been completely disconnected and all permissions cleared`,
+        description: `${provider.name} has been disconnected`,
       })
     } catch (error: any) {
       console.error(`Failed to disconnect ${provider.name}:`, error)
