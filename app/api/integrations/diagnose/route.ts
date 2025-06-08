@@ -55,10 +55,10 @@ const COMPONENT_SCOPE_MAPPING = {
   gmail_send: { scopes: ["https://www.googleapis.com/auth/gmail.send"], provider: "gmail" },
   gmail_modify: { scopes: ["https://www.googleapis.com/auth/gmail.modify"], provider: "gmail" },
 
-  // YouTube components
+  // YouTube components - only basic functionality
   youtube_get_channel: { scopes: ["https://www.googleapis.com/auth/youtube.readonly"], provider: "youtube" },
   youtube_get_videos: { scopes: ["https://www.googleapis.com/auth/youtube.readonly"], provider: "youtube" },
-  youtube_upload_video: { scopes: ["https://www.googleapis.com/auth/youtube.upload"], provider: "youtube" },
+  youtube_get_analytics: { scopes: ["https://www.googleapis.com/auth/youtube.readonly"], provider: "youtube" },
 
   // GitHub components - basic functionality
   github_get_user: { scopes: ["user:email"], provider: "github" },
@@ -158,6 +158,7 @@ async function refreshGoogleToken(
 async function verifyGoogleToken(
   accessToken: string,
   refreshToken?: string,
+  provider?: string,
 ): Promise<{ valid: boolean; scopes: string[]; error?: string; newAccessToken?: string }> {
   try {
     // First try with the current access token
@@ -199,6 +200,25 @@ async function verifyGoogleToken(
     }
 
     const scopes = tokenInfo.scope ? tokenInfo.scope.split(" ") : []
+
+    // Special handling for YouTube - check if we can access the YouTube API
+    if (provider === "youtube") {
+      try {
+        const youtubeResponse = await fetch(
+          `https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true&access_token=${accessToken}`,
+        )
+        if (youtubeResponse.ok) {
+          console.log("YouTube API access confirmed")
+          // Ensure we include the YouTube readonly scope if the API call succeeds
+          if (!scopes.includes("https://www.googleapis.com/auth/youtube.readonly")) {
+            scopes.push("https://www.googleapis.com/auth/youtube.readonly")
+          }
+        }
+      } catch (error) {
+        console.log("YouTube API test failed:", error)
+      }
+    }
+
     return { valid: true, scopes }
   } catch (error: any) {
     return { valid: false, scopes: [], error: error.message }
@@ -649,7 +669,7 @@ export async function GET(request: NextRequest) {
             if (googleIntegration?.metadata?.access_token || googleIntegration?.access_token) {
               const googleToken = googleIntegration.metadata?.access_token || googleIntegration.access_token
               const googleRefreshToken = googleIntegration.metadata?.refresh_token || googleIntegration.refresh_token
-              verificationResult = await verifyGoogleToken(googleToken, googleRefreshToken)
+              verificationResult = await verifyGoogleToken(googleToken, googleRefreshToken, provider)
 
               // If we got a new access token, update the database
               if (verificationResult.newAccessToken) {
@@ -672,7 +692,7 @@ export async function GET(request: NextRequest) {
                 }
               }
             } else {
-              verificationResult = await verifyGoogleToken(accessToken)
+              verificationResult = await verifyGoogleToken(accessToken, undefined, provider)
             }
             break
           case "teams":
