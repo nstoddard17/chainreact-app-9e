@@ -257,9 +257,33 @@ async function verifyGoogleToken(
     if (provider === "youtube") {
       try {
         console.log("Verifying YouTube API access specifically...")
-        const youtubeResponse = await fetch(
-          `https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true&access_token=${accessToken}`,
+        console.log("YouTube token length:", accessToken.length)
+        console.log("YouTube token starts with:", accessToken.substring(0, 10) + "...")
+
+        // First verify the token is valid for Google APIs
+        const tokenInfoResponse = await fetch(
+          `https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=${accessToken}`,
         )
+        const tokenInfo = await tokenInfoResponse.json()
+
+        if (tokenInfo.error) {
+          console.log("YouTube token validation failed:", tokenInfo.error)
+          return {
+            valid: false,
+            scopes: [],
+            error: `YouTube token invalid: ${tokenInfo.error_description || tokenInfo.error}`,
+          }
+        }
+
+        console.log("YouTube token is valid, testing API access...")
+        console.log("YouTube token scopes:", tokenInfo.scope)
+
+        const youtubeResponse = await fetch(`https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true`, {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            Accept: "application/json",
+          },
+        })
 
         if (youtubeResponse.ok) {
           const youtubeData = await youtubeResponse.json()
@@ -273,21 +297,22 @@ async function verifyGoogleToken(
           ]
 
           // Return the intersection of granted scopes and YouTube scopes
-          const validYouTubeScopes = youtubeScopes.filter((scope) => scopes.includes(scope))
+          const grantedScopes = tokenInfo.scope ? tokenInfo.scope.split(" ") : []
+          const validYouTubeScopes = youtubeScopes.filter((scope) => grantedScopes.includes(scope))
 
           // If we have YouTube readonly scope, we can use YouTube features
           if (validYouTubeScopes.includes("https://www.googleapis.com/auth/youtube.readonly")) {
             return { valid: true, scopes: validYouTubeScopes }
           } else {
-            return { valid: false, scopes: [], error: "Missing YouTube readonly scope" }
+            return { valid: false, scopes: grantedScopes, error: "Missing YouTube readonly scope" }
           }
         } else {
           const errorData = await youtubeResponse.json()
-          console.log("YouTube API test failed:", errorData)
+          console.log("YouTube API test failed:", youtubeResponse.status, errorData)
           return {
             valid: false,
             scopes: [],
-            error: `YouTube API access denied: ${errorData.error?.message || "Unknown error"}`,
+            error: `YouTube API access denied (${youtubeResponse.status}): ${errorData.error?.message || "Authentication required"}`,
           }
         }
       } catch (error) {
@@ -745,11 +770,35 @@ export async function GET(request: NextRequest) {
           case "youtube":
             // YouTube gets its own independent verification using Google OAuth
             console.log("Verifying YouTube with Google OAuth...")
+            console.log("YouTube access token exists:", !!accessToken)
+            console.log("YouTube refresh token exists:", !!(integration.refresh_token || metadata?.refresh_token))
+
             verificationResult = await verifyGoogleToken(
               accessToken,
               integration.refresh_token || metadata?.refresh_token,
               "youtube",
             )
+
+            // If we got a new access token from refresh, update this integration too
+            if (verificationResult.newAccessToken) {
+              try {
+                await supabase
+                  .from("integrations")
+                  .update({
+                    access_token: verificationResult.newAccessToken,
+                    metadata: {
+                      ...metadata,
+                      access_token: verificationResult.newAccessToken,
+                      last_refreshed: new Date().toISOString(),
+                    },
+                    updated_at: new Date().toISOString(),
+                  })
+                  .eq("id", integration.id)
+                console.log("Updated YouTube access token in database")
+              } catch (updateError) {
+                console.error("Failed to update YouTube token:", updateError)
+              }
+            }
             break
 
           case "twitter":
