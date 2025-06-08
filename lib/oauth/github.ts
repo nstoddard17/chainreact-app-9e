@@ -43,6 +43,7 @@ export class GitHubOAuthService {
       redirect_uri: redirectUri,
       scope: scopes.join(" "),
       state,
+      prompt: "consent",
     })
 
     return `https://github.com/login/oauth/authorize?${params.toString()}`
