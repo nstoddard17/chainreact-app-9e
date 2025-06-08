@@ -44,6 +44,27 @@ export default function IntegrationsContent() {
     loadData()
   }, [fetchIntegrations])
 
+  // Debug integrations data
+  useEffect(() => {
+    if (integrations.length > 0) {
+      console.log(
+        "All integrations:",
+        integrations.map((i) => ({
+          id: i.id,
+          provider: i.provider,
+          status: i.status,
+        })),
+      )
+
+      // Check specifically for Trello and Teams
+      const trelloIntegration = integrations.find((i) => i.provider && i.provider.toLowerCase() === "trello")
+      const teamsIntegration = integrations.find((i) => i.provider && i.provider.toLowerCase() === "teams")
+
+      console.log("Trello integration:", trelloIntegration)
+      console.log("Teams integration:", teamsIntegration)
+    }
+  }, [integrations])
+
   // Handle OAuth callback messages
   useEffect(() => {
     if (oauthProcessed) return
@@ -133,10 +154,24 @@ export default function IntegrationsContent() {
     return matchesSearch && matchesCategory
   })
 
-  // Merge providers with integration status
+  // Merge providers with integration status - FIXED to handle case-insensitive matching and null values
   const providersWithStatus = filteredProviders.map((provider) => {
-    const connectedIntegration = integrations.find((i) => i.provider === provider.id && i.status === "connected")
-    const disconnectedIntegration = integrations.find((i) => i.provider === provider.id && i.status === "disconnected")
+    // More robust provider matching - case insensitive and handles null values
+    const connectedIntegration = integrations.find(
+      (i) =>
+        i.provider &&
+        provider.id &&
+        i.provider.toLowerCase() === provider.id.toLowerCase() &&
+        (i.status === "connected" || i.status === undefined),
+    )
+
+    const disconnectedIntegration = integrations.find(
+      (i) =>
+        i.provider &&
+        provider.id &&
+        i.provider.toLowerCase() === provider.id.toLowerCase() &&
+        i.status === "disconnected",
+    )
 
     return {
       ...provider,
@@ -155,7 +190,8 @@ export default function IntegrationsContent() {
     {} as Record<string, typeof providersWithStatus>,
   )
 
-  const connectedCount = integrations.filter((i) => i.status === "connected").length
+  // Count connected integrations - FIXED to handle case-insensitive matching
+  const connectedCount = integrations.filter((i) => i.status === "connected" || i.status === undefined).length
 
   const handleRefresh = async () => {
     try {

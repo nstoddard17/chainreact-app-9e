@@ -18,6 +18,17 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
   const { connectIntegration, disconnectIntegration } = useIntegrationStore()
   const { toast } = useToast()
 
+  // Debug connection status
+  const isConnected = provider.connected
+  if (provider.id === "teams" || provider.id === "trello") {
+    console.log(`${provider.id} connection status:`, {
+      isConnected,
+      integration: provider.integration,
+      hasIntegration: !!provider.integration,
+      status: provider.integration?.status,
+    })
+  }
+
   const handleConnect = async () => {
     try {
       setIsConnecting(true)
