@@ -50,19 +50,28 @@ export default function IntegrationsContent() {
 
     const success = searchParams.get("success")
     const error = searchParams.get("error")
-    const provider = searchParams.get("provider")
+    const providerParam = searchParams.get("provider")
     const message = searchParams.get("message")
     const timestamp = searchParams.get("t")
 
-    if ((success || error) && provider) {
-      console.log("OAuth callback detected:", { success, error, provider, message, timestamp })
+    if (success || error) {
+      const derivedProvider =
+        providerParam || (success ? success.split("_")[0] : null)
+
+      console.log("OAuth callback detected:", {
+        success,
+        error,
+        provider: derivedProvider,
+        message,
+        timestamp,
+      })
       setOauthProcessed(true)
 
       if (success && !error) {
         // Force refresh integrations with multiple attempts to ensure we get the latest data
         const refreshIntegrationsList = async () => {
           try {
-            console.log(`Refreshing integrations after ${provider} OAuth success`)
+            console.log(`Refreshing integrations after ${derivedProvider || "unknown provider"} OAuth success`)
 
             // First immediate refresh
             await fetchIntegrations(true)
@@ -88,7 +97,9 @@ export default function IntegrationsContent() {
 
             toast({
               title: "Integration Connected",
-              description: `Your ${provider} integration has been successfully connected!`,
+              description: derivedProvider
+                ? `Your ${derivedProvider} integration has been successfully connected!`
+                : "Integration successfully connected!",
               duration: 5000,
             })
           } catch (err) {
@@ -99,11 +110,13 @@ export default function IntegrationsContent() {
         refreshIntegrationsList()
       } else if (error) {
         const errorMsg = message || "Failed to connect integration"
-        console.error("OAuth error:", { error, provider, message: errorMsg })
+        console.error("OAuth error:", { error, provider: derivedProvider, message: errorMsg })
 
         toast({
           title: "Connection Failed",
-          description: decodeURIComponent(errorMsg),
+          description: derivedProvider
+            ? `Failed to connect ${derivedProvider}: ${decodeURIComponent(errorMsg)}`
+            : decodeURIComponent(errorMsg),
           variant: "destructive",
           duration: 7000,
         })
