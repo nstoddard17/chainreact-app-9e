@@ -86,7 +86,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     let grantedScopes: string[] = []
     if (tokenData.scope) {
       if (typeof tokenData.scope === "string") {
-        grantedScopes = tokenData.scope.split(/\s+/).map((s: string) => s.trim()).filter((s: string) => s)
+        grantedScopes = tokenData.scope
+          .split(/\s+/)
+          .map((s: string) => s.trim())
+          .filter((s: string) => s)
       } else if (Array.isArray(tokenData.scope)) {
         grantedScopes = tokenData.scope
       }
@@ -135,10 +138,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       expires_at: tokenData.expires_in ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString() : null,
       status: "connected" as const,
       scopes: grantedScopes,
-      granted_scopes: grantedScopes,
       metadata: {
         email: userData.email,
         name: userData.name.display_name,
+        account_id: accountId,
         connected_at: now,
       },
       updated_at: now,

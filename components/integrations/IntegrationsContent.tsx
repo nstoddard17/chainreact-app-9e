@@ -19,6 +19,7 @@ export default function IntegrationsContent() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [localLoading, setLocalLoading] = useState(true)
   const [oauthProcessed, setOauthProcessed] = useState(false)
+  const [bulkReconnecting, setBulkReconnecting] = useState(false)
   const router = useRouter()
 
   const { integrations, providers, loading, refreshing, error, fetchIntegrations, refreshTokens } =
@@ -174,6 +175,95 @@ export default function IntegrationsContent() {
     }
   }
 
+  const handleBulkReconnect = async () => {
+    try {
+      setBulkReconnecting(true)
+
+      // Get current user (you'll need to implement this based on your auth system)
+      const userId = "current-user-id" // Replace with actual user ID from your auth context
+
+      const response = await fetch("/api/integrations/bulk-reconnect", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ userId }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to generate reconnection URLs")
+      }
+
+      if (data.reconnectionUrls.length === 0) {
+        toast({
+          title: "No Integrations",
+          description: "No connected integrations found to reconnect.",
+        })
+        return
+      }
+
+      // Process silent reconnections first
+      const silentUrls = data.reconnectionUrls.filter((item: any) => item.silent)
+      const interactiveUrls = data.reconnectionUrls.filter((item: any) => !item.silent)
+
+      // Handle silent reconnections in hidden iframes
+      for (const item of silentUrls) {
+        try {
+          // Create hidden iframe for silent auth
+          const iframe = document.createElement("iframe")
+          iframe.style.display = "none"
+          iframe.src = item.url
+          document.body.appendChild(iframe)
+
+          // Remove iframe after a delay
+          setTimeout(() => {
+            document.body.removeChild(iframe)
+          }, 5000)
+        } catch (error) {
+          console.error(`Silent reconnection failed for ${item.provider}:`, error)
+        }
+      }
+
+      // Handle interactive reconnections
+      if (interactiveUrls.length > 0) {
+        toast({
+          title: "Reconnecting Integrations",
+          description: `${silentUrls.length} integrations reconnecting silently. ${interactiveUrls.length} require user interaction.`,
+          duration: 8000,
+        })
+
+        // Open interactive reconnections in sequence with delays
+        for (let i = 0; i < interactiveUrls.length; i++) {
+          setTimeout(() => {
+            window.open(interactiveUrls[i].url, "_blank", "width=600,height=700")
+          }, i * 2000) // 2 second delay between each popup
+        }
+      } else {
+        toast({
+          title: "Reconnecting Integrations",
+          description: `${silentUrls.length} integrations reconnecting silently.`,
+          duration: 5000,
+        })
+      }
+
+      // Refresh the integrations list after a delay
+      setTimeout(async () => {
+        await fetchIntegrations(true)
+      }, 10000)
+    } catch (err: any) {
+      console.error("Bulk reconnection failed:", err)
+      toast({
+        title: "Reconnection Failed",
+        description: "Could not reconnect integrations. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setBulkReconnecting(false)
+    }
+  }
+
   // Show loading state
   if (localLoading) {
     return (
@@ -213,6 +303,18 @@ export default function IntegrationsContent() {
                   <CheckCircle className="w-4 h-4 mr-2 text-green-600" />
                   {connectedCount} Connected
                 </Badge>
+                <Button
+                  onClick={handleBulkReconnect}
+                  variant="default"
+                  size="sm"
+                  disabled={loading || refreshing || bulkReconnecting || connectedCount === 0}
+                  className="bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+                >
+                  {bulkReconnecting ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                  <span className="ml-2 hidden sm:inline">
+                    {bulkReconnecting ? "Reconnecting..." : "Reconnect All"}
+                  </span>
+                </Button>
                 <Button
                   onClick={handleRefresh}
                   variant="outline"
