@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
+import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 
 // Use direct Supabase client with service role for reliable database operations
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -17,11 +18,13 @@ const supabase = createClient(supabaseUrl, supabaseKey, {
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
-  const baseUrl = new URL(request.url).origin
   const code = searchParams.get("code")
   const state = searchParams.get("state")
   const error = searchParams.get("error")
   const errorDescription = searchParams.get("error_description")
+
+  // Get consistent base URL
+  const baseUrl = getBaseUrl(request)
 
   console.log("X (Twitter) OAuth callback received:", {
     hasCode: !!code,
@@ -73,7 +76,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL("/integrations?error=missing_client_credentials&provider=twitter", baseUrl))
     }
 
-    // Use dynamic redirect URI
+    // Use consistent redirect URI
     const redirectUri = `${baseUrl}/api/integrations/twitter/callback`
 
     console.log("Exchanging code for token with:", {

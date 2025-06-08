@@ -18,7 +18,8 @@ export class TwitterOAuthService {
 
   static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string, userId?: string): string {
     const { clientId } = this.getClientCredentials()
-    const redirectUri = this.getRedirectUri(baseUrl)
+    // Ensure we use the exact same redirect URI for both auth and token exchange
+    const redirectUri = `${baseUrl}/api/integrations/twitter/callback`
 
     const scopes = ["tweet.read", "tweet.write", "users.read", "offline.access"]
 
@@ -46,11 +47,6 @@ export class TwitterOAuthService {
     return `https://twitter.com/i/oauth2/authorize?${params.toString()}`
   }
 
-  static getRedirectUri(baseUrl: string): string {
-    // Use dynamic redirect URI based on environment
-    return `${baseUrl}/api/integrations/twitter/callback`
-  }
-
   static async handleCallback(
     code: string,
     state: string,
@@ -67,7 +63,7 @@ export class TwitterOAuthService {
       }
 
       const { clientId, clientSecret } = this.getClientCredentials()
-      const redirectUri = this.getRedirectUri(baseUrl)
+      const redirectUri = `${baseUrl}/api/integrations/twitter/callback`
 
       const tokenResponse = await fetch("https://api.twitter.com/2/oauth2/token", {
         method: "POST",
