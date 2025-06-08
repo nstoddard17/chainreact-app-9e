@@ -1,62 +1,167 @@
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 import { type NextRequest, NextResponse } from "next/server"
-import { TeamsOAuthService } from "@/lib/oauth/teams"
 import { createClient } from "@supabase/supabase-js"
 
-const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+// Use direct Supabase client with service role for reliable database operations
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-export const GET = async (request: NextRequest): Promise<NextResponse> => {
-  console.log("Teams callback route - Request received")
+if (!supabaseUrl || !supabaseKey) {
+  throw new Error("NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be defined")
+}
 
-  const url = new URL(request.url)
-  const code = url.searchParams.get("code")
-  const state = url.searchParams.get("state")
-  const error = url.searchParams.get("error")
-  const errorDescription = url.searchParams.get("error_description")
+const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    persistSession: false,
+  },
+})
+
+export async function GET(req: NextRequest) {
+  const searchParams = req.nextUrl.searchParams
+  const code = searchParams.get("code")
+  const state = searchParams.get("state")
+  const error = searchParams.get("error")
+  const error_description = searchParams.get("error_description")
+
+  const baseUrl = getBaseUrl(req)
+  const redirectUri = `${getBaseUrl(req)}/api/integrations/teams/callback`
 
   if (error) {
-    console.error("Teams callback route - OAuth error:", error, errorDescription)
+    console.error("Teams Auth Error:", error, error_description)
     return NextResponse.redirect(
-      `${getBaseUrl(request)}/integrations?error=oauth_error&provider=teams&message=${encodeURIComponent(errorDescription || error)}`,
+      `${baseUrl}/integrations?error=teams_auth_failed&message=${encodeURIComponent(error_description || error)}`,
     )
   }
 
   if (!code || !state) {
-    console.error("Teams callback route - Missing code or state")
-    return NextResponse.redirect(`${getBaseUrl(request)}/integrations?error=missing_params&provider=teams`)
+    console.error("Missing code or state")
+    return NextResponse.redirect(`${baseUrl}/integrations?error=missing_code_or_state&provider=teams`)
   }
 
   try {
-    let stateData: any
+    // Parse state to get user ID
+    let stateData
     try {
       stateData = JSON.parse(atob(state))
-    } catch (stateError) {
-      console.error("Teams callback route - Failed to parse state:", stateError)
-      return NextResponse.redirect(
-        `${getBaseUrl(request)}/integrations?error=invalid_state&provider=teams&message=Could not parse state parameter`,
-      )
+    } catch (e) {
+      console.error("Failed to parse state:", e)
+      return NextResponse.redirect(`${baseUrl}/integrations?error=invalid_state&provider=teams`)
     }
 
-    const { userId } = stateData
+    const userId = stateData.userId
 
     if (!userId) {
-      console.error("Teams callback route - Missing user ID in state")
-      return NextResponse.redirect(
-        `${getBaseUrl(request)}/integrations?error=missing_user_id&provider=teams&message=User ID missing from state`,
-      )
+      console.error("No user ID in state")
+      return NextResponse.redirect(`${baseUrl}/integrations?error=missing_user_id&provider=teams`)
     }
 
-    const result = await TeamsOAuthService.handleCallback(code, state, supabase, userId)
+    const clientId = process.env.NEXT_PUBLIC_TEAMS_CLIENT_ID
+    const clientSecret = process.env.TEAMS_CLIENT_SECRET
 
-    if (result.success) {
-      return NextResponse.redirect(`${getBaseUrl(request)}/integrations?success=teams_connected&provider=teams`)
+    if (!clientId || !clientSecret) {
+      console.error("Missing Teams client ID or secret")
+      return NextResponse.redirect(`${baseUrl}/integrations?error=missing_client_credentials&provider=teams`)
+    }
+
+    const tokenEndpoint = "https://login.microsoftonline.com/common/oauth2/v2.0/token"
+    const body = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      client_secret: clientSecret,
+      code: code,
+      grant_type: "authorization_code",
+    })
+
+    const response = await fetch(tokenEndpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body,
+    })
+
+    if (!response.ok) {
+      console.error("Token request failed", response.status, await response.text())
+      return NextResponse.redirect(`${baseUrl}/integrations?error=token_request_failed&provider=teams`)
+    }
+
+    const data = await response.json()
+    const accessToken = data.access_token
+    const refreshToken = data.refresh_token
+    const expires_in = data.expires_in
+
+    if (!accessToken || !refreshToken) {
+      console.error("Missing access token or refresh token")
+      return NextResponse.redirect(`${baseUrl}/integrations?error=missing_tokens&provider=teams`)
+    }
+
+    // Get user info
+    const userResponse = await fetch("https://graph.microsoft.com/v1.0/me", {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    })
+
+    if (!userResponse.ok) {
+      console.error("Failed to get Teams user info:", await userResponse.text())
+      return NextResponse.redirect(`${baseUrl}/integrations?error=user_info_failed&provider=teams`)
+    }
+
+    const userData = await userResponse.json()
+    const now = new Date().toISOString()
+
+    // Check if integration exists
+    const { data: existingIntegration } = await supabase
+      .from("integrations")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("provider", "teams")
+      .maybeSingle()
+
+    const integrationData = {
+      user_id: userId,
+      provider: "teams",
+      provider_user_id: userData.id,
+      access_token: accessToken,
+      refresh_token: refreshToken,
+      expires_at: expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null,
+      status: "connected",
+      scopes: data.scope ? data.scope.split(" ") : [],
+      metadata: {
+        display_name: userData.displayName,
+        email: userData.userPrincipalName,
+        connected_at: now,
+      },
+      updated_at: now,
+    }
+
+    if (existingIntegration) {
+      const { error } = await supabase.from("integrations").update(integrationData).eq("id", existingIntegration.id)
+
+      if (error) {
+        console.error("Error updating Teams integration:", error)
+        return NextResponse.redirect(`${baseUrl}/integrations?error=database_update_failed&provider=teams`)
+      }
     } else {
-      return NextResponse.redirect(result.redirectUrl)
+      const { error } = await supabase.from("integrations").insert({
+        ...integrationData,
+        created_at: now,
+      })
+
+      if (error) {
+        console.error("Error inserting Teams integration:", error)
+        return NextResponse.redirect(`${baseUrl}/integrations?error=database_insert_failed&provider=teams`)
+      }
     }
-  } catch (error: any) {
-    console.error("Teams callback route - Unhandled error:", error)
+
+    // Add a delay to ensure database operations complete
+    await new Promise((resolve) => setTimeout(resolve, 500))
+
+    return NextResponse.redirect(`${baseUrl}/integrations?success=teams_connected&provider=teams&t=${Date.now()}`)
+  } catch (e: any) {
+    console.error("Error during Teams auth:", e)
     return NextResponse.redirect(
-      `${getBaseUrl(request)}/integrations?error=callback_failed&provider=teams&message=${encodeURIComponent(error.message)}`,
+      `${baseUrl}/integrations?error=teams_auth_failed&message=${encodeURIComponent(e.message)}`,
     )
   }
 }
