@@ -14,13 +14,6 @@ export const GET = async (request: NextRequest): Promise<NextResponse> => {
   const error = url.searchParams.get("error")
   const errorDescription = url.searchParams.get("error_description")
 
-  console.log("Teams callback route - Query parameters:", {
-    hasCode: !!code,
-    hasState: !!state,
-    hasError: !!error,
-    hasErrorDescription: !!errorDescription,
-  })
-
   if (error) {
     console.error("Teams callback route - OAuth error:", error, errorDescription)
     return NextResponse.redirect(
@@ -37,10 +30,6 @@ export const GET = async (request: NextRequest): Promise<NextResponse> => {
     let stateData: any
     try {
       stateData = JSON.parse(atob(state))
-      console.log("Teams callback route - Parsed state:", {
-        provider: stateData.provider,
-        hasUserId: !!stateData.userId,
-      })
     } catch (stateError) {
       console.error("Teams callback route - Failed to parse state:", stateError)
       return NextResponse.redirect(
@@ -57,14 +46,7 @@ export const GET = async (request: NextRequest): Promise<NextResponse> => {
       )
     }
 
-    console.log("Teams callback route - Handling callback with TeamsOAuthService")
     const result = await TeamsOAuthService.handleCallback(code, state, supabase, userId)
-
-    console.log("Teams callback route - Callback result:", {
-      success: result.success,
-      hasRedirectUrl: !!result.redirectUrl,
-      hasError: !!result.error,
-    })
 
     if (result.success) {
       return NextResponse.redirect(`${getBaseUrl(request)}/integrations?success=teams_connected&provider=teams`)
