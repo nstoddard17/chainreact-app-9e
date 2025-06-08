@@ -38,21 +38,28 @@ export class GitHubOAuthService {
       }),
     )
 
-    const params = new URLSearchParams({
+    // First, create the logout URL that will redirect to the OAuth URL
+    const oauthParams = new URLSearchParams({
       client_id: clientId,
       redirect_uri: redirectUri,
       scope: scopes.join(" "),
       state,
       prompt: "consent",
       allow_signup: "true",
-      login: "",
       response_type: "code",
     })
 
     // Add cache-busting parameter to force fresh auth
-    params.append("t", Date.now().toString())
+    oauthParams.append("t", Date.now().toString())
 
-    return `https://github.com/login/oauth/authorize?${params.toString()}`
+    const oauthUrl = `https://github.com/login/oauth/authorize?${oauthParams.toString()}`
+
+    // GitHub logout URL that redirects to OAuth
+    const logoutParams = new URLSearchParams({
+      return_to: oauthUrl,
+    })
+
+    return `https://github.com/logout?${logoutParams.toString()}`
   }
 
   static async handleCallback(
