@@ -2,12 +2,12 @@ import { generateOAuthState } from "@/lib/oauth/utils"
 
 export const YouTubeOAuthService = {
   getClientCredentials() {
-    // Try YouTube-specific credentials first, fall back to Google credentials
-    const clientId = process.env.NEXT_PUBLIC_YOUTUBE_CLIENT_ID || process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
-    const clientSecret = process.env.YOUTUBE_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET
+    // Use Google credentials since YouTube is part of Google APIs
+    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET
 
     if (!clientId || !clientSecret) {
-      throw new Error("Missing YouTube/Google OAuth credentials")
+      throw new Error("Missing Google OAuth credentials for YouTube")
     }
 
     return { clientId, clientSecret }
@@ -25,13 +25,11 @@ export const YouTubeOAuthService = {
     const { clientId } = this.getClientCredentials()
     const redirectUri = `${baseUrl}${this.getRedirectUri()}`
 
-    // YouTube-specific scopes
+    // YouTube-specific scopes - use the same as other Google services
     const scopes = [
       "https://www.googleapis.com/auth/youtube.readonly",
       "https://www.googleapis.com/auth/userinfo.profile",
       "https://www.googleapis.com/auth/userinfo.email",
-      //"https://www.googleapis.com/auth/youtube.upload",
-      //"https://www.googleapis.com/auth/youtube",
     ]
 
     const state = generateOAuthState("youtube", userId, { reconnect, integrationId })
