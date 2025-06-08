@@ -1,6 +1,7 @@
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
+import { YouTubeOAuthService } from "@/lib/oauth/youtube"
 
 // Use direct Supabase client with service role for reliable database operations
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -70,54 +71,10 @@ export async function GET(request: NextRequest) {
 
     console.log("Processing YouTube OAuth for user:", userId)
 
-    // Use Google credentials (YouTube is part of Google APIs)
-    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
-    const clientSecret = process.env.GOOGLE_CLIENT_SECRET
+    // Exchange code for tokens using the service
+    const redirectUri = `${getBaseUrl(request)}/api/integrations/youtube/callback`
+    const tokenData = await YouTubeOAuthService.exchangeCodeForTokens(code, redirectUri)
 
-    console.log("OAuth credentials check:", {
-      hasClientId: !!clientId,
-      hasClientSecret: !!clientSecret,
-    })
-
-    if (!clientId || !clientSecret) {
-      console.error("Missing Google client ID or secret for YouTube")
-      return NextResponse.redirect(
-        new URL("/integrations?error=true&provider=youtube&message=Missing+credentials", baseUrl),
-      )
-    }
-
-    // Exchange code for token
-    console.log("Exchanging code for token...")
-    const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: new URLSearchParams({
-        client_id: clientId,
-        client_secret: clientSecret,
-        code,
-        grant_type: "authorization_code",
-        redirect_uri: `${getBaseUrl(request)}/api/integrations/youtube/callback`,
-      }),
-    })
-
-    if (!tokenResponse.ok) {
-      const errorText = await tokenResponse.text()
-      console.error("YouTube token exchange failed:", {
-        status: tokenResponse.status,
-        statusText: tokenResponse.statusText,
-        error: errorText,
-      })
-      return NextResponse.redirect(
-        new URL(
-          `/integrations?error=true&provider=youtube&message=${encodeURIComponent("Token exchange failed")}`,
-          baseUrl,
-        ),
-      )
-    }
-
-    const tokenData = await tokenResponse.json()
     console.log("Token exchange successful:", {
       hasAccessToken: !!tokenData.access_token,
       hasRefreshToken: !!tokenData.refresh_token,
@@ -127,51 +84,13 @@ export async function GET(request: NextRequest) {
 
     const { access_token, refresh_token, expires_in } = tokenData
 
-    // Get YouTube channel info
-    console.log("Fetching YouTube channel info...")
-    let channelId
-    let channelTitle
-    let channelDescription
-
-    try {
-      const userResponse = await fetch("https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true", {
-        headers: {
-          Authorization: `Bearer ${access_token}`,
-        },
-      })
-
-      if (userResponse.ok) {
-        const userData = await userResponse.json()
-        const channel = userData.items?.[0]
-        channelId = channel?.id
-        channelTitle = channel?.snippet?.title
-        channelDescription = channel?.snippet?.description
-        console.log("YouTube channel info:", { channelId, channelTitle })
-      } else {
-        console.warn("Could not get YouTube channel info, status:", userResponse.status)
-        // Fall back to Google profile
-        const profileResponse = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
-          headers: {
-            Authorization: `Bearer ${access_token}`,
-          },
-        })
-
-        if (profileResponse.ok) {
-          const profileData = await profileResponse.json()
-          channelId = profileData.id
-          channelTitle = profileData.name
-          console.log("Using Google profile as fallback:", { channelId, channelTitle })
-        }
-      }
-    } catch (e) {
-      console.warn("Error fetching YouTube channel:", e)
-    }
-
-    if (!channelId) {
-      channelId = `youtube_${Date.now()}`
-      channelTitle = "YouTube User"
-      console.log("Using fallback channel info:", { channelId, channelTitle })
-    }
+    // Get user info using the service
+    const userInfo = await YouTubeOAuthService.getUserInfo(access_token)
+    console.log("User info retrieved:", {
+      id: userInfo.id,
+      name: userInfo.name,
+      hasMetadata: !!userInfo.metadata,
+    })
 
     const now = new Date().toISOString()
     const expiresAt = expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null
@@ -195,36 +114,36 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // Prepare integration data
+    // Prepare integration data using existing database schema
     const integrationData = {
       user_id: userId,
       provider: "youtube",
-      provider_user_id: channelId,
+      provider_account_id: userInfo.id,
       access_token,
       refresh_token,
       expires_at: expiresAt,
-      status: "connected",
-      scopes: tokenData.scope ? tokenData.scope.split(" ") : ["https://www.googleapis.com/auth/youtube.readonly"],
-      granted_scopes: tokenData.scope
-        ? tokenData.scope.split(" ")
-        : ["https://www.googleapis.com/auth/youtube.readonly"],
+      token_type: "Bearer",
+      scope: tokenData.scope || "https://www.googleapis.com/auth/youtube.readonly",
       metadata: {
-        channel_id: channelId,
-        channel_title: channelTitle,
-        channel_description: channelDescription,
+        ...userInfo.metadata,
+        name: userInfo.name,
+        email: userInfo.email,
+        avatar: userInfo.avatar,
         connected_at: now,
       },
+      is_active: true,
       updated_at: now,
     }
 
     console.log("Integration data prepared:", {
       user_id: integrationData.user_id,
       provider: integrationData.provider,
-      provider_user_id: integrationData.provider_user_id,
-      status: integrationData.status,
+      provider_account_id: integrationData.provider_account_id,
+      token_type: integrationData.token_type,
       hasAccessToken: !!integrationData.access_token,
       hasRefreshToken: !!integrationData.refresh_token,
       expires_at: integrationData.expires_at,
+      is_active: integrationData.is_active,
     })
 
     let result

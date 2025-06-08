@@ -14,7 +14,7 @@ import { PayPalOAuthService } from "./paypal"
 import { HubSpotOAuthService } from "./hubspot"
 import { NotionOAuthService } from "./notion"
 import { TrelloOAuthService } from "./trello"
-import { YouTubeOAuthService } from "./youtube"
+import { YouTubeOAuthService_Object } from "./youtube"
 import { DockerOAuthService } from "./docker"
 import { GitLabOAuthService } from "./gitlab"
 import { GmailOAuthService } from "./gmail"
@@ -50,7 +50,7 @@ export const oauthProviders = {
   hubspot: HubSpotOAuthService,
   notion: NotionOAuthService,
   trello: TrelloOAuthService,
-  youtube: YouTubeOAuthService,
+  youtube: YouTubeOAuthService_Object,
   docker: DockerOAuthService,
   gitlab: GitLabOAuthService,
 } as const
