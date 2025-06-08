@@ -10,7 +10,7 @@ export async function saveIntegrationToDatabase(integrationData: any): Promise<s
       userId: integrationData.user_id,
       hasAccessToken: !!integrationData.access_token,
       hasRefreshToken: !!integrationData.refresh_token,
-      scopes: integrationData.scopes,
+      scope: integrationData.scope,
     })
 
     // Check if integration already exists
@@ -19,7 +19,6 @@ export async function saveIntegrationToDatabase(integrationData: any): Promise<s
       .select("id")
       .eq("user_id", integrationData.user_id)
       .eq("provider", integrationData.provider)
-      .eq("status", "connected")
       .maybeSingle()
 
     if (findError) {
@@ -36,14 +35,14 @@ export async function saveIntegrationToDatabase(integrationData: any): Promise<s
       const { error: updateError } = await supabase
         .from("integrations")
         .update({
-          provider_user_id: integrationData.provider_user_id,
+          provider_account_id: integrationData.provider_account_id,
           access_token: integrationData.access_token,
           refresh_token: integrationData.refresh_token,
           expires_at: integrationData.expires_at,
-          status: integrationData.status,
-          scopes: integrationData.scopes,
-          granted_scopes: integrationData.granted_scopes,
+          token_type: integrationData.token_type,
+          scope: integrationData.scope,
           metadata: integrationData.metadata,
+          is_active: integrationData.is_active,
           updated_at: new Date().toISOString(),
         })
         .eq("id", existingIntegration.id)
