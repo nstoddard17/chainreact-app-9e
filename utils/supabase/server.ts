@@ -7,6 +7,12 @@ export function createClient() {
   return createServerComponentClient<Database>({ cookies: () => cookieStore })
 }
 
+// Add the missing createServerClient export
+export function createServerClient() {
+  const cookieStore = cookies()
+  return createServerComponentClient<Database>({ cookies: () => cookieStore })
+}
+
 export async function getSession() {
   const supabase = createClient()
   const {

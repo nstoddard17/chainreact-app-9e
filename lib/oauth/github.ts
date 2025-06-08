@@ -38,7 +38,7 @@ export class GitHubOAuthService {
       }),
     )
 
-    // Create the OAuth URL
+    // Create the OAuth URL with parameters that force consent
     const oauthParams = new URLSearchParams({
       client_id: clientId,
       redirect_uri: redirectUri,
@@ -48,13 +48,14 @@ export class GitHubOAuthService {
       allow_signup: "true",
     })
 
-    // Add a unique parameter to force GitHub to treat this as a new request
+    // Add cache-busting parameter to force fresh auth
     oauthParams.append("t", Date.now().toString())
 
+    // The key is to use GitHub's revoke endpoint first, then redirect to OAuth
     const oauthUrl = `https://github.com/login/oauth/authorize?${oauthParams.toString()}`
 
-    // Use GitHub's logout URL with return_to parameter
-    return `https://github.com/logout?return_to=${encodeURIComponent(oauthUrl)}`
+    // Create a URL that will revoke existing authorization and then redirect to OAuth
+    return `${getBaseUrl()}/api/integrations/github/revoke-and-auth?oauth_url=${encodeURIComponent(oauthUrl)}`
   }
 
   static async handleCallback(
