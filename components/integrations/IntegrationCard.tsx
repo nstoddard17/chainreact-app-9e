@@ -21,56 +21,7 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
   const handleConnect = async () => {
     try {
       setIsConnecting(true)
-
-      // Special handling for GitHub to force logout first
-      if (provider.id === "github") {
-        // Open GitHub logout in a popup
-        const logoutPopup = window.open(
-          "https://github.com/logout",
-          "github-logout",
-          "width=600,height=400,scrollbars=yes,resizable=yes",
-        )
-
-        // Wait for logout popup to close
-        const checkClosed = setInterval(() => {
-          if (logoutPopup?.closed) {
-            clearInterval(checkClosed)
-            // Small delay to ensure logout is processed
-            setTimeout(async () => {
-              try {
-                await connectIntegration(provider.id)
-              } catch (error: any) {
-                console.error(`Failed to connect ${provider.name}:`, error)
-                toast({
-                  title: "Connection Failed",
-                  description: error.message || `Failed to connect ${provider.name}`,
-                  variant: "destructive",
-                })
-                setIsConnecting(false)
-              }
-            }, 1000)
-          }
-        }, 1000)
-
-        // Fallback: if popup doesn't close in 30 seconds, proceed anyway
-        setTimeout(() => {
-          if (!logoutPopup?.closed) {
-            clearInterval(checkClosed)
-            logoutPopup?.close()
-            connectIntegration(provider.id).catch((error: any) => {
-              console.error(`Failed to connect ${provider.name}:`, error)
-              toast({
-                title: "Connection Failed",
-                description: error.message || `Failed to connect ${provider.name}`,
-                variant: "destructive",
-              })
-              setIsConnecting(false)
-            })
-          }
-        }, 30000)
-      } else {
-        await connectIntegration(provider.id)
-      }
+      await connectIntegration(provider.id)
     } catch (error: any) {
       console.error(`Failed to connect ${provider.name}:`, error)
       toast({
