@@ -201,21 +201,46 @@ async function verifyGoogleToken(
 
     const scopes = tokenInfo.scope ? tokenInfo.scope.split(" ") : []
 
-    // Special handling for YouTube - check if we can access the YouTube API
+    // Special handling for YouTube - verify YouTube API access independently
     if (provider === "youtube") {
       try {
+        console.log("Verifying YouTube API access specifically...")
         const youtubeResponse = await fetch(
           `https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true&access_token=${accessToken}`,
         )
+
         if (youtubeResponse.ok) {
-          console.log("YouTube API access confirmed")
-          // Ensure we include the YouTube readonly scope if the API call succeeds
-          if (!scopes.includes("https://www.googleapis.com/auth/youtube.readonly")) {
-            scopes.push("https://www.googleapis.com/auth/youtube.readonly")
+          const youtubeData = await youtubeResponse.json()
+          console.log("YouTube API access confirmed, channels found:", youtubeData.items?.length || 0)
+
+          // For YouTube, ensure we have the YouTube-specific scopes
+          const youtubeScopes = [
+            "https://www.googleapis.com/auth/youtube.readonly",
+            "https://www.googleapis.com/auth/userinfo.profile",
+            "https://www.googleapis.com/auth/userinfo.email",
+          ]
+
+          // Return the intersection of granted scopes and YouTube scopes
+          const validYouTubeScopes = youtubeScopes.filter((scope) => scopes.includes(scope))
+
+          // If we have YouTube readonly scope, we can use YouTube features
+          if (validYouTubeScopes.includes("https://www.googleapis.com/auth/youtube.readonly")) {
+            return { valid: true, scopes: validYouTubeScopes }
+          } else {
+            return { valid: false, scopes: [], error: "Missing YouTube readonly scope" }
+          }
+        } else {
+          const errorData = await youtubeResponse.json()
+          console.log("YouTube API test failed:", errorData)
+          return {
+            valid: false,
+            scopes: [],
+            error: `YouTube API access denied: ${errorData.error?.message || "Unknown error"}`,
           }
         }
       } catch (error) {
-        console.log("YouTube API test failed:", error)
+        console.log("YouTube API test failed with exception:", error)
+        return { valid: false, scopes: [], error: `YouTube API test failed: ${error.message}` }
       }
     }
 
@@ -660,11 +685,18 @@ export async function GET(request: NextRequest) {
           case "discord":
             verificationResult = await verifyDiscordToken(accessToken)
             break
+          case "youtube":
+            // YouTube gets its own independent verification
+            verificationResult = await verifyGoogleToken(
+              accessToken,
+              integration.refresh_token || metadata?.refresh_token,
+              "youtube",
+            )
+            break
           case "google-calendar":
           case "google-sheets":
           case "google-docs":
           case "gmail":
-          case "youtube":
             const googleIntegration = integrations?.find((int) => int.provider === "google")
             if (googleIntegration?.metadata?.access_token || googleIntegration?.access_token) {
               const googleToken = googleIntegration.metadata?.access_token || googleIntegration.access_token
@@ -730,8 +762,8 @@ export async function GET(request: NextRequest) {
         errorMessage = "No access token found"
       }
 
-      // For Google services, use the main Google integration data if available
-      if (provider.startsWith("google") || provider === "gmail" || provider === "youtube") {
+      // For Google services (except YouTube), use the main Google integration data if available
+      if ((provider.startsWith("google") || provider === "gmail") && provider !== "youtube") {
         const googleIntegration = integrations?.find((int) => int.provider === "google")
         if (googleIntegration && (googleIntegration.metadata?.access_token || googleIntegration.access_token)) {
           const diagnostic = analyzeIntegration(integration, tokenValid, grantedScopes, errorMessage)
@@ -739,6 +771,25 @@ export async function GET(request: NextRequest) {
           diagnostics.push(diagnostic)
           continue
         }
+      }
+
+      // YouTube is treated as its own integration with its own tokens and scopes
+      if (provider === "youtube") {
+        // Use YouTube's own stored scopes and tokens - don't fall back to Google integration
+        const youtubeScopes = integration.scopes || integration.metadata?.scopes || []
+
+        // If we have a valid token verification result, use those scopes
+        if (tokenValid && grantedScopes.length > 0) {
+          // Merge verified scopes with stored scopes to get the most accurate picture
+          const allYouTubeScopes = [...new Set([...youtubeScopes, ...grantedScopes])]
+          const diagnostic = analyzeIntegration(integration, tokenValid, allYouTubeScopes, errorMessage)
+          diagnostics.push(diagnostic)
+        } else {
+          // Use stored scopes if token verification failed
+          const diagnostic = analyzeIntegration(integration, tokenValid, youtubeScopes, errorMessage)
+          diagnostics.push(diagnostic)
+        }
+        continue
       }
 
       const diagnostic = analyzeIntegration(integration, tokenValid, grantedScopes, errorMessage)
