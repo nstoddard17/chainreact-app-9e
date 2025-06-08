@@ -39,6 +39,10 @@ const COMPONENT_SCOPE_MAPPING = {
   teams_user_info: { scopes: ["User.Read"], provider: "teams" },
   teams_get_profile: { scopes: ["profile"], provider: "teams" },
 
+  // OneDrive components
+  onedrive_upload: { scopes: ["Files.ReadWrite"], provider: "onedrive" },
+  onedrive_download: { scopes: ["Files.Read"], provider: "onedrive" },
+
   // Google Calendar components
   google_calendar_create: { scopes: ["https://www.googleapis.com/auth/calendar"], provider: "google-calendar" },
   google_calendar_read: { scopes: ["https://www.googleapis.com/auth/calendar.readonly"], provider: "google-calendar" },
@@ -55,6 +59,10 @@ const COMPONENT_SCOPE_MAPPING = {
   gmail_send: { scopes: ["https://www.googleapis.com/auth/gmail.send"], provider: "gmail" },
   gmail_modify: { scopes: ["https://www.googleapis.com/auth/gmail.modify"], provider: "gmail" },
 
+  // Google Drive components
+  google_drive_upload: { scopes: ["https://www.googleapis.com/auth/drive.file"], provider: "google-drive" },
+  google_drive_read: { scopes: ["https://www.googleapis.com/auth/drive.readonly"], provider: "google-drive" },
+
   // YouTube components - only basic functionality
   youtube_get_channel: { scopes: ["https://www.googleapis.com/auth/youtube.readonly"], provider: "youtube" },
   youtube_get_videos: { scopes: ["https://www.googleapis.com/auth/youtube.readonly"], provider: "youtube" },
@@ -65,6 +73,10 @@ const COMPONENT_SCOPE_MAPPING = {
   github_get_repos: { scopes: ["public_repo"], provider: "github" },
   github_create_issue: { scopes: ["repo"], provider: "github" },
   github_create_pr: { scopes: ["repo"], provider: "github" },
+
+  // GitLab components
+  gitlab_get_user: { scopes: ["read_user"], provider: "gitlab" },
+  gitlab_get_projects: { scopes: ["read_repository"], provider: "gitlab" },
 
   // Notion components
   notion_create_page: { scopes: [], provider: "notion" },
@@ -86,6 +98,46 @@ const COMPONENT_SCOPE_MAPPING = {
   twitter_post_tweet: { scopes: ["tweet.write"], provider: "twitter" },
   twitter_read_tweets: { scopes: ["tweet.read"], provider: "twitter" },
   twitter_get_user: { scopes: ["users.read"], provider: "twitter" },
+
+  // LinkedIn components
+  linkedin_get_profile: { scopes: ["r_liteprofile"], provider: "linkedin" },
+  linkedin_post_share: { scopes: ["w_member_social"], provider: "linkedin" },
+
+  // Facebook components
+  facebook_get_profile: { scopes: ["public_profile"], provider: "facebook" },
+  facebook_post_page: { scopes: ["pages_manage_posts"], provider: "facebook" },
+
+  // Instagram components
+  instagram_get_profile: { scopes: ["user_profile"], provider: "instagram" },
+  instagram_get_media: { scopes: ["user_media"], provider: "instagram" },
+
+  // TikTok components
+  tiktok_get_profile: { scopes: ["user.info.basic"], provider: "tiktok" },
+  tiktok_get_videos: { scopes: ["video.list"], provider: "tiktok" },
+
+  // Mailchimp components
+  mailchimp_create_campaign: { scopes: [], provider: "mailchimp" },
+  mailchimp_add_subscriber: { scopes: [], provider: "mailchimp" },
+
+  // HubSpot components
+  hubspot_create_contact: { scopes: ["contacts"], provider: "hubspot" },
+  hubspot_get_deals: { scopes: ["crm.objects.deals.read"], provider: "hubspot" },
+
+  // Shopify components
+  shopify_get_products: { scopes: ["read_products"], provider: "shopify" },
+  shopify_create_order: { scopes: ["write_orders"], provider: "shopify" },
+
+  // PayPal components
+  paypal_create_payment: { scopes: [], provider: "paypal" },
+  paypal_get_transactions: { scopes: [], provider: "paypal" },
+
+  // Stripe components
+  stripe_create_payment: { scopes: [], provider: "stripe" },
+  stripe_get_customers: { scopes: [], provider: "stripe" },
+
+  // Docker components
+  docker_list_containers: { scopes: [], provider: "docker" },
+  docker_create_container: { scopes: [], provider: "docker" },
 }
 
 async function verifyTwitterToken(accessToken: string): Promise<{ valid: boolean; scopes: string[]; error?: string }> {
@@ -167,7 +219,7 @@ async function verifyGoogleToken(
 
     // If token is expired and we have a refresh token, try to refresh
     if (tokenInfo.error && refreshToken) {
-      console.log("Google token expired, attempting refresh...")
+      console.log(`${provider || "Google"} token expired, attempting refresh...`)
       const refreshResult = await refreshGoogleToken(refreshToken)
 
       if (refreshResult.valid && refreshResult.accessToken) {
@@ -178,7 +230,7 @@ async function verifyGoogleToken(
         tokenInfo = await tokenInfoResponse.json()
 
         if (!tokenInfo.error) {
-          console.log("Google token successfully refreshed")
+          console.log(`${provider || "Google"} token successfully refreshed`)
           return {
             valid: true,
             scopes: tokenInfo.scope ? tokenInfo.scope.split(" ") : [],
@@ -201,7 +253,7 @@ async function verifyGoogleToken(
 
     const scopes = tokenInfo.scope ? tokenInfo.scope.split(" ") : []
 
-    // Special handling for YouTube - verify YouTube API access independently
+    // Special handling for YouTube - check if we can access the YouTube API
     if (provider === "youtube") {
       try {
         console.log("Verifying YouTube API access specifically...")
@@ -409,6 +461,20 @@ async function verifyDropboxToken(accessToken: string): Promise<{ valid: boolean
     return { valid: true, scopes }
   } catch (error: any) {
     return { valid: false, scopes: [], error: error.message }
+  }
+}
+
+async function verifyGenericOAuthToken(
+  accessToken: string,
+  provider: string,
+): Promise<{ valid: boolean; scopes: string[]; error?: string }> {
+  // For providers that don't have specific verification endpoints,
+  // we'll assume the token is valid if it exists and use stored scopes
+  console.log(`Using generic verification for ${provider}`)
+  return {
+    valid: true,
+    scopes: [], // Will be filled from stored scopes
+    error: undefined,
   }
 }
 
@@ -667,6 +733,8 @@ export async function GET(request: NextRequest) {
       let grantedScopes: string[] = []
       let errorMessage: string | undefined
 
+      console.log(`Processing integration: ${provider}`)
+
       if (metadata?.demo) {
         tokenValid = true
         grantedScopes = metadata?.scopes || []
@@ -674,7 +742,18 @@ export async function GET(request: NextRequest) {
         let verificationResult
 
         switch (provider) {
+          case "youtube":
+            // YouTube gets its own independent verification using Google OAuth
+            console.log("Verifying YouTube with Google OAuth...")
+            verificationResult = await verifyGoogleToken(
+              accessToken,
+              integration.refresh_token || metadata?.refresh_token,
+              "youtube",
+            )
+            break
+
           case "twitter":
+            console.log("Verifying Twitter token...")
             verificationResult = await verifyTwitterToken(accessToken)
             // Use stored scopes for Twitter since API doesn't return them
             if (verificationResult.valid) {
@@ -682,21 +761,18 @@ export async function GET(request: NextRequest) {
               verificationResult.scopes = storedScopes.length > 0 ? storedScopes : verificationResult.scopes
             }
             break
+
           case "discord":
+            console.log("Verifying Discord token...")
             verificationResult = await verifyDiscordToken(accessToken)
             break
-          case "youtube":
-            // YouTube gets its own independent verification
-            verificationResult = await verifyGoogleToken(
-              accessToken,
-              integration.refresh_token || metadata?.refresh_token,
-              "youtube",
-            )
-            break
+
           case "google-calendar":
           case "google-sheets":
           case "google-docs":
           case "gmail":
+          case "google-drive":
+            console.log(`Verifying ${provider} with Google OAuth...`)
             const googleIntegration = integrations?.find((int) => int.provider === "google")
             if (googleIntegration?.metadata?.access_token || googleIntegration?.access_token) {
               const googleToken = googleIntegration.metadata?.access_token || googleIntegration.access_token
@@ -727,30 +803,68 @@ export async function GET(request: NextRequest) {
               verificationResult = await verifyGoogleToken(accessToken, undefined, provider)
             }
             break
+
           case "teams":
           case "onedrive":
+            console.log(`Verifying ${provider} with Microsoft OAuth...`)
             verificationResult = await verifyMicrosoftToken(accessToken)
-            // For Teams, use the stored scopes instead of trying to verify each one
+            // For Microsoft services, use the stored scopes instead of trying to verify each one
             if (verificationResult.valid) {
               const storedScopes = integration.scopes || metadata?.scopes || []
               verificationResult.scopes = storedScopes
-              console.log("Teams: Using stored scopes:", storedScopes)
+              console.log(`${provider}: Using stored scopes:`, storedScopes)
             }
             break
+
           case "slack":
+            console.log("Verifying Slack token...")
             verificationResult = await verifySlackToken(accessToken)
             break
+
           case "github":
+            console.log("Verifying GitHub token...")
             verificationResult = await verifyGitHubToken(accessToken)
             break
+
+          case "gitlab":
+            console.log("Verifying GitLab token...")
+            // GitLab uses a similar API to GitHub but different endpoints
+            verificationResult = await verifyGenericOAuthToken(accessToken, provider)
+            // Use stored scopes for GitLab
+            const gitlabScopes = integration.scopes || metadata?.scopes || []
+            verificationResult.scopes = gitlabScopes
+            break
+
           case "dropbox":
+            console.log("Verifying Dropbox token...")
             verificationResult = await verifyDropboxToken(accessToken)
             break
+
+          case "linkedin":
+          case "facebook":
+          case "instagram":
+          case "tiktok":
+          case "mailchimp":
+          case "hubspot":
+          case "shopify":
+          case "paypal":
+          case "stripe":
+          case "docker":
+          case "airtable":
+          case "trello":
+          case "notion":
+            console.log(`Using generic verification for ${provider}...`)
+            verificationResult = await verifyGenericOAuthToken(accessToken, provider)
+            // Use stored scopes for these providers
+            const storedScopes = integration.scopes || metadata?.scopes || []
+            verificationResult.scopes = storedScopes
+            break
+
           default:
-            verificationResult = {
-              valid: true,
-              scopes: metadata?.scopes || integration.scopes || [],
-            }
+            console.log(`Unknown provider ${provider}, using generic verification...`)
+            verificationResult = await verifyGenericOAuthToken(accessToken, provider)
+            const defaultScopes = integration.scopes || metadata?.scopes || []
+            verificationResult.scopes = defaultScopes
         }
 
         tokenValid = verificationResult.valid
@@ -771,25 +885,6 @@ export async function GET(request: NextRequest) {
           diagnostics.push(diagnostic)
           continue
         }
-      }
-
-      // YouTube is treated as its own integration with its own tokens and scopes
-      if (provider === "youtube") {
-        // Use YouTube's own stored scopes and tokens - don't fall back to Google integration
-        const youtubeScopes = integration.scopes || integration.metadata?.scopes || []
-
-        // If we have a valid token verification result, use those scopes
-        if (tokenValid && grantedScopes.length > 0) {
-          // Merge verified scopes with stored scopes to get the most accurate picture
-          const allYouTubeScopes = [...new Set([...youtubeScopes, ...grantedScopes])]
-          const diagnostic = analyzeIntegration(integration, tokenValid, allYouTubeScopes, errorMessage)
-          diagnostics.push(diagnostic)
-        } else {
-          // Use stored scopes if token verification failed
-          const diagnostic = analyzeIntegration(integration, tokenValid, youtubeScopes, errorMessage)
-          diagnostics.push(diagnostic)
-        }
-        continue
       }
 
       const diagnostic = analyzeIntegration(integration, tokenValid, grantedScopes, errorMessage)
