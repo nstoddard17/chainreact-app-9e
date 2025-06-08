@@ -1,17 +1,12 @@
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
-import { YouTubeOAuthService } from "@/lib/oauth/youtube"
 
 // Use direct Supabase client with service role for reliable database operations
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
 if (!supabaseUrl || !supabaseKey) {
-  console.error("Missing Supabase environment variables:", {
-    hasUrl: !!supabaseUrl,
-    hasKey: !!supabaseKey,
-  })
   throw new Error("NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be defined")
 }
 
@@ -21,32 +16,26 @@ const supabase = createClient(supabaseUrl, supabaseKey, {
   },
 })
 
-export async function GET(request: NextRequest) {
-  console.log("=== YouTube OAuth Callback Started ===")
-
-  const searchParams = request.nextUrl.searchParams
-  const baseUrl = new URL(request.url).origin
+export async function GET(req: NextRequest) {
+  const searchParams = req.nextUrl.searchParams
   const code = searchParams.get("code")
   const state = searchParams.get("state")
   const error = searchParams.get("error")
+  const error_description = searchParams.get("error_description")
 
-  console.log("YouTube OAuth callback params:", {
-    hasCode: !!code,
-    state: state?.substring(0, 50) + "...",
-    error,
-    baseUrl,
-  })
+  const baseUrl = getBaseUrl(req)
+  const redirectUri = `${getBaseUrl(req)}/api/integrations/youtube/callback`
 
   if (error) {
-    console.error("YouTube OAuth error:", error)
-    return NextResponse.redirect(new URL("/integrations?error=true&provider=youtube", baseUrl))
+    console.error("YouTube Auth Error:", error, error_description)
+    return NextResponse.redirect(
+      `${baseUrl}/integrations?error=youtube_auth_failed&message=${encodeURIComponent(error_description || error)}`,
+    )
   }
 
   if (!code || !state) {
-    console.error("Missing code or state in YouTube callback")
-    return NextResponse.redirect(
-      new URL("/integrations?error=true&provider=youtube&message=Missing+parameters", baseUrl),
-    )
+    console.error("Missing code or state")
+    return NextResponse.redirect(`${baseUrl}/integrations?error=missing_code_or_state&provider=youtube`)
   }
 
   try {
@@ -54,141 +43,160 @@ export async function GET(request: NextRequest) {
     let stateData
     try {
       stateData = JSON.parse(atob(state))
-      console.log("Parsed state data:", { userId: stateData.userId, provider: stateData.provider })
     } catch (e) {
       console.error("Failed to parse state:", e)
-      return NextResponse.redirect(new URL("/integrations?error=true&provider=youtube&message=Invalid+state", baseUrl))
+      return NextResponse.redirect(`${baseUrl}/integrations?error=invalid_state&provider=youtube`)
     }
 
     const userId = stateData.userId
 
     if (!userId) {
       console.error("No user ID in state")
-      return NextResponse.redirect(
-        new URL("/integrations?error=true&provider=youtube&message=Missing+user+ID", baseUrl),
-      )
+      return NextResponse.redirect(`${baseUrl}/integrations?error=missing_user_id&provider=youtube`)
     }
 
-    console.log("Processing YouTube OAuth for user:", userId)
+    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET
 
-    // Exchange code for tokens using the service
-    const redirectUri = `${getBaseUrl(request)}/api/integrations/youtube/callback`
-    const tokenData = await YouTubeOAuthService.exchangeCodeForTokens(code, redirectUri)
+    if (!clientId || !clientSecret) {
+      console.error("Missing Google client ID or secret")
+      return NextResponse.redirect(`${baseUrl}/integrations?error=missing_client_credentials&provider=youtube`)
+    }
 
-    console.log("Token exchange successful:", {
-      hasAccessToken: !!tokenData.access_token,
-      hasRefreshToken: !!tokenData.refresh_token,
-      expiresIn: tokenData.expires_in,
-      scope: tokenData.scope,
+    const tokenEndpoint = "https://oauth2.googleapis.com/token"
+    const body = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      client_secret: clientSecret,
+      code: code,
+      grant_type: "authorization_code",
     })
 
-    const { access_token, refresh_token, expires_in } = tokenData
-
-    // Get user info using the service
-    const userInfo = await YouTubeOAuthService.getUserInfo(access_token)
-    console.log("User info retrieved:", {
-      id: userInfo.id,
-      name: userInfo.name,
-      hasMetadata: !!userInfo.metadata,
+    const response = await fetch(tokenEndpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body,
     })
+
+    if (!response.ok) {
+      console.error("Token request failed", response.status, await response.text())
+      return NextResponse.redirect(`${baseUrl}/integrations?error=token_request_failed&provider=youtube`)
+    }
+
+    const data = await response.json()
+    const accessToken = data.access_token
+    const refreshToken = data.refresh_token
+    const expires_in = data.expires_in
+
+    if (!accessToken || !refreshToken) {
+      console.error("Missing access token or refresh token")
+      return NextResponse.redirect(`${baseUrl}/integrations?error=missing_tokens&provider=youtube`)
+    }
+
+    // Get YouTube channel info
+    let userData
+    let channelId
+    let displayName
+
+    try {
+      const userResponse = await fetch("https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true", {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      })
+
+      if (userResponse.ok) {
+        userData = await userResponse.json()
+        const channel = userData.items?.[0]
+        if (channel) {
+          channelId = channel.id
+          displayName = channel.snippet?.title
+        }
+      }
+    } catch (e) {
+      console.warn("Could not get YouTube channel info:", e)
+    }
+
+    // Fallback to Google profile if YouTube channel not available
+    if (!channelId) {
+      try {
+        const profileResponse = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        })
+
+        if (profileResponse.ok) {
+          const profileData = await profileResponse.json()
+          channelId = profileData.id
+          displayName = profileData.name
+        }
+      } catch (e) {
+        console.warn("Could not get Google profile:", e)
+      }
+    }
+
+    if (!channelId) {
+      console.error("Failed to get YouTube user info")
+      return NextResponse.redirect(`${baseUrl}/integrations?error=user_info_failed&provider=youtube`)
+    }
 
     const now = new Date().toISOString()
-    const expiresAt = expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null
 
     // Check if integration exists
-    console.log("Checking for existing integration...")
-    const { data: existingIntegration, error: findError } = await supabase
+    const { data: existingIntegration } = await supabase
       .from("integrations")
-      .select("id, status, created_at")
+      .select("id")
       .eq("user_id", userId)
       .eq("provider", "youtube")
       .maybeSingle()
 
-    if (findError) {
-      console.error("Error checking for existing integration:", findError)
-    } else {
-      console.log("Existing integration check:", {
-        found: !!existingIntegration,
-        id: existingIntegration?.id,
-        status: existingIntegration?.status,
-      })
-    }
-
-    // Prepare integration data using existing database schema
     const integrationData = {
       user_id: userId,
       provider: "youtube",
-      provider_account_id: userInfo.id,
-      access_token,
-      refresh_token,
-      expires_at: expiresAt,
-      token_type: "Bearer",
-      scope: tokenData.scope || "https://www.googleapis.com/auth/youtube.readonly",
+      provider_user_id: channelId,
+      access_token: accessToken,
+      refresh_token: refreshToken,
+      expires_at: expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null,
+      status: "connected",
+      scopes: data.scope ? data.scope.split(" ") : [],
       metadata: {
-        ...userInfo.metadata,
-        name: userInfo.name,
-        email: userInfo.email,
-        avatar: userInfo.avatar,
+        display_name: displayName,
+        channel_id: channelId,
         connected_at: now,
       },
-      is_active: true,
       updated_at: now,
     }
 
-    console.log("Integration data prepared:", {
-      user_id: integrationData.user_id,
-      provider: integrationData.provider,
-      provider_account_id: integrationData.provider_account_id,
-      token_type: integrationData.token_type,
-      hasAccessToken: !!integrationData.access_token,
-      hasRefreshToken: !!integrationData.refresh_token,
-      expires_at: integrationData.expires_at,
-      is_active: integrationData.is_active,
-    })
-
-    let result
     if (existingIntegration) {
-      console.log("Updating existing YouTube integration:", existingIntegration.id)
-      result = await supabase.from("integrations").update(integrationData).eq("id", existingIntegration.id).select()
+      const { error } = await supabase.from("integrations").update(integrationData).eq("id", existingIntegration.id)
+
+      if (error) {
+        console.error("Error updating YouTube integration:", error)
+        return NextResponse.redirect(`${baseUrl}/integrations?error=database_update_failed&provider=youtube`)
+      }
     } else {
-      console.log("Creating new YouTube integration")
-      result = await supabase
-        .from("integrations")
-        .insert({
-          ...integrationData,
-          created_at: now,
-        })
-        .select()
+      const { error } = await supabase.from("integrations").insert({
+        ...integrationData,
+        created_at: now,
+      })
+
+      if (error) {
+        console.error("Error inserting YouTube integration:", error)
+        return NextResponse.redirect(`${baseUrl}/integrations?error=database_insert_failed&provider=youtube`)
+      }
     }
 
-    if (result.error) {
-      console.error("Database operation failed:", result.error)
-      return NextResponse.redirect(
-        new URL(
-          `/integrations?error=true&provider=youtube&message=${encodeURIComponent(result.error.message)}`,
-          baseUrl,
-        ),
-      )
-    }
-
-    console.log("YouTube integration saved successfully:", result.data?.[0]?.id)
-
-    // Add delay to ensure database operations complete
+    // Add a delay to ensure database operations complete
     await new Promise((resolve) => setTimeout(resolve, 500))
 
-    console.log("=== YouTube OAuth Callback Completed Successfully ===")
-
+    return NextResponse.redirect(`${baseUrl}/integrations?success=youtube_connected&provider=youtube&t=${Date.now()}`)
+  } catch (e: any) {
+    console.error("Error during YouTube auth:", e)
     return NextResponse.redirect(
-      new URL(`/integrations?success=youtube_connected&provider=youtube&t=${Date.now()}`, baseUrl),
-    )
-  } catch (error: any) {
-    console.error("YouTube OAuth callback error:", {
-      message: error.message,
-      stack: error.stack,
-      name: error.name,
-    })
-    return NextResponse.redirect(
-      new URL(`/integrations?error=true&provider=youtube&message=${encodeURIComponent(error.message)}`, baseUrl),
+      `${baseUrl}/integrations?error=youtube_auth_failed&message=${encodeURIComponent(e.message)}`,
     )
   }
 }
