@@ -173,36 +173,22 @@ export class TeamsOAuthService extends BaseOAuthService {
         email: userData.userPrincipalName || userData.mail,
       })
 
-      // Parse and store the granted scopes - handle Microsoft's scope format
-      let grantedScopes: string[] = []
-      if (scope) {
-        // Microsoft returns scopes separated by spaces, sometimes with extra formatting
-        grantedScopes = scope
-          .split(/\s+/) // Split on any whitespace
-          .map((s: string) => s.trim())
-          .filter((s: string) => s.length > 0)
-          .filter((s: string) => !s.includes("http")) // Remove any URL-like scopes that might be malformed
-
-        console.log("Teams OAuth - Parsed scopes:", grantedScopes)
-      }
-
+      // Use the existing database schema - same as other integrations
       const integrationData = {
         user_id: userId,
         provider: "teams",
-        provider_user_id: userData.id,
+        provider_account_id: userData.id,
         access_token,
         refresh_token,
         expires_at: expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null,
-        status: "connected" as const,
-        scopes: grantedScopes,
-        granted_scopes: grantedScopes,
+        token_type: tokenData.token_type || "Bearer",
+        scope: scope, // Use the single 'scope' column like other integrations
+        is_active: true,
         metadata: {
           display_name: userData.displayName,
           email: userData.userPrincipalName || userData.mail,
           connected_at: new Date().toISOString(),
-          scopes: grantedScopes,
           raw_scope_string: scope,
-          token_type: tokenData.token_type || "Bearer",
           requested_scopes: [
             "openid",
             "profile",
@@ -221,6 +207,8 @@ export class TeamsOAuthService extends BaseOAuthService {
       console.log("Teams OAuth - Integration saved with ID:", savedIntegrationId)
 
       try {
+        // Parse scopes for validation
+        const grantedScopes = scope ? scope.split(/\s+/).filter((s: string) => s.length > 0) : []
         await validateAndUpdateIntegrationScopes(savedIntegrationId, grantedScopes)
       } catch (err) {
         console.error("Teams OAuth - Scope validation failed:", err)
