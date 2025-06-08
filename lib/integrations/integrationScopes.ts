@@ -360,10 +360,16 @@ export const INTEGRATION_SCOPES: Record<string, IntegrationScopeConfig> = {
         description: "View email address",
         required: true,
       },
+      {
+        scope: "https://www.googleapis.com/auth/youtube.upload",
+        description: "Upload videos to your YouTube channel",
+        required: false,
+      },
     ],
     components: {
       "youtube-get-channel": ["https://www.googleapis.com/auth/youtube.readonly"],
       "youtube-get-videos": ["https://www.googleapis.com/auth/youtube.readonly"],
+      "youtube-upload-video": ["https://www.googleapis.com/auth/youtube.upload"],
       "youtube-get-analytics": ["https://www.googleapis.com/auth/youtube.readonly"],
     },
   },

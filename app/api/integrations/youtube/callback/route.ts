@@ -153,26 +153,6 @@ export async function GET(req: NextRequest) {
       .eq("provider", "youtube")
       .maybeSingle()
 
-    // Parse YouTube-specific scopes from the token response
-    const youtubeScopes = data.scope
-      ? data.scope
-          .split(" ")
-          .filter(
-            (scope) =>
-              scope.includes("youtube") ||
-              scope.includes("userinfo") ||
-              scope === "openid" ||
-              scope === "profile" ||
-              scope === "email",
-          )
-      : [
-          "https://www.googleapis.com/auth/youtube.readonly",
-          "https://www.googleapis.com/auth/userinfo.profile",
-          "https://www.googleapis.com/auth/userinfo.email",
-        ]
-
-    console.log("YouTube scopes being stored:", youtubeScopes)
-
     const integrationData = {
       user_id: userId,
       provider: "youtube",
@@ -181,15 +161,11 @@ export async function GET(req: NextRequest) {
       refresh_token: refreshToken,
       expires_at: expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null,
       status: "connected",
-      scopes: youtubeScopes,
+      scopes: data.scope ? data.scope.split(" ") : [],
       metadata: {
         display_name: displayName,
         channel_id: channelId,
         connected_at: now,
-        scopes: youtubeScopes, // Store scopes in metadata as well for diagnostics
-        raw_scope_string: data.scope,
-        youtube_specific: true, // Flag to indicate this is YouTube-specific
-        token_source: "youtube_oauth", // Indicate the source of the token
       },
       updated_at: now,
     }
