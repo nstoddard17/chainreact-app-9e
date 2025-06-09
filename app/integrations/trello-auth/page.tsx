@@ -4,6 +4,9 @@ import { useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { createClient } from "@supabase/supabase-js"
+
+const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
 export default function TrelloAuthPage() {
   const [processing, setProcessing] = useState(true)
@@ -14,11 +17,27 @@ export default function TrelloAuthPage() {
   useEffect(() => {
     const handleTrelloCallback = async () => {
       try {
+        // Get current user from Supabase
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser()
+
+        if (userError || !user) {
+          console.error("User not authenticated:", userError)
+          toast({
+            title: "Authentication Required",
+            description: "Please log in to connect integrations",
+            variant: "destructive",
+          })
+          router.push("/auth/login?redirect=/integrations")
+          return
+        }
+
         // Get the token from the URL fragment
         const hash = window.location.hash
         const urlParams = new URLSearchParams(hash.substring(1)) // Remove the # and parse
         const token = urlParams.get("token")
-        const state = searchParams.get("state")
 
         if (!token) {
           console.error("No token found in URL fragment")
@@ -31,18 +50,7 @@ export default function TrelloAuthPage() {
           return
         }
 
-        if (!state) {
-          console.error("No state found in URL")
-          toast({
-            title: "Authentication Failed",
-            description: "Invalid authentication state",
-            variant: "destructive",
-          })
-          router.push("/integrations?error=trello_no_state")
-          return
-        }
-
-        console.log("Processing Trello token:", token.substring(0, 10) + "...")
+        console.log("Processing Trello token for user:", user.id)
 
         // Send the token to our server-side callback handler
         const response = await fetch("/api/integrations/trello/process-token", {
@@ -52,7 +60,7 @@ export default function TrelloAuthPage() {
           },
           body: JSON.stringify({
             token,
-            state,
+            userId: user.id, // Pass user ID directly instead of relying on state
           }),
         })
 
