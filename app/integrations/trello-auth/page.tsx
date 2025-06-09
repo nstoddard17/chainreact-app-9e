@@ -4,27 +4,30 @@ import { useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { createClient } from "@supabase/supabase-js"
-
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 
 export default function TrelloAuthPage() {
   const [processing, setProcessing] = useState(true)
   const router = useRouter()
   const searchParams = useSearchParams()
   const { toast } = useToast()
+  const supabase = createClientComponentClient()
 
   useEffect(() => {
     const handleTrelloCallback = async () => {
       try {
-        // Get current user from Supabase
+        // Get current user from Supabase with proper session handling
         const {
-          data: { user },
-          error: userError,
-        } = await supabase.auth.getUser()
+          data: { session },
+          error: sessionError,
+        } = await supabase.auth.getSession()
 
-        if (userError || !user) {
-          console.error("User not authenticated:", userError)
+        if (sessionError) {
+          console.error("Session error:", sessionError)
+        }
+
+        if (!session?.user) {
+          console.error("No authenticated user found")
           toast({
             title: "Authentication Required",
             description: "Please log in to connect integrations",
@@ -33,6 +36,8 @@ export default function TrelloAuthPage() {
           router.push("/auth/login?redirect=/integrations")
           return
         }
+
+        const user = session.user
 
         // Get the token from the URL fragment
         const hash = window.location.hash
@@ -57,10 +62,11 @@ export default function TrelloAuthPage() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`, // Include auth token
           },
           body: JSON.stringify({
             token,
-            userId: user.id, // Pass user ID directly instead of relying on state
+            userId: user.id,
           }),
         })
 
@@ -75,7 +81,8 @@ export default function TrelloAuthPage() {
           description: "Trello integration connected successfully",
         })
 
-        router.push("/integrations?success=true&provider=trello&t=" + Date.now())
+        // Use replace instead of push to avoid back button issues
+        router.replace("/integrations?success=true&provider=trello&t=" + Date.now())
       } catch (error: any) {
         console.error("Error processing Trello callback:", error)
         toast({
@@ -83,14 +90,16 @@ export default function TrelloAuthPage() {
           description: error.message || "Failed to connect Trello integration",
           variant: "destructive",
         })
-        router.push(`/integrations?error=trello_process_failed&message=${encodeURIComponent(error.message)}`)
+        router.replace(`/integrations?error=trello_process_failed&message=${encodeURIComponent(error.message)}`)
       } finally {
         setProcessing(false)
       }
     }
 
-    handleTrelloCallback()
-  }, [router, searchParams, toast])
+    // Add a small delay to ensure the page is fully loaded
+    const timer = setTimeout(handleTrelloCallback, 100)
+    return () => clearTimeout(timer)
+  }, [router, searchParams, toast, supabase.auth])
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50">
