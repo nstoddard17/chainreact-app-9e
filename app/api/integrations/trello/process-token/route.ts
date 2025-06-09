@@ -18,30 +18,17 @@ const supabase = createClient(supabaseUrl, supabaseKey, {
 
 export const POST = async (request: NextRequest) => {
   try {
-    const { token, state } = await request.json()
+    const { token, userId } = await request.json()
 
     if (!token) {
       return NextResponse.json({ error: "No token provided" }, { status: 400 })
     }
 
-    if (!state) {
-      return NextResponse.json({ error: "No state provided" }, { status: 400 })
-    }
-
-    // Parse state to get user ID
-    let stateData
-    try {
-      stateData = JSON.parse(atob(state))
-    } catch (e) {
-      console.error("Failed to parse state:", e)
-      return NextResponse.json({ error: "Invalid state format" }, { status: 400 })
-    }
-
-    const userId = stateData.userId
-
     if (!userId) {
-      return NextResponse.json({ error: "No user ID in state" }, { status: 400 })
+      return NextResponse.json({ error: "No user ID provided" }, { status: 400 })
     }
+
+    console.log("Processing Trello token for user:", userId)
 
     // Get user info from Trello
     const meResponse = await fetch(
@@ -61,6 +48,8 @@ export const POST = async (request: NextRequest) => {
     if (!trelloUserId || !trelloUsername) {
       return NextResponse.json({ error: "Invalid Trello user data" }, { status: 400 })
     }
+
+    console.log("Trello user data:", { id: trelloUserId, username: trelloUsername })
 
     const now = new Date().toISOString()
 
@@ -86,10 +75,10 @@ export const POST = async (request: NextRequest) => {
       scopes: grantedScopes,
       metadata: {
         username: trelloUsername,
-        full_name: meData.fullName,
-        initials: meData.initials,
+        full_name: meData.fullName || null,
+        initials: meData.initials || null,
         avatar_url: meData.avatarUrl || null,
-        url: meData.url,
+        url: meData.url || null,
         connected_at: now,
         raw_user_data: meData,
       },
@@ -97,9 +86,13 @@ export const POST = async (request: NextRequest) => {
 
     let integrationId: string | undefined
     if (existingIntegration) {
+      console.log("Updating existing Trello integration:", existingIntegration.id)
       const { data, error } = await supabase
         .from("integrations")
-        .update(integrationData)
+        .update({
+          ...integrationData,
+          updated_at: now,
+        })
         .eq("id", existingIntegration.id)
         .select("id")
         .single()
@@ -110,11 +103,13 @@ export const POST = async (request: NextRequest) => {
       }
       integrationId = data.id
     } else {
+      console.log("Creating new Trello integration")
       const { data, error } = await supabase
         .from("integrations")
         .insert({
           ...integrationData,
           created_at: now,
+          updated_at: now,
         })
         .select("id")
         .single()
@@ -129,11 +124,14 @@ export const POST = async (request: NextRequest) => {
     if (integrationId) {
       try {
         await validateAndUpdateIntegrationScopes(integrationId, grantedScopes)
+        console.log("Trello integration scope validation completed")
       } catch (err) {
         console.error("Trello scope validation failed:", err)
+        // Don't fail the whole process for scope validation errors
       }
     }
 
+    console.log("Trello integration processed successfully:", integrationId)
     return NextResponse.json({ success: true, integrationId })
   } catch (e: any) {
     console.error("Error processing Trello token:", e)
