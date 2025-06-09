@@ -28,11 +28,14 @@ export async function middleware(request: NextRequest) {
       url.startsWith("/learn") ||
       url.startsWith("/community")
 
+    // Exclude OAuth callback pages from authentication checks
+    const isOAuthCallback = url.startsWith("/integrations/trello-auth") || url.includes("/callback")
+
     // For development, allow access to protected routes even without a session
     const isDevelopment = process.env.NODE_ENV === "development"
 
-    // Only redirect if we're sure there's no session and it's not development
-    if (!session && isProtectedRoute && !isDevelopment) {
+    // Only redirect if we're sure there's no session, it's not development, and it's not an OAuth callback
+    if (!session && isProtectedRoute && !isDevelopment && !isOAuthCallback) {
       console.log("Middleware: No session found, redirecting to login")
       return NextResponse.redirect(new URL("/auth/login", request.url))
     }
