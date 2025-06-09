@@ -85,25 +85,26 @@ export async function GET(req: NextRequest) {
       return NextResponse.redirect(`${baseUrl}/integrations?error=token_request_failed&provider=youtube`)
     }
 
-    const data = await response.json()
-    const accessToken = data.access_token
-    const refreshToken = data.refresh_token
-    const expires_in = data.expires_in
+    const tokenData = await response.json()
+    const access_token = tokenData.access_token
+    const refresh_token = tokenData.refresh_token
+    const expires_in = tokenData.expires_in
 
-    if (!accessToken || !refreshToken) {
-      console.error("Missing access token or refresh token")
-      return NextResponse.redirect(`${baseUrl}/integrations?error=missing_tokens&provider=youtube`)
+    if (!access_token) {
+      console.error("Missing access token")
+      return NextResponse.redirect(`${baseUrl}/integrations?error=missing_access_token&provider=youtube`)
     }
 
     // Get YouTube channel info
     let userData
     let channelId
     let displayName
+    let thumbnailUrl
 
     try {
       const userResponse = await fetch("https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true", {
         headers: {
-          Authorization: `Bearer ${accessToken}`,
+          Authorization: `Bearer ${access_token}`,
         },
       })
 
@@ -113,6 +114,7 @@ export async function GET(req: NextRequest) {
         if (channel) {
           channelId = channel.id
           displayName = channel.snippet?.title
+          thumbnailUrl = channel.snippet?.thumbnails?.default?.url || null
         }
       }
     } catch (e) {
@@ -120,11 +122,12 @@ export async function GET(req: NextRequest) {
     }
 
     // Fallback to Google profile if YouTube channel not available
+    let email, name, picture, verified_email
     if (!channelId) {
       try {
         const profileResponse = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
           headers: {
-            Authorization: `Bearer ${accessToken}`,
+            Authorization: `Bearer ${access_token}`,
           },
         })
 
@@ -132,6 +135,10 @@ export async function GET(req: NextRequest) {
           const profileData = await profileResponse.json()
           channelId = profileData.id
           displayName = profileData.name
+          email = profileData.email
+          name = profileData.name
+          picture = profileData.picture
+          verified_email = profileData.verified_email
         }
       } catch (e) {
         console.warn("Could not get Google profile:", e)
@@ -145,46 +152,60 @@ export async function GET(req: NextRequest) {
 
     const now = new Date().toISOString()
 
+    // Format integration data exactly like Google Drive
+    const integrationData = {
+      user_id: userId,
+      provider: "youtube",
+      provider_user_id: channelId,
+      access_token,
+      refresh_token,
+      expires_at: expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null,
+      status: "connected",
+      scopes: tokenData.scope ? tokenData.scope.split(" ") : [],
+      metadata: {
+        email: email || null,
+        name: displayName || name || null,
+        picture: picture || thumbnailUrl || null,
+        channel_id: channelId,
+        verified_email: verified_email || null,
+        connected_at: now,
+      },
+      updated_at: now,
+    }
+
     // Check if integration exists
-    const { data: existingIntegration } = await supabase
+    const { data: existingIntegration, error: fetchError } = await supabase
       .from("integrations")
       .select("id")
       .eq("user_id", userId)
       .eq("provider", "youtube")
       .maybeSingle()
 
-    const integrationData = {
-      user_id: userId,
-      provider: "youtube",
-      provider_user_id: channelId,
-      access_token: accessToken,
-      refresh_token: refreshToken,
-      expires_at: expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null,
-      status: "connected",
-      scopes: data.scope ? data.scope.split(" ") : [],
-      metadata: {
-        display_name: displayName,
-        channel_id: channelId,
-        connected_at: now,
-      },
-      updated_at: now,
+    if (fetchError) {
+      console.error("Error checking for existing integration:", fetchError)
+      return NextResponse.redirect(`${baseUrl}/integrations?error=database_query_failed&provider=youtube`)
     }
 
     if (existingIntegration) {
-      const { error } = await supabase.from("integrations").update(integrationData).eq("id", existingIntegration.id)
+      // Update existing integration
+      const { error: updateError } = await supabase
+        .from("integrations")
+        .update(integrationData)
+        .eq("id", existingIntegration.id)
 
-      if (error) {
-        console.error("Error updating YouTube integration:", error)
+      if (updateError) {
+        console.error("Error updating YouTube integration:", updateError)
         return NextResponse.redirect(`${baseUrl}/integrations?error=database_update_failed&provider=youtube`)
       }
     } else {
-      const { error } = await supabase.from("integrations").insert({
+      // Insert new integration
+      const { error: insertError } = await supabase.from("integrations").insert({
         ...integrationData,
         created_at: now,
       })
 
-      if (error) {
-        console.error("Error inserting YouTube integration:", error)
+      if (insertError) {
+        console.error("Error inserting YouTube integration:", insertError)
         return NextResponse.redirect(`${baseUrl}/integrations?error=database_insert_failed&provider=youtube`)
       }
     }
