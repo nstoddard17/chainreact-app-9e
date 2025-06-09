@@ -1,3 +1,100 @@
+-- Combine all necessary schema changes into a single file
+
+-- Fix integrations table
+ALTER TABLE IF EXISTS integrations 
+ALTER COLUMN access_token TYPE TEXT;
+
+ALTER TABLE IF EXISTS integrations 
+ALTER COLUMN refresh_token TYPE TEXT;
+
+-- Add unique constraint if it doesn't exist
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint 
+    WHERE conname = 'integrations_user_id_provider_key'
+  ) THEN
+    ALTER TABLE integrations 
+    ADD CONSTRAINT integrations_user_id_provider_key 
+    UNIQUE (user_id, provider);
+  END IF;
+END
+$$;
+
+-- Add status column if it doesn't exist
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'integrations' AND column_name = 'status'
+  ) THEN
+    ALTER TABLE integrations 
+    ADD COLUMN status TEXT NOT NULL DEFAULT 'connected';
+  END IF;
+END
+$$;
+
+-- Add scopes column if it doesn't exist
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'integrations' AND column_name = 'scopes'
+  ) THEN
+    ALTER TABLE integrations 
+    ADD COLUMN scopes TEXT[] NULL;
+  END IF;
+END
+$$;
+
+-- Add metadata column if it doesn't exist
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'integrations' AND column_name = 'metadata'
+  ) THEN
+    ALTER TABLE integrations 
+    ADD COLUMN metadata JSONB NOT NULL DEFAULT '{}';
+  END IF;
+END
+$$;
+
+-- Add index on user_id and provider
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_indexes 
+    WHERE indexname = 'idx_integrations_user_id_provider'
+  ) THEN
+    CREATE INDEX idx_integrations_user_id_provider 
+    ON integrations(user_id, provider);
+  END IF;
+END
+$$;
+
+-- Fix any duplicate entries
+WITH duplicates AS (
+  SELECT 
+    user_id, 
+    provider, 
+    MAX(updated_at) as latest_updated_at,
+    array_agg(id ORDER BY updated_at DESC) as ids
+  FROM integrations
+  GROUP BY user_id, provider
+  HAVING COUNT(*) > 1
+)
+DELETE FROM integrations
+WHERE id IN (
+  SELECT unnest(ids[2:array_length(ids, 1)])
+  FROM duplicates
+);
+
+-- Add an index for better performance on token lookups
+CREATE INDEX IF NOT EXISTS idx_integrations_provider_user 
+ON integrations(provider, user_id) 
+WHERE status = 'connected';
+
 -- Enable RLS on workflows table
 ALTER TABLE workflows ENABLE ROW LEVEL SECURITY;
 
@@ -82,3 +179,24 @@ CREATE INDEX IF NOT EXISTS idx_templates_public ON templates(is_public) WHERE is
 CREATE INDEX IF NOT EXISTS idx_templates_category ON templates(category);
 CREATE INDEX IF NOT EXISTS idx_workflow_shares_shared_with ON workflow_shares(shared_with);
 CREATE INDEX IF NOT EXISTS idx_ai_chat_user_id ON ai_chat_history(user_id);
+
+-- Create token_audit_log table for security tracking
+CREATE TABLE IF NOT EXISTS token_audit_log (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  provider VARCHAR(100) NOT NULL,
+  action VARCHAR(50) NOT NULL,
+  status VARCHAR(50) NOT NULL,
+  details JSONB,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Enable RLS on token_audit_log
+ALTER TABLE token_audit_log ENABLE ROW LEVEL SECURITY;
+
+-- RLS policy for token_audit_log
+CREATE POLICY "Users can only see their own token audit logs" ON token_audit_log
+  FOR SELECT USING (auth.uid() = user_id);
+
+-- Add index for token audit logs
+CREATE INDEX IF NOT EXISTS idx_token_audit_user_provider ON token_audit_log(user_id, provider);

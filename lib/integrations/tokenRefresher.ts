@@ -175,8 +175,7 @@ async function refreshGoogleToken(refreshToken: string): Promise<RefreshResult> 
       success: true,
       message: "Successfully refreshed Google token",
       newToken: data.access_token,
-      // Google tokens are valid for 1 hour, but we'll set a longer expiry since we auto-refresh
-      newExpiry: Math.floor(Date.now() / 1000) + 365 * 24 * 60 * 60, // 1 year
+      newExpiry: Math.floor(Date.now() / 1000) + (data.expires_in || 3600),
       newRefreshToken: data.refresh_token, // Google may provide a new refresh token
     }
   } catch (error) {
@@ -232,9 +231,8 @@ async function refreshMicrosoftToken(refreshToken: string): Promise<RefreshResul
       success: true,
       message: "Successfully refreshed Microsoft token",
       newToken: data.access_token,
-      // Microsoft tokens are valid for 1 hour, but we'll set a longer expiry since we auto-refresh
-      newExpiry: Math.floor(Date.now() / 1000) + 365 * 24 * 60 * 60, // 1 year
-      newRefreshToken: data.refresh_token, // Microsoft may provide a new refresh token
+      newExpiry: Math.floor(Date.now() / 1000) + (data.expires_in || 3600),
+      newRefreshToken: data.refresh_token,
     }
   } catch (error) {
     return {
@@ -344,7 +342,7 @@ async function refreshSlackToken(refreshToken: string): Promise<RefreshResult> {
       success: true,
       message: "Successfully refreshed Slack token",
       newToken: data.access_token,
-      newExpiry: Math.floor(Date.now() / 1000) + (data.expires_in || 86400), // Default to 24h if not provided
+      newExpiry: Math.floor(Date.now() / 1000) + (data.expires_in || 86400),
     }
   } catch (error) {
     return {

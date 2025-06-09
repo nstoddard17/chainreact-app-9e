@@ -149,7 +149,6 @@ function isAuthError(error: any): boolean {
 
 /**
  * Background job to refresh tokens that are expiring soon
- * Runs more frequently for Google/Microsoft tokens
  */
 export async function refreshExpiringTokens(): Promise<void> {
   const supabase = createAdminSupabaseClient()

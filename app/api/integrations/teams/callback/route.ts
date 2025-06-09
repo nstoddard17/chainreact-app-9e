@@ -71,9 +71,9 @@ export async function GET(request: NextRequest) {
     }
 
     const tokenData = await tokenResponse.json()
-    const { access_token, refresh_token, expires_in, scope } = tokenData
+    const { access_token, refresh_token, expires_in, scope, token_type } = tokenData
 
-    // Get user info
+    // Get user info from Microsoft Graph
     const userResponse = await fetch("https://graph.microsoft.com/v1.0/me", {
       headers: {
         Authorization: `Bearer ${access_token}`,
@@ -90,21 +90,38 @@ export async function GET(request: NextRequest) {
 
     const userData = await userResponse.json()
 
-    // Prepare integration data
+    // Microsoft Graph /me endpoint returns:
+    // - id: string
+    // - displayName: string
+    // - userPrincipalName: string (email)
+    // - mail: string (might be null)
+    // - jobTitle: string
+    // - officeLocation: string
+    // etc.
+
+    // Prepare integration data - Fixed to match actual Microsoft Graph API response
     const integrationData = {
       user_id: userId,
       provider: "teams",
       provider_user_id: userData.id,
-      status: "connected",
+      access_token: access_token,
+      refresh_token: refresh_token,
+      expires_at: expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null,
+      status: "connected" as const,
       scopes: scope ? scope.split(" ") : [],
       metadata: {
-        display_name: userData.displayName,
-        email: userData.userPrincipalName,
-        access_token,
-        refresh_token,
-        expires_at: expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null,
-        raw_scope_string: scope,
+        display_name: userData.displayName || "Unknown User",
+        email: userData.userPrincipalName || userData.mail || null,
+        job_title: userData.jobTitle || null,
+        office_location: userData.officeLocation || null,
+        token_type: token_type || "Bearer",
         connected_at: new Date().toISOString(),
+        raw_user_data: {
+          id: userData.id,
+          displayName: userData.displayName,
+          userPrincipalName: userData.userPrincipalName,
+          mail: userData.mail,
+        },
       },
     }
 
@@ -127,7 +144,11 @@ export async function GET(request: NextRequest) {
         )
       }
     } else {
-      const { error } = await supabase.from("integrations").insert(integrationData)
+      const { error } = await supabase.from("integrations").insert({
+        ...integrationData,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
       if (error) {
         console.error("Failed to insert integration:", error)
         return NextResponse.redirect(
