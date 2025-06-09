@@ -164,6 +164,9 @@ importers:
       autoprefixer:
         specifier: ^10.4.20
         version: 10.4.20(postcss@8.5.0)
+      axios:
+        specifier: latest
+        version: 1.9.0
       better-sqlite3:
         specifier: latest
         version: 11.10.0
@@ -185,6 +188,9 @@ importers:
       date-fns:
         specifier: 4.1.0
         version: 4.1.0
+      dotenv:
+        specifier: latest
+        version: 16.5.0
       drizzle-orm:
         specifier: latest
         version: 0.44.2(67d8b029dad52a07efe6504a1af22de7)
@@ -3147,6 +3153,10 @@ packages:
 
   dotenv@16.4.7:
     resolution: {integrity: sha512-47qPchRCykZC03FhkYAhrvwU4xDBFIj1QPqaarj6mdM/hgUzfPHcpkHJOn3mJAufFeeAxAzeGsr5X0M4k6fLZQ==}
+    engines: {node: '>=12'}
+
+  dotenv@16.5.0:
+    resolution: {integrity: sha512-m/C+AwOAr9/W1UOIZUo232ejMNnJAJtYQjUbHoNTBNTJSvqzzDh7vnrei3o3r3m9blf6ZoDkvcw0VmozNRFJxg==}
     engines: {node: '>=12'}
 
   drizzle-orm@0.44.2:
@@ -9287,9 +9297,11 @@ snapshots:
 
   dotenv-expand@11.0.7:
     dependencies:
-      dotenv: 16.4.7
+      dotenv: 16.5.0
 
   dotenv@16.4.7: {}
+
+  dotenv@16.5.0: {}
 
   drizzle-orm@0.44.2(67d8b029dad52a07efe6504a1af22de7):
     optionalDependencies:
