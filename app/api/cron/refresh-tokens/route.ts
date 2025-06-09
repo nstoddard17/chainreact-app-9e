@@ -1,47 +1,37 @@
-import { NextResponse } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
 import { refreshExpiringTokens } from "@/lib/integrations/autoTokenRefresh"
 
-export async function GET() {
+export const dynamic = "force-dynamic"
+export const maxDuration = 60 // 60 seconds (maximum allowed)
+
+export async function GET(request: NextRequest) {
   try {
-    console.log("Starting scheduled token refresh job...")
+    // Verify cron secret for security
+    const authHeader = request.headers.get("authorization")
+    if (!authHeader || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    console.log("Starting token refresh cron job...")
+
+    // Run the token refresh job
     await refreshExpiringTokens()
-    console.log("Token refresh job completed successfully")
 
     return NextResponse.json({
       success: true,
       message: "Token refresh job completed",
+      timestamp: new Date().toISOString(),
     })
   } catch (error: any) {
-    console.error("Token refresh job failed:", error)
+    console.error("Error in token refresh cron job:", error)
     return NextResponse.json(
       {
         success: false,
-        error: error.message || "Token refresh job failed",
+        error: "Token refresh job failed",
+        details: error.message,
+        timestamp: new Date().toISOString(),
       },
       { status: 500 },
     )
-  }
-}
-
-// Verify this is a cron job (optional security measure)
-export async function POST(request: Request) {
-  try {
-    // Verify cron secret if you're using Vercel Cron
-    const authHeader = request.headers.get("authorization")
-    const cronSecret = process.env.CRON_SECRET
-
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    await refreshExpiringTokens()
-
-    return NextResponse.json({
-      success: true,
-      message: "Scheduled token refresh completed",
-    })
-  } catch (error: any) {
-    console.error("Scheduled token refresh failed:", error)
-    return NextResponse.json({ error: error.message || "Token refresh failed" }, { status: 500 })
   }
 }

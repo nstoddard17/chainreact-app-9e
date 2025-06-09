@@ -81,20 +81,25 @@ export const GET = async (request: NextRequest) => {
 
     const grantedScopes = ["read", "write"]
 
+    // UPDATED: Match Discord structure that works correctly
     const integrationData = {
       user_id: userId,
       provider: "trello",
       provider_user_id: trelloUserId,
       access_token: token,
-      status: "connected" as const,
+      refresh_token: null, // Trello doesn't provide refresh tokens
+      expires_at: null, // Trello tokens don't expire unless revoked
+      status: "connected" as const, // Using "as const" just like Discord
       scopes: grantedScopes,
-      granted_scopes: grantedScopes,
       metadata: {
         username: trelloUsername,
         full_name: meData.fullName,
+        initials: meData.initials,
+        avatar_url: meData.avatarUrl || null,
+        url: meData.url,
         connected_at: now,
+        raw_user_data: meData, // Store raw data for debugging
       },
-      updated_at: now,
     }
 
     let integrationId: string | undefined
@@ -139,7 +144,7 @@ export const GET = async (request: NextRequest) => {
     // Add a delay to ensure database operations complete
     await new Promise((resolve) => setTimeout(resolve, 500))
 
-    return NextResponse.redirect(`${baseUrl}/integrations?success=trello_connected&provider=trello&t=${Date.now()}`)
+    return NextResponse.redirect(`${baseUrl}/integrations?success=true&provider=trello&t=${Date.now()}`)
   } catch (e: any) {
     console.error("Error during Trello callback:", e)
     return NextResponse.redirect(

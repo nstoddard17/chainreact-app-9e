@@ -15,16 +15,39 @@ export function createServerClient() {
 
 export async function getSession() {
   const supabase = createClient()
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-  return session
+  try {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
+    return session
+  } catch (error) {
+    console.error("Error getting session:", error)
+    return null
+  }
 }
 
 export async function getUser() {
   const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  return user
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    return user
+  } catch (error) {
+    console.error("Error getting user:", error)
+    return null
+  }
+}
+
+export async function getUserId() {
+  const user = await getUser()
+  return user?.id
+}
+
+export async function requireAuth() {
+  const session = await getSession()
+  if (!session) {
+    throw new Error("Unauthorized")
+  }
+  return session
 }
