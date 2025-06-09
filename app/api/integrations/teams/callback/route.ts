@@ -89,17 +89,9 @@ export async function GET(request: NextRequest) {
     }
 
     const userData = await userResponse.json()
+    const now = new Date().toISOString()
 
-    // Microsoft Graph /me endpoint returns:
-    // - id: string
-    // - displayName: string
-    // - userPrincipalName: string (email)
-    // - mail: string (might be null)
-    // - jobTitle: string
-    // - officeLocation: string
-    // etc.
-
-    // Prepare integration data - Fixed to match actual Microsoft Graph API response
+    // Prepare integration data
     const integrationData = {
       user_id: userId,
       provider: "teams",
@@ -115,7 +107,7 @@ export async function GET(request: NextRequest) {
         job_title: userData.jobTitle || null,
         office_location: userData.officeLocation || null,
         token_type: token_type || "Bearer",
-        connected_at: new Date().toISOString(),
+        connected_at: now,
         raw_user_data: {
           id: userData.id,
           displayName: userData.displayName,
@@ -125,38 +117,52 @@ export async function GET(request: NextRequest) {
       },
     }
 
-    // Update or insert integration
-    if (reconnect && integrationId) {
-      const { error } = await supabase
+    // First check if integration already exists
+    const { data: existingIntegration, error: findError } = await supabase
+      .from("integrations")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("provider", "teams")
+      .maybeSingle()
+
+    if (findError) {
+      console.error("Error checking for existing integration:", findError)
+      return NextResponse.redirect(
+        `${getBaseUrl()}/integrations?error=db_error&message=${encodeURIComponent(
+          "Failed to check for existing integration",
+        )}`,
+      )
+    }
+
+    let updateResult
+
+    // If integration exists, update it
+    if (existingIntegration) {
+      console.log("Updating existing Teams integration:", existingIntegration.id)
+      updateResult = await supabase
         .from("integrations")
         .update({
           ...integrationData,
-          updated_at: new Date().toISOString(),
+          updated_at: now,
         })
-        .eq("id", integrationId)
-
-      if (error) {
-        console.error("Failed to update integration:", error)
-        return NextResponse.redirect(
-          `${getBaseUrl()}/integrations?error=db_error&message=${encodeURIComponent(
-            "Failed to update integration in database",
-          )}`,
-        )
-      }
+        .eq("id", existingIntegration.id)
     } else {
-      const { error } = await supabase.from("integrations").insert({
+      // Otherwise insert new integration
+      console.log("Creating new Teams integration")
+      updateResult = await supabase.from("integrations").insert({
         ...integrationData,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        created_at: now,
+        updated_at: now,
       })
-      if (error) {
-        console.error("Failed to insert integration:", error)
-        return NextResponse.redirect(
-          `${getBaseUrl()}/integrations?error=db_error&message=${encodeURIComponent(
-            "Failed to save integration to database",
-          )}`,
-        )
-      }
+    }
+
+    if (updateResult.error) {
+      console.error("Failed to save integration:", updateResult.error)
+      return NextResponse.redirect(
+        `${getBaseUrl()}/integrations?error=db_error&message=${encodeURIComponent(
+          "Failed to save integration to database",
+        )}`,
+      )
     }
 
     // Add a small delay to ensure database operations complete
