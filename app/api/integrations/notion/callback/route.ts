@@ -1,6 +1,6 @@
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 import { type NextRequest, NextResponse } from "next/server"
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
+import { createClient } from "@supabase/supabase-js"
 import { cookies } from "next/headers"
 
 const notionClientId = process.env.NEXT_PUBLIC_NOTION_CLIENT_ID
