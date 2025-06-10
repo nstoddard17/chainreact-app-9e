@@ -64,12 +64,14 @@ export async function GET(request: NextRequest) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Basic ${Buffer.from(notionClientId + ":" + notionClientSecret).toString("base64")}`,
+        Accept: "application/json",
       },
       body: JSON.stringify({
         grant_type: "authorization_code",
         code,
         redirect_uri: `${getBaseUrl(request)}/api/integrations/notion/callback`,
+        client_id: notionClientId,
+        client_secret: notionClientSecret,
       }),
     })
 
