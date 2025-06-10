@@ -62,25 +62,43 @@ export async function GET(request: NextRequest) {
 
     console.log("Notion: Processing OAuth for user:", userId)
 
-    // Exchange code for token
+    // Debug: Log the credentials being used (without exposing the secret)
+    console.log("Notion credentials check:", {
+      clientId: notionClientId?.substring(0, 10) + "...",
+      hasSecret: !!notionClientSecret,
+      secretLength: notionClientSecret?.length,
+    })
+
+    // Exchange code for token using Basic Auth (as per Notion docs)
+    const authHeader = Buffer.from(`${notionClientId}:${notionClientSecret}`).toString("base64")
+
     const tokenResponse = await fetch("https://api.notion.com/v1/oauth/token", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        Authorization: `Basic ${authHeader}`,
         Accept: "application/json",
       },
       body: JSON.stringify({
         grant_type: "authorization_code",
         code,
         redirect_uri: `${getBaseUrl(request)}/api/integrations/notion/callback`,
-        client_id: notionClientId,
-        client_secret: notionClientSecret,
       }),
     })
 
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text()
       console.error("Notion token exchange failed:", tokenResponse.status, errorText)
+
+      // Log more details for debugging
+      console.error("Token request details:", {
+        url: "https://api.notion.com/v1/oauth/token",
+        method: "POST",
+        redirectUri: `${getBaseUrl(request)}/api/integrations/notion/callback`,
+        codeLength: code?.length,
+        authHeaderLength: authHeader?.length,
+      })
+
       return NextResponse.redirect(
         new URL(
           `/integrations?error=token_exchange_failed&provider=notion&message=${encodeURIComponent(errorText)}`,
