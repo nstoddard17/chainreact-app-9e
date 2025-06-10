@@ -1,32 +1,91 @@
-import { drizzle } from "drizzle-orm/postgres-js"
-import postgres from "postgres"
-import * as schema from "./db/schema"
+import { createClient } from "@supabase/supabase-js"
 
-// Create database connection with error handling
-const createDatabaseConnection = () => {
-  const databaseUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL
+// Use the same environment variables as the client
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-  if (!databaseUrl) {
-    if (process.env.NODE_ENV === "development") {
-      console.warn("DATABASE_URL not found, database operations will be disabled")
-    }
+if (!supabaseUrl || !supabaseServiceKey) {
+  console.warn("Missing Supabase environment variables for server client")
+}
+
+// Export the db client as a named export
+export const db =
+  supabaseUrl && supabaseServiceKey
+    ? createClient(supabaseUrl, supabaseServiceKey, {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
+      })
+    : null
+
+// Helper functions for database operations
+export async function getIntegration(userId: string, provider: string) {
+  if (!db) {
+    console.warn("Database client not available")
     return null
   }
 
   try {
-    const client = postgres(databaseUrl, {
-      max: 1,
-      idle_timeout: 20,
-      connect_timeout: 10,
-    })
+    const { data, error } = await db
+      .from("integrations")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("provider", provider)
+      .single()
 
-    return drizzle(client, { schema })
-  } catch (error) {
-    if (process.env.NODE_ENV === "development") {
-      console.warn("Failed to create database connection:", error)
+    if (error && error.code !== "PGRST116") {
+      throw error
     }
+
+    return data
+  } catch (error) {
+    console.error("Error getting integration:", error)
     return null
   }
 }
 
-export const db = createDatabaseConnection()
+export async function upsertIntegration(integration: any) {
+  if (!db) {
+    throw new Error("Database client not available")
+  }
+
+  try {
+    const { data, error } = await db
+      .from("integrations")
+      .upsert(integration, {
+        onConflict: "user_id,provider",
+      })
+      .select()
+      .single()
+
+    if (error) {
+      throw error
+    }
+
+    return data
+  } catch (error) {
+    console.error("Error upserting integration:", error)
+    throw error
+  }
+}
+
+export async function getUserIntegrations(userId: string) {
+  if (!db) {
+    console.warn("Database client not available")
+    return []
+  }
+
+  try {
+    const { data, error } = await db.from("integrations").select("*").eq("user_id", userId)
+
+    if (error) {
+      throw error
+    }
+
+    return data || []
+  } catch (error) {
+    console.error("Error getting user integrations:", error)
+    return []
+  }
+}
