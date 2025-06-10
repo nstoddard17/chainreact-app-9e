@@ -16,26 +16,13 @@ export class SlackOAuthService extends BaseOAuthService {
     return { clientId, clientSecret }
   }
 
-  static getRedirectUri(request?: Request): string {
-    // For development, use localhost
-    if (process.env.NODE_ENV === "development") {
-      return "http://localhost:3000/api/integrations/slack/callback"
-    }
-
-    // For production, use the configured base URL or request origin
-    const baseUrl = getBaseUrl(request)
-    return `${baseUrl}/api/integrations/slack/callback`
+  static getRedirectUri(): string {
+    return `${getBaseUrl()}/api/integrations/slack/callback`
   }
 
-  static generateAuthUrl(
-    baseUrl: string,
-    reconnect = false,
-    integrationId?: string,
-    userId?: string,
-    request?: Request,
-  ): string {
+  static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string, userId?: string): string {
     const { clientId } = this.getClientCredentials()
-    const redirectUri = this.getRedirectUri(request)
+    const redirectUri = this.getRedirectUri()
 
     // Bot scopes - these are valid Slack API v2 scopes
     const botScopes = [

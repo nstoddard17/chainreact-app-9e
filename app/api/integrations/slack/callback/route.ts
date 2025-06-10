@@ -66,10 +66,7 @@ export async function GET(request: NextRequest) {
         client_id: slackClientId,
         client_secret: slackClientSecret,
         code: code,
-        redirect_uri:
-          process.env.NODE_ENV === "development"
-            ? "http://localhost:3000/api/integrations/slack/callback"
-            : `${getBaseUrl(request)}/api/integrations/slack/callback`,
+        redirect_uri: `${getBaseUrl(request)}/api/integrations/slack/callback`,
       }),
     })
 
