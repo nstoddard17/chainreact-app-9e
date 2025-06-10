@@ -1,63 +1,27 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getBaseUrl } from "@/lib/utils"
+import { eq } from "drizzle-orm"
 
-export async function GET(request: NextRequest): Promise<NextResponse> {
-  const { searchParams } = new URL(request.url)
-  const type = searchParams.get("type")
-  const reconnect = searchParams.get("reconnect") === "true"
-  const integrationId = searchParams.get("integrationId") as string
-  const userId = searchParams.get("userId") as string
+import { db } from "@/lib/db"
+import { users } from "@/lib/db/schema"
 
-  if (!type) {
-    return NextResponse.json({ error: "Missing type parameter" }, { status: 400 })
-  }
-
+export async function GET(req: NextRequest) {
   try {
-    let authUrl = ""
-    const baseUrl = getBaseUrl()
+    const url = new URL(req.url)
+    const email = url.searchParams.get("email")
 
-    switch (type) {
-      case "google":
-        const { GoogleOAuthService } = await import("@/lib/oauth/google")
-        authUrl = GoogleOAuthService.generateAuthUrl(baseUrl, reconnect, integrationId, userId)
-        break
-      case "microsoft":
-      case "teams":
-        const { MicrosoftOAuthService } = await import("@/lib/oauth/microsoft")
-        authUrl = MicrosoftOAuthService.generateAuthUrl(baseUrl, reconnect, integrationId, userId)
-        break
-      case "slack":
-        const { SlackOAuthService } = await import("@/lib/oauth/slack")
-        authUrl = SlackOAuthService.generateAuthUrl(baseUrl, reconnect, integrationId, userId)
-        break
-      case "linear":
-        const { LinearOAuthService } = await import("@/lib/oauth/linear")
-        authUrl = LinearOAuthService.generateAuthUrl(baseUrl, reconnect, integrationId, userId)
-        break
-      case "github":
-        const { GitHubOAuthService } = await import("@/lib/oauth/github")
-        authUrl = GitHubOAuthService.generateAuthUrl(baseUrl, reconnect, integrationId, userId)
-        break
-      case "discord":
-        const { DiscordOAuthService } = await import("@/lib/oauth/discord")
-        authUrl = DiscordOAuthService.generateAuthUrl(baseUrl, reconnect, integrationId, userId)
-        break
-      case "dropbox":
-        const { DropboxOAuthService } = await import("@/lib/oauth/dropbox")
-        authUrl = DropboxOAuthService.generateAuthUrl(baseUrl, reconnect, integrationId, userId)
-        break
-      default:
-        return NextResponse.json({ error: `Unsupported OAuth provider: ${type}` }, { status: 400 })
+    if (!email) {
+      return NextResponse.json({ user: null, message: "Email parameter is required" }, { status: 400 })
     }
 
-    return NextResponse.redirect(authUrl)
-  } catch (error: any) {
-    console.error(`OAuth error for ${type}:`, error)
-    return NextResponse.json(
-      {
-        error: `Failed to generate OAuth URL for ${type}: ${error.message}`,
-      },
-      { status: 500 },
-    )
+    const user = await db.select().from(users).where(eq(users.email, email))
+
+    if (!user || user.length === 0) {
+      return NextResponse.json({ user: null, message: "User not found" }, { status: 404 })
+    }
+
+    return NextResponse.json({ user: user[0], message: "User found" }, { status: 200 })
+  } catch (error) {
+    console.error("[INTEGRATIONS_AUTH_GET]", error)
+    return NextResponse.json({ user: null, message: "Internal error" }, { status: 500 })
   }
 }
