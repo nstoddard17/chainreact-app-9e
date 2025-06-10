@@ -223,7 +223,7 @@ importers:
         version: 0.4.6(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       openai:
         specifier: latest
-        version: 5.2.0(ws@8.18.2(bufferutil@4.0.9))(zod@3.25.57)
+        version: 5.3.0(ws@8.18.2(bufferutil@4.0.9))(zod@3.25.57)
       pg:
         specifier: latest
         version: 8.16.0
@@ -4428,8 +4428,8 @@ packages:
     resolution: {integrity: sha512-7x81NCL719oNbsq/3mh+hVrAWmFuEYUqrq/Iw3kUzH8ReypT9QQ0BLoJS7/G9k6N81XjW4qHWtjWwe/9eLy1EQ==}
     engines: {node: '>=12'}
 
-  openai@5.2.0:
-    resolution: {integrity: sha512-b+Sf2Yk2eApDkhqHr7C4d5hux9gkHUvyqQ7RrdSfLsjrXkCZpJPqkME0u5Py7RPB28Ozz+RkJZpW7YPTOoChew==}
+  openai@5.3.0:
+    resolution: {integrity: sha512-VIKmoF7y4oJCDOwP/oHXGzM69+x0dpGFmN9QmYO+uPbLFOmmnwO+x1GbsgUtI+6oraxomGZ566Y421oYVu191w==}
     hasBin: true
     peerDependencies:
       ws: ^8.18.0
@@ -10617,7 +10617,7 @@ snapshots:
       is-docker: 2.2.1
       is-wsl: 2.2.0
 
-  openai@5.2.0(ws@8.18.2(bufferutil@4.0.9))(zod@3.25.57):
+  openai@5.3.0(ws@8.18.2(bufferutil@4.0.9))(zod@3.25.57):
     optionalDependencies:
       ws: 8.18.2(bufferutil@4.0.9)
       zod: 3.25.57

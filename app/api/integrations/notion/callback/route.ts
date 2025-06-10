@@ -1,7 +1,20 @@
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
-import { cookies } from "next/headers"
+
+// Use direct Supabase client with service role for reliable database operations
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+if (!supabaseUrl || !supabaseKey) {
+  throw new Error("NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be defined")
+}
+
+const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    persistSession: false,
+  },
+})
 
 const notionClientId = process.env.NEXT_PUBLIC_NOTION_CLIENT_ID
 const notionClientSecret = process.env.NOTION_CLIENT_SECRET
@@ -12,50 +25,40 @@ if (!notionClientId || !notionClientSecret) {
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
+  const baseUrl = new URL(request.url).origin
   const code = searchParams.get("code")
   const state = searchParams.get("state")
   const error = searchParams.get("error")
 
-  console.log("Notion OAuth callback started:", {
-    code: !!code,
-    state: !!state,
-    error,
-    url: request.url,
-  })
+  console.log("Notion OAuth callback:", { code: !!code, state: !!state, error })
 
   if (error) {
     console.error("Notion OAuth error:", error)
-    return NextResponse.redirect(
-      `${getBaseUrl(request)}/integrations?error=oauth_error&message=${encodeURIComponent(error)}&provider=notion`,
-    )
+    return NextResponse.redirect(new URL("/integrations?error=oauth_error&provider=notion", baseUrl))
   }
 
   if (!code || !state) {
     console.error("Missing code or state in Notion callback")
-    return NextResponse.redirect(`${getBaseUrl(request)}/integrations?error=missing_params&provider=notion`)
+    return NextResponse.redirect(new URL("/integrations?error=missing_params&provider=notion", baseUrl))
   }
 
   try {
     // Parse state to get user ID
-    let userId: string
-    let stateData: any
+    let stateData
     try {
       stateData = JSON.parse(atob(state))
-      userId = stateData.userId
-      console.log("Parsed state data:", { userId, stateData })
-
-      if (!userId) {
-        throw new Error("No user ID in state")
-      }
-    } catch (stateError) {
-      console.error("Notion: Invalid state parameter:", stateError)
-      return NextResponse.redirect(
-        `${getBaseUrl(request)}/integrations?error=invalid_state&provider=notion&message=Invalid+state+parameter`,
-      )
+      console.log("Parsed state data:", stateData)
+    } catch (e) {
+      console.error("Failed to parse state:", e)
+      return NextResponse.redirect(new URL("/integrations?error=invalid_state&provider=notion", baseUrl))
     }
 
-    // Initialize Supabase client
-    const supabase = createRouteHandlerClient({ cookies })
+    const userId = stateData.userId
+
+    if (!userId) {
+      console.error("No user ID in state")
+      return NextResponse.redirect(new URL("/integrations?error=missing_user_id&provider=notion", baseUrl))
+    }
 
     console.log("Notion: Processing OAuth for user:", userId)
 
@@ -76,9 +79,14 @@ export async function GET(request: NextRequest) {
     })
 
     if (!tokenResponse.ok) {
-      const errorData = await tokenResponse.text()
-      console.error("Notion token exchange failed:", tokenResponse.status, errorData)
-      throw new Error(`Token exchange failed: ${errorData}`)
+      const errorText = await tokenResponse.text()
+      console.error("Notion token exchange failed:", tokenResponse.status, errorText)
+      return NextResponse.redirect(
+        new URL(
+          `/integrations?error=token_exchange_failed&provider=notion&message=${encodeURIComponent(errorText)}`,
+          baseUrl,
+        ),
+      )
     }
 
     const tokenData = await tokenResponse.json()
@@ -117,7 +125,14 @@ export async function GET(request: NextRequest) {
 
     const now = new Date().toISOString()
 
-    // Structure the integration data to match Discord format
+    // Check if integration exists
+    const { data: existingIntegration } = await supabase
+      .from("integrations")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("provider", "notion")
+      .maybeSingle()
+
     const integrationData = {
       user_id: userId,
       provider: "notion",
@@ -125,12 +140,12 @@ export async function GET(request: NextRequest) {
       access_token,
       refresh_token: null, // Notion doesn't provide refresh tokens
       expires_at: null, // Notion tokens don't expire
-      status: "connected" as const,
+      status: "connected",
       scopes: grantedScopes,
-      granted_scopes: grantedScopes, // Add this field for consistency
-      missing_scopes: [], // Add this field for consistency
-      scope_validation_status: "valid" as const, // Add this field for consistency
-      is_active: true, // Add this field for consistency
+      granted_scopes: grantedScopes,
+      missing_scopes: [],
+      scope_validation_status: "valid",
+      is_active: true,
       metadata: {
         workspace_name,
         workspace_id,
@@ -139,7 +154,6 @@ export async function GET(request: NextRequest) {
         user_data: userData,
         connected_at: now,
       },
-      created_at: now,
       updated_at: now,
     }
 
@@ -147,61 +161,42 @@ export async function GET(request: NextRequest) {
       userId: integrationData.user_id,
       provider: integrationData.provider,
       status: integrationData.status,
-      provider_user_id: integrationData.provider_user_id,
     })
 
-    // Check if integration exists and update or insert
-    const { data: existingIntegration, error: fetchError } = await supabase
-      .from("integrations")
-      .select("id")
-      .eq("user_id", userId)
-      .eq("provider", "notion")
-      .maybeSingle()
-
-    if (fetchError) {
-      console.error("Error fetching existing integration:", fetchError)
-      throw fetchError
-    }
-
-    console.log("Existing integration check:", { exists: !!existingIntegration, id: existingIntegration?.id })
-
     if (existingIntegration) {
-      const { error: updateError, data: updatedData } = await supabase
-        .from("integrations")
-        .update({
-          ...integrationData,
-          updated_at: now,
-        })
-        .eq("id", existingIntegration.id)
-        .select()
+      const { error } = await supabase.from("integrations").update(integrationData).eq("id", existingIntegration.id)
 
-      if (updateError) {
-        console.error("Error updating Notion integration:", updateError)
-        throw updateError
+      if (error) {
+        console.error("Error updating Notion integration:", error)
+        return NextResponse.redirect(new URL("/integrations?error=database_update_failed&provider=notion", baseUrl))
       }
-
-      console.log("Notion integration updated successfully:", { id: existingIntegration.id, data: updatedData })
+      console.log("Notion integration updated successfully:", { id: existingIntegration.id })
     } else {
-      const { error: insertError, data: insertedData } = await supabase
-        .from("integrations")
-        .insert(integrationData)
-        .select()
+      const { error } = await supabase.from("integrations").insert({
+        ...integrationData,
+        created_at: now,
+      })
 
-      if (insertError) {
-        console.error("Error inserting Notion integration:", insertError)
-        throw insertError
+      if (error) {
+        console.error("Error inserting Notion integration:", error)
+        return NextResponse.redirect(new URL("/integrations?error=database_insert_failed&provider=notion", baseUrl))
       }
-
-      console.log("Notion integration inserted successfully:", { data: insertedData })
+      console.log("Notion integration inserted successfully")
     }
 
-    console.log("Notion integration saved successfully, redirecting...")
-    return NextResponse.redirect(`${getBaseUrl(request)}/integrations?success=true&provider=notion&t=${Date.now()}`)
+    // Add a delay to ensure database operations complete
+    await new Promise((resolve) => setTimeout(resolve, 500))
+
+    return NextResponse.redirect(
+      new URL(`/integrations?success=notion_connected&provider=notion&t=${Date.now()}`, baseUrl),
+    )
   } catch (error: any) {
     console.error("Notion OAuth callback error:", error)
-    const errorMessage = encodeURIComponent(error.message || "Unknown error occurred")
     return NextResponse.redirect(
-      `${getBaseUrl(request)}/integrations?error=callback_failed&provider=notion&message=${errorMessage}`,
+      new URL(
+        `/integrations?error=callback_failed&provider=notion&message=${encodeURIComponent(error.message)}`,
+        baseUrl,
+      ),
     )
   }
 }
