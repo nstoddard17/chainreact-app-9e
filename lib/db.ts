@@ -1,31 +1,23 @@
 import { createClient } from "@supabase/supabase-js"
 
-// Use the same environment variables as the client
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+// Use existing environment variables
+const supabaseUrl = process.env.SUPABASE_URL
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
 if (!supabaseUrl || !supabaseServiceKey) {
-  console.warn("Missing Supabase environment variables for server client")
+  throw new Error("Missing required Supabase environment variables")
 }
 
 // Export the db client as a named export
-export const db =
-  supabaseUrl && supabaseServiceKey
-    ? createClient(supabaseUrl, supabaseServiceKey, {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
-      })
-    : null
+export const db = createClient(supabaseUrl, supabaseServiceKey, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false,
+  },
+})
 
 // Helper functions for database operations
 export async function getIntegration(userId: string, provider: string) {
-  if (!db) {
-    console.warn("Database client not available")
-    return null
-  }
-
   try {
     const { data, error } = await db
       .from("integrations")
@@ -46,10 +38,6 @@ export async function getIntegration(userId: string, provider: string) {
 }
 
 export async function upsertIntegration(integration: any) {
-  if (!db) {
-    throw new Error("Database client not available")
-  }
-
   try {
     const { data, error } = await db
       .from("integrations")
@@ -71,11 +59,6 @@ export async function upsertIntegration(integration: any) {
 }
 
 export async function getUserIntegrations(userId: string) {
-  if (!db) {
-    console.warn("Database client not available")
-    return []
-  }
-
   try {
     const { data, error } = await db.from("integrations").select("*").eq("user_id", userId)
 
