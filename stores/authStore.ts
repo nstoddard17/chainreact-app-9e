@@ -76,21 +76,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
 
       // Fetch user profile if session exists
       if (session?.user) {
-        try {
-          const { data: profile, error: profileError } = await supabase
-            .from("user_profiles")
-            .select("*")
-            .eq("id", session.user.id)
-            .single()
-
-          if (profileError && profileError.code !== "PGRST116") {
-            console.error("Profile fetch error:", profileError)
-          } else {
-            set({ profile })
-          }
-        } catch (profileError) {
-          console.warn("Could not fetch user profile:", profileError)
-        }
+        await fetchUserProfile(session.user.id, set)
       }
 
       // Set up auth state listener
@@ -105,23 +91,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
         })
 
         if (session?.user) {
-          try {
-            const { data: profile, error: profileError } = await supabase
-              .from("user_profiles")
-              .select("*")
-              .eq("id", session.user.id)
-              .single()
-
-            if (profileError && profileError.code !== "PGRST116") {
-              console.error("Profile fetch error:", profileError)
-              set({ profile: null })
-            } else {
-              set({ profile })
-            }
-          } catch (profileError) {
-            console.warn("Could not fetch user profile:", profileError)
-            set({ profile: null })
-          }
+          await fetchUserProfile(session.user.id, set)
         } else {
           set({ profile: null })
         }
@@ -195,7 +165,14 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
         set({ error: "Please check your email to confirm your account" })
       } else if (data.user) {
         console.log("Sign up successful:", data.user.email)
-        // Profile will be created automatically by the database trigger
+
+        // Try to create profile manually if trigger fails
+        try {
+          await createUserProfile(data.user, metadata)
+        } catch (profileError) {
+          console.warn("Manual profile creation failed:", profileError)
+          // Don't fail the signup for profile creation issues
+        }
       }
     } catch (error: any) {
       console.error("Sign up error:", error)
@@ -218,6 +195,10 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
         provider: "google",
         options: {
           redirectTo: `${window.location.origin}/dashboard`,
+          queryParams: {
+            access_type: "offline",
+            prompt: "consent",
+          },
         },
       })
 
@@ -286,3 +267,58 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
     }
   },
 }))
+
+// Helper function to fetch user profile
+async function fetchUserProfile(userId: string, set: any) {
+  if (!supabase) return
+
+  try {
+    const { data: profile, error: profileError } = await supabase
+      .from("user_profiles")
+      .select("*")
+      .eq("id", userId)
+      .single()
+
+    if (profileError) {
+      if (profileError.code === "PGRST116") {
+        // Profile doesn't exist, create it
+        console.log("Profile not found, will be created by trigger or manually")
+        set({ profile: null })
+      } else {
+        console.error("Profile fetch error:", profileError)
+        set({ profile: null })
+      }
+    } else {
+      set({ profile })
+    }
+  } catch (error) {
+    console.warn("Could not fetch user profile:", error)
+    set({ profile: null })
+  }
+}
+
+// Helper function to create user profile manually
+async function createUserProfile(user: User, metadata: any) {
+  if (!supabase) return
+
+  try {
+    const { error } = await supabase.from("user_profiles").insert({
+      id: user.id,
+      email: user.email,
+      full_name: metadata.full_name || "",
+      first_name: metadata.first_name || "",
+      last_name: metadata.last_name || "",
+      avatar_url: user.user_metadata?.avatar_url || "",
+    })
+
+    if (error) {
+      console.error("Manual profile creation error:", error)
+      throw error
+    }
+
+    console.log("Profile created manually for user:", user.email)
+  } catch (error) {
+    console.error("Failed to create profile manually:", error)
+    throw error
+  }
+}
