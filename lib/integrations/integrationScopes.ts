@@ -343,7 +343,7 @@ export const INTEGRATION_SCOPES: Record<string, IntegrationScopeConfig> = {
     },
   },
   youtube: {
-    provider: "youtube", // Changed back to "youtube"
+    provider: "youtube",
     scopes: [
       {
         scope: "https://www.googleapis.com/auth/youtube.readonly",
