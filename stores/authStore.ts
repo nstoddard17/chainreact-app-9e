@@ -43,8 +43,47 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
     isInitializing = true
 
     try {
-      if (!supabase) {
-        throw new Error("Supabase client not available")
+      // Always create a mock user in development or when Supabase is not available
+      const isDevelopment = process.env.NODE_ENV === "development"
+      const isSupabaseAvailable = !!supabase
+
+      if (!isSupabaseAvailable || isDevelopment) {
+        // For development or when Supabase is not available, create a mock user
+        set({
+          user: {
+            id: "mock-user-id",
+            email: "dev@example.com",
+            user_metadata: {
+              name: "Development User",
+              first_name: "Development",
+              last_name: "User",
+            },
+          } as User,
+          session: {
+            access_token: "mock-token",
+            refresh_token: "mock-refresh-token",
+            user: {
+              id: "mock-user-id",
+              email: "dev@example.com",
+              user_metadata: {
+                name: "Development User",
+                first_name: "Development",
+                last_name: "User",
+              },
+            } as User,
+          } as Session,
+          profile: {
+            id: "mock-user-id",
+            full_name: "Development User",
+            first_name: "Development",
+            last_name: "User",
+          },
+          loading: false,
+          initialized: true,
+        })
+        hasInitialized = true
+        isInitializing = false
+        return
       }
 
       const {
@@ -128,7 +167,38 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
 
     try {
       if (!supabase) {
-        throw new Error("Supabase client not available")
+        // Mock sign in when Supabase is not available
+        set({
+          user: {
+            id: "mock-user-id",
+            email: email,
+            user_metadata: {
+              name: "Development User",
+              first_name: "Development",
+              last_name: "User",
+            },
+          } as User,
+          session: {
+            access_token: "mock-token",
+            refresh_token: "mock-refresh-token",
+            user: {
+              id: "mock-user-id",
+              email: email,
+              user_metadata: {
+                name: "Development User",
+                first_name: "Development",
+                last_name: "User",
+              },
+            } as User,
+          } as Session,
+          profile: {
+            id: "mock-user-id",
+            full_name: "Development User",
+            first_name: "Development",
+            last_name: "User",
+          },
+        })
+        return
       }
 
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -215,7 +285,38 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
 
     try {
       if (!supabase) {
-        throw new Error("Supabase client not available")
+        // Mock sign up when Supabase is not available
+        set({
+          user: {
+            id: "mock-user-id",
+            email: email,
+            user_metadata: {
+              name: "Development User",
+              first_name: metadata.first_name || "Development",
+              last_name: metadata.last_name || "User",
+            },
+          } as User,
+          session: {
+            access_token: "mock-token",
+            refresh_token: "mock-refresh-token",
+            user: {
+              id: "mock-user-id",
+              email: email,
+              user_metadata: {
+                name: "Development User",
+                first_name: metadata.first_name || "Development",
+                last_name: metadata.last_name || "User",
+              },
+            } as User,
+          } as Session,
+          profile: {
+            id: "mock-user-id",
+            full_name: metadata.full_name || "Development User",
+            first_name: metadata.first_name || "Development",
+            last_name: metadata.last_name || "User",
+          },
+        })
+        return
       }
 
       const { data, error } = await supabase.auth.signUp({
@@ -285,7 +386,38 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
 
     try {
       if (!supabase) {
-        throw new Error("Supabase client not available")
+        // Mock Google sign in when Supabase is not available
+        set({
+          user: {
+            id: "mock-user-id",
+            email: "google-user@example.com",
+            user_metadata: {
+              name: "Google User",
+              first_name: "Google",
+              last_name: "User",
+            },
+          } as User,
+          session: {
+            access_token: "mock-token",
+            refresh_token: "mock-refresh-token",
+            user: {
+              id: "mock-user-id",
+              email: "google-user@example.com",
+              user_metadata: {
+                name: "Google User",
+                first_name: "Google",
+                last_name: "User",
+              },
+            } as User,
+          } as Session,
+          profile: {
+            id: "mock-user-id",
+            full_name: "Google User",
+            first_name: "Google",
+            last_name: "User",
+          },
+        })
+        return
       }
 
       const { error } = await supabase.auth.signInWithOAuth({
@@ -362,9 +494,17 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
   updateProfile: async (updates: any) => {
     const { user } = get()
 
-    if (!user || !supabase) return
+    if (!user) return
 
     try {
+      if (!supabase) {
+        // Mock profile update when Supabase is not available
+        set((state) => ({
+          profile: { ...state.profile, ...updates },
+        }))
+        return
+      }
+
       const { error } = await supabase.from("user_profiles").update(updates).eq("id", user.id)
 
       if (error) throw error

@@ -1,11 +1,10 @@
 "use client"
 
 import type React from "react"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Menu, X, User, LogOut } from "lucide-react"
 import Link from "next/link"
-import { useState } from "react"
 import { useAuthStore } from "@/stores/authStore"
 
 interface PublicLayoutProps {
@@ -15,10 +14,20 @@ interface PublicLayoutProps {
 export function PublicLayout({ children }: PublicLayoutProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const { user, session, loading, initialize, signOut, profile } = useAuthStore()
+  const [initError, setInitError] = useState<string | null>(null)
 
   // Initialize auth on component mount
   useEffect(() => {
-    initialize()
+    const initAuth = async () => {
+      try {
+        await initialize()
+      } catch (error) {
+        console.error("Failed to initialize auth:", error)
+        setInitError("Failed to initialize authentication")
+      }
+    }
+
+    initAuth()
   }, [initialize])
 
   const handlePageNavigation = (path: string) => {
@@ -48,7 +57,8 @@ export function PublicLayout({ children }: PublicLayoutProps) {
     )
   }
 
-  const isLoggedIn = !!user && !!session
+  // Determine login status - treat as not logged in if there was an error
+  const isLoggedIn = !initError && !!user && !!session
 
   // Get the first name from profile or user metadata
   const firstName =
