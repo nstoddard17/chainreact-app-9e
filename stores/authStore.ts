@@ -20,6 +20,7 @@ interface AuthActions {
   signInWithGoogle: () => Promise<void>
   signOut: () => Promise<void>
   updateProfile: (updates: any) => Promise<void>
+  clearError: () => void
 }
 
 // Global flag to prevent multiple initializations
@@ -34,6 +35,8 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
   error: null,
   initialized: false,
 
+  clearError: () => set({ error: null }),
+
   initialize: async () => {
     // Prevent multiple simultaneous initializations
     if (isInitializing || hasInitialized) {
@@ -44,7 +47,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
 
     try {
       if (!supabase) {
-        console.warn("Supabase client not available")
+        console.error("Supabase client not available")
         set({
           loading: false,
           initialized: true,
@@ -53,30 +56,49 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
         return
       }
 
+      // Get initial session
       const {
         data: { session },
+        error: sessionError,
       } = await supabase.auth.getSession()
+
+      if (sessionError) {
+        console.error("Session error:", sessionError)
+      }
 
       set({
         session,
         user: session?.user || null,
         loading: false,
         initialized: true,
+        error: null,
       })
 
+      // Fetch user profile if session exists
       if (session?.user) {
-        // Fetch user profile
         try {
-          const { data: profile } = await supabase.from("user_profiles").select("*").eq("id", session.user.id).single()
-          set({ profile })
+          const { data: profile, error: profileError } = await supabase
+            .from("user_profiles")
+            .select("*")
+            .eq("id", session.user.id)
+            .single()
+
+          if (profileError && profileError.code !== "PGRST116") {
+            console.error("Profile fetch error:", profileError)
+          } else {
+            set({ profile })
+          }
         } catch (profileError) {
           console.warn("Could not fetch user profile:", profileError)
-          // Continue without profile data
         }
       }
 
-      // Set up auth state listener (only once)
-      supabase.auth.onAuthStateChange(async (event, session) => {
+      // Set up auth state listener
+      const {
+        data: { subscription },
+      } = supabase.auth.onAuthStateChange(async (event, session) => {
+        console.log("Auth state changed:", event, session?.user?.email)
+
         set({
           session,
           user: session?.user || null,
@@ -84,12 +106,18 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
 
         if (session?.user) {
           try {
-            const { data: profile } = await supabase
+            const { data: profile, error: profileError } = await supabase
               .from("user_profiles")
               .select("*")
               .eq("id", session.user.id)
               .single()
-            set({ profile })
+
+            if (profileError && profileError.code !== "PGRST116") {
+              console.error("Profile fetch error:", profileError)
+              set({ profile: null })
+            } else {
+              set({ profile })
+            }
           } catch (profileError) {
             console.warn("Could not fetch user profile:", profileError)
             set({ profile: null })
@@ -126,12 +154,17 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
         password,
       })
 
-      if (error) throw error
+      if (error) {
+        console.error("Sign in error:", error)
+        throw error
+      }
 
+      console.log("Sign in successful:", data.user?.email)
       // Session will be handled by the auth state change listener
     } catch (error: any) {
       console.error("Sign in error:", error)
       set({ error: error.message || "Failed to sign in" })
+      throw error
     } finally {
       set({ loading: false })
     }
@@ -153,31 +186,21 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
         },
       })
 
-      if (error) throw error
+      if (error) {
+        console.error("Sign up error:", error)
+        throw error
+      }
 
-      // Create user profile if user was created
       if (data.user && !data.user.email_confirmed_at) {
-        // User needs to confirm email
         set({ error: "Please check your email to confirm your account" })
       } else if (data.user) {
-        try {
-          const { error: profileError } = await supabase.from("user_profiles").insert({
-            id: data.user.id,
-            full_name: metadata.full_name || "",
-            first_name: metadata.first_name || "",
-            last_name: metadata.last_name || "",
-          })
-
-          if (profileError) {
-            console.error("Profile creation error:", profileError)
-          }
-        } catch (profileError) {
-          console.warn("Could not create user profile:", profileError)
-        }
+        console.log("Sign up successful:", data.user.email)
+        // Profile will be created automatically by the database trigger
       }
     } catch (error: any) {
       console.error("Sign up error:", error)
       set({ error: error.message || "Failed to sign up" })
+      throw error
     } finally {
       set({ loading: false })
     }
@@ -198,10 +221,14 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
         },
       })
 
-      if (error) throw error
+      if (error) {
+        console.error("Google sign in error:", error)
+        throw error
+      }
     } catch (error: any) {
       console.error("Google sign in error:", error)
       set({ error: error.message || "Failed to sign in with Google" })
+      throw error
     } finally {
       set({ loading: false })
     }
@@ -210,14 +237,19 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
   signOut: async () => {
     try {
       if (supabase) {
-        await supabase.auth.signOut()
+        const { error } = await supabase.auth.signOut()
+        if (error) {
+          console.error("Sign out error:", error)
+        }
       }
 
       set({
         user: null,
         session: null,
         profile: null,
+        error: null,
       })
+
       window.location.href = "/auth/login"
     } catch (error: any) {
       console.error("Sign out error:", error)
@@ -226,6 +258,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
         user: null,
         session: null,
         profile: null,
+        error: null,
       })
       window.location.href = "/auth/login"
     }
@@ -239,7 +272,10 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
     try {
       const { error } = await supabase.from("user_profiles").update(updates).eq("id", user.id)
 
-      if (error) throw error
+      if (error) {
+        console.error("Profile update error:", error)
+        throw error
+      }
 
       set((state) => ({
         profile: { ...state.profile, ...updates },
