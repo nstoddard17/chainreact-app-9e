@@ -12,12 +12,7 @@ export const isSupabaseConfigured = () => {
     if (!supabaseAnonKey) missingVars.push("NEXT_PUBLIC_SUPABASE_ANON_KEY")
 
     const errorMessage = `Missing required Supabase environment variables: ${missingVars.join(", ")}`
-
-    // Only log in development, don't throw during build
-    if (process.env.NODE_ENV === "development") {
-      console.warn(errorMessage)
-    }
-
+    console.error(errorMessage)
     return false
   }
 
@@ -35,12 +30,7 @@ export const createBrowserSupabaseClient = () => {
     if (!supabaseAnonKey) missingVars.push("NEXT_PUBLIC_SUPABASE_ANON_KEY")
 
     const errorMessage = `Missing required Supabase environment variables: ${missingVars.join(", ")}`
-
-    // Only log in development, don't throw during build
-    if (process.env.NODE_ENV === "development") {
-      console.warn(errorMessage)
-    }
-
+    console.error(errorMessage)
     return null
   }
 

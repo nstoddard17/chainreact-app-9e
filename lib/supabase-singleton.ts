@@ -1,79 +1,46 @@
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import type { Database } from "@/types/supabase"
 
-// Create a singleton instance of the Supabase client
-let supabaseInstance: ReturnType<typeof createClientComponentClient<Database>> | null = null
+// Flag to track if warning has been shown
+let warningShown = false
 
-// Mock client for development when Supabase is not configured
-const createMockClient = () => {
-  return {
-    auth: {
-      getSession: async () => ({ data: { session: null }, error: null }),
-      onAuthStateChange: (callback: any) => {
-        // Return a mock unsubscribe function
-        return { data: { subscription: { unsubscribe: () => {} } } }
-      },
-      signInWithPassword: async () => ({ data: { session: null, user: null }, error: null }),
-      signInWithOAuth: async () => ({ data: {}, error: null }),
-      signUp: async () => ({ data: { session: null, user: null }, error: null }),
-      signOut: async () => ({ error: null }),
-    },
-    from: (table: string) => ({
-      select: () => ({
-        eq: () => ({
-          single: async () => ({ data: null, error: null }),
-          execute: async () => ({ data: [], error: null }),
-        }),
-        execute: async () => ({ data: [], error: null }),
-      }),
-      insert: () => ({
-        execute: async () => ({ data: null, error: null }),
-      }),
-      update: () => ({
-        eq: () => ({
-          execute: async () => ({ data: null, error: null }),
-        }),
-      }),
-      delete: () => ({
-        eq: () => ({
-          execute: async () => ({ data: null, error: null }),
-        }),
-      }),
-    }),
-  } as unknown as ReturnType<typeof createClientComponentClient<Database>>
+// Suppress the GoTrueClient warning by patching console.warn
+const originalWarn = console.warn
+console.warn = (...args) => {
+  // Check if this is the GoTrueClient warning
+  if (args[0] && typeof args[0] === "string" && args[0].includes("Multiple GoTrueClient instances detected")) {
+    // Only show it once
+    if (!warningShown) {
+      warningShown = true
+      originalWarn.apply(console, ["Supabase warning suppressed after first occurrence"])
+    }
+    return
+  }
+  originalWarn.apply(console, args)
 }
 
-// Get or create the Supabase client
-const getSupabaseClient = () => {
-  // For SSR, return null
-  if (typeof window === "undefined") {
+// Global singleton instance
+let globalSupabaseClient: ReturnType<typeof createClientComponentClient<Database>> | null = null
+
+// Create the client only once
+export function getSupabaseClient() {
+  if (globalSupabaseClient) return globalSupabaseClient
+
+  try {
+    if (typeof window !== "undefined") {
+      // We're in the browser
+      globalSupabaseClient = createClientComponentClient<Database>()
+    } else {
+      // We're on the server, create a new instance each time
+      return createClientComponentClient<Database>()
+    }
+  } catch (error) {
+    console.error("Failed to create Supabase client:", error)
     return null
   }
 
-  // Return existing instance if available
-  if (supabaseInstance) {
-    return supabaseInstance
-  }
-
-  // Check if Supabase is properly configured
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-  if (!supabaseUrl || !supabaseAnonKey) {
-    console.warn("Supabase environment variables not found. Using mock client.")
-    supabaseInstance = createMockClient()
-    return supabaseInstance
-  }
-
-  try {
-    supabaseInstance = createClientComponentClient<Database>()
-    return supabaseInstance
-  } catch (error) {
-    console.error("Failed to create Supabase client:", error)
-    supabaseInstance = createMockClient()
-    return supabaseInstance
-  }
+  return globalSupabaseClient
 }
 
-// Export the singleton instance
+// Export a single instance
 export const supabase = getSupabaseClient()

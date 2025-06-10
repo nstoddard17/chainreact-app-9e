@@ -43,46 +43,13 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
     isInitializing = true
 
     try {
-      // Always create a mock user in development or when Supabase is not available
-      const isDevelopment = process.env.NODE_ENV === "development"
-      const isSupabaseAvailable = !!supabase
-
-      if (!isSupabaseAvailable || isDevelopment) {
-        // For development or when Supabase is not available, create a mock user
+      if (!supabase) {
+        console.warn("Supabase client not available")
         set({
-          user: {
-            id: "mock-user-id",
-            email: "dev@example.com",
-            user_metadata: {
-              name: "Development User",
-              first_name: "Development",
-              last_name: "User",
-            },
-          } as User,
-          session: {
-            access_token: "mock-token",
-            refresh_token: "mock-refresh-token",
-            user: {
-              id: "mock-user-id",
-              email: "dev@example.com",
-              user_metadata: {
-                name: "Development User",
-                first_name: "Development",
-                last_name: "User",
-              },
-            } as User,
-          } as Session,
-          profile: {
-            id: "mock-user-id",
-            full_name: "Development User",
-            first_name: "Development",
-            last_name: "User",
-          },
           loading: false,
           initialized: true,
+          error: "Authentication service unavailable",
         })
-        hasInitialized = true
-        isInitializing = false
         return
       }
 
@@ -99,9 +66,13 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
 
       if (session?.user) {
         // Fetch user profile
-        const { data: profile } = await supabase.from("user_profiles").select("*").eq("id", session.user.id).single()
-
-        set({ profile })
+        try {
+          const { data: profile } = await supabase.from("user_profiles").select("*").eq("id", session.user.id).single()
+          set({ profile })
+        } catch (profileError) {
+          console.warn("Could not fetch user profile:", profileError)
+          // Continue without profile data
+        }
       }
 
       // Set up auth state listener (only once)
@@ -112,9 +83,17 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
         })
 
         if (session?.user) {
-          const { data: profile } = await supabase.from("user_profiles").select("*").eq("id", session.user.id).single()
-
-          set({ profile })
+          try {
+            const { data: profile } = await supabase
+              .from("user_profiles")
+              .select("*")
+              .eq("id", session.user.id)
+              .single()
+            set({ profile })
+          } catch (profileError) {
+            console.warn("Could not fetch user profile:", profileError)
+            set({ profile: null })
+          }
         } else {
           set({ profile: null })
         }
@@ -123,38 +102,10 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
       hasInitialized = true
     } catch (error) {
       console.error("Auth initialization error:", error)
-      // For development, let's create a mock user to bypass authentication issues
       set({
-        user: {
-          id: "mock-user-id",
-          email: "dev@example.com",
-          user_metadata: {
-            name: "Development User",
-            first_name: "Development",
-            last_name: "User",
-          },
-        } as User,
-        session: {
-          access_token: "mock-token",
-          refresh_token: "mock-refresh-token",
-          user: {
-            id: "mock-user-id",
-            email: "dev@example.com",
-            user_metadata: {
-              name: "Development User",
-              first_name: "Development",
-              last_name: "User",
-            },
-          } as User,
-        } as Session,
-        profile: {
-          id: "mock-user-id",
-          full_name: "Development User",
-          first_name: "Development",
-          last_name: "User",
-        },
         loading: false,
         initialized: true,
+        error: "Failed to initialize authentication",
       })
       hasInitialized = true
     } finally {
@@ -167,38 +118,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
 
     try {
       if (!supabase) {
-        // Mock sign in when Supabase is not available
-        set({
-          user: {
-            id: "mock-user-id",
-            email: email,
-            user_metadata: {
-              name: "Development User",
-              first_name: "Development",
-              last_name: "User",
-            },
-          } as User,
-          session: {
-            access_token: "mock-token",
-            refresh_token: "mock-refresh-token",
-            user: {
-              id: "mock-user-id",
-              email: email,
-              user_metadata: {
-                name: "Development User",
-                first_name: "Development",
-                last_name: "User",
-              },
-            } as User,
-          } as Session,
-          profile: {
-            id: "mock-user-id",
-            full_name: "Development User",
-            first_name: "Development",
-            last_name: "User",
-          },
-        })
-        return
+        throw new Error("Authentication service unavailable")
       }
 
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -208,73 +128,10 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
 
       if (error) throw error
 
-      // For development, create a mock session if the real one fails
-      if (!data.session) {
-        set({
-          user: {
-            id: "mock-user-id",
-            email: email,
-            user_metadata: {
-              name: "Development User",
-              first_name: "Development",
-              last_name: "User",
-            },
-          } as User,
-          session: {
-            access_token: "mock-token",
-            refresh_token: "mock-refresh-token",
-            user: {
-              id: "mock-user-id",
-              email: email,
-              user_metadata: {
-                name: "Development User",
-                first_name: "Development",
-                last_name: "User",
-              },
-            } as User,
-          } as Session,
-          profile: {
-            id: "mock-user-id",
-            full_name: "Development User",
-            first_name: "Development",
-            last_name: "User",
-          },
-        })
-      }
+      // Session will be handled by the auth state change listener
     } catch (error: any) {
       console.error("Sign in error:", error)
-      // For development, create a mock session even if there's an error
-      set({
-        user: {
-          id: "mock-user-id",
-          email: email,
-          user_metadata: {
-            name: "Development User",
-            first_name: "Development",
-            last_name: "User",
-          },
-        } as User,
-        session: {
-          access_token: "mock-token",
-          refresh_token: "mock-refresh-token",
-          user: {
-            id: "mock-user-id",
-            email: email,
-            user_metadata: {
-              name: "Development User",
-              first_name: "Development",
-              last_name: "User",
-            },
-          } as User,
-        } as Session,
-        profile: {
-          id: "mock-user-id",
-          full_name: "Development User",
-          first_name: "Development",
-          last_name: "User",
-        },
-        error: null, // Clear any error
-      })
+      set({ error: error.message || "Failed to sign in" })
     } finally {
       set({ loading: false })
     }
@@ -285,38 +142,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
 
     try {
       if (!supabase) {
-        // Mock sign up when Supabase is not available
-        set({
-          user: {
-            id: "mock-user-id",
-            email: email,
-            user_metadata: {
-              name: "Development User",
-              first_name: metadata.first_name || "Development",
-              last_name: metadata.last_name || "User",
-            },
-          } as User,
-          session: {
-            access_token: "mock-token",
-            refresh_token: "mock-refresh-token",
-            user: {
-              id: "mock-user-id",
-              email: email,
-              user_metadata: {
-                name: "Development User",
-                first_name: metadata.first_name || "Development",
-                last_name: metadata.last_name || "User",
-              },
-            } as User,
-          } as Session,
-          profile: {
-            id: "mock-user-id",
-            full_name: metadata.full_name || "Development User",
-            first_name: metadata.first_name || "Development",
-            last_name: metadata.last_name || "User",
-          },
-        })
-        return
+        throw new Error("Authentication service unavailable")
       }
 
       const { data, error } = await supabase.auth.signUp({
@@ -330,52 +156,28 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
       if (error) throw error
 
       // Create user profile if user was created
-      if (data.user) {
-        const { error: profileError } = await supabase.from("user_profiles").insert({
-          id: data.user.id,
-          full_name: metadata.full_name || "",
-          first_name: metadata.first_name || "",
-          last_name: metadata.last_name || "",
-        })
+      if (data.user && !data.user.email_confirmed_at) {
+        // User needs to confirm email
+        set({ error: "Please check your email to confirm your account" })
+      } else if (data.user) {
+        try {
+          const { error: profileError } = await supabase.from("user_profiles").insert({
+            id: data.user.id,
+            full_name: metadata.full_name || "",
+            first_name: metadata.first_name || "",
+            last_name: metadata.last_name || "",
+          })
 
-        if (profileError) {
-          console.error("Profile creation error:", profileError)
+          if (profileError) {
+            console.error("Profile creation error:", profileError)
+          }
+        } catch (profileError) {
+          console.warn("Could not create user profile:", profileError)
         }
       }
     } catch (error: any) {
       console.error("Sign up error:", error)
-      // For development, create a mock user even if there's an error
-      set({
-        user: {
-          id: "mock-user-id",
-          email: email,
-          user_metadata: {
-            name: "Development User",
-            first_name: metadata.first_name || "Development",
-            last_name: metadata.last_name || "User",
-          },
-        } as User,
-        session: {
-          access_token: "mock-token",
-          refresh_token: "mock-refresh-token",
-          user: {
-            id: "mock-user-id",
-            email: email,
-            user_metadata: {
-              name: "Development User",
-              first_name: metadata.first_name || "Development",
-              last_name: metadata.last_name || "User",
-            },
-          } as User,
-        } as Session,
-        profile: {
-          id: "mock-user-id",
-          full_name: metadata.full_name || "Development User",
-          first_name: metadata.first_name || "Development",
-          last_name: metadata.last_name || "User",
-        },
-        error: null, // Clear any error
-      })
+      set({ error: error.message || "Failed to sign up" })
     } finally {
       set({ loading: false })
     }
@@ -386,38 +188,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
 
     try {
       if (!supabase) {
-        // Mock Google sign in when Supabase is not available
-        set({
-          user: {
-            id: "mock-user-id",
-            email: "google-user@example.com",
-            user_metadata: {
-              name: "Google User",
-              first_name: "Google",
-              last_name: "User",
-            },
-          } as User,
-          session: {
-            access_token: "mock-token",
-            refresh_token: "mock-refresh-token",
-            user: {
-              id: "mock-user-id",
-              email: "google-user@example.com",
-              user_metadata: {
-                name: "Google User",
-                first_name: "Google",
-                last_name: "User",
-              },
-            } as User,
-          } as Session,
-          profile: {
-            id: "mock-user-id",
-            full_name: "Google User",
-            first_name: "Google",
-            last_name: "User",
-          },
-        })
-        return
+        throw new Error("Authentication service unavailable")
       }
 
       const { error } = await supabase.auth.signInWithOAuth({
@@ -430,38 +201,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
       if (error) throw error
     } catch (error: any) {
       console.error("Google sign in error:", error)
-      // For development, create a mock session even if there's an error
-      set({
-        user: {
-          id: "mock-user-id",
-          email: "google-user@example.com",
-          user_metadata: {
-            name: "Google User",
-            first_name: "Google",
-            last_name: "User",
-          },
-        } as User,
-        session: {
-          access_token: "mock-token",
-          refresh_token: "mock-refresh-token",
-          user: {
-            id: "mock-user-id",
-            email: "google-user@example.com",
-            user_metadata: {
-              name: "Google User",
-              first_name: "Google",
-              last_name: "User",
-            },
-          } as User,
-        } as Session,
-        profile: {
-          id: "mock-user-id",
-          full_name: "Google User",
-          first_name: "Google",
-          last_name: "User",
-        },
-        error: null, // Clear any error
-      })
+      set({ error: error.message || "Failed to sign in with Google" })
     } finally {
       set({ loading: false })
     }
@@ -494,17 +234,9 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
   updateProfile: async (updates: any) => {
     const { user } = get()
 
-    if (!user) return
+    if (!user || !supabase) return
 
     try {
-      if (!supabase) {
-        // Mock profile update when Supabase is not available
-        set((state) => ({
-          profile: { ...state.profile, ...updates },
-        }))
-        return
-      }
-
       const { error } = await supabase.from("user_profiles").update(updates).eq("id", user.id)
 
       if (error) throw error
@@ -514,11 +246,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
       }))
     } catch (error: any) {
       console.error("Profile update error:", error)
-      // For development, update the mock profile even if there's an error
-      set((state) => ({
-        profile: { ...state.profile, ...updates },
-        error: null, // Clear any error
-      }))
+      set({ error: error.message || "Failed to update profile" })
     }
   },
 }))
