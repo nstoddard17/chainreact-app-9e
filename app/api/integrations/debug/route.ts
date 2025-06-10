@@ -1,34 +1,29 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { getSupabaseClient } from "@/lib/supabase"
+import { createClient } from "@supabase/supabase-js"
+import { NextResponse } from "next/server"
 
-export async function GET(request: NextRequest) {
-  try {
-    console.log("Debug endpoint called")
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-    const supabase = getSupabaseClient()
-    const {
-      data: { session },
-    } = await supabase.auth.getSession()
+// Create conditional supabase client
+const supabase =
+  supabaseUrl && supabaseKey
+    ? createClient(supabaseUrl, supabaseKey, {
+        auth: {
+          persistSession: false,
+        },
+      })
+    : null
 
-    if (!session) {
-      return NextResponse.json({ error: "No session" }, { status: 401 })
-    }
-
-    const { data: integrations, error } = await supabase.from("integrations").select("*").eq("user_id", session.user.id)
-
-    if (error) {
-      console.error("Database error:", error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
-    }
-
-    return NextResponse.json({
-      success: true,
-      integrations: integrations || [],
-      count: integrations?.length || 0,
-      userId: session.user.id,
-    })
-  } catch (error: any) {
-    console.error("Debug endpoint error:", error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+export async function GET(request: Request) {
+  if (!supabase) {
+    return NextResponse.json(
+      {
+        error: "Supabase not configured",
+        message: "Missing required Supabase environment variables",
+      },
+      { status: 503 },
+    )
   }
+
+  return NextResponse.json({ message: "Hello from debug!" })
 }
