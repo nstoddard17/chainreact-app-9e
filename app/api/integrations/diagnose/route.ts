@@ -63,10 +63,11 @@ const COMPONENT_SCOPE_MAPPING = {
   google_drive_upload: { scopes: ["https://www.googleapis.com/auth/drive.file"], provider: "google-drive" },
   google_drive_read: { scopes: ["https://www.googleapis.com/auth/drive.readonly"], provider: "google-drive" },
 
-  // YouTube components - only basic functionality
+  // YouTube components - fix provider reference
   youtube_get_channel: { scopes: ["https://www.googleapis.com/auth/youtube.readonly"], provider: "youtube" },
   youtube_get_videos: { scopes: ["https://www.googleapis.com/auth/youtube.readonly"], provider: "youtube" },
   youtube_get_analytics: { scopes: ["https://www.googleapis.com/auth/youtube.readonly"], provider: "youtube" },
+  youtube_upload_video: { scopes: ["https://www.googleapis.com/auth/youtube.upload"], provider: "youtube" },
 
   // GitHub components - basic functionality
   github_get_user: { scopes: ["user:email"], provider: "github" },
@@ -94,7 +95,7 @@ const COMPONENT_SCOPE_MAPPING = {
   dropbox_upload: { scopes: ["files.content.write"], provider: "dropbox" },
   dropbox_download: { scopes: ["files.content.read"], provider: "dropbox" },
 
-  // Twitter/X components
+  // Add missing Twitter/X components
   twitter_post_tweet: { scopes: ["tweet.write"], provider: "twitter" },
   twitter_read_tweets: { scopes: ["tweet.read"], provider: "twitter" },
   twitter_get_user: { scopes: ["users.read"], provider: "twitter" },
@@ -107,11 +108,11 @@ const COMPONENT_SCOPE_MAPPING = {
   facebook_get_profile: { scopes: ["public_profile"], provider: "facebook" },
   facebook_post_page: { scopes: ["pages_manage_posts"], provider: "facebook" },
 
-  // Instagram components
+  // Add missing Instagram components
   instagram_get_profile: { scopes: ["user_profile"], provider: "instagram" },
   instagram_get_media: { scopes: ["user_media"], provider: "instagram" },
 
-  // TikTok components
+  // Add missing TikTok components
   tiktok_get_profile: { scopes: ["user.info.basic"], provider: "tiktok" },
   tiktok_get_videos: { scopes: ["video.list"], provider: "tiktok" },
 
@@ -503,6 +504,63 @@ async function verifyGenericOAuthToken(
   }
 }
 
+async function verifyLinkedInToken(accessToken: string): Promise<{ valid: boolean; scopes: string[]; error?: string }> {
+  try {
+    const response = await fetch("https://api.linkedin.com/v2/people/~", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      return { valid: false, scopes: [], error: error.message || "Token validation failed" }
+    }
+
+    // LinkedIn doesn't return scopes in API responses, use stored scopes
+    return { valid: true, scopes: [] }
+  } catch (error: any) {
+    return { valid: false, scopes: [], error: error.message }
+  }
+}
+
+async function verifyFacebookToken(accessToken: string): Promise<{ valid: boolean; scopes: string[]; error?: string }> {
+  try {
+    const response = await fetch(`https://graph.facebook.com/me?access_token=${accessToken}`)
+
+    if (!response.ok) {
+      const error = await response.json()
+      return { valid: false, scopes: [], error: error.error?.message || "Token validation failed" }
+    }
+
+    // Check permissions
+    const permissionsResponse = await fetch(`https://graph.facebook.com/me/permissions?access_token=${accessToken}`)
+    const permissionsData = await permissionsResponse.json()
+
+    const grantedScopes =
+      permissionsData.data?.filter((perm: any) => perm.status === "granted")?.map((perm: any) => perm.permission) || []
+
+    return { valid: true, scopes: grantedScopes }
+  } catch (error: any) {
+    return { valid: false, scopes: [], error: error.message }
+  }
+}
+
+async function verifyInstagramToken(
+  accessToken: string,
+): Promise<{ valid: boolean; scopes: string[]; error?: string }> {
+  try {
+    const response = await fetch(`https://graph.instagram.com/me?fields=id,username&access_token=${accessToken}`)
+
+    if (!response.ok) {
+      const error = await response.json()
+      return { valid: false, scopes: [], error: error.error?.message || "Token validation failed" }
+    }
+
+    return { valid: true, scopes: ["user_profile", "user_media"] }
+  } catch (error: any) {
+    return { valid: false, scopes: [], error: error.message }
+  }
+}
+
 function analyzeIntegration(
   integration: any,
   tokenValid: boolean,
@@ -779,7 +837,7 @@ export async function GET(request: NextRequest) {
               "youtube",
             )
 
-            // If we got a new access token from refresh, update this integration too
+            // If we got a new access token from refresh, update this integration
             if (verificationResult.newAccessToken) {
               try {
                 await supabase
@@ -890,8 +948,23 @@ export async function GET(request: NextRequest) {
             break
 
           case "linkedin":
+            console.log("Verifying LinkedIn token...")
+            verificationResult = await verifyLinkedInToken(accessToken)
+            // Use stored scopes for LinkedIn
+            const linkedinScopes = integration.scopes || metadata?.scopes || []
+            verificationResult.scopes = linkedinScopes
+            break
+
           case "facebook":
+            console.log("Verifying Facebook token...")
+            verificationResult = await verifyFacebookToken(accessToken)
+            break
+
           case "instagram":
+            console.log("Verifying Instagram token...")
+            verificationResult = await verifyInstagramToken(accessToken)
+            break
+
           case "tiktok":
           case "mailchimp":
           case "hubspot":
@@ -923,17 +996,6 @@ export async function GET(request: NextRequest) {
         tokenValid = false
         grantedScopes = metadata?.scopes || integration.scopes || []
         errorMessage = "No access token found"
-      }
-
-      // For Google services (except YouTube), use the main Google integration data if available
-      if ((provider.startsWith("google") || provider === "gmail") && provider !== "youtube") {
-        const googleIntegration = integrations?.find((int) => int.provider === "google")
-        if (googleIntegration && (googleIntegration.metadata?.access_token || googleIntegration.access_token)) {
-          const diagnostic = analyzeIntegration(integration, tokenValid, grantedScopes, errorMessage)
-          diagnostic.provider = provider
-          diagnostics.push(diagnostic)
-          continue
-        }
       }
 
       const diagnostic = analyzeIntegration(integration, tokenValid, grantedScopes, errorMessage)
