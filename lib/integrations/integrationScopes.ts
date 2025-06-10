@@ -343,7 +343,7 @@ export const INTEGRATION_SCOPES: Record<string, IntegrationScopeConfig> = {
     },
   },
   youtube: {
-    provider: "google", // Changed from "youtube" to "google"
+    provider: "youtube", // Changed back to "youtube"
     scopes: [
       {
         scope: "https://www.googleapis.com/auth/youtube.readonly",
@@ -535,12 +535,11 @@ export function generateOAuthUrlWithScopes(provider: string, baseUrl: string, st
     case "google-sheets":
     case "google-docs":
     case "youtube":
-      // Redirect YouTube to use Google's OAuth flow
       if (process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) {
         const scopesParam = allScopes.join(" ")
         return `https://accounts.google.com/o/oauth2/v2/auth?client_id=${
           process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
-        }&redirect_uri=${encodeURIComponent(`${baseUrl}/api/integrations/google/callback`)}&scope=${encodeURIComponent(
+        }&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(
           scopesParam,
         )}&response_type=code&state=${state}&access_type=offline&prompt=consent`
       }
