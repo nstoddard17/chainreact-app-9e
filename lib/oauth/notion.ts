@@ -226,16 +226,29 @@ export class NotionOAuthService {
     const { clientId } = this.getClientCredentials()
     const redirectUri = `${getBaseUrl()}/api/integrations/notion/callback`
 
+    // Ensure we have a userId
+    if (!userId) {
+      throw new Error("User ID is required for Notion OAuth")
+    }
+
     const state = btoa(
       JSON.stringify({
         provider: "notion",
         userId,
         reconnect,
         integrationId,
-        requireFullScopes: false, // Changed to false to allow partial scopes
+        requireFullScopes: false,
         timestamp: Date.now(),
       }),
     )
+
+    console.log("Generating Notion auth URL:", {
+      userId,
+      reconnect,
+      integrationId,
+      redirectUri,
+      state: state.substring(0, 50) + "...",
+    })
 
     const params = new URLSearchParams({
       client_id: clientId,

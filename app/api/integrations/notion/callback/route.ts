@@ -16,7 +16,12 @@ export async function GET(request: NextRequest) {
   const state = searchParams.get("state")
   const error = searchParams.get("error")
 
-  console.log("Notion OAuth callback:", { code: !!code, state, error })
+  console.log("Notion OAuth callback started:", {
+    code: !!code,
+    state: !!state,
+    error,
+    url: request.url,
+  })
 
   if (error) {
     console.error("Notion OAuth error:", error)
@@ -33,9 +38,12 @@ export async function GET(request: NextRequest) {
   try {
     // Parse state to get user ID
     let userId: string
+    let stateData: any
     try {
-      const stateData = JSON.parse(atob(state))
+      stateData = JSON.parse(atob(state))
       userId = stateData.userId
+      console.log("Parsed state data:", { userId, stateData })
+
       if (!userId) {
         throw new Error("No user ID in state")
       }
@@ -67,7 +75,7 @@ export async function GET(request: NextRequest) {
 
     if (!tokenResponse.ok) {
       const errorData = await tokenResponse.text()
-      console.error("Notion token exchange failed:", errorData)
+      console.error("Notion token exchange failed:", tokenResponse.status, errorData)
       throw new Error(`Token exchange failed: ${errorData}`)
     }
 
@@ -79,6 +87,7 @@ export async function GET(request: NextRequest) {
       workspace_name,
       workspace_id,
       bot_id: !!bot_id,
+      owner: !!owner,
     })
 
     // Test the token by making a simple API call to get user info
@@ -96,6 +105,9 @@ export async function GET(request: NextRequest) {
       if (userResponse.ok) {
         userData = await userResponse.json()
         grantedScopes.push("read_content")
+        console.log("Notion user data fetched successfully:", { userId: userData?.id })
+      } else {
+        console.warn("Failed to fetch Notion user data:", userResponse.status)
       }
     } catch (testError) {
       console.warn("Notion token test failed, but proceeding:", testError)
@@ -107,12 +119,16 @@ export async function GET(request: NextRequest) {
     const integrationData = {
       user_id: userId,
       provider: "notion",
-      provider_user_id: bot_id || workspace_id || owner?.user?.id || "unknown",
+      provider_user_id: bot_id || workspace_id || owner?.user?.id || userData?.id || "unknown",
       access_token,
       refresh_token: null, // Notion doesn't provide refresh tokens
       expires_at: null, // Notion tokens don't expire
       status: "connected" as const,
       scopes: grantedScopes,
+      granted_scopes: grantedScopes, // Add this field for consistency
+      missing_scopes: [], // Add this field for consistency
+      scope_validation_status: "valid" as const, // Add this field for consistency
+      is_active: true, // Add this field for consistency
       metadata: {
         workspace_name,
         workspace_id,
@@ -125,38 +141,60 @@ export async function GET(request: NextRequest) {
       updated_at: now,
     }
 
+    console.log("Preparing to save integration data:", {
+      userId: integrationData.user_id,
+      provider: integrationData.provider,
+      status: integrationData.status,
+      provider_user_id: integrationData.provider_user_id,
+    })
+
     // Check if integration exists and update or insert
-    const { data: existingIntegration } = await supabase
+    const { data: existingIntegration, error: fetchError } = await supabase
       .from("integrations")
       .select("id")
       .eq("user_id", userId)
       .eq("provider", "notion")
       .maybeSingle()
 
+    if (fetchError) {
+      console.error("Error fetching existing integration:", fetchError)
+      throw fetchError
+    }
+
+    console.log("Existing integration check:", { exists: !!existingIntegration, id: existingIntegration?.id })
+
     if (existingIntegration) {
-      const { error } = await supabase
+      const { error: updateError, data: updatedData } = await supabase
         .from("integrations")
         .update({
           ...integrationData,
           updated_at: now,
         })
         .eq("id", existingIntegration.id)
+        .select()
 
-      if (error) {
-        console.error("Error updating Notion integration:", error)
-        throw error
+      if (updateError) {
+        console.error("Error updating Notion integration:", updateError)
+        throw updateError
       }
+
+      console.log("Notion integration updated successfully:", { id: existingIntegration.id, data: updatedData })
     } else {
-      const { error } = await supabase.from("integrations").insert(integrationData)
+      const { error: insertError, data: insertedData } = await supabase
+        .from("integrations")
+        .insert(integrationData)
+        .select()
 
-      if (error) {
-        console.error("Error inserting Notion integration:", error)
-        throw error
+      if (insertError) {
+        console.error("Error inserting Notion integration:", insertError)
+        throw insertError
       }
+
+      console.log("Notion integration inserted successfully:", { data: insertedData })
     }
 
-    console.log("Notion integration saved successfully")
-    return NextResponse.redirect(`${getBaseUrl(request)}/integrations?success=notion_connected&provider=notion`)
+    console.log("Notion integration saved successfully, redirecting...")
+    return NextResponse.redirect(`${getBaseUrl(request)}/integrations?success=true&provider=notion&t=${Date.now()}`)
   } catch (error: any) {
     console.error("Notion OAuth callback error:", error)
     const errorMessage = encodeURIComponent(error.message || "Unknown error occurred")
