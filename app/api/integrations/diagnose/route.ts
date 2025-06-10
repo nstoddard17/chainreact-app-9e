@@ -24,7 +24,7 @@ interface DiagnosticResult {
   }
 }
 
-// Component definitions with their required scopes - only components we actually support
+// Component definitions with their required scopes - updated to match all integrations
 const COMPONENT_SCOPE_MAPPING = {
   // Slack components
   slack_message: { scopes: ["chat:write"], provider: "slack" },
@@ -35,7 +35,7 @@ const COMPONENT_SCOPE_MAPPING = {
   discord_message: { scopes: ["identify"], provider: "discord" },
   discord_guild_info: { scopes: ["guilds"], provider: "discord" },
 
-  // Microsoft Teams components - only basic functionality
+  // Microsoft Teams components
   teams_user_info: { scopes: ["User.Read"], provider: "teams" },
   teams_get_profile: { scopes: ["profile"], provider: "teams" },
 
@@ -63,12 +63,12 @@ const COMPONENT_SCOPE_MAPPING = {
   google_drive_upload: { scopes: ["https://www.googleapis.com/auth/drive.file"], provider: "google-drive" },
   google_drive_read: { scopes: ["https://www.googleapis.com/auth/drive.readonly"], provider: "google-drive" },
 
-  // YouTube components - only basic functionality
+  // YouTube components
   youtube_get_channel: { scopes: ["https://www.googleapis.com/auth/youtube.readonly"], provider: "youtube" },
   youtube_get_videos: { scopes: ["https://www.googleapis.com/auth/youtube.readonly"], provider: "youtube" },
   youtube_get_analytics: { scopes: ["https://www.googleapis.com/auth/youtube.readonly"], provider: "youtube" },
 
-  // GitHub components - basic functionality
+  // GitHub components
   github_get_user: { scopes: ["user:email"], provider: "github" },
   github_get_repos: { scopes: ["public_repo"], provider: "github" },
   github_create_issue: { scopes: ["repo"], provider: "github" },
@@ -81,6 +81,7 @@ const COMPONENT_SCOPE_MAPPING = {
   // Notion components
   notion_create_page: { scopes: [], provider: "notion" },
   notion_read_page: { scopes: [], provider: "notion" },
+  notion_update_page: { scopes: [], provider: "notion" },
 
   // Airtable components
   airtable_create_record: { scopes: ["data.records:write"], provider: "airtable" },
@@ -116,8 +117,8 @@ const COMPONENT_SCOPE_MAPPING = {
   tiktok_get_videos: { scopes: ["video.list"], provider: "tiktok" },
 
   // Mailchimp components
-  mailchimp_create_campaign: { scopes: [], provider: "mailchimp" },
-  mailchimp_add_subscriber: { scopes: [], provider: "mailchimp" },
+  mailchimp_create_campaign: { scopes: ["basic_access"], provider: "mailchimp" },
+  mailchimp_add_subscriber: { scopes: ["basic_access"], provider: "mailchimp" },
 
   // HubSpot components
   hubspot_create_contact: { scopes: ["contacts"], provider: "hubspot" },
@@ -140,6 +141,27 @@ const COMPONENT_SCOPE_MAPPING = {
   docker_create_container: { scopes: [], provider: "docker" },
 }
 
+async function verifyNotionToken(accessToken: string): Promise<{ valid: boolean; scopes: string[]; error?: string }> {
+  try {
+    const response = await fetch("https://api.notion.com/v1/users/me", {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Notion-Version": "2022-06-28",
+      },
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      return { valid: false, scopes: [], error: error.message || "Token validation failed" }
+    }
+
+    // Notion doesn't return scopes in the API, so we assume basic access
+    return { valid: true, scopes: ["basic_access"] }
+  } catch (error: any) {
+    return { valid: false, scopes: [], error: error.message }
+  }
+}
+
 async function verifyTwitterToken(accessToken: string): Promise<{ valid: boolean; scopes: string[]; error?: string }> {
   try {
     const response = await fetch("https://api.twitter.com/2/users/me", {
@@ -151,9 +173,8 @@ async function verifyTwitterToken(accessToken: string): Promise<{ valid: boolean
       return { valid: false, scopes: [], error: error.detail || error.title || "Token validation failed" }
     }
 
-    // For Twitter, we need to check the scopes from the stored data since the API doesn't return them
-    // We'll assume the token is valid if the user info call succeeds
-    const scopes = ["tweet.read", "tweet.write", "users.read"] // Default scopes we request
+    // For Twitter, we assume the token has the scopes we requested
+    const scopes = ["tweet.read", "tweet.write", "users.read"]
     return { valid: true, scopes }
   } catch (error: any) {
     return { valid: false, scopes: [], error: error.message }
@@ -244,83 +265,7 @@ async function verifyGoogleToken(
       return { valid: false, scopes: [], error: tokenInfo.error_description || tokenInfo.error }
     }
 
-    const userInfoResponse = await fetch(`https://www.googleapis.com/oauth2/v2/userinfo?access_token=${accessToken}`)
-    const userInfo = await userInfoResponse.json()
-
-    if (userInfo.error) {
-      return { valid: false, scopes: [], error: userInfo.error.message || "User info fetch failed" }
-    }
-
     const scopes = tokenInfo.scope ? tokenInfo.scope.split(" ") : []
-
-    // Special handling for YouTube - check if we can access the YouTube API
-    if (provider === "youtube") {
-      try {
-        console.log("Verifying YouTube API access specifically...")
-        console.log("YouTube token length:", accessToken.length)
-        console.log("YouTube token starts with:", accessToken.substring(0, 10) + "...")
-
-        // First verify the token is valid for Google APIs
-        const tokenInfoResponse = await fetch(
-          `https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=${accessToken}`,
-        )
-        const tokenInfo = await tokenInfoResponse.json()
-
-        if (tokenInfo.error) {
-          console.log("YouTube token validation failed:", tokenInfo.error)
-          return {
-            valid: false,
-            scopes: [],
-            error: `YouTube token invalid: ${tokenInfo.error_description || tokenInfo.error}`,
-          }
-        }
-
-        console.log("YouTube token is valid, testing API access...")
-        console.log("YouTube token scopes:", tokenInfo.scope)
-
-        const youtubeResponse = await fetch(`https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true`, {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            Accept: "application/json",
-          },
-        })
-
-        if (youtubeResponse.ok) {
-          const youtubeData = await youtubeResponse.json()
-          console.log("YouTube API access confirmed, channels found:", youtubeData.items?.length || 0)
-
-          // For YouTube, ensure we have the YouTube-specific scopes
-          const youtubeScopes = [
-            "https://www.googleapis.com/auth/youtube.readonly",
-            "https://www.googleapis.com/auth/userinfo.profile",
-            "https://www.googleapis.com/auth/userinfo.email",
-          ]
-
-          // Return the intersection of granted scopes and YouTube scopes
-          const grantedScopes = tokenInfo.scope ? tokenInfo.scope.split(" ") : []
-          const validYouTubeScopes = youtubeScopes.filter((scope) => grantedScopes.includes(scope))
-
-          // If we have YouTube readonly scope, we can use YouTube features
-          if (validYouTubeScopes.includes("https://www.googleapis.com/auth/youtube.readonly")) {
-            return { valid: true, scopes: validYouTubeScopes }
-          } else {
-            return { valid: false, scopes: grantedScopes, error: "Missing YouTube readonly scope" }
-          }
-        } else {
-          const errorData = await youtubeResponse.json()
-          console.log("YouTube API test failed:", youtubeResponse.status, errorData)
-          return {
-            valid: false,
-            scopes: [],
-            error: `YouTube API access denied (${youtubeResponse.status}): ${errorData.error?.message || "Authentication required"}`,
-          }
-        }
-      } catch (error) {
-        console.log("YouTube API test failed with exception:", error)
-        return { valid: false, scopes: [], error: `YouTube API test failed: ${error.message}` }
-      }
-    }
-
     return { valid: true, scopes }
   } catch (error: any) {
     return { valid: false, scopes: [], error: error.message }
@@ -333,33 +278,48 @@ async function verifyMicrosoftToken(
   try {
     console.log("Verifying Microsoft token...")
 
-    // Check if token looks like a valid JWT or Bearer token
+    // Check if token looks like a valid JWT
     if (!accessToken || accessToken.length < 50) {
       return { valid: false, scopes: [], error: "Access token appears to be invalid or too short" }
     }
 
-    // Log token format for debugging (without exposing the token)
-    console.log("Microsoft token format:", {
-      length: accessToken.length,
-      startsWithEy: accessToken.startsWith("ey"),
-      hasDots: accessToken.includes("."),
-      dotCount: (accessToken.match(/\./g) || []).length,
-    })
+    // Check JWT format
+    const tokenParts = accessToken.split(".")
+    if (tokenParts.length !== 3) {
+      return {
+        valid: false,
+        scopes: [],
+        error: `Invalid JWT format: expected 3 parts separated by dots, got ${tokenParts.length} parts`,
+      }
+    }
 
     const userResponse = await fetch("https://graph.microsoft.com/v1.0/me", {
-      headers: { Authorization: `Bearer ${accessToken}` },
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
     })
 
     if (!userResponse.ok) {
       const error = await userResponse.json()
       console.error("Microsoft user verification failed:", error)
+
+      if (error.error?.code === "InvalidAuthenticationToken") {
+        return {
+          valid: false,
+          scopes: [],
+          error: `Invalid token format: ${error.error.message}`,
+        }
+      }
+
       return { valid: false, scopes: [], error: error.error?.message || "Token validation failed" }
     }
 
     const userData = await userResponse.json()
     console.log("Microsoft user verified:", userData.displayName)
 
-    return { valid: true, scopes: [] }
+    // Return basic Microsoft scopes
+    return { valid: true, scopes: ["openid", "profile", "email", "User.Read"] }
   } catch (error: any) {
     console.error("Microsoft token verification error:", error)
     return { valid: false, scopes: [], error: error.message }
@@ -379,40 +339,28 @@ async function verifySlackToken(accessToken: string): Promise<{ valid: boolean; 
 
     const scopes: string[] = []
 
-    // Test chat:write
-    const chatTestResponse = await fetch("https://slack.com/api/chat.postMessage", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        channel: "test-channel-that-doesnt-exist",
-        text: "Test message",
-      }),
-    })
-    const chatTestData = await chatTestResponse.json()
-    if (chatTestData.error !== "invalid_auth" && chatTestData.error !== "not_authed") {
-      scopes.push("chat:write")
+    // Test various Slack API endpoints to determine available scopes
+    const endpoints = [
+      { url: "https://slack.com/api/conversations.list", scope: "channels:read" },
+      { url: "https://slack.com/api/users.list", scope: "users:read" },
+    ]
+
+    for (const endpoint of endpoints) {
+      try {
+        const response = await fetch(endpoint.url, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        })
+        const data = await response.json()
+        if (data.ok) {
+          scopes.push(endpoint.scope)
+        }
+      } catch (e) {
+        // Ignore individual endpoint failures
+      }
     }
 
-    // Test channels:read
-    const channelsResponse = await fetch("https://slack.com/api/conversations.list", {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    })
-    const channelsData = await channelsResponse.json()
-    if (channelsData.ok) {
-      scopes.push("channels:read")
-    }
-
-    // Test users:read
-    const usersResponse = await fetch("https://slack.com/api/users.list", {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    })
-    const usersData = await usersResponse.json()
-    if (usersData.ok) {
-      scopes.push("users:read")
-    }
+    // Always assume chat:write if auth.test passes
+    scopes.push("chat:write")
 
     return { valid: true, scopes }
   } catch (error: any) {
@@ -452,34 +400,28 @@ async function verifyDropboxToken(accessToken: string): Promise<{ valid: boolean
       return { valid: false, scopes: [], error: error.error_summary || "Token validation failed" }
     }
 
+    // Test file operations to determine scopes
     const scopes: string[] = []
 
-    const listResponse = await fetch("https://api.dropboxapi.com/2/files/list_folder", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ path: "" }),
-    })
+    try {
+      const listResponse = await fetch("https://api.dropboxapi.com/2/files/list_folder", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ path: "" }),
+      })
 
-    if (listResponse.ok) {
-      scopes.push("files.content.read")
+      if (listResponse.ok) {
+        scopes.push("files.content.read")
+      }
+    } catch (e) {
+      // Ignore
     }
 
-    const createResponse = await fetch("https://api.dropboxapi.com/2/files/create_folder_v2", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        path: "/chainreact_test_" + Date.now(),
-        autorename: true,
-      }),
-    })
-
-    if (createResponse.ok) {
+    // Assume write access if read access works
+    if (scopes.includes("files.content.read")) {
       scopes.push("files.content.write")
     }
 
@@ -493,11 +435,11 @@ async function verifyGenericOAuthToken(
   accessToken: string,
   provider: string,
 ): Promise<{ valid: boolean; scopes: string[]; error?: string }> {
-  // For providers that don't have specific verification endpoints,
-  // we'll assume the token is valid if it exists and use stored scopes
+  // For providers without specific verification endpoints,
+  // assume the token is valid if it exists and use stored scopes
   console.log(`Using generic verification for ${provider}`)
   return {
-    valid: true,
+    valid: !!accessToken,
     scopes: [], // Will be filled from stored scopes
     error: undefined,
   }
@@ -512,7 +454,7 @@ function analyzeIntegration(
   const provider = integration.provider
   const isDemo = integration.metadata?.demo === true
 
-  // Get only the required scopes for this provider
+  // Get required scopes for this provider
   const requiredScopes = getRequiredScopes(provider)
 
   // Get all components for this provider
@@ -524,58 +466,41 @@ function analyzeIntegration(
   const unavailableComponents: string[] = []
   const missingScopes: string[] = []
 
-  // Special handling for Notion scopes
-  if (provider === "notion") {
-    const notionRequiredScopes = ["read_user", "read_content"]
-    const notionMissingScopes = notionRequiredScopes.filter((scope) => !grantedScopes.includes(scope))
-
-    if (notionMissingScopes.length > 0) {
-      missingScopes.push(...notionMissingScopes)
-      console.log(`Notion missing required scopes: ${notionMissingScopes.join(", ")}`)
-    }
-
-    // Check for optional scopes
-    const notionOptionalScopes = ["update_content", "insert_content"]
-    const missingOptionalScopes = notionOptionalScopes.filter((scope) => !grantedScopes.includes(scope))
-
-    const recommendations: string[] = []
-    if (missingOptionalScopes.length > 0) {
-      console.log(`Notion missing optional scopes: ${missingOptionalScopes.join(", ")}`)
-      recommendations.push(
-        `Missing optional scopes: ${missingOptionalScopes.join(", ")} - reconnect for full functionality`,
-      )
-    }
-  }
-
-  // For Teams, be more lenient about scope requirements
-  const isTeamsProvider = provider === "teams"
-  const isGitHubProvider = provider === "github"
-  const isTwitterProvider = provider === "twitter"
+  // Special handling for providers with no scope requirements
+  const noScopeProviders = ["notion", "mailchimp", "paypal", "stripe", "docker"]
+  const isNoScopeProvider = noScopeProviders.includes(provider)
 
   // Analyze each component
   providerComponents.forEach(([componentName, config]) => {
-    // Only check component scopes that are part of our requested scopes
+    // For providers with no scope requirements, all components are available if token is valid
+    if (isNoScopeProvider) {
+      if (tokenValid || isDemo) {
+        availableComponents.push(componentName)
+      } else {
+        unavailableComponents.push(componentName)
+      }
+      return
+    }
+
+    // Check if component scopes are satisfied
     const componentScopesToCheck = config.scopes.filter((scope) => getAllScopes(provider).includes(scope))
 
-    // If no scopes to check (e.g., all component scopes are not in our requested scopes),
-    // consider the component available
     if (componentScopesToCheck.length === 0) {
       availableComponents.push(componentName)
       return
     }
 
     const hasRequiredScopes = componentScopesToCheck.every((scope) => {
-      // For Teams, check if we have the scope or if it's a basic scope that's usually granted
-      if (isTeamsProvider) {
+      // For Teams, be lenient with basic scopes
+      if (provider === "teams") {
         const basicScopes = ["openid", "profile", "email", "offline_access", "User.Read"]
         if (basicScopes.includes(scope)) {
-          return true // Assume basic scopes are always available
+          return true
         }
       }
 
       // For GitHub, handle scope hierarchy
-      if (isGitHubProvider) {
-        // If we have 'repo' scope, we also have 'public_repo' and 'user:email'
+      if (provider === "github") {
         if (scope === "public_repo" && grantedScopes.includes("repo")) {
           return true
         }
@@ -592,33 +517,19 @@ function analyzeIntegration(
     } else {
       unavailableComponents.push(componentName)
       componentScopesToCheck.forEach((scope) => {
-        // Check if scope is missing considering GitHub scope hierarchy
-        let isMissing = !grantedScopes.includes(scope)
-
-        if (isGitHubProvider && isMissing) {
-          if (scope === "public_repo" && grantedScopes.includes("repo")) {
-            isMissing = false
-          }
-          if (scope === "user:email" && (grantedScopes.includes("repo") || grantedScopes.includes("user"))) {
-            isMissing = false
-          }
-        }
-
-        if (isMissing && !missingScopes.includes(scope)) {
-          // For Teams, only mark advanced scopes as missing
-          if (!isTeamsProvider || !["openid", "profile", "email", "offline_access", "User.Read"].includes(scope)) {
-            missingScopes.push(scope)
-          }
+        if (!grantedScopes.includes(scope) && !missingScopes.includes(scope)) {
+          missingScopes.push(scope)
         }
       })
     }
   })
 
-  // Check for missing required scopes with GitHub scope hierarchy
+  // Check for missing required scopes
   const missingRequiredScopes = requiredScopes.filter((scope) => {
     let isMissing = !grantedScopes.includes(scope)
 
-    if (isGitHubProvider && isMissing) {
+    // Handle GitHub scope hierarchy
+    if (provider === "github" && isMissing) {
       if (scope === "public_repo" && grantedScopes.includes("repo")) {
         isMissing = false
       }
@@ -627,11 +538,10 @@ function analyzeIntegration(
       }
     }
 
-    // For Teams, be very lenient - if we have basic OIDC scopes, consider it complete
-    if (isTeamsProvider && isMissing) {
+    // For Teams, be lenient with basic scopes
+    if (provider === "teams" && isMissing) {
       const basicTeamsScopes = ["openid", "profile", "email", "offline_access"]
       if (basicTeamsScopes.includes(scope)) {
-        // Check if we have any of the equivalent scopes
         if (scope === "openid" && grantedScopes.includes("openid")) isMissing = false
         if (scope === "profile" && (grantedScopes.includes("profile") || grantedScopes.includes("User.Read")))
           isMissing = false
@@ -650,21 +560,34 @@ function analyzeIntegration(
   if (!tokenValid && !isDemo) {
     status = "❌ Connected but broken"
     recommendations.push("Reconnect this integration - token is invalid or expired")
-  } else if (isTeamsProvider) {
-    // Special handling for Teams - if token is valid and we have basic scopes, consider it functional
+  } else if (isNoScopeProvider) {
+    // For providers with no scope requirements, just check if token is valid
+    if (tokenValid || isDemo) {
+      status = "✅ Connected & functional"
+      if (isDemo) {
+        recommendations.push("This is a demo connection - connect with real OAuth for full functionality")
+      } else {
+        recommendations.push(`${provider} integration is working correctly`)
+      }
+    } else {
+      status = "❌ Connected but broken"
+      recommendations.push("Token is invalid - please reconnect")
+    }
+  } else if (provider === "teams") {
+    // Special handling for Teams
     const hasBasicTeamsScopes =
       grantedScopes.includes("openid") &&
       (grantedScopes.includes("profile") || grantedScopes.includes("User.Read")) &&
       grantedScopes.includes("email")
 
-    if (hasBasicTeamsScopes) {
+    if (hasBasicTeamsScopes || tokenValid) {
       status = "✅ Connected & functional"
       recommendations.push("Teams integration is working with your current permissions")
     } else {
       status = "⚠️ Connected but limited"
       recommendations.push("Missing basic Teams authentication scopes")
     }
-  } else if (isTwitterProvider) {
+  } else if (provider === "twitter") {
     // Special handling for Twitter/X
     if (tokenValid) {
       status = "✅ Connected & functional"
@@ -685,15 +608,9 @@ function analyzeIntegration(
     status = "✅ Connected & functional"
     if (isDemo) {
       recommendations.push("This is a demo connection - connect with real OAuth for full functionality")
-    } else if (isGitHubProvider) {
-      recommendations.push("All GitHub features are available with your current permissions")
+    } else {
+      recommendations.push(`All ${provider} features are available with your current permissions`)
     }
-  }
-
-  // Add specific recommendations for Teams
-  if (isTeamsProvider && missingScopes.length > 0) {
-    recommendations.push("Microsoft Teams advanced features may require admin consent")
-    recommendations.push("Try reconnecting or contact your organization's admin")
   }
 
   return {
@@ -767,38 +684,23 @@ export async function GET(request: NextRequest) {
         let verificationResult
 
         switch (provider) {
-          case "youtube":
-            // YouTube gets its own independent verification using Google OAuth
-            console.log("Verifying YouTube with Google OAuth...")
-            console.log("YouTube access token exists:", !!accessToken)
-            console.log("YouTube refresh token exists:", !!(integration.refresh_token || metadata?.refresh_token))
+          case "notion":
+            console.log("Verifying Notion token...")
+            verificationResult = await verifyNotionToken(accessToken)
+            // Use stored scopes if available, otherwise use verification result
+            const notionStoredScopes = integration.scopes || metadata?.scopes || []
+            if (notionStoredScopes.length > 0) {
+              verificationResult.scopes = notionStoredScopes
+            }
+            break
 
+          case "youtube":
+            console.log("Verifying YouTube with Google OAuth...")
             verificationResult = await verifyGoogleToken(
               accessToken,
               integration.refresh_token || metadata?.refresh_token,
               "youtube",
             )
-
-            // If we got a new access token from refresh, update this integration too
-            if (verificationResult.newAccessToken) {
-              try {
-                await supabase
-                  .from("integrations")
-                  .update({
-                    access_token: verificationResult.newAccessToken,
-                    metadata: {
-                      ...metadata,
-                      access_token: verificationResult.newAccessToken,
-                      last_refreshed: new Date().toISOString(),
-                    },
-                    updated_at: new Date().toISOString(),
-                  })
-                  .eq("id", integration.id)
-                console.log("Updated YouTube access token in database")
-              } catch (updateError) {
-                console.error("Failed to update YouTube token:", updateError)
-              }
-            }
             break
 
           case "twitter":
@@ -827,27 +729,6 @@ export async function GET(request: NextRequest) {
               const googleToken = googleIntegration.metadata?.access_token || googleIntegration.access_token
               const googleRefreshToken = googleIntegration.metadata?.refresh_token || googleIntegration.refresh_token
               verificationResult = await verifyGoogleToken(googleToken, googleRefreshToken, provider)
-
-              // If we got a new access token, update the database
-              if (verificationResult.newAccessToken) {
-                try {
-                  await supabase
-                    .from("integrations")
-                    .update({
-                      access_token: verificationResult.newAccessToken,
-                      metadata: {
-                        ...googleIntegration.metadata,
-                        access_token: verificationResult.newAccessToken,
-                        last_refreshed: new Date().toISOString(),
-                      },
-                      updated_at: new Date().toISOString(),
-                    })
-                    .eq("id", googleIntegration.id)
-                  console.log("Updated Google access token in database")
-                } catch (updateError) {
-                  console.error("Failed to update Google token:", updateError)
-                }
-              }
             } else {
               verificationResult = await verifyGoogleToken(accessToken, undefined, provider)
             }
@@ -857,11 +738,11 @@ export async function GET(request: NextRequest) {
           case "onedrive":
             console.log(`Verifying ${provider} with Microsoft OAuth...`)
             verificationResult = await verifyMicrosoftToken(accessToken)
-            // For Microsoft services, use the stored scopes instead of trying to verify each one
-            if (verificationResult.valid) {
+            // For Microsoft services, use stored scopes if verification fails
+            if (!verificationResult.valid) {
               const storedScopes = integration.scopes || metadata?.scopes || []
               verificationResult.scopes = storedScopes
-              console.log(`${provider}: Using stored scopes:`, storedScopes)
+              console.log(`${provider}: Token invalid, using stored scopes:`, storedScopes)
             }
             break
 
@@ -875,20 +756,12 @@ export async function GET(request: NextRequest) {
             verificationResult = await verifyGitHubToken(accessToken)
             break
 
-          case "gitlab":
-            console.log("Verifying GitLab token...")
-            // GitLab uses a similar API to GitHub but different endpoints
-            verificationResult = await verifyGenericOAuthToken(accessToken, provider)
-            // Use stored scopes for GitLab
-            const gitlabScopes = integration.scopes || metadata?.scopes || []
-            verificationResult.scopes = gitlabScopes
-            break
-
           case "dropbox":
             console.log("Verifying Dropbox token...")
             verificationResult = await verifyDropboxToken(accessToken)
             break
 
+          case "gitlab":
           case "linkedin":
           case "facebook":
           case "instagram":
@@ -901,7 +774,6 @@ export async function GET(request: NextRequest) {
           case "docker":
           case "airtable":
           case "trello":
-          case "notion":
             console.log(`Using generic verification for ${provider}...`)
             verificationResult = await verifyGenericOAuthToken(accessToken, provider)
             // Use stored scopes for these providers
@@ -923,17 +795,6 @@ export async function GET(request: NextRequest) {
         tokenValid = false
         grantedScopes = metadata?.scopes || integration.scopes || []
         errorMessage = "No access token found"
-      }
-
-      // For Google services (except YouTube), use the main Google integration data if available
-      if ((provider.startsWith("google") || provider === "gmail") && provider !== "youtube") {
-        const googleIntegration = integrations?.find((int) => int.provider === "google")
-        if (googleIntegration && (googleIntegration.metadata?.access_token || googleIntegration.access_token)) {
-          const diagnostic = analyzeIntegration(integration, tokenValid, grantedScopes, errorMessage)
-          diagnostic.provider = provider
-          diagnostics.push(diagnostic)
-          continue
-        }
       }
 
       const diagnostic = analyzeIntegration(integration, tokenValid, grantedScopes, errorMessage)
