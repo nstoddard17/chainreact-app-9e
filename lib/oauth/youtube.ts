@@ -21,22 +21,14 @@ export class YouTubeOAuthService {
     const { clientId } = this.getClientCredentials()
     const redirectUri = `${baseUrl}/api/integrations/youtube/callback`
 
-    // YouTube-specific scopes - these are required for YouTube API access
+    // YouTube-specific scopes
     const scopes = [
       "https://www.googleapis.com/auth/youtube.readonly",
       "https://www.googleapis.com/auth/userinfo.profile",
       "https://www.googleapis.com/auth/userinfo.email",
-      "https://www.googleapis.com/auth/youtube.upload", // Optional but commonly needed
     ]
 
     const state = generateOAuthState("youtube", userId, { reconnect, integrationId })
-
-    console.log("YouTube OAuth URL generation:", {
-      clientId: clientId.substring(0, 10) + "...",
-      redirectUri,
-      scopes,
-      state: state.substring(0, 20) + "...",
-    })
 
     const params = new URLSearchParams({
       client_id: clientId,
@@ -48,10 +40,7 @@ export class YouTubeOAuthService {
       state,
     })
 
-    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`
-    console.log("Generated YouTube auth URL with scopes:", scopes.join(", "))
-
-    return authUrl
+    return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`
   }
 
   static getRedirectUri(): string {
