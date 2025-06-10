@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { useAuthStore } from "@/stores/authStore"
@@ -18,12 +18,6 @@ export default function LoginForm() {
   const [loading, setLoading] = useState(false)
   const { signIn, signInWithGoogle } = useAuthStore()
   const router = useRouter()
-  const { clearError } = useAuthStore()
-
-  useEffect(() => {
-    // Clear any existing errors when component mounts
-    clearError()
-  }, [clearError])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -34,7 +28,11 @@ export default function LoginForm() {
       window.location.href = "/dashboard"
     } catch (error) {
       console.error("Login error:", error)
-      // Error is already set in the store by signIn
+      toast({
+        title: "Login Failed",
+        description: "Invalid email or password. Please try again.",
+        variant: "destructive",
+      })
     } finally {
       setLoading(false)
     }
@@ -151,12 +149,6 @@ export default function LoginForm() {
               {loading ? "Signing in..." : "Sign In"}
             </Button>
           </form>
-
-          {useAuthStore.getState().error && (
-            <div className="bg-red-50 border border-red-200 rounded-md p-3 text-sm text-red-600">
-              {useAuthStore.getState().error}
-            </div>
-          )}
 
           <div className="relative">
             <div className="absolute inset-0 flex items-center">

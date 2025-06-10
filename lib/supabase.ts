@@ -12,7 +12,13 @@ export const isSupabaseConfigured = () => {
     if (!supabaseAnonKey) missingVars.push("NEXT_PUBLIC_SUPABASE_ANON_KEY")
 
     const errorMessage = `Missing required Supabase environment variables: ${missingVars.join(", ")}`
-    console.error(errorMessage)
+
+    if (process.env.NODE_ENV === "development") {
+      throw new Error(errorMessage)
+    } else {
+      console.error(errorMessage)
+    }
+
     return false
   }
 
@@ -30,8 +36,13 @@ export const createBrowserSupabaseClient = () => {
     if (!supabaseAnonKey) missingVars.push("NEXT_PUBLIC_SUPABASE_ANON_KEY")
 
     const errorMessage = `Missing required Supabase environment variables: ${missingVars.join(", ")}`
-    console.error(errorMessage)
-    return null
+
+    if (process.env.NODE_ENV === "development") {
+      throw new Error(errorMessage)
+    } else {
+      console.error(errorMessage)
+      return null
+    }
   }
 
   return createClientComponentClient<Database>()
