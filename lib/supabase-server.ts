@@ -14,12 +14,12 @@ export const createServerSupabaseClient = () => {
 
     const errorMessage = `Missing required server-side Supabase environment variables: ${missingVars.join(", ")}`
 
+    // Only log in development, don't throw during build
     if (process.env.NODE_ENV === "development") {
-      throw new Error(errorMessage)
-    } else {
-      console.error(errorMessage)
-      throw new Error("Server configuration error")
+      console.warn(errorMessage)
     }
+
+    return null
   }
 
   return createRouteHandlerClient<Database>({ cookies })
