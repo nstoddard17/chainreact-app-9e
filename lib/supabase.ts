@@ -13,10 +13,9 @@ export const isSupabaseConfigured = () => {
 
     const errorMessage = `Missing required Supabase environment variables: ${missingVars.join(", ")}`
 
+    // Only log in development, don't throw during build
     if (process.env.NODE_ENV === "development") {
-      throw new Error(errorMessage)
-    } else {
-      console.error(errorMessage)
+      console.warn(errorMessage)
     }
 
     return false
@@ -37,12 +36,12 @@ export const createBrowserSupabaseClient = () => {
 
     const errorMessage = `Missing required Supabase environment variables: ${missingVars.join(", ")}`
 
+    // Only log in development, don't throw during build
     if (process.env.NODE_ENV === "development") {
-      throw new Error(errorMessage)
-    } else {
-      console.error(errorMessage)
-      return null
+      console.warn(errorMessage)
     }
+
+    return null
   }
 
   return createClientComponentClient<Database>()
