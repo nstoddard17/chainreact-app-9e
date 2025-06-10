@@ -81,8 +81,10 @@ export async function GET(request: NextRequest) {
       bot_id: !!bot_id,
     })
 
-    // Test the token by making a simple API call
+    // Test the token by making a simple API call to get user info
+    let userData = null
     const grantedScopes = ["read_user"]
+
     try {
       const userResponse = await fetch("https://api.notion.com/v1/users/me", {
         headers: {
@@ -92,6 +94,7 @@ export async function GET(request: NextRequest) {
       })
 
       if (userResponse.ok) {
+        userData = await userResponse.json()
         grantedScopes.push("read_content")
       }
     } catch (testError) {
@@ -99,11 +102,15 @@ export async function GET(request: NextRequest) {
     }
 
     const now = new Date().toISOString()
+
+    // Structure the integration data to match Discord format
     const integrationData = {
       user_id: userId,
       provider: "notion",
       provider_user_id: bot_id || workspace_id || owner?.user?.id || "unknown",
       access_token,
+      refresh_token: null, // Notion doesn't provide refresh tokens
+      expires_at: null, // Notion tokens don't expire
       status: "connected" as const,
       scopes: grantedScopes,
       metadata: {
@@ -111,8 +118,10 @@ export async function GET(request: NextRequest) {
         workspace_id,
         bot_id,
         owner,
+        user_data: userData,
         connected_at: now,
       },
+      created_at: now,
       updated_at: now,
     }
 
@@ -125,17 +134,20 @@ export async function GET(request: NextRequest) {
       .maybeSingle()
 
     if (existingIntegration) {
-      const { error } = await supabase.from("integrations").update(integrationData).eq("id", existingIntegration.id)
+      const { error } = await supabase
+        .from("integrations")
+        .update({
+          ...integrationData,
+          updated_at: now,
+        })
+        .eq("id", existingIntegration.id)
 
       if (error) {
         console.error("Error updating Notion integration:", error)
         throw error
       }
     } else {
-      const { error } = await supabase.from("integrations").insert({
-        ...integrationData,
-        created_at: now,
-      })
+      const { error } = await supabase.from("integrations").insert(integrationData)
 
       if (error) {
         console.error("Error inserting Notion integration:", error)
