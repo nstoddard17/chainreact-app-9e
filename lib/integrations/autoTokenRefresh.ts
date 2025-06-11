@@ -147,14 +147,33 @@ function isAuthError(error: any): boolean {
   return authErrorMessages.some((msg) => errorMessage.includes(msg))
 }
 
+interface RefreshStats {
+  totalProcessed: number
+  successful: number
+  failed: number
+  skipped: number
+  errors: Array<{
+    provider: string
+    userId: string
+    error: string
+  }>
+}
+
 /**
- * Background job to refresh tokens that are expiring soon
+ * Enhanced background job to refresh tokens that are expiring soon
  */
-export async function refreshExpiringTokens(): Promise<void> {
+export async function refreshExpiringTokens(): Promise<RefreshStats> {
   const supabase = createAdminSupabaseClient()
   if (!supabase) {
-    console.error("Failed to create Supabase client for token refresh job")
-    return
+    throw new Error("Failed to create Supabase client for token refresh job")
+  }
+
+  const stats: RefreshStats = {
+    totalProcessed: 0,
+    successful: 0,
+    failed: 0,
+    skipped: 0,
+    errors: [],
   }
 
   try {
@@ -166,60 +185,170 @@ export async function refreshExpiringTokens(): Promise<void> {
       .not("refresh_token", "is", null)
 
     if (error) {
-      console.error("Error fetching integrations for refresh:", error)
-      return
+      throw new Error(`Error fetching integrations: ${error.message}`)
     }
 
     if (!integrations || integrations.length === 0) {
-      console.log("No integrations with refresh tokens found")
-      return
+      console.log("ℹ️ No integrations with refresh tokens found")
+      return stats
     }
 
-    console.log(`Found ${integrations.length} integrations with refresh tokens`)
+    console.log(`🔍 Found ${integrations.length} integrations with refresh tokens`)
+    stats.totalProcessed = integrations.length
 
-    // Refresh each token
-    for (const integration of integrations) {
-      try {
-        const isGoogleOrMicrosoft = [
-          "google",
-          "youtube",
-          "gmail",
-          "google-calendar",
-          "google-docs",
-          "google-drive",
-          "google-sheets",
-          "teams",
-          "onedrive",
-        ].includes(integration.provider)
+    // Process integrations in batches to avoid overwhelming APIs
+    const batchSize = 5
+    for (let i = 0; i < integrations.length; i += batchSize) {
+      const batch = integrations.slice(i, i + batchSize)
 
-        // For Google/Microsoft, refresh more frequently
-        // For others, only refresh if expiring soon
-        let shouldRefresh = false
+      await Promise.allSettled(
+        batch.map(async (integration) => {
+          try {
+            const result = await processIntegrationRefresh(integration)
 
-        if (isGoogleOrMicrosoft) {
-          // Refresh Google/Microsoft tokens every time the job runs
-          shouldRefresh = true
-        } else if (integration.expires_at) {
-          // For others, only refresh if expiring in next 2 hours
-          const twoHoursFromNow = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString()
-          shouldRefresh = integration.expires_at < twoHoursFromNow
-        }
-
-        if (shouldRefresh) {
-          const result = await refreshTokenIfNeeded(integration)
-          if (result.success) {
-            console.log(`Successfully refreshed token for ${integration.provider} (user: ${integration.user_id})`)
-          } else {
-            console.warn(
-              `Failed to refresh token for ${integration.provider} (user: ${integration.user_id}): ${result.message}`,
-            )
+            if (result.refreshed) {
+              stats.successful++
+              console.log(`✅ Refreshed ${integration.provider} for user ${integration.user_id}`)
+            } else if (result.success) {
+              stats.skipped++
+            } else {
+              stats.failed++
+              stats.errors.push({
+                provider: integration.provider,
+                userId: integration.user_id,
+                error: result.message,
+              })
+              console.warn(
+                `⚠️ Failed to refresh ${integration.provider} for user ${integration.user_id}: ${result.message}`,
+              )
+            }
+          } catch (error: any) {
+            stats.failed++
+            stats.errors.push({
+              provider: integration.provider,
+              userId: integration.user_id,
+              error: error.message,
+            })
+            console.error(`💥 Error processing ${integration.provider} for user ${integration.user_id}:`, error)
           }
-        }
-      } catch (error) {
-        console.error(`Error refreshing token for ${integration.provider} (user: ${integration.user_id}):`, error)
+        }),
+      )
+
+      // Small delay between batches to be respectful to APIs
+      if (i + batchSize < integrations.length) {
+        await new Promise((resolve) => setTimeout(resolve, 1000))
       }
     }
+
+    // Clean up old refresh logs (keep last 30 days)
+    await cleanupOldLogs(supabase)
+
+    return stats
+  } catch (error: any) {
+    console.error("💥 Critical error in refreshExpiringTokens:", error)
+    throw error
+  }
+}
+
+async function processIntegrationRefresh(integration: any) {
+  const isGoogleOrMicrosoft = [
+    "google",
+    "youtube",
+    "gmail",
+    "google-calendar",
+    "google-docs",
+    "google-drive",
+    "google-sheets",
+    "teams",
+    "onedrive",
+  ].includes(integration.provider)
+
+  // Determine if refresh is needed
+  let shouldRefresh = false
+  const now = Math.floor(Date.now() / 1000)
+
+  if (isGoogleOrMicrosoft) {
+    // For Google/Microsoft, refresh if expires within 1 hour or no expiry set
+    if (!integration.expires_at) {
+      shouldRefresh = true
+    } else {
+      const expiresIn = integration.expires_at - now
+      shouldRefresh = expiresIn < 3600 // 1 hour
+    }
+  } else if (integration.expires_at) {
+    // For others, refresh if expires within 2 hours
+    const expiresIn = integration.expires_at - now
+    shouldRefresh = expiresIn < 7200 // 2 hours
+  }
+
+  if (!shouldRefresh) {
+    return {
+      refreshed: false,
+      success: true,
+      message: "Token not due for refresh",
+    }
+  }
+
+  // Attempt refresh with retry logic
+  return await refreshTokenWithRetry(integration, 3)
+}
+
+async function refreshTokenWithRetry(integration: any, maxRetries: number) {
+  let lastError: any
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const result = await refreshTokenIfNeeded(integration)
+
+      if (result.success) {
+        // Update last refresh timestamp
+        const supabase = createAdminSupabaseClient()
+        if (supabase) {
+          await supabase
+            .from("integrations")
+            .update({
+              last_token_refresh: new Date().toISOString(),
+              consecutive_failures: 0, // Reset failure count on success
+            })
+            .eq("id", integration.id)
+        }
+        return result
+      } else {
+        lastError = new Error(result.message)
+      }
+    } catch (error) {
+      lastError = error
+      console.warn(`🔄 Retry ${attempt}/${maxRetries} failed for ${integration.provider}:`, error)
+    }
+
+    // Wait before retry (exponential backoff)
+    if (attempt < maxRetries) {
+      await new Promise((resolve) => setTimeout(resolve, Math.pow(2, attempt) * 1000))
+    }
+  }
+
+  // All retries failed - update failure count
+  const supabase = createAdminSupabaseClient()
+  if (supabase) {
+    await supabase
+      .from("integrations")
+      .update({
+        consecutive_failures: (integration.consecutive_failures || 0) + 1,
+        last_failure_at: new Date().toISOString(),
+      })
+      .eq("id", integration.id)
+  }
+
+  throw lastError
+}
+
+async function cleanupOldLogs(supabase: any) {
+  try {
+    const thirtyDaysAgo = new Date()
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+
+    await supabase.from("token_refresh_logs").delete().lt("executed_at", thirtyDaysAgo.toISOString())
   } catch (error) {
-    console.error("Error in refreshExpiringTokens job:", error)
+    console.warn("Failed to cleanup old logs:", error)
   }
 }
