@@ -72,6 +72,7 @@
     "embla-carousel-react": "latest",
     "expo-sqlite": "latest",
     "gel": "latest",
+    "https:": "latest",
     "immer": "latest",
     "input-otp": "latest",
     "knex": "latest",
