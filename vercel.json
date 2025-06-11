@@ -1,20 +1,7 @@
 {
-  "version": 2,
-  "builds": [
-    {
-      "src": "package.json",
-      "use": "@vercel/node"
-    },
-    {
-      "src": "src/index.ts",
-      "use": "@vercel/node",
-      "config": { "includeFiles": ["./prisma/**"] }
-    }
-  ],
-  "routes": [{ "src": "/(.*)", "dest": "src/index.ts" }],
   "crons": [
     {
-      "path": "/api/cron/refresh-tokens",
+      "path": "/api/cron/refresh-tokens", 
       "schedule": "0 */2 * * *"
     }
   ]
