@@ -14,11 +14,32 @@ interface PublicLayoutProps {
 
 export function PublicLayout({ children }: PublicLayoutProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const { user, session, loading, initialize, signOut, profile } = useAuthStore()
+  const authStore = useAuthStore()
+  const { user, session, loading, profile, signOut: authSignOut } = authStore
+
+  // Safely get the initialize function
+  const initialize = authStore.initialize || (() => Promise.resolve())
 
   // Initialize auth on component mount
   useEffect(() => {
-    initialize()
+    // Safely call initialize with error handling
+    const initializeAuth = async () => {
+      try {
+        if (initialize && typeof initialize === "function") {
+          await initialize()
+        } else {
+          console.warn("Initialize function not available in auth store")
+          // Set loading to false if initialize is not available
+          authStore.set({ loading: false, initialized: true })
+        }
+      } catch (error) {
+        console.error("Failed to initialize auth:", error)
+        // Set loading to false even if initialization fails
+        authStore.set({ loading: false, initialized: true })
+      }
+    }
+
+    initializeAuth()
   }, [initialize])
 
   const handlePageNavigation = (path: string) => {
@@ -35,7 +56,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
   }
 
   const handleSignOut = async () => {
-    await signOut()
+    await authSignOut()
     setMobileMenuOpen(false)
   }
 
