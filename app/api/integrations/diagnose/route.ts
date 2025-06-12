@@ -184,8 +184,8 @@ function analyzeIntegration(
   const missingRequiredScopes = requiredScopes.filter((scope) => !grantedScopes.includes(scope))
   const missingOptionalScopes = optionalScopes.filter((scope) => !grantedScopes.includes(scope))
 
-  // Combine all missing scopes for backward compatibility
-  const missingScopes = [...missingRequiredScopes, ...missingOptionalScopes]
+  // Only include missing required scopes in the main missing scopes array
+  const missingScopes = missingRequiredScopes
 
   // Get all components for this provider
   const providerComponents = Object.entries(COMPONENT_SCOPE_MAPPING).filter(
