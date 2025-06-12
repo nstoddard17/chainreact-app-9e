@@ -34,7 +34,7 @@ importers:
         version: 1.0.1
       '@op-engineering/op-sqlite':
         specifier: latest
-        version: 14.0.3(react-native@0.79.3(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0)
+        version: 14.0.3(react-native@0.80.0(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0)
       '@opentelemetry/api':
         specifier: latest
         version: 1.9.0
@@ -187,13 +187,13 @@ importers:
         version: 4.1.0
       drizzle-orm:
         specifier: latest
-        version: 0.44.2(b66b437d7036a775a7cfbc4488613ade)
+        version: 0.44.2(da60453945e14ca2284f4b4f7a720ba3)
       embla-carousel-react:
         specifier: latest
         version: 8.6.0(react@19.0.0)
       expo-sqlite:
         specifier: latest
-        version: 15.2.12(expo@53.0.11(@babel/core@7.27.4)(bufferutil@4.0.9)(react-native@0.79.3(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0))(react-native@0.79.3(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0)
+        version: 15.2.12(expo@53.0.11(@babel/core@7.27.4)(bufferutil@4.0.9)(react-native@0.80.0(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0))(react-native@0.80.0(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0)
       gel:
         specifier: latest
         version: 2.1.0
@@ -2029,8 +2029,8 @@ packages:
   '@radix-ui/rect@1.1.1':
     resolution: {integrity: sha512-HPwpGIzkl28mWyZqG52jiqDJ12waP11Pa1lGoiyUkIEuMLBP0oeK/C89esbXrxsky5we7dfd8U58nm0SgAWpVw==}
 
-  '@react-native/assets-registry@0.79.3':
-    resolution: {integrity: sha512-Vy8DQXCJ21YSAiHxrNBz35VqVlZPpRYm50xRTWRf660JwHuJkFQG8cUkrLzm7AUriqUXxwpkQHcY+b0ibw9ejQ==}
+  '@react-native/assets-registry@0.80.0':
+    resolution: {integrity: sha512-MlScsKAz99zoYghe5Rf5mUqsqz2rMB02640NxtPtBMSHNdGxxRlWu/pp1bFexDa1DYJwyIjnLgt3Z/Y90ikHfw==}
     engines: {node: '>=18'}
 
   '@react-native/babel-plugin-codegen@0.79.3':
@@ -2049,8 +2049,14 @@ packages:
     peerDependencies:
       '@babel/core': '*'
 
-  '@react-native/community-cli-plugin@0.79.3':
-    resolution: {integrity: sha512-N/+p4HQqN4yK6IRzn7OgMvUIcrmEWkecglk1q5nj+AzNpfIOzB+mqR20SYmnPfeXF+mZzYCzRANb3KiM+WsSDA==}
+  '@react-native/codegen@0.80.0':
+    resolution: {integrity: sha512-X9TsPgytoUkNrQjzAZh4dXa4AuouvYT0NzYyvnjw1ry4LESCZtKba+eY4x3+M30WPR52zjgu+UFL//14BSdCCA==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      '@babel/core': '*'
+
+  '@react-native/community-cli-plugin@0.80.0':
+    resolution: {integrity: sha512-uadfVvzZfz5tGpqwslL12i+rELK9m6cLhtqICX0JQvS7Bu12PJwrozhKzEzIYwN9i3wl2dWrKDUr08izt7S9Iw==}
     engines: {node: '>=18'}
     peerDependencies:
       '@react-native-community/cli': '*'
@@ -2062,26 +2068,34 @@ packages:
     resolution: {integrity: sha512-ImNDuEeKH6lEsLXms3ZsgIrNF94jymfuhPcVY5L0trzaYNo9ZFE9Ni2/18E1IbfXxdeIHrCSBJlWD6CTm7wu5A==}
     engines: {node: '>=18'}
 
+  '@react-native/debugger-frontend@0.80.0':
+    resolution: {integrity: sha512-lpu9Z3xtKUaKFvEcm5HSgo1KGfkDa/W3oZHn22Zy0WQ9MiOu2/ar1txgd1wjkoNiK/NethKcRdCN7mqnc6y2mA==}
+    engines: {node: '>=18'}
+
   '@react-native/dev-middleware@0.79.3':
     resolution: {integrity: sha512-x88+RGOyG71+idQefnQg7wLhzjn/Scs+re1O5vqCkTVzRAc/f7SdHMlbmECUxJPd08FqMcOJr7/X3nsJBrNuuw==}
     engines: {node: '>=18'}
 
-  '@react-native/gradle-plugin@0.79.3':
-    resolution: {integrity: sha512-imfpZLhNBc9UFSzb/MOy2tNcIBHqVmexh/qdzw83F75BmUtLb/Gs1L2V5gw+WI1r7RqDILbWk7gXB8zUllwd+g==}
+  '@react-native/dev-middleware@0.80.0':
+    resolution: {integrity: sha512-lLyTnJ687A5jF3fn8yR/undlCis3FG+N/apQ+Q0Lcl+GV6FsZs0U5H28YmL6lZtjOj4TLek6uGPMPmZasHx7cQ==}
     engines: {node: '>=18'}
 
-  '@react-native/js-polyfills@0.79.3':
-    resolution: {integrity: sha512-PEBtg6Kox6KahjCAch0UrqCAmHiNLEbp2SblUEoFAQnov4DSxBN9safh+QSVaCiMAwLjvNfXrJyygZz60Dqz3Q==}
+  '@react-native/gradle-plugin@0.80.0':
+    resolution: {integrity: sha512-drmS68rabSMOuDD+YsAY2luNT8br82ycodSDORDqAg7yWQcieHMp4ZUOcdOi5iW+JCqobablT/b6qxcrBg+RaA==}
+    engines: {node: '>=18'}
+
+  '@react-native/js-polyfills@0.80.0':
+    resolution: {integrity: sha512-dMX7IcBuwghySTgIeK8q03tYz/epg5ScGmJEfBQAciuhzMDMV1LBR/9wwdgD73EXM/133yC5A+TlHb3KQil4Ew==}
     engines: {node: '>=18'}
 
   '@react-native/normalize-colors@0.79.2':
     resolution: {integrity: sha512-+b+GNrupWrWw1okHnEENz63j7NSMqhKeFMOyzYLBwKcprG8fqJQhDIGXfizKdxeIa5NnGSAevKL1Ev1zJ56X8w==}
 
-  '@react-native/normalize-colors@0.79.3':
-    resolution: {integrity: sha512-T75NIQPRFCj6DFMxtcVMJTZR+3vHXaUMSd15t+CkJpc5LnyX91GVaPxpRSAdjFh7m3Yppl5MpdjV/fntImheYQ==}
+  '@react-native/normalize-colors@0.80.0':
+    resolution: {integrity: sha512-bJZDSopadjJxMDvysc634eTfLL4w7cAx5diPe14Ez5l+xcKjvpfofS/1Ja14DlgdMJhxGd03MTXlrxoWust3zg==}
 
-  '@react-native/virtualized-lists@0.79.3':
-    resolution: {integrity: sha512-/0rRozkn+iIHya2vnnvprDgT7QkfI54FLrACAN3BLP7MRlfOIGOrZsXpRLndnLBVnjNzkcre84i1RecjoXnwIA==}
+  '@react-native/virtualized-lists@0.80.0':
+    resolution: {integrity: sha512-d9zZdPS/ZRexVAkxo1eRp85U7XnnEpXA1ZpSomRKxBuStYKky1YohfEX5YD5MhphemKK24tT7JR4UhaLlmeX8Q==}
     engines: {node: '>=18'}
     peerDependencies:
       '@types/react': ^19.0.0
@@ -2637,6 +2651,9 @@ packages:
 
   babel-plugin-syntax-hermes-parser@0.25.1:
     resolution: {integrity: sha512-IVNpGzboFLfXZUAwkLFcI/bnqVbwky0jP3eBno4HKtqvQJAHBLdgxiG6lQ4to0+Q/YCN3PO0od5NZwIKyY4REQ==}
+
+  babel-plugin-syntax-hermes-parser@0.28.1:
+    resolution: {integrity: sha512-meT17DOuUElMNsL5LZN56d+KBp22hb0EfxWfuPUeoSi54e40v1W4C2V36P75FpsH9fVEfDKpw5Nnkahc8haSsQ==}
 
   babel-plugin-transform-flow-enums@0.0.2:
     resolution: {integrity: sha512-g4aaCrDDOsWjbm0PUUeVnkcVd6AKJsVc/MbnPhEotEpkeJQP6b8nzewohQi7+QS8UyPehOhGWn0nOwjvWpmMvQ==}
@@ -4788,13 +4805,13 @@ packages:
       react: '*'
       react-native: '*'
 
-  react-native@0.79.3:
-    resolution: {integrity: sha512-EzH1+9gzdyEo9zdP6u7Sh3Jtf5EOMwzy+TK65JysdlgAzfEVfq4mNeXcAZ6SmD+CW6M7ARJbvXLyTD0l2S5rpg==}
+  react-native@0.80.0:
+    resolution: {integrity: sha512-b9K1ygb2MWCBtKAodKmE3UsbUuC29Pt4CrJMR0ocTA8k+8HJQTPleBPDNKL4/p0P01QO9aL/gZUddoxHempLow==}
     engines: {node: '>=18'}
     hasBin: true
     peerDependencies:
-      '@types/react': ^19.0.0
-      react: ^19.0.0
+      '@types/react': ^19.1.0
+      react: ^19.1.0
     peerDependenciesMeta:
       '@types/react':
         optional: true
@@ -4971,6 +4988,9 @@ packages:
 
   scheduler@0.25.0:
     resolution: {integrity: sha512-xFVuu11jh+xcO7JOAGJNOXld8/TcEHK/4CituBUeUb5hqxJLj9YuemAEuvm9gQ/+pgXYfbQuqAkiYu+u7YEsNA==}
+
+  scheduler@0.26.0:
+    resolution: {integrity: sha512-NlHwttCI/l5gCPR3D1nNXtWABUmBwvZpEQiD4IXSbIDq8BzLIK/7Ir5gTFSGZDUu37K5cMNp0hFtzO38sC7gWA==}
 
   secure-json-parse@2.7.0:
     resolution: {integrity: sha512-6aU+Rwsezw7VR8/nyvKTx8QpWH9FrcYiXXlqC4z5d5XQBDRqtbfsRjnwGyqbi3gddNtWHuEk9OANUotL26qKUw==}
@@ -6873,11 +6893,11 @@ snapshots:
 
   '@expo/sudo-prompt@9.3.2': {}
 
-  '@expo/vector-icons@14.1.0(expo-font@13.3.1(expo@53.0.11(@babel/core@7.27.4)(bufferutil@4.0.9)(react-native@0.79.3(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0))(react@19.0.0))(react-native@0.79.3(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0)':
+  '@expo/vector-icons@14.1.0(expo-font@13.3.1(expo@53.0.11(@babel/core@7.27.4)(bufferutil@4.0.9)(react-native@0.80.0(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0))(react@19.0.0))(react-native@0.80.0(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0)':
     dependencies:
-      expo-font: 13.3.1(expo@53.0.11(@babel/core@7.27.4)(bufferutil@4.0.9)(react-native@0.79.3(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0))(react@19.0.0)
+      expo-font: 13.3.1(expo@53.0.11(@babel/core@7.27.4)(bufferutil@4.0.9)(react-native@0.80.0(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0))(react@19.0.0)
       react: 19.0.0
-      react-native: 0.79.3(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0)
+      react-native: 0.80.0(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0)
 
   '@expo/ws-tunnel@1.0.6': {}
 
@@ -7215,10 +7235,10 @@ snapshots:
       rimraf: 3.0.2
     optional: true
 
-  '@op-engineering/op-sqlite@14.0.3(react-native@0.79.3(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0)':
+  '@op-engineering/op-sqlite@14.0.3(react-native@0.80.0(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0)':
     dependencies:
       react: 19.0.0
-      react-native: 0.79.3(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0)
+      react-native: 0.80.0(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0)
 
   '@opentelemetry/api@1.9.0': {}
 
@@ -7906,7 +7926,7 @@ snapshots:
 
   '@radix-ui/rect@1.1.1': {}
 
-  '@react-native/assets-registry@0.79.3': {}
+  '@react-native/assets-registry@0.80.0': {}
 
   '@react-native/babel-plugin-codegen@0.79.3(@babel/core@7.27.4)':
     dependencies:
@@ -7975,11 +7995,20 @@ snapshots:
       nullthrows: 1.1.1
       yargs: 17.7.2
 
-  '@react-native/community-cli-plugin@0.79.3(bufferutil@4.0.9)':
+  '@react-native/codegen@0.80.0(@babel/core@7.27.4)':
     dependencies:
-      '@react-native/dev-middleware': 0.79.3(bufferutil@4.0.9)
+      '@babel/core': 7.27.4
+      glob: 7.2.3
+      hermes-parser: 0.28.1
+      invariant: 2.2.4
+      nullthrows: 1.1.1
+      yargs: 17.7.2
+
+  '@react-native/community-cli-plugin@0.80.0(bufferutil@4.0.9)':
+    dependencies:
+      '@react-native/dev-middleware': 0.80.0(bufferutil@4.0.9)
       chalk: 4.1.2
-      debug: 2.6.9
+      debug: 4.4.1
       invariant: 2.2.4
       metro: 0.82.4(bufferutil@4.0.9)
       metro-config: 0.82.4(bufferutil@4.0.9)
@@ -7991,6 +8020,8 @@ snapshots:
       - utf-8-validate
 
   '@react-native/debugger-frontend@0.79.3': {}
+
+  '@react-native/debugger-frontend@0.80.0': {}
 
   '@react-native/dev-middleware@0.79.3(bufferutil@4.0.9)':
     dependencies:
@@ -8010,20 +8041,38 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  '@react-native/gradle-plugin@0.79.3': {}
+  '@react-native/dev-middleware@0.80.0(bufferutil@4.0.9)':
+    dependencies:
+      '@isaacs/ttlcache': 1.4.1
+      '@react-native/debugger-frontend': 0.80.0
+      chrome-launcher: 0.15.2
+      chromium-edge-launcher: 0.2.0
+      connect: 3.7.0
+      debug: 4.4.1
+      invariant: 2.2.4
+      nullthrows: 1.1.1
+      open: 7.4.2
+      serve-static: 1.16.2
+      ws: 6.2.3(bufferutil@4.0.9)
+    transitivePeerDependencies:
+      - bufferutil
+      - supports-color
+      - utf-8-validate
 
-  '@react-native/js-polyfills@0.79.3': {}
+  '@react-native/gradle-plugin@0.80.0': {}
+
+  '@react-native/js-polyfills@0.80.0': {}
 
   '@react-native/normalize-colors@0.79.2': {}
 
-  '@react-native/normalize-colors@0.79.3': {}
+  '@react-native/normalize-colors@0.80.0': {}
 
-  '@react-native/virtualized-lists@0.79.3(@types/react@19.0.0)(react-native@0.79.3(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0)':
+  '@react-native/virtualized-lists@0.80.0(@types/react@19.0.0)(react-native@0.80.0(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0)':
     dependencies:
       invariant: 2.2.4
       nullthrows: 1.1.1
       react: 19.0.0
-      react-native: 0.79.3(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0)
+      react-native: 0.80.0(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0)
     optionalDependencies:
       '@types/react': 19.0.0
 
@@ -8763,6 +8812,10 @@ snapshots:
     dependencies:
       hermes-parser: 0.25.1
 
+  babel-plugin-syntax-hermes-parser@0.28.1:
+    dependencies:
+      hermes-parser: 0.28.1
+
   babel-plugin-transform-flow-enums@0.0.2(@babel/core@7.27.4):
     dependencies:
       '@babel/plugin-syntax-flow': 7.27.1(@babel/core@7.27.4)
@@ -9293,7 +9346,7 @@ snapshots:
 
   dotenv@16.4.7: {}
 
-  drizzle-orm@0.44.2(b66b437d7036a775a7cfbc4488613ade):
+  drizzle-orm@0.44.2(da60453945e14ca2284f4b4f7a720ba3):
     optionalDependencies:
       '@aws-sdk/client-rds-data': 3.828.0
       '@cloudflare/workers-types': 4.20250612.0
@@ -9301,7 +9354,7 @@ snapshots:
       '@libsql/client': 0.15.9(bufferutil@4.0.9)
       '@libsql/client-wasm': 0.15.9
       '@neondatabase/serverless': 1.0.1
-      '@op-engineering/op-sqlite': 14.0.3(react-native@0.79.3(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0)
+      '@op-engineering/op-sqlite': 14.0.3(react-native@0.80.0(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0)
       '@opentelemetry/api': 1.9.0
       '@planetscale/database': 1.19.0
       '@prisma/client': 6.9.0(typescript@5.0.2)
@@ -9314,7 +9367,7 @@ snapshots:
       '@xata.io/client': 0.30.1(typescript@5.0.2)
       better-sqlite3: 11.10.0
       bun-types: 1.2.16
-      expo-sqlite: 15.2.12(expo@53.0.11(@babel/core@7.27.4)(bufferutil@4.0.9)(react-native@0.79.3(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0))(react-native@0.79.3(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0)
+      expo-sqlite: 15.2.12(expo@53.0.11(@babel/core@7.27.4)(bufferutil@4.0.9)(react-native@0.80.0(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0))(react-native@0.80.0(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0)
       gel: 2.1.0
       knex: 3.1.0(better-sqlite3@11.10.0)(mysql2@3.14.1)(pg@8.16.0)(sqlite3@5.1.7)
       kysely: 0.28.2
@@ -9424,39 +9477,39 @@ snapshots:
 
   expand-template@2.0.3: {}
 
-  expo-asset@11.1.5(expo@53.0.11(@babel/core@7.27.4)(bufferutil@4.0.9)(react-native@0.79.3(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0))(react-native@0.79.3(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0):
+  expo-asset@11.1.5(expo@53.0.11(@babel/core@7.27.4)(bufferutil@4.0.9)(react-native@0.80.0(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0))(react-native@0.80.0(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0):
     dependencies:
       '@expo/image-utils': 0.7.4
-      expo: 53.0.11(@babel/core@7.27.4)(bufferutil@4.0.9)(react-native@0.79.3(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0)
-      expo-constants: 17.1.6(expo@53.0.11(@babel/core@7.27.4)(bufferutil@4.0.9)(react-native@0.79.3(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0))(react-native@0.79.3(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))
+      expo: 53.0.11(@babel/core@7.27.4)(bufferutil@4.0.9)(react-native@0.80.0(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0)
+      expo-constants: 17.1.6(expo@53.0.11(@babel/core@7.27.4)(bufferutil@4.0.9)(react-native@0.80.0(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0))(react-native@0.80.0(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))
       react: 19.0.0
-      react-native: 0.79.3(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0)
+      react-native: 0.80.0(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0)
     transitivePeerDependencies:
       - supports-color
 
-  expo-constants@17.1.6(expo@53.0.11(@babel/core@7.27.4)(bufferutil@4.0.9)(react-native@0.79.3(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0))(react-native@0.79.3(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0)):
+  expo-constants@17.1.6(expo@53.0.11(@babel/core@7.27.4)(bufferutil@4.0.9)(react-native@0.80.0(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0))(react-native@0.80.0(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0)):
     dependencies:
       '@expo/config': 11.0.10
       '@expo/env': 1.0.5
-      expo: 53.0.11(@babel/core@7.27.4)(bufferutil@4.0.9)(react-native@0.79.3(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0)
-      react-native: 0.79.3(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0)
+      expo: 53.0.11(@babel/core@7.27.4)(bufferutil@4.0.9)(react-native@0.80.0(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0)
+      react-native: 0.80.0(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0)
     transitivePeerDependencies:
       - supports-color
 
-  expo-file-system@18.1.10(expo@53.0.11(@babel/core@7.27.4)(bufferutil@4.0.9)(react-native@0.79.3(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0))(react-native@0.79.3(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0)):
+  expo-file-system@18.1.10(expo@53.0.11(@babel/core@7.27.4)(bufferutil@4.0.9)(react-native@0.80.0(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0))(react-native@0.80.0(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0)):
     dependencies:
-      expo: 53.0.11(@babel/core@7.27.4)(bufferutil@4.0.9)(react-native@0.79.3(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0)
-      react-native: 0.79.3(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0)
+      expo: 53.0.11(@babel/core@7.27.4)(bufferutil@4.0.9)(react-native@0.80.0(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0)
+      react-native: 0.80.0(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0)
 
-  expo-font@13.3.1(expo@53.0.11(@babel/core@7.27.4)(bufferutil@4.0.9)(react-native@0.79.3(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0))(react@19.0.0):
+  expo-font@13.3.1(expo@53.0.11(@babel/core@7.27.4)(bufferutil@4.0.9)(react-native@0.80.0(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0))(react@19.0.0):
     dependencies:
-      expo: 53.0.11(@babel/core@7.27.4)(bufferutil@4.0.9)(react-native@0.79.3(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0)
+      expo: 53.0.11(@babel/core@7.27.4)(bufferutil@4.0.9)(react-native@0.80.0(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0)
       fontfaceobserver: 2.3.0
       react: 19.0.0
 
-  expo-keep-awake@14.1.4(expo@53.0.11(@babel/core@7.27.4)(bufferutil@4.0.9)(react-native@0.79.3(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0))(react@19.0.0):
+  expo-keep-awake@14.1.4(expo@53.0.11(@babel/core@7.27.4)(bufferutil@4.0.9)(react-native@0.80.0(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0))(react@19.0.0):
     dependencies:
-      expo: 53.0.11(@babel/core@7.27.4)(bufferutil@4.0.9)(react-native@0.79.3(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0)
+      expo: 53.0.11(@babel/core@7.27.4)(bufferutil@4.0.9)(react-native@0.80.0(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0)
       react: 19.0.0
 
   expo-modules-autolinking@2.1.11:
@@ -9473,14 +9526,14 @@ snapshots:
     dependencies:
       invariant: 2.2.4
 
-  expo-sqlite@15.2.12(expo@53.0.11(@babel/core@7.27.4)(bufferutil@4.0.9)(react-native@0.79.3(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0))(react-native@0.79.3(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0):
+  expo-sqlite@15.2.12(expo@53.0.11(@babel/core@7.27.4)(bufferutil@4.0.9)(react-native@0.80.0(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0))(react-native@0.80.0(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0):
     dependencies:
       await-lock: 2.2.2
-      expo: 53.0.11(@babel/core@7.27.4)(bufferutil@4.0.9)(react-native@0.79.3(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0)
+      expo: 53.0.11(@babel/core@7.27.4)(bufferutil@4.0.9)(react-native@0.80.0(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0)
       react: 19.0.0
-      react-native: 0.79.3(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0)
+      react-native: 0.80.0(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0)
 
-  expo@53.0.11(@babel/core@7.27.4)(bufferutil@4.0.9)(react-native@0.79.3(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0):
+  expo@53.0.11(@babel/core@7.27.4)(bufferutil@4.0.9)(react-native@0.80.0(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0):
     dependencies:
       '@babel/runtime': 7.27.6
       '@expo/cli': 0.24.14(bufferutil@4.0.9)
@@ -9488,18 +9541,18 @@ snapshots:
       '@expo/config-plugins': 10.0.2
       '@expo/fingerprint': 0.13.0
       '@expo/metro-config': 0.20.14
-      '@expo/vector-icons': 14.1.0(expo-font@13.3.1(expo@53.0.11(@babel/core@7.27.4)(bufferutil@4.0.9)(react-native@0.79.3(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0))(react@19.0.0))(react-native@0.79.3(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0)
+      '@expo/vector-icons': 14.1.0(expo-font@13.3.1(expo@53.0.11(@babel/core@7.27.4)(bufferutil@4.0.9)(react-native@0.80.0(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0))(react@19.0.0))(react-native@0.80.0(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0)
       babel-preset-expo: 13.2.0(@babel/core@7.27.4)
-      expo-asset: 11.1.5(expo@53.0.11(@babel/core@7.27.4)(bufferutil@4.0.9)(react-native@0.79.3(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0))(react-native@0.79.3(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0)
-      expo-constants: 17.1.6(expo@53.0.11(@babel/core@7.27.4)(bufferutil@4.0.9)(react-native@0.79.3(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0))(react-native@0.79.3(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))
-      expo-file-system: 18.1.10(expo@53.0.11(@babel/core@7.27.4)(bufferutil@4.0.9)(react-native@0.79.3(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0))(react-native@0.79.3(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))
-      expo-font: 13.3.1(expo@53.0.11(@babel/core@7.27.4)(bufferutil@4.0.9)(react-native@0.79.3(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0))(react@19.0.0)
-      expo-keep-awake: 14.1.4(expo@53.0.11(@babel/core@7.27.4)(bufferutil@4.0.9)(react-native@0.79.3(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0))(react@19.0.0)
+      expo-asset: 11.1.5(expo@53.0.11(@babel/core@7.27.4)(bufferutil@4.0.9)(react-native@0.80.0(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0))(react-native@0.80.0(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0)
+      expo-constants: 17.1.6(expo@53.0.11(@babel/core@7.27.4)(bufferutil@4.0.9)(react-native@0.80.0(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0))(react-native@0.80.0(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))
+      expo-file-system: 18.1.10(expo@53.0.11(@babel/core@7.27.4)(bufferutil@4.0.9)(react-native@0.80.0(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0))(react-native@0.80.0(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))
+      expo-font: 13.3.1(expo@53.0.11(@babel/core@7.27.4)(bufferutil@4.0.9)(react-native@0.80.0(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0))(react@19.0.0)
+      expo-keep-awake: 14.1.4(expo@53.0.11(@babel/core@7.27.4)(bufferutil@4.0.9)(react-native@0.80.0(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0))(react@19.0.0)
       expo-modules-autolinking: 2.1.11
       expo-modules-core: 2.4.0
       react: 19.0.0
-      react-native: 0.79.3(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0)
-      react-native-edge-to-edge: 1.6.0(react-native@0.79.3(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0)
+      react-native: 0.80.0(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0)
+      react-native-edge-to-edge: 1.6.0(react-native@0.80.0(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0)
       whatwg-url-without-unicode: 8.0.0-3
     transitivePeerDependencies:
       - '@babel/core'
@@ -10949,30 +11002,29 @@ snapshots:
 
   react-is@18.3.1: {}
 
-  react-native-edge-to-edge@1.6.0(react-native@0.79.3(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0):
+  react-native-edge-to-edge@1.6.0(react-native@0.80.0(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0):
     dependencies:
       react: 19.0.0
-      react-native: 0.79.3(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0)
+      react-native: 0.80.0(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0)
 
-  react-native@0.79.3(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0):
+  react-native@0.80.0(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0):
     dependencies:
       '@jest/create-cache-key-function': 29.7.0
-      '@react-native/assets-registry': 0.79.3
-      '@react-native/codegen': 0.79.3(@babel/core@7.27.4)
-      '@react-native/community-cli-plugin': 0.79.3(bufferutil@4.0.9)
-      '@react-native/gradle-plugin': 0.79.3
-      '@react-native/js-polyfills': 0.79.3
-      '@react-native/normalize-colors': 0.79.3
-      '@react-native/virtualized-lists': 0.79.3(@types/react@19.0.0)(react-native@0.79.3(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0)
+      '@react-native/assets-registry': 0.80.0
+      '@react-native/codegen': 0.80.0(@babel/core@7.27.4)
+      '@react-native/community-cli-plugin': 0.80.0(bufferutil@4.0.9)
+      '@react-native/gradle-plugin': 0.80.0
+      '@react-native/js-polyfills': 0.80.0
+      '@react-native/normalize-colors': 0.80.0
+      '@react-native/virtualized-lists': 0.80.0(@types/react@19.0.0)(react-native@0.80.0(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0)
       abort-controller: 3.0.0
       anser: 1.4.10
       ansi-regex: 5.0.1
       babel-jest: 29.7.0(@babel/core@7.27.4)
-      babel-plugin-syntax-hermes-parser: 0.25.1
+      babel-plugin-syntax-hermes-parser: 0.28.1
       base64-js: 1.5.1
       chalk: 4.1.2
       commander: 12.1.0
-      event-target-shim: 5.0.1
       flow-enums-runtime: 0.0.6
       glob: 7.2.3
       invariant: 2.2.4
@@ -10987,7 +11039,7 @@ snapshots:
       react-devtools-core: 6.1.2(bufferutil@4.0.9)
       react-refresh: 0.14.2
       regenerator-runtime: 0.13.11
-      scheduler: 0.25.0
+      scheduler: 0.26.0
       semver: 7.7.2
       stacktrace-parser: 0.1.11
       whatwg-fetch: 3.6.20
@@ -11168,6 +11220,8 @@ snapshots:
   sax@1.4.1: {}
 
   scheduler@0.25.0: {}
+
+  scheduler@0.26.0: {}
 
   secure-json-parse@2.7.0: {}
 
