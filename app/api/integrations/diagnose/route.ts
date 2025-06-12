@@ -12,6 +12,7 @@ interface DiagnosticResult {
   grantedScopes: string[]
   requiredScopes: string[]
   optionalScopes: string[]
+  missingScopes: string[]
   missingRequiredScopes: string[]
   missingOptionalScopes: string[]
   availableComponents: string[]
@@ -22,6 +23,7 @@ interface DiagnosticResult {
     lastVerified?: string
     errorMessage?: string
     connectionType: "oauth" | "demo" | "api_key"
+    rawScopeString?: string
   }
 }
 
@@ -159,7 +161,7 @@ function checkTokenExpiry(integration: any): { valid: boolean; error?: string } 
   }
 
   // Check if integration is marked as active
-  if (!integration.is_active) {
+  if (integration.is_active === false) {
     return { valid: false, error: "Integration is inactive" }
   }
 
@@ -182,6 +184,9 @@ function analyzeIntegration(
   const missingRequiredScopes = requiredScopes.filter((scope) => !grantedScopes.includes(scope))
   const missingOptionalScopes = optionalScopes.filter((scope) => !grantedScopes.includes(scope))
 
+  // Combine all missing scopes for backward compatibility
+  const missingScopes = [...missingRequiredScopes, ...missingOptionalScopes]
+
   // Get all components for this provider
   const providerComponents = Object.entries(COMPONENT_SCOPE_MAPPING).filter(
     ([_, config]) => config.provider === provider,
@@ -193,7 +198,8 @@ function analyzeIntegration(
   // Analyze each component
   providerComponents.forEach(([componentName, config]) => {
     // Check if component scopes are satisfied
-    const hasRequiredScopes = config.scopes.every((scope) => grantedScopes.includes(scope))
+    const hasRequiredScopes =
+      config.scopes.length === 0 || config.scopes.every((scope) => grantedScopes.includes(scope))
 
     if (hasRequiredScopes) {
       availableComponents.push(componentName)
@@ -235,6 +241,7 @@ function analyzeIntegration(
     grantedScopes,
     requiredScopes,
     optionalScopes,
+    missingScopes, // Keep for backward compatibility
     missingRequiredScopes,
     missingOptionalScopes,
     availableComponents,
@@ -245,6 +252,7 @@ function analyzeIntegration(
       lastVerified: integration.updated_at,
       errorMessage: error,
       connectionType: integration.access_token ? "oauth" : "api_key",
+      rawScopeString: Array.isArray(integration.scopes) ? integration.scopes.join(" ") : "",
     },
   }
 }
@@ -293,7 +301,7 @@ export async function GET(request: NextRequest) {
       const errorMessage = tokenCheck.error
 
       // Get granted scopes from integration.scopes column
-      const grantedScopes = integration.scopes || []
+      const grantedScopes = Array.isArray(integration.scopes) ? integration.scopes : []
 
       const diagnostic = analyzeIntegration(integration, tokenValid, grantedScopes, errorMessage)
       diagnostics.push(diagnostic)
