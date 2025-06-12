@@ -16,17 +16,17 @@ export class TeamsOAuthService {
     const { clientId } = this.getClientCredentials()
     const redirectUri = `${getBaseUrl()}/api/integrations/teams/callback`
 
-    // Microsoft Graph scopes - include User.Read for profile access
+    // Microsoft Graph scopes - use full URLs for Graph API scopes
     const scopes = [
       "openid",
       "profile",
       "email",
       "offline_access",
-      "User.Read",
-      "Team.ReadBasic.All",
-      "Channel.ReadBasic.All",
-      "Chat.ReadWrite",
-      "ChatMessage.Send",
+      "https://graph.microsoft.com/User.Read",
+      "https://graph.microsoft.com/Team.ReadBasic.All",
+      "https://graph.microsoft.com/Channel.ReadBasic.All",
+      "https://graph.microsoft.com/Chat.ReadWrite",
+      "https://graph.microsoft.com/ChannelMessage.Send",
     ]
 
     const state = btoa(

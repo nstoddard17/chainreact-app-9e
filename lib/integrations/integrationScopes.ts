@@ -304,6 +304,11 @@ export const INTEGRATION_SCOPES: Record<string, IntegrationScopeConfig> = {
         description: "Read basic team information",
         required: false,
       },
+      {
+        scope: "https://graph.microsoft.com/Channel.ReadBasic.All",
+        description: "Read basic channel information",
+        required: false,
+      },
     ],
     components: {
       "teams-get-user": ["https://graph.microsoft.com/User.Read"],
@@ -311,6 +316,7 @@ export const INTEGRATION_SCOPES: Record<string, IntegrationScopeConfig> = {
       "teams-send-message": ["https://graph.microsoft.com/Chat.ReadWrite"],
       "teams-send-channel-message": ["https://graph.microsoft.com/ChannelMessage.Send"],
       "teams-get-teams": ["https://graph.microsoft.com/Team.ReadBasic.All"],
+      "teams-get-channels": ["https://graph.microsoft.com/Channel.ReadBasic.All"],
     },
   },
   trello: {
