@@ -122,6 +122,8 @@ async function refreshTokenByProvider(integration: Integration): Promise<Refresh
       return refreshDropboxToken(refresh_token!)
     case "slack":
       return refreshSlackToken(refresh_token!)
+    case "twitter":
+      return refreshTwitterToken(refresh_token!)
     default:
       return {
         refreshed: false,
@@ -349,6 +351,62 @@ async function refreshSlackToken(refreshToken: string): Promise<RefreshResult> {
       refreshed: false,
       success: false,
       message: `Slack token refresh error: ${(error as Error).message}`,
+    }
+  }
+}
+
+/**
+ * Refreshes a Twitter OAuth token
+ */
+async function refreshTwitterToken(refreshToken: string): Promise<RefreshResult> {
+  try {
+    const clientId = process.env.NEXT_PUBLIC_TWITTER_CLIENT_ID
+    const clientSecret = process.env.TWITTER_CLIENT_SECRET
+
+    if (!clientId || !clientSecret) {
+      return {
+        refreshed: false,
+        success: false,
+        message: "Missing Twitter OAuth credentials",
+      }
+    }
+
+    const response = await fetch("https://api.twitter.com/2/oauth2/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`,
+      },
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        refresh_token: refreshToken,
+        client_id: clientId,
+      }),
+    })
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      return {
+        refreshed: false,
+        success: false,
+        message: `Twitter token refresh failed: ${data.error_description || data.error}`,
+      }
+    }
+
+    return {
+      refreshed: true,
+      success: true,
+      message: "Successfully refreshed Twitter token",
+      newToken: data.access_token,
+      newExpiry: Math.floor(Date.now() / 1000) + (data.expires_in || 7200), // Twitter tokens typically expire in 2 hours
+      newRefreshToken: data.refresh_token, // Twitter may provide a new refresh token
+    }
+  } catch (error) {
+    return {
+      refreshed: false,
+      success: false,
+      message: `Twitter token refresh error: ${(error as Error).message}`,
     }
   }
 }
