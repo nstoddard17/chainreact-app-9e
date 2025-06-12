@@ -4,17 +4,10 @@ import { create } from "zustand"
 import { supabase } from "@/lib/supabase-singleton"
 import type { User, Session } from "@supabase/supabase-js"
 
-interface Profile {
-  id: string
-  full_name?: string
-  first_name?: string
-  last_name?: string
-}
-
 interface AuthState {
   user: User | null
   session: Session | null
-  profile: Profile | null
+  profile: any | null
   loading: boolean
   error: string | null
   initialized: boolean
@@ -27,17 +20,13 @@ interface AuthActions {
   signInWithGoogle: () => Promise<void>
   signOut: () => Promise<void>
   updateProfile: (updates: any) => Promise<void>
-  getCurrentUserId: () => string | null
 }
-
-type AuthStore = AuthState & AuthActions
 
 // Global flag to prevent multiple initializations
 let isInitializing = false
 let hasInitialized = false
 
-export const useAuthStore = create<AuthStore>((set, get) => ({
-  // State
+export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
   user: null,
   session: null,
   profile: null,
@@ -45,7 +34,6 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   error: null,
   initialized: false,
 
-  // Actions
   initialize: async () => {
     // Prevent multiple simultaneous initializations
     if (isInitializing || hasInitialized) {
@@ -56,42 +44,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
 
     try {
       if (!supabase) {
-        console.warn("Supabase client not available, using mock data")
-        // Create mock user for development
-        set({
-          user: {
-            id: "mock-user-id",
-            email: "dev@example.com",
-            user_metadata: {
-              name: "Development User",
-              first_name: "Development",
-              last_name: "User",
-            },
-          } as User,
-          session: {
-            access_token: "mock-token",
-            refresh_token: "mock-refresh-token",
-            user: {
-              id: "mock-user-id",
-              email: "dev@example.com",
-              user_metadata: {
-                name: "Development User",
-                first_name: "Development",
-                last_name: "User",
-              },
-            } as User,
-          } as Session,
-          profile: {
-            id: "mock-user-id",
-            full_name: "Development User",
-            first_name: "Development",
-            last_name: "User",
-          },
-          loading: false,
-          initialized: true,
-        })
-        hasInitialized = true
-        return
+        throw new Error("Supabase client not available")
       }
 
       const {
@@ -107,13 +60,9 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
 
       if (session?.user) {
         // Fetch user profile
-        try {
-          const { data: profile } = await supabase.from("user_profiles").select("*").eq("id", session.user.id).single()
+        const { data: profile } = await supabase.from("user_profiles").select("*").eq("id", session.user.id).single()
 
-          set({ profile })
-        } catch (profileError) {
-          console.warn("Could not fetch user profile:", profileError)
-        }
+        set({ profile })
       }
 
       // Set up auth state listener (only once)
@@ -124,17 +73,9 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         })
 
         if (session?.user) {
-          try {
-            const { data: profile } = await supabase
-              .from("user_profiles")
-              .select("*")
-              .eq("id", session.user.id)
-              .single()
+          const { data: profile } = await supabase.from("user_profiles").select("*").eq("id", session.user.id).single()
 
-            set({ profile })
-          } catch (profileError) {
-            console.warn("Could not fetch user profile:", profileError)
-          }
+          set({ profile })
         } else {
           set({ profile: null })
         }
@@ -143,7 +84,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       hasInitialized = true
     } catch (error) {
       console.error("Auth initialization error:", error)
-      // For development, create a mock user to bypass authentication issues
+      // For development, let's create a mock user to bypass authentication issues
       set({
         user: {
           id: "mock-user-id",
@@ -175,7 +116,6 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         },
         loading: false,
         initialized: true,
-        error: null,
       })
       hasInitialized = true
     } finally {
@@ -263,7 +203,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
           first_name: "Development",
           last_name: "User",
         },
-        error: null,
+        error: null, // Clear any error
       })
     } finally {
       set({ loading: false })
@@ -290,19 +230,15 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
 
       // Create user profile if user was created
       if (data.user) {
-        try {
-          const { error: profileError } = await supabase.from("user_profiles").insert({
-            id: data.user.id,
-            full_name: metadata.full_name || "",
-            first_name: metadata.first_name || "",
-            last_name: metadata.last_name || "",
-          })
+        const { error: profileError } = await supabase.from("user_profiles").insert({
+          id: data.user.id,
+          full_name: metadata.full_name || "",
+          first_name: metadata.first_name || "",
+          last_name: metadata.last_name || "",
+        })
 
-          if (profileError) {
-            console.error("Profile creation error:", profileError)
-          }
-        } catch (profileError) {
-          console.warn("Could not create user profile:", profileError)
+        if (profileError) {
+          console.error("Profile creation error:", profileError)
         }
       }
     } catch (error: any) {
@@ -337,7 +273,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
           first_name: metadata.first_name || "Development",
           last_name: metadata.last_name || "User",
         },
-        error: null,
+        error: null, // Clear any error
       })
     } finally {
       set({ loading: false })
@@ -392,7 +328,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
           first_name: "Google",
           last_name: "User",
         },
-        error: null,
+        error: null, // Clear any error
       })
     } finally {
       set({ loading: false })
@@ -410,11 +346,6 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         session: null,
         profile: null,
       })
-
-      // Reset initialization flags
-      hasInitialized = false
-      isInitializing = false
-
       window.location.href = "/auth/login"
     } catch (error: any) {
       console.error("Sign out error:", error)
@@ -424,11 +355,6 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         session: null,
         profile: null,
       })
-
-      // Reset initialization flags
-      hasInitialized = false
-      isInitializing = false
-
       window.location.href = "/auth/login"
     }
   },
@@ -451,13 +377,8 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       // For development, update the mock profile even if there's an error
       set((state) => ({
         profile: { ...state.profile, ...updates },
-        error: null,
+        error: null, // Clear any error
       }))
     }
-  },
-
-  getCurrentUserId: () => {
-    const { user } = get()
-    return user?.id || null
   },
 }))
