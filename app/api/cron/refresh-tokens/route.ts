@@ -200,22 +200,38 @@ async function processIntegrationRefresh(integration: any, supabase: any) {
 
   // Determine if refresh is needed
   let shouldRefresh = false
+  let isExpired = false
   const now = Math.floor(Date.now() / 1000)
 
-  if (isGoogleOrMicrosoft) {
-    // For Google/Microsoft, refresh if expires within 1 hour or no expiry set
-    if (!integration.expires_at) {
-      shouldRefresh = true
-    } else {
-      const expiresAt = new Date(integration.expires_at).getTime() / 1000
-      const expiresIn = expiresAt - now
-      shouldRefresh = expiresIn < 3600 // 1 hour
-    }
-  } else if (integration.expires_at) {
-    // For others, refresh if expires within 2 hours
-    const expiresAt = new Date(integration.expires_at).getTime() / 1000
+  if (integration.expires_at) {
+    // FIXED: Convert string date to timestamp if needed
+    const expiresAt =
+      typeof integration.expires_at === "string"
+        ? new Date(integration.expires_at).getTime() / 1000
+        : integration.expires_at
+
     const expiresIn = expiresAt - now
-    shouldRefresh = expiresIn < 7200 // 2 hours
+    isExpired = expiresIn <= 0
+
+    if (isExpired) {
+      // Token is already expired - definitely refresh
+      shouldRefresh = true
+      console.log(`⚠️ Token EXPIRED for ${integration.provider} (expired ${Math.abs(expiresIn)} seconds ago)`)
+    } else if (isGoogleOrMicrosoft && expiresIn < 3600) {
+      // For Google/Microsoft, refresh if expires within 1 hour
+      shouldRefresh = true
+      console.log(
+        `🔄 Google/Microsoft token expires soon for ${integration.provider} (${Math.floor(expiresIn / 60)} minutes)`,
+      )
+    } else if (!isGoogleOrMicrosoft && expiresIn < 7200) {
+      // For others, refresh if expires within 2 hours
+      shouldRefresh = true
+      console.log(`🔄 Token expires soon for ${integration.provider} (${Math.floor(expiresIn / 60)} minutes)`)
+    }
+  } else if (isGoogleOrMicrosoft) {
+    // No expiry set for Google/Microsoft - refresh to be safe
+    shouldRefresh = true
+    console.log(`⚠️ No expiry set for ${integration.provider} - refreshing to be safe`)
   }
 
   if (!shouldRefresh) {
@@ -226,45 +242,29 @@ async function processIntegrationRefresh(integration: any, supabase: any) {
     }
   }
 
-  // Attempt refresh with retry logic
-  const result = await refreshTokenWithRetry(integration, supabase, 3)
+  // For expired tokens, use more aggressive retry logic
+  const maxRetries = isExpired ? 5 : 3
+  const result = await refreshTokenWithRetry(integration, supabase, maxRetries, isExpired)
 
-  // If refresh was successful, update the database with new expiration
-  if (result.success && result.refreshed) {
-    const updateData: any = {
-      last_token_refresh: new Date().toISOString(),
-      consecutive_failures: 0,
-      updated_at: new Date().toISOString(),
-    }
+  // If expired token refresh fails, mark as disconnected
+  if (isExpired && !result.success) {
+    await supabase
+      .from("integrations")
+      .update({
+        status: "disconnected",
+        disconnected_at: new Date().toISOString(),
+        disconnect_reason: "Token expired and refresh failed",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", integration.id)
 
-    // Update access token if provided
-    if (result.newToken) {
-      updateData.access_token = result.newToken
-    }
-
-    // Update refresh token if provided (some providers issue new ones)
-    if (result.newRefreshToken) {
-      updateData.refresh_token = result.newRefreshToken
-    }
-
-    // Update expiration date
-    if (result.newExpiry) {
-      updateData.expires_at = new Date(result.newExpiry * 1000).toISOString()
-    } else if (isGoogleOrMicrosoft) {
-      // Set expiry to 1 hour from now for Google/Microsoft if no specific expiry provided
-      const oneHourFromNow = new Date(Date.now() + 3600 * 1000)
-      updateData.expires_at = oneHourFromNow.toISOString()
-    }
-
-    await supabase.from("integrations").update(updateData).eq("id", integration.id)
-
-    console.log(`✅ Updated expiration for ${integration.provider} to ${updateData.expires_at}`)
+    console.error(`❌ Failed to recover expired token for ${integration.provider} - marked as disconnected`)
   }
 
   return result
 }
 
-async function refreshTokenWithRetry(integration: any, supabase: any, maxRetries: number) {
+async function refreshTokenWithRetry(integration: any, supabase: any, maxRetries: number, isExpired = false) {
   let lastError: any
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {

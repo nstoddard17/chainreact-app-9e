@@ -5,7 +5,7 @@ interface Integration {
   provider: string
   access_token: string
   refresh_token?: string
-  expires_at?: number
+  expires_at?: string | number // Could be string or number depending on source
   [key: string]: any
 }
 
@@ -48,8 +48,14 @@ export async function refreshTokenIfNeeded(integration: Integration): Promise<Re
   const refreshThreshold = isGoogleOrMicrosoft ? 1800 : 300 // 30 min vs 5 min
 
   if (integration.expires_at) {
+    // Convert expires_at to timestamp if it's a string
+    const expiresAtTimestamp =
+      typeof integration.expires_at === "string"
+        ? new Date(integration.expires_at).getTime() / 1000
+        : integration.expires_at
+
     const now = Math.floor(Date.now() / 1000)
-    const expiresIn = integration.expires_at - now
+    const expiresIn = expiresAtTimestamp - now
     const needsRefresh = expiresIn < refreshThreshold
 
     if (!needsRefresh && !isGoogleOrMicrosoft) {
@@ -76,9 +82,12 @@ export async function refreshTokenIfNeeded(integration: Integration): Promise<Re
       // For Google/Microsoft, set expiry far in the future if successful refresh
       if (isGoogleOrMicrosoft) {
         // Set expiry to 1 year from now for Google/Microsoft
-        updateData.expires_at = Math.floor(Date.now() / 1000) + 365 * 24 * 60 * 60
+        // FIXED: Convert Unix timestamp to ISO string
+        const expiryTimestamp = Math.floor(Date.now() / 1000) + 365 * 24 * 60 * 60
+        updateData.expires_at = new Date(expiryTimestamp * 1000).toISOString()
       } else if (result.newExpiry) {
-        updateData.expires_at = result.newExpiry
+        // FIXED: Convert Unix timestamp to ISO string
+        updateData.expires_at = new Date(result.newExpiry * 1000).toISOString()
       }
 
       // Update refresh token if provided (Google sometimes provides new ones)
