@@ -227,7 +227,41 @@ async function processIntegrationRefresh(integration: any, supabase: any) {
   }
 
   // Attempt refresh with retry logic
-  return await refreshTokenWithRetry(integration, supabase, 3)
+  const result = await refreshTokenWithRetry(integration, supabase, 3)
+
+  // If refresh was successful, update the database with new expiration
+  if (result.success && result.refreshed) {
+    const updateData: any = {
+      last_token_refresh: new Date().toISOString(),
+      consecutive_failures: 0,
+      updated_at: new Date().toISOString(),
+    }
+
+    // Update access token if provided
+    if (result.newToken) {
+      updateData.access_token = result.newToken
+    }
+
+    // Update refresh token if provided (some providers issue new ones)
+    if (result.newRefreshToken) {
+      updateData.refresh_token = result.newRefreshToken
+    }
+
+    // Update expiration date
+    if (result.newExpiry) {
+      updateData.expires_at = new Date(result.newExpiry * 1000).toISOString()
+    } else if (isGoogleOrMicrosoft) {
+      // Set expiry to 1 hour from now for Google/Microsoft if no specific expiry provided
+      const oneHourFromNow = new Date(Date.now() + 3600 * 1000)
+      updateData.expires_at = oneHourFromNow.toISOString()
+    }
+
+    await supabase.from("integrations").update(updateData).eq("id", integration.id)
+
+    console.log(`✅ Updated expiration for ${integration.provider} to ${updateData.expires_at}`)
+  }
+
+  return result
 }
 
 async function refreshTokenWithRetry(integration: any, supabase: any, maxRetries: number) {
