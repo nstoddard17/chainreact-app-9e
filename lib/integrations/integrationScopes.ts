@@ -206,13 +206,14 @@ export const INTEGRATION_SCOPES: Record<string, IntegrationScopeConfig> = {
     provider: "github",
     scopes: [
       { scope: "user:email", description: "Access user email addresses", required: true },
+      { scope: "read:user", description: "Read user profile information", required: true },
       { scope: "public_repo", description: "Access public repositories", required: false },
       { scope: "repo", description: "Full control of private repositories", required: false },
       { scope: "gist", description: "Create gists", required: false },
       { scope: "notifications", description: "Access notifications", required: false },
     ],
     components: {
-      "github-get-user": ["user:email"],
+      "github-get-user": ["user:email", "read:user"],
       "github-get-repos": ["public_repo"],
       "github-create-repo": ["repo"],
       "github-create-issue": ["repo"],
