@@ -39,7 +39,7 @@ const COMPONENT_SCOPE_MAPPING = {
   discord_guild_info: { scopes: ["guilds"], provider: "discord" },
 
   // Microsoft Teams components
-  teams_user_info: { scopes: ["User.Read"], provider: "teams" },
+  //teams_user_info: { scopes: ["User.Read"], provider: "teams" },
   teams_get_profile: { scopes: ["profile"], provider: "teams" },
 
   // OneDrive components
@@ -48,15 +48,15 @@ const COMPONENT_SCOPE_MAPPING = {
 
   // Google Calendar components
   google_calendar_create: { scopes: ["https://www.googleapis.com/auth/calendar"], provider: "google-calendar" },
-  google_calendar_read: { scopes: ["https://www.googleapis.com/auth/calendar.readonly"], provider: "google-calendar" },
+  //google_calendar_read: { scopes: ["https://www.googleapis.com/auth/calendar.readonly"], provider: "google-calendar" },
 
   // Google Sheets components
   google_sheets_append: { scopes: ["https://www.googleapis.com/auth/spreadsheets"], provider: "google-sheets" },
-  google_sheets_read: { scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"], provider: "google-sheets" },
+  //google_sheets_read: { scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"], provider: "google-sheets" },
 
   // Google Docs components
   google_docs_create: { scopes: ["https://www.googleapis.com/auth/documents"], provider: "google-docs" },
-  google_docs_read: { scopes: ["https://www.googleapis.com/auth/documents.readonly"], provider: "google-docs" },
+  //google_docs_read: { scopes: ["https://www.googleapis.com/auth/documents.readonly"], provider: "google-docs" },
 
   // Gmail components
   gmail_send: { scopes: ["https://www.googleapis.com/auth/gmail.send"], provider: "gmail" },
@@ -64,7 +64,7 @@ const COMPONENT_SCOPE_MAPPING = {
 
   // Google Drive components
   google_drive_upload: { scopes: ["https://www.googleapis.com/auth/drive.file"], provider: "google-drive" },
-  google_drive_read: { scopes: ["https://www.googleapis.com/auth/drive.readonly"], provider: "google-drive" },
+  //google_drive_read: { scopes: ["https://www.googleapis.com/auth/drive.readonly"], provider: "google-drive" },
 
   // YouTube components
   youtube_get_channel: { scopes: ["https://www.googleapis.com/auth/youtube.readonly"], provider: "youtube" },
@@ -104,7 +104,7 @@ const COMPONENT_SCOPE_MAPPING = {
   twitter_get_user: { scopes: ["users.read"], provider: "twitter" },
 
   // LinkedIn components
-  linkedin_get_profile: { scopes: ["r_liteprofile"], provider: "linkedin" },
+  //linkedin_get_profile: { scopes: ["r_liteprofile"], provider: "linkedin" },
   linkedin_post_share: { scopes: ["w_member_social"], provider: "linkedin" },
 
   // Facebook components
