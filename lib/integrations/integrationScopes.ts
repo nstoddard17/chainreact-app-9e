@@ -287,7 +287,7 @@ export const INTEGRATION_SCOPES: Record<string, IntegrationScopeConfig> = {
       { scope: "openid", description: "Authenticate with Microsoft", required: true },
       { scope: "profile", description: "Access basic profile info", required: true },
       { scope: "email", description: "Access email address", required: true },
-      { scope: "offline_access", description: "Allow offline access (refresh tokens)", required: true },
+      { scope: "offline_access", description: "Allow offline access (refresh tokens)", required: false },
       { scope: "https://graph.microsoft.com/User.Read", description: "Read user profile", required: true },
       {
         scope: "https://graph.microsoft.com/Chat.ReadWrite",
