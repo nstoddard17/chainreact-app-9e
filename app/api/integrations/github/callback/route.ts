@@ -177,6 +177,7 @@ export async function GET(request: NextRequest) {
       user_id: session.user.id,
       provider: "github",
       provider_user_id: userData.id.toString(),
+      access_token: tokenData.access_token,
       status: "connected" as const,
       scopes: tokenData.scope ? tokenData.scope.split(",") : ["repo", "user"],
       metadata: {
@@ -214,6 +215,7 @@ export async function GET(request: NextRequest) {
         .update({
           status: "connected",
           provider_user_id: userData.id.toString(),
+          access_token: tokenData.access_token,
           scopes: integrationData.scopes,
           metadata: integrationData.metadata,
           updated_at: new Date().toISOString(),
