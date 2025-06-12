@@ -287,22 +287,22 @@ export const INTEGRATION_SCOPES: Record<string, IntegrationScopeConfig> = {
       { scope: "openid", description: "Authenticate with Microsoft", required: true },
       { scope: "profile", description: "Access basic profile info", required: true },
       { scope: "email", description: "Access email address", required: true },
-      { scope: "offline_access", description: "Allow offline access (refresh tokens)", required: true },
+      { scope: "offline_access", description: "Allow offline access (refresh tokens)", required: false },
       { scope: "https://graph.microsoft.com/User.Read", description: "Read user profile", required: true },
       {
         scope: "https://graph.microsoft.com/Calendars.ReadWrite",
         description: "Read and write calendar data",
-        required: true,
+        required: false,
       },
       {
         scope: "https://graph.microsoft.com/Files.ReadWrite",
         description: "Read and write files",
-        required: true,
+        required: false,
       },
       {
         scope: "https://graph.microsoft.com/Mail.ReadWrite",
         description: "Read and write mail",
-        required: true,
+        required: false,
       },
     ],
     components: {
