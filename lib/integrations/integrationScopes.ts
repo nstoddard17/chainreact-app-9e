@@ -12,6 +12,7 @@ export interface IntegrationScopeConfig {
   }
 }
 
+// The scope definitions are in this object:
 export const INTEGRATION_SCOPES: Record<string, IntegrationScopeConfig> = {
   slack: {
     provider: "slack",
@@ -417,6 +418,7 @@ export const INTEGRATION_SCOPES: Record<string, IntegrationScopeConfig> = {
   },
 }
 
+// This function extracts required scopes:
 export function getRequiredScopes(provider: string): string[] {
   const config = INTEGRATION_SCOPES[provider]
   if (!config) return []
