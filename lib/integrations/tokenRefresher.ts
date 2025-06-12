@@ -69,7 +69,7 @@ export async function refreshTokenIfNeeded(integration: Integration): Promise<Re
       // Update the token in the database
       const updateData: any = {
         access_token: result.newToken,
-        last_refreshed: new Date().toISOString(),
+        last_token_refresh: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       }
 
