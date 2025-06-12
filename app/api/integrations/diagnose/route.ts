@@ -43,8 +43,8 @@ const COMPONENT_SCOPE_MAPPING = {
   teams_get_profile: { scopes: ["profile"], provider: "teams" },
 
   // OneDrive components
-  onedrive_upload: { scopes: ["Files.ReadWrite"], provider: "onedrive" },
-  onedrive_download: { scopes: ["Files.Read"], provider: "onedrive" },
+  //onedrive_upload: { scopes: ["Files.ReadWrite"], provider: "onedrive" },
+  //onedrive_download: { scopes: ["Files.Read"], provider: "onedrive" },
 
   // Google Calendar components
   google_calendar_create: { scopes: ["https://www.googleapis.com/auth/calendar"], provider: "google-calendar" },
@@ -72,8 +72,8 @@ const COMPONENT_SCOPE_MAPPING = {
   youtube_get_analytics: { scopes: ["https://www.googleapis.com/auth/youtube.readonly"], provider: "youtube" },
 
   // GitHub components
-  github_get_user: { scopes: ["user:email"], provider: "github" },
-  github_get_repos: { scopes: ["public_repo"], provider: "github" },
+  //github_get_user: { scopes: ["user:email"], provider: "github" },
+  //github_get_repos: { scopes: ["public_repo"], provider: "github" },
   github_create_issue: { scopes: ["repo"], provider: "github" },
   github_create_pr: { scopes: ["repo"], provider: "github" },
 
