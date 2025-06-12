@@ -23,10 +23,9 @@ export class TeamsOAuthService {
       "email",
       "offline_access",
       "https://graph.microsoft.com/User.Read",
-      "https://graph.microsoft.com/Team.ReadBasic.All",
-      "https://graph.microsoft.com/Channel.ReadBasic.All",
-      "https://graph.microsoft.com/Chat.ReadWrite",
-      "https://graph.microsoft.com/ChannelMessage.Send",
+      "https://graph.microsoft.com/Calendars.ReadWrite",
+      "https://graph.microsoft.com/Files.ReadWrite",
+      "https://graph.microsoft.com/Mail.ReadWrite",
     ]
 
     const state = btoa(
