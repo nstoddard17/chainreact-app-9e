@@ -1,5 +1,4 @@
 import { createClient } from "@supabase/supabase-js"
-import { Microsoft } from "arctic"
 
 const supabaseUrl = process.env.SUPABASE_URL
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -98,20 +97,3 @@ export async function validateRequest() {
   // This would need to be implemented based on your cookie handling
   return { user: null, session: null }
 }
-
-// Microsoft OAuth configuration
-const microsoftClientId = process.env.NEXT_PUBLIC_TEAMS_CLIENT_ID
-const microsoftClientSecret = process.env.TEAMS_CLIENT_SECRET
-
-if (!microsoftClientId || !microsoftClientSecret) {
-  console.warn("Microsoft Teams OAuth not configured - missing client ID or secret")
-}
-
-export const microsoft =
-  microsoftClientId && microsoftClientSecret
-    ? new Microsoft(
-        microsoftClientId,
-        microsoftClientSecret,
-        `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/api/integrations/teams/callback`,
-      )
-    : null
