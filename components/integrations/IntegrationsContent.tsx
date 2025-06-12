@@ -13,13 +13,15 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useSearchParams, useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
+// Add import for auth store
+import { useAuthStore } from "@/stores/authStore"
 
 export default function IntegrationsContent() {
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [localLoading, setLocalLoading] = useState(true)
   const [oauthProcessed, setOauthProcessed] = useState(false)
-  const [bulkReconnecting, setBulkReconnecting] = useState(false)
+  const [tokenRefreshing, setTokenRefreshing] = useState(false)
   const router = useRouter()
 
   const { integrations, providers, loading, refreshing, error, fetchIntegrations, refreshTokens } =
@@ -27,6 +29,9 @@ export default function IntegrationsContent() {
 
   const searchParams = useSearchParams()
   const { toast } = useToast()
+
+  // Inside the component, add:
+  const { getCurrentUserId } = useAuthStore()
 
   // Handle initial data loading
   useEffect(() => {
@@ -175,14 +180,17 @@ export default function IntegrationsContent() {
     }
   }
 
-  const handleBulkReconnect = async () => {
+  // Add this function to handle token refreshing
+  const handleRefreshTokens = async () => {
     try {
-      setBulkReconnecting(true)
+      setTokenRefreshing(true)
 
-      // Get current user (you'll need to implement this based on your auth system)
-      const userId = "current-user-id" // Replace with actual user ID from your auth context
+      const userId = getCurrentUserId()
+      if (!userId) {
+        throw new Error("User not authenticated")
+      }
 
-      const response = await fetch("/api/integrations/bulk-reconnect", {
+      const response = await fetch("/api/integrations/refresh-all-tokens", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -193,74 +201,30 @@ export default function IntegrationsContent() {
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to generate reconnection URLs")
+        throw new Error(data.error || "Failed to refresh tokens")
       }
 
-      if (data.reconnectionUrls.length === 0) {
-        toast({
-          title: "No Integrations",
-          description: "No connected integrations found to reconnect.",
-        })
-        return
-      }
-
-      // Process silent reconnections first
-      const silentUrls = data.reconnectionUrls.filter((item: any) => item.silent)
-      const interactiveUrls = data.reconnectionUrls.filter((item: any) => !item.silent)
-
-      // Handle silent reconnections in hidden iframes
-      for (const item of silentUrls) {
-        try {
-          // Create hidden iframe for silent auth
-          const iframe = document.createElement("iframe")
-          iframe.style.display = "none"
-          iframe.src = item.url
-          document.body.appendChild(iframe)
-
-          // Remove iframe after a delay
-          setTimeout(() => {
-            document.body.removeChild(iframe)
-          }, 5000)
-        } catch (error) {
-          console.error(`Silent reconnection failed for ${item.provider}:`, error)
-        }
-      }
-
-      // Handle interactive reconnections
-      if (interactiveUrls.length > 0) {
-        toast({
-          title: "Reconnecting Integrations",
-          description: `${silentUrls.length} integrations reconnecting silently. ${interactiveUrls.length} require user interaction.`,
-          duration: 8000,
-        })
-
-        // Open interactive reconnections in sequence with delays
-        for (let i = 0; i < interactiveUrls.length; i++) {
-          setTimeout(() => {
-            window.open(interactiveUrls[i].url, "_blank", "width=600,height=700")
-          }, i * 2000) // 2 second delay between each popup
-        }
-      } else {
-        toast({
-          title: "Reconnecting Integrations",
-          description: `${silentUrls.length} integrations reconnecting silently.`,
-          duration: 5000,
-        })
-      }
-
-      // Refresh the integrations list after a delay
-      setTimeout(async () => {
-        await fetchIntegrations(true)
-      }, 10000)
-    } catch (err: any) {
-      console.error("Bulk reconnection failed:", err)
+      // Show success message with details
       toast({
-        title: "Reconnection Failed",
-        description: "Could not reconnect integrations. Please try again.",
+        title: "Tokens Refreshed",
+        description: `${data.stats.successful} refreshed, ${data.stats.skipped} already valid, ${data.stats.failed} failed`,
+        duration: 5000,
+      })
+
+      // If any tokens were refreshed, update the UI
+      if (data.stats.successful > 0) {
+        await fetchIntegrations(true)
+      }
+    } catch (err: any) {
+      console.error("Failed to refresh tokens:", err)
+      toast({
+        title: "Refresh Failed",
+        description: err.message || "Could not refresh integration tokens. Please try again.",
         variant: "destructive",
+        duration: 7000,
       })
     } finally {
-      setBulkReconnecting(false)
+      setTokenRefreshing(false)
     }
   }
 
@@ -304,30 +268,14 @@ export default function IntegrationsContent() {
                   {connectedCount} Connected
                 </Badge>
                 <Button
-                  onClick={handleBulkReconnect}
+                  onClick={handleRefreshTokens}
                   variant="default"
                   size="sm"
-                  disabled={loading || refreshing || bulkReconnecting || connectedCount === 0}
+                  disabled={loading || refreshing || tokenRefreshing}
                   className="bg-blue-600 hover:bg-blue-700 text-white transition-colors"
                 >
-                  {bulkReconnecting ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-                  <span className="ml-2 hidden sm:inline">
-                    {bulkReconnecting ? "Reconnecting..." : "Reconnect All"}
-                  </span>
-                </Button>
-                <Button
-                  onClick={handleRefresh}
-                  variant="outline"
-                  size="sm"
-                  disabled={loading || refreshing}
-                  className="bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-colors"
-                >
-                  {loading || refreshing ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <RefreshCw className="w-4 h-4" />
-                  )}
-                  <span className="ml-2 hidden sm:inline">Refresh</span>
+                  {tokenRefreshing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                  <span className="ml-2 hidden sm:inline">{tokenRefreshing ? "Refreshing..." : "Refresh Tokens"}</span>
                 </Button>
               </div>
             </div>

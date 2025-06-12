@@ -278,20 +278,13 @@ async function verifyMicrosoftToken(
   try {
     console.log("Verifying Microsoft token...")
 
-    // Check if token looks like a valid JWT
+    // Basic token validation
     if (!accessToken || accessToken.length < 50) {
       return { valid: false, scopes: [], error: "Access token appears to be invalid or too short" }
     }
 
-    // Check JWT format
-    const tokenParts = accessToken.split(".")
-    if (tokenParts.length !== 3) {
-      return {
-        valid: false,
-        scopes: [],
-        error: `Invalid JWT format: expected 3 parts separated by dots, got ${tokenParts.length} parts`,
-      }
-    }
+    // Skip JWT format check - Microsoft tokens can be in different formats
+    console.log("Verifying Microsoft token with Graph API...")
 
     const userResponse = await fetch("https://graph.microsoft.com/v1.0/me", {
       headers: {
