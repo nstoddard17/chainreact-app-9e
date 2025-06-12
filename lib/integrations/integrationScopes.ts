@@ -212,7 +212,7 @@ export const INTEGRATION_SCOPES: Record<string, IntegrationScopeConfig> = {
       { scope: "notifications", description: "Access notifications", required: false },
     ],
     components: {
-      "github-get-user": ["user:email", "read:user"],
+      "github-get-user": ["user"],
       "github-get-repos": ["public_repo"],
       "github-create-repo": ["repo"],
       "github-create-issue": ["repo"],
