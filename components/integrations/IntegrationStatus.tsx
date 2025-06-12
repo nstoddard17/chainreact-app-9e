@@ -1,136 +1,155 @@
-"use client"
-
-import { useState, useEffect } from "react"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { AlertCircle, CheckCircle, RefreshCw } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
+import { CheckCircle, XCircle, AlertTriangle, Clock } from "lucide-react"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 interface IntegrationStatusProps {
-  userId: string
-  provider: string
-  onReconnect?: () => void
+  status: string
+  expiresAt?: string | null
+  lastRefresh?: string | null
+  className?: string
 }
 
-export function IntegrationStatus({ userId, provider, onReconnect }: IntegrationStatusProps) {
-  const [status, setStatus] = useState<"loading" | "connected" | "disconnected" | "error">("loading")
-  const [isRefreshing, setIsRefreshing] = useState(false)
-  const { toast } = useToast()
+export default function IntegrationStatus({ status, expiresAt, lastRefresh, className = "" }: IntegrationStatusProps) {
+  // Calculate time until expiration
+  let timeUntilExpiry: string | null = null
+  let isExpiringSoon = false
+  let isExpired = false
 
-  useEffect(() => {
-    checkStatus()
-  }, [userId, provider])
-
-  async function checkStatus() {
+  if (expiresAt) {
     try {
-      setStatus("loading")
-      const response = await fetch(`/api/integrations/token-management?userId=${userId}&provider=${provider}`)
+      const expiryDate = new Date(expiresAt)
+      const now = new Date()
 
-      if (!response.ok) {
-        setStatus("error")
-        return
-      }
+      // Fix: Use UTC timestamps for comparison to avoid timezone issues
+      const expiryTimestamp = expiryDate.getTime()
+      const nowTimestamp = now.getTime()
 
-      const data = await response.json()
-      const integration = data.integrations?.find((i: any) => i.provider === provider)
+      const diffMs = expiryTimestamp - nowTimestamp
+      const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
+      const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60))
 
-      if (integration?.connected) {
-        setStatus("connected")
+      isExpired = diffMs <= 0
+      isExpiringSoon = !isExpired && diffHours < 24
+
+      if (isExpired) {
+        timeUntilExpiry = "Expired"
+      } else if (diffHours > 24) {
+        const diffDays = Math.floor(diffHours / 24)
+        timeUntilExpiry = `${diffDays} day${diffDays !== 1 ? "s" : ""}`
       } else {
-        setStatus("disconnected")
+        timeUntilExpiry = `${diffHours}h ${diffMinutes}m`
       }
-    } catch (error) {
-      console.error("Error checking integration status:", error)
-      setStatus("error")
+    } catch (e) {
+      console.error("Error parsing expiry date:", e)
     }
   }
 
-  async function handleRefresh() {
+  // Format last refresh time
+  let lastRefreshText = "Never"
+  if (lastRefresh) {
     try {
-      setIsRefreshing(true)
-      const response = await fetch("/api/integrations/token-management", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ userId, provider }),
-      })
+      const refreshDate = new Date(lastRefresh)
+      const now = new Date()
+      const diffMs = now.getTime() - refreshDate.getTime()
+      const diffMinutes = Math.floor(diffMs / (1000 * 60))
 
-      const data = await response.json()
-
-      if (data.requiresReauth) {
-        toast({
-          title: "Reconnection Required",
-          description: `Your ${provider} integration needs to be reconnected.`,
-          variant: "destructive",
-        })
-
-        if (onReconnect) {
-          onReconnect()
-        }
-      } else if (data.tokenRefreshed) {
-        toast({
-          title: "Token Refreshed",
-          description: `Successfully refreshed your ${provider} integration.`,
-          variant: "default",
-        })
-        setStatus("connected")
+      if (diffMinutes < 60) {
+        lastRefreshText = `${diffMinutes} minute${diffMinutes !== 1 ? "s" : ""} ago`
       } else {
-        toast({
-          title: "Token Status",
-          description: data.message,
-          variant: "default",
-        })
+        const diffHours = Math.floor(diffMinutes / 60)
+        if (diffHours < 24) {
+          lastRefreshText = `${diffHours} hour${diffHours !== 1 ? "s" : ""} ago`
+        } else {
+          const diffDays = Math.floor(diffHours / 24)
+          lastRefreshText = `${diffDays} day${diffDays !== 1 ? "s" : ""} ago`
+        }
       }
-    } catch (error) {
-      console.error("Error refreshing token:", error)
-      toast({
-        title: "Error",
-        description: "Failed to refresh integration token.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsRefreshing(false)
+    } catch (e) {
+      console.error("Error parsing refresh date:", e)
     }
+  }
+
+  if (status === "connected") {
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Badge
+              variant="outline"
+              className={`${
+                isExpired
+                  ? "bg-red-50 text-red-700 border-red-200"
+                  : isExpiringSoon
+                    ? "bg-amber-50 text-amber-700 border-amber-200"
+                    : "bg-green-50 text-green-700 border-green-200"
+              } ${className}`}
+            >
+              {isExpired ? (
+                <XCircle className="w-3.5 h-3.5 mr-1" />
+              ) : isExpiringSoon ? (
+                <Clock className="w-3.5 h-3.5 mr-1" />
+              ) : (
+                <CheckCircle className="w-3.5 h-3.5 mr-1" />
+              )}
+              {isExpired ? "Expired" : isExpiringSoon ? "Expiring Soon" : "Connected"}
+            </Badge>
+          </TooltipTrigger>
+          <TooltipContent className="bg-slate-900 text-white border-slate-800 px-3 py-2">
+            <div className="text-xs">
+              <p className="font-medium mb-1">Integration Status</p>
+              <p className="text-slate-300">
+                {isExpired
+                  ? "Token has expired. Please reconnect."
+                  : isExpiringSoon
+                    ? `Expires in ${timeUntilExpiry}`
+                    : `Valid for ${timeUntilExpiry}`}
+              </p>
+              <p className="text-slate-300 mt-1">Last refreshed: {lastRefreshText}</p>
+            </div>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    )
+  }
+
+  if (status === "disconnected") {
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Badge variant="outline" className={`bg-red-50 text-red-700 border-red-200 ${className}`}>
+              <XCircle className="w-3.5 h-3.5 mr-1" />
+              Disconnected
+            </Badge>
+          </TooltipTrigger>
+          <TooltipContent className="bg-slate-900 text-white border-slate-800 px-3 py-2">
+            <div className="text-xs">
+              <p className="font-medium mb-1">Integration Status</p>
+              <p className="text-slate-300">This integration is disconnected.</p>
+              <p className="text-slate-300 mt-1">Click to reconnect.</p>
+            </div>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    )
   }
 
   return (
-    <div className="flex items-center gap-2">
-      {status === "connected" && (
-        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-          <CheckCircle className="w-3 h-3 mr-1" /> Connected
-        </Badge>
-      )}
-
-      {status === "disconnected" && (
-        <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
-          <AlertCircle className="w-3 h-3 mr-1" /> Disconnected
-        </Badge>
-      )}
-
-      {status === "error" && (
-        <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
-          <AlertCircle className="w-3 h-3 mr-1" /> Error
-        </Badge>
-      )}
-
-      {status === "loading" && (
-        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-          <RefreshCw className="w-3 h-3 mr-1 animate-spin" /> Loading
-        </Badge>
-      )}
-
-      <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isRefreshing || status === "loading"}>
-        {isRefreshing ? (
-          <>
-            <RefreshCw className="w-3 h-3 mr-1 animate-spin" /> Refreshing
-          </>
-        ) : (
-          <>
-            <RefreshCw className="w-3 h-3 mr-1" /> Refresh
-          </>
-        )}
-      </Button>
-    </div>
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Badge variant="outline" className={`bg-amber-50 text-amber-700 border-amber-200 ${className}`}>
+            <AlertTriangle className="w-3.5 h-3.5 mr-1" />
+            {status || "Unknown"}
+          </Badge>
+        </TooltipTrigger>
+        <TooltipContent className="bg-slate-900 text-white border-slate-800 px-3 py-2">
+          <div className="text-xs">
+            <p className="font-medium mb-1">Integration Status</p>
+            <p className="text-slate-300">Status: {status || "Unknown"}</p>
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   )
 }

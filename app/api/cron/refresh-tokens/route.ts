@@ -204,10 +204,10 @@ async function processIntegrationRefresh(integration: any, supabase: any) {
   const now = Math.floor(Date.now() / 1000)
 
   if (integration.expires_at) {
-    // FIXED: Convert string date to timestamp if needed
+    // Fix: Ensure proper conversion from ISO string to timestamp
     const expiresAt =
       typeof integration.expires_at === "string"
-        ? new Date(integration.expires_at).getTime() / 1000
+        ? Math.floor(new Date(integration.expires_at).getTime() / 1000)
         : integration.expires_at
 
     const expiresIn = expiresAt - now
