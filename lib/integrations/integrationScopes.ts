@@ -353,17 +353,17 @@ export const INTEGRATION_SCOPES: Record<string, IntegrationScopeConfig> = {
       {
         scope: "https://www.googleapis.com/auth/userinfo.profile",
         description: "View basic profile info",
-        required: true,
+        required: false,
       },
       {
         scope: "https://www.googleapis.com/auth/userinfo.email",
         description: "View email address",
-        required: true,
+        required: false,
       },
       {
         scope: "https://www.googleapis.com/auth/youtube.upload",
         description: "Upload videos to your YouTube channel",
-        required: false,
+        required: true,
       },
     ],
     components: {
