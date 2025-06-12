@@ -205,10 +205,9 @@ export const INTEGRATION_SCOPES: Record<string, IntegrationScopeConfig> = {
   github: {
     provider: "github",
     scopes: [
-      { scope: "user:email", description: "Access user email addresses", required: true },
-      { scope: "read:user", description: "Read user profile information", required: true },
+      { scope: "user", description: "Read user profile information", required: true },
       { scope: "public_repo", description: "Access public repositories", required: false },
-      { scope: "repo", description: "Full control of private repositories", required: false },
+      { scope: "repo", description: "Full control of private repositories", required: true },
       { scope: "gist", description: "Create gists", required: false },
       { scope: "notifications", description: "Access notifications", required: false },
     ],
