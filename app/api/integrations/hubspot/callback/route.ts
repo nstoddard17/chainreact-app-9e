@@ -73,21 +73,27 @@ export async function GET(request: NextRequest) {
 
     const tokenData = await tokenResponse.json()
     console.log("HubSpot token response:", JSON.stringify(tokenData, null, 2))
-    const { access_token, refresh_token, expires_in, scope } = tokenData
+    const { access_token, refresh_token, expires_in } = tokenData
 
-    // Get granted scopes from the token data - try multiple possible locations
-    const grantedScopes = tokenData.scope
-      ? tokenData.scope.split(" ")
-      : tokenData.scopes
-        ? Array.isArray(tokenData.scopes)
-          ? tokenData.scopes
-          : tokenData.scopes.split(" ")
-        : []
+    // Get token info to retrieve scopes - HubSpot doesn't include scopes in token response
+    let grantedScopes = []
+    try {
+      const tokenInfoResponse = await fetch(`https://api.hubapi.com/oauth/v1/access-tokens/${access_token}`)
+      if (tokenInfoResponse.ok) {
+        const tokenInfo = await tokenInfoResponse.json()
+        console.log("HubSpot token info:", JSON.stringify(tokenInfo, null, 2))
 
-    console.log("HubSpot granted scopes:", grantedScopes)
-    console.log("Raw scope data:", { scope: tokenData.scope, scopes: tokenData.scopes })
+        // HubSpot returns scopes in the token info response
+        grantedScopes = tokenInfo.scopes || []
+        console.log("HubSpot granted scopes from token info:", grantedScopes)
+      } else {
+        console.error("Failed to get HubSpot token info:", await tokenInfoResponse.text())
+      }
+    } catch (error) {
+      console.error("Error fetching HubSpot token info:", error)
+    }
 
-    // Get user info
+    // Get user info (keep existing code)
     const userResponse = await fetch("https://api.hubapi.com/oauth/v1/access-tokens/" + access_token)
 
     if (!userResponse.ok) {
