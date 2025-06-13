@@ -375,14 +375,48 @@ async function refreshTokenWithRetry(integration: any, supabase: any, maxRetries
   }
 
   // All retries failed - update failure count
+  const newFailureCount = (integration.consecutive_failures || 0) + 1
   await supabase
     .from("integrations")
     .update({
-      consecutive_failures: (integration.consecutive_failures || 0) + 1,
+      consecutive_failures: newFailureCount,
       last_failure_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })
     .eq("id", integration.id)
+
+  // Check if we've exceeded the threshold for consecutive failures
+  const FAILURE_THRESHOLD = 5 // Mark as disconnected after 5 consecutive failures
+  if (newFailureCount >= FAILURE_THRESHOLD) {
+    console.error(
+      `❌ ${integration.provider} token for user ${integration.user_id} has failed ${newFailureCount} times - marking as disconnected`,
+    )
+
+    try {
+      // Mark the integration as disconnected
+      await supabase
+        .from("integrations")
+        .update({
+          status: "disconnected",
+          disconnected_at: new Date().toISOString(),
+          disconnect_reason: `Token refresh failed ${newFailureCount} consecutive times`,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", integration.id)
+
+      // Create a notification for the user
+      try {
+        await supabase.rpc("create_token_expiry_notification", {
+          p_user_id: integration.user_id,
+          p_provider: integration.provider,
+        })
+      } catch (notifError) {
+        console.error(`Failed to create notification for ${integration.provider}:`, notifError)
+      }
+    } catch (updateError) {
+      console.error(`Failed to update integration status for ${integration.provider}:`, updateError)
+    }
+  }
 
   throw lastError
 }
