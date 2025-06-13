@@ -324,7 +324,7 @@ export const INTEGRATION_SCOPES: Record<string, IntegrationScopeConfig> = {
     scopes: [
       { scope: "read", description: "Read boards, cards, and workspaces", required: true },
       { scope: "write", description: "Create and update cards, boards, and lists", required: true },
-      { scope: "account", description: "Access account info", required: true },
+      { scope: "account", description: "Access account info", required: false },
     ],
     components: {
       "trello-read-board": ["read"],
