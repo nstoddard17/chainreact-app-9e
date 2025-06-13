@@ -93,16 +93,21 @@ async function backgroundRefreshTokens(jobId: string, startTime: number): Promis
   try {
     console.log(`🔄 [${jobId}] Starting background token refresh job...`)
     console.log(`⏳ [${jobId}] Updating job status to 'processing'`)
-    const { error: updateError } = await supabase
+    console.log(`⏳ [${jobId}] Updating job status to 'processing'`)
+    const { data: updateResult, error: updateError } = await supabase
       .from("token_refresh_logs")
       .update({ status: "processing", updated_at: new Date().toISOString() })
       .eq("job_id", jobId)
+      .select()  // force immediate evaluation of the query result
 
+    console.log(`   🧾 Update result:`, updateResult)
     if (updateError) {
       console.error(`❌ [${jobId}] Failed to update job status:`, updateError)
+      // You can early return or proceed as needed
     } else {
       console.log(`✅ [${jobId}] Job status updated to processing`)
     }
+
 
     console.log(`📦 [${jobId}] Fetching connected integrations...`)
     const { data: integrations, error } = await supabase
