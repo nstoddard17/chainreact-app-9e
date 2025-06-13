@@ -70,6 +70,15 @@ export function getOAuthProvider(provider: SupportedProvider): OAuthProvider {
   return providerService
 }
 
+export function getOAuthService(provider: SupportedProvider) {
+  const providerService = oauthProviders[provider]
+  if (!providerService) {
+    throw new Error(`Unsupported OAuth provider: ${provider}`)
+  }
+
+  return providerService
+}
+
 export function generateOAuthUrl(
   provider: SupportedProvider,
   baseUrl: string,
