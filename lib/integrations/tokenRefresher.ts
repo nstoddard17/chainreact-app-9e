@@ -16,6 +16,7 @@ interface RefreshResult {
   newToken?: string
   newExpiry?: number
   newRefreshToken?: string
+  requiresReconnect?: boolean
 }
 
 /**
@@ -96,6 +97,27 @@ export async function refreshTokenIfNeeded(integration: Integration): Promise<Re
       }
 
       await db.from("integrations").update(updateData).eq("id", integration.id)
+    } else if (result.requiresReconnect) {
+      // If the token refresh failed due to invalid_grant, mark the integration as disconnected
+      await db
+        .from("integrations")
+        .update({
+          status: "disconnected",
+          disconnected_at: new Date().toISOString(),
+          disconnect_reason: result.message,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", integration.id)
+
+      // Create a notification for the user
+      try {
+        await db.rpc("create_token_expiry_notification", {
+          p_user_id: integration.user_id,
+          p_provider: integration.provider,
+        })
+      } catch (notifError) {
+        console.error(`Failed to create notification for ${integration.provider}:`, notifError)
+      }
     }
 
     return result
@@ -126,7 +148,7 @@ async function refreshTokenByProvider(integration: Integration): Promise<Refresh
       return refreshGoogleToken(refresh_token!)
     case "teams":
     case "onedrive":
-      return refreshMicrosoftToken(refresh_token!)
+      return refreshMicrosoftToken(refresh_token!, integration)
     case "dropbox":
       return refreshDropboxToken(refresh_token!)
     case "slack":
@@ -174,6 +196,16 @@ async function refreshGoogleToken(refreshToken: string): Promise<RefreshResult> 
     const data = await response.json()
 
     if (!response.ok) {
+      // Check for invalid_grant error which means the refresh token is no longer valid
+      if (data.error === "invalid_grant") {
+        return {
+          refreshed: false,
+          success: false,
+          message: "Google token expired and requires re-authentication",
+          requiresReconnect: true,
+        }
+      }
+
       return {
         refreshed: false,
         success: false,
@@ -201,7 +233,7 @@ async function refreshGoogleToken(refreshToken: string): Promise<RefreshResult> 
 /**
  * Refreshes a Microsoft OAuth token (Teams, OneDrive)
  */
-async function refreshMicrosoftToken(refreshToken: string): Promise<RefreshResult> {
+async function refreshMicrosoftToken(refreshToken: string, integration: Integration): Promise<RefreshResult> {
   try {
     const clientId = process.env.NEXT_PUBLIC_TEAMS_CLIENT_ID || process.env.NEXT_PUBLIC_ONEDRIVE_CLIENT_ID
     const clientSecret = process.env.TEAMS_CLIENT_SECRET || process.env.ONEDRIVE_CLIENT_SECRET
@@ -230,6 +262,20 @@ async function refreshMicrosoftToken(refreshToken: string): Promise<RefreshResul
     const data = await response.json()
 
     if (!response.ok) {
+      // Check for invalid_grant error which means the refresh token is no longer valid
+      if (data.error === "invalid_grant") {
+        console.log(
+          `⚠️ Microsoft ${integration.provider} token for user ${integration.user_id} requires reconnection: invalid_grant`,
+        )
+
+        return {
+          refreshed: false,
+          success: false,
+          message: `Microsoft ${integration.provider} token requires re-authentication (invalid_grant)`,
+          requiresReconnect: true,
+        }
+      }
+
       return {
         refreshed: false,
         success: false,
@@ -286,6 +332,16 @@ async function refreshDropboxToken(refreshToken: string): Promise<RefreshResult>
     const data = await response.json()
 
     if (!response.ok) {
+      // Check for invalid_grant error
+      if (data.error === "invalid_grant") {
+        return {
+          refreshed: false,
+          success: false,
+          message: "Dropbox token expired and requires re-authentication",
+          requiresReconnect: true,
+        }
+      }
+
       return {
         refreshed: false,
         success: false,
@@ -341,6 +397,16 @@ async function refreshSlackToken(refreshToken: string): Promise<RefreshResult> {
     const data = await response.json()
 
     if (!data.ok) {
+      // Check for common Slack error that indicates token needs reconnection
+      if (data.error === "invalid_auth" || data.error === "token_revoked") {
+        return {
+          refreshed: false,
+          success: false,
+          message: "Slack token expired and requires re-authentication",
+          requiresReconnect: true,
+        }
+      }
+
       return {
         refreshed: false,
         success: false,
@@ -396,6 +462,16 @@ async function refreshTwitterToken(refreshToken: string): Promise<RefreshResult>
     const data = await response.json()
 
     if (!response.ok) {
+      // Check for invalid_grant error
+      if (data.error === "invalid_grant") {
+        return {
+          refreshed: false,
+          success: false,
+          message: "Twitter token expired and requires re-authentication",
+          requiresReconnect: true,
+        }
+      }
+
       return {
         refreshed: false,
         success: false,

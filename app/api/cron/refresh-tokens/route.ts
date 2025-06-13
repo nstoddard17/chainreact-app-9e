@@ -243,11 +243,37 @@ async function processIntegrationRefresh(integration: any, supabase: any) {
   }
 
   // For expired tokens, use more aggressive retry logic
-  const maxRetries = isExpired ? 5 : 3
+  const maxRetries = isExpired ? 3 : 2
   const result = await refreshTokenWithRetry(integration, supabase, maxRetries, isExpired)
 
+  // If the token requires reconnection, mark it as disconnected
+  if (result.requiresReconnect) {
+    await supabase
+      .from("integrations")
+      .update({
+        status: "disconnected",
+        disconnected_at: new Date().toISOString(),
+        disconnect_reason: "Token expired and requires re-authentication",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", integration.id)
+
+    console.error(
+      `❌ ${integration.provider} token for user ${integration.user_id} requires reconnection - marked as disconnected`,
+    )
+
+    // Create a notification for the user
+    try {
+      await supabase.rpc("create_token_expiry_notification", {
+        p_user_id: integration.user_id,
+        p_provider: integration.provider,
+      })
+    } catch (notifError) {
+      console.error(`Failed to create notification for ${integration.provider}:`, notifError)
+    }
+  }
   // If expired token refresh fails, mark as disconnected
-  if (isExpired && !result.success) {
+  else if (isExpired && !result.success) {
     await supabase
       .from("integrations")
       .update({
