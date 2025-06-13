@@ -7,19 +7,20 @@ import { useIntegrationStore } from "@/stores/integrationStore"
 import IntegrationCard from "./IntegrationCard"
 import IntegrationDiagnostics from "./IntegrationDiagnostics"
 import { Input } from "@/components/ui/input"
-import { Search, Loader2, Filter, CheckCircle, Stethoscope, RefreshCw } from "lucide-react"
+import { Search, Loader2, Filter, CheckCircle, Stethoscope, RefreshCw, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useSearchParams, useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
-// Add import for auth store
 import { useAuthStore } from "@/stores/authStore"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 export default function IntegrationsContent() {
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [localLoading, setLocalLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [oauthProcessed, setOauthProcessed] = useState(false)
   const [tokenRefreshing, setTokenRefreshing] = useState(false)
   const router = useRouter()
@@ -29,18 +30,28 @@ export default function IntegrationsContent() {
 
   const searchParams = useSearchParams()
   const { toast } = useToast()
-
-  // Inside the component, add:
   const { getCurrentUserId } = useAuthStore()
 
-  // Handle initial data loading
+  // Handle initial data loading with timeout
   useEffect(() => {
     const loadData = async () => {
       try {
         setLocalLoading(true)
+        setLoadError(null)
+
+        // Set a timeout to prevent infinite loading
+        const timeoutId = setTimeout(() => {
+          setLoadError("Loading integrations timed out. Please refresh the page.")
+          setLocalLoading(false)
+        }, 15000) // 15 second timeout
+
         await fetchIntegrations(true)
+
+        // Clear the timeout if successful
+        clearTimeout(timeoutId)
       } catch (err: any) {
         console.error("Failed to load integrations:", err)
+        setLoadError(err.message || "Failed to load integrations. Please try again.")
       } finally {
         setLocalLoading(false)
       }
@@ -180,7 +191,6 @@ export default function IntegrationsContent() {
     }
   }
 
-  // Add this function to handle token refreshing
   const handleRefreshTokens = async () => {
     try {
       setTokenRefreshing(true)
@@ -190,7 +200,12 @@ export default function IntegrationsContent() {
         throw new Error("User not authenticated")
       }
 
-      const response = await fetch("/api/integrations/refresh-all-tokens", {
+      // Set a timeout to prevent infinite loading
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error("Request timed out")), 10000)
+      })
+
+      const fetchPromise = fetch("/api/integrations/refresh-all-tokens", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -198,6 +213,8 @@ export default function IntegrationsContent() {
         body: JSON.stringify({ userId }),
       })
 
+      // Race between the fetch and the timeout
+      const response = (await Promise.race([fetchPromise, timeoutPromise])) as Response
       const data = await response.json()
 
       if (!response.ok) {
@@ -249,6 +266,19 @@ export default function IntegrationsContent() {
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
         <div className="container mx-auto px-4 py-8">
           <ScopeValidationAlert />
+
+          {loadError && (
+            <Alert variant="destructive" className="mb-6">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Error</AlertTitle>
+              <AlertDescription>
+                {loadError}
+                <Button variant="outline" size="sm" className="ml-4 bg-white" onClick={() => window.location.reload()}>
+                  Refresh Page
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
 
           <div className="space-y-8">
             {/* Header Section */}
