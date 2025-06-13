@@ -38,6 +38,7 @@ interface IntegrationState {
   verifyIntegrationScopes: () => Promise<void>
   connectIntegration: (providerId: string) => Promise<void>
   disconnectIntegration: (integrationId: string) => Promise<void>
+  refreshIntegration: (providerId: string, integrationId?: string) => Promise<void>
   refreshTokens: () => Promise<{
     success: boolean
     message: string
@@ -319,6 +320,13 @@ const availableProviders: Provider[] = [
   },
 ]
 
+// Helper function to create a promise that rejects after a timeout
+const timeoutPromise = (ms: number) => {
+  return new Promise((_, reject) => {
+    setTimeout(() => reject(new Error(`Request timed out after ${ms}ms`)), ms)
+  })
+}
+
 export const useIntegrationStore = create<IntegrationState>((set, get) => ({
   integrations: [],
   providers: availableProviders,
@@ -349,11 +357,19 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
 
       console.log("Fetching integrations for user:", user.id)
 
-      const { data, error } = await supabase
+      // Use Promise.race to implement a timeout
+      const fetchPromise = supabase
         .from("integrations")
         .select("*")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
+
+      const result = await Promise.race([
+        fetchPromise,
+        timeoutPromise(10000), // 10 second timeout
+      ])
+
+      const { data, error } = result as any
 
       if (error) {
         console.error("Supabase error:", error)
@@ -363,7 +379,7 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
       console.log("Fetched integrations:", data?.length || 0)
       console.log(
         "Integration details:",
-        data?.map((i) => ({
+        data?.map((i: any) => ({
           id: i.id,
           provider: i.provider,
           status: i.status,
@@ -372,7 +388,7 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
       )
 
       // Debug: Check specifically for YouTube
-      const youtubeIntegration = data?.find((i) => i.provider === "youtube")
+      const youtubeIntegration = data?.find((i: any) => i.provider === "youtube")
       if (youtubeIntegration) {
         console.log("Found YouTube integration:", {
           id: youtubeIntegration.id,
@@ -396,11 +412,11 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
     } catch (error: any) {
       console.error("Failed to fetch integrations:", error)
       set({
-        integrations: [],
         loading: false,
         error: error.message || "Failed to fetch integrations",
         lastRefreshed: new Date().toISOString(),
       })
+      // Don't clear integrations on error to prevent UI flashing
     }
   },
 
@@ -444,7 +460,8 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
 
       console.log("Making API call to generate auth URL")
 
-      const response = await fetch(`/api/integrations/auth/generate-url`, {
+      // Use Promise.race to implement a timeout
+      const fetchPromise = fetch(`/api/integrations/auth/generate-url`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -454,6 +471,11 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
           userId: user.id,
         }),
       })
+
+      const response = (await Promise.race([
+        fetchPromise,
+        timeoutPromise(15000), // 15 second timeout
+      ])) as Response
 
       console.log("API response status:", response.status)
 
@@ -488,6 +510,10 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
 
   disconnectIntegration: async (integrationId: string) => {
     try {
+      if (!integrationId) {
+        throw new Error("Integration ID is required")
+      }
+
       const { error } = await supabase.from("integrations").update({ status: "disconnected" }).eq("id", integrationId)
 
       if (error) {
@@ -501,16 +527,56 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
     }
   },
 
+  refreshIntegration: async (providerId: string, integrationId?: string) => {
+    try {
+      if (!integrationId) {
+        throw new Error("Integration ID is required")
+      }
+
+      // Use Promise.race to implement a timeout
+      const fetchPromise = fetch(`/api/integrations/refresh-token`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          integrationId,
+        }),
+      })
+
+      const response = (await Promise.race([
+        fetchPromise,
+        timeoutPromise(10000), // 10 second timeout
+      ])) as Response
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || "Failed to refresh integration")
+      }
+
+      await get().fetchIntegrations(true)
+    } catch (error: any) {
+      console.error("Failed to refresh integration:", error)
+      throw error
+    }
+  },
+
   refreshTokens: async () => {
     try {
       set({ refreshing: true })
 
-      const response = await fetch("/api/integrations/refresh-tokens", {
+      // Use Promise.race to implement a timeout
+      const fetchPromise = fetch("/api/integrations/refresh-tokens", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
       })
+
+      const response = (await Promise.race([
+        fetchPromise,
+        timeoutPromise(15000), // 15 second timeout
+      ])) as Response
 
       if (!response.ok) {
         // If the endpoint doesn't exist, just refresh the data
