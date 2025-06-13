@@ -1,75 +1,109 @@
-interface HubSpotConfig {
-  accessToken: string
-  refreshToken?: string
-  clientId?: string
-  clientSecret?: string
-}
+export const hubspot = {
+  clientId: process.env.NEXT_PUBLIC_HUBSPOT_CLIENT_ID,
+  clientSecret: process.env.HUBSPOT_CLIENT_SECRET,
+  redirectUri: `${process.env.NEXT_PUBLIC_SITE_URL}/api/integrations/hubspot/callback`,
 
-export class HubSpotClient {
-  private config: HubSpotConfig
+  getAuthUrl(state: string, scopes: string[] = ["contacts", "content"]) {
+    const params = new URLSearchParams({
+      client_id: this.clientId!,
+      redirect_uri: this.redirectUri,
+      response_type: "code",
+      scope: scopes.join(" "),
+      state,
+    })
 
-  constructor(config: HubSpotConfig) {
-    this.config = config
-  }
+    return `https://app.hubspot.com/oauth/authorize?${params.toString()}`
+  },
 
-  async makeRequest(endpoint: string, options: RequestInit = {}) {
-    const url = `https://api.hubapi.com${endpoint}`
-
-    const response = await fetch(url, {
-      ...options,
+  async exchangeCodeForToken(code: string) {
+    const response = await fetch("https://api.hubapi.com/oauth/v1/token", {
+      method: "POST",
       headers: {
-        Authorization: `Bearer ${this.config.accessToken}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        grant_type: "authorization_code",
+        client_id: this.clientId!,
+        client_secret: this.clientSecret!,
+        redirect_uri: this.redirectUri,
+        code,
+      }),
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`Failed to exchange code for token: ${response.status} ${errorText}`)
+    }
+
+    return response.json()
+  },
+
+  async refreshToken(refreshToken: string) {
+    const response = await fetch("https://api.hubapi.com/oauth/v1/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        client_id: this.clientId!,
+        client_secret: this.clientSecret!,
+        refresh_token: refreshToken,
+      }),
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`Failed to refresh token: ${response.status} ${errorText}`)
+    }
+
+    return response.json()
+  },
+
+  async getTokenInfo(accessToken: string) {
+    const response = await fetch(`https://api.hubapi.com/oauth/v1/access-tokens/${accessToken}`, {
+      method: "GET",
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`Failed to get token info: ${response.status} ${errorText}`)
+    }
+
+    return response.json()
+  },
+
+  async getUserInfo(accessToken: string) {
+    // Get account info
+    const response = await fetch("https://api.hubapi.com/account-info/v3/details", {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
-        ...options.headers,
       },
     })
 
     if (!response.ok) {
-      throw new Error(`HubSpot API error: ${response.status} ${response.statusText}`)
+      const errorText = await response.text()
+      throw new Error(`Failed to get user info: ${response.status} ${errorText}`)
     }
 
     return response.json()
-  }
+  },
 
-  async getContacts(limit = 100) {
-    return this.makeRequest(`/crm/v3/objects/contacts?limit=${limit}`)
-  }
-
-  async createContact(properties: Record<string, any>) {
-    return this.makeRequest("/crm/v3/objects/contacts", {
-      method: "POST",
-      body: JSON.stringify({ properties }),
+  async getPortalInfo(accessToken: string) {
+    // Get portal/hub info
+    const response = await fetch("https://api.hubapi.com/integrations/v1/me", {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
     })
-  }
 
-  async getCompanies(limit = 100) {
-    return this.makeRequest(`/crm/v3/objects/companies?limit=${limit}`)
-  }
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`Failed to get portal info: ${response.status} ${errorText}`)
+    }
 
-  async createCompany(properties: Record<string, any>) {
-    return this.makeRequest("/crm/v3/objects/companies", {
-      method: "POST",
-      body: JSON.stringify({ properties }),
-    })
-  }
-
-  async getDeals(limit = 100) {
-    return this.makeRequest(`/crm/v3/objects/deals?limit=${limit}`)
-  }
-
-  async createDeal(properties: Record<string, any>) {
-    return this.makeRequest("/crm/v3/objects/deals", {
-      method: "POST",
-      body: JSON.stringify({ properties }),
-    })
-  }
-}
-
-export function getHubSpotClient(accessToken: string, refreshToken?: string): HubSpotClient {
-  return new HubSpotClient({
-    accessToken,
-    refreshToken,
-    clientId: process.env.NEXT_PUBLIC_HUBSPOT_CLIENT_ID,
-    clientSecret: process.env.HUBSPOT_CLIENT_SECRET,
-  })
+    return response.json()
+  },
 }
