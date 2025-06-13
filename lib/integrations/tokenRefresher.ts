@@ -221,18 +221,58 @@ async function refreshHubSpotToken(refreshToken: string): Promise<RefreshResult>
     console.log(`   URL: https://api.hubapi.com/oauth/v1/token`)
     console.log(`   Body: grant_type=refresh_token&client_id=${clientId}&client_secret=[HIDDEN]&refresh_token=[HIDDEN]`)
 
-    const response = await fetch("https://api.hubapi.com/oauth/v1/token", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: requestBody,
-    })
+    // Add timeout to prevent hanging
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => {
+      console.log(`⏰ HubSpot API request timeout after 30 seconds`)
+      controller.abort()
+    }, 30000) // 30 second timeout
 
-    console.log(`📥 HubSpot API response status: ${response.status} ${response.statusText}`)
+    let response: Response
+    try {
+      console.log(`🌐 Initiating fetch request...`)
+      response = await fetch("https://api.hubapi.com/oauth/v1/token", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: requestBody,
+        signal: controller.signal,
+      })
+      clearTimeout(timeoutId)
+      console.log(`📥 HubSpot API response received - status: ${response.status} ${response.statusText}`)
+    } catch (fetchError: any) {
+      clearTimeout(timeoutId)
+      console.error(`💥 Fetch request failed:`, fetchError)
 
-    const data = await response.json()
-    console.log(`📋 HubSpot API response data:`, data)
+      if (fetchError.name === "AbortError") {
+        return {
+          refreshed: false,
+          success: false,
+          message: "HubSpot API request timed out after 30 seconds",
+        }
+      }
+
+      return {
+        refreshed: false,
+        success: false,
+        message: `HubSpot API request failed: ${fetchError.message}`,
+      }
+    }
+
+    let data: any
+    try {
+      console.log(`📋 Parsing JSON response...`)
+      data = await response.json()
+      console.log(`📋 HubSpot API response data:`, data)
+    } catch (parseError: any) {
+      console.error(`💥 Failed to parse JSON response:`, parseError)
+      return {
+        refreshed: false,
+        success: false,
+        message: `Failed to parse HubSpot API response: ${parseError.message}`,
+      }
+    }
 
     if (!response.ok) {
       console.log(`❌ HubSpot API request failed with status ${response.status}`)
