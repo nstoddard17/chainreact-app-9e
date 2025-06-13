@@ -156,6 +156,8 @@ async function refreshTokenByProvider(integration: Integration): Promise<Refresh
       return refreshSlackToken(refresh_token!)
     case "twitter":
       return refreshTwitterToken(refresh_token!)
+    case "hubspot":
+      return refreshHubSpotToken(refresh_token!)
     default:
       return {
         refreshed: false,
@@ -493,6 +495,72 @@ async function refreshTwitterToken(refreshToken: string): Promise<RefreshResult>
       refreshed: false,
       success: false,
       message: `Twitter token refresh error: ${(error as Error).message}`,
+    }
+  }
+}
+
+/**
+ * Refreshes a HubSpot OAuth token
+ */
+async function refreshHubSpotToken(refreshToken: string): Promise<RefreshResult> {
+  try {
+    const clientId = process.env.NEXT_PUBLIC_HUBSPOT_CLIENT_ID
+    const clientSecret = process.env.HUBSPOT_CLIENT_SECRET
+
+    if (!clientId || !clientSecret) {
+      return {
+        refreshed: false,
+        success: false,
+        message: "Missing HubSpot OAuth credentials",
+      }
+    }
+
+    const response = await fetch("https://api.hubapi.com/oauth/v1/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        client_id: clientId,
+        client_secret: clientSecret,
+        refresh_token: refreshToken,
+      }),
+    })
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      // Check for invalid_grant error which means the refresh token is no longer valid
+      if (data.error === "invalid_grant") {
+        return {
+          refreshed: false,
+          success: false,
+          message: "HubSpot token expired and requires re-authentication",
+          requiresReconnect: true,
+        }
+      }
+
+      return {
+        refreshed: false,
+        success: false,
+        message: `HubSpot token refresh failed: ${data.error || data.message}`,
+      }
+    }
+
+    return {
+      refreshed: true,
+      success: true,
+      message: "Successfully refreshed HubSpot token",
+      newToken: data.access_token,
+      newExpiry: Math.floor(Date.now() / 1000) + (data.expires_in || 21600), // HubSpot tokens typically expire in 6 hours
+      newRefreshToken: data.refresh_token, // HubSpot may provide a new refresh token
+    }
+  } catch (error) {
+    return {
+      refreshed: false,
+      success: false,
+      message: `HubSpot token refresh error: ${(error as Error).message}`,
     }
   }
 }
