@@ -113,62 +113,98 @@ async function backgroundRefreshTokens(jobId: string, startTime: number): Promis
 
     console.log(`📦 [${jobId}] Fetching integrations that need token refresh...`)
 
-    // Fetch integrations that need attention:
-    // 1. Connected integrations
-    // 2. Recently disconnected integrations with refresh tokens (within 7 days)
-    // 3. Integrations marked as needs_reauthorization with refresh tokens (within 7 days)
-    // 4. Expired integrations that still have refresh tokens
+    // Calculate 7 days ago for recovery attempts
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
 
-    const { data: integrations, error } = await supabase
+    // First, get all connected integrations
+    const { data: connectedIntegrations, error: connectedError } = await supabase
       .from("integrations")
       .select("*")
-      .or(`
-    status.eq.connected,
-    and(
-      status.eq.disconnected,
-      refresh_token.not.is.null,
-      disconnected_at.gte.${sevenDaysAgo}
-    ),
-    and(
-      status.eq.needs_reauthorization,
-      refresh_token.not.is.null,
-      updated_at.gte.${sevenDaysAgo}
-    ),
-    and(
-      status.eq.expired,
-      refresh_token.not.is.null,
-      updated_at.gte.${sevenDaysAgo}
+      .eq("status", "connected")
+
+    if (connectedError) {
+      console.error(`❌ [${jobId}] Error fetching connected integrations:`, connectedError)
+      throw new Error(`Error fetching connected integrations: ${connectedError.message}`)
+    }
+
+    // Then get recently disconnected integrations with refresh tokens
+    const { data: disconnectedIntegrations, error: disconnectedError } = await supabase
+      .from("integrations")
+      .select("*")
+      .eq("status", "disconnected")
+      .not("refresh_token", "is", null)
+      .gte("disconnected_at", sevenDaysAgo)
+
+    if (disconnectedError) {
+      console.error(`❌ [${jobId}] Error fetching disconnected integrations:`, disconnectedError)
+    }
+
+    // Get integrations needing reauthorization with refresh tokens
+    const { data: reAuthIntegrations, error: reAuthError } = await supabase
+      .from("integrations")
+      .select("*")
+      .eq("status", "needs_reauthorization")
+      .not("refresh_token", "is", null)
+      .gte("updated_at", sevenDaysAgo)
+
+    if (reAuthError) {
+      console.error(`❌ [${jobId}] Error fetching reauth integrations:`, reAuthError)
+    }
+
+    // Get expired integrations with refresh tokens
+    const { data: expiredIntegrations, error: expiredError } = await supabase
+      .from("integrations")
+      .select("*")
+      .eq("status", "expired")
+      .not("refresh_token", "is", null)
+      .gte("updated_at", sevenDaysAgo)
+
+    if (expiredError) {
+      console.error(`❌ [${jobId}] Error fetching expired integrations:`, expiredError)
+    }
+
+    // Combine all results
+    const integrations = [
+      ...(connectedIntegrations || []),
+      ...(disconnectedIntegrations || []),
+      ...(reAuthIntegrations || []),
+      ...(expiredIntegrations || []),
+    ]
+
+    // Remove duplicates by id (shouldn't happen but just in case)
+    const uniqueIntegrations = integrations.filter(
+      (integration, index, self) => index === self.findIndex((i) => i.id === integration.id),
     )
-  `)
+
+    const { error } = await supabase.from("integrations").select("*")
 
     if (error) {
       console.error(`❌ [${jobId}] Supabase fetch error:`, error)
       throw new Error(`Error fetching integrations: ${error.message}`)
     }
 
-    if (!integrations?.length) {
+    if (!uniqueIntegrations?.length) {
       console.log(`ℹ️ [${jobId}] No integrations found that need token refresh`)
       await completeJob(supabase, jobId, startTime, stats, false)
       return
     }
 
-    console.log(`🔍 [${jobId}] Found ${integrations.length} integrations that need attention`)
-    console.log(`   - Connected: ${integrations.filter((i) => i.status === "connected").length}`)
-    console.log(`   - Disconnected: ${integrations.filter((i) => i.status === "disconnected").length}`)
-    console.log(`   - Needs Reauth: ${integrations.filter((i) => i.status === "needs_reauthorization").length}`)
-    console.log(`   - Expired: ${integrations.filter((i) => i.status === "expired").length}`)
+    console.log(`🔍 [${jobId}] Found ${uniqueIntegrations.length} integrations that need attention`)
+    console.log(`   - Connected: ${uniqueIntegrations.filter((i) => i.status === "connected").length}`)
+    console.log(`   - Disconnected: ${uniqueIntegrations.filter((i) => i.status === "disconnected").length}`)
+    console.log(`   - Needs Reauth: ${uniqueIntegrations.filter((i) => i.status === "needs_reauthorization").length}`)
+    console.log(`   - Expired: ${uniqueIntegrations.filter((i) => i.status === "expired").length}`)
 
-    stats.totalProcessed = integrations.length
+    stats.totalProcessed = uniqueIntegrations.length
 
     const batchSize = 5
-    for (let i = 0; i < integrations.length; i += batchSize) {
+    for (let i = 0; i < uniqueIntegrations.length; i += batchSize) {
       if (i > 0 && i % 20 === 0) {
-        console.log(`📊 [${jobId}] Progress update: ${i}/${integrations.length} processed`)
+        console.log(`📊 [${jobId}] Progress update: ${i}/${uniqueIntegrations.length} processed`)
         await supabase
           .from("token_refresh_logs")
           .update({
-            status: `processing (${i}/${integrations.length})`,
+            status: `processing (${i}/${uniqueIntegrations.length})`,
             total_processed: i,
             successful_refreshes: stats.successful,
             failed_refreshes: stats.failed,
@@ -178,7 +214,7 @@ async function backgroundRefreshTokens(jobId: string, startTime: number): Promis
           .eq("job_id", jobId)
       }
 
-      const batch = integrations.slice(i, i + batchSize)
+      const batch = uniqueIntegrations.slice(i, i + batchSize)
       console.log(`🔄 [${jobId}] Processing batch ${Math.floor(i / batchSize) + 1}: ${batch.length} integrations`)
 
       await Promise.allSettled(
@@ -209,7 +245,7 @@ async function backgroundRefreshTokens(jobId: string, startTime: number): Promis
         }),
       )
 
-      if (i + batchSize < integrations.length) {
+      if (i + batchSize < uniqueIntegrations.length) {
         console.log(`⏸️ [${jobId}] Waiting 1s before next batch…`)
         await new Promise((r) => setTimeout(r, 1000))
       }
