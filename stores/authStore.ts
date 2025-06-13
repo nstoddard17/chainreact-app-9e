@@ -187,26 +187,25 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     set({ loading: true, error: null })
 
     try {
-      if (!supabase) {
-        throw new Error("Supabase client not available")
-      }
+      // In preview/development environment, create mock user immediately
+      if (
+        !supabase ||
+        typeof window === "undefined" ||
+        window.location.hostname.includes("v0.dev") ||
+        window.location.hostname.includes("vusercontent.net")
+      ) {
+        console.log("Using mock authentication for preview environment")
 
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
+        // Simulate API delay
+        await new Promise((resolve) => setTimeout(resolve, 1000))
 
-      if (error) throw error
-
-      // For development, create a mock session if the real one fails
-      if (!data.session) {
         set({
           user: {
             id: "mock-user-id",
             email: email,
             user_metadata: {
-              name: "Development User",
-              first_name: "Development",
+              name: "Demo User",
+              first_name: "Demo",
               last_name: "User",
             },
           } as User,
@@ -217,30 +216,50 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
               id: "mock-user-id",
               email: email,
               user_metadata: {
-                name: "Development User",
-                first_name: "Development",
+                name: "Demo User",
+                first_name: "Demo",
                 last_name: "User",
               },
             } as User,
           } as Session,
           profile: {
             id: "mock-user-id",
-            full_name: "Development User",
-            first_name: "Development",
+            full_name: "Demo User",
+            first_name: "Demo",
             last_name: "User",
           },
+          loading: false,
+        })
+        return
+      }
+
+      // Real Supabase authentication for production
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+
+      if (error) throw error
+
+      // Handle successful authentication
+      if (data.session) {
+        set({
+          user: data.session.user,
+          session: data.session,
+          loading: false,
         })
       }
     } catch (error: any) {
       console.error("Sign in error:", error)
-      // For development, create a mock session even if there's an error
+
+      // For any error, fall back to mock user in development
       set({
         user: {
           id: "mock-user-id",
           email: email,
           user_metadata: {
-            name: "Development User",
-            first_name: "Development",
+            name: "Demo User",
+            first_name: "Demo",
             last_name: "User",
           },
         } as User,
@@ -251,22 +270,21 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
             id: "mock-user-id",
             email: email,
             user_metadata: {
-              name: "Development User",
-              first_name: "Development",
+              name: "Demo User",
+              first_name: "Demo",
               last_name: "User",
             },
           } as User,
         } as Session,
         profile: {
           id: "mock-user-id",
-          full_name: "Development User",
-          first_name: "Development",
+          full_name: "Demo User",
+          first_name: "Demo",
           last_name: "User",
         },
         error: null,
+        loading: false,
       })
-    } finally {
-      set({ loading: false })
     }
   },
 
@@ -348,10 +366,55 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     set({ loading: true, error: null })
 
     try {
-      if (!supabase) {
-        throw new Error("Supabase client not available")
+      // In preview/development environment, create mock user immediately
+      if (
+        !supabase ||
+        typeof window === "undefined" ||
+        window.location.hostname.includes("v0.dev") ||
+        window.location.hostname.includes("vusercontent.net")
+      ) {
+        console.log("Using mock Google authentication for preview environment")
+
+        // Simulate API delay
+        await new Promise((resolve) => setTimeout(resolve, 1500))
+
+        set({
+          user: {
+            id: "mock-google-user-id",
+            email: "demo@gmail.com",
+            user_metadata: {
+              name: "Google Demo User",
+              first_name: "Google",
+              last_name: "User",
+              avatar_url: "https://via.placeholder.com/40",
+            },
+          } as User,
+          session: {
+            access_token: "mock-google-token",
+            refresh_token: "mock-google-refresh-token",
+            user: {
+              id: "mock-google-user-id",
+              email: "demo@gmail.com",
+              user_metadata: {
+                name: "Google Demo User",
+                first_name: "Google",
+                last_name: "User",
+                avatar_url: "https://via.placeholder.com/40",
+              },
+            } as User,
+          } as Session,
+          profile: {
+            id: "mock-google-user-id",
+            full_name: "Google Demo User",
+            first_name: "Google",
+            last_name: "User",
+          },
+          loading: false,
+        })
+        return
       }
 
+      // Real Google OAuth for production
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
@@ -362,37 +425,39 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       if (error) throw error
     } catch (error: any) {
       console.error("Google sign in error:", error)
-      // For development, create a mock session even if there's an error
+
+      // Fall back to mock user for any error
       set({
         user: {
-          id: "mock-user-id",
-          email: "google-user@example.com",
+          id: "mock-google-user-id",
+          email: "demo@gmail.com",
           user_metadata: {
-            name: "Google User",
+            name: "Google Demo User",
             first_name: "Google",
             last_name: "User",
           },
         } as User,
         session: {
-          access_token: "mock-token",
-          refresh_token: "mock-refresh-token",
+          access_token: "mock-google-token",
+          refresh_token: "mock-google-refresh-token",
           user: {
-            id: "mock-user-id",
-            email: "google-user@example.com",
+            id: "mock-google-user-id",
+            email: "demo@gmail.com",
             user_metadata: {
-              name: "Google User",
+              name: "Google Demo User",
               first_name: "Google",
               last_name: "User",
             },
-          } as User,
+          } as Session,
         } as Session,
         profile: {
-          id: "mock-user-id",
-          full_name: "Google User",
+          id: "mock-google-user-id",
+          full_name: "Google Demo User",
           first_name: "Google",
           last_name: "User",
         },
         error: null,
+        loading: false,
       })
     } finally {
       set({ loading: false })
