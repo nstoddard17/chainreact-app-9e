@@ -296,6 +296,10 @@ async function refreshHubSpotToken(refreshToken: string): Promise<RefreshResult>
     }
 
     console.log(`✅ HubSpot token refresh successful`)
+    console.log(`🔑 New token received: ${data.access_token ? "YES" : "NO"}`)
+    console.log(`⏰ Expires in: ${data.expires_in || "NOT_PROVIDED"} seconds`)
+    console.log(`🔄 New refresh token: ${data.refresh_token ? "YES" : "NO"}`)
+
     return {
       refreshed: true,
       success: true,
