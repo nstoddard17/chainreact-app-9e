@@ -50,7 +50,7 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
   const handleDisconnect = async () => {
     try {
       setConnecting(true)
-      await disconnectIntegration(provider.id, provider.integration?.id)
+      await disconnectIntegration(provider.integration?.id)
       toast({
         title: "Integration Disconnected",
         description: `${provider.name} has been disconnected.`,
