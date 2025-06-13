@@ -18,6 +18,7 @@ interface RefreshStats {
 }
 
 export async function GET(request: NextRequest) {
+  const jobId = `refresh-job-${Date.now()}`
   const startTime = Date.now()
 
   try {
@@ -39,55 +40,48 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    console.log("🔄 Starting comprehensive token refresh cron job...")
-
-    // Run the enhanced token refresh job
-    const stats = await refreshExpiringTokens()
-
-    // Log comprehensive results
-    const duration = Date.now() - startTime
-    console.log(`✅ Token refresh job completed in ${duration}ms`)
-    console.log(`📊 Stats: ${stats.successful} successful, ${stats.failed} failed, ${stats.skipped} skipped`)
-
-    // Log any errors for monitoring
-    if (stats.errors.length > 0) {
-      console.error("❌ Token refresh errors:", stats.errors)
+    // Create a Supabase client for database operations
+    const supabase = createAdminSupabaseClient()
+    if (!supabase) {
+      return NextResponse.json({ error: "Failed to create database client" }, { status: 500 })
     }
 
-    // Store job execution stats
-    await logJobExecution(stats, duration)
+    // Log job start in the database
+    await supabase.from("token_refresh_logs").insert({
+      job_id: jobId,
+      executed_at: new Date().toISOString(),
+      status: "started",
+      duration_ms: 0,
+      total_processed: 0,
+      successful_refreshes: 0,
+      failed_refreshes: 0,
+      skipped_refreshes: 0,
+      error_count: 0,
+      errors: [],
+      is_critical_failure: false,
+    })
 
+    // Start the background work without awaiting it
+    // This allows us to return a response immediately
+    backgroundRefreshTokens(jobId, startTime).catch((error) => {
+      console.error("Unhandled error in background token refresh:", error)
+    })
+
+    // Return an immediate response
     return NextResponse.json({
       success: true,
-      message: "Token refresh job completed successfully",
+      message: "Token refresh job started",
+      jobId,
       timestamp: new Date().toISOString(),
-      duration: `${duration}ms`,
-      stats,
     })
   } catch (error: any) {
-    const duration = Date.now() - startTime
-    console.error("💥 Critical error in token refresh cron job:", error)
-
-    // Log critical failure
-    await logJobExecution(
-      {
-        totalProcessed: 0,
-        successful: 0,
-        failed: 0,
-        skipped: 0,
-        errors: [{ provider: "system", userId: "system", error: error.message }],
-      },
-      duration,
-      true,
-    )
-
+    console.error("Error starting token refresh job:", error)
     return NextResponse.json(
       {
         success: false,
-        error: "Token refresh job failed",
+        error: "Failed to start token refresh job",
         details: error.message,
         timestamp: new Date().toISOString(),
-        duration: `${duration}ms`,
       },
       { status: 500 },
     )
@@ -95,12 +89,14 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * Enhanced background job to refresh tokens that are expiring soon
+ * Background function to refresh tokens
+ * This runs after the HTTP response has been sent
  */
-async function refreshExpiringTokens(): Promise<RefreshStats> {
+async function backgroundRefreshTokens(jobId: string, startTime: number): Promise<void> {
   const supabase = createAdminSupabaseClient()
   if (!supabase) {
-    throw new Error("Failed to create Supabase client for token refresh job")
+    console.error("Failed to create Supabase client for background job")
+    return
   }
 
   const stats: RefreshStats = {
@@ -112,6 +108,17 @@ async function refreshExpiringTokens(): Promise<RefreshStats> {
   }
 
   try {
+    console.log(`🔄 [${jobId}] Starting background token refresh job...`)
+
+    // Update job status to "processing"
+    await supabase
+      .from("token_refresh_logs")
+      .update({
+        status: "processing",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("job_id", jobId)
+
     // Get all connected integrations with refresh tokens
     const { data: integrations, error } = await supabase
       .from("integrations")
@@ -124,16 +131,32 @@ async function refreshExpiringTokens(): Promise<RefreshStats> {
     }
 
     if (!integrations || integrations.length === 0) {
-      console.log("ℹ️ No integrations with refresh tokens found")
-      return stats
+      console.log(`ℹ️ [${jobId}] No integrations with refresh tokens found`)
+      await completeJob(supabase, jobId, startTime, stats, false)
+      return
     }
 
-    console.log(`🔍 Found ${integrations.length} integrations with refresh tokens`)
+    console.log(`🔍 [${jobId}] Found ${integrations.length} integrations with refresh tokens`)
     stats.totalProcessed = integrations.length
 
     // Process integrations in batches to avoid overwhelming APIs
     const batchSize = 5
     for (let i = 0; i < integrations.length; i += batchSize) {
+      // Periodically update the job status to show progress
+      if (i > 0 && i % 20 === 0) {
+        await supabase
+          .from("token_refresh_logs")
+          .update({
+            status: `processing (${i}/${integrations.length})`,
+            total_processed: i,
+            successful_refreshes: stats.successful,
+            failed_refreshes: stats.failed,
+            skipped_refreshes: stats.skipped,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("job_id", jobId)
+      }
+
       const batch = integrations.slice(i, i + batchSize)
 
       await Promise.allSettled(
@@ -143,7 +166,7 @@ async function refreshExpiringTokens(): Promise<RefreshStats> {
 
             if (result.refreshed) {
               stats.successful++
-              console.log(`✅ Refreshed ${integration.provider} for user ${integration.user_id}`)
+              console.log(`✅ [${jobId}] Refreshed ${integration.provider} for user ${integration.user_id}`)
             } else if (result.success) {
               stats.skipped++
             } else {
@@ -154,7 +177,7 @@ async function refreshExpiringTokens(): Promise<RefreshStats> {
                 error: result.message,
               })
               console.warn(
-                `⚠️ Failed to refresh ${integration.provider} for user ${integration.user_id}: ${result.message}`,
+                `⚠️ [${jobId}] Failed to refresh ${integration.provider} for user ${integration.user_id}: ${result.message}`,
               )
             }
           } catch (error: any) {
@@ -164,12 +187,15 @@ async function refreshExpiringTokens(): Promise<RefreshStats> {
               userId: integration.user_id,
               error: error.message,
             })
-            console.error(`💥 Error processing ${integration.provider} for user ${integration.user_id}:`, error)
+            console.error(
+              `💥 [${jobId}] Error processing ${integration.provider} for user ${integration.user_id}:`,
+              error,
+            )
           }
         }),
       )
 
-      // Small delay between batches to be respectful to APIs
+      // Small delay between batches to avoid overwhelming APIs
       if (i + batchSize < integrations.length) {
         await new Promise((resolve) => setTimeout(resolve, 1000))
       }
@@ -178,10 +204,68 @@ async function refreshExpiringTokens(): Promise<RefreshStats> {
     // Clean up old refresh logs (keep last 30 days)
     await cleanupOldLogs(supabase)
 
-    return stats
+    // Complete the job
+    await completeJob(supabase, jobId, startTime, stats, false)
+
+    console.log(`✅ [${jobId}] Token refresh job completed successfully`)
   } catch (error: any) {
-    console.error("💥 Critical error in refreshExpiringTokens:", error)
-    throw error
+    console.error(`💥 [${jobId}] Critical error in background token refresh:`, error)
+
+    // Mark job as failed
+    await completeJob(supabase, jobId, startTime, stats, true, error.message)
+  }
+}
+
+/**
+ * Complete the job and update the database with results
+ */
+async function completeJob(
+  supabase: any,
+  jobId: string,
+  startTime: number,
+  stats: RefreshStats,
+  isCriticalFailure: boolean,
+  errorMessage?: string,
+): Promise<void> {
+  const duration = Date.now() - startTime
+
+  try {
+    await supabase
+      .from("token_refresh_logs")
+      .update({
+        status: isCriticalFailure ? "failed" : "completed",
+        duration_ms: duration,
+        total_processed: stats.totalProcessed,
+        successful_refreshes: stats.successful,
+        failed_refreshes: stats.failed,
+        skipped_refreshes: stats.skipped,
+        error_count: stats.errors.length,
+        errors: stats.errors,
+        is_critical_failure: isCriticalFailure,
+        error_message: errorMessage,
+        completed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("job_id", jobId)
+
+    // Also insert a summary record in a separate table for quick querying
+    await supabase
+      .from("token_refresh_summary")
+      .insert({
+        job_id: jobId,
+        executed_at: new Date(startTime).toISOString(),
+        completed_at: new Date().toISOString(),
+        duration_ms: duration,
+        status: isCriticalFailure ? "failed" : "completed",
+        total_processed: stats.totalProcessed,
+        successful: stats.successful,
+        failed: stats.failed,
+        skipped: stats.skipped,
+      })
+      .onConflict("job_id")
+      .merge()
+  } catch (error) {
+    console.error(`Failed to update job completion status for ${jobId}:`, error)
   }
 }
 
@@ -334,32 +418,6 @@ async function refreshTokenWithRetry(integration: any, supabase: any, maxRetries
     .eq("id", integration.id)
 
   throw lastError
-}
-
-async function logJobExecution(stats: RefreshStats, duration: number, isCriticalFailure = false) {
-  try {
-    const supabase = createAdminSupabaseClient()
-    if (!supabase) return
-
-    // Check if token_refresh_logs table exists, if not create it
-    const { error: insertError } = await supabase.from("token_refresh_logs").insert({
-      executed_at: new Date().toISOString(),
-      duration_ms: duration,
-      total_processed: stats.totalProcessed,
-      successful_refreshes: stats.successful,
-      failed_refreshes: stats.failed,
-      skipped_refreshes: stats.skipped,
-      error_count: stats.errors.length,
-      errors: stats.errors,
-      is_critical_failure: isCriticalFailure,
-    })
-
-    if (insertError) {
-      console.warn("Failed to log job execution (table may not exist):", insertError.message)
-    }
-  } catch (error) {
-    console.error("Failed to log job execution:", error)
-  }
 }
 
 async function cleanupOldLogs(supabase: any) {

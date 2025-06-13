@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server"
 import { db } from "@/lib/db"
-import { refreshTokenIfNeeded } from "@/lib/refresh" // Now correctly importing from lib/refresh.ts
+import { refreshTokenIfNeeded } from "@/lib/refresh"
 
 export async function GET(req: NextRequest) {
   const url = new URL(req.url)
