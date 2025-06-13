@@ -119,24 +119,21 @@ async function backgroundRefreshTokens(jobId: string, startTime: number): Promis
       })
       .eq("job_id", jobId)
 
-    // Get all connected integrations with refresh tokens
-    const { data: integrations, error } = await supabase
-      .from("integrations")
-      .select("*")
-      .eq("status", "connected")
-      .not("refresh_token", "is", null)
+    // Get ALL connected integrations (not just ones with refresh tokens)
+    const { data: integrations, error } = await supabase.from("integrations").select("*").eq("status", "connected")
+    // Removed the filter for refresh tokens
 
     if (error) {
       throw new Error(`Error fetching integrations: ${error.message}`)
     }
 
     if (!integrations || integrations.length === 0) {
-      console.log(`ℹ️ [${jobId}] No integrations with refresh tokens found`)
+      console.log(`ℹ️ [${jobId}] No connected integrations found`)
       await completeJob(supabase, jobId, startTime, stats, false)
       return
     }
 
-    console.log(`🔍 [${jobId}] Found ${integrations.length} integrations with refresh tokens`)
+    console.log(`🔍 [${jobId}] Found ${integrations.length} connected integrations`)
     stats.totalProcessed = integrations.length
 
     // Process integrations in batches to avoid overwhelming APIs
@@ -216,74 +213,12 @@ async function backgroundRefreshTokens(jobId: string, startTime: number): Promis
   }
 }
 
-/**
- * Complete the job and update the database with results
- */
-async function completeJob(
-  supabase: any,
-  jobId: string,
-  startTime: number,
-  stats: RefreshStats,
-  isCriticalFailure: boolean,
-  errorMessage?: string,
-): Promise<void> {
-  const duration = Date.now() - startTime
-
-  try {
-    await supabase
-      .from("token_refresh_logs")
-      .update({
-        status: isCriticalFailure ? "failed" : "completed",
-        duration_ms: duration,
-        total_processed: stats.totalProcessed,
-        successful_refreshes: stats.successful,
-        failed_refreshes: stats.failed,
-        skipped_refreshes: stats.skipped,
-        error_count: stats.errors.length,
-        errors: stats.errors,
-        is_critical_failure: isCriticalFailure,
-        error_message: errorMessage,
-        completed_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .eq("job_id", jobId)
-
-    // Also insert a summary record in a separate table for quick querying
-    await supabase
-      .from("token_refresh_summary")
-      .insert({
-        job_id: jobId,
-        executed_at: new Date(startTime).toISOString(),
-        completed_at: new Date().toISOString(),
-        duration_ms: duration,
-        status: isCriticalFailure ? "failed" : "completed",
-        total_processed: stats.totalProcessed,
-        successful: stats.successful,
-        failed: stats.failed,
-        skipped: stats.skipped,
-      })
-      .onConflict("job_id")
-      .merge()
-  } catch (error) {
-    console.error(`Failed to update job completion status for ${jobId}:`, error)
-  }
-}
-
 async function processIntegrationRefresh(integration: any, supabase: any) {
-  const isGoogleOrMicrosoft = [
-    "google",
-    "youtube",
-    "gmail",
-    "google-calendar",
-    "google-docs",
-    "google-drive",
-    "google-sheets",
-    "teams",
-    "onedrive",
-  ].includes(integration.provider)
+  // Use a consistent 30-minute threshold for all providers
+  const THIRTY_MINUTES = 30 * 60 // 30 minutes in seconds
 
-  // Determine if refresh is needed
-  let shouldRefresh = false
+  // Determine if token is expired or about to expire
+  let needsAttention = false
   let isExpired = false
   const now = Math.floor(Date.now() / 1000)
 
@@ -297,28 +232,21 @@ async function processIntegrationRefresh(integration: any, supabase: any) {
     const expiresIn = expiresAt - now
     isExpired = expiresIn <= 0
 
+    // Token needs attention if it's expired or expires within 30 minutes
+    needsAttention = isExpired || expiresIn < THIRTY_MINUTES
+
     if (isExpired) {
-      // Token is already expired - definitely refresh
-      shouldRefresh = true
       console.log(`⚠️ Token EXPIRED for ${integration.provider} (expired ${Math.abs(expiresIn)} seconds ago)`)
-    } else if (isGoogleOrMicrosoft && expiresIn < 3600) {
-      // For Google/Microsoft, refresh if expires within 1 hour
-      shouldRefresh = true
-      console.log(
-        `🔄 Google/Microsoft token expires soon for ${integration.provider} (${Math.floor(expiresIn / 60)} minutes)`,
-      )
-    } else if (!isGoogleOrMicrosoft && expiresIn < 7200) {
-      // For others, refresh if expires within 2 hours
-      shouldRefresh = true
+    } else if (expiresIn < THIRTY_MINUTES) {
       console.log(`🔄 Token expires soon for ${integration.provider} (${Math.floor(expiresIn / 60)} minutes)`)
     }
-  } else if (isGoogleOrMicrosoft) {
-    // No expiry set for Google/Microsoft - refresh to be safe
-    shouldRefresh = true
-    console.log(`⚠️ No expiry set for ${integration.provider} - refreshing to be safe`)
+  } else {
+    // No expiry set - consider it needs attention
+    needsAttention = true
+    console.log(`⚠️ No expiry set for ${integration.provider} - needs attention`)
   }
 
-  if (!shouldRefresh) {
+  if (!needsAttention) {
     return {
       refreshed: false,
       success: true,
@@ -326,7 +254,46 @@ async function processIntegrationRefresh(integration: any, supabase: any) {
     }
   }
 
-  // For expired tokens, use more aggressive retry logic
+  // Check if it has a refresh token
+  if (!integration.refresh_token) {
+    // No refresh token - create notification for user
+    console.log(`⚠️ Token for ${integration.provider} needs attention but has no refresh token`)
+
+    try {
+      await supabase
+        .from("integrations")
+        .update({
+          status: "needs_reauthorization",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", integration.id)
+
+      // Create a notification for the user
+      try {
+        await supabase.rpc("create_token_expiry_notification", {
+          p_user_id: integration.user_id,
+          p_provider: integration.provider,
+        })
+      } catch (notifError) {
+        console.error(`Failed to create notification for ${integration.provider}:`, notifError)
+      }
+
+      return {
+        refreshed: false,
+        success: false,
+        message: "Token needs reauthorization (no refresh token available)",
+      }
+    } catch (error) {
+      console.error(`Failed to update integration status for ${integration.provider}:`, error)
+      return {
+        refreshed: false,
+        success: false,
+        message: `Failed to update integration status: ${error.message}`,
+      }
+    }
+  }
+
+  // Has refresh token - try to refresh it
   const maxRetries = isExpired ? 3 : 2
   const result = await refreshTokenWithRetry(integration, supabase, maxRetries, isExpired)
 
@@ -432,5 +399,48 @@ async function cleanupOldLogs(supabase: any) {
     }
   } catch (error) {
     console.warn("Failed to cleanup old logs:", error)
+  }
+}
+
+async function completeJob(
+  supabase: any,
+  jobId: string,
+  startTime: number,
+  stats: RefreshStats,
+  isCriticalFailure: boolean,
+  errorMessage: string | null = null,
+) {
+  const endTime = Date.now()
+  const durationMs = endTime - startTime
+
+  try {
+    const updateData: any = {
+      status: isCriticalFailure ? "failed" : "completed",
+      duration_ms: durationMs,
+      total_processed: stats.totalProcessed,
+      successful_refreshes: stats.successful,
+      failed_refreshes: stats.failed,
+      skipped_refreshes: stats.skipped,
+      error_count: stats.errors.length,
+      errors: stats.errors,
+      is_critical_failure: isCriticalFailure,
+      updated_at: new Date().toISOString(),
+    }
+
+    if (errorMessage) {
+      updateData.error_message = errorMessage
+    }
+
+    const { error } = await supabase.from("token_refresh_logs").update(updateData).eq("job_id", jobId)
+
+    if (error) {
+      console.error(`Failed to update job status for ${jobId}:`, error)
+    } else {
+      console.log(
+        `[${jobId}] Job completed in ${durationMs}ms with status: ${isCriticalFailure ? "failed" : "completed"}`,
+      )
+    }
+  } catch (error) {
+    console.error(`Failed to update job status for ${jobId}:`, error)
   }
 }
