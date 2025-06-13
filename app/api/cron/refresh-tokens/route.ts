@@ -252,8 +252,17 @@ async function refreshTokenWithRetry(
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     console.log(`[${jobId}] 🔄 Attempt ${attempt}/${maxRetries} for ${integration.provider}`)
     try {
-      const result = await refreshTokenIfNeeded(integration)
-      if (result.success) {
+      let result
+      try {
+        result = await refreshTokenIfNeeded(integration)
+        console.log(`[${jobId}] 🔁 Received result from refreshTokenIfNeeded:`, result)
+      } catch (err) {
+        console.error(`[${jobId}] ❌ refreshTokenIfNeeded threw:`, err)
+        throw err
+      }
+
+      if (result?.success) {
+
         await supabase.from("integrations").update({
           last_token_refresh: new Date().toISOString(),
           consecutive_failures: 0,
