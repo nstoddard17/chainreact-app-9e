@@ -72,7 +72,20 @@ export async function GET(request: NextRequest) {
     }
 
     const tokenData = await tokenResponse.json()
-    const { access_token, refresh_token, expires_in } = tokenData
+    console.log("HubSpot token response:", JSON.stringify(tokenData, null, 2))
+    const { access_token, refresh_token, expires_in, scope } = tokenData
+
+    // Get granted scopes from the token data - try multiple possible locations
+    const grantedScopes = tokenData.scope
+      ? tokenData.scope.split(" ")
+      : tokenData.scopes
+        ? Array.isArray(tokenData.scopes)
+          ? tokenData.scopes
+          : tokenData.scopes.split(" ")
+        : []
+
+    console.log("HubSpot granted scopes:", grantedScopes)
+    console.log("Raw scope data:", { scope: tokenData.scope, scopes: tokenData.scopes })
 
     // Get user info
     const userResponse = await fetch("https://api.hubapi.com/oauth/v1/access-tokens/" + access_token)
@@ -101,7 +114,7 @@ export async function GET(request: NextRequest) {
       refresh_token,
       expires_at: expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null,
       status: "connected",
-      scopes: tokenData.scope ? tokenData.scope.split(" ") : [],
+      scopes: grantedScopes,
       metadata: {
         hub_domain: userData.hub_domain,
         hub_id: userData.hub_id,
