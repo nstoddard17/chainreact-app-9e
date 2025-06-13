@@ -26,10 +26,12 @@ export async function GET(request: NextRequest) {
 
     const supabase = createAdminSupabaseClient()
     if (!supabase) {
+      console.error("❌ Supabase client not created")
       return NextResponse.json({ error: "Failed to create database client" }, { status: 500 })
     }
+    console.log("🛠️ Supabase admin client created")
 
-    await supabase.from("token_refresh_logs").insert({
+    const { error: logInsertError } = await supabase.from("token_refresh_logs").insert({
       job_id: jobId,
       executed_at: new Date().toISOString(),
       status: "started",
@@ -42,6 +44,7 @@ export async function GET(request: NextRequest) {
       errors: [],
       is_critical_failure: false,
     })
+    if (logInsertError) console.error("❌ Failed to log job start:", logInsertError)
 
     setTimeout(() => {
       backgroundRefreshTokens(jobId, startTime).catch((error) =>
@@ -56,7 +59,7 @@ export async function GET(request: NextRequest) {
       timestamp: new Date().toISOString(),
     })
   } catch (error: any) {
-    console.error("Error starting token refresh job:", error)
+    console.error("💥 Error starting token refresh job:", error)
     return NextResponse.json(
       {
         success: false,
@@ -71,19 +74,27 @@ export async function GET(request: NextRequest) {
 
 async function backgroundRefreshTokens(jobId: string, startTime: number): Promise<void> {
   console.log("🔥 Entered backgroundRefreshTokens")
-
   const supabase = createAdminSupabaseClient()
   if (!supabase) {
-    console.error("❌ Failed to create Supabase client")
+    console.error("❌ Supabase admin client not created in background job")
     return
   }
+  console.log("🛠️ Supabase admin client created")
 
   try {
-    await supabase
+    console.log("⏳ Updating job status to 'processing'")
+    const { error: updateError } = await supabase
       .from("token_refresh_logs")
       .update({ status: "processing", updated_at: new Date().toISOString() })
       .eq("job_id", jobId)
 
+    if (updateError) {
+      console.error("❌ Failed to update job status:", updateError)
+    } else {
+      console.log("✅ Job status updated")
+    }
+
+    console.log("📦 Fetching integrations...")
     const { data: integrations, error } = await supabase
       .from("integrations")
       .select("*")
@@ -110,7 +121,8 @@ async function backgroundRefreshTokens(jobId: string, startTime: number): Promis
       }
     }
 
-    console.log(`✅ Token refresh job complete: ${jobId}`)
+    const durationMs = Date.now() - startTime
+    console.log(`✅ Token refresh job complete: ${jobId} in ${durationMs}ms`)
   } catch (err) {
     console.error("💥 Top-level failure in backgroundRefreshTokens:", err)
   }
