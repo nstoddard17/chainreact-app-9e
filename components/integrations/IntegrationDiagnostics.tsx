@@ -199,7 +199,10 @@ export default function IntegrationDiagnostics() {
                         {diagnostic.details.tokenExpiry && (
                           <div className="flex justify-between">
                             <span>Token Expires:</span>
-                            <span>{new Date(diagnostic.details.tokenExpiry).toLocaleDateString()}</span>
+                            <span>
+                              {new Date(diagnostic.details.tokenExpiry).toLocaleDateString()} at{" "}
+                              {new Date(diagnostic.details.tokenExpiry).toLocaleTimeString()}
+                            </span>
                           </div>
                         )}
                         {diagnostic.details.errorMessage && (
