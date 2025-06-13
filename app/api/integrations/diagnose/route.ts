@@ -124,8 +124,8 @@ const COMPONENT_SCOPE_MAPPING = {
   mailchimp_add_subscriber: { scopes: ["basic_access"], provider: "mailchimp" },
 
   // HubSpot components
-  hubspot_create_contact: { scopes: ["contacts"], provider: "hubspot" },
-  hubspot_get_deals: { scopes: ["crm.objects.deals.read"], provider: "hubspot" },
+  //hubspot_create_contact: { scopes: ["contacts"], provider: "hubspot" },
+  //hubspot_get_deals: { scopes: ["crm.objects.deals.read"], provider: "hubspot" },
 
   // Shopify components
   shopify_get_products: { scopes: ["read_products"], provider: "shopify" },

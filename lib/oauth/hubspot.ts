@@ -76,11 +76,13 @@ export class HubSpotOAuthService {
       }),
     )
 
+    // Add prompt=consent to force the consent screen to appear
     const params = new URLSearchParams({
       client_id: clientId,
       redirect_uri: redirectUri,
       scope: scopes.join(" "),
       state,
+      prompt: "consent", // Force consent screen to appear
     })
 
     return `https://app.hubspot.com/oauth/authorize?${params.toString()}`
@@ -151,10 +153,18 @@ export class HubSpotOAuthService {
       // Get granted scopes from the token data
       const grantedScopes = scope ? scope.split(" ") : []
 
+      console.log("HubSpot granted scopes:", grantedScopes)
+
       // Validate scopes
       const scopeValidation = this.validateScopes(grantedScopes)
 
       if (!scopeValidation.valid) {
+        console.error("HubSpot scope validation failed:", {
+          required: HubSpotOAuthService.getRequiredScopes(),
+          granted: grantedScopes,
+          missing: scopeValidation.missing,
+        })
+
         return {
           success: false,
           redirectUrl: `${getBaseUrl()}/integrations?error=insufficient_scopes&provider=hubspot&missing=${scopeValidation.missing.join(",")}`,
@@ -194,6 +204,7 @@ export class HubSpotOAuthService {
           hub_id: userData.hub_id,
           user_id: userData.user_id,
           connected_at: new Date().toISOString(),
+          raw_token_response: tokenData, // Store the raw token response for debugging
         },
       }
 
