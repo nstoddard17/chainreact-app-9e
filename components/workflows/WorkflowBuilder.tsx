@@ -277,6 +277,8 @@ export default function WorkflowBuilder() {
   const [showOptimizer, setShowOptimizer] = useState(false)
   const [showExitDialog, setShowExitDialog] = useState(false)
   const [showConnectModal, setShowConnectModal] = useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [stepToDelete, setStepToDelete] = useState<number>(-1)
 
   // Current selection states
   const [currentStepIndex, setCurrentStepIndex] = useState<number>(-1)
@@ -437,8 +439,17 @@ export default function WorkflowBuilder() {
   }
 
   const handleDeleteStep = (index: number) => {
-    const newSteps = workflowSteps.filter((_, i) => i !== index)
-    setWorkflowSteps(newSteps)
+    setStepToDelete(index)
+    setShowDeleteDialog(true)
+  }
+
+  const confirmDeleteStep = () => {
+    if (stepToDelete >= 0) {
+      const newSteps = workflowSteps.filter((_, i) => i !== stepToDelete)
+      setWorkflowSteps(newSteps)
+    }
+    setShowDeleteDialog(false)
+    setStepToDelete(-1)
   }
 
   const handleSave = async () => {
@@ -715,6 +726,37 @@ export default function WorkflowBuilder() {
     }
   }
 
+  const hasConfigurableOptions = (step: WorkflowStep) => {
+    if (step.type === "trigger") {
+      return TRIGGER_CONFIGS[step.actionName as keyof typeof TRIGGER_CONFIGS]?.length > 0
+    } else {
+      // Check if action has configurable options
+      const configurableActions = [
+        "Send Email",
+        "Send Message",
+        "Create Page",
+        "Time-based",
+        "Field-based",
+        "AI-based",
+        "Create Contact",
+        "Update Deal",
+        "Create Issue",
+        "Create Pull Request",
+        "Add Row",
+        "Update Row",
+        "Create Record",
+        "Update Record",
+        "Create Card",
+        "Move Card",
+        "Upload File",
+        "Create Folder",
+        "Schedule Meeting",
+        "Send Campaign",
+      ]
+      return configurableActions.includes(step.actionName)
+    }
+  }
+
   if (!currentWorkflow) {
     return (
       <AppLayout>
@@ -947,6 +989,7 @@ export default function WorkflowBuilder() {
                                 src={
                                   AVAILABLE_INTEGRATIONS.find((app) => app.id === step.appId)?.logo ||
                                   "/placeholder.svg?height=32&width=32" ||
+                                  "/placeholder.svg" ||
                                   "/placeholder.svg"
                                 }
                                 alt={step.appName}
@@ -974,14 +1017,16 @@ export default function WorkflowBuilder() {
                             </div>
                           </div>
                           <div className="flex items-center space-x-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleEditStep(index)}
-                              className="hover:bg-slate-100"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </Button>
+                            {hasConfigurableOptions(step) && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEditStep(index)}
+                                className="hover:bg-slate-100"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </Button>
+                            )}
                             <Button
                               variant="ghost"
                               size="sm"
@@ -1260,6 +1305,48 @@ export default function WorkflowBuilder() {
       <WorkflowOptimizer open={showOptimizer} onOpenChange={setShowOptimizer} workflow={currentWorkflow} />
 
       <AIChatAssistant />
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Step</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this step? This action cannot be undone.
+              {stepToDelete >= 0 && workflowSteps[stepToDelete] && (
+                <div className="mt-2 p-3 bg-slate-50 rounded-lg">
+                  <div className="flex items-center space-x-2">
+                    <img
+                      src={
+                        AVAILABLE_INTEGRATIONS.find((app) => app.id === workflowSteps[stepToDelete].appId)?.logo ||
+                        "/placeholder.svg" ||
+                        "/placeholder.svg"
+                      }
+                      alt={workflowSteps[stepToDelete].appName}
+                      className="w-6 h-6 object-contain"
+                      onError={(e) => {
+                        e.currentTarget.src = "/placeholder.svg?height=24&width=24"
+                      }}
+                    />
+                    <div>
+                      <div className="font-medium text-slate-900">{workflowSteps[stepToDelete].appName}</div>
+                      <div className="text-sm text-slate-600">{workflowSteps[stepToDelete].actionName}</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-3 pt-4">
+            <Button variant="outline" onClick={() => setShowDeleteDialog(false)} className="flex-1">
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={confirmDeleteStep} className="flex-1">
+              Delete Step
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   )
 }
