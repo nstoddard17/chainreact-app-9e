@@ -12,12 +12,17 @@ const DashboardContent: React.FC = () => {
     ensureDataPreloaded()
   }, [ensureDataPreloaded])
 
+  // Calculate progress percentage properly
+  const loaded = Object.values(preloadProgress).filter(Boolean).length
+  const total = Object.keys(preloadProgress).length
+  const progressPercent = total ? Math.round((loaded / total) * 100) : 0
+
   return (
     <div>
       <h1>Dashboard Content</h1>
       {globalPreloadingData ? (
         <div>
-          <p>Preloading data... {preloadProgress}%</p>
+          <p>Preloading data... {progressPercent}%</p>
         </div>
       ) : (
         <p>Welcome to the dashboard!</p>
