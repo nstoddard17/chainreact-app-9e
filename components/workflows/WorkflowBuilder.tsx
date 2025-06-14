@@ -411,7 +411,7 @@ const TRIGGER_CONFIGS = {
     },
   ],
   "Event Starting Soon": [
-    { key: "minutes_before", label: "Minutes Before", type: "number", placeholder: "15", required: true },
+    { key: "minutes_before", label: "Minutes Before", type = "number", placeholder = "15", required = true },
     {
       key: "calendar_id",
       label: "Calendar",
@@ -423,55 +423,73 @@ const TRIGGER_CONFIGS = {
     },
   ],
   "Cell Changed": [
-    { key: "spreadsheet_id", label: "Spreadsheet ID", type: "text", placeholder: "Spreadsheet ID", required: true },
-    { key: "range", label: "Cell Range (optional)", type: "text", placeholder: "A1:Z100", required: false },
+    { key: "spreadsheet_id", label: "Spreadsheet ID", type = "text", placeholder = "Spreadsheet ID", required = true },
+    { key: "range", label: "Cell Range (optional)", type = "text", placeholder = "A1:Z100", required = false },
   ],
   "File Shared": [
-    { key: "folder_path", label: "Folder Path (optional)", type: "text", placeholder: "/folder/path", required: false },
-    { key: "share_type", label: "Share Type", type: "select", options: ["anyone", "specific"], required: false },
+    {
+      key: "folder_path",
+      label: "Folder Path (optional)",
+      type = "text",
+      placeholder = "/folder/path",
+      required = false,
+    },
+    { key: "share_type", label: "Share Type", type = "select", options: ["anyone", "specific"], required = false },
   ],
   "Comment Added": [
-    { key: "document_id", label: "Document ID (optional)", type: "text", placeholder: "Document ID", required: false },
+    {
+      key: "document_id",
+      label: "Document ID (optional)",
+      type = "text",
+      placeholder = "Document ID",
+      required = false,
+    },
   ],
   "Document Shared": [
-    { key: "document_id", label: "Document ID (optional)", type: "text", placeholder: "Document ID", required: false },
+    {
+      key: "document_id",
+      label: "Document ID (optional)",
+      type = "text",
+      placeholder = "Document ID",
+      required = false,
+    },
   ],
   "Due Date Approaching": [
-    { key: "board_id", label: "Board ID", type: "text", placeholder: "Board ID", required: true },
-    { key: "days_before", label: "Days Before", type: "number", placeholder: "1", required: true },
+    { key: "board_id", label: "Board ID", type = "text", placeholder = "Board ID", required = true },
+    { key: "days_before", label: "Days Before", type = "number", placeholder = "1", required = true },
   ],
   "Card Updated": [
-    { key: "board_id", label: "Board ID", type: "text", placeholder: "Board ID", required: true },
-    { key: "list_name", label: "List Name (optional)", type: "text", placeholder: "In Progress", required: false },
+    { key: "board_id", label: "Board ID", type = "text", placeholder = "Board ID", required = true },
+    { key: "list_name", label: "List Name (optional)", type = "text", placeholder = "In Progress", required = false },
   ],
   "Pipeline Failed": [
-    { key: "repository", label: "Repository", type: "text", placeholder: "owner/repo", required: true },
-    { key: "branch", label: "Branch (optional)", type: "text", placeholder: "main", required: false },
+    { key: "repository", label: "Repository", type = "text", placeholder = "owner/repo", required = true },
+    { key: "branch", label: "Branch (optional)", type = "text", placeholder = "main", required = false },
   ],
   "Merge Request Created": [
-    { key: "repository", label: "Repository", type: "text", placeholder: "owner/repo", required: true },
-    { key: "target_branch", label: "Target Branch (optional)", type: "text", placeholder: "main", required: false },
+    { key: "repository", label: "Repository", type = "text", placeholder = "owner/repo", required = true },
+    { key: "target_branch", label: "Target Branch (optional)", type = "text", placeholder = "main", required = false },
   ],
   "Release Published": [
-    { key: "repository", label: "Repository", type: "text", placeholder: "owner/repo", required: true },
-    { key: "prerelease", label: "Include Prereleases", type: "select", options: ["yes", "no"], required: false },
+    { key: "repository", label: "Repository", type = "text", placeholder = "owner/repo", required = true },
+    { key: "prerelease", label: "Include Prereleases", type = "select", options = ["yes", "no"], required = false },
   ],
   "User Joined Server": [
-    { key: "server_id", label: "Server ID (optional)", type: "text", placeholder: "Server ID", required: false },
+    { key: "server_id", label: "Server ID (optional)", type = "text", placeholder = "Server ID", required = false },
   ],
   "User Left Server": [
-    { key: "server_id", label: "Server ID (optional)", type: "text", placeholder: "Server ID", required: false },
+    { key: "server_id", label: "Server ID (optional)", type = "text", placeholder = "Server ID", required = false },
   ],
   "Reaction Added": [
-    { key: "channel_id", label: "Channel ID (optional)", type: "text", placeholder: "Channel ID", required: false },
-    { key: "emoji", label: "Specific Emoji (optional)", type: "text", placeholder: "👍", required: false },
+    { key: "channel_id", label: "Channel ID (optional)", type = "text", placeholder = "Channel ID", required = false },
+    { key: "emoji", label: "Specific Emoji (optional)", type = "text", placeholder = "👍", required = false },
   ],
   "Subscription Created": [
-    { key: "plan_id", label: "Plan ID (optional)", type: "text", placeholder: "price_xxx", required: false },
-    { key: "amount_min", label: "Minimum Amount (cents)", type: "number", placeholder: "1000", required: false },
+    { key: "plan_id", label: "Plan ID (optional)", type = "text", placeholder = "price_xxx", required = false },
+    { key: "amount_min", label: "Minimum Amount (cents)", type = "number", placeholder = "1000", required = false },
   ],
   "Payment Failed": [
-    { key: "amount_min", label: "Minimum Amount (cents)", type: "number", placeholder: "1000", required: false },
+    { key: "amount_min", label: "Minimum Amount (cents)", type = "number", placeholder = "1000", required = false },
     {
       key: "failure_code",
       label: "Failure Code (optional)",
@@ -499,10 +517,10 @@ const TRIGGER_CONFIGS = {
       placeholder: "Select a pipeline",
       required: false,
     },
-    { key: "stage", label: "Deal Stage (optional)", type: "text", placeholder: "qualified", required: false },
+    { key: "stage", label: "Deal Stage (optional)", type = "text", placeholder: "qualified", required: false },
   ],
   "Contact Updated": [
-    { key: "property", label: "Property Changed (optional)", type: "text", placeholder: "email", required: false },
+    { key: "property", label: "Property Changed (optional)", type = "text", placeholder: "email", required = false },
   ],
   "Deal Created": [
     {
@@ -514,7 +532,7 @@ const TRIGGER_CONFIGS = {
       placeholder: "Select a pipeline",
       required: false,
     },
-    { key: "amount_min", label: "Minimum Amount", type: "number", placeholder: "1000", required: false },
+    { key: "amount_min", label: "Minimum Amount", type = "number", placeholder = "1000", required = false },
   ],
 }
 
@@ -537,7 +555,14 @@ export default function WorkflowBuilder() {
     useWorkflowStore()
 
   const { optimizations, anomalies, fetchOptimizations, fetchAnomalies } = useAIStore()
-  const { integrations, fetchIntegrations, connectIntegration } = useIntegrationStore()
+  const {
+    integrations,
+    fetchIntegrations,
+    connectIntegration,
+    globalPreloadingData,
+    preloadProgress,
+    initializeGlobalPreload,
+  } = useIntegrationStore()
 
   const [workflowSteps, setWorkflowSteps] = useState<WorkflowStep[]>([])
   const [saving, setSaving] = useState(false)
@@ -697,6 +722,14 @@ export default function WorkflowBuilder() {
       preloadAllIntegrationData()
     }
   }, [integrations, preloadAllIntegrationData, preloadingData])
+
+  // Ensure global preloading is started
+  useEffect(() => {
+    const integrationStore = useIntegrationStore.getState()
+    if (!integrationStore.preloadStarted && !integrationStore.globalPreloadingData) {
+      integrationStore.initializeGlobalPreload()
+    }
+  }, [])
 
   // Load workflow if ID is provided
   useEffect(() => {
@@ -1303,19 +1336,29 @@ export default function WorkflowBuilder() {
     if (field.type === "dynamic_select") {
       const cacheKey = `${field.provider}-${field.dataType}`
       const options = dynamicData[cacheKey] || []
-      const isLoading = fieldLoadingStates[cacheKey] || false
+      const isLoading = fieldLoadingStates[cacheKey] || globalPreloadingData || !preloadProgress[cacheKey]
+      const isDisabled = isLoading || (globalPreloadingData && options.length === 0)
 
       return (
         <Select
           value={currentConfig[field.key] || ""}
           onValueChange={(value) => setCurrentConfig({ ...currentConfig, [field.key]: value })}
-          disabled={isLoading}
+          disabled={isDisabled}
         >
-          <SelectTrigger>
-            <SelectValue placeholder={isLoading ? "Loading..." : field.placeholder} />
+          <SelectTrigger className={isDisabled ? "opacity-50 cursor-not-allowed" : ""}>
+            <SelectValue
+              placeholder={
+                isLoading ? "Loading data..." : globalPreloadingData ? "Preparing data..." : field.placeholder
+              }
+            />
           </SelectTrigger>
           <SelectContent side="bottom" align="start" className="max-h-[200px] overflow-y-auto" sideOffset={4}>
-            {options.length === 0 && !isLoading ? (
+            {isLoading ? (
+              <div className="p-2 text-sm text-muted-foreground flex items-center gap-2">
+                <Loader2 className="w-3 h-3 animate-spin" />
+                Loading {field.dataType}...
+              </div>
+            ) : options.length === 0 ? (
               <div className="p-2 text-sm text-muted-foreground">No items found</div>
             ) : (
               options.map((option: any) => (
@@ -1537,10 +1580,17 @@ export default function WorkflowBuilder() {
               </Button>
             </div>
 
-            {preloadingData && (
+            {globalPreloadingData && (
               <div className="flex items-center gap-2 px-3 py-1 bg-blue-50 rounded-lg text-sm text-blue-600">
                 <Loader2 className="w-3 h-3 animate-spin" />
-                <span>Loading data...</span>
+                <span>Loading integration data...</span>
+              </div>
+            )}
+
+            {/* Show progress if we have detailed progress info */}
+            {globalPreloadingData && Object.keys(preloadProgress).length > 0 && (
+              <div className="text-xs text-slate-500">
+                {Object.values(preloadProgress).filter(Boolean).length}/{Object.keys(preloadProgress).length}
               </div>
             )}
 
@@ -1678,7 +1728,6 @@ export default function WorkflowBuilder() {
                                 src={
                                   AVAILABLE_INTEGRATIONS.find((app) => app.id === step.appId)?.logo ||
                                   "/placeholder.svg?height=32&width=32" ||
-                                  "/placeholder.svg" ||
                                   "/placeholder.svg"
                                 }
                                 alt={step.appName}

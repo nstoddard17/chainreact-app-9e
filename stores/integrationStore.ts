@@ -34,6 +34,9 @@ interface IntegrationState {
   refreshing: boolean
   error: string | null
   lastRefreshed: string | null
+  globalPreloadingData: boolean
+  preloadProgress: { [key: string]: boolean }
+  preloadStarted: boolean
   fetchIntegrations: (forceRefresh?: boolean) => Promise<void>
   verifyIntegrationScopes: () => Promise<void>
   connectIntegration: (providerId: string) => Promise<void>
@@ -45,6 +48,9 @@ interface IntegrationState {
     refreshedCount: number
   }>
   handleOAuthSuccess: () => void
+  initializeGlobalPreload: () => Promise<void>
+  fetchDynamicData: (provider: string, dataType: string) => Promise<any>
+  ensureDataPreloaded: () => Promise<void>
 }
 
 const availableProviders: Provider[] = [
@@ -327,6 +333,34 @@ const timeoutPromise = (ms: number) => {
   })
 }
 
+const getAllDynamicDataTypes = () => {
+  return [
+    { provider: "gmail", dataType: "emails" },
+    { provider: "google-drive", dataType: "files" },
+    { provider: "google-calendar", dataType: "events" },
+    { provider: "slack", dataType: "messages" },
+    { provider: "github", dataType: "repositories" },
+    { provider: "discord", dataType: "channels" },
+    { provider: "teams", dataType: "meetings" },
+    { provider: "trello", dataType: "boards" },
+    { provider: "notion", dataType: "pages" },
+    { provider: "airtable", dataType: "records" },
+    { provider: "dropbox", dataType: "files" },
+    { provider: "hubspot", dataType: "contacts" },
+    { provider: "linkedin", dataType: "posts" },
+    { provider: "facebook", dataType: "posts" },
+    { provider: "instagram", dataType: "posts" },
+    { provider: "twitter", dataType: "tweets" },
+    { provider: "tiktok", dataType: "videos" },
+    { provider: "mailchimp", dataType: "campaigns" },
+    { provider: "shopify", dataType: "products" },
+    { provider: "stripe", dataType: "payments" },
+    { provider: "paypal", dataType: "transactions" },
+    { provider: "gitlab", dataType: "projects" },
+    { provider: "onedrive", dataType: "files" },
+  ]
+}
+
 export const useIntegrationStore = create<IntegrationState>((set, get) => ({
   integrations: [],
   providers: availableProviders,
@@ -335,6 +369,9 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
   refreshing: false,
   error: null,
   lastRefreshed: null,
+  globalPreloadingData: false,
+  preloadProgress: {},
+  preloadStarted: false,
 
   fetchIntegrations: async (forceRefresh = false) => {
     set({ loading: true, error: null })
@@ -655,5 +692,122 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
         window.history.replaceState({}, "", newUrl)
       }
     }
+  },
+
+  initializeGlobalPreload: async () => {
+    const state = get()
+    if (state.preloadStarted || state.globalPreloadingData) {
+      return // Already started or in progress
+    }
+
+    set({ preloadStarted: true, globalPreloadingData: true })
+
+    try {
+      // First fetch integrations if not already loaded
+      if (state.integrations.length === 0) {
+        await state.fetchIntegrations(true)
+      }
+
+      // Get updated integrations after fetch
+      const updatedState = get()
+      const connectedIntegrations = updatedState.integrations.filter((i) => i.status === "connected")
+
+      if (connectedIntegrations.length === 0) {
+        set({ globalPreloadingData: false })
+        return
+      }
+
+      // Get all possible data types
+      const allDataTypes = getAllDynamicDataTypes()
+      const connectedProviders = connectedIntegrations.map((i) => i.provider)
+      const relevantDataTypes = allDataTypes.filter((dt) => connectedProviders.includes(dt.provider))
+
+      console.log(
+        `Starting global preload for ${relevantDataTypes.length} data types across ${connectedProviders.length} providers`,
+      )
+
+      // Initialize progress tracking
+      const initialProgress: { [key: string]: boolean } = {}
+      relevantDataTypes.forEach(({ provider, dataType }) => {
+        initialProgress[`${provider}-${dataType}`] = false
+      })
+      set({ preloadProgress: initialProgress })
+
+      // Fetch all data types with controlled concurrency
+      const batchSize = 2 // Reduced to be more gentle on APIs
+      for (let i = 0; i < relevantDataTypes.length; i += batchSize) {
+        const batch = relevantDataTypes.slice(i, i + batchSize)
+
+        await Promise.allSettled(
+          batch.map(async ({ provider, dataType }) => {
+            try {
+              await get().fetchDynamicData(provider, dataType)
+              // Update progress
+              set((state) => ({
+                preloadProgress: {
+                  ...state.preloadProgress,
+                  [`${provider}-${dataType}`]: true,
+                },
+              }))
+            } catch (error) {
+              console.error(`Failed to preload ${provider}-${dataType}:`, error)
+              // Mark as completed even if failed to avoid blocking
+              set((state) => ({
+                preloadProgress: {
+                  ...state.preloadProgress,
+                  [`${provider}-${dataType}`]: true,
+                },
+              }))
+            }
+          }),
+        )
+
+        // Small delay between batches to be API-friendly
+        if (i + batchSize < relevantDataTypes.length) {
+          await new Promise((resolve) => setTimeout(resolve, 500))
+        }
+      }
+
+      console.log("Global preload completed")
+    } catch (error) {
+      console.error("Error during global preload:", error)
+    } finally {
+      set({ globalPreloadingData: false })
+    }
+  },
+
+  fetchDynamicData: async (provider: string, dataType: string) => {
+    try {
+      console.log(`Fetching dynamic data for ${provider}-${dataType}`)
+      // Implement your data fetching logic here based on provider and dataType
+      // This is a placeholder, replace with actual API calls or data retrieval
+      await new Promise((resolve) => setTimeout(resolve, 1000)) // Simulate API call
+      console.log(`Successfully fetched data for ${provider}-${dataType}`)
+      return { success: true, data: [] } // Replace with actual data
+    } catch (error) {
+      console.error(`Error fetching data for ${provider}-${dataType}:`, error)
+      throw error
+    }
+  },
+  ensureDataPreloaded: async () => {
+    const state = get()
+
+    // If already preloading or completed, don't start again
+    if (state.globalPreloadingData || state.preloadStarted) {
+      return
+    }
+
+    // Check if we have recent data (within last 5 minutes)
+    if (state.lastRefreshed) {
+      const lastRefresh = new Date(state.lastRefreshed)
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000)
+      if (lastRefresh > fiveMinutesAgo && state.integrations.length > 0) {
+        console.log("Data is recent, skipping preload")
+        return
+      }
+    }
+
+    console.log("Starting data preload from dashboard/page access")
+    await state.initializeGlobalPreload()
   },
 }))

@@ -1,18 +1,19 @@
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
-import { redirect } from "next/navigation"
-import WorkflowsContent from "@/components/workflows/WorkflowsContent"
+"use client"
 
-export default async function WorkflowsPage() {
-  const supabase = createServerComponentClient({ cookies })
+import { useEffect } from "react"
+import { useIntegrationStore } from "@/stores/integrationStore"
 
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
+export default function WorkflowsPage() {
+  useEffect(() => {
+    // Ensure data is preloaded when workflows page is accessed
+    const { ensureDataPreloaded } = useIntegrationStore.getState()
+    ensureDataPreloaded()
+  }, [])
 
-  if (!session) {
-    redirect("/auth/login")
-  }
-
-  return <WorkflowsContent />
+  return (
+    <div>
+      <h1>Workflows Page</h1>
+      {/* Add your workflows content here */}
+    </div>
+  )
 }
