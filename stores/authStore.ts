@@ -51,27 +51,21 @@ export const useAuthStore = create<AuthState>()(
           set({ loading: true, error: null })
           console.log("🔄 Starting auth initialization...")
 
-          // Get initial session with retry logic
-          let session = null
-          let sessionError = null
-
-          for (let i = 0; i < 3; i++) {
-            const result = await supabase.auth.getSession()
-            session = result.data.session
-            sessionError = result.error
-
-            if (!sessionError && session) break
-            if (i < 2) await new Promise((resolve) => setTimeout(resolve, 1000))
-          }
+          // Get current session from Supabase
+          const {
+            data: { session },
+            error: sessionError,
+          } = await supabase.auth.getSession()
 
           if (sessionError) {
             console.error("Session error:", sessionError)
-            set({ error: sessionError.message, loading: false, initialized: true })
+            // Clear persisted user if session is invalid
+            set({ user: null, error: sessionError.message, loading: false, initialized: true })
             return
           }
 
           if (session?.user) {
-            console.log("✅ Found existing session for user:", session.user.email)
+            console.log("✅ Found valid session for user:", session.user.email)
             const user: User = {
               id: session.user.id,
               email: session.user.email || "",
@@ -79,36 +73,30 @@ export const useAuthStore = create<AuthState>()(
               avatar: session.user.user_metadata?.avatar_url,
             }
 
+            // Update user state with fresh session data
             set({ user, loading: false, initialized: true })
 
-            // Start background data preloading with proper timing
-            console.log("🚀 User authenticated, starting background data preload...")
+            // Start background data preloading
+            console.log("🚀 Starting background data preload...")
             setTimeout(async () => {
               try {
                 const { useIntegrationStore } = await import("./integrationStore")
                 const integrationStore = useIntegrationStore.getState()
 
-                // Ensure integration store is hydrated first
-                let attempts = 0
-                while (!integrationStore.hydrated && attempts < 10) {
-                  await new Promise((resolve) => setTimeout(resolve, 500))
-                  attempts++
-                }
-
-                // First fetch integrations, then preload data
                 await integrationStore.fetchIntegrations(true)
                 await integrationStore.initializeGlobalPreload()
                 console.log("✅ Background preload completed")
               } catch (error) {
                 console.error("❌ Background preload failed:", error)
               }
-            }, 1500)
+            }, 1000)
           } else {
-            console.log("❌ No existing session found")
+            console.log("❌ No valid session found")
+            // Clear any persisted user data if no valid session
             set({ user: null, loading: false, initialized: true })
           }
 
-          // Listen for auth changes
+          // Set up auth state listener
           supabase.auth.onAuthStateChange(async (event, session) => {
             console.log("🔄 Auth state changed:", event, session?.user?.email)
 
@@ -121,49 +109,14 @@ export const useAuthStore = create<AuthState>()(
               }
 
               set({ user, error: null })
-
-              // Start background data preloading on sign in
-              console.log("🚀 User signed in, starting background data preload...")
-              setTimeout(async () => {
-                try {
-                  const { useIntegrationStore } = await import("./integrationStore")
-                  const integrationStore = useIntegrationStore.getState()
-
-                  // Wait for integration store hydration
-                  let attempts = 0
-                  while (!integrationStore.hydrated && attempts < 10) {
-                    await new Promise((resolve) => setTimeout(resolve, 500))
-                    attempts++
-                  }
-
-                  // First fetch integrations, then preload data
-                  await integrationStore.fetchIntegrations(true)
-                  await integrationStore.initializeGlobalPreload()
-                  console.log("✅ Background preload completed")
-                } catch (error) {
-                  console.error("❌ Background preload failed:", error)
-                }
-              }, 1500)
             } else if (event === "SIGNED_OUT") {
               console.log("👋 User signed out")
               set({ user: null, error: null })
-
-              // Clear integration data on sign out
-              setTimeout(async () => {
-                try {
-                  const { useIntegrationStore } = await import("./integrationStore")
-                  useIntegrationStore.getState().clearAllData()
-                } catch (error) {
-                  console.error("Error clearing integration data:", error)
-                }
-              }, 100)
-            } else if (event === "TOKEN_REFRESHED") {
-              console.log("🔄 Token refreshed successfully")
             }
           })
         } catch (error: any) {
           console.error("💥 Auth initialization error:", error)
-          set({ error: error.message, loading: false, initialized: true })
+          set({ user: null, error: error.message, loading: false, initialized: true })
         }
       },
 
@@ -306,14 +259,14 @@ export const useAuthStore = create<AuthState>()(
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         user: state.user,
-        initialized: state.initialized,
+        // Don't persist initialized state - let it reinitialize on each load
       }),
       onRehydrateStorage: () => (state) => {
         console.log("🔄 Auth store rehydrated:", state?.user?.email || "no user")
         state?.setHydrated()
 
-        // Trigger initialization after hydration if not already initialized
-        if (state && !state.initialized) {
+        // Always trigger initialization after hydration to validate session
+        if (state) {
           console.log("🔄 Triggering initialization after rehydration...")
           setTimeout(() => {
             state.initialize()
