@@ -18,6 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import {
   Save,
   Play,
@@ -38,6 +39,8 @@ import {
   Wifi,
   WifiOff,
   Workflow,
+  AlertCircle,
+  Info,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
@@ -209,7 +212,7 @@ const AVAILABLE_INTEGRATIONS = [
   },
 ]
 
-// Enhanced trigger configurations with resource requirements
+// Enhanced trigger configurations with cleaner structure
 const TRIGGER_CONFIGS = {
   page_updated: [
     {
@@ -218,9 +221,9 @@ const TRIGGER_CONFIGS = {
       type: "resource_select",
       provider: "notion",
       dataType: "pages",
-      placeholder: "Select a specific page or leave empty for all pages",
+      placeholder: "Select a specific page (optional)",
       required: false,
-      description: "Choose a specific page to monitor, or leave empty to monitor all pages you have access to",
+      helpText: "Choose a specific page to monitor, or leave empty to monitor all pages",
     },
   ],
   database_item_added: [
@@ -232,7 +235,7 @@ const TRIGGER_CONFIGS = {
       dataType: "databases",
       placeholder: "Select a database",
       required: true,
-      description: "Choose the database to monitor for new items",
+      helpText: "Choose the database to monitor for new items",
     },
   ],
   database_item_updated: [
@@ -244,7 +247,7 @@ const TRIGGER_CONFIGS = {
       dataType: "databases",
       placeholder: "Select a database",
       required: true,
-      description: "Choose the database to monitor for item updates",
+      helpText: "Choose the database to monitor for item updates",
     },
   ],
   new_message_in_channel: [
@@ -256,7 +259,7 @@ const TRIGGER_CONFIGS = {
       dataType: "channels",
       placeholder: "Select a channel",
       required: true,
-      description: "Choose the channel to monitor for new messages",
+      helpText: "Choose the channel to monitor for new messages",
     },
   ],
   direct_message_received: [
@@ -266,9 +269,9 @@ const TRIGGER_CONFIGS = {
       type: "resource_select",
       provider: "slack",
       dataType: "users",
-      placeholder: "Select a user or leave empty for all users",
+      placeholder: "Select a user (optional)",
       required: false,
-      description: "Optionally filter messages from a specific user",
+      helpText: "Optionally filter messages from a specific user",
     },
   ],
   new_row_added: [
@@ -280,15 +283,15 @@ const TRIGGER_CONFIGS = {
       dataType: "spreadsheets",
       placeholder: "Select a spreadsheet",
       required: true,
-      description: "Choose the spreadsheet to monitor for new rows",
+      helpText: "Choose the spreadsheet to monitor for new rows",
     },
     {
       key: "sheet_name",
       label: "Sheet Name",
       type: "text",
-      placeholder: "Sheet1",
+      placeholder: "Sheet1 (optional)",
       required: false,
-      description: "Specify a particular sheet within the spreadsheet",
+      helpText: "Specify a particular sheet within the spreadsheet",
     },
   ],
   new_event: [
@@ -298,9 +301,9 @@ const TRIGGER_CONFIGS = {
       type: "resource_select",
       provider: "google-calendar",
       dataType: "calendars",
-      placeholder: "Select a calendar or leave empty for all calendars",
+      placeholder: "Select a calendar (optional)",
       required: false,
-      description: "Choose a specific calendar, or leave empty to monitor all calendars",
+      helpText: "Choose a specific calendar, or leave empty to monitor all calendars",
     },
   ],
   new_record: [
@@ -312,15 +315,15 @@ const TRIGGER_CONFIGS = {
       dataType: "bases",
       placeholder: "Select a base",
       required: true,
-      description: "Choose the Airtable base to monitor",
+      helpText: "Choose the Airtable base to monitor",
     },
     {
       key: "table_name",
       label: "Table Name",
       type: "text",
-      placeholder: "Table Name",
+      placeholder: "Enter table name",
       required: true,
-      description: "Specify the table within the base",
+      helpText: "Specify the table within the base",
     },
   ],
   new_card: [
@@ -332,15 +335,15 @@ const TRIGGER_CONFIGS = {
       dataType: "boards",
       placeholder: "Select a board",
       required: true,
-      description: "Choose the Trello board to monitor",
+      helpText: "Choose the Trello board to monitor",
     },
     {
       key: "list_name",
       label: "List Name",
       type: "text",
-      placeholder: "To Do",
+      placeholder: "List name (optional)",
       required: false,
-      description: "Optionally specify a particular list within the board",
+      helpText: "Optionally specify a particular list within the board",
     },
   ],
   new_issue: [
@@ -352,7 +355,29 @@ const TRIGGER_CONFIGS = {
       dataType: "repositories",
       placeholder: "Select a repository",
       required: true,
-      description: "Choose the repository to monitor for new issues",
+      helpText: "Choose the repository to monitor for new issues",
+    },
+  ],
+  new_email: [
+    {
+      key: "label_id",
+      label: "Gmail Label",
+      type: "resource_select",
+      provider: "gmail",
+      dataType: "labels",
+      placeholder: "Select a label (optional)",
+      required: false,
+      helpText: "Optionally filter emails by a specific label",
+    },
+  ],
+  email_from_sender: [
+    {
+      key: "sender_email",
+      label: "Sender Email",
+      type: "email",
+      placeholder: "sender@example.com",
+      required: true,
+      helpText: "Enter the email address to monitor",
     },
   ],
 }
@@ -389,6 +414,7 @@ export default function WorkflowBuilder() {
     getIntegrationStatus,
     getCachedResourceCount,
     refreshResourcesForProvider,
+    fetchDynamicData,
   } = useIntegrationStore()
 
   const [workflowSteps, setWorkflowSteps] = useState<WorkflowStep[]>([])
@@ -415,6 +441,10 @@ export default function WorkflowBuilder() {
   const [aiPrompt, setAiPrompt] = useState("")
   const [generatingAI, setGeneratingAI] = useState(false)
   const [isConnecting, setIsConnecting] = useState(false)
+
+  // Resource loading states
+  const [resourceLoadingStates, setResourceLoadingStates] = useState<Record<string, boolean>>({})
+  const [resourceErrors, setResourceErrors] = useState<Record<string, string>>({})
 
   const { toast } = useToast()
 
@@ -447,14 +477,24 @@ export default function WorkflowBuilder() {
   // Initialize data on mount
   useEffect(() => {
     const initializeData = async () => {
-      await fetchIntegrations()
-      // Start background preloading
-      if (connectedProviders.length > 0) {
-        initializeGlobalPreload()
+      try {
+        await fetchIntegrations()
+        // Start background preloading for connected integrations
+        const connectedIntegrations = integrations.filter((i) => i.status === "connected")
+        if (connectedIntegrations.length > 0) {
+          await initializeGlobalPreload()
+        }
+      } catch (error) {
+        console.error("Failed to initialize data:", error)
+        toast({
+          title: "Initialization Error",
+          description: "Failed to load integration data. Please refresh the page.",
+          variant: "destructive",
+        })
       }
     }
     initializeData()
-  }, [fetchIntegrations, initializeGlobalPreload, connectedProviders.length])
+  }, [fetchIntegrations, initializeGlobalPreload])
 
   // Load workflow if ID is provided
   useEffect(() => {
@@ -493,7 +533,7 @@ export default function WorkflowBuilder() {
     setShowTriggerList(true)
   }
 
-  const handleTriggerSelected = (trigger: any) => {
+  const handleTriggerSelected = async (trigger: any) => {
     setSelectedTrigger(trigger)
 
     const integrationStatus = getEnhancedIntegrationStatus(selectedIntegration.id)
@@ -511,9 +551,37 @@ export default function WorkflowBuilder() {
       setCurrentConfig({})
       setShowTriggerModal(false)
       setShowConfigModal(true)
+
+      // Pre-load resources for this trigger
+      await preloadTriggerResources(trigger.id, selectedIntegration.id)
     } else {
       // Add trigger directly without configuration
       addTriggerStep(trigger, {})
+    }
+  }
+
+  const preloadTriggerResources = async (triggerId: string, integrationId: string) => {
+    const triggerConfig = TRIGGER_CONFIGS[triggerId as keyof typeof TRIGGER_CONFIGS]
+    if (!triggerConfig) return
+
+    for (const field of triggerConfig) {
+      if (field.type === "resource_select") {
+        const key = `${field.provider}_${field.dataType}`
+        setResourceLoadingStates((prev) => ({ ...prev, [key]: true }))
+        setResourceErrors((prev) => ({ ...prev, [key]: "" }))
+
+        try {
+          await fetchDynamicData(field.provider, field.dataType)
+        } catch (error: any) {
+          console.error(`Failed to load ${field.dataType} for ${field.provider}:`, error)
+          setResourceErrors((prev) => ({
+            ...prev,
+            [key]: `Failed to load ${field.dataType}. Please check your connection.`,
+          }))
+        } finally {
+          setResourceLoadingStates((prev) => ({ ...prev, [key]: false }))
+        }
+      }
     }
   }
 
@@ -531,6 +599,11 @@ export default function WorkflowBuilder() {
 
     setWorkflowSteps([newStep])
     resetModalStates()
+
+    toast({
+      title: "Trigger Added",
+      description: `${trigger.name} trigger has been added to your workflow.`,
+    })
   }
 
   const resetModalStates = () => {
@@ -542,6 +615,8 @@ export default function WorkflowBuilder() {
     setSelectedIntegration(null)
     setSelectedTrigger(null)
     setCurrentConfig({})
+    setResourceErrors({})
+    setResourceLoadingStates({})
   }
 
   const handleConnectIntegration = async () => {
@@ -551,7 +626,6 @@ export default function WorkflowBuilder() {
     try {
       await connectIntegration(selectedIntegration.id)
 
-      // Open in new tab for OAuth
       toast({
         title: "Connecting...",
         description: `Opening ${selectedIntegration.name} authorization in a new tab`,
@@ -567,6 +641,7 @@ export default function WorkflowBuilder() {
         if (triggerConfig && triggerConfig.length > 0) {
           setCurrentConfig({})
           setShowConfigModal(true)
+          preloadTriggerResources(selectedTrigger.id, selectedIntegration.id)
         } else {
           addTriggerStep(selectedTrigger, {})
         }
@@ -584,6 +659,19 @@ export default function WorkflowBuilder() {
 
   const handleConfigComplete = () => {
     if (selectedTrigger) {
+      // Validate required fields
+      const triggerConfig = TRIGGER_CONFIGS[selectedTrigger.id as keyof typeof TRIGGER_CONFIGS] || []
+      const missingFields = triggerConfig.filter((field) => field.required && !currentConfig[field.key])
+
+      if (missingFields.length > 0) {
+        toast({
+          title: "Missing Required Fields",
+          description: `Please fill in: ${missingFields.map((f) => f.label).join(", ")}`,
+          variant: "destructive",
+        })
+        return
+      }
+
       addTriggerStep(selectedTrigger, currentConfig)
     }
   }
@@ -604,6 +692,7 @@ export default function WorkflowBuilder() {
       setSelectedTrigger(trigger)
       setCurrentConfig(step.config)
       setShowConfigModal(true)
+      preloadTriggerResources(trigger.id, integration.id)
     }
   }
 
@@ -617,6 +706,11 @@ export default function WorkflowBuilder() {
       setWorkflowSteps(updatedSteps)
       setShowConfigModal(false)
       resetModalStates()
+
+      toast({
+        title: "Trigger Updated",
+        description: "Your trigger configuration has been updated.",
+      })
     }
   }
 
@@ -629,6 +723,10 @@ export default function WorkflowBuilder() {
     if (stepToDelete >= 0) {
       const newSteps = workflowSteps.filter((_, i) => i !== stepToDelete)
       setWorkflowSteps(newSteps)
+      toast({
+        title: "Trigger Deleted",
+        description: "The trigger has been removed from your workflow.",
+      })
     }
     setShowDeleteDialog(false)
     setStepToDelete(-1)
@@ -763,7 +861,7 @@ export default function WorkflowBuilder() {
   const workflowOptimizations = currentWorkflow ? optimizations[currentWorkflow.id] || [] : []
   const workflowAnomalies = currentWorkflow ? anomalies[currentWorkflow.id] || [] : []
 
-  // Enhanced config field rendering
+  // Enhanced config field rendering with better error handling
   const getConfigFields = () => {
     if (!selectedTrigger) return []
     return TRIGGER_CONFIGS[selectedTrigger.id as keyof typeof TRIGGER_CONFIGS] || []
@@ -772,17 +870,19 @@ export default function WorkflowBuilder() {
   const renderConfigField = (field: any) => {
     if (field.type === "resource_select") {
       const resources = getDynamicData(field.provider, field.dataType)
-      const isLoading = isResourceLoading(field.provider, field.dataType) || globalPreloadingData
+      const key = `${field.provider}_${field.dataType}`
+      const isLoading = resourceLoadingStates[key] || isResourceLoading(field.provider, field.dataType)
+      const error = resourceErrors[key]
       const isRefreshing = resourceRefreshStates[field.provider]
 
       return (
-        <div className="space-y-2">
+        <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <Label htmlFor={field.key} className="text-sm font-medium">
+            <Label htmlFor={field.key} className="text-sm font-medium text-slate-700">
               {field.label} {field.required && <span className="text-red-500">*</span>}
             </Label>
             <div className="flex items-center gap-2">
-              {resources.length > 0 && (
+              {resources.length > 0 && !isLoading && !error && (
                 <Badge variant="secondary" className="text-xs">
                   {resources.length} available
                 </Badge>
@@ -791,13 +891,25 @@ export default function WorkflowBuilder() {
                 type="button"
                 variant="ghost"
                 size="sm"
-                onClick={() => {
+                onClick={async () => {
                   setResourceRefreshStates((prev) => ({ ...prev, [field.provider]: true }))
-                  refreshResourcesForProvider(field.provider).finally(() => {
+                  setResourceErrors((prev) => ({ ...prev, [key]: "" }))
+                  try {
+                    await refreshResourcesForProvider(field.provider)
+                    toast({
+                      title: "Resources Refreshed",
+                      description: `${field.provider} resources have been updated.`,
+                    })
+                  } catch (error: any) {
+                    setResourceErrors((prev) => ({
+                      ...prev,
+                      [key]: `Failed to refresh ${field.dataType}`,
+                    }))
+                  } finally {
                     setResourceRefreshStates((prev) => ({ ...prev, [field.provider]: false }))
-                  })
+                  }
                 }}
-                disabled={isRefreshing}
+                disabled={isRefreshing || isLoading}
                 className="h-6 w-6 p-0"
               >
                 <RefreshCw className={`w-3 h-3 ${isRefreshing ? "animate-spin" : ""}`} />
@@ -805,38 +917,56 @@ export default function WorkflowBuilder() {
             </div>
           </div>
 
+          {error && (
+            <Alert variant="destructive" className="py-2">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription className="text-sm">{error}</AlertDescription>
+            </Alert>
+          )}
+
           <Select
             value={currentConfig[field.key] || ""}
             onValueChange={(value) => setCurrentConfig({ ...currentConfig, [field.key]: value })}
-            disabled={isLoading || isRefreshing}
+            disabled={isLoading || isRefreshing || !!error}
           >
-            <SelectTrigger className={isLoading || isRefreshing ? "opacity-50 cursor-not-allowed" : ""}>
+            <SelectTrigger className={isLoading || isRefreshing || error ? "opacity-50 cursor-not-allowed" : ""}>
               <SelectValue
                 placeholder={
                   isLoading || isRefreshing
                     ? "Loading resources..."
-                    : resources.length === 0
-                      ? "No resources found"
-                      : field.placeholder
+                    : error
+                      ? "Error loading resources"
+                      : resources.length === 0
+                        ? "No resources found"
+                        : field.placeholder
                 }
               />
             </SelectTrigger>
             <SelectContent side="bottom" align="start" className="max-h-[200px] overflow-y-auto" sideOffset={4}>
               {isLoading || isRefreshing ? (
-                <div className="p-2 text-sm text-muted-foreground flex items-center gap-2">
-                  <Loader2 className="w-3 h-3 animate-spin" />
+                <div className="p-3 text-sm text-muted-foreground flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
                   Loading {field.dataType}...
                 </div>
+              ) : error ? (
+                <div className="p-3 text-sm text-red-600 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4" />
+                  Failed to load resources
+                </div>
               ) : resources.length === 0 ? (
-                <div className="p-2 text-sm text-muted-foreground">
-                  No {field.dataType} found. Try refreshing or check your {field.provider} connection.
+                <div className="p-3 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Info className="w-4 h-4" />
+                    No {field.dataType} found
+                  </div>
+                  <div className="text-xs">Try refreshing or check your {field.provider} connection.</div>
                 </div>
               ) : (
                 resources.map((resource, index) => (
                   <SelectItem key={resource.id || index} value={resource.value}>
                     <div className="flex items-center gap-2">
                       <Database className="w-3 h-3 text-muted-foreground" />
-                      {resource.name}
+                      <span className="truncate">{resource.name}</span>
                     </div>
                   </SelectItem>
                 ))
@@ -844,31 +974,59 @@ export default function WorkflowBuilder() {
             </SelectContent>
           </Select>
 
-          {field.description && <p className="text-xs text-muted-foreground">{field.description}</p>}
+          {field.helpText && !error && (
+            <p className="text-xs text-muted-foreground flex items-start gap-1">
+              <Info className="w-3 h-3 mt-0.5 flex-shrink-0" />
+              {field.helpText}
+            </p>
+          )}
         </div>
       )
     } else if (field.type === "textarea") {
       return (
-        <Textarea
-          id={field.key}
-          value={currentConfig[field.key] || ""}
-          onChange={(e) => setCurrentConfig({ ...currentConfig, [field.key]: e.target.value })}
-          placeholder={field.placeholder}
-          rows={3}
-        />
+        <div className="space-y-2">
+          <Label htmlFor={field.key} className="text-sm font-medium text-slate-700">
+            {field.label} {field.required && <span className="text-red-500">*</span>}
+          </Label>
+          <Textarea
+            id={field.key}
+            value={currentConfig[field.key] || ""}
+            onChange={(e) => setCurrentConfig({ ...currentConfig, [field.key]: e.target.value })}
+            placeholder={field.placeholder}
+            rows={3}
+            className="resize-none"
+          />
+          {field.helpText && (
+            <p className="text-xs text-muted-foreground flex items-start gap-1">
+              <Info className="w-3 h-3 mt-0.5 flex-shrink-0" />
+              {field.helpText}
+            </p>
+          )}
+        </div>
       )
     } else {
       return (
-        <Input
-          id={field.key}
-          type={field.type}
-          value={currentConfig[field.key] || ""}
-          onChange={(e) => {
-            const value = field.type === "number" ? Number(e.target.value) : e.target.value
-            setCurrentConfig({ ...currentConfig, [field.key]: value })
-          }}
-          placeholder={field.placeholder}
-        />
+        <div className="space-y-2">
+          <Label htmlFor={field.key} className="text-sm font-medium text-slate-700">
+            {field.label} {field.required && <span className="text-red-500">*</span>}
+          </Label>
+          <Input
+            id={field.key}
+            type={field.type}
+            value={currentConfig[field.key] || ""}
+            onChange={(e) => {
+              const value = field.type === "number" ? Number(e.target.value) : e.target.value
+              setCurrentConfig({ ...currentConfig, [field.key]: value })
+            }}
+            placeholder={field.placeholder}
+          />
+          {field.helpText && (
+            <p className="text-xs text-muted-foreground flex items-start gap-1">
+              <Info className="w-3 h-3 mt-0.5 flex-shrink-0" />
+              {field.helpText}
+            </p>
+          )}
+        </div>
       )
     }
   }
@@ -1220,7 +1378,7 @@ export default function WorkflowBuilder() {
                             <div className="flex items-center space-x-3">
                               <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center shadow-sm border border-slate-200">
                                 <img
-                                  src={integration.logo || "/placeholder.svg"}
+                                  src={integration.logo || integration.fallbackLogo}
                                   alt={integration.name}
                                   className="w-8 h-8"
                                   onError={handleImageError}
@@ -1306,7 +1464,7 @@ export default function WorkflowBuilder() {
               <div className="flex items-center space-x-3 p-4 bg-slate-50 rounded-lg">
                 <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center shadow-sm border border-slate-200">
                   <img
-                    src={selectedIntegration?.logo || "/placeholder.svg"}
+                    src={selectedIntegration?.logo || selectedIntegration?.fallbackLogo}
                     alt={selectedIntegration?.name}
                     className="w-8 h-8"
                     onError={handleImageError}
@@ -1343,26 +1501,35 @@ export default function WorkflowBuilder() {
           </DialogContent>
         </Dialog>
 
-        {/* Configuration Modal - Fixed double text issue */}
+        {/* Enhanced Configuration Modal - Fixed double text issue */}
         <Dialog open={showConfigModal} onOpenChange={setShowConfigModal}>
           <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden">
             <DialogHeader>
-              <DialogTitle>Configure {selectedTrigger?.name}</DialogTitle>
-              <DialogDescription>Set up the parameters for this trigger</DialogDescription>
+              <DialogTitle className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center">
+                  <img
+                    src={selectedIntegration?.logo || selectedIntegration?.fallbackLogo}
+                    alt={selectedIntegration?.name}
+                    className="w-5 h-5"
+                    onError={handleImageError}
+                  />
+                </div>
+                Configure {selectedTrigger?.name}
+              </DialogTitle>
+              <DialogDescription>
+                Set up the parameters for this trigger to customize when it activates.
+              </DialogDescription>
             </DialogHeader>
             <ScrollArea className="max-h-[60vh]">
-              <div className="space-y-4 p-1">
+              <div className="space-y-6 p-1">
                 {getConfigFields().map((field) => (
-                  <div key={field.key} className="space-y-2">
-                    <Label htmlFor={field.key} className="text-sm font-medium">
-                      {field.label} {field.required && <span className="text-red-500">*</span>}
-                    </Label>
-                    {renderConfigField(field)}
-                    {field.description && <p className="text-xs text-muted-foreground">{field.description}</p>}
-                  </div>
+                  <div key={field.key}>{renderConfigField(field)}</div>
                 ))}
                 {getConfigFields().length === 0 && (
                   <div className="text-center py-8 text-slate-500">
+                    <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <CheckCircle className="w-8 h-8 text-green-500" />
+                    </div>
                     <div className="text-lg font-medium mb-2">No configuration needed</div>
                     <div className="text-sm">This trigger works automatically without additional setup</div>
                   </div>
