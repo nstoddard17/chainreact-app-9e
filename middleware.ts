@@ -6,7 +6,19 @@ export async function middleware(request: NextRequest) {
   const res = NextResponse.next()
 
   try {
-    // Create middleware client (this is separate from the browser client)
+    const url = request.nextUrl.pathname
+
+    // Skip middleware for static files and API routes (except protected ones)
+    if (
+      url.startsWith("/_next") ||
+      url.startsWith("/api/auth") ||
+      url.includes("/callback") ||
+      url.startsWith("/auth/")
+    ) {
+      return res
+    }
+
+    // Create middleware client
     const supabase = createMiddlewareClient({ req: request, res })
 
     // Check if user is authenticated
@@ -14,8 +26,7 @@ export async function middleware(request: NextRequest) {
       data: { session },
     } = await supabase.auth.getSession()
 
-    // If no session and trying to access protected routes, redirect to login
-    const url = request.nextUrl.pathname
+    // Define protected routes
     const isProtectedRoute =
       url.startsWith("/dashboard") ||
       url.startsWith("/workflows") ||
@@ -28,38 +39,28 @@ export async function middleware(request: NextRequest) {
       url.startsWith("/learn") ||
       url.startsWith("/community")
 
-    // Exclude OAuth callback pages from authentication checks
-    const isOAuthCallback = url.startsWith("/integrations/trello-auth") || url.includes("/callback")
-
-    // For development, allow access to protected routes even without a session
+    // For development, be more lenient
     const isDevelopment = process.env.NODE_ENV === "development"
 
-    // Only redirect if we're sure there's no session, it's not development, and it's not an OAuth callback
-    if (!session && isProtectedRoute && !isDevelopment && !isOAuthCallback) {
+    // Only redirect if we're absolutely sure there's no session and it's a protected route
+    if (!session && isProtectedRoute && !isDevelopment) {
       console.log("Middleware: No session found, redirecting to login")
       return NextResponse.redirect(new URL("/auth/login", request.url))
     }
 
-    // If session exists, track API usage for specific endpoints
+    // Track API usage if session exists
     if (session && url.startsWith("/api/")) {
       if (url.startsWith("/api/workflows/execute")) {
-        // Track workflow execution
         await trackUsage(supabase, session.user.id, "execution", "run")
       } else if (url.startsWith("/api/workflows") && request.method === "POST") {
-        // Track workflow creation
         await trackUsage(supabase, session.user.id, "workflow", "create")
       } else if (url.startsWith("/api/integrations") && request.method === "POST") {
-        // Track integration creation
         await trackUsage(supabase, session.user.id, "integration", "connect")
       }
     }
   } catch (error) {
     console.error("Middleware error:", error)
-    // In case of error, don't redirect in development
-    if (process.env.NODE_ENV === "development") {
-      return res
-    }
-    // Continue without tracking or redirecting in case of error
+    // In case of error, don't redirect - let client handle auth
   }
 
   return res
