@@ -240,6 +240,118 @@ const TRIGGER_CONFIGS = {
   "Pull Request Created": [
     { key: "repository", label: "Repository", type: "text", placeholder: "owner/repo", required: true },
   ],
+  "Email with Attachment": [
+    {
+      key: "attachment_type",
+      label: "Attachment Type (optional)",
+      type: "select",
+      options: ["any", "pdf", "image", "document"],
+      required: false,
+    },
+    { key: "min_size_mb", label: "Minimum Size (MB)", type: "number", placeholder: "1", required: false },
+  ],
+  "Important Email": [
+    { key: "importance_level", label: "Importance Level", type: "select", options: ["high", "normal"], required: true },
+    { key: "keywords", label: "Keywords (optional)", type: "text", placeholder: "urgent, important", required: false },
+  ],
+  "File Uploaded": [
+    { key: "channel", label: "Channel (optional)", type: "text", placeholder: "#general", required: false },
+    {
+      key: "file_type",
+      label: "File Type (optional)",
+      type: "select",
+      options: ["any", "image", "document", "video"],
+      required: false,
+    },
+  ],
+  "Page Updated": [
+    { key: "page_id", label: "Page ID (optional)", type: "text", placeholder: "Page ID", required: false },
+  ],
+  "Event Updated": [
+    { key: "calendar_id", label: "Calendar ID (optional)", type: "text", placeholder: "primary", required: false },
+  ],
+  "Event Starting Soon": [
+    { key: "minutes_before", label: "Minutes Before", type: "number", placeholder: "15", required: true },
+    { key: "calendar_id", label: "Calendar ID (optional)", type: "text", placeholder: "primary", required: false },
+  ],
+  "Cell Changed": [
+    { key: "spreadsheet_id", label: "Spreadsheet ID", type: "text", placeholder: "Spreadsheet ID", required: true },
+    { key: "range", label: "Cell Range (optional)", type: "text", placeholder: "A1:Z100", required: false },
+  ],
+  "File Shared": [
+    { key: "folder_path", label: "Folder Path (optional)", type: "text", placeholder: "/folder/path", required: false },
+    { key: "share_type", label: "Share Type", type: "select", options: ["anyone", "specific"], required: false },
+  ],
+  "Comment Added": [
+    { key: "document_id", label: "Document ID (optional)", type: "text", placeholder: "Document ID", required: false },
+  ],
+  "Document Shared": [
+    { key: "document_id", label: "Document ID (optional)", type: "text", placeholder: "Document ID", required: false },
+  ],
+  "Due Date Approaching": [
+    { key: "board_id", label: "Board ID", type: "text", placeholder: "Board ID", required: true },
+    { key: "days_before", label: "Days Before", type: "number", placeholder: "1", required: true },
+  ],
+  "Card Updated": [
+    { key: "board_id", label: "Board ID", type: "text", placeholder: "Board ID", required: true },
+    { key: "list_name", label: "List Name (optional)", type: "text", placeholder: "In Progress", required: false },
+  ],
+  "Pipeline Failed": [
+    { key: "repository", label: "Repository", type: "text", placeholder: "owner/repo", required: true },
+    { key: "branch", label: "Branch (optional)", type: "text", placeholder: "main", required: false },
+  ],
+  "Merge Request Created": [
+    { key: "repository", label: "Repository", type: "text", placeholder: "owner/repo", required: true },
+    { key: "target_branch", label: "Target Branch (optional)", type: "text", placeholder: "main", required: false },
+  ],
+  "Release Published": [
+    { key: "repository", label: "Repository", type: "text", placeholder: "owner/repo", required: true },
+    { key: "prerelease", label: "Include Prereleases", type: "select", options: ["yes", "no"], required: false },
+  ],
+  "User Joined Server": [
+    { key: "server_id", label: "Server ID (optional)", type: "text", placeholder: "Server ID", required: false },
+  ],
+  "User Left Server": [
+    { key: "server_id", label: "Server ID (optional)", type: "text", placeholder: "Server ID", required: false },
+  ],
+  "Reaction Added": [
+    { key: "channel_id", label: "Channel ID (optional)", type: "text", placeholder: "Channel ID", required: false },
+    { key: "emoji", label: "Specific Emoji (optional)", type: "text", placeholder: "👍", required: false },
+  ],
+  "Subscription Created": [
+    { key: "plan_id", label: "Plan ID (optional)", type: "text", placeholder: "price_xxx", required: false },
+    { key: "amount_min", label: "Minimum Amount (cents)", type: "number", placeholder: "1000", required: false },
+  ],
+  "Payment Failed": [
+    { key: "amount_min", label: "Minimum Amount (cents)", type: "number", placeholder: "1000", required: false },
+    {
+      key: "failure_code",
+      label: "Failure Code (optional)",
+      type: "text",
+      placeholder: "card_declined",
+      required: false,
+    },
+  ],
+  "Customer Created": [
+    {
+      key: "email_domain",
+      label: "Email Domain (optional)",
+      type: "text",
+      placeholder: "company.com",
+      required: false,
+    },
+  ],
+  "Deal Updated": [
+    { key: "pipeline_id", label: "Pipeline ID (optional)", type: "text", placeholder: "Pipeline ID", required: false },
+    { key: "stage", label: "Deal Stage (optional)", type: "text", placeholder: "qualified", required: false },
+  ],
+  "Contact Updated": [
+    { key: "property", label: "Property Changed (optional)", type: "text", placeholder: "email", required: false },
+  ],
+  "Deal Created": [
+    { key: "pipeline_id", label: "Pipeline ID (optional)", type: "text", placeholder: "Pipeline ID", required: false },
+    { key: "amount_min", label: "Minimum Amount", type: "number", placeholder: "1000", required: false },
+  ],
 }
 
 interface WorkflowStep {
@@ -375,7 +487,7 @@ export default function WorkflowBuilder() {
           appId: selectedApp.id,
           appName: selectedApp.name,
           actionName: actionName,
-          config: {},
+          config: {}, // Empty config for simple triggers
           isConfigured: true,
         }
 
@@ -728,7 +840,8 @@ export default function WorkflowBuilder() {
 
   const hasConfigurableOptions = (step: WorkflowStep) => {
     if (step.type === "trigger") {
-      return TRIGGER_CONFIGS[step.actionName as keyof typeof TRIGGER_CONFIGS]?.length > 0
+      const triggerConfig = TRIGGER_CONFIGS[step.actionName as keyof typeof TRIGGER_CONFIGS]
+      return triggerConfig && triggerConfig.length > 0
     } else {
       // Check if action has configurable options
       const configurableActions = [
@@ -740,18 +853,54 @@ export default function WorkflowBuilder() {
         "AI-based",
         "Create Contact",
         "Update Deal",
+        "Send Email", // HubSpot
         "Create Issue",
         "Create Pull Request",
+        "Add Comment", // GitHub
+        "Create Event",
+        "Update Event",
+        "Delete Event",
         "Add Row",
         "Update Row",
-        "Create Record",
-        "Update Record",
-        "Create Card",
-        "Move Card",
+        "Create Sheet",
         "Upload File",
         "Create Folder",
+        "Share File",
+        "Create Document",
+        "Update Document",
+        "Add Comment", // Google Docs
+        "Create Record",
+        "Update Record",
+        "Delete Record",
+        "Create Card",
+        "Move Card",
+        "Update Card",
         "Schedule Meeting",
+        "Share File", // Teams
+        "Create Merge Request",
+        "Add Comment", // GitLab
+        "Create Post",
+        "Reply to Comment",
+        "Share Post",
+        "Upload Video",
+        "Reply to Comment", // YouTube
+        "Update Video",
+        "Add Subscriber",
         "Send Campaign",
+        "Update Subscriber",
+        "Create Post", // LinkedIn
+        "Send Message", // LinkedIn
+        "Connect with User",
+        "Reply to Email",
+        "Forward Email",
+        "Create Channel", // Slack
+        "Update Status",
+        "Update Database",
+        "Add Comment", // Notion
+        "Create Customer",
+        "Send Invoice",
+        "Refund Payment",
+        "Assign Role", // Discord
       ]
       return configurableActions.includes(step.actionName)
     }
@@ -990,6 +1139,7 @@ export default function WorkflowBuilder() {
                                   AVAILABLE_INTEGRATIONS.find((app) => app.id === step.appId)?.logo ||
                                   "/placeholder.svg?height=32&width=32" ||
                                   "/placeholder.svg" ||
+                                  "/placeholder.svg" ||
                                   "/placeholder.svg"
                                 }
                                 alt={step.appName}
@@ -1225,10 +1375,10 @@ export default function WorkflowBuilder() {
                   : handleConfigComplete
               }
               className="flex-1"
-              disabled={() => {
+              disabled={(() => {
                 const fields = getConfigFields()
                 return fields.some((field) => field.required && !currentConfig[field.key])
-              }}
+              })()}
             >
               {currentStepIndex >= 0 && currentStepIndex < workflowSteps.length ? "Update Step" : "Add Step"}
             </Button>
@@ -1319,6 +1469,7 @@ export default function WorkflowBuilder() {
                     <img
                       src={
                         AVAILABLE_INTEGRATIONS.find((app) => app.id === workflowSteps[stepToDelete].appId)?.logo ||
+                        "/placeholder.svg" ||
                         "/placeholder.svg" ||
                         "/placeholder.svg"
                       }
