@@ -1,19 +1,67 @@
 import { create } from "zustand"
+import { apiClient } from "../lib/apiClient"
 
-interface IntegrationState {
-  isConnected: boolean
-  setConnected: (isConnected: boolean) => void
-  integrationData: any
-  setIntegrationData: (data: any) => void
-  clearIntegrationData: () => void
+export type Integration = {
+  id: string
+  name: string
+  type: string
+  status: string
+  // Add other integration properties here
 }
 
-const useIntegrationStore = create<IntegrationState>((set) => ({
-  isConnected: false,
-  setConnected: (isConnected) => set({ isConnected }),
-  integrationData: null,
-  setIntegrationData: (data) => set({ integrationData: data }),
-  clearIntegrationData: () => set({ integrationData: null }),
-}))
+type IntegrationState = {
+  integrations: Integration[]
+  loading: boolean
+  error: string | null
+  lastFetch: number | null
+  fetchIntegrations: (skipCache?: boolean) => Promise<Integration[]>
+}
 
-export default useIntegrationStore
+export const useIntegrationStore = create<IntegrationState>((set, get) => ({
+  integrations: [],
+  loading: false,
+  error: null,
+  lastFetch: null,
+  fetchIntegrations: async (skipCache = false) => {
+    const state = get()
+
+    // Return cached data if available and not skipping cache
+    if (!skipCache && state.integrations.length > 0 && !state.error) {
+      return state.integrations
+    }
+
+    set({ loading: true, error: null })
+
+    try {
+      const { data, error } = await apiClient.get<Integration[]>("/api/integrations")
+
+      if (error) {
+        console.warn("Failed to fetch integrations:", error)
+        set({
+          integrations: [], // Empty array instead of null
+          loading: false,
+          error: "Failed to load integrations",
+        })
+        return []
+      }
+
+      const integrations = data || []
+      set({
+        integrations,
+        loading: false,
+        error: null,
+        lastFetch: Date.now(),
+      })
+
+      return integrations
+    } catch (error) {
+      console.error("Error fetching integrations:", error)
+      set({
+        integrations: [], // Empty array instead of null
+        loading: false,
+        error: "Network error while loading integrations",
+      })
+      return []
+    }
+  },
+}))
