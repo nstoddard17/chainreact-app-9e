@@ -469,8 +469,8 @@ export function detectAvailableIntegrations(): IntegrationConfig[] {
     )
     const hasClientSecret = !!process.env[config.requiresClientSecret]
 
-    // Mark as available if both credentials are present
-    const isAvailable = hasClientId && hasClientSecret
+    // Mark all integrations as available for connection attempts
+    const isAvailable = true
 
     availableIntegrations.push({
       ...config,
@@ -502,15 +502,7 @@ export function getAvailableIntegrationIds(): string[] {
  */
 export function isIntegrationAvailable(id: string): boolean {
   const config = getIntegrationConfig(id)
-  if (!config) return false
-
-  const hasClientId = !!(
-    process.env[config.requiresClientId] ||
-    (typeof window !== "undefined" && (window as any).ENV?.[config.requiresClientId])
-  )
-  const hasClientSecret = !!process.env[config.requiresClientSecret]
-
-  return hasClientId && hasClientSecret
+  return !!config
 }
 
 /**

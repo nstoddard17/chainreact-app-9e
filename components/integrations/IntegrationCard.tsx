@@ -4,7 +4,7 @@ import { useState, useCallback } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { CheckCircle, Loader2, RefreshCw, AlertTriangle, ExternalLink } from "lucide-react"
+import { CheckCircle, Loader2, RefreshCw, ExternalLink } from "lucide-react"
 import { useIntegrationStore } from "@/stores/integrationStore"
 import { useToast } from "@/hooks/use-toast"
 
@@ -35,15 +35,6 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
   const { toast } = useToast()
 
   const handleConnect = useCallback(async () => {
-    if (!provider.isAvailable) {
-      toast({
-        title: "Integration Not Available",
-        description: `${provider.name} integration is not yet available.`,
-        variant: "destructive",
-      })
-      return
-    }
-
     try {
       setIsConnecting(true)
 
@@ -239,15 +230,6 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
       )
     }
 
-    if (!provider.isAvailable) {
-      return (
-        <Badge variant="outline" className="bg-amber-50 text-amber-600 border-amber-200">
-          <AlertTriangle className="w-3 h-3 mr-1" />
-          Not Available
-        </Badge>
-      )
-    }
-
     return null
   }
 
@@ -333,12 +315,12 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
                 size="sm"
                 className="flex-1 transition-colors"
                 onClick={handleConnect}
-                disabled={isConnecting || !provider.isAvailable}
+                disabled={isConnecting}
               >
                 {isConnecting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                {!provider.isAvailable ? "Not Available" : isConnecting ? "Connecting..." : "Connect"}
+                {isConnecting ? "Connecting..." : "Connect"}
               </Button>
-              {provider.isAvailable && (
+              {!provider.connected && (
                 <Button variant="ghost" size="sm" className="px-2 hover:bg-slate-100" title="Learn more">
                   <ExternalLink className="w-4 h-4" />
                 </Button>
