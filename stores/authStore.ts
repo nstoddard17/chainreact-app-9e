@@ -1,9 +1,8 @@
 "use client"
 
 import { create } from "zustand"
-import { persist } from "zustand/middleware"
+import { persist, createJSONStorage } from "zustand/middleware"
 import { supabase } from "@/lib/supabase"
-import { useIntegrationStore } from "./integrationStore"
 
 interface User {
   id: string
@@ -30,15 +29,22 @@ export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
       user: null,
-      loading: false, // Start with false since we'll check persistence first
+      loading: false,
       initialized: false,
       error: null,
 
       initialize: async () => {
+        const state = get()
+        if (state.initialized) {
+          console.log("Auth already initialized")
+          return
+        }
+
         try {
           set({ loading: true, error: null })
+          console.log("Starting auth initialization...")
 
-          // Get initial session - this will restore from localStorage if available
+          // Get initial session
           const {
             data: { session },
             error: sessionError,
@@ -51,6 +57,7 @@ export const useAuthStore = create<AuthState>()(
           }
 
           if (session?.user) {
+            console.log("Found existing session for user:", session.user.email)
             const user: User = {
               id: session.user.id,
               email: session.user.email || "",
@@ -60,19 +67,25 @@ export const useAuthStore = create<AuthState>()(
 
             set({ user, loading: false, initialized: true })
 
-            // Start background data preloading immediately without waiting
+            // Start background data preloading
             console.log("User authenticated, starting background data preload...")
-            const integrationStore = useIntegrationStore.getState()
-            integrationStore.initializeGlobalPreload().catch((error) => {
-              console.error("Background preload failed:", error)
-            })
+            setTimeout(async () => {
+              try {
+                const { useIntegrationStore } = await import("./integrationStore")
+                const integrationStore = useIntegrationStore.getState()
+                await integrationStore.initializeGlobalPreload()
+              } catch (error) {
+                console.error("Background preload failed:", error)
+              }
+            }, 100)
           } else {
+            console.log("No existing session found")
             set({ user: null, loading: false, initialized: true })
           }
 
           // Listen for auth changes
           supabase.auth.onAuthStateChange(async (event, session) => {
-            console.log("Auth state changed:", event)
+            console.log("Auth state changed:", event, session?.user?.email)
 
             if (event === "SIGNED_IN" && session?.user) {
               const user: User = {
@@ -86,21 +99,35 @@ export const useAuthStore = create<AuthState>()(
 
               // Start background data preloading on sign in
               console.log("User signed in, starting background data preload...")
-              const integrationStore = useIntegrationStore.getState()
-              integrationStore.initializeGlobalPreload().catch((error) => {
-                console.error("Background preload failed:", error)
-              })
+              setTimeout(async () => {
+                try {
+                  const { useIntegrationStore } = await import("./integrationStore")
+                  const integrationStore = useIntegrationStore.getState()
+                  await integrationStore.initializeGlobalPreload()
+                } catch (error) {
+                  console.error("Background preload failed:", error)
+                }
+              }, 100)
             } else if (event === "SIGNED_OUT") {
+              console.log("User signed out")
               set({ user: null, error: null })
 
               // Clear integration data on sign out
-              useIntegrationStore.setState({
-                integrations: [],
-                dynamicData: {},
-                preloadProgress: {},
-                preloadStarted: false,
-                globalPreloadingData: false,
-              })
+              setTimeout(async () => {
+                try {
+                  const { useIntegrationStore } = await import("./integrationStore")
+                  useIntegrationStore.setState({
+                    integrations: [],
+                    dynamicData: {},
+                    preloadProgress: {},
+                    preloadStarted: false,
+                    globalPreloadingData: false,
+                    dataLastFetched: {},
+                  })
+                } catch (error) {
+                  console.error("Error clearing integration data:", error)
+                }
+              }, 100)
             } else if (event === "TOKEN_REFRESHED") {
               console.log("Token refreshed successfully")
             }
@@ -117,17 +144,24 @@ export const useAuthStore = create<AuthState>()(
           const { error } = await supabase.auth.signOut()
           if (error) throw error
 
-          // Clear all stores
           set({ user: null, loading: false, error: null })
 
           // Clear integration store
-          useIntegrationStore.setState({
-            integrations: [],
-            dynamicData: {},
-            preloadProgress: {},
-            preloadStarted: false,
-            globalPreloadingData: false,
-          })
+          setTimeout(async () => {
+            try {
+              const { useIntegrationStore } = await import("./integrationStore")
+              useIntegrationStore.setState({
+                integrations: [],
+                dynamicData: {},
+                preloadProgress: {},
+                preloadStarted: false,
+                globalPreloadingData: false,
+                dataLastFetched: {},
+              })
+            } catch (error) {
+              console.error("Error clearing integration data:", error)
+            }
+          }, 100)
         } catch (error: any) {
           console.error("Sign out error:", error)
           set({ error: error.message, loading: false })
@@ -181,13 +215,6 @@ export const useAuthStore = create<AuthState>()(
             }
 
             set({ user, loading: false })
-
-            // Start background data preloading
-            console.log("User signed in, starting background data preload...")
-            const integrationStore = useIntegrationStore.getState()
-            integrationStore.initializeGlobalPreload().catch((error) => {
-              console.error("Background preload failed:", error)
-            })
           }
         } catch (error: any) {
           console.error("Sign in error:", error)
@@ -240,7 +267,6 @@ export const useAuthStore = create<AuthState>()(
 
           if (error) throw error
 
-          // Note: The actual user state will be set by the onAuthStateChange listener
           set({ loading: false })
         } catch (error: any) {
           console.error("Google sign in error:", error)
@@ -254,7 +280,8 @@ export const useAuthStore = create<AuthState>()(
       },
     }),
     {
-      name: "auth-storage",
+      name: "chainreact-auth",
+      storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         user: state.user,
         initialized: state.initialized,
