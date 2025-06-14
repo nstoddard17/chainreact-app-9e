@@ -25,6 +25,9 @@ interface Provider {
   capabilities: string[]
   scopes: string[]
   isAvailable: boolean
+  connected?: boolean
+  wasConnected?: boolean
+  integration?: Integration
 }
 
 interface CachedResource {
@@ -82,7 +85,49 @@ interface IntegrationState {
   preloadUserDataOnLogin: () => Promise<void>
 }
 
-const availableProviders: Provider[] = [
+// Check if environment variables are available for each provider
+const checkProviderAvailability = (providerId: string): boolean => {
+  const envVarMap: Record<string, string[]> = {
+    slack: ["NEXT_PUBLIC_SLACK_CLIENT_ID", "SLACK_CLIENT_SECRET"],
+    discord: ["NEXT_PUBLIC_DISCORD_CLIENT_ID", "DISCORD_CLIENT_SECRET"],
+    teams: ["NEXT_PUBLIC_TEAMS_CLIENT_ID", "TEAMS_CLIENT_SECRET"],
+    gmail: ["NEXT_PUBLIC_GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"],
+    "google-drive": ["NEXT_PUBLIC_GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"],
+    "google-sheets": ["NEXT_PUBLIC_GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"],
+    "google-docs": ["NEXT_PUBLIC_GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"],
+    "google-calendar": ["NEXT_PUBLIC_GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"],
+    youtube: ["NEXT_PUBLIC_YOUTUBE_CLIENT_ID", "YOUTUBE_CLIENT_SECRET"],
+    github: ["NEXT_PUBLIC_GITHUB_CLIENT_ID", "GITHUB_CLIENT_SECRET"],
+    gitlab: ["NEXT_PUBLIC_GITLAB_CLIENT_ID", "GITLAB_CLIENT_SECRET"],
+    docker: ["NEXT_PUBLIC_DOCKER_CLIENT_ID", "DOCKER_CLIENT_SECRET"],
+    twitter: ["NEXT_PUBLIC_TWITTER_CLIENT_ID", "TWITTER_CLIENT_SECRET"],
+    facebook: ["NEXT_PUBLIC_FACEBOOK_CLIENT_ID", "FACEBOOK_CLIENT_SECRET"],
+    instagram: ["NEXT_PUBLIC_INSTAGRAM_CLIENT_ID", "INSTAGRAM_CLIENT_SECRET"],
+    linkedin: ["NEXT_PUBLIC_LINKEDIN_CLIENT_ID", "LINKEDIN_CLIENT_SECRET"],
+    tiktok: ["NEXT_PUBLIC_TIKTOK_CLIENT_ID", "TIKTOK_CLIENT_SECRET"],
+    notion: ["NEXT_PUBLIC_NOTION_CLIENT_ID", "NOTION_CLIENT_SECRET"],
+    trello: ["NEXT_PUBLIC_TRELLO_CLIENT_ID", "TRELLO_CLIENT_SECRET"],
+    airtable: ["NEXT_PUBLIC_AIRTABLE_CLIENT_ID", "AIRTABLE_CLIENT_SECRET"],
+    dropbox: ["NEXT_PUBLIC_DROPBOX_CLIENT_ID", "DROPBOX_CLIENT_SECRET"],
+    onedrive: ["NEXT_PUBLIC_ONEDRIVE_CLIENT_ID", "ONEDRIVE_CLIENT_SECRET"],
+    shopify: ["NEXT_PUBLIC_SHOPIFY_CLIENT_ID", "SHOPIFY_CLIENT_SECRET"],
+    stripe: ["NEXT_PUBLIC_STRIPE_CLIENT_ID", "STRIPE_CLIENT_SECRET"],
+    paypal: ["NEXT_PUBLIC_PAYPAL_CLIENT_ID", "PAYPAL_CLIENT_SECRET"],
+    mailchimp: ["NEXT_PUBLIC_MAILCHIMP_CLIENT_ID", "MAILCHIMP_CLIENT_SECRET"],
+    hubspot: ["NEXT_PUBLIC_HUBSPOT_CLIENT_ID", "HUBSPOT_CLIENT_SECRET"],
+  }
+
+  const requiredVars = envVarMap[providerId]
+  if (!requiredVars) return false
+
+  // Check if all required environment variables are present
+  return requiredVars.every((varName) => {
+    const value = process.env[varName]
+    return value && value.trim() !== ""
+  })
+}
+
+const availableProviders: Omit<Provider, "connected" | "wasConnected" | "integration">[] = [
   {
     id: "slack",
     name: "Slack",
@@ -91,7 +136,7 @@ const availableProviders: Provider[] = [
     logoUrl: "/placeholder.svg?height=40&width=40&text=S",
     capabilities: ["Messaging", "Channels", "Files", "Users"],
     scopes: ["chat:write", "channels:read", "users:read"],
-    isAvailable: true,
+    isAvailable: checkProviderAvailability("slack"),
   },
   {
     id: "discord",
@@ -101,7 +146,7 @@ const availableProviders: Provider[] = [
     logoUrl: "/placeholder.svg?height=40&width=40&text=D",
     capabilities: ["Messaging", "Voice", "Servers", "Users"],
     scopes: ["identify", "guilds"],
-    isAvailable: true,
+    isAvailable: checkProviderAvailability("discord"),
   },
   {
     id: "teams",
@@ -111,7 +156,7 @@ const availableProviders: Provider[] = [
     logoUrl: "/placeholder.svg?height=40&width=40&text=T",
     capabilities: ["Messaging", "Meetings", "Files", "Channels"],
     scopes: ["openid", "profile", "email"],
-    isAvailable: true,
+    isAvailable: checkProviderAvailability("teams"),
   },
   {
     id: "gmail",
@@ -121,7 +166,7 @@ const availableProviders: Provider[] = [
     logoUrl: "/placeholder.svg?height=40&width=40&text=GM",
     capabilities: ["Send Email", "Read Email", "Manage Labels", "Search"],
     scopes: ["email", "gmail.send", "gmail.modify"],
-    isAvailable: true,
+    isAvailable: checkProviderAvailability("gmail"),
   },
   {
     id: "google-drive",
@@ -131,7 +176,7 @@ const availableProviders: Provider[] = [
     logoUrl: "/placeholder.svg?height=40&width=40&text=GD",
     capabilities: ["File Storage", "File Sharing", "Collaboration"],
     scopes: ["drive"],
-    isAvailable: true,
+    isAvailable: checkProviderAvailability("google-drive"),
   },
   {
     id: "google-sheets",
@@ -141,7 +186,7 @@ const availableProviders: Provider[] = [
     logoUrl: "/placeholder.svg?height=40&width=40&text=GS",
     capabilities: ["Read Data", "Write Data", "Create Sheets", "Format Cells"],
     scopes: ["spreadsheets"],
-    isAvailable: true,
+    isAvailable: checkProviderAvailability("google-sheets"),
   },
   {
     id: "google-docs",
@@ -151,7 +196,7 @@ const availableProviders: Provider[] = [
     logoUrl: "/placeholder.svg?height=40&width=40&text=GD",
     capabilities: ["Document Creation", "Editing", "Collaboration"],
     scopes: ["documents"],
-    isAvailable: true,
+    isAvailable: checkProviderAvailability("google-docs"),
   },
   {
     id: "google-calendar",
@@ -161,7 +206,7 @@ const availableProviders: Provider[] = [
     logoUrl: "/placeholder.svg?height=40&width=40&text=GC",
     capabilities: ["Events", "Calendars", "Attendees", "Reminders"],
     scopes: ["calendar"],
-    isAvailable: true,
+    isAvailable: checkProviderAvailability("google-calendar"),
   },
   {
     id: "youtube",
@@ -171,7 +216,7 @@ const availableProviders: Provider[] = [
     logoUrl: "/placeholder.svg?height=40&width=40&text=YT",
     capabilities: ["Video Upload", "Channel Management", "Analytics"],
     scopes: ["youtube.readonly", "youtube.upload"],
-    isAvailable: true,
+    isAvailable: checkProviderAvailability("youtube"),
   },
   {
     id: "github",
@@ -181,7 +226,7 @@ const availableProviders: Provider[] = [
     logoUrl: "/placeholder.svg?height=40&width=40&text=GH",
     capabilities: ["Repositories", "Issues", "Pull Requests", "Commits"],
     scopes: ["repo", "user"],
-    isAvailable: true,
+    isAvailable: checkProviderAvailability("github"),
   },
   {
     id: "gitlab",
@@ -191,7 +236,7 @@ const availableProviders: Provider[] = [
     logoUrl: "/placeholder.svg?height=40&width=40&text=GL",
     capabilities: ["Repositories", "Issues", "Merge Requests", "CI/CD"],
     scopes: ["read_user", "read_api"],
-    isAvailable: true,
+    isAvailable: checkProviderAvailability("gitlab"),
   },
   {
     id: "docker",
@@ -201,7 +246,7 @@ const availableProviders: Provider[] = [
     logoUrl: "/placeholder.svg?height=40&width=40&text=DO",
     capabilities: ["Container Management", "Image Registry", "Deployment"],
     scopes: ["repo:read", "repo:write"],
-    isAvailable: true,
+    isAvailable: checkProviderAvailability("docker"),
   },
   {
     id: "twitter",
@@ -211,7 +256,7 @@ const availableProviders: Provider[] = [
     logoUrl: "/placeholder.svg?height=40&width=40&text=TW",
     capabilities: ["Tweet", "Read Timeline", "Direct Messages"],
     scopes: ["tweet.read", "tweet.write"],
-    isAvailable: true,
+    isAvailable: checkProviderAvailability("twitter"),
   },
   {
     id: "facebook",
@@ -221,7 +266,7 @@ const availableProviders: Provider[] = [
     logoUrl: "/placeholder.svg?height=40&width=40&text=FB",
     capabilities: ["Post Updates", "Page Management", "Analytics"],
     scopes: ["public_profile", "pages_manage_posts"],
-    isAvailable: true,
+    isAvailable: checkProviderAvailability("facebook"),
   },
   {
     id: "instagram",
@@ -231,7 +276,7 @@ const availableProviders: Provider[] = [
     logoUrl: "/placeholder.svg?height=40&width=40&text=IG",
     capabilities: ["Post Photos", "Stories", "Analytics"],
     scopes: ["instagram_basic", "instagram_content_publish"],
-    isAvailable: true,
+    isAvailable: checkProviderAvailability("instagram"),
   },
   {
     id: "linkedin",
@@ -241,7 +286,7 @@ const availableProviders: Provider[] = [
     logoUrl: "/placeholder.svg?height=40&width=40&text=LI",
     capabilities: ["Post Updates", "Profile Management", "Connections"],
     scopes: ["r_liteprofile", "w_member_social"],
-    isAvailable: true,
+    isAvailable: checkProviderAvailability("linkedin"),
   },
   {
     id: "tiktok",
@@ -251,7 +296,7 @@ const availableProviders: Provider[] = [
     logoUrl: "/placeholder.svg?height=40&width=40&text=TT",
     capabilities: ["Video Upload", "Analytics", "User Info"],
     scopes: ["user.info.basic", "video.upload"],
-    isAvailable: true,
+    isAvailable: checkProviderAvailability("tiktok"),
   },
   {
     id: "notion",
@@ -261,7 +306,7 @@ const availableProviders: Provider[] = [
     logoUrl: "/placeholder.svg?height=40&width=40&text=N",
     capabilities: ["Pages", "Databases", "Blocks", "Users"],
     scopes: ["read_content", "insert_content"],
-    isAvailable: true,
+    isAvailable: checkProviderAvailability("notion"),
   },
   {
     id: "trello",
@@ -271,7 +316,7 @@ const availableProviders: Provider[] = [
     logoUrl: "/placeholder.svg?height=40&width=40&text=T",
     capabilities: ["Boards", "Cards", "Lists", "Members"],
     scopes: ["read", "write"],
-    isAvailable: true,
+    isAvailable: checkProviderAvailability("trello"),
   },
   {
     id: "airtable",
@@ -281,7 +326,7 @@ const availableProviders: Provider[] = [
     logoUrl: "/placeholder.svg?height=40&width=40&text=A",
     capabilities: ["Records", "Bases", "Tables", "Views"],
     scopes: ["data.records:read", "data.records:write"],
-    isAvailable: true,
+    isAvailable: checkProviderAvailability("airtable"),
   },
   {
     id: "dropbox",
@@ -291,7 +336,7 @@ const availableProviders: Provider[] = [
     logoUrl: "/placeholder.svg?height=40&width=40&text=DB",
     capabilities: ["File Storage", "File Sharing", "Sync"],
     scopes: ["files.content.write", "files.content.read"],
-    isAvailable: true,
+    isAvailable: checkProviderAvailability("dropbox"),
   },
   {
     id: "onedrive",
@@ -301,7 +346,7 @@ const availableProviders: Provider[] = [
     logoUrl: "/placeholder.svg?height=40&width=40&text=OD",
     capabilities: ["File Storage", "File Sharing", "Office Integration"],
     scopes: ["files.readwrite", "offline_access"],
-    isAvailable: true,
+    isAvailable: checkProviderAvailability("onedrive"),
   },
   {
     id: "shopify",
@@ -311,7 +356,7 @@ const availableProviders: Provider[] = [
     logoUrl: "/placeholder.svg?height=40&width=40&text=SH",
     capabilities: ["Product Management", "Order Processing", "Analytics"],
     scopes: ["read_products", "write_products"],
-    isAvailable: true,
+    isAvailable: checkProviderAvailability("shopify"),
   },
   {
     id: "stripe",
@@ -321,7 +366,7 @@ const availableProviders: Provider[] = [
     logoUrl: "/placeholder.svg?height=40&width=40&text=ST",
     capabilities: ["Payment Processing", "Subscription Management", "Analytics"],
     scopes: ["read_write"],
-    isAvailable: true,
+    isAvailable: checkProviderAvailability("stripe"),
   },
   {
     id: "paypal",
@@ -331,7 +376,7 @@ const availableProviders: Provider[] = [
     logoUrl: "/placeholder.svg?height=40&width=40&text=PP",
     capabilities: ["Payment Processing", "Transaction History", "Invoicing"],
     scopes: ["openid", "profile"],
-    isAvailable: true,
+    isAvailable: checkProviderAvailability("paypal"),
   },
   {
     id: "mailchimp",
@@ -341,7 +386,7 @@ const availableProviders: Provider[] = [
     logoUrl: "/placeholder.svg?height=40&width=40&text=MC",
     capabilities: ["Email Campaigns", "Audience Management", "Analytics"],
     scopes: ["basic_access"],
-    isAvailable: true,
+    isAvailable: checkProviderAvailability("mailchimp"),
   },
   {
     id: "hubspot",
@@ -351,7 +396,7 @@ const availableProviders: Provider[] = [
     logoUrl: "/placeholder.svg?height=40&width=40&text=HS",
     capabilities: ["Contact Management", "Deal Tracking", "Analytics"],
     scopes: ["crm.objects.contacts.read", "crm.objects.contacts.write"],
-    isAvailable: true,
+    isAvailable: checkProviderAvailability("hubspot"),
   },
 ]
 
@@ -360,8 +405,8 @@ const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
 export const useIntegrationStore = create<IntegrationState>()(
   persist(
     (set, get) => ({
-      integrations: [], // Initialize as empty array
-      providers: availableProviders, // Initialize with providers
+      integrations: [],
+      providers: [],
       loading: false,
       verifyingScopes: false,
       refreshing: false,
@@ -385,10 +430,25 @@ export const useIntegrationStore = create<IntegrationState>()(
 
         try {
           const { data: user } = await supabase.auth.getUser()
+
+          // Always set providers, even if no user
+          const providersWithStatus = availableProviders.map((provider) => {
+            const integration = user?.user
+              ? (state.integrations || []).find((i) => i.provider === provider.id)
+              : undefined
+
+            return {
+              ...provider,
+              connected: integration?.status === "connected",
+              wasConnected: !!integration && integration.status !== "connected",
+              integration,
+            }
+          })
+
           if (!user.user) {
-            // If no user, just set empty integrations but keep providers
             set({
               integrations: [],
+              providers: providersWithStatus,
               loading: false,
               lastRefreshed: new Date().toISOString(),
             })
@@ -403,17 +463,29 @@ export const useIntegrationStore = create<IntegrationState>()(
 
           if (error) {
             console.error("Supabase error:", error)
-            // Don't throw, just set empty array
             set({
               integrations: [],
+              providers: providersWithStatus,
               loading: false,
               lastRefreshed: new Date().toISOString(),
             })
             return
           }
 
+          // Update providers with integration status
+          const updatedProviders = availableProviders.map((provider) => {
+            const integration = (data || []).find((i) => i.provider === provider.id)
+            return {
+              ...provider,
+              connected: integration?.status === "connected",
+              wasConnected: !!integration && integration.status !== "connected",
+              integration,
+            }
+          })
+
           set({
             integrations: data || [],
+            providers: updatedProviders,
             loading: false,
             lastRefreshed: new Date().toISOString(),
           })
@@ -426,7 +498,8 @@ export const useIntegrationStore = create<IntegrationState>()(
         } catch (error: any) {
           console.error("Failed to fetch integrations:", error)
           set({
-            integrations: [], // Ensure it's always an array
+            integrations: [],
+            providers: availableProviders.map((p) => ({ ...p, connected: false, wasConnected: false })),
             error: error.message || "Failed to fetch integrations",
             loading: false,
           })
@@ -459,6 +532,11 @@ export const useIntegrationStore = create<IntegrationState>()(
 
       connectIntegration: async (providerId: string) => {
         try {
+          const provider = availableProviders.find((p) => p.id === providerId)
+          if (!provider?.isAvailable) {
+            throw new Error(`${providerId} is not available. Please check the configuration.`)
+          }
+
           const response = await fetch("/api/integrations/auth/generate-url", {
             method: "POST",
             headers: {
@@ -474,7 +552,18 @@ export const useIntegrationStore = create<IntegrationState>()(
           }
 
           // Open in new tab
-          window.open(result.authUrl, "_blank", "width=600,height=700")
+          const popup = window.open(result.authUrl, "_blank", "width=600,height=700")
+
+          // Listen for the popup to close or for a message
+          const checkClosed = setInterval(() => {
+            if (popup?.closed) {
+              clearInterval(checkClosed)
+              // Refresh integrations after popup closes
+              setTimeout(() => {
+                get().fetchIntegrations(true)
+              }, 1000)
+            }
+          }, 1000)
         } catch (error: any) {
           console.error("Failed to connect integration:", error)
           throw error
@@ -483,18 +572,27 @@ export const useIntegrationStore = create<IntegrationState>()(
 
       disconnectIntegration: async (integrationId: string) => {
         try {
-          const response = await fetch(`/api/integrations/${integrationId}`, {
-            method: "DELETE",
-          })
-
-          if (!response.ok) {
-            throw new Error("Failed to disconnect integration")
+          const { data: session } = await supabase.auth.getSession()
+          if (!session.session?.access_token) {
+            throw new Error("No authentication token available")
           }
 
-          // Remove from local state
-          set((state) => ({
-            integrations: (state.integrations || []).filter((i) => i.id !== integrationId),
-          }))
+          const response = await fetch(`/api/integrations/${integrationId}`, {
+            method: "DELETE",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${session.session.access_token}`,
+            },
+          })
+
+          const result = await response.json()
+
+          if (!response.ok || !result.success) {
+            throw new Error(result.error || "Failed to disconnect integration")
+          }
+
+          // Refresh integrations list
+          await get().fetchIntegrations(true)
 
           // Clear cached data for this integration
           const integration = (get().integrations || []).find((i) => i.id === integrationId)

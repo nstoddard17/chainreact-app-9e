@@ -39,14 +39,6 @@ export function getOAuthRedirectUri(provider: string, req?: Request): string {
 }
 
 /**
- * Get the absolute base URL for OAuth redirects based on the request
- * Always returns production URL for OAuth consistency
- */
-export function getAbsoluteBaseUrl(request?: Request | NextRequest): string {
-  return getBaseUrl(request as Request)
-}
-
-/**
  * Upsert integration data safely
  */
 export async function upsertIntegration(
@@ -122,6 +114,77 @@ export async function upsertIntegration(
   }
 }
 
+export function getAbsoluteBaseUrl(request: NextRequest): string {
+  // Check for environment variable first
+  if (process.env.NEXT_PUBLIC_SITE_URL) {
+    return process.env.NEXT_PUBLIC_SITE_URL
+  }
+
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    return process.env.NEXT_PUBLIC_APP_URL
+  }
+
+  // Fallback to request headers
+  const protocol = request.headers.get("x-forwarded-proto") || "http"
+  const host = request.headers.get("host") || "localhost:3000"
+
+  return `${protocol}://${host}`
+}
+
+export function validateEnvironmentVariables(provider: string): { isValid: boolean; missing: string[] } {
+  const missing: string[] = []
+
+  switch (provider.toLowerCase()) {
+    case "slack":
+      if (!process.env.NEXT_PUBLIC_SLACK_CLIENT_ID) missing.push("NEXT_PUBLIC_SLACK_CLIENT_ID")
+      if (!process.env.SLACK_CLIENT_SECRET) missing.push("SLACK_CLIENT_SECRET")
+      break
+    case "discord":
+      if (!process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID) missing.push("NEXT_PUBLIC_DISCORD_CLIENT_ID")
+      if (!process.env.DISCORD_CLIENT_SECRET) missing.push("DISCORD_CLIENT_SECRET")
+      break
+    case "github":
+      if (!process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID) missing.push("NEXT_PUBLIC_GITHUB_CLIENT_ID")
+      if (!process.env.GITHUB_CLIENT_SECRET) missing.push("GITHUB_CLIENT_SECRET")
+      break
+    case "google":
+    case "gmail":
+    case "google-drive":
+    case "google-sheets":
+    case "google-docs":
+    case "google-calendar":
+    case "youtube":
+      if (!process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) missing.push("NEXT_PUBLIC_GOOGLE_CLIENT_ID")
+      if (!process.env.GOOGLE_CLIENT_SECRET) missing.push("GOOGLE_CLIENT_SECRET")
+      break
+    case "notion":
+      if (!process.env.NEXT_PUBLIC_NOTION_CLIENT_ID) missing.push("NEXT_PUBLIC_NOTION_CLIENT_ID")
+      if (!process.env.NOTION_CLIENT_SECRET) missing.push("NOTION_CLIENT_SECRET")
+      break
+    case "twitter":
+      if (!process.env.NEXT_PUBLIC_TWITTER_CLIENT_ID) missing.push("NEXT_PUBLIC_TWITTER_CLIENT_ID")
+      if (!process.env.TWITTER_CLIENT_SECRET) missing.push("TWITTER_CLIENT_SECRET")
+      break
+    case "linkedin":
+      if (!process.env.NEXT_PUBLIC_LINKEDIN_CLIENT_ID) missing.push("NEXT_PUBLIC_LINKEDIN_CLIENT_ID")
+      if (!process.env.LINKEDIN_CLIENT_SECRET) missing.push("LINKEDIN_CLIENT_SECRET")
+      break
+    case "dropbox":
+      if (!process.env.NEXT_PUBLIC_DROPBOX_CLIENT_ID) missing.push("NEXT_PUBLIC_DROPBOX_CLIENT_ID")
+      if (!process.env.DROPBOX_CLIENT_SECRET) missing.push("DROPBOX_CLIENT_SECRET")
+      break
+    case "trello":
+      if (!process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID) missing.push("NEXT_PUBLIC_TRELLO_CLIENT_ID")
+      if (!process.env.TRELLO_CLIENT_SECRET) missing.push("TRELLO_CLIENT_SECRET")
+      break
+  }
+
+  return {
+    isValid: missing.length === 0,
+    missing,
+  }
+}
+
 /**
  * Generate OAuth state with consistent structure
  */
@@ -144,54 +207,74 @@ export function generateOAuthState(
   return Buffer.from(JSON.stringify(state)).toString("base64")
 }
 
-/**
- * Parse OAuth state safely
- */
-export function parseOAuthState(state: string): any {
+export function generateRandomState(): string {
+  return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
+}
+
+export function createOAuthState(
+  provider: string,
+  userId: string,
+  options: {
+    reconnect?: boolean
+    integrationId?: string
+  } = {},
+): string {
+  const state = {
+    provider,
+    userId,
+    reconnect: options.reconnect || false,
+    integrationId: options.integrationId,
+    timestamp: Date.now(),
+    nonce: generateRandomState(),
+  }
+
+  return btoa(JSON.stringify(state))
+}
+
+export function parseOAuthState(stateString: string) {
   try {
-    return JSON.parse(Buffer.from(state, "base64").toString())
+    const decoded = atob(stateString)
+    const state = JSON.parse(decoded)
+
+    // Validate state structure
+    if (!state.provider || !state.userId || !state.timestamp) {
+      throw new Error("Invalid state structure")
+    }
+
+    // Check if state is not too old (10 minutes)
+    const maxAge = 10 * 60 * 1000 // 10 minutes in milliseconds
+    if (Date.now() - state.timestamp > maxAge) {
+      throw new Error("State has expired")
+    }
+
+    return state
   } catch (error) {
-    console.error("Failed to parse OAuth state:", error)
-    throw new Error("Invalid OAuth state parameter")
+    throw new Error("Invalid or expired state parameter")
   }
 }
 
-/**
- * Get user from request using getUser() instead of getSession()
- */
-export async function getUserFromRequest(request: NextRequest): Promise<string | null> {
-  try {
-    const supabaseUrl = process.env.SUPABASE_URL
-    const supabaseAnonKey = process.env.SUPABASE_ANON_KEY
+export function buildOAuthUrl(config: {
+  authUrl: string
+  clientId: string
+  redirectUri: string
+  scopes: string[]
+  state: string
+  additionalParams?: Record<string, string>
+}): string {
+  const params = new URLSearchParams({
+    client_id: config.clientId,
+    redirect_uri: config.redirectUri,
+    response_type: "code",
+    scope: config.scopes.join(" "),
+    state: config.state,
+    ...config.additionalParams,
+  })
 
-    if (!supabaseUrl || !supabaseAnonKey) {
-      return null
-    }
-
-    const authHeader = request.headers.get("authorization")
-    if (!authHeader?.startsWith("Bearer ")) {
-      return null
-    }
-
-    const token = authHeader.substring(7)
-    const supabase = createClient(supabaseUrl, supabaseAnonKey)
-
-    const { data, error } = await supabase.auth.getUser(token)
-
-    if (error || !data?.user?.id) {
-      return null
-    }
-
-    return data.user.id
-  } catch (error) {
-    console.error("Error getting user from request:", error)
-    return null
-  }
+  return `${config.authUrl}?${params.toString()}`
 }
 
 /**
  * Validate user session from request
- * Returns user ID if session is valid, null otherwise
  */
 export async function validateSession(request: NextRequest): Promise<string | null> {
   try {
