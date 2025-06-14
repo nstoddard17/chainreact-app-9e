@@ -40,6 +40,7 @@ interface IntegrationState {
   preloadStarted: boolean
   dynamicData: Record<string, any[]>
   dataLastFetched: Record<string, number>
+  hydrated: boolean
   fetchIntegrations: (forceRefresh?: boolean) => Promise<void>
   verifyIntegrationScopes: () => Promise<void>
   connectIntegration: (providerId: string) => Promise<void>
@@ -57,6 +58,7 @@ interface IntegrationState {
   getDynamicData: (provider: string, dataType: string) => any[]
   isDataFresh: (provider: string, dataType: string) => boolean
   clearAllData: () => void
+  setHydrated: () => void
 }
 
 const availableProviders: Provider[] = [
@@ -340,11 +342,6 @@ const timeoutPromise = (ms: number) => {
 
 const getAllDynamicDataTypes = () => {
   return [
-    { provider: "gmail", dataType: "emails" },
-    { provider: "google-drive", dataType: "files" },
-    { provider: "google-calendar", dataType: "events" },
-    { provider: "google-sheets", dataType: "spreadsheets" },
-    { provider: "google-docs", dataType: "documents" },
     { provider: "notion", dataType: "pages" },
     { provider: "notion", dataType: "databases" },
     { provider: "slack", dataType: "channels" },
@@ -354,21 +351,11 @@ const getAllDynamicDataTypes = () => {
     { provider: "teams", dataType: "teams" },
     { provider: "trello", dataType: "boards" },
     { provider: "airtable", dataType: "bases" },
-    { provider: "dropbox", dataType: "files" },
-    { provider: "hubspot", dataType: "contacts" },
     { provider: "hubspot", dataType: "pipelines" },
-    { provider: "linkedin", dataType: "posts" },
-    { provider: "facebook", dataType: "posts" },
-    { provider: "instagram", dataType: "posts" },
-    { provider: "twitter", dataType: "tweets" },
-    { provider: "tiktok", dataType: "videos" },
-    { provider: "mailchimp", dataType: "campaigns" },
     { provider: "mailchimp", dataType: "lists" },
-    { provider: "shopify", dataType: "products" },
-    { provider: "stripe", dataType: "payments" },
-    { provider: "paypal", dataType: "transactions" },
-    { provider: "gitlab", dataType: "projects" },
-    { provider: "onedrive", dataType: "files" },
+    { provider: "google-sheets", dataType: "spreadsheets" },
+    { provider: "google-calendar", dataType: "calendars" },
+    { provider: "google-drive", dataType: "folders" },
   ]
 }
 
@@ -387,6 +374,11 @@ export const useIntegrationStore = create<IntegrationState>()(
       preloadStarted: false,
       dynamicData: {},
       dataLastFetched: {},
+      hydrated: false,
+
+      setHydrated: () => {
+        set({ hydrated: true })
+      },
 
       fetchIntegrations: async (forceRefresh = false) => {
         set({ loading: true, error: null })
@@ -665,13 +657,13 @@ export const useIntegrationStore = create<IntegrationState>()(
           return
         }
 
-        console.log("Starting global preload initialization...")
+        console.log("🚀 Starting global preload initialization...")
         set({ preloadStarted: true, globalPreloadingData: true })
 
         try {
           // First fetch integrations if not already loaded
           if (state.integrations.length === 0) {
-            console.log("Fetching integrations first...")
+            console.log("📡 Fetching integrations first...")
             await state.fetchIntegrations(true)
           }
 
@@ -679,7 +671,7 @@ export const useIntegrationStore = create<IntegrationState>()(
           const connectedIntegrations = updatedState.integrations.filter((i) => i.status === "connected")
 
           if (connectedIntegrations.length === 0) {
-            console.log("No connected integrations found")
+            console.log("❌ No connected integrations found")
             set({ globalPreloadingData: false })
             return
           }
@@ -689,7 +681,8 @@ export const useIntegrationStore = create<IntegrationState>()(
           const relevantDataTypes = allDataTypes.filter((dt) => connectedProviders.includes(dt.provider))
 
           console.log(
-            `Starting background preload for ${relevantDataTypes.length} data types across ${connectedProviders.length} providers`,
+            `📊 Starting background preload for ${relevantDataTypes.length} data types across ${connectedProviders.length} providers:`,
+            connectedProviders,
           )
 
           const initialProgress: { [key: string]: boolean } = {}
@@ -699,24 +692,25 @@ export const useIntegrationStore = create<IntegrationState>()(
           set({ preloadProgress: initialProgress })
 
           // Fetch all data types with controlled concurrency
-          const batchSize = 2
+          const batchSize = 3
           for (let i = 0; i < relevantDataTypes.length; i += batchSize) {
             const batch = relevantDataTypes.slice(i, i + batchSize)
 
             await Promise.allSettled(
               batch.map(async ({ provider, dataType }) => {
                 try {
-                  console.log(`Fetching data for ${provider}-${dataType}`)
-                  await get().fetchDynamicData(provider, dataType)
+                  console.log(`🔄 Fetching data for ${provider}-${dataType}`)
+                  const data = await get().fetchDynamicData(provider, dataType)
+                  console.log(`✅ Successfully fetched ${data.length} items for ${provider}-${dataType}`)
+
                   set((state) => ({
                     preloadProgress: {
                       ...state.preloadProgress,
                       [`${provider}-${dataType}`]: true,
                     },
                   }))
-                  console.log(`Successfully fetched data for ${provider}-${dataType}`)
                 } catch (error) {
-                  console.error(`Failed to preload ${provider}-${dataType}:`, error)
+                  console.error(`❌ Failed to preload ${provider}-${dataType}:`, error)
                   set((state) => ({
                     preloadProgress: {
                       ...state.preloadProgress,
@@ -728,13 +722,13 @@ export const useIntegrationStore = create<IntegrationState>()(
             )
 
             if (i + batchSize < relevantDataTypes.length) {
-              await new Promise((resolve) => setTimeout(resolve, 500))
+              await new Promise((resolve) => setTimeout(resolve, 1000))
             }
           }
 
-          console.log("Background preload completed successfully")
+          console.log("🎉 Background preload completed successfully")
         } catch (error) {
-          console.error("Error during background preload:", error)
+          console.error("💥 Error during background preload:", error)
         } finally {
           set({ globalPreloadingData: false })
         }
@@ -744,14 +738,15 @@ export const useIntegrationStore = create<IntegrationState>()(
         const cacheKey = `${provider}-${dataType}`
         const state = get()
 
-        // Check if data is fresh (less than 5 minutes old)
+        // Check if data is fresh (less than 10 minutes old)
         if (state.isDataFresh(provider, dataType)) {
-          console.log(`Using cached data for ${cacheKey}`)
-          return state.dynamicData[cacheKey] || []
+          const cachedData = state.dynamicData[cacheKey] || []
+          console.log(`💾 Using cached data for ${cacheKey}: ${cachedData.length} items`)
+          return cachedData
         }
 
         try {
-          console.log(`Fetching fresh data for ${cacheKey}`)
+          console.log(`🌐 Fetching fresh data for ${cacheKey}`)
 
           const response = await fetch("/api/integrations/fetch-user-data", {
             method: "POST",
@@ -761,19 +756,26 @@ export const useIntegrationStore = create<IntegrationState>()(
             body: JSON.stringify({ provider, dataType }),
           })
 
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+          }
+
           const result = await response.json()
 
           if (result.success) {
             const options = result.data || []
-            console.log(`Successfully fetched ${options.length} items for ${cacheKey}`)
+            console.log(`✅ Successfully fetched ${options.length} items for ${cacheKey}`)
 
+            // Store in cache with timestamp
             set((state) => ({
               dynamicData: { ...state.dynamicData, [cacheKey]: options },
               dataLastFetched: { ...state.dataLastFetched, [cacheKey]: Date.now() },
             }))
+
             return options
           } else {
-            console.error("Failed to fetch dynamic data:", result.error)
+            console.error(`❌ API error for ${cacheKey}:`, result.error)
+            // Store empty array to prevent repeated failed requests
             set((state) => ({
               dynamicData: { ...state.dynamicData, [cacheKey]: [] },
               dataLastFetched: { ...state.dataLastFetched, [cacheKey]: Date.now() },
@@ -781,7 +783,8 @@ export const useIntegrationStore = create<IntegrationState>()(
             return []
           }
         } catch (error) {
-          console.error("Error fetching dynamic data:", error)
+          console.error(`💥 Network error fetching ${cacheKey}:`, error)
+          // Store empty array to prevent repeated failed requests
           set((state) => ({
             dynamicData: { ...state.dynamicData, [cacheKey]: [] },
             dataLastFetched: { ...state.dataLastFetched, [cacheKey]: Date.now() },
@@ -794,27 +797,27 @@ export const useIntegrationStore = create<IntegrationState>()(
         const state = get()
 
         if (state.globalPreloadingData || state.preloadStarted) {
-          console.log("Data preload already in progress or completed")
+          console.log("⏳ Data preload already in progress or completed")
           return
         }
 
         if (state.lastRefreshed) {
           const lastRefresh = new Date(state.lastRefreshed)
-          const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000)
-          if (lastRefresh > fiveMinutesAgo && state.integrations.length > 0) {
-            console.log("Data is recent, skipping preload")
+          const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000)
+          if (lastRefresh > tenMinutesAgo && state.integrations.length > 0) {
+            console.log("✅ Data is recent, skipping preload")
             return
           }
         }
 
-        console.log("Starting background data preload")
+        console.log("🔄 Starting background data preload")
         await state.initializeGlobalPreload()
       },
 
       getDynamicData: (provider: string, dataType: string) => {
         const cacheKey = `${provider}-${dataType}`
         const data = get().dynamicData[cacheKey] || []
-        console.log(`Getting cached data for ${cacheKey}: ${data.length} items`)
+        console.log(`📋 Getting cached data for ${cacheKey}: ${data.length} items`)
         return data
       },
 
@@ -823,16 +826,21 @@ export const useIntegrationStore = create<IntegrationState>()(
         const state = get()
         const lastFetched = state.dataLastFetched[cacheKey]
 
-        if (!lastFetched) return false
+        if (!lastFetched) {
+          console.log(`❓ No cache timestamp for ${cacheKey}`)
+          return false
+        }
 
-        const fiveMinutesAgo = Date.now() - 5 * 60 * 1000
-        const isFresh = lastFetched > fiveMinutesAgo
-        console.log(`Data freshness check for ${cacheKey}: ${isFresh ? "fresh" : "stale"}`)
+        const tenMinutesAgo = Date.now() - 10 * 60 * 1000
+        const isFresh = lastFetched > tenMinutesAgo
+        console.log(
+          `🕒 Data freshness check for ${cacheKey}: ${isFresh ? "fresh" : "stale"} (${Math.round((Date.now() - lastFetched) / 1000 / 60)} minutes old)`,
+        )
         return isFresh
       },
 
       clearAllData: () => {
-        console.log("Clearing all integration data")
+        console.log("🧹 Clearing all integration data")
         set({
           integrations: [],
           dynamicData: {},
@@ -855,6 +863,14 @@ export const useIntegrationStore = create<IntegrationState>()(
         preloadProgress: state.preloadProgress,
         preloadStarted: state.preloadStarted,
       }),
+      onRehydrateStorage: () => (state) => {
+        console.log(
+          "🔄 Integration store rehydrated with",
+          Object.keys(state?.dynamicData || {}).length,
+          "cached data types",
+        )
+        state?.setHydrated()
+      },
     },
   ),
 )
