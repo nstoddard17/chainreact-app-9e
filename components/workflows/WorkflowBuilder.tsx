@@ -29,7 +29,6 @@ import {
   Undo,
   Redo,
   RefreshCw,
-  Plus,
   Edit,
   X,
   Database,
@@ -38,15 +37,17 @@ import {
   ArrowRight,
   Wifi,
   WifiOff,
+  Workflow,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
-// Enhanced integration data with better organization
+// Enhanced integration data with proper logos and better organization
 const AVAILABLE_INTEGRATIONS = [
   {
     id: "notion",
     name: "Notion",
-    logo: "/placeholder.svg?height=40&width=40&text=N",
+    logo: "https://upload.wikimedia.org/wikipedia/commons/4/45/Notion_app_logo.png",
+    fallbackLogo: "/placeholder.svg?height=40&width=40&text=N",
     triggers: [
       { id: "page_updated", name: "Page Updated", description: "Triggers when a page is modified" },
       {
@@ -69,7 +70,8 @@ const AVAILABLE_INTEGRATIONS = [
   {
     id: "gmail",
     name: "Gmail",
-    logo: "/placeholder.svg?height=40&width=40&text=GM",
+    logo: "https://upload.wikimedia.org/wikipedia/commons/7/7e/Gmail_icon_%282020%29.svg",
+    fallbackLogo: "/placeholder.svg?height=40&width=40&text=GM",
     triggers: [
       { id: "new_email", name: "New Email", description: "Triggers when a new email is received" },
       {
@@ -92,7 +94,8 @@ const AVAILABLE_INTEGRATIONS = [
   {
     id: "slack",
     name: "Slack",
-    logo: "/placeholder.svg?height=40&width=40&text=S",
+    logo: "https://upload.wikimedia.org/wikipedia/commons/d/d5/Slack_icon_2019.svg",
+    fallbackLogo: "/placeholder.svg?height=40&width=40&text=S",
     triggers: [
       {
         id: "new_message_in_channel",
@@ -115,7 +118,8 @@ const AVAILABLE_INTEGRATIONS = [
   {
     id: "google-sheets",
     name: "Google Sheets",
-    logo: "/placeholder.svg?height=40&width=40&text=GS",
+    logo: "https://upload.wikimedia.org/wikipedia/commons/3/30/Google_Sheets_logo_%282014-2020%29.svg",
+    fallbackLogo: "/placeholder.svg?height=40&width=40&text=GS",
     triggers: [
       { id: "new_row_added", name: "New Row Added", description: "Triggers when a new row is added to a spreadsheet" },
       { id: "row_updated", name: "Row Updated", description: "Triggers when a row is updated" },
@@ -130,7 +134,8 @@ const AVAILABLE_INTEGRATIONS = [
   {
     id: "google-calendar",
     name: "Google Calendar",
-    logo: "/placeholder.svg?height=40&width=40&text=GC",
+    logo: "https://upload.wikimedia.org/wikipedia/commons/a/a5/Google_Calendar_icon_%282020%29.svg",
+    fallbackLogo: "/placeholder.svg?height=40&width=40&text=GC",
     triggers: [
       { id: "new_event", name: "New Event", description: "Triggers when a new event is created" },
       { id: "event_updated", name: "Event Updated", description: "Triggers when an event is modified" },
@@ -145,7 +150,8 @@ const AVAILABLE_INTEGRATIONS = [
   {
     id: "airtable",
     name: "Airtable",
-    logo: "/placeholder.svg?height=40&width=40&text=A",
+    logo: "https://upload.wikimedia.org/wikipedia/commons/4/4b/Airtable_Logo.svg",
+    fallbackLogo: "/placeholder.svg?height=40&width=40&text=A",
     triggers: [
       { id: "new_record", name: "New Record", description: "Triggers when a new record is added" },
       { id: "record_updated", name: "Record Updated", description: "Triggers when a record is updated" },
@@ -160,7 +166,8 @@ const AVAILABLE_INTEGRATIONS = [
   {
     id: "trello",
     name: "Trello",
-    logo: "/placeholder.svg?height=40&width=40&text=T",
+    logo: "https://upload.wikimedia.org/wikipedia/en/8/8c/Trello_logo.svg",
+    fallbackLogo: "/placeholder.svg?height=40&width=40&text=T",
     triggers: [
       { id: "new_card", name: "New Card", description: "Triggers when a new card is created" },
       { id: "card_moved", name: "Card Moved", description: "Triggers when a card is moved between lists" },
@@ -179,7 +186,8 @@ const AVAILABLE_INTEGRATIONS = [
   {
     id: "github",
     name: "GitHub",
-    logo: "/placeholder.svg?height=40&width=40&text=GH",
+    logo: "https://upload.wikimedia.org/wikipedia/commons/9/91/Octicons-mark-github.svg",
+    fallbackLogo: "/placeholder.svg?height=40&width=40&text=GH",
     triggers: [
       { id: "new_issue", name: "New Issue", description: "Triggers when a new issue is created" },
       {
@@ -206,7 +214,7 @@ const TRIGGER_CONFIGS = {
   page_updated: [
     {
       key: "page_id",
-      label: "Notion Page (Optional)",
+      label: "Notion Page",
       type: "resource_select",
       provider: "notion",
       dataType: "pages",
@@ -254,7 +262,7 @@ const TRIGGER_CONFIGS = {
   direct_message_received: [
     {
       key: "from_user",
-      label: "From User (Optional)",
+      label: "From User",
       type: "resource_select",
       provider: "slack",
       dataType: "users",
@@ -276,7 +284,7 @@ const TRIGGER_CONFIGS = {
     },
     {
       key: "sheet_name",
-      label: "Sheet Name (Optional)",
+      label: "Sheet Name",
       type: "text",
       placeholder: "Sheet1",
       required: false,
@@ -286,7 +294,7 @@ const TRIGGER_CONFIGS = {
   new_event: [
     {
       key: "calendar_id",
-      label: "Google Calendar (Optional)",
+      label: "Google Calendar",
       type: "resource_select",
       provider: "google-calendar",
       dataType: "calendars",
@@ -328,7 +336,7 @@ const TRIGGER_CONFIGS = {
     },
     {
       key: "list_name",
-      label: "List Name (Optional)",
+      label: "List Name",
       type: "text",
       placeholder: "To Do",
       required: false,
@@ -872,9 +880,10 @@ export default function WorkflowBuilder() {
 
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
     const target = e.currentTarget
-    if (target.src !== "/placeholder.svg?height=32&width=32") {
+    const integration = AVAILABLE_INTEGRATIONS.find((int) => int.logo === target.src)
+    if (integration && target.src !== integration.fallbackLogo) {
       target.onerror = null
-      target.src = "/placeholder.svg?height=32&width=32"
+      target.src = integration.fallbackLogo
     }
   }
 
@@ -1072,38 +1081,30 @@ export default function WorkflowBuilder() {
           </div>
         )}
 
-        {/* Streamlined Workflow Builder */}
+        {/* Clean Workflow Builder */}
         <div className="flex-1 p-8 bg-slate-50 overflow-auto">
           <div className="max-w-2xl mx-auto">
-            {/* Start Indicator */}
-            <div className="flex items-center justify-center mb-8">
-              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                <div className="w-6 h-6 bg-green-500 rounded-full" />
-              </div>
-            </div>
-
             {/* Workflow Steps or Add Trigger */}
             {workflowSteps.length === 0 ? (
-              // Clean Add Trigger Button
-              <div className="flex flex-col items-center justify-center space-y-4">
-                <div
-                  className="w-16 h-16 border-2 border-dashed border-slate-300 rounded-full flex items-center justify-center hover:border-blue-400 hover:bg-blue-50 transition-all duration-200 cursor-pointer group"
-                  onClick={handleAddTrigger}
-                >
-                  <Plus className="w-8 h-8 text-slate-400 group-hover:text-blue-500 transition-colors duration-200" />
+              // Clean Add Trigger Section
+              <div className="flex flex-col items-center justify-center space-y-6 py-12">
+                <div className="w-20 h-20 bg-white rounded-2xl shadow-sm border border-slate-200 flex items-center justify-center">
+                  <Workflow className="w-10 h-10 text-slate-400" />
+                </div>
+                <div className="text-center space-y-2">
+                  <h3 className="text-lg font-semibold text-slate-900">Start Building Your Workflow</h3>
+                  <p className="text-sm text-slate-500 max-w-md">
+                    Begin by adding a trigger that will start your workflow when specific events occur in your connected
+                    apps.
+                  </p>
                 </div>
                 <Button
-                  variant="outline"
                   onClick={handleAddTrigger}
-                  className="flex items-center gap-2 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600 transition-all duration-200"
+                  size="lg"
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg shadow-sm hover:shadow-md transition-all duration-200"
                 >
-                  <Plus className="w-4 h-4" />
                   Add Trigger
                 </Button>
-                <p className="text-sm text-slate-500 text-center max-w-md">
-                  Start building your workflow by adding a trigger. Choose from various integrations to automate your
-                  tasks.
-                </p>
               </div>
             ) : (
               // Existing Workflow Steps
@@ -1118,6 +1119,8 @@ export default function WorkflowBuilder() {
                               <img
                                 src={
                                   AVAILABLE_INTEGRATIONS.find((app) => app.id === step.appId)?.logo ||
+                                  AVAILABLE_INTEGRATIONS.find((app) => app.id === step.appId)?.fallbackLogo ||
+                                  "/placeholder.svg" ||
                                   "/placeholder.svg"
                                 }
                                 alt={step.appName}
@@ -1139,7 +1142,7 @@ export default function WorkflowBuilder() {
                                       <div key={key} className="flex items-center gap-1">
                                         <Database className="w-3 h-3" />
                                         <span>
-                                          {key}: {value}
+                                          {key.replace(/_/g, " ")}: {value}
                                         </span>
                                       </div>
                                     ))}
@@ -1174,13 +1177,6 @@ export default function WorkflowBuilder() {
                 ))}
               </div>
             )}
-
-            {/* End Indicator */}
-            <div className="flex items-center justify-center mt-8">
-              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
-                <div className="w-6 h-6 bg-red-500 rounded-full" />
-              </div>
-            </div>
           </div>
         </div>
 
@@ -1222,9 +1218,7 @@ export default function WorkflowBuilder() {
                         <CardContent className="p-4">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center space-x-3">
-                              <div
-                                className={`w-12 h-12 rounded-lg flex items-center justify-center ${integration.color}`}
-                              >
+                              <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center shadow-sm border border-slate-200">
                                 <img
                                   src={integration.logo || "/placeholder.svg"}
                                   alt={integration.name}
@@ -1310,9 +1304,7 @@ export default function WorkflowBuilder() {
             </DialogHeader>
             <div className="space-y-4">
               <div className="flex items-center space-x-3 p-4 bg-slate-50 rounded-lg">
-                <div
-                  className={`w-12 h-12 rounded-lg flex items-center justify-center ${selectedIntegration?.color || "bg-slate-100"}`}
-                >
+                <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center shadow-sm border border-slate-200">
                   <img
                     src={selectedIntegration?.logo || "/placeholder.svg"}
                     alt={selectedIntegration?.name}
@@ -1351,7 +1343,7 @@ export default function WorkflowBuilder() {
           </DialogContent>
         </Dialog>
 
-        {/* Configuration Modal */}
+        {/* Configuration Modal - Fixed double text issue */}
         <Dialog open={showConfigModal} onOpenChange={setShowConfigModal}>
           <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden">
             <DialogHeader>
@@ -1366,7 +1358,7 @@ export default function WorkflowBuilder() {
                       {field.label} {field.required && <span className="text-red-500">*</span>}
                     </Label>
                     {renderConfigField(field)}
-                    {field.description && <p className="text-xs text-slate-500">{field.description}</p>}
+                    {field.description && <p className="text-xs text-muted-foreground">{field.description}</p>}
                   </div>
                 ))}
                 {getConfigFields().length === 0 && (
