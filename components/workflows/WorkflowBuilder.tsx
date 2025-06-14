@@ -521,38 +521,32 @@ export default function WorkflowBuilder() {
     )
   }, [])
 
-  // Improved fetchDynamicData function with race condition protection
+  // Improved fetchDynamicData function with better caching
   const fetchDynamicData = useCallback(
     async (provider: string, dataType: string) => {
-      const cacheKey = `${provider}-${dataType}`
+      const integrationStore = useIntegrationStore.getState()
 
-      // Check if we already have this data or are currently loading it
-      if (dynamicData[cacheKey] || fieldLoadingStates[cacheKey] || fetchingData.has(cacheKey)) {
+      // First try to get cached data
+      const cachedData = integrationStore.getDynamicData(provider, dataType)
+      if (cachedData.length > 0 || integrationStore.isDataFresh(provider, dataType)) {
+        console.log(`Using cached data for ${provider}-${dataType}`)
+        const cacheKey = `${provider}-${dataType}`
+        setDynamicData((prev) => ({ ...prev, [cacheKey]: cachedData }))
         return
       }
 
-      // Mark as fetching to prevent race conditions
+      // If no cached data, fetch fresh data
+      const cacheKey = `${provider}-${dataType}`
+      if (fetchingData.has(cacheKey)) {
+        return // Already fetching
+      }
+
       setFetchingData((prev) => new Set(prev).add(cacheKey))
       setFieldLoadingStates((prev) => ({ ...prev, [cacheKey]: true }))
 
       try {
-        const response = await fetch("/api/integrations/fetch-user-data", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ provider, dataType }),
-        })
-
-        const result = await response.json()
-
-        if (result.success) {
-          const options = result.data || []
-          setDynamicData((prev) => ({ ...prev, [cacheKey]: options }))
-        } else {
-          console.error("Failed to fetch dynamic data:", result.error)
-          setDynamicData((prev) => ({ ...prev, [cacheKey]: [] }))
-        }
+        const freshData = await integrationStore.fetchDynamicData(provider, dataType)
+        setDynamicData((prev) => ({ ...prev, [cacheKey]: freshData }))
       } catch (error) {
         console.error("Error fetching dynamic data:", error)
         setDynamicData((prev) => ({ ...prev, [cacheKey]: [] }))
@@ -565,7 +559,7 @@ export default function WorkflowBuilder() {
         })
       }
     },
-    [dynamicData, fieldLoadingStates, fetchingData],
+    [fetchingData],
   )
 
   // Memoized connected providers to prevent unnecessary re-renders
@@ -1382,6 +1376,28 @@ export default function WorkflowBuilder() {
     }
   }
 
+  // Initialize with cached data on component mount
+  useEffect(() => {
+    const integrationStore = useIntegrationStore.getState()
+    const allDataTypes = getAllDynamicDataTypes
+    const connectedProviders = integrations.filter((i) => i.status === "connected").map((i) => i.provider)
+    const relevantDataTypes = allDataTypes.filter((dt) => connectedProviders.includes(dt.provider))
+
+    // Load cached data immediately
+    const initialData: Record<string, any[]> = {}
+    relevantDataTypes.forEach(({ provider, dataType }) => {
+      const cacheKey = `${provider}-${dataType}`
+      const cachedData = integrationStore.getDynamicData(provider, dataType)
+      if (cachedData.length > 0) {
+        initialData[cacheKey] = cachedData
+      }
+    })
+
+    if (Object.keys(initialData).length > 0) {
+      setDynamicData(initialData)
+    }
+  }, [integrations, getAllDynamicDataTypes])
+
   if (!currentWorkflow) {
     return (
       <AppLayout>
@@ -1627,6 +1643,7 @@ export default function WorkflowBuilder() {
                                 src={
                                   AVAILABLE_INTEGRATIONS.find((app) => app.id === step.appId)?.logo ||
                                   "/placeholder.svg?height=32&width=32" ||
+                                  "/placeholder.svg" ||
                                   "/placeholder.svg"
                                 }
                                 alt={step.appName}
@@ -1959,6 +1976,7 @@ export default function WorkflowBuilder() {
                       src={
                         AVAILABLE_INTEGRATIONS.find((app) => app.id === workflowSteps[stepToDelete].appId)?.logo ||
                         "/placeholder.svg?height=24&width=24" ||
+                        "/placeholder.svg" ||
                         "/placeholder.svg"
                       }
                       alt={workflowSteps[stepToDelete].appName}

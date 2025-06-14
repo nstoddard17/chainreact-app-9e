@@ -30,7 +30,7 @@ export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
       user: null,
-      loading: true,
+      loading: false, // Start with false since we'll check persistence first
       initialized: false,
       error: null,
 
@@ -60,16 +60,12 @@ export const useAuthStore = create<AuthState>()(
 
             set({ user, loading: false, initialized: true })
 
-            // Start global data preloading - but use a small delay to ensure stores are ready
-            setTimeout(() => {
-              console.log("User authenticated, starting global data preload...")
-              try {
-                const integrationStore = useIntegrationStore.getState()
-                integrationStore.ensureDataPreloaded()
-              } catch (preloadError) {
-                console.error("Error starting global preload:", preloadError)
-              }
-            }, 100)
+            // Start background data preloading immediately without waiting
+            console.log("User authenticated, starting background data preload...")
+            const integrationStore = useIntegrationStore.getState()
+            integrationStore.initializeGlobalPreload().catch((error) => {
+              console.error("Background preload failed:", error)
+            })
           } else {
             set({ user: null, loading: false, initialized: true })
           }
@@ -88,30 +84,23 @@ export const useAuthStore = create<AuthState>()(
 
               set({ user, error: null })
 
-              // Start global data preloading on sign in
-              console.log("User signed in, starting global data preload...")
-              try {
-                const integrationStore = useIntegrationStore.getState()
-                integrationStore.initializeGlobalPreload()
-              } catch (preloadError) {
-                console.error("Error starting global preload:", preloadError)
-              }
+              // Start background data preloading on sign in
+              console.log("User signed in, starting background data preload...")
+              const integrationStore = useIntegrationStore.getState()
+              integrationStore.initializeGlobalPreload().catch((error) => {
+                console.error("Background preload failed:", error)
+              })
             } else if (event === "SIGNED_OUT") {
               set({ user: null, error: null })
 
-              // Clear integration data on sign out properly
-              const integrationStore = useIntegrationStore.getState()
-              if (integrationStore.clearAllData) {
-                integrationStore.clearAllData()
-              } else {
-                useIntegrationStore.setState({
-                  integrations: [],
-                  dynamicData: {},
-                  preloadProgress: {},
-                  preloadStarted: false,
-                  globalPreloadingData: false,
-                })
-              }
+              // Clear integration data on sign out
+              useIntegrationStore.setState({
+                integrations: [],
+                dynamicData: {},
+                preloadProgress: {},
+                preloadStarted: false,
+                globalPreloadingData: false,
+              })
             } else if (event === "TOKEN_REFRESHED") {
               console.log("Token refreshed successfully")
             }
@@ -131,19 +120,14 @@ export const useAuthStore = create<AuthState>()(
           // Clear all stores
           set({ user: null, loading: false, error: null })
 
-          // Clear integration store properly
-          const integrationStore = useIntegrationStore.getState()
-          if (integrationStore.clearAllData) {
-            integrationStore.clearAllData()
-          } else {
-            useIntegrationStore.setState({
-              integrations: [],
-              dynamicData: {},
-              preloadProgress: {},
-              preloadStarted: false,
-              globalPreloadingData: false,
-            })
-          }
+          // Clear integration store
+          useIntegrationStore.setState({
+            integrations: [],
+            dynamicData: {},
+            preloadProgress: {},
+            preloadStarted: false,
+            globalPreloadingData: false,
+          })
         } catch (error: any) {
           console.error("Sign out error:", error)
           set({ error: error.message, loading: false })
@@ -198,14 +182,12 @@ export const useAuthStore = create<AuthState>()(
 
             set({ user, loading: false })
 
-            // Start global data preloading
-            console.log("User signed in, starting global data preload...")
-            try {
-              const integrationStore = useIntegrationStore.getState()
-              integrationStore.initializeGlobalPreload()
-            } catch (preloadError) {
-              console.error("Error starting global preload:", preloadError)
-            }
+            // Start background data preloading
+            console.log("User signed in, starting background data preload...")
+            const integrationStore = useIntegrationStore.getState()
+            integrationStore.initializeGlobalPreload().catch((error) => {
+              console.error("Background preload failed:", error)
+            })
           }
         } catch (error: any) {
           console.error("Sign in error:", error)
