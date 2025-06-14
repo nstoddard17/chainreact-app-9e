@@ -169,7 +169,7 @@ async function fetchDiscordData(accessToken: string, dataType: string) {
 }
 
 async function fetchNotionData(accessToken: string, dataType: string) {
-  console.log(`🔍 Fetching Notion ${dataType} data...`)
+  console.log(`🔍 Fetching Notion ${dataType} data with token: ${accessToken ? "present" : "missing"}`)
 
   switch (dataType) {
     case "databases":
@@ -191,7 +191,8 @@ async function fetchNotionData(accessToken: string, dataType: string) {
         })
 
         if (!response.ok) {
-          console.error(`Notion API error: ${response.status} ${response.statusText}`)
+          const errorText = await response.text()
+          console.error(`❌ Notion API error: ${response.status} ${response.statusText}`, errorText)
           return []
         }
 
@@ -211,7 +212,7 @@ async function fetchNotionData(accessToken: string, dataType: string) {
             })) || []
         )
       } catch (error) {
-        console.error("Error fetching Notion databases:", error)
+        console.error("💥 Error fetching Notion databases:", error)
         return []
       }
 
@@ -236,42 +237,69 @@ async function fetchNotionData(accessToken: string, dataType: string) {
         })
 
         if (!response.ok) {
-          console.error(`Notion API error: ${response.status} ${response.statusText}`)
+          const errorText = await response.text()
+          console.error(`❌ Notion API error: ${response.status} ${response.statusText}`, errorText)
           return []
         }
 
         const data = await response.json()
+        console.log(`📄 Raw Notion response:`, JSON.stringify(data, null, 2))
         console.log(`📄 Found ${data.results?.length || 0} pages`)
 
+        if (!data.results || data.results.length === 0) {
+          console.log("❌ No pages found in Notion response")
+          return []
+        }
+
         const pages = []
-        for (const page of data.results || []) {
+        for (const page of data.results) {
           try {
-            // Skip archived pages and database items
-            if (page.archived || page.parent?.type === "database_id") {
+            console.log(`🔍 Processing page:`, {
+              id: page.id,
+              archived: page.archived,
+              parent: page.parent,
+              properties: Object.keys(page.properties || {}),
+            })
+
+            // Skip archived pages
+            if (page.archived) {
+              console.log(`⏭️ Skipping archived page: ${page.id}`)
+              continue
+            }
+
+            // Skip database items (pages that are rows in a database)
+            if (page.parent?.type === "database_id") {
+              console.log(`⏭️ Skipping database item: ${page.id}`)
               continue
             }
 
             const title = getPageTitle(page)
-            if (title && title.trim() !== "" && title !== "Untitled") {
+            console.log(`📝 Page title: "${title}"`)
+
+            if (title && title.trim() !== "" && title !== "Untitled" && title !== "Untitled Page") {
               pages.push({
                 id: page.id,
                 name: title,
                 value: page.id,
               })
+              console.log(`✅ Added page: ${title}`)
+            } else {
+              console.log(`⏭️ Skipping page with invalid title: "${title}"`)
             }
           } catch (error) {
-            console.log(`Skipping page ${page.id}: ${error}`)
+            console.log(`⚠️ Error processing page ${page.id}:`, error)
           }
         }
 
         console.log(`✅ Returning ${pages.length} valid pages`)
         return pages.sort((a: any, b: any) => a.name.localeCompare(b.name))
       } catch (error) {
-        console.error("Error fetching Notion pages:", error)
+        console.error("💥 Error fetching Notion pages:", error)
         return []
       }
 
     default:
+      console.log(`❌ Unsupported Notion data type: ${dataType}`)
       return []
   }
 }
@@ -282,12 +310,17 @@ function extractNotionTitle(titleArray: any[]): string {
     return "Untitled"
   }
 
-  return (
-    titleArray
-      .map((segment: any) => segment.plain_text || "")
-      .join("")
-      .trim() || "Untitled"
-  )
+  const title = titleArray
+    .map((segment: any) => {
+      if (segment.type === "text") {
+        return segment.text?.content || segment.plain_text || ""
+      }
+      return segment.plain_text || ""
+    })
+    .join("")
+    .trim()
+
+  return title || "Untitled"
 }
 
 // Simplified helper function to get page title
@@ -298,12 +331,24 @@ function getPageTitle(page: any): string {
     icon = page.icon.emoji + " "
   }
 
-  // Try to get title from properties
+  // Try to get title from properties first
   if (page.properties) {
-    const titleProps = ["title", "Title", "Name", "name"]
-    for (const prop of titleProps) {
-      if (page.properties[prop]?.title && Array.isArray(page.properties[prop].title)) {
-        const titleText = extractNotionTitle(page.properties[prop].title)
+    // Look for title properties
+    for (const [key, prop] of Object.entries(page.properties)) {
+      if ((prop as any).type === "title" && (prop as any).title) {
+        const titleText = extractNotionTitle((prop as any).title)
+        if (titleText && titleText !== "Untitled") {
+          return icon + titleText
+        }
+      }
+    }
+
+    // Fallback to common property names
+    const titleProps = ["Name", "name", "Title", "title"]
+    for (const propName of titleProps) {
+      const prop = page.properties[propName]
+      if (prop?.title && Array.isArray(prop.title)) {
+        const titleText = extractNotionTitle(prop.title)
         if (titleText && titleText !== "Untitled") {
           return icon + titleText
         }
@@ -311,8 +356,13 @@ function getPageTitle(page: any): string {
     }
   }
 
-  // Fallback to a generic name with icon
-  return icon ? icon + "Page" : "Untitled Page"
+  // If we have an icon but no title, return a generic name
+  if (icon.trim()) {
+    return icon + "Page"
+  }
+
+  // Last resort
+  return "Untitled Page"
 }
 
 async function fetchGoogleSheetsData(accessToken: string, dataType: string) {

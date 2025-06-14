@@ -10,12 +10,14 @@ export default function AuthInitializer() {
     const initializeApp = async () => {
       // Wait for hydration to complete
       if (!hydrated) {
-        console.log("⏳ Waiting for store hydration...")
+        console.log("⏳ Waiting for auth store hydration...")
         return
       }
 
+      console.log("✅ Auth store hydrated, checking initialization status...")
+
       if (!initialized) {
-        console.log("🔄 Initializing auth...")
+        console.log("🔄 Initializing auth after hydration...")
         await initialize()
         console.log("✅ Auth initialization complete")
       } else {
@@ -29,16 +31,26 @@ export default function AuthInitializer() {
               const { useIntegrationStore } = await import("@/stores/integrationStore")
               const integrationStore = useIntegrationStore.getState()
 
+              // Wait for integration store hydration
+              let attempts = 0
+              while (!integrationStore.hydrated && attempts < 20) {
+                await new Promise((resolve) => setTimeout(resolve, 250))
+                attempts++
+              }
+
               // Only start if not already started
-              if (!integrationStore.preloadStarted) {
+              if (!integrationStore.preloadStarted && !integrationStore.globalPreloadingData) {
+                console.log("🚀 Starting fresh preload...")
                 await integrationStore.fetchIntegrations(true)
                 await integrationStore.initializeGlobalPreload()
                 console.log("✅ Background preload completed for existing user")
+              } else {
+                console.log("✅ Preload already started or completed")
               }
             } catch (error) {
-              console.error("Background preload failed:", error)
+              console.error("❌ Background preload failed:", error)
             }
-          }, 500)
+          }, 1000)
         }
       }
     }
