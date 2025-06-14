@@ -2,7 +2,7 @@
 
 import { create } from "zustand"
 import { persist, createJSONStorage } from "zustand/middleware"
-import { supabase } from "@/lib/supabase"
+import { supabase } from "@/utils/supabaseClient"
 
 interface User {
   id: string
@@ -59,7 +59,6 @@ export const useAuthStore = create<AuthState>()(
 
           if (sessionError) {
             console.error("Session error:", sessionError)
-            // Clear persisted user if session is invalid
             set({ user: null, error: sessionError.message, loading: false, initialized: true })
             return
           }
@@ -73,7 +72,6 @@ export const useAuthStore = create<AuthState>()(
               avatar: session.user.user_metadata?.avatar_url,
             }
 
-            // Update user state with fresh session data
             set({ user, loading: false, initialized: true })
 
             // Start background data preloading
@@ -92,7 +90,6 @@ export const useAuthStore = create<AuthState>()(
             }, 1000)
           } else {
             console.log("❌ No valid session found")
-            // Clear any persisted user data if no valid session
             set({ user: null, loading: false, initialized: true })
           }
 
@@ -259,13 +256,11 @@ export const useAuthStore = create<AuthState>()(
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         user: state.user,
-        // Don't persist initialized state - let it reinitialize on each load
       }),
       onRehydrateStorage: () => (state) => {
         console.log("🔄 Auth store rehydrated:", state?.user?.email || "no user")
         state?.setHydrated()
 
-        // Always trigger initialization after hydration to validate session
         if (state) {
           console.log("🔄 Triggering initialization after rehydration...")
           setTimeout(() => {
