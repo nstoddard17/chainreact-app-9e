@@ -52,7 +52,7 @@ interface IntegrationState {
   hydrated: boolean
   resourceLoadingStates: Record<string, boolean>
 
-  // Enhanced methods
+  // Core methods
   fetchIntegrations: (forceRefresh?: boolean) => Promise<void>
   verifyIntegrationScopes: () => Promise<void>
   connectIntegration: (providerId: string) => Promise<void>
@@ -72,13 +72,14 @@ interface IntegrationState {
   clearAllData: () => void
   setHydrated: () => void
 
-  // New enhanced methods
+  // Enhanced methods for streamlined workflow
   preloadResourcesForProvider: (provider: string) => Promise<void>
   getResourcesForTrigger: (provider: string, trigger: string) => CachedResource[]
   refreshResourcesForProvider: (provider: string) => Promise<void>
   isResourceLoading: (provider: string, dataType: string) => boolean
   getIntegrationStatus: (provider: string) => "connected" | "disconnected" | "error" | "not_found"
   getCachedResourceCount: (provider: string) => number
+  preloadUserDataOnLogin: () => Promise<void>
 }
 
 const availableProviders: Provider[] = [
@@ -128,36 +129,26 @@ const availableProviders: Provider[] = [
     description: "Create events, manage calendars, and schedule meetings",
     category: "Productivity",
     logoUrl: "/placeholder.svg?height=40&width=40&text=GC",
-    capabilities: ["Create Events", "Read Events", "Manage Calendars", "Send Invites"],
-    scopes: ["calendar", "calendar.events"],
-    isAvailable: true,
-  },
-  {
-    id: "google-drive",
-    name: "Google Drive",
-    description: "Upload files, manage folders, and share documents in Google Drive",
-    category: "Storage",
-    logoUrl: "/placeholder.svg?height=40&width=40&text=GD",
-    capabilities: ["File Upload", "File Management", "Sharing", "Folder Creation"],
-    scopes: ["drive", "drive.file"],
+    capabilities: ["Events", "Calendars", "Attendees", "Reminders"],
+    scopes: ["calendar"],
     isAvailable: true,
   },
   {
     id: "airtable",
     name: "Airtable",
-    description: "Manage records, create tables, and organize your data",
+    description: "Manage records, bases, and collaborate on structured data",
     category: "Database",
     logoUrl: "/placeholder.svg?height=40&width=40&text=A",
-    capabilities: ["Records", "Tables", "Views", "Attachments"],
+    capabilities: ["Records", "Bases", "Tables", "Views"],
     scopes: ["data.records:read", "data.records:write"],
     isAvailable: true,
   },
   {
     id: "trello",
     name: "Trello",
-    description: "Create cards, manage boards, and organize your projects",
+    description: "Manage boards, cards, and organize your projects",
     category: "Project Management",
-    logoUrl: "/placeholder.svg?height=40&width=40&text=TR",
+    logoUrl: "/placeholder.svg?height=40&width=40&text=T",
     capabilities: ["Boards", "Cards", "Lists", "Members"],
     scopes: ["read", "write"],
     isAvailable: true,
@@ -165,92 +156,16 @@ const availableProviders: Provider[] = [
   {
     id: "github",
     name: "GitHub",
-    description: "Manage repositories, issues, pull requests, and deployments",
+    description: "Manage repositories, issues, and collaborate on code",
     category: "Development",
     logoUrl: "/placeholder.svg?height=40&width=40&text=GH",
-    capabilities: ["Repositories", "Issues", "Pull Requests", "Actions"],
-    scopes: ["repo", "user", "workflow"],
-    isAvailable: true,
-  },
-  {
-    id: "hubspot",
-    name: "HubSpot",
-    description: "Manage contacts, deals, companies, and marketing campaigns",
-    category: "CRM",
-    logoUrl: "/placeholder.svg?height=40&width=40&text=H",
-    capabilities: ["Contacts", "Deals", "Companies", "Marketing"],
-    scopes: ["crm.objects.contacts.read", "crm.objects.deals.read"],
+    capabilities: ["Repositories", "Issues", "Pull Requests", "Commits"],
+    scopes: ["repo", "user"],
     isAvailable: true,
   },
 ]
 
-// Enhanced trigger-to-resource mapping
-const TRIGGER_RESOURCE_MAPPING = {
-  notion: {
-    "Page Updated": ["pages"],
-    "Database Item Added": ["databases"],
-    "Database Item Updated": ["databases"],
-    "New Page Created": ["pages"],
-  },
-  gmail: {
-    "New Email": ["labels", "folders"],
-    "Email Received from Specific Sender": ["contacts"],
-    "Email with Attachment": ["labels"],
-    "Important Email": ["labels"],
-  },
-  slack: {
-    "New Message in Channel": ["channels"],
-    "Direct Message Received": ["users"],
-    "User Mentioned": ["channels"],
-    "File Uploaded": ["channels"],
-  },
-  "google-sheets": {
-    "New Row Added": ["spreadsheets"],
-    "Row Updated": ["spreadsheets"],
-    "Cell Changed": ["spreadsheets"],
-  },
-  "google-calendar": {
-    "New Event": ["calendars"],
-    "Event Updated": ["calendars"],
-    "Event Starting Soon": ["calendars"],
-  },
-  airtable: {
-    "New Record": ["bases"],
-    "Record Updated": ["bases"],
-  },
-  trello: {
-    "New Card": ["boards"],
-    "Card Moved": ["boards"],
-    "Card Updated": ["boards"],
-  },
-  github: {
-    "New Issue": ["repositories"],
-    "Pull Request Created": ["repositories"],
-    "Push to Repository": ["repositories"],
-  },
-}
-
-const timeoutPromise = (ms: number) => {
-  return new Promise((_, reject) => {
-    setTimeout(() => reject(new Error(`Request timed out after ${ms}ms`)), ms)
-  })
-}
-
-const getAllDynamicDataTypes = () => {
-  return [
-    { provider: "notion", dataType: "pages" },
-    { provider: "notion", dataType: "databases" },
-    { provider: "slack", dataType: "channels" },
-    { provider: "slack", dataType: "users" },
-    { provider: "github", dataType: "repositories" },
-    { provider: "google-sheets", dataType: "spreadsheets" },
-    { provider: "google-calendar", dataType: "calendars" },
-    { provider: "google-drive", dataType: "folders" },
-    { provider: "airtable", dataType: "bases" },
-    { provider: "trello", dataType: "boards" },
-    { provider: "hubspot", dataType: "pipelines" },
-  ]
-}
+const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
 
 export const useIntegrationStore = create<IntegrationState>()(
   persist(
@@ -270,78 +185,67 @@ export const useIntegrationStore = create<IntegrationState>()(
       hydrated: false,
       resourceLoadingStates: {},
 
-      setHydrated: () => {
-        set({ hydrated: true })
-      },
+      setHydrated: () => set({ hydrated: true }),
 
       fetchIntegrations: async (forceRefresh = false) => {
+        const state = get()
+        if (state.loading && !forceRefresh) return
+
         set({ loading: true, error: null })
 
         try {
-          const {
-            data: { user },
-          } = await supabase.auth.getUser()
-
-          if (!user) {
-            console.log("No authenticated user found")
-            set({
-              integrations: [],
-              loading: false,
-              error: null,
-              lastRefreshed: new Date().toISOString(),
-            })
-            return
+          const { data: user } = await supabase.auth.getUser()
+          if (!user.user) {
+            throw new Error("User not authenticated")
           }
 
-          console.log("🔄 Fetching integrations for user:", user.id)
-
-          const fetchPromise = supabase
+          const { data, error } = await supabase
             .from("integrations")
             .select("*")
-            .eq("user_id", user.id)
+            .eq("user_id", user.user.id)
             .order("created_at", { ascending: false })
 
-          const result = await Promise.race([fetchPromise, timeoutPromise(10000)])
-          const { data, error } = result as any
-
-          if (error) {
-            console.error("Supabase error:", error)
-            throw new Error(error.message)
-          }
-
-          console.log("✅ Fetched integrations:", data?.length || 0)
+          if (error) throw error
 
           set({
             integrations: data || [],
             loading: false,
-            error: null,
             lastRefreshed: new Date().toISOString(),
           })
+
+          // Start preloading if we have connected integrations
+          const connectedIntegrations = (data || []).filter((i) => i.status === "connected")
+          if (connectedIntegrations.length > 0 && !state.preloadStarted) {
+            get().initializeGlobalPreload()
+          }
         } catch (error: any) {
           console.error("Failed to fetch integrations:", error)
           set({
-            loading: false,
             error: error.message || "Failed to fetch integrations",
-            lastRefreshed: new Date().toISOString(),
+            loading: false,
           })
         }
       },
 
       verifyIntegrationScopes: async () => {
-        set({ verifyingScopes: true })
+        set({ verifyingScopes: true, error: null })
+
         try {
-          const response = await fetch("/api/integrations/verify-scopes")
-          if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}))
-            throw new Error(errorData.error || "Failed to verify integration scopes")
+          const response = await fetch("/api/integrations/verify-scopes", {
+            method: "POST",
+          })
+
+          const result = await response.json()
+
+          if (!result.success) {
+            throw new Error(result.error || "Failed to verify scopes")
           }
-          const { integrations } = await response.json()
-          if (integrations) {
-            set({ integrations })
-          }
+
+          // Refresh integrations to get updated status
+          await get().fetchIntegrations(true)
         } catch (error: any) {
-          console.error("Failed to verify integration scopes:", error)
-          throw error
+          console.error("Failed to verify scopes:", error)
+          set({ error: error.message || "Failed to verify scopes" })
         } finally {
           set({ verifyingScopes: false })
         }
@@ -349,40 +253,22 @@ export const useIntegrationStore = create<IntegrationState>()(
 
       connectIntegration: async (providerId: string) => {
         try {
-          console.log("Starting connection for provider:", providerId)
-
-          const {
-            data: { user },
-          } = await supabase.auth.getUser()
-
-          if (!user) {
-            console.error("No authenticated user found")
-            throw new Error("Authentication required. Please refresh the page and try again.")
-          }
-
-          const fetchPromise = fetch(`/api/integrations/auth/generate-url`, {
+          const response = await fetch("/api/integrations/auth/generate-url", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
             },
-            body: JSON.stringify({
-              provider: providerId,
-              userId: user.id,
-            }),
+            body: JSON.stringify({ provider: providerId }),
           })
 
-          const response = (await Promise.race([fetchPromise, timeoutPromise(15000)])) as Response
+          const result = await response.json()
 
-          if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}))
-            if (response.status === 503) {
-              throw new Error(errorData.error || `${providerId} integration is not configured. Please contact support.`)
-            }
-            throw new Error(errorData.error || "Failed to generate auth URL")
+          if (!result.success) {
+            throw new Error(result.error || "Failed to generate auth URL")
           }
 
-          const { authUrl } = await response.json()
-          window.location.href = authUrl
+          // Open in new tab
+          window.open(result.authUrl, "_blank", "width=600,height=700")
         } catch (error: any) {
           console.error("Failed to connect integration:", error)
           throw error
@@ -391,20 +277,32 @@ export const useIntegrationStore = create<IntegrationState>()(
 
       disconnectIntegration: async (integrationId: string) => {
         try {
-          if (!integrationId) {
-            throw new Error("Integration ID is required")
+          const response = await fetch(`/api/integrations/${integrationId}`, {
+            method: "DELETE",
+          })
+
+          if (!response.ok) {
+            throw new Error("Failed to disconnect integration")
           }
 
-          const { error } = await supabase
-            .from("integrations")
-            .update({ status: "disconnected" })
-            .eq("id", integrationId)
+          // Remove from local state
+          set((state) => ({
+            integrations: state.integrations.filter((i) => i.id !== integrationId),
+          }))
 
-          if (error) {
-            throw new Error(error.message)
+          // Clear cached data for this integration
+          const integration = get().integrations.find((i) => i.id === integrationId)
+          if (integration) {
+            set((state) => {
+              const newDynamicData = { ...state.dynamicData }
+              Object.keys(newDynamicData).forEach((key) => {
+                if (key.startsWith(integration.provider)) {
+                  delete newDynamicData[key]
+                }
+              })
+              return { dynamicData: newDynamicData }
+            })
           }
-
-          await get().fetchIntegrations(true)
         } catch (error: any) {
           console.error("Failed to disconnect integration:", error)
           throw error
@@ -412,345 +310,325 @@ export const useIntegrationStore = create<IntegrationState>()(
       },
 
       refreshIntegration: async (providerId: string, integrationId?: string) => {
-        try {
-          if (!integrationId) {
-            throw new Error("Integration ID is required")
-          }
+        set({ refreshing: true, error: null })
 
-          const fetchPromise = fetch(`/api/integrations/refresh-token`, {
+        try {
+          const response = await fetch("/api/integrations/oauth/refresh", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
+              provider: providerId,
               integrationId,
             }),
           })
 
-          const response = (await Promise.race([fetchPromise, timeoutPromise(10000)])) as Response
+          const result = await response.json()
 
-          if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}))
-            throw new Error(errorData.error || "Failed to refresh integration")
+          if (!result.success) {
+            throw new Error(result.error || "Failed to refresh integration")
           }
 
+          // Refresh integrations list
           await get().fetchIntegrations(true)
         } catch (error: any) {
           console.error("Failed to refresh integration:", error)
-          throw error
+          set({ error: error.message || "Failed to refresh integration" })
+        } finally {
+          set({ refreshing: false })
         }
       },
 
       refreshTokens: async () => {
-        try {
-          set({ refreshing: true })
+        set({ refreshing: true, error: null })
 
-          const fetchPromise = fetch("/api/integrations/refresh-tokens", {
+        try {
+          const response = await fetch("/api/integrations/refresh-tokens", {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
           })
 
-          const response = (await Promise.race([fetchPromise, timeoutPromise(15000)])) as Response
+          const result = await response.json()
 
-          if (!response.ok) {
-            await get().fetchIntegrations(true)
-            set({
-              refreshing: false,
-              lastRefreshed: new Date().toISOString(),
-            })
-
-            return {
-              success: true,
-              message: "Integration data refreshed",
-              refreshedCount: 0,
-            }
+          if (!result.success) {
+            throw new Error(result.error || "Failed to refresh tokens")
           }
 
-          const data = await response.json()
+          // Refresh integrations list
           await get().fetchIntegrations(true)
 
-          set({
-            refreshing: false,
-            lastRefreshed: new Date().toISOString(),
-          })
-
           return {
-            success: data.success,
-            message: data.message,
-            refreshedCount: data.refreshed?.filter((r: any) => r.refreshed).length || 0,
+            success: true,
+            message: result.message || "Tokens refreshed successfully",
+            refreshedCount: result.refreshedCount || 0,
           }
         } catch (error: any) {
-          console.error("Error refreshing tokens:", error)
-          set({ refreshing: false })
+          console.error("Failed to refresh tokens:", error)
+          set({ error: error.message || "Failed to refresh tokens" })
           return {
             success: false,
-            message: error.message || "Failed to refresh",
+            message: error.message || "Failed to refresh tokens",
             refreshedCount: 0,
           }
+        } finally {
+          set({ refreshing: false })
         }
       },
 
       handleOAuthSuccess: () => {
-        if (typeof window !== "undefined") {
-          const urlParams = new URLSearchParams(window.location.search)
-          const success = urlParams.get("success")
-          const provider = urlParams.get("provider")
-
-          if (success && provider) {
-            console.log(`OAuth success for ${provider}, refreshing integrations...`)
-            setTimeout(() => {
-              get().fetchIntegrations(true)
-            }, 2000)
-
-            const newUrl = window.location.pathname
-            window.history.replaceState({}, "", newUrl)
-          }
-        }
+        // Refresh integrations after successful OAuth
+        get().fetchIntegrations(true)
       },
 
       initializeGlobalPreload: async () => {
         const state = get()
-        if (state.preloadStarted || state.globalPreloadingData) {
-          console.log("⚠️ Global preload already started or in progress")
-          return
-        }
+        if (state.globalPreloadingData || state.preloadStarted) return
 
-        console.log("🚀 Starting enhanced global preload initialization...")
-        set({ preloadStarted: true, globalPreloadingData: true })
+        set({ globalPreloadingData: true, preloadStarted: true, preloadProgress: {} })
 
         try {
-          if (state.integrations.length === 0) {
-            console.log("📡 Fetching integrations first...")
-            await state.fetchIntegrations(true)
-          }
+          const connectedIntegrations = state.integrations.filter((i) => i.status === "connected")
 
-          const updatedState = get()
-          const connectedIntegrations = updatedState.integrations.filter((i) => i.status === "connected")
-
-          if (connectedIntegrations.length === 0) {
-            console.log("❌ No connected integrations found")
-            set({ globalPreloadingData: false })
-            return
-          }
-
-          console.log(`🔄 Preloading resources for ${connectedIntegrations.length} connected integrations`)
-
-          // Preload resources for each connected provider
           for (const integration of connectedIntegrations) {
             await get().preloadResourcesForProvider(integration.provider)
           }
-
-          console.log("🎉 Enhanced global preload completed successfully")
         } catch (error) {
-          console.error("💥 Error during enhanced global preload:", error)
+          console.error("Failed to initialize global preload:", error)
         } finally {
           set({ globalPreloadingData: false })
         }
       },
 
       preloadResourcesForProvider: async (provider: string) => {
-        const allDataTypes = getAllDynamicDataTypes()
-        const providerDataTypes = allDataTypes.filter((dt) => dt.provider === provider)
+        const resourceTypes = getResourceTypesForProvider(provider)
 
-        console.log(`🔄 Preloading ${providerDataTypes.length} resource types for ${provider}`)
+        set((state) => ({
+          preloadProgress: {
+            ...state.preloadProgress,
+            [provider]: false,
+          },
+        }))
 
-        for (const { dataType } of providerDataTypes) {
-          try {
-            await get().fetchDynamicData(provider, dataType)
-            console.log(`✅ Preloaded ${provider}-${dataType}`)
-          } catch (error) {
-            console.error(`❌ Failed to preload ${provider}-${dataType}:`, error)
+        try {
+          for (const resourceType of resourceTypes) {
+            await get().fetchDynamicData(provider, resourceType)
           }
+
+          set((state) => ({
+            preloadProgress: {
+              ...state.preloadProgress,
+              [provider]: true,
+            },
+          }))
+        } catch (error) {
+          console.error(`Failed to preload resources for ${provider}:`, error)
         }
       },
 
       fetchDynamicData: async (provider: string, dataType: string) => {
-        const cacheKey = `${provider}-${dataType}`
+        const key = `${provider}_${dataType}`
         const state = get()
+
+        // Check if data is fresh
+        if (state.isDataFresh(provider, dataType)) {
+          return state.dynamicData[key] || []
+        }
 
         // Set loading state
         set((state) => ({
-          resourceLoadingStates: { ...state.resourceLoadingStates, [cacheKey]: true },
+          resourceLoadingStates: {
+            ...state.resourceLoadingStates,
+            [key]: true,
+          },
         }))
 
         try {
-          // Check if data is fresh (less than 10 minutes old)
-          if (state.isDataFresh(provider, dataType)) {
-            const cachedData = state.dynamicData[cacheKey] || []
-            console.log(`💾 Using cached data for ${cacheKey}: ${cachedData.length} items`)
-            return cachedData
-          }
-
-          console.log(`🌐 Fetching fresh data for ${cacheKey}`)
-
           const response = await fetch("/api/integrations/fetch-user-data", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
             },
-            body: JSON.stringify({ provider, dataType }),
+            body: JSON.stringify({
+              provider,
+              dataType,
+            }),
           })
-
-          if (!response.ok) {
-            const errorText = await response.text()
-            console.error(`❌ HTTP ${response.status} for ${cacheKey}:`, errorText)
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-          }
 
           const result = await response.json()
 
-          if (result.success) {
-            const resources: CachedResource[] = (result.data || []).map((item: any) => ({
-              id: item.id || item.value,
-              name: item.name,
-              value: item.value || item.id,
-              type: dataType,
-              metadata: item.metadata || {},
-              lastUpdated: Date.now(),
-            }))
-
-            console.log(`✅ Successfully fetched ${resources.length} resources for ${cacheKey}`)
-
-            // Store in cache with timestamp
-            set((state) => ({
-              dynamicData: { ...state.dynamicData, [cacheKey]: resources },
-              dataLastFetched: { ...state.dataLastFetched, [cacheKey]: Date.now() },
-            }))
-
-            return resources
-          } else {
-            console.error(`❌ API error for ${cacheKey}:`, result.error)
-            set((state) => ({
-              dynamicData: { ...state.dynamicData, [cacheKey]: [] },
-              dataLastFetched: { ...state.dataLastFetched, [cacheKey]: Date.now() },
-            }))
-            return []
+          if (!result.success) {
+            throw new Error(result.error || `Failed to fetch ${dataType} for ${provider}`)
           }
-        } catch (error) {
-          console.error(`💥 Network error fetching ${cacheKey}:`, error)
-          set((state) => ({
-            dynamicData: { ...state.dynamicData, [cacheKey]: [] },
-            dataLastFetched: { ...state.dataLastFetched, [cacheKey]: Date.now() },
+
+          const resources: CachedResource[] = (result.data || []).map((item: any) => ({
+            id: item.id,
+            name: item.name || item.title || item.summary || "Untitled",
+            value: item.id,
+            type: dataType,
+            metadata: item,
+            lastUpdated: Date.now(),
           }))
+
+          set((state) => ({
+            dynamicData: {
+              ...state.dynamicData,
+              [key]: resources,
+            },
+            dataLastFetched: {
+              ...state.dataLastFetched,
+              [key]: Date.now(),
+            },
+          }))
+
+          return resources
+        } catch (error: any) {
+          console.error(`Failed to fetch ${dataType} for ${provider}:`, error)
           return []
         } finally {
           // Clear loading state
           set((state) => ({
-            resourceLoadingStates: { ...state.resourceLoadingStates, [cacheKey]: false },
+            resourceLoadingStates: {
+              ...state.resourceLoadingStates,
+              [key]: false,
+            },
           }))
         }
       },
 
       ensureDataPreloaded: async () => {
         const state = get()
-
-        if (state.globalPreloadingData || state.preloadStarted) {
-          console.log("⏳ Data preload already in progress or completed")
-          return
+        if (!state.preloadStarted) {
+          await get().initializeGlobalPreload()
         }
-
-        console.log("🔄 Starting background data preload")
-        await state.initializeGlobalPreload()
       },
 
       getDynamicData: (provider: string, dataType: string) => {
-        const cacheKey = `${provider}-${dataType}`
-        const data = get().dynamicData[cacheKey] || []
-        return data
+        const key = `${provider}_${dataType}`
+        return get().dynamicData[key] || []
       },
 
       isDataFresh: (provider: string, dataType: string) => {
-        const cacheKey = `${provider}-${dataType}`
-        const state = get()
-        const lastFetched = state.dataLastFetched[cacheKey]
-
-        if (!lastFetched) return false
-
-        const tenMinutesAgo = Date.now() - 10 * 60 * 1000
-        return lastFetched > tenMinutesAgo
+        const key = `${provider}_${dataType}`
+        const lastFetched = get().dataLastFetched[key]
+        return lastFetched && Date.now() - lastFetched < CACHE_DURATION
       },
 
       clearAllData: () => {
-        console.log("🧹 Clearing all integration data")
         set({
-          integrations: [],
           dynamicData: {},
+          dataLastFetched: {},
           preloadProgress: {},
           preloadStarted: false,
           globalPreloadingData: false,
-          dataLastFetched: {},
-          lastRefreshed: null,
           resourceLoadingStates: {},
         })
       },
 
-      // New enhanced methods
       getResourcesForTrigger: (provider: string, trigger: string) => {
-        const mapping = TRIGGER_RESOURCE_MAPPING[provider as keyof typeof TRIGGER_RESOURCE_MAPPING]
-        if (!mapping || !mapping[trigger as keyof typeof mapping]) {
-          return []
+        // Map triggers to resource types
+        const triggerResourceMap: Record<string, string> = {
+          page_updated: "pages",
+          database_item_added: "databases",
+          database_item_updated: "databases",
+          new_message_in_channel: "channels",
+          direct_message_received: "users",
+          new_row_added: "spreadsheets",
+          new_event: "calendars",
+          new_record: "bases",
+          new_card: "boards",
+          new_issue: "repositories",
         }
 
-        const resourceTypes = mapping[trigger as keyof typeof mapping]
-        const allResources: CachedResource[] = []
+        const resourceType = triggerResourceMap[trigger]
+        if (!resourceType) return []
 
-        resourceTypes.forEach((dataType) => {
-          const resources = get().getDynamicData(provider, dataType)
-          allResources.push(...resources)
-        })
-
-        return allResources
+        return get().getDynamicData(provider, resourceType)
       },
 
       refreshResourcesForProvider: async (provider: string) => {
-        console.log(`🔄 Refreshing all resources for ${provider}`)
-        await get().preloadResourcesForProvider(provider)
+        const resourceTypes = getResourceTypesForProvider(provider)
+
+        // Clear existing data
+        set((state) => {
+          const newDynamicData = { ...state.dynamicData }
+          const newDataLastFetched = { ...state.dataLastFetched }
+
+          resourceTypes.forEach((resourceType) => {
+            const key = `${provider}_${resourceType}`
+            delete newDynamicData[key]
+            delete newDataLastFetched[key]
+          })
+
+          return {
+            dynamicData: newDynamicData,
+            dataLastFetched: newDataLastFetched,
+          }
+        })
+
+        // Fetch fresh data
+        for (const resourceType of resourceTypes) {
+          await get().fetchDynamicData(provider, resourceType)
+        }
       },
 
       isResourceLoading: (provider: string, dataType: string) => {
-        const cacheKey = `${provider}-${dataType}`
-        return get().resourceLoadingStates[cacheKey] || false
+        const key = `${provider}_${dataType}`
+        return get().resourceLoadingStates[key] || false
       },
 
       getIntegrationStatus: (provider: string) => {
         const integration = get().integrations.find((i) => i.provider === provider)
-        return integration?.status || "not_found"
+        if (!integration) return "not_found"
+        return integration.status
       },
 
       getCachedResourceCount: (provider: string) => {
-        const allDataTypes = getAllDynamicDataTypes()
-        const providerDataTypes = allDataTypes.filter((dt) => dt.provider === provider)
-
+        const resourceTypes = getResourceTypesForProvider(provider)
         let totalCount = 0
-        providerDataTypes.forEach(({ dataType }) => {
-          const resources = get().getDynamicData(provider, dataType)
+
+        resourceTypes.forEach((resourceType) => {
+          const resources = get().getDynamicData(provider, resourceType)
           totalCount += resources.length
         })
 
         return totalCount
       },
+
+      preloadUserDataOnLogin: async () => {
+        // This method is called when user logs in to start background preloading
+        await get().fetchIntegrations()
+        await get().initializeGlobalPreload()
+      },
     }),
     {
-      name: "chainreact-integrations",
+      name: "integration-store",
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         integrations: state.integrations,
         dynamicData: state.dynamicData,
         dataLastFetched: state.dataLastFetched,
-        lastRefreshed: state.lastRefreshed,
         preloadProgress: state.preloadProgress,
         preloadStarted: state.preloadStarted,
       }),
       onRehydrateStorage: () => (state) => {
-        console.log(
-          "🔄 Enhanced integration store rehydrated with",
-          Object.keys(state?.dynamicData || {}).length,
-          "cached resource types",
-        )
         state?.setHydrated()
       },
     },
   ),
 )
+
+// Helper function to get resource types for each provider
+function getResourceTypesForProvider(provider: string): string[] {
+  const resourceMap: Record<string, string[]> = {
+    notion: ["pages", "databases"],
+    slack: ["channels", "users"],
+    "google-sheets": ["spreadsheets"],
+    "google-calendar": ["calendars"],
+    airtable: ["bases"],
+    trello: ["boards"],
+    github: ["repositories"],
+    gmail: ["labels"],
+  }
+
+  return resourceMap[provider] || []
+}
