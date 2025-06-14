@@ -389,7 +389,15 @@ const TRIGGER_CONFIGS = {
     },
   ],
   "Page Updated": [
-    { key: "page_id", label: "Page ID (optional)", type: "text", placeholder: "Page ID", required: false },
+    {
+      key: "page_id",
+      label: "Page",
+      type: "dynamic_select",
+      provider: "notion",
+      dataType: "pages",
+      placeholder: "Select a page",
+      required: false,
+    },
   ],
   "Event Updated": [
     {
@@ -1587,6 +1595,7 @@ export default function WorkflowBuilder() {
                                 src={
                                   AVAILABLE_INTEGRATIONS.find((app) => app.id === step.appId)?.logo ||
                                   "/placeholder.svg?height=32&width=32" ||
+                                  "/placeholder.svg" ||
                                   "/placeholder.svg"
                                 }
                                 alt={step.appName}
@@ -1916,6 +1925,7 @@ export default function WorkflowBuilder() {
                     <img
                       src={
                         AVAILABLE_INTEGRATIONS.find((app) => app.id === workflowSteps[stepToDelete].appId)?.logo ||
+                        "/placeholder.svg" ||
                         "/placeholder.svg" ||
                         "/placeholder.svg"
                       }
