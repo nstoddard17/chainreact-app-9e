@@ -35,6 +35,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    console.log(`Generating auth URL for provider: ${provider}`)
+
     // Generate state with user ID
     const state = generateOAuthState(provider, session.user.id)
 
@@ -42,6 +44,8 @@ export async function POST(request: NextRequest) {
       const oauthProvider = getOAuthProvider(provider)
       const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || request.nextUrl.origin
       const authUrl = oauthProvider.generateAuthUrl(baseUrl, false, undefined, session.user.id)
+
+      console.log(`Auth URL generated for ${provider}:`, authUrl.substring(0, 100) + "...")
 
       return NextResponse.json({
         success: true,
@@ -51,11 +55,11 @@ export async function POST(request: NextRequest) {
     } catch (error: any) {
       console.error(`Error generating auth URL for ${provider}:`, error)
 
-      if (error.message.includes("Missing") && error.message.includes("environment variable")) {
+      if (error.message.includes("Missing") && error.message.includes("configuration")) {
         return NextResponse.json(
           {
             success: false,
-            error: `${provider} is not configured. Please contact support.`,
+            error: `${provider} is not configured. Please ensure the required environment variables are set.`,
           },
           { status: 400 },
         )

@@ -7,95 +7,127 @@ export async function POST(request: NextRequest) {
     const { userId } = await request.json()
 
     if (!userId) {
-      return NextResponse.json({ error: "User ID is required" }, { status: 400 })
+      return NextResponse.json(
+        {
+          success: false,
+          error: "User ID is required",
+        },
+        { status: 400 },
+      )
     }
 
     const supabase = createAdminSupabaseClient()
     if (!supabase) {
-      return NextResponse.json({ error: "Failed to create database client" }, { status: 500 })
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Database connection failed",
+        },
+        { status: 500 },
+      )
     }
 
-    // Get all connected integrations with refresh tokens
-    const { data: integrations, error } = await supabase
+    // Get all connected integrations for the user
+    const { data: integrations, error: fetchError } = await supabase
       .from("integrations")
       .select("*")
       .eq("user_id", userId)
-      .eq("status", "connected")
+      .in("status", ["connected", "disconnected", "expired"])
       .not("refresh_token", "is", null)
 
-    if (error) {
-      console.error("Error fetching integrations:", error)
-      return NextResponse.json({ error: "Failed to fetch integrations" }, { status: 500 })
+    if (fetchError) {
+      console.error("Error fetching integrations:", fetchError)
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Failed to fetch integrations",
+        },
+        { status: 500 },
+      )
     }
 
     if (!integrations || integrations.length === 0) {
       return NextResponse.json({
-        message: "No connected integrations with refresh tokens found",
-        refreshed: [],
+        success: true,
+        message: "No integrations found that need token refresh",
+        stats: {
+          totalProcessed: 0,
+          successful: 0,
+          failed: 0,
+          skipped: 0,
+          errors: [],
+        },
       })
     }
 
-    console.log(`Found ${integrations.length} integrations to refresh tokens for user ${userId}`)
+    console.log(`Processing ${integrations.length} integrations for token refresh`)
 
-    // Process each integration
-    const results = await Promise.allSettled(
-      integrations.map(async (integration) => {
-        try {
-          console.log(`Refreshing token for ${integration.provider}...`)
-          const result = await refreshTokenIfNeeded(integration)
+    const stats = {
+      totalProcessed: integrations.length,
+      successful: 0,
+      failed: 0,
+      skipped: 0,
+      errors: [] as Array<{ provider: string; error: string }>,
+    }
 
-          return {
-            provider: integration.provider,
-            success: result.success,
-            refreshed: result.refreshed,
-            message: result.message,
+    // Process integrations in batches to avoid overwhelming APIs
+    const batchSize = 3
+    for (let i = 0; i < integrations.length; i += batchSize) {
+      const batch = integrations.slice(i, i + batchSize)
+
+      await Promise.allSettled(
+        batch.map(async (integration) => {
+          try {
+            console.log(`Refreshing token for ${integration.provider}`)
+            const result = await refreshTokenIfNeeded(integration)
+
+            if (result.refreshed) {
+              stats.successful++
+              console.log(`✅ Successfully refreshed ${integration.provider}`)
+            } else if (result.success) {
+              stats.skipped++
+              console.log(`⏭️ Skipped ${integration.provider}: ${result.message}`)
+            } else {
+              stats.failed++
+              stats.errors.push({
+                provider: integration.provider,
+                error: result.message,
+              })
+              console.warn(`⚠️ Failed to refresh ${integration.provider}: ${result.message}`)
+            }
+          } catch (error: any) {
+            stats.failed++
+            stats.errors.push({
+              provider: integration.provider,
+              error: error.message,
+            })
+            console.error(`💥 Error refreshing ${integration.provider}:`, error)
           }
-        } catch (error: any) {
-          console.error(`Error refreshing token for ${integration.provider}:`, error)
-          return {
-            provider: integration.provider,
-            success: false,
-            refreshed: false,
-            message: error.message,
-          }
-        }
-      }),
+        }),
+      )
+
+      // Small delay between batches
+      if (i + batchSize < integrations.length) {
+        await new Promise((resolve) => setTimeout(resolve, 1000))
+      }
+    }
+
+    console.log(
+      `Token refresh completed: ${stats.successful} successful, ${stats.failed} failed, ${stats.skipped} skipped`,
     )
 
-    // Process results
-    const processedResults = results.map((result, index) => {
-      if (result.status === "fulfilled") {
-        return result.value
-      } else {
-        return {
-          provider: integrations[index].provider,
-          success: false,
-          refreshed: false,
-          message: result.reason?.message || "Unknown error",
-        }
-      }
-    })
-
-    const successful = processedResults.filter((r) => r.success && r.refreshed).length
-    const failed = processedResults.filter((r) => !r.success).length
-    const skipped = processedResults.filter((r) => r.success && !r.refreshed).length
-
     return NextResponse.json({
-      message: `Processed ${integrations.length} integrations: ${successful} refreshed, ${failed} failed, ${skipped} skipped`,
-      results: processedResults,
-      stats: {
-        total: integrations.length,
-        successful,
-        failed,
-        skipped,
-      },
+      success: true,
+      message: `Token refresh completed: ${stats.successful} successful, ${stats.failed} failed, ${stats.skipped} skipped`,
+      stats,
     })
   } catch (error: any) {
-    console.error("Error in refresh-all-tokens route:", error)
+    console.error("Error in refresh-all-tokens API:", error)
     return NextResponse.json(
       {
+        success: false,
         error: "Internal server error",
-        details: error.message,
+        details: process.env.NODE_ENV === "development" ? error.message : undefined,
       },
       { status: 500 },
     )

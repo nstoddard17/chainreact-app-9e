@@ -574,9 +574,19 @@ export default function WorkflowBuilder() {
           await fetchDynamicData(field.provider, field.dataType)
         } catch (error: any) {
           console.error(`Failed to load ${field.dataType} for ${field.provider}:`, error)
+
+          let errorMessage = `Failed to load ${field.dataType}.`
+          if (error.message.includes("authentication") || error.message.includes("expired")) {
+            errorMessage += " Please reconnect your account."
+          } else if (error.message.includes("not found")) {
+            errorMessage += " Integration not found or disconnected."
+          } else {
+            errorMessage += " Please check your connection and try again."
+          }
+
           setResourceErrors((prev) => ({
             ...prev,
-            [key]: `Failed to load ${field.dataType}. Please check your connection.`,
+            [key]: errorMessage,
           }))
         } finally {
           setResourceLoadingStates((prev) => ({ ...prev, [key]: false }))
@@ -627,32 +637,74 @@ export default function WorkflowBuilder() {
       await connectIntegration(selectedIntegration.id)
 
       toast({
-        title: "Connecting...",
-        description: `Opening ${selectedIntegration.name} authorization in a new tab`,
+        title: "Opening Authorization",
+        description: `Opening ${selectedIntegration.name} authorization in a new tab. Please complete the authorization and return to this page.`,
+        duration: 5000,
       })
 
-      // After connection, continue with trigger setup
-      setTimeout(() => {
-        setShowConnectModal(false)
+      // Set up better detection for OAuth completion
+      const checkForConnection = async () => {
+        try {
+          await fetchIntegrations(true)
+          const updatedStatus = getEnhancedIntegrationStatus(selectedIntegration.id)
 
-        // Check if trigger needs configuration
-        const triggerConfig = TRIGGER_CONFIGS[selectedTrigger.id as keyof typeof TRIGGER_CONFIGS]
+          if (updatedStatus.isConnected) {
+            setShowConnectModal(false)
 
-        if (triggerConfig && triggerConfig.length > 0) {
-          setCurrentConfig({})
-          setShowConfigModal(true)
-          preloadTriggerResources(selectedTrigger.id, selectedIntegration.id)
-        } else {
-          addTriggerStep(selectedTrigger, {})
+            // Check if trigger needs configuration
+            const triggerConfig = TRIGGER_CONFIGS[selectedTrigger.id as keyof typeof TRIGGER_CONFIGS]
+
+            if (triggerConfig && triggerConfig.length > 0) {
+              setCurrentConfig({})
+              setShowConfigModal(true)
+              await preloadTriggerResources(selectedTrigger.id, selectedIntegration.id)
+            } else {
+              addTriggerStep(selectedTrigger, {})
+            }
+
+            toast({
+              title: "Integration Connected",
+              description: `${selectedIntegration.name} has been successfully connected!`,
+              duration: 3000,
+            })
+
+            return true
+          }
+        } catch (error) {
+          console.error("Error checking connection status:", error)
         }
-      }, 1000)
+        return false
+      }
+
+      // Check immediately and then periodically
+      setTimeout(async () => {
+        const connected = await checkForConnection()
+        if (!connected) {
+          // Set up periodic checking
+          const intervalId = setInterval(async () => {
+            const connected = await checkForConnection()
+            if (connected) {
+              clearInterval(intervalId)
+            }
+          }, 3000)
+
+          // Clear interval after 2 minutes
+          setTimeout(() => {
+            clearInterval(intervalId)
+            setIsConnecting(false)
+          }, 120000)
+        } else {
+          setIsConnecting(false)
+        }
+      }, 2000)
     } catch (error: any) {
+      console.error("Connection error:", error)
       toast({
         title: "Connection Failed",
-        description: error.message,
+        description: error.message || `Failed to connect ${selectedIntegration.name}`,
         variant: "destructive",
+        duration: 5000,
       })
-    } finally {
       setIsConnecting(false)
     }
   }
@@ -1278,6 +1330,7 @@ export default function WorkflowBuilder() {
                                 src={
                                   AVAILABLE_INTEGRATIONS.find((app) => app.id === step.appId)?.logo ||
                                   AVAILABLE_INTEGRATIONS.find((app) => app.id === step.appId)?.fallbackLogo ||
+                                  "/placeholder.svg" ||
                                   "/placeholder.svg" ||
                                   "/placeholder.svg"
                                 }
