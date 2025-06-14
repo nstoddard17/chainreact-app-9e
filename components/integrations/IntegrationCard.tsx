@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { CheckCircle, Loader2, RefreshCw } from "lucide-react"
+import { CheckCircle, Loader2, RefreshCw, AlertTriangle } from "lucide-react"
 import { useIntegrationStore } from "@/stores/integrationStore"
 import { useToast } from "@/hooks/use-toast"
 import { supabase } from "@/lib/supabase"
@@ -155,6 +155,12 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
     ? new Date(provider.integration.updated_at).toLocaleDateString()
     : null
 
+  // Check if the integration is actually connected
+  const isConnected = provider.connected && provider.integration?.status === "connected"
+  const hasIntegration = !!provider.integration
+  const canConnect = provider.isAvailable !== false // Allow connection unless explicitly disabled
+  const canDisconnect = isConnected && hasIntegration
+
   return (
     <Card className="overflow-hidden border border-slate-200 transition-all hover:shadow-md">
       <CardContent className="p-0">
@@ -173,7 +179,7 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
               </div>
               <div>
                 <h3 className="font-semibold text-slate-900">{provider.name}</h3>
-                {provider.connected && (
+                {isConnected && (
                   <div className="flex items-center text-xs text-slate-500">
                     <RefreshCw className="w-3 h-3 mr-1" />
                     {lastUpdated ? `Updated ${lastUpdated}` : "Connected"}
@@ -181,7 +187,7 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
                 )}
               </div>
             </div>
-            {provider.connected ? (
+            {isConnected ? (
               <Badge className="bg-green-100 text-green-800 border-green-200">
                 <CheckCircle className="w-3 h-3 mr-1" />
                 Connected
@@ -190,9 +196,10 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
               <Badge variant="outline" className="bg-slate-100 text-slate-600 border-slate-200">
                 Disconnected
               </Badge>
-            ) : !provider.isAvailable ? (
+            ) : provider.isAvailable === false ? (
               <Badge variant="outline" className="bg-amber-50 text-amber-600 border-amber-200">
-                Coming Soon
+                <AlertTriangle className="w-3 h-3 mr-1" />
+                Not Configured
               </Badge>
             ) : null}
           </div>
@@ -218,24 +225,25 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
         </div>
 
         <div className="bg-slate-50 p-4 border-t border-slate-200">
-          {provider.connected ? (
+          {isConnected ? (
             <div className="flex gap-2">
               <Button
                 variant="outline"
                 size="sm"
-                className="flex-1 bg-white"
+                className="flex-1 bg-white hover:bg-red-50 hover:border-red-200 hover:text-red-700"
                 onClick={handleDisconnect}
-                disabled={isDisconnecting || !provider.isAvailable || isRefreshing}
+                disabled={isDisconnecting || isRefreshing}
               >
                 {isDisconnecting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                Disconnect
+                {isDisconnecting ? "Disconnecting..." : "Disconnect"}
               </Button>
               <Button
                 variant="outline"
                 size="sm"
-                className="bg-white"
+                className="bg-white hover:bg-blue-50 hover:border-blue-200"
                 onClick={handleRefresh}
-                disabled={isDisconnecting || !provider.isAvailable || isRefreshing}
+                disabled={isDisconnecting || isRefreshing}
+                title="Refresh connection"
               >
                 {isRefreshing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
               </Button>
@@ -246,10 +254,10 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
               size="sm"
               className="w-full"
               onClick={handleConnect}
-              disabled={isConnecting || !provider.isAvailable}
+              disabled={isConnecting || !canConnect}
             >
               {isConnecting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-              {!provider.isAvailable ? "Coming Soon" : "Connect"}
+              {!canConnect ? "Not Configured" : isConnecting ? "Connecting..." : "Connect"}
             </Button>
           )}
         </div>
