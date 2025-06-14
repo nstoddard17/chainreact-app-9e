@@ -196,12 +196,22 @@ async function fetchNotionData(accessToken: string, dataType: string) {
           })
           .map((db: any) => ({
             id: db.id,
-            name: db.title[0].plain_text,
+            name: extractNotionTitle(db.title),
             value: db.id,
           })) || []
       )
 
     case "pages":
+      // First get the current user info to filter by ownership
+      const userResponse = await fetch("https://api.notion.com/v1/users/me", {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Notion-Version": "2022-06-28",
+        },
+      })
+      const currentUser = await userResponse.json()
+      const currentUserId = currentUser.id
+
       const pagesResponse = await fetch("https://api.notion.com/v1/search", {
         method: "POST",
         headers: {
@@ -219,62 +229,144 @@ async function fetchNotionData(accessToken: string, dataType: string) {
       })
       const pagesData = await pagesResponse.json()
 
-      return (
-        pagesData.results
-          ?.filter((page: any) => {
-            // Filter out pages that are:
-            // 1. Archived
-            // 2. Don't have proper titles
-            // 3. Are database items (have a parent database)
-            // 4. Are template pages
-            if (page.archived) return false
-            if (page.parent?.type === "database_id") return false // Skip database items
-
-            // Try to get a meaningful title
-            const title = getPageTitle(page)
-            return title && title.trim() !== "" && title !== "Untitled"
+      // Get detailed page info to check ownership
+      const ownedPages = []
+      for (const page of pagesData.results || []) {
+        try {
+          // Get detailed page info including who created it
+          const pageDetailResponse = await fetch(`https://api.notion.com/v1/pages/${page.id}`, {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "Notion-Version": "2022-06-28",
+            },
           })
-          .map((page: any) => ({
-            id: page.id,
-            name: getPageTitle(page),
-            value: page.id,
-          }))
-          .sort((a: any, b: any) => a.name.localeCompare(b.name)) || []
-      )
+          const pageDetail = await pageDetailResponse.json()
+
+          // Filter criteria:
+          // 1. Not archived
+          // 2. Not a database item (allow sub-pages)
+          // 3. Created by current user OR in a workspace they own
+          // 4. Has a meaningful title
+          if (
+            !pageDetail.archived &&
+            pageDetail.parent?.type !== "database_id" &&
+            (pageDetail.created_by?.id === currentUserId ||
+              pageDetail.parent?.type === "workspace" ||
+              isUserOwnedPage(pageDetail, currentUserId))
+          ) {
+            const title = getPageTitle(pageDetail)
+            if (title && title.trim() !== "" && title !== "Untitled") {
+              ownedPages.push({
+                id: pageDetail.id,
+                name: title,
+                value: pageDetail.id,
+              })
+            }
+          }
+        } catch (error) {
+          // Skip pages we can't access or get details for
+          console.log(`Skipping page ${page.id}: ${error}`)
+        }
+      }
+
+      return ownedPages.sort((a: any, b: any) => a.name.localeCompare(b.name))
 
     default:
       return []
   }
 }
 
-// Helper function to extract page title from various Notion page structures
+// Helper function to extract title with emojis from Notion rich text
+function extractNotionTitle(titleArray: any[]): string {
+  if (!titleArray || titleArray.length === 0) {
+    return "Untitled"
+  }
+
+  // Combine all text segments to preserve emojis and formatting
+  return titleArray
+    .map((segment: any) => {
+      if (segment.type === "text") {
+        return segment.text?.content || ""
+      }
+      return segment.plain_text || ""
+    })
+    .join("")
+    .trim()
+}
+
+// Enhanced helper function to extract page title with emojis and icons
 function getPageTitle(page: any): string {
-  // Try different ways to get the title
+  // First try to get the icon (emoji) if it exists
+  let icon = ""
+  if (page.icon) {
+    if (page.icon.type === "emoji") {
+      icon = page.icon.emoji + " "
+    } else if (page.icon.type === "external" && page.icon.external?.url) {
+      // For external icons, we'll skip them in text but they exist
+      icon = ""
+    } else if (page.icon.type === "file" && page.icon.file?.url) {
+      // For uploaded file icons, we'll skip them in text but they exist
+      icon = ""
+    }
+  }
+
+  // Try different ways to get the title with rich text support
   if (page.properties) {
     // Check for common title property names
     const titleProps = ["title", "Title", "Name", "name"]
     for (const prop of titleProps) {
-      if (page.properties[prop]?.title?.[0]?.plain_text) {
-        return page.properties[prop].title[0].plain_text
+      if (page.properties[prop]?.title && Array.isArray(page.properties[prop].title)) {
+        const titleText = extractNotionTitle(page.properties[prop].title)
+        if (titleText && titleText !== "Untitled") {
+          return icon + titleText
+        }
       }
     }
   }
 
-  // For regular pages (not database items), check the page title
-  if (page.properties?.title?.title?.[0]?.plain_text) {
-    return page.properties.title.title[0].plain_text
-  }
-
-  // Fallback to URL or ID-based name
-  if (page.url) {
-    const urlParts = page.url.split("/")
-    const lastPart = urlParts[urlParts.length - 1]
-    if (lastPart && lastPart !== page.id) {
-      return decodeURIComponent(lastPart.replace(/-/g, " "))
+  // For regular pages, try to get title from the page object itself
+  if (page.properties?.title?.title && Array.isArray(page.properties.title.title)) {
+    const titleText = extractNotionTitle(page.properties.title.title)
+    if (titleText && titleText !== "Untitled") {
+      return icon + titleText
     }
   }
 
-  return `Page ${page.id.slice(0, 8)}...`
+  // Try to extract from URL as fallback (but clean it up better)
+  if (page.url) {
+    const urlParts = page.url.split("/")
+    const lastPart = urlParts[urlParts.length - 1]
+    if (lastPart && lastPart !== page.id && !lastPart.includes("-")) {
+      // Only use URL if it doesn't look like a UUID
+      const cleanTitle = decodeURIComponent(lastPart.replace(/-/g, " "))
+      return icon + cleanTitle
+    }
+  }
+
+  // If we have an icon but no good title, show just the icon with "Page"
+  if (icon.trim()) {
+    return icon + "Page"
+  }
+
+  // Last resort - don't show ID, just return a generic name
+  return "Untitled Page"
+}
+
+// Helper function to determine if a page is owned by the user
+function isUserOwnedPage(pageDetail: any, currentUserId: string): boolean {
+  // Check if user created the page
+  if (pageDetail.created_by?.id === currentUserId) {
+    return true
+  }
+
+  // Check if it's in the user's personal workspace (not shared)
+  if (pageDetail.parent?.type === "workspace") {
+    return true
+  }
+
+  // Check if user has full access (can edit properties, not just read)
+  // This is a heuristic - if they can edit, they likely own or have full access
+  return false
 }
 
 async function fetchGoogleSheetsData(accessToken: string, dataType: string) {
