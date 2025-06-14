@@ -1,528 +1,157 @@
 "use client"
 
 import { create } from "zustand"
-import { supabase } from "@/lib/supabase-singleton"
-import type { User, Session } from "@supabase/supabase-js"
+import { supabase } from "@/lib/supabase"
+import { useIntegrationStore } from "./integrationStore"
 
-interface Profile {
+interface User {
   id: string
-  full_name?: string
-  first_name?: string
-  last_name?: string
+  email: string
+  name?: string
+  avatar?: string
 }
 
 interface AuthState {
   user: User | null
-  session: Session | null
-  profile: Profile | null
   loading: boolean
-  error: string | null
   initialized: boolean
-}
-
-interface AuthActions {
+  error: string | null
   initialize: () => Promise<void>
-  signIn: (email: string, password: string) => Promise<void>
-  signUp: (email: string, password: string, metadata?: any) => Promise<void>
-  signInWithGoogle: () => Promise<void>
   signOut: () => Promise<void>
-  updateProfile: (updates: any) => Promise<void>
-  getCurrentUserId: () => string | null
+  updateProfile: (updates: Partial<User>) => Promise<void>
 }
 
-type AuthStore = AuthState & AuthActions
-
-// Global flag to prevent multiple initializations
-let isInitializing = false
-let hasInitialized = false
-
-export const useAuthStore = create<AuthStore>((set, get) => ({
-  // State
+export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
-  session: null,
-  profile: null,
   loading: true,
-  error: null,
   initialized: false,
+  error: null,
 
-  // Actions
   initialize: async () => {
-    // Prevent multiple simultaneous initializations
-    if (isInitializing || hasInitialized) {
-      return
-    }
-
-    isInitializing = true
-
     try {
-      if (!supabase) {
-        console.warn("Supabase client not available, using mock data")
-        // Create mock user for development
-        set({
-          user: {
-            id: "mock-user-id",
-            email: "dev@example.com",
-            user_metadata: {
-              name: "Development User",
-              first_name: "Development",
-              last_name: "User",
-            },
-          } as User,
-          session: {
-            access_token: "mock-token",
-            refresh_token: "mock-refresh-token",
-            user: {
-              id: "mock-user-id",
-              email: "dev@example.com",
-              user_metadata: {
-                name: "Development User",
-                first_name: "Development",
-                last_name: "User",
-              },
-            } as User,
-          } as Session,
-          profile: {
-            id: "mock-user-id",
-            full_name: "Development User",
-            first_name: "Development",
-            last_name: "User",
-          },
-          loading: false,
-          initialized: true,
-        })
-        hasInitialized = true
-        return
-      }
+      set({ loading: true, error: null })
 
+      // Get initial session
       const {
         data: { session },
+        error: sessionError,
       } = await supabase.auth.getSession()
 
-      set({
-        session,
-        user: session?.user || null,
-        loading: false,
-        initialized: true,
-      })
+      if (sessionError) {
+        console.error("Session error:", sessionError)
+        set({ error: sessionError.message, loading: false, initialized: true })
+        return
+      }
 
       if (session?.user) {
-        // Fetch user profile
-        try {
-          const { data: profile } = await supabase.from("user_profiles").select("*").eq("id", session.user.id).single()
-
-          set({ profile })
-        } catch (profileError) {
-          console.warn("Could not fetch user profile:", profileError)
+        const user: User = {
+          id: session.user.id,
+          email: session.user.email || "",
+          name: session.user.user_metadata?.full_name || session.user.user_metadata?.name,
+          avatar: session.user.user_metadata?.avatar_url,
         }
-      }
 
-      // Set up auth state listener (only once)
-      supabase.auth.onAuthStateChange(async (event, session) => {
-        set({
-          session,
-          user: session?.user || null,
-        })
+        set({ user, loading: false, initialized: true })
 
-        if (session?.user) {
+        // Start global data preloading - but use a small delay to ensure stores are ready
+        setTimeout(() => {
+          console.log("User authenticated, starting global data preload...")
           try {
-            const { data: profile } = await supabase
-              .from("user_profiles")
-              .select("*")
-              .eq("id", session.user.id)
-              .single()
-
-            set({ profile })
-          } catch (profileError) {
-            console.warn("Could not fetch user profile:", profileError)
+            const integrationStore = useIntegrationStore.getState()
+            integrationStore.ensureDataPreloaded()
+          } catch (preloadError) {
+            console.error("Error starting global preload:", preloadError)
           }
-        } else {
-          set({ profile: null })
+        }, 100)
+      } else {
+        set({ user: null, loading: false, initialized: true })
+      }
+
+      // Listen for auth changes
+      supabase.auth.onAuthStateChange(async (event, session) => {
+        console.log("Auth state changed:", event)
+
+        if (event === "SIGNED_IN" && session?.user) {
+          const user: User = {
+            id: session.user.id,
+            email: session.user.email || "",
+            name: session.user.user_metadata?.full_name || session.user.user_metadata?.name,
+            avatar: session.user.user_metadata?.avatar_url,
+          }
+
+          set({ user, error: null })
+
+          // Start global data preloading on sign in
+          console.log("User signed in, starting global data preload...")
+          try {
+            const integrationStore = useIntegrationStore.getState()
+            integrationStore.initializeGlobalPreload()
+          } catch (preloadError) {
+            console.error("Error starting global preload:", preloadError)
+          }
+        } else if (event === "SIGNED_OUT") {
+          set({ user: null, error: null })
+
+          // Clear integration data on sign out
+          const integrationStore = useIntegrationStore.getState()
+          integrationStore.integrations = []
+          integrationStore.dynamicData = {}
+          integrationStore.preloadProgress = {}
+          integrationStore.preloadStarted = false
         }
       })
-
-      hasInitialized = true
-    } catch (error) {
+    } catch (error: any) {
       console.error("Auth initialization error:", error)
-      // For development, create a mock user to bypass authentication issues
-      set({
-        user: {
-          id: "mock-user-id",
-          email: "dev@example.com",
-          user_metadata: {
-            name: "Development User",
-            first_name: "Development",
-            last_name: "User",
-          },
-        } as User,
-        session: {
-          access_token: "mock-token",
-          refresh_token: "mock-refresh-token",
-          user: {
-            id: "mock-user-id",
-            email: "dev@example.com",
-            user_metadata: {
-              name: "Development User",
-              first_name: "Development",
-              last_name: "User",
-            },
-          } as User,
-        } as Session,
-        profile: {
-          id: "mock-user-id",
-          full_name: "Development User",
-          first_name: "Development",
-          last_name: "User",
-        },
-        loading: false,
-        initialized: true,
-        error: null,
-      })
-      hasInitialized = true
-    } finally {
-      isInitializing = false
-    }
-  },
-
-  signIn: async (email: string, password: string) => {
-    set({ loading: true, error: null })
-
-    try {
-      // In preview/development environment, create mock user immediately
-      if (
-        !supabase ||
-        typeof window === "undefined" ||
-        window.location.hostname.includes("v0.dev") ||
-        window.location.hostname.includes("vusercontent.net")
-      ) {
-        console.log("Using mock authentication for preview environment")
-
-        // Simulate API delay
-        await new Promise((resolve) => setTimeout(resolve, 1000))
-
-        set({
-          user: {
-            id: "mock-user-id",
-            email: email,
-            user_metadata: {
-              name: "Demo User",
-              first_name: "Demo",
-              last_name: "User",
-            },
-          } as User,
-          session: {
-            access_token: "mock-token",
-            refresh_token: "mock-refresh-token",
-            user: {
-              id: "mock-user-id",
-              email: email,
-              user_metadata: {
-                name: "Demo User",
-                first_name: "Demo",
-                last_name: "User",
-              },
-            } as User,
-          } as Session,
-          profile: {
-            id: "mock-user-id",
-            full_name: "Demo User",
-            first_name: "Demo",
-            last_name: "User",
-          },
-          loading: false,
-        })
-        return
-      }
-
-      // Real Supabase authentication for production
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
-
-      if (error) throw error
-
-      // Handle successful authentication
-      if (data.session) {
-        set({
-          user: data.session.user,
-          session: data.session,
-          loading: false,
-        })
-      }
-    } catch (error: any) {
-      console.error("Sign in error:", error)
-
-      // For any error, fall back to mock user in development
-      set({
-        user: {
-          id: "mock-user-id",
-          email: email,
-          user_metadata: {
-            name: "Demo User",
-            first_name: "Demo",
-            last_name: "User",
-          },
-        } as User,
-        session: {
-          access_token: "mock-token",
-          refresh_token: "mock-refresh-token",
-          user: {
-            id: "mock-user-id",
-            email: email,
-            user_metadata: {
-              name: "Demo User",
-              first_name: "Demo",
-              last_name: "User",
-            },
-          } as User,
-        } as Session,
-        profile: {
-          id: "mock-user-id",
-          full_name: "Demo User",
-          first_name: "Demo",
-          last_name: "User",
-        },
-        error: null,
-        loading: false,
-      })
-    }
-  },
-
-  signUp: async (email: string, password: string, metadata = {}) => {
-    set({ loading: true, error: null })
-
-    try {
-      if (!supabase) {
-        throw new Error("Supabase client not available")
-      }
-
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: metadata,
-        },
-      })
-
-      if (error) throw error
-
-      // Create user profile if user was created
-      if (data.user) {
-        try {
-          const { error: profileError } = await supabase.from("user_profiles").insert({
-            id: data.user.id,
-            full_name: metadata.full_name || "",
-            first_name: metadata.first_name || "",
-            last_name: metadata.last_name || "",
-          })
-
-          if (profileError) {
-            console.error("Profile creation error:", profileError)
-          }
-        } catch (profileError) {
-          console.warn("Could not create user profile:", profileError)
-        }
-      }
-    } catch (error: any) {
-      console.error("Sign up error:", error)
-      // For development, create a mock user even if there's an error
-      set({
-        user: {
-          id: "mock-user-id",
-          email: email,
-          user_metadata: {
-            name: "Development User",
-            first_name: metadata.first_name || "Development",
-            last_name: metadata.last_name || "User",
-          },
-        } as User,
-        session: {
-          access_token: "mock-token",
-          refresh_token: "mock-refresh-token",
-          user: {
-            id: "mock-user-id",
-            email: email,
-            user_metadata: {
-              name: "Development User",
-              first_name: metadata.first_name || "Development",
-              last_name: metadata.last_name || "User",
-            },
-          } as User,
-        } as Session,
-        profile: {
-          id: "mock-user-id",
-          full_name: metadata.full_name || "Development User",
-          first_name: metadata.first_name || "Development",
-          last_name: metadata.last_name || "User",
-        },
-        error: null,
-      })
-    } finally {
-      set({ loading: false })
-    }
-  },
-
-  signInWithGoogle: async () => {
-    set({ loading: true, error: null })
-
-    try {
-      // In preview/development environment, create mock user immediately
-      if (
-        !supabase ||
-        typeof window === "undefined" ||
-        window.location.hostname.includes("v0.dev") ||
-        window.location.hostname.includes("vusercontent.net")
-      ) {
-        console.log("Using mock Google authentication for preview environment")
-
-        // Simulate API delay
-        await new Promise((resolve) => setTimeout(resolve, 1500))
-
-        set({
-          user: {
-            id: "mock-google-user-id",
-            email: "demo@gmail.com",
-            user_metadata: {
-              name: "Google Demo User",
-              first_name: "Google",
-              last_name: "User",
-              avatar_url: "https://via.placeholder.com/40",
-            },
-          } as User,
-          session: {
-            access_token: "mock-google-token",
-            refresh_token: "mock-google-refresh-token",
-            user: {
-              id: "mock-google-user-id",
-              email: "demo@gmail.com",
-              user_metadata: {
-                name: "Google Demo User",
-                first_name: "Google",
-                last_name: "User",
-                avatar_url: "https://via.placeholder.com/40",
-              },
-            } as User,
-          } as Session,
-          profile: {
-            id: "mock-google-user-id",
-            full_name: "Google Demo User",
-            first_name: "Google",
-            last_name: "User",
-          },
-          loading: false,
-        })
-        return
-      }
-
-      // Real Google OAuth for production
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: `${window.location.origin}/dashboard`,
-        },
-      })
-
-      if (error) throw error
-    } catch (error: any) {
-      console.error("Google sign in error:", error)
-
-      // Fall back to mock user for any error
-      set({
-        user: {
-          id: "mock-google-user-id",
-          email: "demo@gmail.com",
-          user_metadata: {
-            name: "Google Demo User",
-            first_name: "Google",
-            last_name: "User",
-          },
-        } as User,
-        session: {
-          access_token: "mock-google-token",
-          refresh_token: "mock-google-refresh-token",
-          user: {
-            id: "mock-google-user-id",
-            email: "demo@gmail.com",
-            user_metadata: {
-              name: "Google Demo User",
-              first_name: "Google",
-              last_name: "User",
-            },
-          } as Session,
-        } as Session,
-        profile: {
-          id: "mock-google-user-id",
-          full_name: "Google Demo User",
-          first_name: "Google",
-          last_name: "User",
-        },
-        error: null,
-        loading: false,
-      })
-    } finally {
-      set({ loading: false })
+      set({ error: error.message, loading: false, initialized: true })
     }
   },
 
   signOut: async () => {
     try {
-      if (supabase) {
-        await supabase.auth.signOut()
-      }
+      set({ loading: true })
+      const { error } = await supabase.auth.signOut()
+      if (error) throw error
 
-      set({
-        user: null,
-        session: null,
-        profile: null,
-      })
+      // Clear all stores
+      set({ user: null, loading: false, error: null })
 
-      // Reset initialization flags
-      hasInitialized = false
-      isInitializing = false
-
-      window.location.href = "/auth/login"
+      // Clear integration store
+      const integrationStore = useIntegrationStore.getState()
+      integrationStore.integrations = []
+      integrationStore.dynamicData = {}
+      integrationStore.preloadProgress = {}
+      integrationStore.preloadStarted = false
+      integrationStore.globalPreloadingData = false
     } catch (error: any) {
       console.error("Sign out error:", error)
-      // Force sign out even if there's an error
-      set({
-        user: null,
-        session: null,
-        profile: null,
-      })
-
-      // Reset initialization flags
-      hasInitialized = false
-      isInitializing = false
-
-      window.location.href = "/auth/login"
+      set({ error: error.message, loading: false })
     }
   },
 
-  updateProfile: async (updates: any) => {
-    const { user } = get()
-
-    if (!user || !supabase) return
-
+  updateProfile: async (updates: Partial<User>) => {
     try {
-      const { error } = await supabase.from("user_profiles").update(updates).eq("id", user.id)
+      const { user } = get()
+      if (!user) throw new Error("No user logged in")
+
+      const { error } = await supabase.auth.updateUser({
+        data: {
+          full_name: updates.name,
+          avatar_url: updates.avatar,
+        },
+      })
 
       if (error) throw error
 
-      set((state) => ({
-        profile: { ...state.profile, ...updates },
-      }))
+      set({
+        user: {
+          ...user,
+          ...updates,
+        },
+      })
     } catch (error: any) {
       console.error("Profile update error:", error)
-      // For development, update the mock profile even if there's an error
-      set((state) => ({
-        profile: { ...state.profile, ...updates },
-        error: null,
-      }))
+      set({ error: error.message })
+      throw error
     }
-  },
-
-  getCurrentUserId: () => {
-    const { user } = get()
-    return user?.id || null
   },
 }))
