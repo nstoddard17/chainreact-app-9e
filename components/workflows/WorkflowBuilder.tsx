@@ -1,5 +1,5 @@
 "use client"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import AppLayout from "@/components/layout/AppLayout"
 import { useWorkflowStore } from "@/stores/workflowStore"
@@ -558,11 +558,62 @@ export default function WorkflowBuilder() {
 
   const { toast } = useToast()
 
-  // Add this state near the other state declarations
+  // Dynamic data states - moved to top level
   const [dynamicData, setDynamicData] = useState<Record<string, any[]>>({})
-  // Add this state near the other state declarations (around line 300)
   const [fieldLoadingStates, setFieldLoadingStates] = useState<Record<string, boolean>>({})
-  const [fieldOptions, setFieldOptions] = useState<Record<string, any[]>>({})
+
+  // Fetch dynamic data function
+  const fetchDynamicData = useCallback(
+    async (provider: string, dataType: string) => {
+      const cacheKey = `${provider}-${dataType}`
+
+      // Check if we already have this data or are currently loading it
+      if (dynamicData[cacheKey] || fieldLoadingStates[cacheKey]) {
+        return
+      }
+
+      setFieldLoadingStates((prev) => ({ ...prev, [cacheKey]: true }))
+
+      try {
+        const response = await fetch("/api/integrations/fetch-user-data", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ provider, dataType }),
+        })
+
+        const result = await response.json()
+
+        if (result.success) {
+          const options = result.data || []
+          setDynamicData((prev) => ({ ...prev, [cacheKey]: options }))
+        } else {
+          console.error("Failed to fetch dynamic data:", result.error)
+          setDynamicData((prev) => ({ ...prev, [cacheKey]: [] }))
+        }
+      } catch (error) {
+        console.error("Error fetching dynamic data:", error)
+        setDynamicData((prev) => ({ ...prev, [cacheKey]: [] }))
+      } finally {
+        setFieldLoadingStates((prev) => ({ ...prev, [cacheKey]: false }))
+      }
+    },
+    [dynamicData, fieldLoadingStates],
+  )
+
+  // Pre-fetch dynamic data when config modal opens
+  useEffect(() => {
+    if (showConfigModal && selectedAction && selectedApp) {
+      const fields = getConfigFields()
+
+      fields.forEach((field) => {
+        if (field.type === "dynamic_select" && field.provider && field.dataType) {
+          fetchDynamicData(field.provider, field.dataType)
+        }
+      })
+    }
+  }, [showConfigModal, selectedAction, selectedApp, fetchDynamicData])
 
   // Fetch integrations on mount
   useEffect(() => {
@@ -1167,57 +1218,11 @@ export default function WorkflowBuilder() {
     }
   }
 
-  // Replace the renderConfigField function with this corrected version:
+  // Simplified renderConfigField function - no hooks inside
   const renderConfigField = (field: any) => {
-    const cacheKey = `${field.provider}-${field.dataType}`
-
-    // Handle dynamic select fields
-    useEffect(() => {
-      if (field.type === "dynamic_select" && field.provider && field.dataType) {
-        const fetchData = async () => {
-          // Check if we already have this data
-          if (dynamicData[cacheKey] || fieldOptions[cacheKey]) {
-            if (!fieldOptions[cacheKey]) {
-              setFieldOptions((prev) => ({ ...prev, [cacheKey]: dynamicData[cacheKey] || [] }))
-            }
-            return
-          }
-
-          setFieldLoadingStates((prev) => ({ ...prev, [cacheKey]: true }))
-
-          try {
-            const response = await fetch("/api/integrations/fetch-user-data", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({ provider: field.provider, dataType: field.dataType }),
-            })
-
-            const result = await response.json()
-
-            if (result.success) {
-              const options = result.data || []
-              setFieldOptions((prev) => ({ ...prev, [cacheKey]: options }))
-              setDynamicData((prev) => ({ ...prev, [cacheKey]: options }))
-            } else {
-              console.error("Failed to fetch dynamic data:", result.error)
-              setFieldOptions((prev) => ({ ...prev, [cacheKey]: [] }))
-            }
-          } catch (error) {
-            console.error("Error fetching dynamic data:", error)
-            setFieldOptions((prev) => ({ ...prev, [cacheKey]: [] }))
-          } finally {
-            setFieldLoadingStates((prev) => ({ ...prev, [cacheKey]: false }))
-          }
-        }
-
-        fetchData()
-      }
-    }, [field.provider, field.dataType, cacheKey, dynamicData, fieldOptions])
-
     if (field.type === "dynamic_select") {
-      const options = fieldOptions[cacheKey] || []
+      const cacheKey = `${field.provider}-${field.dataType}`
+      const options = dynamicData[cacheKey] || []
       const isLoading = fieldLoadingStates[cacheKey] || false
 
       return (
@@ -1582,10 +1587,6 @@ export default function WorkflowBuilder() {
                                 src={
                                   AVAILABLE_INTEGRATIONS.find((app) => app.id === step.appId)?.logo ||
                                   "/placeholder.svg?height=32&width=32" ||
-                                  "/placeholder.svg" ||
-                                  "/placeholder.svg" ||
-                                  "/placeholder.svg" ||
-                                  "/placeholder.svg" ||
                                   "/placeholder.svg"
                                 }
                                 alt={step.appName}
@@ -1915,9 +1916,6 @@ export default function WorkflowBuilder() {
                     <img
                       src={
                         AVAILABLE_INTEGRATIONS.find((app) => app.id === workflowSteps[stepToDelete].appId)?.logo ||
-                        "/placeholder.svg" ||
-                        "/placeholder.svg" ||
-                        "/placeholder.svg" ||
                         "/placeholder.svg" ||
                         "/placeholder.svg"
                       }
