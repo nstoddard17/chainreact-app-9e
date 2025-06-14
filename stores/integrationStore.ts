@@ -1,4 +1,5 @@
 import { create } from "zustand"
+import { persist } from "zustand/middleware"
 import { supabase } from "@/lib/supabase"
 
 interface Integration {
@@ -37,6 +38,8 @@ interface IntegrationState {
   globalPreloadingData: boolean
   preloadProgress: { [key: string]: boolean }
   preloadStarted: boolean
+  dynamicData: Record<string, any[]>
+  dataLastFetched: Record<string, number>
   fetchIntegrations: (forceRefresh?: boolean) => Promise<void>
   verifyIntegrationScopes: () => Promise<void>
   connectIntegration: (providerId: string) => Promise<void>
@@ -51,6 +54,8 @@ interface IntegrationState {
   initializeGlobalPreload: () => Promise<void>
   fetchDynamicData: (provider: string, dataType: string) => Promise<any>
   ensureDataPreloaded: () => Promise<void>
+  getDynamicData: (provider: string, dataType: string) => any[]
+  isDataFresh: (provider: string, dataType: string) => boolean
 }
 
 const availableProviders: Provider[] = [
@@ -338,21 +343,27 @@ const getAllDynamicDataTypes = () => {
     { provider: "gmail", dataType: "emails" },
     { provider: "google-drive", dataType: "files" },
     { provider: "google-calendar", dataType: "events" },
-    { provider: "slack", dataType: "messages" },
+    { provider: "google-sheets", dataType: "spreadsheets" },
+    { provider: "google-docs", dataType: "documents" },
+    { provider: "notion", dataType: "pages" },
+    { provider: "notion", dataType: "databases" },
+    { provider: "slack", dataType: "channels" },
+    { provider: "slack", dataType: "users" },
     { provider: "github", dataType: "repositories" },
     { provider: "discord", dataType: "channels" },
-    { provider: "teams", dataType: "meetings" },
+    { provider: "teams", dataType: "teams" },
     { provider: "trello", dataType: "boards" },
-    { provider: "notion", dataType: "pages" },
-    { provider: "airtable", dataType: "records" },
+    { provider: "airtable", dataType: "bases" },
     { provider: "dropbox", dataType: "files" },
     { provider: "hubspot", dataType: "contacts" },
+    { provider: "hubspot", dataType: "pipelines" },
     { provider: "linkedin", dataType: "posts" },
     { provider: "facebook", dataType: "posts" },
     { provider: "instagram", dataType: "posts" },
     { provider: "twitter", dataType: "tweets" },
     { provider: "tiktok", dataType: "videos" },
     { provider: "mailchimp", dataType: "campaigns" },
+    { provider: "mailchimp", dataType: "lists" },
     { provider: "shopify", dataType: "products" },
     { provider: "stripe", dataType: "payments" },
     { provider: "paypal", dataType: "transactions" },
@@ -361,453 +372,475 @@ const getAllDynamicDataTypes = () => {
   ]
 }
 
-export const useIntegrationStore = create<IntegrationState>((set, get) => ({
-  integrations: [],
-  providers: availableProviders,
-  loading: false,
-  verifyingScopes: false,
-  refreshing: false,
-  error: null,
-  lastRefreshed: null,
-  globalPreloadingData: false,
-  preloadProgress: {},
-  preloadStarted: false,
+export const useIntegrationStore = create<IntegrationState>()(
+  persist(
+    (set, get) => ({
+      integrations: [],
+      providers: availableProviders,
+      loading: false,
+      verifyingScopes: false,
+      refreshing: false,
+      error: null,
+      lastRefreshed: null,
+      globalPreloadingData: false,
+      preloadProgress: {},
+      preloadStarted: false,
+      dynamicData: {},
+      dataLastFetched: {},
 
-  fetchIntegrations: async (forceRefresh = false) => {
-    set({ loading: true, error: null })
+      fetchIntegrations: async (forceRefresh = false) => {
+        set({ loading: true, error: null })
 
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
+        try {
+          const {
+            data: { user },
+          } = await supabase.auth.getUser()
 
-      if (!user) {
-        console.log("No authenticated user found")
-        set({
-          integrations: [],
-          loading: false,
-          error: null,
-          lastRefreshed: new Date().toISOString(),
-        })
-        return
-      }
+          if (!user) {
+            console.log("No authenticated user found")
+            set({
+              integrations: [],
+              loading: false,
+              error: null,
+              lastRefreshed: new Date().toISOString(),
+            })
+            return
+          }
 
-      console.log("Fetching integrations for user:", user.id)
+          console.log("Fetching integrations for user:", user.id)
 
-      // Use Promise.race to implement a timeout
-      const fetchPromise = supabase
-        .from("integrations")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
+          // Use Promise.race to implement a timeout
+          const fetchPromise = supabase
+            .from("integrations")
+            .select("*")
+            .eq("user_id", user.id)
+            .order("created_at", { ascending: false })
 
-      const result = await Promise.race([
-        fetchPromise,
-        timeoutPromise(10000), // 10 second timeout
-      ])
+          const result = await Promise.race([
+            fetchPromise,
+            timeoutPromise(10000), // 10 second timeout
+          ])
 
-      const { data, error } = result as any
+          const { data, error } = result as any
 
-      if (error) {
-        console.error("Supabase error:", error)
-        throw new Error(error.message)
-      }
+          if (error) {
+            console.error("Supabase error:", error)
+            throw new Error(error.message)
+          }
 
-      console.log("Fetched integrations:", data?.length || 0)
-      console.log(
-        "Integration details:",
-        data?.map((i: any) => ({
-          id: i.id,
-          provider: i.provider,
-          status: i.status,
-          created_at: i.created_at,
-        })),
-      )
+          console.log("Fetched integrations:", data?.length || 0)
 
-      // Debug: Check specifically for YouTube
-      const youtubeIntegration = data?.find((i: any) => i.provider === "youtube")
-      if (youtubeIntegration) {
-        console.log("Found YouTube integration:", {
-          id: youtubeIntegration.id,
-          provider: youtubeIntegration.provider,
-          status: youtubeIntegration.status,
-          created_at: youtubeIntegration.created_at,
-          updated_at: youtubeIntegration.updated_at,
-          hasAccessToken: !!youtubeIntegration.access_token,
-          metadata: youtubeIntegration.metadata,
-        })
-      } else {
-        console.log("No YouTube integration found in database")
-      }
-
-      set({
-        integrations: data || [],
-        loading: false,
-        error: null,
-        lastRefreshed: new Date().toISOString(),
-      })
-    } catch (error: any) {
-      console.error("Failed to fetch integrations:", error)
-      set({
-        loading: false,
-        error: error.message || "Failed to fetch integrations",
-        lastRefreshed: new Date().toISOString(),
-      })
-      // Don't clear integrations on error to prevent UI flashing
-    }
-  },
-
-  verifyIntegrationScopes: async () => {
-    set({ verifyingScopes: true })
-    try {
-      const response = await fetch("/api/integrations/verify-scopes")
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error || "Failed to verify integration scopes")
-      }
-      const { integrations } = await response.json()
-      if (integrations) {
-        set({ integrations })
-      }
-    } catch (error: any) {
-      console.error("Failed to verify integration scopes:", error)
-      throw error
-    } finally {
-      set({ verifyingScopes: false })
-    }
-  },
-
-  connectIntegration: async (providerId: string) => {
-    try {
-      console.log("Starting connection for provider:", providerId)
-
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-
-      console.log("User check:", {
-        hasUser: !!user,
-        userId: user?.id,
-      })
-
-      if (!user) {
-        console.error("No authenticated user found")
-        throw new Error("Authentication required. Please refresh the page and try again.")
-      }
-
-      console.log("Making API call to generate auth URL")
-
-      // Use Promise.race to implement a timeout
-      const fetchPromise = fetch(`/api/integrations/auth/generate-url`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          provider: providerId,
-          userId: user.id,
-        }),
-      })
-
-      const response = (await Promise.race([
-        fetchPromise,
-        timeoutPromise(15000), // 15 second timeout
-      ])) as Response
-
-      console.log("API response status:", response.status)
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        console.error("API error:", errorData)
-
-        // Handle configuration errors specifically
-        if (response.status === 503) {
-          throw new Error(errorData.error || `${providerId} integration is not configured. Please contact support.`)
+          set({
+            integrations: data || [],
+            loading: false,
+            error: null,
+            lastRefreshed: new Date().toISOString(),
+          })
+        } catch (error: any) {
+          console.error("Failed to fetch integrations:", error)
+          set({
+            loading: false,
+            error: error.message || "Failed to fetch integrations",
+            lastRefreshed: new Date().toISOString(),
+          })
         }
+      },
 
-        throw new Error(errorData.error || "Failed to generate auth URL")
-      }
-
-      const { authUrl } = await response.json()
-      console.log("Generated auth URL, redirecting...")
-
-      // For Teams, add a timestamp to prevent caching issues
-      if (providerId === "teams") {
-        const url = new URL(authUrl)
-        url.searchParams.append("_t", Date.now().toString())
-        window.location.href = url.toString()
-      } else {
-        window.location.href = authUrl
-      }
-    } catch (error: any) {
-      console.error("Failed to connect integration:", error)
-      throw error
-    }
-  },
-
-  disconnectIntegration: async (integrationId: string) => {
-    try {
-      if (!integrationId) {
-        throw new Error("Integration ID is required")
-      }
-
-      const { error } = await supabase.from("integrations").update({ status: "disconnected" }).eq("id", integrationId)
-
-      if (error) {
-        throw new Error(error.message)
-      }
-
-      await get().fetchIntegrations(true)
-    } catch (error: any) {
-      console.error("Failed to disconnect integration:", error)
-      throw error
-    }
-  },
-
-  refreshIntegration: async (providerId: string, integrationId?: string) => {
-    try {
-      if (!integrationId) {
-        throw new Error("Integration ID is required")
-      }
-
-      // Use Promise.race to implement a timeout
-      const fetchPromise = fetch(`/api/integrations/refresh-token`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          integrationId,
-        }),
-      })
-
-      const response = (await Promise.race([
-        fetchPromise,
-        timeoutPromise(10000), // 10 second timeout
-      ])) as Response
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error || "Failed to refresh integration")
-      }
-
-      await get().fetchIntegrations(true)
-    } catch (error: any) {
-      console.error("Failed to refresh integration:", error)
-      throw error
-    }
-  },
-
-  refreshTokens: async () => {
-    try {
-      set({ refreshing: true })
-
-      // Use Promise.race to implement a timeout
-      const fetchPromise = fetch("/api/integrations/refresh-tokens", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      })
-
-      const response = (await Promise.race([
-        fetchPromise,
-        timeoutPromise(15000), // 15 second timeout
-      ])) as Response
-
-      if (!response.ok) {
-        // If the endpoint doesn't exist, just refresh the data
-        console.log("Token refresh endpoint not available, just refreshing data")
-        await get().fetchIntegrations(true)
-
-        set({
-          refreshing: false,
-          lastRefreshed: new Date().toISOString(),
-        })
-
-        return {
-          success: true,
-          message: "Integration data refreshed",
-          refreshedCount: 0,
+      verifyIntegrationScopes: async () => {
+        set({ verifyingScopes: true })
+        try {
+          const response = await fetch("/api/integrations/verify-scopes")
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}))
+            throw new Error(errorData.error || "Failed to verify integration scopes")
+          }
+          const { integrations } = await response.json()
+          if (integrations) {
+            set({ integrations })
+          }
+        } catch (error: any) {
+          console.error("Failed to verify integration scopes:", error)
+          throw error
+        } finally {
+          set({ verifyingScopes: false })
         }
-      }
+      },
 
-      const data = await response.json()
+      connectIntegration: async (providerId: string) => {
+        try {
+          console.log("Starting connection for provider:", providerId)
 
-      // Refresh the integrations list to get updated tokens
-      await get().fetchIntegrations(true)
+          const {
+            data: { user },
+          } = await supabase.auth.getUser()
 
-      set({
-        refreshing: false,
-        lastRefreshed: new Date().toISOString(),
-      })
+          if (!user) {
+            console.error("No authenticated user found")
+            throw new Error("Authentication required. Please refresh the page and try again.")
+          }
 
-      return {
-        success: data.success,
-        message: data.message,
-        refreshedCount: data.refreshed?.filter((r: any) => r.refreshed).length || 0,
-      }
-    } catch (error: any) {
-      console.error("Error refreshing tokens:", error)
+          console.log("Making API call to generate auth URL")
 
-      // Fallback to just refreshing the data
-      try {
-        await get().fetchIntegrations(true)
-        set({
-          refreshing: false,
-          lastRefreshed: new Date().toISOString(),
-        })
+          const fetchPromise = fetch(`/api/integrations/auth/generate-url`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              provider: providerId,
+              userId: user.id,
+            }),
+          })
 
-        return {
-          success: true,
-          message: "Integration data refreshed",
-          refreshedCount: 0,
-        }
-      } catch (fallbackError: any) {
-        set({ refreshing: false })
-        return {
-          success: false,
-          message: fallbackError.message || "Failed to refresh",
-          refreshedCount: 0,
-        }
-      }
-    }
-  },
+          const response = (await Promise.race([
+            fetchPromise,
+            timeoutPromise(15000), // 15 second timeout
+          ])) as Response
 
-  handleOAuthSuccess: () => {
-    if (typeof window !== "undefined") {
-      const urlParams = new URLSearchParams(window.location.search)
-      const success = urlParams.get("success")
-      const provider = urlParams.get("provider")
+          console.log("API response status:", response.status)
 
-      if (success && provider) {
-        console.log(`OAuth success for ${provider}, refreshing integrations...`)
-        // Add a longer delay to ensure database operations are complete
-        setTimeout(() => {
-          get().fetchIntegrations(true)
-        }, 2000)
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}))
+            console.error("API error:", errorData)
 
-        // Clean up URL parameters
-        const newUrl = window.location.pathname
-        window.history.replaceState({}, "", newUrl)
-      }
-    }
-  },
-
-  initializeGlobalPreload: async () => {
-    const state = get()
-    if (state.preloadStarted || state.globalPreloadingData) {
-      return // Already started or in progress
-    }
-
-    set({ preloadStarted: true, globalPreloadingData: true })
-
-    try {
-      // First fetch integrations if not already loaded
-      if (state.integrations.length === 0) {
-        await state.fetchIntegrations(true)
-      }
-
-      // Get updated integrations after fetch
-      const updatedState = get()
-      const connectedIntegrations = updatedState.integrations.filter((i) => i.status === "connected")
-
-      if (connectedIntegrations.length === 0) {
-        set({ globalPreloadingData: false })
-        return
-      }
-
-      // Get all possible data types
-      const allDataTypes = getAllDynamicDataTypes()
-      const connectedProviders = connectedIntegrations.map((i) => i.provider)
-      const relevantDataTypes = allDataTypes.filter((dt) => connectedProviders.includes(dt.provider))
-
-      console.log(
-        `Starting global preload for ${relevantDataTypes.length} data types across ${connectedProviders.length} providers`,
-      )
-
-      // Initialize progress tracking
-      const initialProgress: { [key: string]: boolean } = {}
-      relevantDataTypes.forEach(({ provider, dataType }) => {
-        initialProgress[`${provider}-${dataType}`] = false
-      })
-      set({ preloadProgress: initialProgress })
-
-      // Fetch all data types with controlled concurrency
-      const batchSize = 2 // Reduced to be more gentle on APIs
-      for (let i = 0; i < relevantDataTypes.length; i += batchSize) {
-        const batch = relevantDataTypes.slice(i, i + batchSize)
-
-        await Promise.allSettled(
-          batch.map(async ({ provider, dataType }) => {
-            try {
-              await get().fetchDynamicData(provider, dataType)
-              // Update progress
-              set((state) => ({
-                preloadProgress: {
-                  ...state.preloadProgress,
-                  [`${provider}-${dataType}`]: true,
-                },
-              }))
-            } catch (error) {
-              console.error(`Failed to preload ${provider}-${dataType}:`, error)
-              // Mark as completed even if failed to avoid blocking
-              set((state) => ({
-                preloadProgress: {
-                  ...state.preloadProgress,
-                  [`${provider}-${dataType}`]: true,
-                },
-              }))
+            if (response.status === 503) {
+              throw new Error(errorData.error || `${providerId} integration is not configured. Please contact support.`)
             }
-          }),
-        )
 
-        // Small delay between batches to be API-friendly
-        if (i + batchSize < relevantDataTypes.length) {
-          await new Promise((resolve) => setTimeout(resolve, 500))
+            throw new Error(errorData.error || "Failed to generate auth URL")
+          }
+
+          const { authUrl } = await response.json()
+          console.log("Generated auth URL, redirecting...")
+
+          if (providerId === "teams") {
+            const url = new URL(authUrl)
+            url.searchParams.append("_t", Date.now().toString())
+            window.location.href = url.toString()
+          } else {
+            window.location.href = authUrl
+          }
+        } catch (error: any) {
+          console.error("Failed to connect integration:", error)
+          throw error
         }
-      }
+      },
 
-      console.log("Global preload completed")
-    } catch (error) {
-      console.error("Error during global preload:", error)
-    } finally {
-      set({ globalPreloadingData: false })
-    }
-  },
+      disconnectIntegration: async (integrationId: string) => {
+        try {
+          if (!integrationId) {
+            throw new Error("Integration ID is required")
+          }
 
-  fetchDynamicData: async (provider: string, dataType: string) => {
-    try {
-      console.log(`Fetching dynamic data for ${provider}-${dataType}`)
-      // Implement your data fetching logic here based on provider and dataType
-      // This is a placeholder, replace with actual API calls or data retrieval
-      await new Promise((resolve) => setTimeout(resolve, 1000)) // Simulate API call
-      console.log(`Successfully fetched data for ${provider}-${dataType}`)
-      return { success: true, data: [] } // Replace with actual data
-    } catch (error) {
-      console.error(`Error fetching data for ${provider}-${dataType}:`, error)
-      throw error
-    }
-  },
-  ensureDataPreloaded: async () => {
-    const state = get()
+          const { error } = await supabase
+            .from("integrations")
+            .update({ status: "disconnected" })
+            .eq("id", integrationId)
 
-    // If already preloading or completed, don't start again
-    if (state.globalPreloadingData || state.preloadStarted) {
-      return
-    }
+          if (error) {
+            throw new Error(error.message)
+          }
 
-    // Check if we have recent data (within last 5 minutes)
-    if (state.lastRefreshed) {
-      const lastRefresh = new Date(state.lastRefreshed)
-      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000)
-      if (lastRefresh > fiveMinutesAgo && state.integrations.length > 0) {
-        console.log("Data is recent, skipping preload")
-        return
-      }
-    }
+          await get().fetchIntegrations(true)
+        } catch (error: any) {
+          console.error("Failed to disconnect integration:", error)
+          throw error
+        }
+      },
 
-    console.log("Starting data preload from dashboard/page access")
-    await state.initializeGlobalPreload()
-  },
-}))
+      refreshIntegration: async (providerId: string, integrationId?: string) => {
+        try {
+          if (!integrationId) {
+            throw new Error("Integration ID is required")
+          }
+
+          const fetchPromise = fetch(`/api/integrations/refresh-token`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              integrationId,
+            }),
+          })
+
+          const response = (await Promise.race([
+            fetchPromise,
+            timeoutPromise(10000), // 10 second timeout
+          ])) as Response
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}))
+            throw new Error(errorData.error || "Failed to refresh integration")
+          }
+
+          await get().fetchIntegrations(true)
+        } catch (error: any) {
+          console.error("Failed to refresh integration:", error)
+          throw error
+        }
+      },
+
+      refreshTokens: async () => {
+        try {
+          set({ refreshing: true })
+
+          const fetchPromise = fetch("/api/integrations/refresh-tokens", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+          })
+
+          const response = (await Promise.race([
+            fetchPromise,
+            timeoutPromise(15000), // 15 second timeout
+          ])) as Response
+
+          if (!response.ok) {
+            console.log("Token refresh endpoint not available, just refreshing data")
+            await get().fetchIntegrations(true)
+
+            set({
+              refreshing: false,
+              lastRefreshed: new Date().toISOString(),
+            })
+
+            return {
+              success: true,
+              message: "Integration data refreshed",
+              refreshedCount: 0,
+            }
+          }
+
+          const data = await response.json()
+
+          await get().fetchIntegrations(true)
+
+          set({
+            refreshing: false,
+            lastRefreshed: new Date().toISOString(),
+          })
+
+          return {
+            success: data.success,
+            message: data.message,
+            refreshedCount: data.refreshed?.filter((r: any) => r.refreshed).length || 0,
+          }
+        } catch (error: any) {
+          console.error("Error refreshing tokens:", error)
+
+          try {
+            await get().fetchIntegrations(true)
+            set({
+              refreshing: false,
+              lastRefreshed: new Date().toISOString(),
+            })
+
+            return {
+              success: true,
+              message: "Integration data refreshed",
+              refreshedCount: 0,
+            }
+          } catch (fallbackError: any) {
+            set({ refreshing: false })
+            return {
+              success: false,
+              message: fallbackError.message || "Failed to refresh",
+              refreshedCount: 0,
+            }
+          }
+        }
+      },
+
+      handleOAuthSuccess: () => {
+        if (typeof window !== "undefined") {
+          const urlParams = new URLSearchParams(window.location.search)
+          const success = urlParams.get("success")
+          const provider = urlParams.get("provider")
+
+          if (success && provider) {
+            console.log(`OAuth success for ${provider}, refreshing integrations...`)
+            setTimeout(() => {
+              get().fetchIntegrations(true)
+            }, 2000)
+
+            const newUrl = window.location.pathname
+            window.history.replaceState({}, "", newUrl)
+          }
+        }
+      },
+
+      initializeGlobalPreload: async () => {
+        const state = get()
+        if (state.preloadStarted || state.globalPreloadingData) {
+          return
+        }
+
+        set({ preloadStarted: true, globalPreloadingData: true })
+
+        try {
+          // First fetch integrations if not already loaded
+          if (state.integrations.length === 0) {
+            await state.fetchIntegrations(true)
+          }
+
+          const updatedState = get()
+          const connectedIntegrations = updatedState.integrations.filter((i) => i.status === "connected")
+
+          if (connectedIntegrations.length === 0) {
+            set({ globalPreloadingData: false })
+            return
+          }
+
+          const allDataTypes = getAllDynamicDataTypes()
+          const connectedProviders = connectedIntegrations.map((i) => i.provider)
+          const relevantDataTypes = allDataTypes.filter((dt) => connectedProviders.includes(dt.provider))
+
+          console.log(
+            `Starting background preload for ${relevantDataTypes.length} data types across ${connectedProviders.length} providers`,
+          )
+
+          const initialProgress: { [key: string]: boolean } = {}
+          relevantDataTypes.forEach(({ provider, dataType }) => {
+            initialProgress[`${provider}-${dataType}`] = false
+          })
+          set({ preloadProgress: initialProgress })
+
+          // Fetch all data types with controlled concurrency
+          const batchSize = 2
+          for (let i = 0; i < relevantDataTypes.length; i += batchSize) {
+            const batch = relevantDataTypes.slice(i, i + batchSize)
+
+            await Promise.allSettled(
+              batch.map(async ({ provider, dataType }) => {
+                try {
+                  await get().fetchDynamicData(provider, dataType)
+                  set((state) => ({
+                    preloadProgress: {
+                      ...state.preloadProgress,
+                      [`${provider}-${dataType}`]: true,
+                    },
+                  }))
+                } catch (error) {
+                  console.error(`Failed to preload ${provider}-${dataType}:`, error)
+                  set((state) => ({
+                    preloadProgress: {
+                      ...state.preloadProgress,
+                      [`${provider}-${dataType}`]: true,
+                    },
+                  }))
+                }
+              }),
+            )
+
+            if (i + batchSize < relevantDataTypes.length) {
+              await new Promise((resolve) => setTimeout(resolve, 500))
+            }
+          }
+
+          console.log("Background preload completed")
+        } catch (error) {
+          console.error("Error during background preload:", error)
+        } finally {
+          set({ globalPreloadingData: false })
+        }
+      },
+
+      fetchDynamicData: async (provider: string, dataType: string) => {
+        const cacheKey = `${provider}-${dataType}`
+        const state = get()
+
+        // Check if data is fresh (less than 5 minutes old)
+        if (state.isDataFresh(provider, dataType)) {
+          console.log(`Using cached data for ${cacheKey}`)
+          return state.dynamicData[cacheKey] || []
+        }
+
+        try {
+          console.log(`Fetching fresh data for ${cacheKey}`)
+
+          const response = await fetch("/api/integrations/fetch-user-data", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ provider, dataType }),
+          })
+
+          const result = await response.json()
+
+          if (result.success) {
+            const options = result.data || []
+            set((state) => ({
+              dynamicData: { ...state.dynamicData, [cacheKey]: options },
+              dataLastFetched: { ...state.dataLastFetched, [cacheKey]: Date.now() },
+            }))
+            return options
+          } else {
+            console.error("Failed to fetch dynamic data:", result.error)
+            set((state) => ({
+              dynamicData: { ...state.dynamicData, [cacheKey]: [] },
+              dataLastFetched: { ...state.dataLastFetched, [cacheKey]: Date.now() },
+            }))
+            return []
+          }
+        } catch (error) {
+          console.error("Error fetching dynamic data:", error)
+          set((state) => ({
+            dynamicData: { ...state.dynamicData, [cacheKey]: [] },
+            dataLastFetched: { ...state.dataLastFetched, [cacheKey]: Date.now() },
+          }))
+          return []
+        }
+      },
+
+      ensureDataPreloaded: async () => {
+        const state = get()
+
+        if (state.globalPreloadingData || state.preloadStarted) {
+          return
+        }
+
+        if (state.lastRefreshed) {
+          const lastRefresh = new Date(state.lastRefreshed)
+          const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000)
+          if (lastRefresh > fiveMinutesAgo && state.integrations.length > 0) {
+            console.log("Data is recent, skipping preload")
+            return
+          }
+        }
+
+        console.log("Starting background data preload")
+        await state.initializeGlobalPreload()
+      },
+
+      getDynamicData: (provider: string, dataType: string) => {
+        const cacheKey = `${provider}-${dataType}`
+        return get().dynamicData[cacheKey] || []
+      },
+
+      isDataFresh: (provider: string, dataType: string) => {
+        const cacheKey = `${provider}-${dataType}`
+        const state = get()
+        const lastFetched = state.dataLastFetched[cacheKey]
+
+        if (!lastFetched) return false
+
+        const fiveMinutesAgo = Date.now() - 5 * 60 * 1000
+        return lastFetched > fiveMinutesAgo
+      },
+    }),
+    {
+      name: "integration-storage",
+      partialize: (state) => ({
+        integrations: state.integrations,
+        dynamicData: state.dynamicData,
+        dataLastFetched: state.dataLastFetched,
+        lastRefreshed: state.lastRefreshed,
+        preloadProgress: state.preloadProgress,
+        preloadStarted: state.preloadStarted,
+      }),
+    },
+  ),
+)
