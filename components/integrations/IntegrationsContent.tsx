@@ -4,12 +4,13 @@ import { useState, useEffect, useCallback } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { useIntegrationStore } from "@/stores/integrationStore"
 import { useAuthStore } from "@/stores/authStore"
+import { getIntegrationStats } from "@/lib/integrations/availableIntegrations"
 import ScopeValidationAlert from "./ScopeValidationAlert"
 import AppLayout from "@/components/layout/AppLayout"
 import IntegrationCard from "./IntegrationCard"
 import IntegrationDiagnostics from "./IntegrationDiagnostics"
 import { Input } from "@/components/ui/input"
-import { Search, Loader2, Filter, CheckCircle, Stethoscope, RefreshCw, AlertCircle } from "lucide-react"
+import { Search, Loader2, Filter, CheckCircle, Stethoscope, RefreshCw, AlertCircle, Info } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -30,6 +31,7 @@ export default function IntegrationsContent() {
     providers = [],
     isLoading,
     error,
+    initializeProviders,
     fetchIntegrations,
     refreshAllTokens,
     clearError,
@@ -38,6 +40,11 @@ export default function IntegrationsContent() {
   const searchParams = useSearchParams()
   const { toast } = useToast()
   const { user, getCurrentUserId } = useAuthStore()
+
+  // Initialize providers on mount
+  useEffect(() => {
+    initializeProviders()
+  }, [initializeProviders])
 
   // Memoized data loading function
   const loadData = useCallback(async () => {
@@ -63,10 +70,10 @@ export default function IntegrationsContent() {
 
   // Handle initial data loading
   useEffect(() => {
-    if (user) {
+    if (user && providers.length > 0) {
       loadData()
     }
-  }, [user, loadData])
+  }, [user, providers.length, loadData])
 
   // Enhanced OAuth callback handling
   useEffect(() => {
@@ -84,11 +91,11 @@ export default function IntegrationsContent() {
         const refreshIntegrationsList = async () => {
           try {
             // Multiple refresh attempts to ensure data consistency
-            await fetchIntegrations()
+            await fetchIntegrations(true)
 
             // Schedule additional refreshes
-            setTimeout(() => fetchIntegrations(), 1500)
-            setTimeout(() => fetchIntegrations(), 3000)
+            setTimeout(() => fetchIntegrations(true), 1500)
+            setTimeout(() => fetchIntegrations(true), 3000)
 
             toast({
               title: "Integration Connected",
@@ -150,7 +157,7 @@ export default function IntegrationsContent() {
       })
 
       if (data.stats.successful > 0) {
-        await fetchIntegrations()
+        await fetchIntegrations(true)
       }
     } catch (err: any) {
       console.error("Failed to refresh tokens:", err)
@@ -203,6 +210,7 @@ export default function IntegrationsContent() {
   )
 
   const connectedCount = integrations.filter((i) => i.status === "connected").length
+  const stats = getIntegrationStats()
 
   // Show loading state
   if (localLoading || (isLoading && integrations.length === 0)) {
@@ -213,6 +221,7 @@ export default function IntegrationsContent() {
             <div className="flex flex-col items-center justify-center h-64 space-y-4">
               <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
               <p className="text-slate-600 font-medium">Loading integrations...</p>
+              <p className="text-sm text-slate-500">Detecting available integrations from environment variables</p>
             </div>
           </div>
         </div>
@@ -225,6 +234,29 @@ export default function IntegrationsContent() {
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
         <div className="container mx-auto px-4 py-8">
           <ScopeValidationAlert />
+
+          {/* Integration Statistics Alert */}
+          <Alert className="mb-6 border-blue-200 bg-blue-50">
+            <Info className="h-4 w-4 text-blue-600" />
+            <AlertTitle className="text-blue-900">Integration Status</AlertTitle>
+            <AlertDescription className="text-blue-800">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-2">
+                <div>
+                  <span className="font-semibold">{stats.available}</span> of{" "}
+                  <span className="font-semibold">{stats.total}</span> integrations available
+                </div>
+                <div>
+                  <span className="font-semibold">{connectedCount}</span> currently connected
+                </div>
+                <div>
+                  <span className="font-semibold">{stats.categories}</span> categories
+                </div>
+                <div>
+                  <span className="font-semibold">{stats.unavailable}</span> need configuration
+                </div>
+              </div>
+            </AlertDescription>
+          </Alert>
 
           {(loadError || error) && (
             <Alert variant="destructive" className="mb-6">
@@ -253,6 +285,9 @@ export default function IntegrationsContent() {
                 <h1 className="text-4xl font-bold text-slate-900 tracking-tight">Integrations</h1>
                 <p className="text-lg text-slate-600">
                   Connect your favorite tools and services to automate your workflows
+                </p>
+                <p className="text-sm text-slate-500">
+                  {stats.available} of {stats.total} integrations are configured and ready to use
                 </p>
               </div>
               <div className="flex items-center gap-3">
@@ -283,7 +318,7 @@ export default function IntegrationsContent() {
                   value="integrations"
                   className="data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-sm font-medium transition-all"
                 >
-                  Integrations
+                  Integrations ({stats.available} Available)
                 </TabsTrigger>
                 <TabsTrigger
                   value="diagnostics"
@@ -322,21 +357,24 @@ export default function IntegrationsContent() {
                         <Filter className="w-4 h-4" />
                         All Categories
                       </Button>
-                      {categories.map((category) => (
-                        <Button
-                          key={category}
-                          variant={selectedCategory === category ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => setSelectedCategory(category)}
-                          className={`h-11 px-4 font-medium transition-all capitalize ${
-                            selectedCategory === category
-                              ? "bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
-                              : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300"
-                          }`}
-                        >
-                          {category}
-                        </Button>
-                      ))}
+                      {categories.map((category) => {
+                        const categoryStats = stats.byCategory[category]
+                        return (
+                          <Button
+                            key={category}
+                            variant={selectedCategory === category ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setSelectedCategory(category)}
+                            className={`h-11 px-4 font-medium transition-all capitalize ${
+                              selectedCategory === category
+                                ? "bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
+                                : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300"
+                            }`}
+                          >
+                            {category} ({categoryStats?.available || 0})
+                          </Button>
+                        )
+                      })}
                     </div>
                   </div>
                 </div>
@@ -347,9 +385,14 @@ export default function IntegrationsContent() {
                     <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
                       <div className="flex items-center justify-between mb-6">
                         <h2 className="text-2xl font-bold text-slate-900 capitalize">{selectedCategory}</h2>
-                        <Badge variant="outline" className="bg-slate-50 text-slate-700 border-slate-200 font-medium">
-                          {groupedProviders[selectedCategory]?.length || 0} integrations
-                        </Badge>
+                        <div className="flex gap-2">
+                          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 font-medium">
+                            {groupedProviders[selectedCategory]?.filter((p) => p.isAvailable).length || 0} available
+                          </Badge>
+                          <Badge variant="outline" className="bg-slate-50 text-slate-700 border-slate-200 font-medium">
+                            {groupedProviders[selectedCategory]?.length || 0} total
+                          </Badge>
+                        </div>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {groupedProviders[selectedCategory]?.map((provider) => (
@@ -360,21 +403,37 @@ export default function IntegrationsContent() {
                   </div>
                 ) : (
                   <div className="space-y-8">
-                    {categories.map((category) => (
-                      <div key={category} className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
-                        <div className="flex items-center justify-between mb-6">
-                          <h2 className="text-2xl font-bold text-slate-900 capitalize">{category}</h2>
-                          <Badge variant="outline" className="bg-slate-50 text-slate-700 border-slate-200 font-medium">
-                            {groupedProviders[category]?.length || 0} integrations
-                          </Badge>
+                    {categories.map((category) => {
+                      const categoryProviders = groupedProviders[category] || []
+                      const availableCount = categoryProviders.filter((p) => p.isAvailable).length
+
+                      return (
+                        <div key={category} className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+                          <div className="flex items-center justify-between mb-6">
+                            <h2 className="text-2xl font-bold text-slate-900 capitalize">{category}</h2>
+                            <div className="flex gap-2">
+                              <Badge
+                                variant="outline"
+                                className="bg-green-50 text-green-700 border-green-200 font-medium"
+                              >
+                                {availableCount} available
+                              </Badge>
+                              <Badge
+                                variant="outline"
+                                className="bg-slate-50 text-slate-700 border-slate-200 font-medium"
+                              >
+                                {categoryProviders.length} total
+                              </Badge>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {categoryProviders.map((provider) => (
+                              <IntegrationCard key={provider.id} provider={provider} />
+                            ))}
+                          </div>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                          {groupedProviders[category]?.map((provider) => (
-                            <IntegrationCard key={provider.id} provider={provider} />
-                          ))}
-                        </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 )}
 

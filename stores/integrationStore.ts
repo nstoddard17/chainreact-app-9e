@@ -1,6 +1,7 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 import { apiClient } from "@/lib/apiClient"
+import { detectAvailableIntegrations, type IntegrationConfig } from "@/lib/integrations/availableIntegrations"
 
 export interface Integration {
   id: string
@@ -12,6 +13,7 @@ export interface Integration {
   error?: string
   scopes?: string[]
   metadata?: Record<string, any>
+  updated_at?: string
 }
 
 interface DynamicData {
@@ -28,6 +30,7 @@ interface DynamicData {
 interface IntegrationStore {
   // State
   integrations: Integration[]
+  providers: IntegrationConfig[]
   dynamicData: DynamicData
   isLoading: boolean
   error: string | null
@@ -37,10 +40,12 @@ interface IntegrationStore {
   loadingStates: Record<string, boolean>
 
   // Actions
-  fetchIntegrations: () => Promise<void>
+  initializeProviders: () => void
+  fetchIntegrations: (force?: boolean) => Promise<void>
   connectIntegration: (providerId: string) => Promise<void>
   disconnectIntegration: (integrationId: string) => Promise<void>
   refreshIntegration: (integrationId: string) => Promise<void>
+  refreshAllTokens: () => Promise<void>
 
   // Dynamic data methods
   getDynamicData: (provider: string, dataType: string) => any[]
@@ -52,9 +57,6 @@ interface IntegrationStore {
   getConnectedProviders: () => string[]
   clearError: () => void
   setLoading: (key: string, loading: boolean) => void
-
-  // Global preload method (for compatibility)
-  initializeGlobalPreload?: (providers: string[]) => Promise<void>
 }
 
 // Mock data for development/offline mode
@@ -74,12 +76,6 @@ const MOCK_INTEGRATIONS: Integration[] = [
     status: "connected",
     connectedAt: new Date().toISOString(),
     lastSync: new Date().toISOString(),
-  },
-  {
-    id: "gmail-1",
-    provider: "gmail",
-    name: "Gmail Account",
-    status: "disconnected",
   },
 ]
 
@@ -104,18 +100,6 @@ const MOCK_DYNAMIC_DATA: DynamicData = {
       { id: "user-2", name: "Jane Smith", value: "user-2" },
     ],
   },
-  "google-sheets": {
-    spreadsheets: [
-      { id: "sheet-1", name: "Budget 2024", value: "sheet-1" },
-      { id: "sheet-2", name: "Team Roster", value: "sheet-2" },
-    ],
-  },
-  gmail: {
-    labels: [
-      { id: "label-1", name: "Important", value: "label-1" },
-      { id: "label-2", name: "Work", value: "label-2" },
-    ],
-  },
 }
 
 export const useIntegrationStore = create<IntegrationStore>()(
@@ -123,15 +107,34 @@ export const useIntegrationStore = create<IntegrationStore>()(
     (set, get) => ({
       // Initial state
       integrations: [],
+      providers: [],
       dynamicData: {},
       isLoading: false,
       error: null,
       lastFetch: null,
       loadingStates: {},
 
+      // Initialize providers based on environment variables
+      initializeProviders: () => {
+        const availableProviders = detectAvailableIntegrations()
+        console.log("🔧 Detected integrations:", {
+          total: availableProviders.length,
+          available: availableProviders.filter((p) => p.isAvailable).length,
+          unavailable: availableProviders.filter((p) => !p.isAvailable).length,
+        })
+
+        set({ providers: availableProviders })
+      },
+
       // Fetch integrations with fallback to mock data
-      fetchIntegrations: async () => {
-        const { setLoading } = get()
+      fetchIntegrations: async (force = false) => {
+        const { setLoading, lastFetch } = get()
+
+        // Skip if recently fetched and not forced
+        if (!force && lastFetch && Date.now() - lastFetch < 30000) {
+          return
+        }
+
         setLoading("fetchIntegrations", true)
 
         try {
@@ -144,7 +147,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
               error: null,
               lastFetch: Date.now(),
             })
-            console.log("✅ Integrations fetched successfully:", response.data)
+            console.log("✅ Integrations fetched successfully:", response.data.length)
           } else {
             throw new Error(response.error || "Failed to fetch integrations")
           }
@@ -165,7 +168,17 @@ export const useIntegrationStore = create<IntegrationStore>()(
 
       // Connect integration
       connectIntegration: async (providerId: string) => {
-        const { setLoading } = get()
+        const { setLoading, providers } = get()
+        const provider = providers.find((p) => p.id === providerId)
+
+        if (!provider) {
+          throw new Error(`Provider ${providerId} not found`)
+        }
+
+        if (!provider.isAvailable) {
+          throw new Error(`${provider.name} integration is not configured. Missing environment variables.`)
+        }
+
         setLoading(`connect-${providerId}`, true)
 
         try {
@@ -178,7 +191,16 @@ export const useIntegrationStore = create<IntegrationStore>()(
 
           if (response.success && response.data?.authUrl) {
             // Open OAuth URL in new window
-            window.open(response.data.authUrl, "_blank", "width=600,height=700")
+            const popup = window.open(
+              response.data.authUrl,
+              "_blank",
+              "width=600,height=700,scrollbars=yes,resizable=yes",
+            )
+
+            if (!popup) {
+              throw new Error("Popup blocked. Please allow popups for this site to connect integrations.")
+            }
+
             console.log(`✅ OAuth URL opened for ${providerId}`)
           } else {
             throw new Error(response.error || "Failed to generate OAuth URL")
@@ -186,6 +208,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
         } catch (error: any) {
           console.error(`❌ Failed to connect ${providerId}:`, error)
           set({ error: error.message })
+          throw error
         } finally {
           setLoading(`connect-${providerId}`, false)
         }
@@ -209,6 +232,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
         } catch (error: any) {
           console.error("Failed to disconnect integration:", error)
           set({ error: error.message })
+          throw error
         } finally {
           setLoading(`disconnect-${integrationId}`, false)
         }
@@ -235,8 +259,33 @@ export const useIntegrationStore = create<IntegrationStore>()(
         } catch (error: any) {
           console.error("Failed to refresh integration:", error)
           set({ error: error.message })
+          throw error
         } finally {
           setLoading(`refresh-${integrationId}`, false)
+        }
+      },
+
+      // Refresh all tokens
+      refreshAllTokens: async () => {
+        const { setLoading } = get()
+        setLoading("refreshAllTokens", true)
+
+        try {
+          const response = await apiClient.post("/api/integrations/refresh-all-tokens")
+
+          if (response.success) {
+            // Refresh integrations list after token refresh
+            await get().fetchIntegrations(true)
+            return response.data
+          } else {
+            throw new Error(response.error || "Failed to refresh tokens")
+          }
+        } catch (error: any) {
+          console.error("Failed to refresh all tokens:", error)
+          set({ error: error.message })
+          throw error
+        } finally {
+          setLoading("refreshAllTokens", false)
         }
       },
 
@@ -329,36 +378,6 @@ export const useIntegrationStore = create<IntegrationStore>()(
             [key]: loading,
           },
         }))
-      },
-
-      // Global preload method for compatibility
-      initializeGlobalPreload: async (providers: string[]) => {
-        console.log("🚀 Initializing global preload for providers:", providers)
-
-        // Fetch dynamic data for all connected providers
-        const { fetchDynamicData, getConnectedProviders } = get()
-        const connectedProviders = getConnectedProviders()
-
-        const dataTypes = {
-          notion: ["pages", "databases"],
-          slack: ["channels", "users"],
-          "google-sheets": ["spreadsheets"],
-          "google-calendar": ["calendars"],
-          gmail: ["labels"],
-        }
-
-        for (const provider of connectedProviders) {
-          const types = dataTypes[provider as keyof typeof dataTypes] || []
-          for (const dataType of types) {
-            try {
-              await fetchDynamicData(provider, dataType)
-            } catch (error) {
-              console.warn(`Failed to preload ${provider} ${dataType}:`, error)
-            }
-          }
-        }
-
-        console.log("✅ Global preload completed")
       },
     }),
     {
