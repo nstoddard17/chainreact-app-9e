@@ -34,7 +34,7 @@ importers:
         version: 1.0.1
       '@op-engineering/op-sqlite':
         specifier: latest
-        version: 14.0.3(react-native@0.80.0(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0)
+        version: 14.0.4(react-native@0.80.0(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0)
       '@opentelemetry/api':
         specifier: latest
         version: 1.9.0
@@ -131,6 +131,9 @@ importers:
       '@supabase/auth-helpers-nextjs':
         specifier: latest
         version: 0.10.0(@supabase/supabase-js@2.50.0(bufferutil@4.0.9))
+      '@supabase/auth-helpers-react':
+        specifier: latest
+        version: 0.5.0(@supabase/supabase-js@2.50.0(bufferutil@4.0.9))
       '@supabase/supabase-js':
         specifier: latest
         version: 2.50.0(bufferutil@4.0.9)
@@ -187,7 +190,7 @@ importers:
         version: 4.1.0
       drizzle-orm:
         specifier: latest
-        version: 0.44.2(8fac9eeea9459b5a53cfbdd6bba5e102)
+        version: 0.44.2(3c751785f9d450814d49c5d84f26f6dd)
       embla-carousel-react:
         specifier: latest
         version: 8.6.0(react@19.0.0)
@@ -269,6 +272,9 @@ importers:
       use-sync-external-store:
         specifier: latest
         version: 1.5.0(react@19.0.0)
+      uuid:
+        specifier: latest
+        version: 11.1.0
       vaul:
         specifier: latest
         version: 1.1.2(@types/react-dom@19.0.0)(@types/react@19.0.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
@@ -1371,8 +1377,8 @@ packages:
     engines: {node: '>=10'}
     deprecated: This functionality has been moved to @npmcli/fs
 
-  '@op-engineering/op-sqlite@14.0.3':
-    resolution: {integrity: sha512-rr1ofSJq+Pz5Zwd4p8OLi5adr1Tl0hhxw66AoSpdyHPGpcJnB25gOT2BVhe9THgh0is9QT1ggwJkv1j+2tiYtw==}
+  '@op-engineering/op-sqlite@14.0.4':
+    resolution: {integrity: sha512-WNWsEY+ZLbOUJ6EuhB4vGqE+99NTJJkdwW+7XKdg8lN7QMnbsM7z7LGWQ9Cqp5JKvWwItBpjaxlHB2wbywsSJA==}
     peerDependencies:
       react: '*'
       react-native: '*'
@@ -2296,6 +2302,12 @@ packages:
 
   '@supabase/auth-helpers-nextjs@0.10.0':
     resolution: {integrity: sha512-2dfOGsM4yZt0oS4TPiE7bD4vf7EVz7NRz/IJrV6vLg0GP7sMUx8wndv2euLGq4BjN9lUCpu6DG/uCC8j+ylwPg==}
+    deprecated: This package is now deprecated - please use the @supabase/ssr package instead.
+    peerDependencies:
+      '@supabase/supabase-js': ^2.39.8
+
+  '@supabase/auth-helpers-react@0.5.0':
+    resolution: {integrity: sha512-5QSaV2CGuhDhd7RlQCoviVEAYsP7XnrFMReOcBazDvVmqSIyjKcDwhLhWvnrxMOq5qjOaA44MHo7wXqDiF0puQ==}
     deprecated: This package is now deprecated - please use the @supabase/ssr package instead.
     peerDependencies:
       '@supabase/supabase-js': ^2.39.8
@@ -5454,6 +5466,10 @@ packages:
     resolution: {integrity: sha512-pMZTvIkT1d+TFGvDOqodOclx0QWkkgi6Tdoa8gC8ffGAAqz9pzPTZWAybbsHHoED/ztMtkv/VoYTYyShUn81hA==}
     engines: {node: '>= 0.4.0'}
 
+  uuid@11.1.0:
+    resolution: {integrity: sha512-0/A9rDy9P7cJ+8w1c9WD9V//9Wj15Ce2MPz8Ri6032usz+NfePxx5AcN3bN+r6ZL6jEo066/yNYB3tn4pQEx+A==}
+    hasBin: true
+
   uuid@7.0.3:
     resolution: {integrity: sha512-DPSke0pXhTZgoF/d+WSt2QaKMCFSfx7QegxEWT+JOuHF5aWrKEn0G+ztjuJg/gG8/ItK+rbPCD/yNv8yyih6Cg==}
     hasBin: true
@@ -7235,7 +7251,7 @@ snapshots:
       rimraf: 3.0.2
     optional: true
 
-  '@op-engineering/op-sqlite@14.0.3(react-native@0.80.0(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0)':
+  '@op-engineering/op-sqlite@14.0.4(react-native@0.80.0(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0)':
     dependencies:
       react: 19.0.0
       react-native: 0.80.0(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0)
@@ -8384,6 +8400,10 @@ snapshots:
       '@supabase/supabase-js': 2.50.0(bufferutil@4.0.9)
       set-cookie-parser: 2.7.1
 
+  '@supabase/auth-helpers-react@0.5.0(@supabase/supabase-js@2.50.0(bufferutil@4.0.9))':
+    dependencies:
+      '@supabase/supabase-js': 2.50.0(bufferutil@4.0.9)
+
   '@supabase/auth-helpers-shared@0.7.0(@supabase/supabase-js@2.50.0(bufferutil@4.0.9))':
     dependencies:
       '@supabase/supabase-js': 2.50.0(bufferutil@4.0.9)
@@ -9346,7 +9366,7 @@ snapshots:
 
   dotenv@16.4.7: {}
 
-  drizzle-orm@0.44.2(8fac9eeea9459b5a53cfbdd6bba5e102):
+  drizzle-orm@0.44.2(3c751785f9d450814d49c5d84f26f6dd):
     optionalDependencies:
       '@aws-sdk/client-rds-data': 3.828.0
       '@cloudflare/workers-types': 4.20250614.0
@@ -9354,7 +9374,7 @@ snapshots:
       '@libsql/client': 0.15.9(bufferutil@4.0.9)
       '@libsql/client-wasm': 0.15.9
       '@neondatabase/serverless': 1.0.1
-      '@op-engineering/op-sqlite': 14.0.3(react-native@0.80.0(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0)
+      '@op-engineering/op-sqlite': 14.0.4(react-native@0.80.0(@babel/core@7.27.4)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0)
       '@opentelemetry/api': 1.9.0
       '@planetscale/database': 1.19.0
       '@prisma/client': 6.9.0(typescript@5.0.2)
@@ -11732,6 +11752,8 @@ snapshots:
   util-deprecate@1.0.2: {}
 
   utils-merge@1.0.1: {}
+
+  uuid@11.1.0: {}
 
   uuid@7.0.3: {}
 
