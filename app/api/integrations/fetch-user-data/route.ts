@@ -192,6 +192,35 @@ async function fetchNotionData(accessToken: string, dataType: string) {
         })) || []
       )
 
+    case "pages":
+      const pagesResponse = await fetch("https://api.notion.com/v1/search", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+          "Notion-Version": "2022-06-28",
+        },
+        body: JSON.stringify({
+          filter: {
+            property: "object",
+            value: "page",
+          },
+          page_size: 100,
+        }),
+      })
+      const pagesData = await pagesResponse.json()
+      return (
+        pagesData.results?.map((page: any) => ({
+          id: page.id,
+          name:
+            page.properties?.title?.title?.[0]?.plain_text ||
+            page.properties?.Name?.title?.[0]?.plain_text ||
+            page.properties?.Title?.title?.[0]?.plain_text ||
+            "Untitled Page",
+          value: page.id,
+        })) || []
+      )
+
     default:
       return []
   }
