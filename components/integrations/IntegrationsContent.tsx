@@ -1,352 +1,410 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { Card, CardContent } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Search, RefreshCw, Settings, Zap, CheckCircle, AlertTriangle } from "lucide-react"
-import IntegrationCard from "./IntegrationCard"
-import ScopeValidationAlert from "./ScopeValidationAlert"
+import { useState, useEffect, useCallback } from "react"
+import { useSearchParams, useRouter } from "next/navigation"
 import { useIntegrationStore } from "@/stores/integrationStore"
+import { useAuthStore } from "@/stores/authStore"
+import ScopeValidationAlert from "./ScopeValidationAlert"
+import AppLayout from "@/components/layout/AppLayout"
+import IntegrationCard from "./IntegrationCard"
+import IntegrationDiagnostics from "./IntegrationDiagnostics"
+import { Input } from "@/components/ui/input"
+import { Search, Loader2, Filter, CheckCircle, Stethoscope, RefreshCw, AlertCircle } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useToast } from "@/hooks/use-toast"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
-// Define available integrations with their metadata
-const AVAILABLE_INTEGRATIONS = [
-  {
-    id: "notion",
-    name: "Notion",
-    description: "All-in-one workspace for notes, docs, and collaboration",
-    category: "productivity",
-    icon: "🗒️",
-    color: "#000000",
-    isAvailable: true,
-    scopes: ["read", "write"],
-  },
-  {
-    id: "slack",
-    name: "Slack",
-    description: "Team communication and collaboration platform",
-    category: "communication",
-    icon: "💬",
-    color: "#4A154B",
-    isAvailable: true,
-    scopes: ["channels:read", "users:read", "chat:write"],
-  },
-  {
-    id: "google-sheets",
-    name: "Google Sheets",
-    description: "Cloud-based spreadsheet application",
-    category: "productivity",
-    icon: "📊",
-    color: "#34A853",
-    isAvailable: true,
-    scopes: ["spreadsheets", "drive.file"],
-  },
-  {
-    id: "google-calendar",
-    name: "Google Calendar",
-    description: "Schedule and organize your time",
-    category: "productivity",
-    icon: "📅",
-    color: "#4285F4",
-    isAvailable: true,
-    scopes: ["calendar", "calendar.events"],
-  },
-  {
-    id: "gmail",
-    name: "Gmail",
-    description: "Email service by Google",
-    category: "communication",
-    icon: "📧",
-    color: "#EA4335",
-    isAvailable: true,
-    scopes: ["gmail.readonly", "gmail.send"],
-  },
-  {
-    id: "github",
-    name: "GitHub",
-    description: "Code hosting and version control",
-    category: "development",
-    icon: "🐙",
-    color: "#181717",
-    isAvailable: true,
-    scopes: ["repo", "user"],
-  },
-  {
-    id: "airtable",
-    name: "Airtable",
-    description: "Database and spreadsheet hybrid",
-    category: "productivity",
-    icon: "🗃️",
-    color: "#18BFFF",
-    isAvailable: true,
-    scopes: ["data.records:read", "data.records:write"],
-  },
-  {
-    id: "trello",
-    name: "Trello",
-    description: "Visual project management tool",
-    category: "productivity",
-    icon: "📋",
-    color: "#0079BF",
-    isAvailable: true,
-    scopes: ["read", "write"],
-  },
-  {
-    id: "dropbox",
-    name: "Dropbox",
-    description: "Cloud storage and file sharing",
-    category: "storage",
-    icon: "📦",
-    color: "#0061FF",
-    isAvailable: true,
-    scopes: ["files.content.read", "files.content.write"],
-  },
-  {
-    id: "discord",
-    name: "Discord",
-    description: "Voice, video and text communication",
-    category: "communication",
-    icon: "🎮",
-    color: "#5865F2",
-    isAvailable: true,
-    scopes: ["bot", "guilds"],
-  },
-]
-
-const IntegrationsContent = () => {
+export default function IntegrationsContent() {
   const [searchTerm, setSearchTerm] = useState("")
-  const [selectedCategory, setSelectedCategory] = useState("all")
-  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+  const [localLoading, setLocalLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [oauthProcessed, setOauthProcessed] = useState(false)
+  const [tokenRefreshing, setTokenRefreshing] = useState(false)
+  const router = useRouter()
 
   const {
     integrations = [],
+    providers = [],
     isLoading,
     error,
     fetchIntegrations,
-    getIntegrationStatus,
+    refreshAllTokens,
     clearError,
   } = useIntegrationStore()
 
-  useEffect(() => {
-    fetchIntegrations()
+  const searchParams = useSearchParams()
+  const { toast } = useToast()
+  const { user, getCurrentUserId } = useAuthStore()
+
+  // Memoized data loading function
+  const loadData = useCallback(async () => {
+    try {
+      setLocalLoading(true)
+      setLoadError(null)
+
+      // Set a timeout to prevent infinite loading
+      const timeoutId = setTimeout(() => {
+        setLoadError("Loading integrations timed out. Please refresh the page.")
+        setLocalLoading(false)
+      }, 15000)
+
+      await fetchIntegrations()
+      clearTimeout(timeoutId)
+    } catch (err: any) {
+      console.error("Failed to load integrations:", err)
+      setLoadError(err.message || "Failed to load integrations. Please try again.")
+    } finally {
+      setLocalLoading(false)
+    }
   }, [fetchIntegrations])
 
-  const handleRefreshAll = async () => {
-    setIsRefreshing(true)
+  // Handle initial data loading
+  useEffect(() => {
+    if (user) {
+      loadData()
+    }
+  }, [user, loadData])
+
+  // Enhanced OAuth callback handling
+  useEffect(() => {
+    if (oauthProcessed) return
+
+    const success = searchParams.get("success")
+    const error = searchParams.get("error")
+    const provider = searchParams.get("provider")
+    const message = searchParams.get("message")
+
+    if ((success || error) && provider) {
+      setOauthProcessed(true)
+
+      if (success === "true") {
+        const refreshIntegrationsList = async () => {
+          try {
+            // Multiple refresh attempts to ensure data consistency
+            await fetchIntegrations()
+
+            // Schedule additional refreshes
+            setTimeout(() => fetchIntegrations(), 1500)
+            setTimeout(() => fetchIntegrations(), 3000)
+
+            toast({
+              title: "Integration Connected",
+              description: `Your ${provider} integration has been successfully connected!`,
+              duration: 5000,
+            })
+          } catch (err) {
+            console.error("Failed to refresh integrations after OAuth:", err)
+          }
+        }
+
+        refreshIntegrationsList()
+      } else if (error) {
+        const errorMsg = message || "Failed to connect integration"
+        toast({
+          title: "Connection Failed",
+          description: decodeURIComponent(errorMsg),
+          variant: "destructive",
+          duration: 7000,
+        })
+      }
+
+      // Clean up URL parameters
+      setTimeout(() => {
+        router.replace("/integrations")
+      }, 1000)
+    }
+  }, [searchParams, toast, fetchIntegrations, router, oauthProcessed])
+
+  // Enhanced token refresh with better error handling
+  const handleRefreshTokens = useCallback(async () => {
     try {
-      await fetchIntegrations()
-    } catch (error) {
-      console.error("Failed to refresh integrations:", error)
+      setTokenRefreshing(true)
+
+      const userId = getCurrentUserId()
+      if (!userId) {
+        throw new Error("User not authenticated")
+      }
+
+      const response = await Promise.race([
+        fetch("/api/integrations/refresh-all-tokens", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId }),
+        }),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Request timed out")), 10000)),
+      ])
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to refresh tokens")
+      }
+
+      toast({
+        title: "Tokens Refreshed",
+        description: `${data.stats.successful} refreshed, ${data.stats.skipped} already valid, ${data.stats.failed} failed`,
+        duration: 5000,
+      })
+
+      if (data.stats.successful > 0) {
+        await fetchIntegrations()
+      }
+    } catch (err: any) {
+      console.error("Failed to refresh tokens:", err)
+      toast({
+        title: "Refresh Failed",
+        description: err.message || "Could not refresh integration tokens. Please try again.",
+        variant: "destructive",
+        duration: 7000,
+      })
     } finally {
-      setIsRefreshing(false)
+      setTokenRefreshing(false)
     }
-  }
+  }, [getCurrentUserId, fetchIntegrations, toast])
 
-  // Combine available integrations with connection status
-  const providers = AVAILABLE_INTEGRATIONS.map((integration) => {
-    const connectionStatus = getIntegrationStatus(integration.id)
-    const connectedIntegration = integrations.find((i) => i.provider === integration.id)
+  // Get unique categories from providers
+  const categories = Array.from(new Set(providers.map((p) => p.category)))
 
-    return {
-      ...integration,
-      connected: connectionStatus === "connected",
-      status: connectionStatus,
-      connectedAt: connectedIntegration?.connectedAt,
-      lastSync: connectedIntegration?.lastSync,
-      error: connectedIntegration?.error,
-    }
-  })
-
-  // Filter providers based on search and category
+  // Enhanced filtering logic
   const filteredProviders = providers.filter((provider) => {
     const matchesSearch =
       provider.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      provider.description.toLowerCase().includes(searchTerm.toLowerCase())
+      provider.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (provider.capabilities || []).some((cap) => cap.toLowerCase().includes(searchTerm.toLowerCase()))
 
-    if (selectedCategory === "all") return matchesSearch
-    if (selectedCategory === "connected") return matchesSearch && provider.connected
-    if (selectedCategory === "available") return matchesSearch && !provider.connected && provider.isAvailable !== false
-    if (selectedCategory === "productivity") return matchesSearch && provider.category === "productivity"
-    if (selectedCategory === "communication") return matchesSearch && provider.category === "communication"
-    if (selectedCategory === "storage") return matchesSearch && provider.category === "storage"
-    if (selectedCategory === "development") return matchesSearch && provider.category === "development"
+    const matchesCategory = !selectedCategory || provider.category === selectedCategory
 
-    return matchesSearch
+    return matchesSearch && matchesCategory
   })
 
-  // Get statistics
-  const connectedCount = providers.filter((p) => p.connected).length
-  const availableCount = providers.filter((p) => p.isAvailable !== false).length
-  const totalCount = providers.length
+  // Merge providers with integration status
+  const providersWithStatus = filteredProviders.map((provider) => {
+    const connectedIntegration = integrations.find((i) => i.provider === provider.id && i.status === "connected")
+    const disconnectedIntegration = integrations.find((i) => i.provider === provider.id && i.status === "disconnected")
 
-  if (isLoading && integrations.length === 0) {
+    return {
+      ...provider,
+      connected: !!connectedIntegration,
+      wasConnected: !!disconnectedIntegration,
+      integration: connectedIntegration || disconnectedIntegration || null,
+    }
+  })
+
+  // Group providers by category
+  const groupedProviders = categories.reduce(
+    (acc, category) => {
+      acc[category] = providersWithStatus.filter((p) => p.category === category)
+      return acc
+    },
+    {} as Record<string, typeof providersWithStatus>,
+  )
+
+  const connectedCount = integrations.filter((i) => i.status === "connected").length
+
+  // Show loading state
+  if (localLoading || (isLoading && integrations.length === 0)) {
     return (
-      <div className="container mx-auto p-6">
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="text-center">
-            <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-blue-600" />
-            <p className="text-lg font-medium text-slate-900">Loading integrations...</p>
-            <p className="text-sm text-slate-500 mt-2">Setting up your integration workspace</p>
+      <AppLayout>
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+          <div className="container mx-auto px-4 py-8">
+            <div className="flex flex-col items-center justify-center h-64 space-y-4">
+              <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+              <p className="text-slate-600 font-medium">Loading integrations...</p>
+            </div>
           </div>
         </div>
-      </div>
+      </AppLayout>
     )
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      {/* Scope Validation Alert */}
-      <ScopeValidationAlert />
+    <AppLayout>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+        <div className="container mx-auto px-4 py-8">
+          <ScopeValidationAlert />
 
-      {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900">Integrations</h1>
-          <p className="text-slate-600 mt-2">Connect your favorite tools and services to automate your workflows</p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            onClick={handleRefreshAll}
-            disabled={isRefreshing}
-            className="flex items-center gap-2"
-          >
-            <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
-            {isRefreshing ? "Refreshing..." : "Refresh All"}
-          </Button>
-
-          <Button variant="outline" className="flex items-center gap-2">
-            <Settings className="h-4 w-4" />
-            Settings
-          </Button>
-        </div>
-      </div>
-
-      {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-slate-600">Connected</p>
-                <p className="text-2xl font-bold text-green-600">{connectedCount}</p>
-              </div>
-              <CheckCircle className="h-8 w-8 text-green-600" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-slate-600">Available</p>
-                <p className="text-2xl font-bold text-blue-600">{availableCount}</p>
-              </div>
-              <Zap className="h-8 w-8 text-blue-600" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-slate-600">Total</p>
-                <p className="text-2xl font-bold text-slate-900">{totalCount}</p>
-              </div>
-              <Settings className="h-8 w-8 text-slate-600" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Search and Filter */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
-          <Input
-            placeholder="Search integrations..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-
-        <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="w-full sm:w-auto">
-          <TabsList className="grid grid-cols-3 lg:grid-cols-7 w-full">
-            <TabsTrigger value="all">All</TabsTrigger>
-            <TabsTrigger value="connected">Connected</TabsTrigger>
-            <TabsTrigger value="available">Available</TabsTrigger>
-            <TabsTrigger value="productivity">Productivity</TabsTrigger>
-            <TabsTrigger value="communication">Communication</TabsTrigger>
-            <TabsTrigger value="storage">Storage</TabsTrigger>
-            <TabsTrigger value="development">Development</TabsTrigger>
-          </TabsList>
-        </Tabs>
-      </div>
-
-      {/* Error State */}
-      {error && (
-        <Card className="border-red-200 bg-red-50">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-3">
-              <AlertTriangle className="h-5 w-5 text-red-600" />
-              <div>
-                <p className="font-medium text-red-900">Unable to load integrations</p>
-                <p className="text-sm text-red-700 mt-1">{error}</p>
+          {(loadError || error) && (
+            <Alert variant="destructive" className="mb-6">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Error</AlertTitle>
+              <AlertDescription>
+                {loadError || error}
                 <div className="flex gap-2 mt-3">
-                  <Button variant="outline" size="sm" onClick={() => fetchIntegrations()}>
-                    Try Again
+                  <Button variant="outline" size="sm" className="bg-white" onClick={loadData}>
+                    Retry
                   </Button>
-                  <Button variant="ghost" size="sm" onClick={clearError}>
-                    Dismiss
-                  </Button>
+                  {error && (
+                    <Button variant="ghost" size="sm" onClick={clearError}>
+                      Dismiss
+                    </Button>
+                  )}
                 </div>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          <div className="space-y-8">
+            {/* Header Section */}
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+              <div className="space-y-2">
+                <h1 className="text-4xl font-bold text-slate-900 tracking-tight">Integrations</h1>
+                <p className="text-lg text-slate-600">
+                  Connect your favorite tools and services to automate your workflows
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <Badge
+                  variant="secondary"
+                  className="text-sm font-medium bg-green-100 text-green-800 border-green-200 px-3 py-1"
+                >
+                  <CheckCircle className="w-4 h-4 mr-2 text-green-600" />
+                  {connectedCount} Connected
+                </Badge>
+                <Button
+                  onClick={handleRefreshTokens}
+                  variant="default"
+                  size="sm"
+                  disabled={isLoading || tokenRefreshing}
+                  className="bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+                >
+                  {tokenRefreshing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                  <span className="ml-2 hidden sm:inline">{tokenRefreshing ? "Refreshing..." : "Refresh Tokens"}</span>
+                </Button>
               </div>
             </div>
-          </CardContent>
-        </Card>
-      )}
 
-      {/* Integrations Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {filteredProviders.map((provider) => (
-          <IntegrationCard key={provider.id} provider={provider} />
-        ))}
-      </div>
+            {/* Tabs */}
+            <Tabs defaultValue="integrations" className="w-full">
+              <TabsList className="grid w-full grid-cols-2 bg-white border border-slate-200 p-1 rounded-lg shadow-sm">
+                <TabsTrigger
+                  value="integrations"
+                  className="data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-sm font-medium transition-all"
+                >
+                  Integrations
+                </TabsTrigger>
+                <TabsTrigger
+                  value="diagnostics"
+                  className="flex items-center gap-2 data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-sm font-medium transition-all"
+                >
+                  <Stethoscope className="h-4 w-4" />
+                  Diagnostics
+                </TabsTrigger>
+              </TabsList>
 
-      {/* Empty State */}
-      {filteredProviders.length === 0 && !isLoading && (
-        <Card>
-          <CardContent className="p-12 text-center">
-            <div className="mx-auto w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center mb-4">
-              <Search className="h-8 w-8 text-slate-400" />
-            </div>
-            <h3 className="text-lg font-semibold text-slate-900 mb-2">No integrations found</h3>
-            <p className="text-slate-600 mb-4">
-              {searchTerm ? `No integrations match "${searchTerm}"` : "No integrations available in this category"}
-            </p>
-            {searchTerm && (
-              <Button variant="outline" onClick={() => setSearchTerm("")}>
-                Clear search
-              </Button>
-            )}
-          </CardContent>
-        </Card>
-      )}
+              <TabsContent value="integrations" className="space-y-8 mt-8">
+                {/* Search and Filters */}
+                <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+                  <div className="flex flex-col lg:flex-row gap-4">
+                    <div className="relative flex-1 max-w-md">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
+                      <Input
+                        placeholder="Search integrations..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-11 h-11 bg-slate-50 border-slate-200 focus:border-blue-500 focus:ring-blue-500 text-slate-900 placeholder:text-slate-500"
+                      />
+                    </div>
 
-      {/* Loading State for Refresh */}
-      {isLoading && integrations.length > 0 && (
-        <div className="fixed bottom-4 right-4 bg-white border border-slate-200 rounded-lg shadow-lg p-4 flex items-center gap-3">
-          <RefreshCw className="h-4 w-4 animate-spin text-blue-600" />
-          <span className="text-sm font-medium">Updating integrations...</span>
+                    <div className="flex gap-2 flex-wrap">
+                      <Button
+                        variant={selectedCategory === null ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setSelectedCategory(null)}
+                        className={`flex items-center gap-2 h-11 px-4 font-medium transition-all ${
+                          selectedCategory === null
+                            ? "bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
+                            : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300"
+                        }`}
+                      >
+                        <Filter className="w-4 h-4" />
+                        All Categories
+                      </Button>
+                      {categories.map((category) => (
+                        <Button
+                          key={category}
+                          variant={selectedCategory === category ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setSelectedCategory(category)}
+                          className={`h-11 px-4 font-medium transition-all capitalize ${
+                            selectedCategory === category
+                              ? "bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
+                              : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300"
+                          }`}
+                        >
+                          {category}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Integrations by Category */}
+                {selectedCategory ? (
+                  <div className="space-y-6">
+                    <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+                      <div className="flex items-center justify-between mb-6">
+                        <h2 className="text-2xl font-bold text-slate-900 capitalize">{selectedCategory}</h2>
+                        <Badge variant="outline" className="bg-slate-50 text-slate-700 border-slate-200 font-medium">
+                          {groupedProviders[selectedCategory]?.length || 0} integrations
+                        </Badge>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {groupedProviders[selectedCategory]?.map((provider) => (
+                          <IntegrationCard key={provider.id} provider={provider} />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-8">
+                    {categories.map((category) => (
+                      <div key={category} className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+                        <div className="flex items-center justify-between mb-6">
+                          <h2 className="text-2xl font-bold text-slate-900 capitalize">{category}</h2>
+                          <Badge variant="outline" className="bg-slate-50 text-slate-700 border-slate-200 font-medium">
+                            {groupedProviders[category]?.length || 0} integrations
+                          </Badge>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                          {groupedProviders[category]?.map((provider) => (
+                            <IntegrationCard key={provider.id} provider={provider} />
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* No Results State */}
+                {filteredProviders.length === 0 && !isLoading && (
+                  <div className="bg-white rounded-xl border border-slate-200 p-12 shadow-sm text-center">
+                    <div className="text-slate-400 text-xl font-medium mb-2">No integrations found</div>
+                    <p className="text-slate-500 mb-4">Try adjusting your search or filter criteria</p>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setSearchTerm("")
+                        setSelectedCategory(null)
+                      }}
+                    >
+                      Clear Filters
+                    </Button>
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="diagnostics" className="mt-8">
+                <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
+                  <IntegrationDiagnostics />
+                </div>
+              </TabsContent>
+            </Tabs>
+          </div>
         </div>
-      )}
-    </div>
+      </div>
+    </AppLayout>
   )
 }
-
-export default IntegrationsContent
