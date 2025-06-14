@@ -1,100 +1,224 @@
-import { AirtableOAuthService } from "./airtable"
-import { DiscordOAuthService } from "./discord"
-import { DropboxOAuthService } from "./dropbox"
-import { GitHubOAuthService } from "./github"
-import { SlackOAuthService } from "./slack"
-import { TeamsOAuthService } from "./teams"
+import { SlackOAuthService } from "./SlackOAuthService"
+import { DiscordOAuthService } from "./DiscordOAuthService"
+import { DropboxOAuthService } from "./DropboxOAuthService"
 import { TwitterOAuthService } from "./twitter"
 import { LinkedInOAuthService } from "./linkedin"
-import { FacebookOAuthService } from "./facebook"
-import { MailchimpOAuthService } from "./mailchimp"
-import { ShopifyOAuthService } from "./shopify"
-import { TikTokOAuthService } from "./tiktok"
-import { PayPalOAuthService } from "./paypal"
-import { HubSpotOAuthService } from "./hubspot"
-import { NotionOAuthService } from "./notion"
-import { TrelloOAuthService } from "./trello"
-import { YouTubeOAuthService_Object } from "./youtube"
-import { DockerOAuthService } from "./docker"
-import { GitLabOAuthService } from "./gitlab"
-import { GmailOAuthService } from "./gmail"
-import { GoogleDriveOAuthService } from "./google-drive"
-import { GoogleCalendarOAuthService } from "./google-calendar"
-import { GoogleSheetsOAuthService } from "./google-sheets"
-import { GoogleDocsOAuthService } from "./google-docs"
+import { TrelloOAuthService } from "./TrelloOAuthService"
 
 export interface OAuthProvider {
   generateAuthUrl(baseUrl: string, reconnect?: boolean, integrationId?: string, userId?: string): string
-  getRedirectUri(): string
+  exchangeCodeForToken(code: string): Promise<any>
+  getUserInfo(accessToken: string): Promise<any>
 }
 
-export const oauthProviders = {
-  airtable: AirtableOAuthService,
-  discord: DiscordOAuthService,
-  dropbox: DropboxOAuthService,
-  github: GitHubOAuthService,
-  gmail: GmailOAuthService,
-  "google-drive": GoogleDriveOAuthService,
-  "google-calendar": GoogleCalendarOAuthService,
-  "google-sheets": GoogleSheetsOAuthService,
-  "google-docs": GoogleDocsOAuthService,
-  slack: SlackOAuthService,
-  teams: TeamsOAuthService,
-  twitter: TwitterOAuthService,
-  linkedin: LinkedInOAuthService,
-  facebook: FacebookOAuthService,
-  mailchimp: MailchimpOAuthService,
-  shopify: ShopifyOAuthService,
-  tiktok: TikTokOAuthService,
-  paypal: PayPalOAuthService,
-  hubspot: HubSpotOAuthService,
-  notion: NotionOAuthService,
-  trello: TrelloOAuthService,
-  youtube: YouTubeOAuthService_Object,
-  docker: DockerOAuthService,
-  gitlab: GitLabOAuthService,
-} as const
+export function getOAuthProvider(provider: string): OAuthProvider {
+  switch (provider.toLowerCase()) {
+    case "slack":
+      return SlackOAuthService
+    case "discord":
+      return DiscordOAuthService
+    case "dropbox":
+      return DropboxOAuthService
+    case "twitter":
+      return TwitterOAuthService
+    case "linkedin":
+      return LinkedInOAuthService
+    case "trello":
+      return TrelloOAuthService
+    case "github":
+      return {
+        generateAuthUrl: (baseUrl: string, reconnect = false, integrationId?: string, userId?: string) => {
+          const state = btoa(
+            JSON.stringify({
+              provider: "github",
+              userId,
+              reconnect,
+              integrationId,
+              timestamp: Date.now(),
+            }),
+          )
 
-export type SupportedProvider = keyof typeof oauthProviders
+          const params = new URLSearchParams({
+            client_id: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID!,
+            redirect_uri: `${baseUrl}/api/integrations/github/callback`,
+            scope: "repo user",
+            state,
+          })
 
-export function getOAuthProvider(provider: SupportedProvider): OAuthProvider {
-  const providerService = oauthProviders[provider]
-  if (!providerService) {
-    throw new Error(`Unsupported OAuth provider: ${provider}`)
+          return `https://github.com/login/oauth/authorize?${params.toString()}`
+        },
+        exchangeCodeForToken: async (code: string) => {
+          const response = await fetch("https://github.com/login/oauth/access_token", {
+            method: "POST",
+            headers: {
+              Accept: "application/json",
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              client_id: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID!,
+              client_secret: process.env.GITHUB_CLIENT_SECRET!,
+              code,
+            }),
+          })
+          return response.json()
+        },
+        getUserInfo: async (accessToken: string) => {
+          const response = await fetch("https://api.github.com/user", {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "User-Agent": "ChainReact-App",
+            },
+          })
+          return response.json()
+        },
+      }
+    case "google":
+    case "gmail":
+    case "google-drive":
+    case "google-sheets":
+    case "google-docs":
+    case "google-calendar":
+    case "youtube":
+      return {
+        generateAuthUrl: (baseUrl: string, reconnect = false, integrationId?: string, userId?: string) => {
+          const scopes = getGoogleScopes(provider)
+          const state = btoa(
+            JSON.stringify({
+              provider,
+              userId,
+              reconnect,
+              integrationId,
+              timestamp: Date.now(),
+            }),
+          )
+
+          const params = new URLSearchParams({
+            client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!,
+            redirect_uri: `${baseUrl}/api/integrations/${provider}/callback`,
+            response_type: "code",
+            scope: scopes.join(" "),
+            access_type: "offline",
+            prompt: "consent",
+            state,
+          })
+
+          return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`
+        },
+        exchangeCodeForToken: async (code: string) => {
+          const response = await fetch("https://oauth2.googleapis.com/token", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/x-www-form-urlencoded",
+            },
+            body: new URLSearchParams({
+              client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!,
+              client_secret: process.env.GOOGLE_CLIENT_SECRET!,
+              code,
+              grant_type: "authorization_code",
+              redirect_uri: `${process.env.NEXT_PUBLIC_SITE_URL}/api/integrations/${provider}/callback`,
+            }),
+          })
+          return response.json()
+        },
+        getUserInfo: async (accessToken: string) => {
+          const response = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          })
+          return response.json()
+        },
+      }
+    case "notion":
+      return {
+        generateAuthUrl: (baseUrl: string, reconnect = false, integrationId?: string, userId?: string) => {
+          const state = btoa(
+            JSON.stringify({
+              provider: "notion",
+              userId,
+              reconnect,
+              integrationId,
+              timestamp: Date.now(),
+            }),
+          )
+
+          const params = new URLSearchParams({
+            client_id: process.env.NEXT_PUBLIC_NOTION_CLIENT_ID!,
+            response_type: "code",
+            owner: "user",
+            redirect_uri: `${baseUrl}/api/integrations/notion/callback`,
+            state,
+          })
+
+          return `https://api.notion.com/v1/oauth/authorize?${params.toString()}`
+        },
+        exchangeCodeForToken: async (code: string) => {
+          const response = await fetch("https://api.notion.com/v1/oauth/token", {
+            method: "POST",
+            headers: {
+              Accept: "application/json",
+              "Content-Type": "application/json",
+              Authorization: `Basic ${Buffer.from(`${process.env.NEXT_PUBLIC_NOTION_CLIENT_ID}:${process.env.NOTION_CLIENT_SECRET}`).toString("base64")}`,
+            },
+            body: JSON.stringify({
+              grant_type: "authorization_code",
+              code,
+              redirect_uri: `${process.env.NEXT_PUBLIC_SITE_URL}/api/integrations/notion/callback`,
+            }),
+          })
+          return response.json()
+        },
+        getUserInfo: async (accessToken: string) => {
+          const response = await fetch("https://api.notion.com/v1/users/me", {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "Notion-Version": "2022-06-28",
+            },
+          })
+          return response.json()
+        },
+      }
+    default:
+      throw new Error(`Unsupported provider: ${provider}`)
   }
+}
 
-  if (!providerService.generateAuthUrl || !providerService.getRedirectUri) {
-    throw new Error(`OAuth provider ${provider} is missing required methods`)
+function getGoogleScopes(provider: string): string[] {
+  const baseScopes = [
+    "https://www.googleapis.com/auth/userinfo.email",
+    "https://www.googleapis.com/auth/userinfo.profile",
+  ]
+
+  switch (provider) {
+    case "gmail":
+      return [
+        ...baseScopes,
+        "https://www.googleapis.com/auth/gmail.send",
+        "https://www.googleapis.com/auth/gmail.modify",
+        "https://www.googleapis.com/auth/gmail.readonly",
+      ]
+    case "google-drive":
+      return [...baseScopes, "https://www.googleapis.com/auth/drive", "https://www.googleapis.com/auth/drive.file"]
+    case "google-calendar":
+      return [
+        ...baseScopes,
+        "https://www.googleapis.com/auth/calendar",
+        "https://www.googleapis.com/auth/calendar.events",
+      ]
+    case "google-sheets":
+      return [...baseScopes, "https://www.googleapis.com/auth/spreadsheets"]
+    case "google-docs":
+      return [...baseScopes, "https://www.googleapis.com/auth/documents", "https://www.googleapis.com/auth/drive.file"]
+    case "youtube":
+      return [
+        ...baseScopes,
+        "https://www.googleapis.com/auth/youtube.readonly",
+        "https://www.googleapis.com/auth/youtube.upload",
+      ]
+    default:
+      return baseScopes
   }
-
-  return providerService
 }
 
-export function generateOAuthUrl(
-  provider: SupportedProvider,
-  baseUrl: string,
-  reconnect = false,
-  integrationId?: string,
-  userId?: string,
-): string {
-  try {
-    const service = getOAuthProvider(provider)
-    return service.generateAuthUrl(baseUrl, reconnect, integrationId, userId)
-  } catch (error: any) {
-    console.error(`Failed to generate OAuth URL for ${provider}:`, error)
-
-    if (error.message.includes("Missing") && error.message.includes("environment variable")) {
-      throw new Error(`OAuth not configured for ${provider}: ${error.message}`)
-    }
-
-    throw new Error(`OAuth configuration error for ${provider}: ${error.message}`)
-  }
-}
-
-export function isProviderSupported(provider: string): provider is SupportedProvider {
-  return provider in oauthProviders
-}
-
-export function getSupportedProviders(): SupportedProvider[] {
-  return Object.keys(oauthProviders) as SupportedProvider[]
-}
+export * from "./oauthUtils"
+export * from "./utils"
