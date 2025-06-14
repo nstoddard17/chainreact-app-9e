@@ -7,7 +7,6 @@ import { Badge } from "@/components/ui/badge"
 import { CheckCircle, Loader2, RefreshCw, AlertTriangle } from "lucide-react"
 import { useIntegrationStore } from "@/stores/integrationStore"
 import { useToast } from "@/hooks/use-toast"
-import { supabase } from "@/lib/supabase"
 
 interface IntegrationCardProps {
   provider: any
@@ -17,33 +16,86 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
   const [isConnecting, setIsConnecting] = useState(false)
   const [isDisconnecting, setIsDisconnecting] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
-  const { connectIntegration, fetchIntegrations } = useIntegrationStore()
+  const { connectIntegration, fetchIntegrations, disconnectIntegration } = useIntegrationStore()
   const { toast } = useToast()
 
+  // Update handleConnect with better error handling and user feedback
   const handleConnect = async () => {
     try {
       setIsConnecting(true)
 
-      // Set a timeout to reset the connecting state if it takes too long
+      // Clear any previous timeout
       const timeoutId = setTimeout(() => {
         setIsConnecting(false)
         toast({
-          title: "Connection Timeout",
-          description: "The connection is taking longer than expected. Please try again.",
+          title: "Connection Taking Longer Than Expected",
+          description:
+            "The connection is taking longer than usual. Please check if a new tab opened for authorization.",
           variant: "destructive",
+          duration: 8000,
         })
-      }, 10000) // 10 second timeout
+      }, 15000) // 15 second timeout
 
       await connectIntegration(provider.id)
 
-      // Clear the timeout if successful
-      clearTimeout(timeoutId)
+      toast({
+        title: "Authorization Started",
+        description: `Opening ${provider.name} authorization. Please complete the process in the new tab and return here.`,
+        duration: 6000,
+      })
+
+      // Set up connection monitoring
+      const checkConnection = async () => {
+        try {
+          await fetchIntegrations(true)
+          // Check if this provider is now connected
+          const updatedProvider = await fetchIntegrations(true)
+          // The component will re-render with updated status
+          clearTimeout(timeoutId)
+          setIsConnecting(false)
+          return true
+        } catch (error) {
+          console.error("Error checking connection:", error)
+          return false
+        }
+      }
+
+      // Monitor for connection completion
+      const monitorConnection = () => {
+        const intervalId = setInterval(async () => {
+          const connected = await checkConnection()
+          if (connected) {
+            clearInterval(intervalId)
+            clearTimeout(timeoutId)
+          }
+        }, 3000)
+
+        // Stop monitoring after 3 minutes
+        setTimeout(() => {
+          clearInterval(intervalId)
+          clearTimeout(timeoutId)
+          setIsConnecting(false)
+        }, 180000)
+      }
+
+      // Start monitoring after a short delay
+      setTimeout(monitorConnection, 2000)
     } catch (error: any) {
       console.error(`Failed to connect ${provider.name}:`, error)
+
+      let errorMessage = error.message || `Failed to connect ${provider.name}`
+
+      if (error.message?.includes("popup")) {
+        errorMessage = "Please allow popups for this site to connect integrations"
+      } else if (error.message?.includes("not configured")) {
+        errorMessage = `${provider.name} integration is not configured. Please contact support.`
+      }
+
       toast({
         title: "Connection Failed",
-        description: error.message || `Failed to connect ${provider.name}`,
+        description: errorMessage,
         variant: "destructive",
+        duration: 8000,
       })
       setIsConnecting(false)
     }
@@ -61,33 +113,15 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
 
     try {
       setIsDisconnecting(true)
-
-      // Get the current session for authentication
-      const { data: session } = await supabase.auth.getSession()
-      if (!session.session?.access_token) {
-        throw new Error("No authentication token available")
-      }
-
-      const response = await fetch(`/api/integrations/${provider.integration.id}`, {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.session.access_token}`,
-        },
-      })
-
-      const result = await response.json()
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || "Failed to disconnect integration")
-      }
+      await disconnectIntegration(provider.id)
 
       toast({
         title: "Integration Disconnected",
         description: `${provider.name} has been disconnected successfully`,
+        duration: 4000,
       })
 
-      // Refresh the integrations list to update the UI
+      // Refresh the integrations list
       await fetchIntegrations(true)
     } catch (error: any) {
       console.error(`Failed to disconnect ${provider.name}:`, error)
@@ -95,12 +129,14 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
         title: "Disconnection Failed",
         description: error.message || `Failed to disconnect ${provider.name}`,
         variant: "destructive",
+        duration: 8000,
       })
     } finally {
       setIsDisconnecting(false)
     }
   }
 
+  // Update handleRefresh with better error handling
   const handleRefresh = async () => {
     if (!provider.integration?.id) {
       toast({
@@ -128,22 +164,41 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
       const result = await response.json()
 
       if (!result.success) {
-        throw new Error(result.error || "Failed to refresh integration")
+        if (result.error?.includes("requires re-authentication") || result.error?.includes("expired")) {
+          toast({
+            title: "Reconnection Required",
+            description: `${provider.name} needs to be reconnected. Please disconnect and connect again.`,
+            variant: "destructive",
+            duration: 8000,
+          })
+        } else {
+          throw new Error(result.error || "Failed to refresh integration")
+        }
+        return
       }
 
       toast({
         title: "Integration Refreshed",
-        description: `${provider.name} connection has been refreshed`,
+        description: `${provider.name} connection has been refreshed successfully`,
+        duration: 4000,
       })
 
       // Refresh the integrations list
       await fetchIntegrations(true)
     } catch (error: any) {
       console.error(`Failed to refresh ${provider.name}:`, error)
+
+      let errorMessage = error.message || `Failed to refresh ${provider.name}`
+
+      if (error.message?.includes("authentication") || error.message?.includes("expired")) {
+        errorMessage = `${provider.name} authentication expired. Please reconnect your account.`
+      }
+
       toast({
         title: "Refresh Failed",
-        description: error.message || `Failed to refresh ${provider.name}`,
+        description: errorMessage,
         variant: "destructive",
+        duration: 8000,
       })
     } finally {
       setIsRefreshing(false)

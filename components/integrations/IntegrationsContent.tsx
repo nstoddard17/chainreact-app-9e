@@ -75,62 +75,90 @@ export default function IntegrationsContent() {
       setOauthProcessed(true)
 
       if (success === "true") {
-        // Force refresh integrations with multiple attempts to ensure we get the latest data
+        // Enhanced success handling with multiple refresh attempts
         const refreshIntegrationsList = async () => {
           try {
             console.log(`Refreshing integrations after ${provider} OAuth success`)
 
-            // First immediate refresh
-            await fetchIntegrations(true)
-
-            // Schedule additional refreshes to ensure we get the latest data
-            setTimeout(async () => {
+            // Multiple refresh attempts to ensure we get the latest data
+            for (let attempt = 1; attempt <= 3; attempt++) {
               try {
                 await fetchIntegrations(true)
-                console.log("Second refresh completed")
-              } catch (err) {
-                console.error("Error in second refresh:", err)
-              }
-            }, 1500)
+                console.log(`Refresh attempt ${attempt} completed`)
 
-            setTimeout(async () => {
-              try {
-                await fetchIntegrations(true)
-                console.log("Third refresh completed")
-              } catch (err) {
-                console.error("Error in third refresh:", err)
-              }
-            }, 3000)
+                // Check if the integration is now connected
+                const integrations = useIntegrationStore.getState().integrations
+                const connectedIntegration = integrations.find(
+                  (i) => i.provider === provider && i.status === "connected",
+                )
 
-            toast({
-              title: "Integration Connected",
-              description: `Your ${provider} integration has been successfully connected!`,
-              duration: 5000,
-            })
+                if (connectedIntegration) {
+                  toast({
+                    title: "Integration Connected Successfully",
+                    description: `Your ${provider} integration is now active and ready to use!`,
+                    duration: 6000,
+                  })
+                  break
+                }
+
+                // Wait before next attempt
+                if (attempt < 3) {
+                  await new Promise((resolve) => setTimeout(resolve, 2000))
+                }
+              } catch (err) {
+                console.error(`Error in refresh attempt ${attempt}:`, err)
+                if (attempt === 3) {
+                  throw err
+                }
+              }
+            }
           } catch (err) {
             console.error("Failed to refresh integrations after OAuth:", err)
+            toast({
+              title: "Connection Completed",
+              description: `${provider} connection completed. If you don't see it connected, please refresh the page.`,
+              duration: 8000,
+            })
           }
         }
 
         refreshIntegrationsList()
       } else if (error) {
-        const errorMsg = message || "Failed to connect integration"
+        const errorMsg = message ? decodeURIComponent(message) : "Failed to connect integration"
         console.error("OAuth error:", { error, provider, message: errorMsg })
+
+        let userFriendlyMessage = errorMsg
+
+        if (errorMsg.includes("access_denied")) {
+          userFriendlyMessage = `Authorization was cancelled. Please try connecting ${provider} again.`
+        } else if (errorMsg.includes("invalid_request")) {
+          userFriendlyMessage = `Invalid request. Please try connecting ${provider} again.`
+        } else if (errorMsg.includes("server_error")) {
+          userFriendlyMessage = `Server error occurred. Please try connecting ${provider} again later.`
+        } else if (errorMsg.includes("temporarily_unavailable")) {
+          userFriendlyMessage = `${provider} is temporarily unavailable. Please try again later.`
+        }
 
         toast({
           title: "Connection Failed",
-          description: decodeURIComponent(errorMsg),
+          description: userFriendlyMessage,
           variant: "destructive",
-          duration: 7000,
+          duration: 10000,
         })
       }
 
-      // Clean up URL parameters after a delay
+      // Clean up URL parameters after processing
       setTimeout(() => {
         if (typeof window !== "undefined") {
-          router.replace("/integrations")
+          const url = new URL(window.location.href)
+          url.searchParams.delete("success")
+          url.searchParams.delete("error")
+          url.searchParams.delete("provider")
+          url.searchParams.delete("message")
+          url.searchParams.delete("t")
+          window.history.replaceState({}, "", url.toString())
         }
-      }, 1000)
+      }, 2000)
     }
   }, [searchParams, toast, fetchIntegrations, router, oauthProcessed])
 
@@ -176,18 +204,28 @@ export default function IntegrationsContent() {
   const handleRefresh = async () => {
     try {
       console.log("Manual refresh triggered")
+      setLocalLoading(true)
+      setLoadError(null)
+
       await fetchIntegrations(true)
 
       toast({
-        title: "Refreshed",
-        description: "Integration data has been refreshed.",
+        title: "Refreshed Successfully",
+        description: "Integration data has been updated.",
+        duration: 3000,
       })
     } catch (err: any) {
+      console.error("Refresh failed:", err)
+      setLoadError("Failed to refresh integration data. Please try again.")
+
       toast({
         title: "Refresh Failed",
-        description: "Could not refresh integration data. Please try again.",
+        description: "Could not refresh integration data. Please check your connection and try again.",
         variant: "destructive",
+        duration: 6000,
       })
+    } finally {
+      setLocalLoading(false)
     }
   }
 
@@ -202,7 +240,7 @@ export default function IntegrationsContent() {
 
       // Set a timeout to prevent infinite loading
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error("Request timed out")), 10000)
+        setTimeout(() => reject(new Error("Request timed out")), 30000)
       })
 
       const fetchPromise = fetch("/api/integrations/refresh-all-tokens", {
@@ -222,23 +260,45 @@ export default function IntegrationsContent() {
       }
 
       // Show success message with details
+      const { stats } = data
+      let message = `Token refresh completed: ${stats.successful} refreshed`
+
+      if (stats.skipped > 0) {
+        message += `, ${stats.skipped} already valid`
+      }
+
+      if (stats.failed > 0) {
+        message += `, ${stats.failed} failed`
+      }
+
       toast({
         title: "Tokens Refreshed",
-        description: `${data.stats.successful} refreshed, ${data.stats.skipped} already valid, ${data.stats.failed} failed`,
-        duration: 5000,
+        description: message,
+        duration: 6000,
       })
 
       // If any tokens were refreshed, update the UI
-      if (data.stats.successful > 0) {
+      if (stats.successful > 0 || stats.failed > 0) {
         await fetchIntegrations(true)
       }
     } catch (err: any) {
       console.error("Failed to refresh tokens:", err)
+
+      let errorMessage = "Could not refresh integration tokens. Please try again."
+
+      if (err.message?.includes("timeout")) {
+        errorMessage = "Token refresh timed out. Please try again later."
+      } else if (err.message?.includes("authentication")) {
+        errorMessage = "Authentication error. Please log in again."
+      } else if (err.message?.includes("network")) {
+        errorMessage = "Network error. Please check your connection and try again."
+      }
+
       toast({
         title: "Refresh Failed",
-        description: err.message || "Could not refresh integration tokens. Please try again.",
+        description: errorMessage,
         variant: "destructive",
-        duration: 7000,
+        duration: 8000,
       })
     } finally {
       setTokenRefreshing(false)

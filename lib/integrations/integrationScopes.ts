@@ -1,460 +1,131 @@
-export interface IntegrationScope {
-  scope: string
-  description: string
-  required: boolean
-}
-
-export interface IntegrationScopeConfig {
-  provider: string
-  scopes: IntegrationScope[]
-  components: {
-    [componentType: string]: string[]
-  }
-}
-
-// The scope definitions are in this object:
-export const INTEGRATION_SCOPES: Record<string, IntegrationScopeConfig> = {
+// Add comprehensive scope definitions for all providers
+export const INTEGRATION_SCOPES = {
   slack: {
-    provider: "slack",
-    scopes: [
-      { scope: "channels:read", description: "View channels in workspace", required: true },
-      { scope: "chat:write", description: "Send messages", required: true },
-      { scope: "users:read", description: "View people in workspace", required: false },
-      { scope: "channels:history", description: "View messages in channels", required: false },
-    ],
-    components: {
-      "slack-send-message": ["channels:read", "chat:write"],
-      "slack-get-channels": ["channels:read"],
-      "slack-get-users": ["users:read"],
-      "slack-get-messages": ["channels:history"],
-    },
-  },
-  gmail: {
-    provider: "gmail",
-    scopes: [
-      {
-        scope: "https://www.googleapis.com/auth/userinfo.email",
-        description: "View email address",
-        required: true,
-      },
-      {
-        scope: "https://www.googleapis.com/auth/userinfo.profile",
-        description: "View basic profile info",
-        required: true,
-      },
-      {
-        scope: "https://www.googleapis.com/auth/gmail.send",
-        description: "Send emails",
-        required: true,
-      },
-      {
-        scope: "https://www.googleapis.com/auth/gmail.readonly",
-        description: "Read emails",
-        required: false,
-      },
-      {
-        scope: "https://www.googleapis.com/auth/gmail.modify",
-        description: "Read and modify emails",
-        required: false,
-      },
-    ],
-    components: {
-      "gmail-send-email": ["https://www.googleapis.com/auth/gmail.send"],
-      "gmail-read-emails": ["https://www.googleapis.com/auth/gmail.readonly"],
-      "gmail-modify-emails": ["https://www.googleapis.com/auth/gmail.modify"],
-    },
-  },
-  "google-drive": {
-    provider: "google-drive",
-    scopes: [
-      {
-        scope: "https://www.googleapis.com/auth/userinfo.email",
-        description: "View email address",
-        required: true,
-      },
-      {
-        scope: "https://www.googleapis.com/auth/userinfo.profile",
-        description: "View basic profile info",
-        required: true,
-      },
-      {
-        scope: "https://www.googleapis.com/auth/drive",
-        description: "Full access to Google Drive",
-        required: true,
-      },
-      {
-        scope: "https://www.googleapis.com/auth/drive.file",
-        description: "View and manage Google Drive files created by this app",
-        required: false,
-      },
-    ],
-    components: {
-      "drive-upload-file": ["https://www.googleapis.com/auth/drive.file"],
-      "drive-full-access": ["https://www.googleapis.com/auth/drive"],
-      "drive-create-folder": ["https://www.googleapis.com/auth/drive"],
-      "drive-share-file": ["https://www.googleapis.com/auth/drive"],
-    },
-  },
-  "google-calendar": {
-    provider: "google-calendar",
-    scopes: [
-      {
-        scope: "https://www.googleapis.com/auth/userinfo.email",
-        description: "View email address",
-        required: true,
-      },
-      {
-        scope: "https://www.googleapis.com/auth/userinfo.profile",
-        description: "View basic profile info",
-        required: true,
-      },
-      {
-        scope: "https://www.googleapis.com/auth/calendar",
-        description: "View and manage calendar",
-        required: true,
-      },
-      {
-        scope: "https://www.googleapis.com/auth/calendar.events",
-        description: "View and edit calendar events",
-        required: false,
-      },
-    ],
-    components: {
-      "calendar-read-events": ["https://www.googleapis.com/auth/calendar"],
-      "calendar-create-event": ["https://www.googleapis.com/auth/calendar.events"],
-      "calendar-update-event": ["https://www.googleapis.com/auth/calendar"],
-      "calendar-delete-event": ["https://www.googleapis.com/auth/calendar"],
-    },
-  },
-  "google-sheets": {
-    provider: "google-sheets",
-    scopes: [
-      {
-        scope: "https://www.googleapis.com/auth/userinfo.email",
-        description: "View email address",
-        required: true,
-      },
-      {
-        scope: "https://www.googleapis.com/auth/userinfo.profile",
-        description: "View basic profile info",
-        required: true,
-      },
-      {
-        scope: "https://www.googleapis.com/auth/spreadsheets",
-        description: "View and edit Google Sheets",
-        required: true,
-      },
-    ],
-    components: {
-      "sheets-read-data": ["https://www.googleapis.com/auth/spreadsheets"],
-      "sheets-write-data": ["https://www.googleapis.com/auth/spreadsheets"],
-      "sheets-create-sheet": ["https://www.googleapis.com/auth/spreadsheets"],
-      "sheets-format-cells": ["https://www.googleapis.com/auth/spreadsheets"],
-    },
-  },
-  "google-docs": {
-    provider: "google-docs",
-    scopes: [
-      {
-        scope: "https://www.googleapis.com/auth/userinfo.email",
-        description: "View email address",
-        required: true,
-      },
-      {
-        scope: "https://www.googleapis.com/auth/userinfo.profile",
-        description: "View basic profile info",
-        required: true,
-      },
-      {
-        scope: "https://www.googleapis.com/auth/documents",
-        description: "View and edit Google Docs",
-        required: true,
-      },
-      {
-        scope: "https://www.googleapis.com/auth/drive.file",
-        description: "View and manage Google Drive files created by this app",
-        required: false,
-      },
-    ],
-    components: {
-      "docs-read-document": ["https://www.googleapis.com/auth/documents"],
-      "docs-create-document": ["https://www.googleapis.com/auth/documents"],
-      "docs-edit-document": ["https://www.googleapis.com/auth/documents"],
-      "docs-share-document": [
-        "https://www.googleapis.com/auth/documents",
-        "https://www.googleapis.com/auth/drive.file",
-      ],
-    },
+    required: ["chat:write", "channels:read", "users:read"],
+    optional: ["files:read", "groups:read", "im:read", "mpim:read"],
   },
   discord: {
-    provider: "discord",
-    scopes: [
-      { scope: "identify", description: "Access basic account info", required: true },
-      { scope: "guilds", description: "View servers", required: true },
-      { scope: "guilds.join", description: "Join servers for you", required: false },
-      { scope: "messages.read", description: "Read message history", required: false },
-    ],
-    components: {
-      "discord-send-message": ["identify", "guilds"],
-      "discord-create-command": ["identify", "guilds"],
-      "discord-get-guilds": ["guilds"],
-      "discord-join-guild": ["guilds.join"],
-      "discord-read-messages": ["messages.read"],
-    },
+    required: ["identify", "guilds"],
+    optional: ["guilds.join", "messages.read"],
   },
   github: {
-    provider: "github",
-    scopes: [
-      { scope: "user", description: "Read user profile information", required: true },
-      { scope: "public_repo", description: "Access public repositories", required: false },
-      { scope: "repo", description: "Full control of private repositories", required: true },
-      { scope: "gist", description: "Create gists", required: false },
-      { scope: "notifications", description: "Access notifications", required: false },
-    ],
-    components: {
-      "github-get-user": ["user"],
-      "github-get-repos": ["public_repo"],
-      "github-create-repo": ["repo"],
-      "github-create-issue": ["repo"],
-      "github-create-gist": ["gist"],
-      "github-get-notifications": ["notifications"],
-    },
+    required: ["repo", "user:email"],
+    optional: ["read:org", "gist"],
   },
-  gitlab: {
-    provider: "gitlab",
-    scopes: [
-      { scope: "read_user", description: "Read user information", required: true },
-      { scope: "read_api", description: "Access API", required: true },
-      { scope: "read_repository", description: "Read repositories", required: false },
-      { scope: "write_repository", description: "Write to repositories", required: false },
-    ],
-    components: {
-      "gitlab-create-issue": ["read_api", "write_repository"],
-      "gitlab-create-merge-request": ["read_api", "write_repository"],
-      "gitlab-get-projects": ["read_api", "read_repository"],
-      "gitlab-get-user": ["read_user"],
-    },
+  google: {
+    required: ["https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"],
+    optional: [],
   },
-  dropbox: {
-    provider: "dropbox",
-    scopes: [
-      { scope: "account_info.read", description: "View account information", required: true },
-      { scope: "files.metadata.write", description: "Edit file and folder metadata", required: false },
-      { scope: "files.metadata.read", description: "View file and folder metadata", required: false },
-      { scope: "files.content.write", description: "Edit file contents", required: false },
-      { scope: "files.content.read", description: "View file contents", required: false },
-    ],
-    components: {
-      "dropbox-upload-file": ["files.content.write"],
-      "dropbox-download-file": ["files.content.read"],
-      "dropbox-list-files": ["files.metadata.read"],
-      "dropbox-create-folder": ["files.metadata.write"],
-    },
+  gmail: {
+    required: ["https://www.googleapis.com/auth/gmail.send", "https://www.googleapis.com/auth/gmail.modify"],
+    optional: ["https://www.googleapis.com/auth/gmail.readonly"],
   },
-  notion: {
-    provider: "notion",
-    scopes: [
-      { scope: "read_user", description: "Read user information", required: true },
-      { scope: "read_content", description: "Read workspace content", required: true },
-      { scope: "update_content", description: "Update pages and databases", required: false },
-      { scope: "insert_content", description: "Create new pages and databases", required: false },
-    ],
-    components: {
-      "notion-read-page": ["read_user", "read_content"],
-      "notion-create-page": ["read_user", "insert_content"],
-      "notion-update-page": ["read_user", "update_content"],
-      "notion-delete-page": ["read_user", "update_content"],
-    },
+  "google-sheets": {
+    required: ["https://www.googleapis.com/auth/spreadsheets"],
+    optional: ["https://www.googleapis.com/auth/drive.readonly"],
   },
-  airtable: {
-    provider: "airtable",
-    scopes: [
-      { scope: "data.records:read", description: "Read records from Airtable bases", required: true },
-      { scope: "data.records:write", description: "Write records to Airtable bases", required: true },
-      { scope: "schema.bases:read", description: "Read Airtable base schema", required: true },
-      { scope: "schema.bases:write", description: "Write Airtable base schema", required: false },
-    ],
-    components: {
-      "airtable-read-records": ["data.records:read"],
-      "airtable-write-records": ["data.records:write"],
-      "airtable-read-schema": ["schema.bases:read"],
-      "airtable-write-schema": ["schema.bases:write"],
-    },
+  "google-calendar": {
+    required: ["https://www.googleapis.com/auth/calendar"],
+    optional: ["https://www.googleapis.com/auth/calendar.events"],
   },
-  teams: {
-    provider: "teams",
-    scopes: [
-      { scope: "openid", description: "Authenticate with Microsoft", required: true },
-      { scope: "profile", description: "Access basic profile info", required: true },
-      { scope: "email", description: "Access email address", required: true },
-      { scope: "offline_access", description: "Allow offline access (refresh tokens)", required: false },
-      { scope: "https://graph.microsoft.com/User.Read", description: "Read user profile", required: true },
-      {
-        scope: "https://graph.microsoft.com/Chat.ReadWrite",
-        description: "Read and write chat messages",
-        required: false,
-      },
-      {
-        scope: "https://graph.microsoft.com/ChannelMessage.Send",
-        description: "Send messages to channels",
-        required: false,
-      },
-      {
-        scope: "https://graph.microsoft.com/Team.ReadBasic.All",
-        description: "Read basic team information",
-        required: false,
-      },
-      {
-        scope: "https://graph.microsoft.com/Channel.ReadBasic.All",
-        description: "Read basic channel information",
-        required: false,
-      },
-    ],
-    components: {
-      "teams-get-user": ["https://graph.microsoft.com/User.Read"],
-      "teams-get-profile": ["profile"],
-      "teams-send-message": ["https://graph.microsoft.com/Chat.ReadWrite"],
-      "teams-send-channel-message": ["https://graph.microsoft.com/ChannelMessage.Send"],
-      "teams-get-teams": ["https://graph.microsoft.com/Team.ReadBasic.All"],
-      "teams-get-channels": ["https://graph.microsoft.com/Channel.ReadBasic.All"],
-    },
+  "google-docs": {
+    required: ["https://www.googleapis.com/auth/documents"],
+    optional: ["https://www.googleapis.com/auth/drive.file"],
   },
-  trello: {
-    provider: "trello",
-    scopes: [
-      { scope: "read", description: "Read boards, cards, and workspaces", required: true },
-      { scope: "write", description: "Create and update cards, boards, and lists", required: true },
-      { scope: "account", description: "Access account info", required: false },
-    ],
-    components: {
-      "trello-read-board": ["read"],
-      "trello-create-card": ["write"],
-      "trello-update-card": ["write"],
-      "trello-get-user": ["account"],
-    },
-  },
-  facebook: {
-    provider: "facebook",
-    scopes: [
-      { scope: "public_profile", description: "Access public profile information", required: true },
-      { scope: "email", description: "Access your email address", required: true },
-      { scope: "pages_show_list", description: "Show list of managed Facebook Pages", required: true },
-      { scope: "pages_manage_posts", description: "Create and manage posts for Pages", required: false },
-      { scope: "pages_read_engagement", description: "Read engagement metrics from Pages", required: false },
-      { scope: "pages_manage_metadata", description: "Manage Page settings and metadata", required: false },
-    ],
-    components: {
-      "facebook-post-to-page": ["pages_manage_posts"],
-      "facebook-read-page-engagement": ["pages_read_engagement"],
-      "facebook-get-pages": ["pages_show_list"],
-    },
+  "google-drive": {
+    required: ["https://www.googleapis.com/auth/drive"],
+    optional: ["https://www.googleapis.com/auth/drive.file"],
   },
   youtube: {
-    provider: "youtube",
-    scopes: [
-      {
-        scope: "https://www.googleapis.com/auth/youtube.readonly",
-        description: "View your YouTube account",
-        required: true,
-      },
-      {
-        scope: "https://www.googleapis.com/auth/userinfo.profile",
-        description: "View basic profile info",
-        required: false,
-      },
-      {
-        scope: "https://www.googleapis.com/auth/userinfo.email",
-        description: "View email address",
-        required: false,
-      },
-      {
-        scope: "https://www.googleapis.com/auth/youtube.upload",
-        description: "Upload videos to your YouTube channel",
-        required: true,
-      },
-    ],
-    components: {
-      "youtube-get-channel": ["https://www.googleapis.com/auth/youtube.readonly"],
-      "youtube-get-videos": ["https://www.googleapis.com/auth/youtube.readonly"],
-      "youtube-upload-video": ["https://www.googleapis.com/auth/youtube.upload"],
-      "youtube-get-analytics": ["https://www.googleapis.com/auth/youtube.readonly"],
-    },
+    required: ["https://www.googleapis.com/auth/youtube.readonly"],
+    optional: ["https://www.googleapis.com/auth/youtube.upload"],
   },
-  mailchimp: {
-    provider: "mailchimp",
-    scopes: [{ scope: "basic_access", description: "Access to Mailchimp account", required: true }],
-    components: {
-      "mailchimp-send-campaign": ["basic_access"],
-      "mailchimp-manage-lists": ["basic_access"],
-      "mailchimp-view-reports": ["basic_access"],
-    },
+  notion: {
+    required: [],
+    optional: [],
   },
-  hubspot: {
-    provider: "hubspot",
-    scopes: [
-      { scope: "oauth", description: "Required for OAuth authentication", required: true },
-      { scope: "crm.objects.contacts.read", description: "Read contact information", required: true },
-      { scope: "crm.objects.contacts.write", description: "Create and update contacts", required: false },
-      { scope: "crm.objects.companies.read", description: "Read company information", required: false },
-      { scope: "crm.objects.companies.write", description: "Create and update companies", required: false },
-      { scope: "crm.objects.deals.read", description: "Read deal information", required: false },
-      { scope: "crm.objects.deals.write", description: "Create and update deals", required: false },
-      { scope: "crm.schemas.contacts.read", description: "Read contact properties", required: false },
-      { scope: "crm.schemas.companies.read", description: "Read company properties", required: false },
-      { scope: "crm.schemas.deals.read", description: "Read deal properties", required: false },
-    ],
-    components: {
-      "hubspot-create-contact": ["oauth", "crm.objects.contacts.write"],
-      "hubspot-read-contacts": ["oauth", "crm.objects.contacts.read"],
-      "hubspot-create-company": ["oauth", "crm.objects.companies.write"],
-      "hubspot-read-companies": ["oauth", "crm.objects.companies.read"],
-      "hubspot-create-deal": ["oauth", "crm.objects.deals.write"],
-      "hubspot-read-deals": ["oauth", "crm.objects.deals.read"],
-    },
+  trello: {
+    required: ["read", "write"],
+    optional: ["account"],
+  },
+  airtable: {
+    required: ["data.records:read", "data.records:write"],
+    optional: ["schema.bases:read"],
+  },
+  dropbox: {
+    required: ["files.content.read", "files.content.write"],
+    optional: ["sharing.read", "sharing.write"],
+  },
+  twitter: {
+    required: ["tweet.read", "users.read"],
+    optional: ["tweet.write", "follows.read"],
   },
   linkedin: {
-    provider: "linkedin",
-    scopes: [
-      { scope: "openid", description: "Authenticate with LinkedIn", required: true },
-      { scope: "profile", description: "Access basic profile info", required: true },
-      { scope: "email", description: "Access email address", required: true },
-      { scope: "w_member_social", description: "Post content on your behalf", required: false },
-    ],
-    components: {
-      "linkedin-post": ["w_member_social"],
-      "linkedin-get-profile": ["profile"],
-      "linkedin-get-email": ["email"],
-    },
+    required: ["r_liteprofile"],
+    optional: ["w_member_social"],
+  },
+  facebook: {
+    required: ["public_profile"],
+    optional: ["pages_manage_posts", "pages_read_engagement"],
+  },
+  instagram: {
+    required: ["user_profile"],
+    optional: ["user_media"],
+  },
+  tiktok: {
+    required: ["user.info.basic"],
+    optional: ["video.list", "video.upload"],
+  },
+  teams: {
+    required: ["User.Read"],
+    optional: ["Chat.ReadWrite", "Files.ReadWrite"],
+  },
+  onedrive: {
+    required: ["Files.Read"],
+    optional: ["Files.ReadWrite"],
+  },
+  hubspot: {
+    required: ["crm.objects.contacts.read"],
+    optional: ["crm.objects.deals.read", "crm.objects.companies.read"],
+  },
+  mailchimp: {
+    required: ["basic_access"],
+    optional: [],
+  },
+  shopify: {
+    required: ["read_products"],
+    optional: ["write_products", "read_orders"],
+  },
+  stripe: {
+    required: [],
+    optional: [],
+  },
+  paypal: {
+    required: [],
+    optional: [],
+  },
+  gitlab: {
+    required: ["read_user", "read_api"],
+    optional: ["read_repository"],
+  },
+  docker: {
+    required: [],
+    optional: [],
   },
 }
 
-// This function extracts required scopes:
 export function getRequiredScopes(provider: string): string[] {
-  const config = INTEGRATION_SCOPES[provider]
-  if (!config) return []
-
-  return config.scopes.filter((scope) => scope.required).map((scope) => scope.scope)
+  return INTEGRATION_SCOPES[provider]?.required || []
 }
 
 export function getOptionalScopes(provider: string): string[] {
-  const config = INTEGRATION_SCOPES[provider]
-  if (!config) return []
-
-  return config.scopes.filter((scope) => !scope.required).map((scope) => scope.scope)
+  return INTEGRATION_SCOPES[provider]?.optional || []
 }
 
 export function getAllScopes(provider: string): string[] {
   const config = INTEGRATION_SCOPES[provider]
   if (!config) return []
-
-  return config.scopes.map((scope) => scope.scope)
-}
-
-export function getComponentScopes(provider: string, componentType: string): string[] {
-  const config = INTEGRATION_SCOPES[provider]
-  if (!config || !config.components[componentType]) return []
-
-  return config.components[componentType]
+  return [...config.required, ...config.optional]
 }
 
 export function validateScopes(
@@ -468,194 +139,57 @@ export function validateScopes(
 } {
   const requiredScopes = getRequiredScopes(provider)
   const missing = requiredScopes.filter((scope) => !grantedScopes.includes(scope))
-
-  let status: "valid" | "invalid" | "partial"
-  if (missing.length === 0) {
-    status = "valid"
-  } else if (missing.length === requiredScopes.length) {
-    status = "invalid"
-  } else {
-    status = "partial"
-  }
+  const granted = grantedScopes.filter((scope) => requiredScopes.includes(scope))
 
   return {
     valid: missing.length === 0,
     missing,
-    granted: grantedScopes,
-    status,
+    granted,
+    status: missing.length === 0 ? "valid" : missing.length === requiredScopes.length ? "invalid" : "partial",
   }
 }
 
-export function canUseComponent(provider: string, componentType: string, grantedScopes: string[]): boolean {
-  const requiredScopes = getComponentScopes(provider, componentType)
-  return requiredScopes.every((scope) => grantedScopes.includes(scope))
-}
-
-export function getScopeDescription(provider: string, scope: string): string {
-  const config = INTEGRATION_SCOPES[provider]
-  if (!config) return scope
-
-  const scopeConfig = config.scopes.find((s) => s.scope === scope)
-  return scopeConfig?.description || scope
-}
-
-export function isRequiredScope(provider: string, scope: string): boolean {
+export function isComponentAvailable(provider: string): boolean {
+  // Check if the provider is supported and has proper configuration
   const config = INTEGRATION_SCOPES[provider]
   if (!config) return false
 
-  const scopeConfig = config.scopes.find((s) => s.scope === scope)
-  return scopeConfig?.required || false
+  // Check if required environment variables are available
+  const envVars = getRequiredEnvVars(provider)
+  return envVars.every((envVar) => process.env[envVar])
 }
 
-/**
- * Determines if a component is available based on granted scopes
- *
- * @param provider The integration provider (e.g., "slack", "google")
- * @param componentId The component identifier (e.g., "slack-send-message")
- * @param grantedScopes Array of scopes granted by the OAuth provider
- * @returns Boolean indicating if the component is available
- */
-export function isComponentAvailable(provider: string, componentId: string, grantedScopes: string[]): boolean {
-  return canUseComponent(provider, componentId, grantedScopes)
-}
-
-/**
- * Generates the OAuth URL with all required scopes for a provider
- *
- * @param provider The integration provider (e.g., "slack", "google")
- * @param baseUrl The base URL for the OAuth redirect
- * @param state OAuth state parameter
- * @returns The complete OAuth URL with all required scopes
- */
-export function generateOAuthUrlWithScopes(provider: string, baseUrl: string, state: string): string | null {
-  const allScopes = getAllScopes(provider)
-  if (!allScopes.length) return null
-
-  const redirectUri = `${baseUrl}/api/integrations/${provider}/callback`
-
-  switch (provider) {
-    case "slack":
-      if (process.env.NEXT_PUBLIC_SLACK_CLIENT_ID) {
-        const scopesParam = allScopes.join(",")
-        return `https://slack.com/oauth/v2/authorize?client_id=${
-          process.env.NEXT_PUBLIC_SLACK_CLIENT_ID
-        }&scope=${scopesParam}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}`
-      }
-      break
-    case "gmail":
-    case "google-calendar":
-    case "google-sheets":
-    case "google-docs":
-    case "youtube":
-      if (process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) {
-        const scopesParam = allScopes.join(" ")
-        return `https://accounts.google.com/o/oauth2/v2/auth?client_id=${
-          process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
-        }&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(
-          scopesParam,
-        )}&response_type=code&state=${state}&access_type=offline&prompt=consent`
-      }
-      break
-
-    case "discord":
-      if (process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID) {
-        const scopesParam = allScopes.join(" ")
-        return `https://discord.com/api/oauth2/authorize?client_id=${
-          process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID
-        }&redirect_uri=${encodeURIComponent(
-          redirectUri,
-        )}&response_type=code&scope=${encodeURIComponent(scopesParam)}&state=${state}`
-      }
-      break
-    case "github":
-      if (process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID) {
-        const scopesParam = allScopes.join(" ")
-        return `https://github.com/login/oauth/authorize?client_id=${
-          process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID
-        }&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scopesParam)}&state=${state}`
-      }
-      break
-    case "gitlab":
-      if (process.env.NEXT_PUBLIC_GITLAB_CLIENT_ID) {
-        const scopesParam = allScopes.join(" ")
-        return `https://gitlab.com/oauth/authorize?client_id=${
-          process.env.NEXT_PUBLIC_GITLAB_CLIENT_ID
-        }&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scopesParam)}&state=${state}`
-      }
-      break
-    case "dropbox":
-      if (process.env.NEXT_PUBLIC_DROPBOX_CLIENT_ID) {
-        // Dropbox doesn't use scopes in the authorization URL
-        return `https://www.dropbox.com/oauth2/authorize?client_id=${
-          process.env.NEXT_PUBLIC_DROPBOX_CLIENT_ID
-        }&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&token_access_type=offline&state=${state}`
-      }
-      break
-    case "notion":
-      if (process.env.NEXT_PUBLIC_NOTION_CLIENT_ID) {
-        const scopesParam = allScopes.join(" ")
-        return `https://api.notion.com/v1/oauth/authorize?client_id=${
-          process.env.NEXT_PUBLIC_NOTION_CLIENT_ID
-        }&redirect_uri=${encodeURIComponent(
-          redirectUri,
-        )}&response_type=code&owner=user&scope=${encodeURIComponent(scopesParam)}&state=${state}`
-      }
-      break
-    case "airtable":
-      if (process.env.NEXT_PUBLIC_AIRTABLE_CLIENT_ID) {
-        const scopesParam = allScopes.join(" ")
-        return `https://airtable.com/oauth2/v1/authorize?client_id=${
-          process.env.NEXT_PUBLIC_AIRTABLE_CLIENT_ID
-        }&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(
-          scopesParam,
-        )}&state=${state}`
-      }
-      break
-    case "teams":
-      if (process.env.NEXT_PUBLIC_TEAMS_CLIENT_ID) {
-        const scopesParam = allScopes.join(" ")
-        return `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=${
-          process.env.NEXT_PUBLIC_TEAMS_CLIENT_ID
-        }&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(
-          scopesParam,
-        )}&response_mode=query&access_type=offline&prompt=consent&state=${state}`
-      }
-      break
-    case "trello":
-      if (process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID) {
-        const scopesParam = getAllScopes("trello").join(",")
-        return `https://trello.com/1/authorize?expiration=never&name=ChainReactApp&scope=${scopesParam}&response_type=token&client_id=${
-          process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID
-        }&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}`
-      }
-      break
-    case "facebook":
-      if (process.env.NEXT_PUBLIC_FACEBOOK_CLIENT_ID) {
-        const scopesParam = allScopes.join(",")
-        return `https://www.facebook.com/v18.0/dialog/oauth?client_id=${
-          process.env.NEXT_PUBLIC_FACEBOOK_CLIENT_ID
-        }&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&scope=${encodeURIComponent(scopesParam)}&response_type=code`
-      }
-      break
-    case "mailchimp":
-      if (process.env.NEXT_PUBLIC_MAILCHIMP_CLIENT_ID) {
-        // Mailchimp doesn't use scopes in the authorization URL
-        return `https://login.mailchimp.com/oauth2/authorize?client_id=${
-          process.env.NEXT_PUBLIC_MAILCHIMP_CLIENT_ID
-        }&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&state=${state}`
-      }
-      break
-    case "hubspot":
-      if (process.env.NEXT_PUBLIC_HUBSPOT_CLIENT_ID) {
-        const scopesParam = allScopes.join(" ")
-        return `https://app.hubspot.com/oauth/authorize?client_id=${
-          process.env.NEXT_PUBLIC_HUBSPOT_CLIENT_ID
-        }&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scopesParam)}&state=${state}`
-      }
-      break
-
-    // Add other providers as needed
+function getRequiredEnvVars(provider: string): string[] {
+  const envVarMap: Record<string, string[]> = {
+    slack: ["NEXT_PUBLIC_SLACK_CLIENT_ID", "SLACK_CLIENT_SECRET"],
+    discord: ["NEXT_PUBLIC_DISCORD_CLIENT_ID", "DISCORD_CLIENT_SECRET"],
+    github: ["NEXT_PUBLIC_GITHUB_CLIENT_ID", "GITHUB_CLIENT_SECRET"],
+    google: ["NEXT_PUBLIC_GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"],
+    gmail: ["NEXT_PUBLIC_GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"],
+    "google-sheets": ["NEXT_PUBLIC_GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"],
+    "google-calendar": ["NEXT_PUBLIC_GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"],
+    "google-docs": ["NEXT_PUBLIC_GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"],
+    "google-drive": ["NEXT_PUBLIC_GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"],
+    youtube: ["NEXT_PUBLIC_YOUTUBE_CLIENT_ID", "YOUTUBE_CLIENT_SECRET"],
+    notion: ["NEXT_PUBLIC_NOTION_CLIENT_ID", "NOTION_CLIENT_SECRET"],
+    trello: ["NEXT_PUBLIC_TRELLO_CLIENT_ID", "TRELLO_CLIENT_SECRET"],
+    airtable: ["NEXT_PUBLIC_AIRTABLE_CLIENT_ID", "AIRTABLE_CLIENT_SECRET"],
+    dropbox: ["NEXT_PUBLIC_DROPBOX_CLIENT_ID", "DROPBOX_CLIENT_SECRET"],
+    twitter: ["NEXT_PUBLIC_TWITTER_CLIENT_ID", "TWITTER_CLIENT_SECRET"],
+    linkedin: ["NEXT_PUBLIC_LINKEDIN_CLIENT_ID", "LINKEDIN_CLIENT_SECRET"],
+    facebook: ["NEXT_PUBLIC_FACEBOOK_CLIENT_ID", "FACEBOOK_CLIENT_SECRET"],
+    instagram: ["NEXT_PUBLIC_INSTAGRAM_CLIENT_ID", "INSTAGRAM_CLIENT_SECRET"],
+    tiktok: ["NEXT_PUBLIC_TIKTOK_CLIENT_ID", "TIKTOK_CLIENT_SECRET"],
+    teams: ["NEXT_PUBLIC_TEAMS_CLIENT_ID", "TEAMS_CLIENT_SECRET"],
+    onedrive: ["NEXT_PUBLIC_ONEDRIVE_CLIENT_ID", "ONEDRIVE_CLIENT_SECRET"],
+    hubspot: ["NEXT_PUBLIC_HUBSPOT_CLIENT_ID", "HUBSPOT_CLIENT_SECRET"],
+    mailchimp: ["NEXT_PUBLIC_MAILCHIMP_CLIENT_ID", "MAILCHIMP_CLIENT_SECRET"],
+    shopify: ["NEXT_PUBLIC_SHOPIFY_CLIENT_ID", "SHOPIFY_CLIENT_SECRET"],
+    stripe: ["NEXT_PUBLIC_STRIPE_CLIENT_ID", "STRIPE_CLIENT_SECRET"],
+    paypal: ["NEXT_PUBLIC_PAYPAL_CLIENT_ID", "PAYPAL_CLIENT_SECRET"],
+    gitlab: ["NEXT_PUBLIC_GITLAB_CLIENT_ID", "GITLAB_CLIENT_SECRET"],
+    docker: ["NEXT_PUBLIC_DOCKER_CLIENT_ID", "DOCKER_CLIENT_SECRET"],
   }
 
-  return null
+  return envVarMap[provider] || []
 }

@@ -1,60 +1,81 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/utils/supabase/server"
-import { getSession } from "@/utils/supabase/server"
+import { createAdminSupabaseClient } from "@/lib/oauth/utils"
+import { refreshTokenIfNeeded } from "@/lib/integrations/tokenRefresher"
 
 export async function POST(request: NextRequest) {
   try {
-    // Check authentication
-    const session = await getSession()
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
     const { provider, integrationId } = await request.json()
 
-    if (!provider && !integrationId) {
-      return NextResponse.json({ error: "Provider or integrationId is required" }, { status: 400 })
+    if (!provider) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Provider is required",
+        },
+        { status: 400 },
+      )
     }
 
-    const supabase = createClient()
-    const userId = session.user.id
+    const supabase = createAdminSupabaseClient()
+    if (!supabase) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Database connection failed",
+        },
+        { status: 500 },
+      )
+    }
 
-    // Get the integration
-    let query = supabase.from("integrations").select("*").eq("user_id", userId)
+    // Get integration by ID or provider
+    let query = supabase.from("integrations").select("*")
 
     if (integrationId) {
       query = query.eq("id", integrationId)
-    } else if (provider) {
-      query = query.eq("provider", provider)
+    } else {
+      query = query.eq("provider", provider).eq("status", "connected")
     }
 
-    const { data: integration, error } = await query.single()
+    const { data: integration, error: fetchError } = await query.single()
 
-    if (error || !integration) {
-      return NextResponse.json({ error: "Integration not found" }, { status: 404 })
+    if (fetchError || !integration) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `No ${provider} integration found`,
+        },
+        { status: 404 },
+      )
     }
 
-    if (!integration.refresh_token) {
-      return NextResponse.json({ error: "No refresh token available" }, { status: 400 })
+    // Attempt to refresh the token
+    const refreshResult = await refreshTokenIfNeeded(integration)
+
+    if (refreshResult.success) {
+      return NextResponse.json({
+        success: true,
+        message: refreshResult.message,
+        refreshed: refreshResult.refreshed,
+      })
+    } else {
+      return NextResponse.json(
+        {
+          success: false,
+          error: refreshResult.message,
+          requiresReconnect: refreshResult.requiresReconnect,
+        },
+        { status: refreshResult.requiresReconnect ? 401 : 500 },
+      )
     }
-
-    // Refresh the token (implementation depends on the provider)
-    // This is a simplified example
-    const refreshResult = await refreshToken(integration)
-
-    return NextResponse.json({
-      message: "Token refreshed successfully",
-      provider: integration.provider,
-      status: refreshResult.status,
-    })
   } catch (error: any) {
-    console.error("Error refreshing token:", error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    console.error("Error in token refresh API:", error)
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Internal server error",
+        details: process.env.NODE_ENV === "development" ? error.message : undefined,
+      },
+      { status: 500 },
+    )
   }
-}
-
-async function refreshToken(integration: any) {
-  // Implementation depends on the provider
-  // This is a placeholder
-  return { status: "success" }
 }

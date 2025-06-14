@@ -4,6 +4,7 @@ import { DropboxOAuthService } from "./DropboxOAuthService"
 import { TwitterOAuthService } from "./twitter"
 import { LinkedInOAuthService } from "./linkedin"
 import { TrelloOAuthService } from "./TrelloOAuthService"
+import { GitLabOAuthService } from "./gitlab"
 
 export interface OAuthProvider {
   generateAuthUrl(baseUrl: string, reconnect?: boolean, integrationId?: string, userId?: string): string
@@ -20,11 +21,52 @@ export function getOAuthProvider(provider: string): OAuthProvider {
     case "dropbox":
       return DropboxOAuthService
     case "twitter":
-      return TwitterOAuthService
+      return {
+        generateAuthUrl: async (baseUrl: string, reconnect = false, integrationId?: string, userId?: string) => {
+          return TwitterOAuthService.generateAuthUrl(baseUrl, reconnect, integrationId, userId)
+        },
+        exchangeCodeForToken: async (code: string) => {
+          // This should only be called server-side
+          if (typeof window !== "undefined") {
+            throw new Error("Token exchange must be done server-side")
+          }
+          throw new Error("Use TwitterOAuthService.handleCallback instead")
+        },
+        getUserInfo: async (accessToken: string) => {
+          const response = await fetch("https://api.twitter.com/2/users/me", {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          })
+          const data = await response.json()
+          return data.data
+        },
+      }
     case "linkedin":
       return LinkedInOAuthService
     case "trello":
       return TrelloOAuthService
+    case "gitlab":
+      return {
+        generateAuthUrl: (baseUrl: string, reconnect = false, integrationId?: string, userId?: string) => {
+          return GitLabOAuthService.generateAuthUrl(baseUrl, reconnect, integrationId, userId)
+        },
+        exchangeCodeForToken: async (code: string) => {
+          // This should only be called server-side
+          if (typeof window !== "undefined") {
+            throw new Error("Token exchange must be done server-side")
+          }
+          throw new Error("Use GitLabOAuthService.handleCallback instead")
+        },
+        getUserInfo: async (accessToken: string) => {
+          const response = await fetch("https://gitlab.com/api/v4/user", {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          })
+          return response.json()
+        },
+      }
     case "github":
       return {
         generateAuthUrl: (baseUrl: string, reconnect = false, integrationId?: string, userId?: string) => {
