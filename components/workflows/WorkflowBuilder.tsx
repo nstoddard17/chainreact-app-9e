@@ -443,7 +443,6 @@ export default function WorkflowBuilder() {
   const { toast } = useToast()
 
   const [dynamicData, setDynamicData] = useState<Record<string, any[]>>({})
-  const [loadingDynamicData, setLoadingDynamicData] = useState<Record<string, boolean>>({})
 
   // Fetch integrations on mount
   useEffect(() => {
@@ -581,16 +580,6 @@ export default function WorkflowBuilder() {
     setSelectedAction(step.actionName)
     setCurrentConfig(step.config)
     setShowConfigModal(true)
-  }
-
-  const handleUpdateStep = () => {
-    const updatedSteps = [...workflowSteps]
-    updatedSteps[currentStepIndex] = {
-      ...updatedSteps[currentStepIndex],
-      config: currentConfig,
-    }
-    setWorkflowSteps(updatedSteps)
-    setShowConfigModal(false)
   }
 
   const handleDeleteStep = (index: number) => {
@@ -756,52 +745,51 @@ export default function WorkflowBuilder() {
   const workflowOptimizations = currentWorkflow ? optimizations[currentWorkflow.id] || [] : []
   const workflowAnomalies = currentWorkflow ? anomalies[currentWorkflow.id] || [] : []
 
-  const fetchDynamicData = useCallback(
-    async (provider: string, dataType: string, cacheKey: string) => {
-      if (dynamicData[cacheKey]) {
-        return dynamicData[cacheKey] || []
-      }
-
-      setLoadingDynamicData((prev) => ({ ...prev, [cacheKey]: true }))
-
-      try {
-        const response = await fetch("/api/integrations/fetch-user-data", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ provider, dataType }),
-        })
-
-        const result = await response.json()
-
-        if (result.success) {
-          setDynamicData((prev) => ({ ...prev, [cacheKey]: result.data }))
-          return result.data
-        } else {
-          console.error("Failed to fetch dynamic data:", result.error)
-          return []
-        }
-      } catch (error) {
-        console.error("Error fetching dynamic data:", error)
-        return []
-      } finally {
-        setLoadingDynamicData((prev) => ({ ...prev, [cacheKey]: false }))
-      }
-    },
-    [dynamicData],
-  )
-
   const getConfigFields = () => {
     const [options, setOptions] = useState<any[]>([])
     const [isLoading, setIsLoading] = useState(false)
+
+    const fetchDynamicData = useCallback(
+      async (field: any) => {
+        const cacheKey = `${field.provider}-${field.dataType}`
+
+        if (dynamicData[cacheKey]) {
+          setOptions(dynamicData[cacheKey])
+          return
+        }
+
+        setIsLoading(true)
+        try {
+          const response = await fetch("/api/integrations/fetch-user-data", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ provider: field.provider, dataType: field.dataType }),
+          })
+
+          const result = await response.json()
+
+          if (result.success) {
+            setOptions(result.data)
+            setDynamicData((prev) => ({ ...prev, [cacheKey]: result.data }))
+          } else {
+            console.error("Failed to fetch dynamic data:", result.error)
+          }
+        } catch (error) {
+          console.error("Error fetching dynamic data:", error)
+        } finally {
+          setIsLoading(false)
+        }
+      },
+      [dynamicData],
+    )
 
     if (currentStepIndex === 0) {
       // For triggers
       return TRIGGER_CONFIGS[selectedAction as keyof typeof TRIGGER_CONFIGS] || []
     } else {
       // For actions - return existing action config fields
-
       if (selectedAction === "Send Email") {
         return [
           { key: "to", label: "To", type: "email", placeholder: "recipient@example.com", required: true },
@@ -1254,11 +1242,11 @@ export default function WorkflowBuilder() {
 
   return (
     <AppLayout>
-      <div className="container mx-auto mt-8">
-        <div className="mb-4 flex items-center justify-between">
+      <div className="container mx-auto p-6">
+        <div className="mb-6 flex items-center justify-between">
           <Button variant="ghost" onClick={handleBack}>
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Back
+            Back to Workflows
           </Button>
           <div className="flex items-center space-x-2">
             <Button variant="outline" onClick={() => setShowAIGenerator(true)}>
@@ -1280,20 +1268,25 @@ export default function WorkflowBuilder() {
           </div>
         </div>
 
-        <h1 className="text-2xl font-bold mb-4">Workflow Builder</h1>
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold">Workflow Builder</h1>
+          <p className="text-muted-foreground">Build powerful automations by connecting your favorite apps</p>
+        </div>
 
+        {/* Integration Status Alert */}
         {connectedIntegrationsCount < integrations.length && (
-          <Card className="mb-4">
-            <CardContent className="py-2">
+          <Card className="mb-6 border-orange-200 bg-orange-50">
+            <CardContent className="p-4">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">
-                    Connect your accounts to unlock the full potential of your workflows.
+                <div className="flex items-center space-x-2">
+                  <div className="h-2 w-2 rounded-full bg-orange-500" />
+                  <p className="text-sm font-medium">
+                    {connectedIntegrationsCount} of {integrations.length} integrations connected
                   </p>
                 </div>
                 <Button
                   size="sm"
-                  variant="secondary"
+                  variant="outline"
                   onClick={handleRefreshIntegrations}
                   disabled={refreshingIntegrations}
                 >
@@ -1302,176 +1295,231 @@ export default function WorkflowBuilder() {
                   ) : (
                     <RefreshCw className="mr-2 h-4 w-4" />
                   )}
-                  Refresh Integrations
+                  Refresh
                 </Button>
               </div>
             </CardContent>
           </Card>
         )}
 
+        {/* Optimization Suggestions */}
         {workflowOptimizations.length > 0 && (
-          <Card className="mb-4">
-            <CardContent className="py-2">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">
-                    <Zap className="mr-2 inline-block h-4 w-4" />
-                    Workflow Optimization Suggestions:
-                  </p>
-                  <ul>
-                    {workflowOptimizations.map((opt, index) => (
-                      <li key={index} className="text-sm">
-                        {opt.description}
+          <Card className="mb-6 border-blue-200 bg-blue-50">
+            <CardContent className="p-4">
+              <div className="flex items-start justify-between">
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <Zap className="h-4 w-4 text-blue-600" />
+                    <p className="text-sm font-medium text-blue-900">Optimization Suggestions Available</p>
+                  </div>
+                  <ul className="space-y-1">
+                    {workflowOptimizations.slice(0, 2).map((opt, index) => (
+                      <li key={index} className="text-sm text-blue-800">
+                        • {opt.description}
                       </li>
                     ))}
                   </ul>
                 </div>
-                <Button size="sm" variant="secondary" onClick={() => setShowOptimizer(true)}>
-                  View Optimizer
+                <Button size="sm" variant="outline" onClick={() => setShowOptimizer(true)}>
+                  View All
                 </Button>
               </div>
             </CardContent>
           </Card>
         )}
 
-        {workflowAnomalies.length > 0 && (
-          <Card className="mb-4">
-            <CardContent className="py-2">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">
-                    <Zap className="mr-2 inline-block h-4 w-4" />
-                    Workflow Anomaly Detection:
-                  </p>
-                  <ul>
-                    {workflowAnomalies.map((anomaly, index) => (
-                      <li key={index} className="text-sm">
-                        {anomaly.description}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                <Button size="sm" variant="secondary" onClick={() => setShowOptimizer(true)}>
-                  View Optimizer
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
+        {/* Workflow Steps */}
         <div className="space-y-4">
-          {workflowSteps.map((step, index) => (
-            <Card key={step.id}>
-              <CardContent className="flex items-center justify-between p-4">
-                <div>
-                  <h3 className="text-lg font-semibold">{step.actionName}</h3>
-                  <p className="text-sm text-muted-foreground">
-                    {step.appName} - {step.actionName}
-                  </p>
-                  {hasConfigurableOptions(step) && (
-                    <Badge variant="secondary">
-                      {Object.keys(step.config).length > 0 ? "Configured" : "Needs Configuration"}
-                    </Badge>
-                  )}
-                </div>
-                <div className="space-x-2">
-                  <Button size="sm" variant="outline" onClick={() => handleEditStep(index)}>
-                    <Edit className="mr-2 h-4 w-4" />
-                    Edit
-                  </Button>
-                  <Button size="sm" variant="destructive" onClick={() => handleDeleteStep(index)}>
-                    <X className="mr-2 h-4 w-4" />
-                    Delete
+          {workflowSteps.length === 0 ? (
+            <Card className="border-dashed">
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <div className="text-center">
+                  <h3 className="text-lg font-semibold mb-2">Start Building Your Workflow</h3>
+                  <p className="text-muted-foreground mb-4">Add your first step to get started</p>
+                  <Button onClick={() => handleAddStep(0)}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add First Step
                   </Button>
                 </div>
               </CardContent>
             </Card>
-          ))}
-          <Button variant="ghost" onClick={() => handleAddStep(workflowSteps.length)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Step
-          </Button>
+          ) : (
+            <>
+              {workflowSteps.map((step, index) => (
+                <div key={step.id} className="relative">
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-4">
+                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-medium">
+                            {index + 1}
+                          </div>
+                          <div>
+                            <h3 className="font-semibold">{step.actionName}</h3>
+                            <p className="text-sm text-muted-foreground">{step.appName}</p>
+                            {hasConfigurableOptions(step) && (
+                              <Badge
+                                variant={Object.keys(step.config).length > 0 ? "default" : "secondary"}
+                                className="mt-1"
+                              >
+                                {Object.keys(step.config).length > 0 ? "Configured" : "Needs Configuration"}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Button size="sm" variant="outline" onClick={() => handleEditStep(index)}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => handleDeleteStep(index)}>
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  {index < workflowSteps.length - 1 && (
+                    <div className="flex justify-center py-2">
+                      <div className="h-6 w-px bg-border" />
+                    </div>
+                  )}
+                </div>
+              ))}
+              <div className="flex justify-center">
+                <Button variant="outline" onClick={() => handleAddStep(workflowSteps.length)}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Step
+                </Button>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
+      {/* All the existing modals remain the same */}
       {/* App Selector Modal */}
       <Dialog open={showAppSelector} onOpenChange={setShowAppSelector}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
-            <DialogTitle>Select an App</DialogTitle>
-            <DialogDescription>Choose the app you want to use for this step.</DialogDescription>
+            <DialogTitle>Choose an App</DialogTitle>
+            <DialogDescription>Select the app you want to use for this workflow step.</DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            {AVAILABLE_INTEGRATIONS.map((app) => (
-              <Button key={app.id} variant="outline" className="w-full" onClick={() => handleAppSelected(app)}>
-                <img src={app.logo || "/placeholder.svg"} alt={app.name} className="h-6 w-6 mr-2" />
-                {app.name}
-              </Button>
-            ))}
+          <div className="grid grid-cols-2 gap-4 py-4">
+            {AVAILABLE_INTEGRATIONS.map((app) => {
+              const integration = integrations.find((i) => i.provider === app.id)
+              const isConnected = integration?.status === "connected"
+
+              return (
+                <Button
+                  key={app.id}
+                  variant="outline"
+                  className="h-auto p-4 justify-start"
+                  onClick={() => handleAppSelected(app)}
+                >
+                  <div className="flex items-center space-x-3">
+                    <img src={app.logo || "/placeholder.svg"} alt={app.name} className="h-8 w-8" />
+                    <div className="text-left">
+                      <div className="font-medium">{app.name}</div>
+                      <div className="text-xs text-muted-foreground">{isConnected ? "Connected" : "Not connected"}</div>
+                    </div>
+                  </div>
+                </Button>
+              )
+            })}
           </div>
         </DialogContent>
       </Dialog>
 
       {/* Action Selector Modal */}
       <Dialog open={showActionSelector} onOpenChange={setShowActionSelector}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>Select an Action</DialogTitle>
-            <DialogDescription>Choose the action you want to perform with {selectedApp?.name}.</DialogDescription>
+            <DialogTitle>Choose an Action</DialogTitle>
+            <DialogDescription>What do you want to do with {selectedApp?.name}?</DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            {selectedApp?.actions.map((action) => (
-              <Button key={action} variant="outline" className="w-full" onClick={() => handleActionSelected(action)}>
-                {action}
-              </Button>
-            ))}
+          <div className="space-y-2 py-4">
+            {currentStepIndex === 0
+              ? // Show triggers for first step
+                selectedApp?.triggers.map((trigger) => (
+                  <Button
+                    key={trigger}
+                    variant="outline"
+                    className="w-full justify-start"
+                    onClick={() => handleActionSelected(trigger)}
+                  >
+                    {trigger}
+                  </Button>
+                ))
+              : // Show actions for subsequent steps
+                selectedApp?.actions.map((action) => (
+                  <Button
+                    key={action}
+                    variant="outline"
+                    className="w-full justify-start"
+                    onClick={() => handleActionSelected(action)}
+                  >
+                    {action}
+                  </Button>
+                ))}
           </div>
         </DialogContent>
       </Dialog>
 
       {/* Configuration Modal */}
       <Dialog open={showConfigModal} onOpenChange={setShowConfigModal}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
             <DialogTitle>Configure {selectedAction}</DialogTitle>
             <DialogDescription>
-              Configure the settings for {selectedAction} with {selectedApp?.name}.
+              Set up the configuration for {selectedAction} with {selectedApp?.name}.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
+          <div className="space-y-4 py-4">
             {getConfigFields().map((field) => (
-              <div key={field.key} className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor={field.key} className="text-right">
+              <div key={field.key} className="space-y-2">
+                <Label htmlFor={field.key}>
                   {field.label}
+                  {field.required && <span className="text-red-500 ml-1">*</span>}
                 </Label>
-                <div className="col-span-3">{renderConfigField(field)}</div>
+                {renderConfigField(field)}
               </div>
             ))}
           </div>
-          <div className="flex justify-end">
-            <Button onClick={handleConfigComplete}>Complete Configuration</Button>
+          <div className="flex justify-end space-x-2">
+            <Button variant="outline" onClick={() => setShowConfigModal(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleConfigComplete}>
+              {currentStepIndex >= 0 && workflowSteps[currentStepIndex] ? "Update Step" : "Add Step"}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
 
       {/* AI Generator Modal */}
       <Dialog open={showAIGenerator} onOpenChange={setShowAIGenerator}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>Generate Workflow with AI</DialogTitle>
-            <DialogDescription>Describe the workflow you want to generate with AI.</DialogDescription>
+            <DialogDescription>
+              Describe what you want your workflow to do, and AI will create it for you.
+            </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
+          <div className="space-y-4 py-4">
             <Textarea
-              placeholder="Describe your workflow..."
+              placeholder="Example: When I receive an email from a client, create a task in Trello and send a Slack notification to my team..."
               value={aiPrompt}
               onChange={(e) => setAiPrompt(e.target.value)}
+              rows={4}
             />
           </div>
-          <div className="flex justify-end">
-            <Button onClick={handleGenerateWithAI} disabled={generatingAI}>
+          <div className="flex justify-end space-x-2">
+            <Button variant="outline" onClick={() => setShowAIGenerator(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleGenerateWithAI} disabled={generatingAI || !aiPrompt.trim()}>
               {generatingAI ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Brain className="mr-2 h-4 w-4" />}
-              Generate
+              Generate Workflow
             </Button>
           </div>
         </DialogContent>
@@ -1479,10 +1527,12 @@ export default function WorkflowBuilder() {
 
       {/* Workflow Optimizer Modal */}
       <Dialog open={showOptimizer} onOpenChange={setShowOptimizer}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="sm:max-w-[800px]">
           <DialogHeader>
             <DialogTitle>Workflow Optimizer</DialogTitle>
-            <DialogDescription>Optimize your workflow with AI-powered suggestions.</DialogDescription>
+            <DialogDescription>
+              AI-powered suggestions to improve your workflow performance and reliability.
+            </DialogDescription>
           </DialogHeader>
           <div className="py-4">
             <WorkflowOptimizer workflowId={currentWorkflow?.id || ""} />
@@ -1492,14 +1542,14 @@ export default function WorkflowBuilder() {
 
       {/* Exit Confirmation Dialog */}
       <Dialog open={showExitDialog} onOpenChange={setShowExitDialog}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[400px]">
           <DialogHeader>
-            <DialogTitle>Exit Workflow Builder?</DialogTitle>
-            <DialogDescription>You have unsaved changes. Do you want to save them before exiting?</DialogDescription>
+            <DialogTitle>Unsaved Changes</DialogTitle>
+            <DialogDescription>You have unsaved changes to your workflow. What would you like to do?</DialogDescription>
           </DialogHeader>
-          <div className="flex justify-end space-x-2">
-            <Button variant="secondary" onClick={handleDiscardAndExit}>
-              Discard
+          <div className="flex justify-end space-x-2 pt-4">
+            <Button variant="outline" onClick={handleDiscardAndExit}>
+              Discard Changes
             </Button>
             <Button onClick={handleSaveAndExit}>Save & Exit</Button>
           </div>
@@ -1508,12 +1558,17 @@ export default function WorkflowBuilder() {
 
       {/* Connect App Modal */}
       <Dialog open={showConnectModal} onOpenChange={setShowConnectModal}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[400px]">
           <DialogHeader>
             <DialogTitle>Connect {selectedApp?.name}</DialogTitle>
-            <DialogDescription>Connect your {selectedApp?.name} account to use this integration.</DialogDescription>
+            <DialogDescription>
+              You need to connect your {selectedApp?.name} account to use this integration in your workflow.
+            </DialogDescription>
           </DialogHeader>
-          <div className="py-4">
+          <div className="flex justify-end space-x-2 pt-4">
+            <Button variant="outline" onClick={() => setShowConnectModal(false)}>
+              Cancel
+            </Button>
             <Button onClick={() => handleConnectApp(selectedApp?.id)}>Connect {selectedApp?.name}</Button>
           </div>
         </DialogContent>
@@ -1521,17 +1576,19 @@ export default function WorkflowBuilder() {
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[400px]">
           <DialogHeader>
-            <DialogTitle>Delete Step?</DialogTitle>
-            <DialogDescription>Are you sure you want to delete this step?</DialogDescription>
+            <DialogTitle>Delete Step</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this workflow step? This action cannot be undone.
+            </DialogDescription>
           </DialogHeader>
-          <div className="flex justify-end space-x-2">
-            <Button variant="secondary" onClick={() => setShowDeleteDialog(false)}>
+          <div className="flex justify-end space-x-2 pt-4">
+            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
               Cancel
             </Button>
             <Button variant="destructive" onClick={confirmDeleteStep}>
-              Delete
+              Delete Step
             </Button>
           </div>
         </DialogContent>
