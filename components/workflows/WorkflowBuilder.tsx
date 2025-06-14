@@ -31,17 +31,31 @@ import {
   Plus,
   Edit,
   X,
+  Database,
+  CheckCircle,
+  AlertCircle,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
-// Mock data for available integrations and their actions
+// Enhanced integration data with better organization
 const AVAILABLE_INTEGRATIONS = [
+  {
+    id: "notion",
+    name: "Notion",
+    logo: "https://upload.wikimedia.org/wikipedia/commons/4/45/Notion_app_logo.png",
+    triggers: ["Page Updated", "Database Item Added", "Database Item Updated", "New Page Created"],
+    actions: ["Create Page", "Update Database", "Add Comment"],
+    category: "Productivity",
+    description: "Manage pages and databases in your Notion workspace",
+  },
   {
     id: "gmail",
     name: "Gmail",
     logo: "https://upload.wikimedia.org/wikipedia/commons/7/7e/Gmail_icon_%282020%29.svg",
     triggers: ["New Email", "Email Received from Specific Sender", "Email with Attachment", "Important Email"],
     actions: ["Send Email", "Reply to Email", "Forward Email"],
+    category: "Email",
+    description: "Automate your email workflows and responses",
   },
   {
     id: "slack",
@@ -49,48 +63,8 @@ const AVAILABLE_INTEGRATIONS = [
     logo: "https://upload.wikimedia.org/wikipedia/commons/d/d5/Slack_icon_2019.svg",
     triggers: ["New Message in Channel", "Direct Message Received", "User Mentioned", "File Uploaded"],
     actions: ["Send Message", "Create Channel", "Update Status"],
-  },
-  {
-    id: "notion",
-    name: "Notion",
-    logo: "https://upload.wikimedia.org/wikipedia/commons/4/45/Notion_app_logo.png",
-    triggers: ["New Page Created", "Database Item Added", "Page Updated", "Database Item Updated"],
-    actions: ["Create Page", "Update Database", "Add Comment"],
-  },
-  {
-    id: "discord",
-    name: "Discord",
-    logo: "https://assets-global.website-files.com/6257adef93867e50d84d30e2/636e0a6a49cf127bf92de1e2_icon_clyde_blurple_RGB.png",
-    triggers: ["New Message", "User Joined Server", "User Left Server", "Reaction Added"],
-    actions: ["Send Message", "Create Channel", "Assign Role"],
-  },
-  {
-    id: "stripe",
-    name: "Stripe",
-    logo: "https://upload.wikimedia.org/wikipedia/commons/b/ba/Stripe_Logo%2C_revised_2016.svg",
-    triggers: ["Payment Received", "Subscription Created", "Payment Failed", "Customer Created"],
-    actions: ["Create Customer", "Send Invoice", "Refund Payment"],
-  },
-  {
-    id: "hubspot",
-    name: "HubSpot",
-    logo: "https://upload.wikimedia.org/wikipedia/commons/3/3f/HubSpot_Logo.svg",
-    triggers: ["New Contact", "Deal Updated", "Contact Updated", "Deal Created"],
-    actions: ["Create Contact", "Update Deal", "Send Email"],
-  },
-  {
-    id: "github",
-    name: "GitHub",
-    logo: "https://upload.wikimedia.org/wikipedia/commons/9/91/Octicons-mark-github.svg",
-    triggers: ["New Issue", "Pull Request Created", "Push to Repository", "Release Published"],
-    actions: ["Create Issue", "Create Pull Request", "Add Comment"],
-  },
-  {
-    id: "google-calendar",
-    name: "Google Calendar",
-    logo: "https://upload.wikimedia.org/wikipedia/commons/a/a5/Google_Calendar_icon_%282020%29.svg",
-    triggers: ["New Event", "Event Updated", "Event Starting Soon", "Event Cancelled"],
-    actions: ["Create Event", "Update Event", "Delete Event"],
+    category: "Communication",
+    description: "Integrate with your Slack workspace and channels",
   },
   {
     id: "google-sheets",
@@ -98,20 +72,17 @@ const AVAILABLE_INTEGRATIONS = [
     logo: "https://upload.wikimedia.org/wikipedia/commons/3/30/Google_Sheets_logo_%282014-2020%29.svg",
     triggers: ["New Row Added", "Row Updated", "Cell Changed", "Sheet Created"],
     actions: ["Add Row", "Update Row", "Create Sheet"],
+    category: "Productivity",
+    description: "Work with spreadsheets and data automation",
   },
   {
-    id: "google-drive",
-    name: "Google Drive",
-    logo: "https://upload.wikimedia.org/wikipedia/commons/1/12/Google_Drive_icon_%282020%29.svg",
-    triggers: ["New File", "File Updated", "File Shared", "Folder Created"],
-    actions: ["Upload File", "Create Folder", "Share File"],
-  },
-  {
-    id: "google-docs",
-    name: "Google Docs",
-    logo: "https://upload.wikimedia.org/wikipedia/commons/0/01/Google_Docs_logo_%282014-2020%29.svg",
-    triggers: ["New Document", "Document Updated", "Comment Added", "Document Shared"],
-    actions: ["Create Document", "Update Document", "Add Comment"],
+    id: "google-calendar",
+    name: "Google Calendar",
+    logo: "https://upload.wikimedia.org/wikipedia/commons/a/a5/Google_Calendar_icon_%282020%29.svg",
+    triggers: ["New Event", "Event Updated", "Event Starting Soon", "Event Cancelled"],
+    actions: ["Create Event", "Update Event", "Delete Event"],
+    category: "Productivity",
+    description: "Manage calendar events and scheduling",
   },
   {
     id: "airtable",
@@ -119,6 +90,8 @@ const AVAILABLE_INTEGRATIONS = [
     logo: "https://upload.wikimedia.org/wikipedia/commons/4/4b/Airtable_Logo.svg",
     triggers: ["New Record", "Record Updated", "View Updated", "Base Shared"],
     actions: ["Create Record", "Update Record", "Delete Record"],
+    category: "Database",
+    description: "Organize and automate your Airtable bases",
   },
   {
     id: "trello",
@@ -126,296 +99,164 @@ const AVAILABLE_INTEGRATIONS = [
     logo: "https://upload.wikimedia.org/wikipedia/en/8/8c/Trello_logo.svg",
     triggers: ["New Card", "Card Moved", "Card Updated", "Due Date Approaching"],
     actions: ["Create Card", "Move Card", "Update Card"],
+    category: "Project Management",
+    description: "Manage boards, cards, and project workflows",
   },
   {
-    id: "dropbox",
-    name: "Dropbox",
-    logo: "https://upload.wikimedia.org/wikipedia/commons/c/cb/Dropbox_logo_2017.svg",
-    triggers: ["New File", "File Updated", "File Shared", "Folder Created"],
-    actions: ["Upload File", "Create Folder", "Share File"],
-  },
-  {
-    id: "teams",
-    name: "Microsoft Teams",
-    logo: "https://upload.wikimedia.org/wikipedia/commons/c/c9/Microsoft_Office_Teams_%282018%E2%80%93present%29.svg",
-    triggers: ["New Message", "Meeting Started", "File Shared", "Channel Created"],
-    actions: ["Send Message", "Schedule Meeting", "Share File"],
-  },
-  {
-    id: "gitlab",
-    name: "GitLab",
-    logo: "https://about.gitlab.com/images/press/logo/svg/gitlab-logo-500.svg",
-    triggers: ["New Issue", "Merge Request Created", "Pipeline Failed", "Push to Branch"],
-    actions: ["Create Issue", "Create Merge Request", "Add Comment"],
-  },
-  {
-    id: "facebook",
-    name: "Facebook",
-    logo: "https://upload.wikimedia.org/wikipedia/commons/5/51/Facebook_f_logo_%282019%29.svg",
-    triggers: ["New Post", "Page Mention", "Comment on Post", "New Page Like"],
-    actions: ["Create Post", "Reply to Comment", "Share Post"],
-  },
-  {
-    id: "youtube",
-    name: "YouTube",
-    logo: "https://upload.wikimedia.org/wikipedia/commons/0/09/YouTube_full-color_icon_%282017%29.svg",
-    triggers: ["New Video Uploaded", "New Comment", "New Subscriber", "Video Liked"],
-    actions: ["Upload Video", "Reply to Comment", "Update Video"],
-  },
-  {
-    id: "mailchimp",
-    name: "Mailchimp",
-    logo: "https://upload.wikimedia.org/wikipedia/commons/2/27/Mailchimp_Logo.svg",
-    triggers: ["New Subscriber", "Email Campaign Sent", "Subscriber Updated", "Unsubscribe"],
-    actions: ["Add Subscriber", "Send Campaign", "Update Subscriber"],
-  },
-  {
-    id: "linkedin",
-    name: "LinkedIn",
-    logo: "https://upload.wikimedia.org/wikipedia/commons/c/ca/LinkedIn_logo_initials.png",
-    triggers: ["New Connection", "Post Engagement", "Message Received", "Profile View"],
-    actions: ["Create Post", "Send Message", "Connect with User"],
+    id: "github",
+    name: "GitHub",
+    logo: "https://upload.wikimedia.org/wikipedia/commons/9/91/Octicons-mark-github.svg",
+    triggers: ["New Issue", "Pull Request Created", "Push to Repository", "Release Published"],
+    actions: ["Create Issue", "Create Pull Request", "Add Comment"],
+    category: "Development",
+    description: "Automate your development and code workflows",
   },
 ]
 
-const CONDITION_TYPES = [
-  { id: "time", name: "Time-based", description: "Wait for a specific time or duration" },
-  { id: "field", name: "Field-based", description: "Check if data meets certain criteria" },
-  { id: "ai", name: "AI-based", description: "Use AI to make intelligent decisions" },
-]
-
-// Define which triggers need configuration
+// Enhanced trigger configurations with resource requirements
 const TRIGGER_CONFIGS = {
-  "Email Received from Specific Sender": [
-    { key: "sender_email", label: "Sender Email", type: "email", placeholder: "sender@example.com", required: true },
+  "Page Updated": [
+    {
+      key: "page_id",
+      label: "Notion Page",
+      type: "resource_select",
+      provider: "notion",
+      dataType: "pages",
+      placeholder: "Select a page to monitor",
+      required: false,
+      description: "Choose a specific page to monitor for updates, or leave empty to monitor all pages",
+    },
+  ],
+  "Database Item Added": [
+    {
+      key: "database_id",
+      label: "Notion Database",
+      type: "resource_select",
+      provider: "notion",
+      dataType: "databases",
+      placeholder: "Select a database",
+      required: true,
+      description: "Choose the database to monitor for new items",
+    },
+  ],
+  "Database Item Updated": [
+    {
+      key: "database_id",
+      label: "Notion Database",
+      type: "resource_select",
+      provider: "notion",
+      dataType: "databases",
+      placeholder: "Select a database",
+      required: true,
+      description: "Choose the database to monitor for item updates",
+    },
   ],
   "New Message in Channel": [
     {
       key: "channel",
-      label: "Channel",
-      type: "dynamic_select",
+      label: "Slack Channel",
+      type: "resource_select",
       provider: "slack",
       dataType: "channels",
       placeholder: "Select a channel",
       required: true,
+      description: "Choose the channel to monitor for new messages",
     },
   ],
   "Direct Message Received": [
     {
       key: "from_user",
       label: "From User (optional)",
-      type: "dynamic_select",
+      type: "resource_select",
       provider: "slack",
       dataType: "users",
       placeholder: "Select a user",
       required: false,
-    },
-  ],
-  "User Mentioned": [
-    {
-      key: "channel",
-      label: "Channel (optional)",
-      type: "dynamic_select",
-      provider: "slack",
-      dataType: "channels",
-      placeholder: "Select a channel",
-      required: false,
-    },
-  ],
-  "New Message": [
-    {
-      key: "channel_id",
-      label: "Channel (optional)",
-      type: "dynamic_select",
-      provider: "discord",
-      dataType: "channels",
-      placeholder: "Select a channel",
-      required: false,
-    },
-  ],
-  "Database Item Added": [
-    {
-      key: "database_id",
-      label: "Database",
-      type: "dynamic_select",
-      provider: "notion",
-      dataType: "databases",
-      placeholder: "Select a database",
-      required: true,
-    },
-  ],
-  "Database Item Updated": [
-    {
-      key: "database_id",
-      label: "Database",
-      type: "dynamic_select",
-      provider: "notion",
-      dataType: "databases",
-      placeholder: "Select a database",
-      required: true,
+      description: "Optionally filter messages from a specific user",
     },
   ],
   "New Row Added": [
     {
       key: "spreadsheet_id",
-      label: "Spreadsheet",
-      type: "dynamic_select",
+      label: "Google Spreadsheet",
+      type: "resource_select",
       provider: "google-sheets",
       dataType: "spreadsheets",
       placeholder: "Select a spreadsheet",
       required: true,
+      description: "Choose the spreadsheet to monitor for new rows",
     },
-    { key: "sheet_name", label: "Sheet Name", type: "text", placeholder: "Sheet1", required: false },
-  ],
-  "Row Updated": [
     {
-      key: "spreadsheet_id",
-      label: "Spreadsheet",
-      type: "dynamic_select",
-      provider: "google-sheets",
-      dataType: "spreadsheets",
-      placeholder: "Select a spreadsheet",
-      required: true,
+      key: "sheet_name",
+      label: "Sheet Name (optional)",
+      type: "text",
+      placeholder: "Sheet1",
+      required: false,
+      description: "Specify a particular sheet within the spreadsheet",
     },
-    { key: "sheet_name", label: "Sheet Name", type: "text", placeholder: "Sheet1", required: false },
+  ],
+  "New Event": [
+    {
+      key: "calendar_id",
+      label: "Google Calendar",
+      type: "resource_select",
+      provider: "google-calendar",
+      dataType: "calendars",
+      placeholder: "Select a calendar",
+      required: false,
+      description: "Choose a specific calendar, or leave empty to monitor all calendars",
+    },
   ],
   "New Record": [
     {
       key: "base_id",
-      label: "Base",
-      type: "dynamic_select",
+      label: "Airtable Base",
+      type: "resource_select",
       provider: "airtable",
       dataType: "bases",
       placeholder: "Select a base",
       required: true,
+      description: "Choose the Airtable base to monitor",
     },
-    { key: "table_name", label: "Table Name", type: "text", placeholder: "Table Name", required: true },
-  ],
-  "Record Updated": [
     {
-      key: "base_id",
-      label: "Base",
-      type: "dynamic_select",
-      provider: "airtable",
-      dataType: "bases",
-      placeholder: "Select a base",
+      key: "table_name",
+      label: "Table Name",
+      type: "text",
+      placeholder: "Table Name",
       required: true,
+      description: "Specify the table within the base",
     },
-    { key: "table_name", label: "Table Name", type: "text", placeholder: "Table Name", required: true },
   ],
   "New Card": [
     {
       key: "board_id",
-      label: "Board",
-      type: "dynamic_select",
+      label: "Trello Board",
+      type: "resource_select",
       provider: "trello",
       dataType: "boards",
       placeholder: "Select a board",
       required: true,
+      description: "Choose the Trello board to monitor",
     },
-    { key: "list_name", label: "List Name (optional)", type: "text", placeholder: "To Do", required: false },
-  ],
-  "Card Moved": [
     {
-      key: "board_id",
-      label: "Board",
-      type: "dynamic_select",
-      provider: "trello",
-      dataType: "boards",
-      placeholder: "Select a board",
-      required: true,
+      key: "list_name",
+      label: "List Name (optional)",
+      type: "text",
+      placeholder: "To Do",
+      required: false,
+      description: "Optionally specify a particular list within the board",
     },
-  ],
-  "Push to Repository": [
-    {
-      key: "repository",
-      label: "Repository",
-      type: "dynamic_select",
-      provider: "github",
-      dataType: "repositories",
-      placeholder: "Select a repository",
-      required: true,
-    },
-    { key: "branch", label: "Branch (optional)", type: "text", placeholder: "main", required: false },
   ],
   "New Issue": [
     {
       key: "repository",
-      label: "Repository",
-      type: "dynamic_select",
+      label: "GitHub Repository",
+      type: "resource_select",
       provider: "github",
       dataType: "repositories",
       placeholder: "Select a repository",
       required: true,
-    },
-  ],
-  "Pull Request Created": [
-    {
-      key: "repository",
-      label: "Repository",
-      type: "dynamic_select",
-      provider: "github",
-      dataType: "repositories",
-      placeholder: "Select a repository",
-      required: true,
-    },
-  ],
-  "Email with Attachment": [
-    {
-      key: "attachment_type",
-      label: "Attachment Type (optional)",
-      type: "select",
-      options: ["any", "pdf", "image", "document"],
-      required: false,
-    },
-    { key: "min_size_mb", label: "Minimum Size (MB)", type: "number", placeholder: "1", required: false },
-  ],
-  "Important Email": [
-    { key: "importance_level", label: "Importance Level", type: "select", options: ["high", "normal"], required: true },
-    { key: "keywords", label: "Keywords (optional)", type: "text", placeholder: "urgent, important", required: false },
-  ],
-  "File Uploaded": [
-    { key: "channel", label: "Channel (optional)", type: "text", placeholder: "#general", required: false },
-    {
-      key: "file_type",
-      label: "File Type (optional)",
-      type: "select",
-      options: ["any", "image", "document", "video"],
-      required: false,
-    },
-  ],
-  "Page Updated": [
-    {
-      key: "page_id",
-      label: "Page",
-      type: "dynamic_select",
-      provider: "notion",
-      dataType: "pages",
-      placeholder: "Select a page",
-      required: false,
-    },
-  ],
-  "Event Updated": [
-    {
-      key: "calendar_id",
-      label: "Calendar",
-      type: "dynamic_select",
-      provider: "google-calendar",
-      dataType: "calendars",
-      placeholder: "Select a calendar",
-      required: false,
-    },
-  ],
-  "Event Starting Soon": [
-    { key: "minutes_before", label: "Minutes Before", type: "number", placeholder: "15", required: true },
-    {
-      key: "calendar_id",
-      label: "Calendar",
-      type: "dynamic_select",
-      provider: "google-calendar",
-      dataType: "calendars",
-      placeholder: "Select a calendar",
-      required: false,
+      description: "Choose the repository to monitor for new issues",
     },
   ],
 }
@@ -446,6 +287,12 @@ export default function WorkflowBuilder() {
     globalPreloadingData,
     preloadProgress,
     initializeGlobalPreload,
+    getDynamicData,
+    getResourcesForTrigger,
+    isResourceLoading,
+    getIntegrationStatus,
+    getCachedResourceCount,
+    refreshResourcesForProvider,
   } = useIntegrationStore()
 
   const [workflowSteps, setWorkflowSteps] = useState<WorkflowStep[]>([])
@@ -475,147 +322,36 @@ export default function WorkflowBuilder() {
 
   const { toast } = useToast()
 
-  // Dynamic data states
-  const [dynamicData, setDynamicData] = useState<Record<string, any[]>>({})
-  const [fieldLoadingStates, setFieldLoadingStates] = useState<Record<string, boolean>>({})
-  const [preloadingData, setPreloadingData] = useState(false)
-  const [fetchingData, setFetchingData] = useState<Set<string>>(new Set())
-
-  // Memoized function to get all possible dynamic data types
-  const getAllDynamicDataTypes = useMemo(() => {
-    const dataTypes: Array<{ provider: string; dataType: string }> = []
-
-    // Add all dynamic selects from trigger configs
-    Object.values(TRIGGER_CONFIGS).forEach((config) => {
-      config.forEach((field) => {
-        if (field.type === "dynamic_select" && field.provider && field.dataType) {
-          dataTypes.push({ provider: field.provider, dataType: field.dataType })
-        }
-      })
-    })
-
-    // Add common action dynamic selects
-    const actionDataTypes = [
-      { provider: "slack", dataType: "channels" },
-      { provider: "slack", dataType: "users" },
-      { provider: "discord", dataType: "channels" },
-      { provider: "notion", dataType: "databases" },
-      { provider: "notion", dataType: "pages" },
-      { provider: "google-sheets", dataType: "spreadsheets" },
-      { provider: "google-calendar", dataType: "calendars" },
-      { provider: "google-drive", dataType: "folders" },
-      { provider: "airtable", dataType: "bases" },
-      { provider: "trello", dataType: "boards" },
-      { provider: "github", dataType: "repositories" },
-      { provider: "hubspot", dataType: "pipelines" },
-      { provider: "teams", dataType: "teams" },
-      { provider: "mailchimp", dataType: "lists" },
-    ]
-
-    dataTypes.push(...actionDataTypes)
-
-    // Remove duplicates
-    return dataTypes.filter(
-      (item, index, self) =>
-        index === self.findIndex((t) => t.provider === item.provider && t.dataType === item.dataType),
-    )
-  }, [])
-
-  // Improved fetchDynamicData function with better caching
-  const fetchDynamicData = useCallback(
-    async (provider: string, dataType: string) => {
-      const integrationStore = useIntegrationStore.getState()
-
-      // First try to get cached data
-      const cachedData = integrationStore.getDynamicData(provider, dataType)
-      if (cachedData.length > 0 || integrationStore.isDataFresh(provider, dataType)) {
-        console.log(`Using cached data for ${provider}-${dataType}`)
-        const cacheKey = `${provider}-${dataType}`
-        setDynamicData((prev) => ({ ...prev, [cacheKey]: cachedData }))
-        return
-      }
-
-      // If no cached data, fetch fresh data
-      const cacheKey = `${provider}-${dataType}`
-      if (fetchingData.has(cacheKey)) {
-        return // Already fetching
-      }
-
-      setFetchingData((prev) => new Set(prev).add(cacheKey))
-      setFieldLoadingStates((prev) => ({ ...prev, [cacheKey]: true }))
-
-      try {
-        const freshData = await integrationStore.fetchDynamicData(provider, dataType)
-        setDynamicData((prev) => ({ ...prev, [cacheKey]: freshData }))
-      } catch (error) {
-        console.error("Error fetching dynamic data:", error)
-        setDynamicData((prev) => ({ ...prev, [cacheKey]: [] }))
-      } finally {
-        setFieldLoadingStates((prev) => ({ ...prev, [cacheKey]: false }))
-        setFetchingData((prev) => {
-          const newSet = new Set(prev)
-          newSet.delete(cacheKey)
-          return newSet
-        })
-      }
-    },
-    [fetchingData],
-  )
+  // Enhanced resource management
+  const [resourceRefreshStates, setResourceRefreshStates] = useState<Record<string, boolean>>({})
 
   // Memoized connected providers to prevent unnecessary re-renders
   const connectedProviders = useMemo(() => {
     return integrations.filter((i) => i.status === "connected").map((i) => i.provider)
   }, [integrations])
 
-  // Pre-load all integration data when component mounts
-  const preloadAllIntegrationData = useCallback(async () => {
-    if (preloadingData || connectedProviders.length === 0) return
+  // Enhanced integration status for each app
+  const getEnhancedIntegrationStatus = useCallback(
+    (appId: string) => {
+      const status = getIntegrationStatus(appId)
+      const resourceCount = getCachedResourceCount(appId)
+      const isLoading =
+        globalPreloadingData || isResourceLoading(appId, "pages") || isResourceLoading(appId, "databases")
 
-    setPreloadingData(true)
-    const relevantDataTypes = getAllDynamicDataTypes.filter((dt) => connectedProviders.includes(dt.provider))
-
-    // Fetch all data types in parallel, but limit concurrency
-    const batchSize = 3
-    for (let i = 0; i < relevantDataTypes.length; i += batchSize) {
-      const batch = relevantDataTypes.slice(i, i + batchSize)
-      await Promise.all(batch.map(({ provider, dataType }) => fetchDynamicData(provider, dataType)))
-    }
-
-    setPreloadingData(false)
-  }, [getAllDynamicDataTypes, connectedProviders, fetchDynamicData, preloadingData])
-
-  // Pre-fetch dynamic data when config modal opens (fallback)
-  useEffect(() => {
-    if (showConfigModal && selectedAction && selectedApp) {
-      const fields = getConfigFields()
-
-      fields.forEach((field) => {
-        if (field.type === "dynamic_select" && field.provider && field.dataType) {
-          fetchDynamicData(field.provider, field.dataType)
-        }
-      })
-    }
-  }, [showConfigModal, selectedAction, selectedApp, fetchDynamicData])
+      return {
+        status,
+        resourceCount,
+        isLoading,
+        isConnected: status === "connected",
+      }
+    },
+    [getIntegrationStatus, getCachedResourceCount, globalPreloadingData, isResourceLoading],
+  )
 
   // Fetch integrations on mount
   useEffect(() => {
     fetchIntegrations()
   }, [fetchIntegrations])
-
-  // Pre-load integration data when integrations are loaded - with stable dependencies
-  useEffect(() => {
-    if (connectedProviders.length > 0 && !preloadingData) {
-      preloadAllIntegrationData()
-    }
-  }, [connectedProviders.length, preloadingData, preloadAllIntegrationData])
-
-  // Ensure global preloading is started
-  useEffect(() => {
-    const integrationStore = useIntegrationStore.getState()
-    if (!integrationStore.preloadStarted && !integrationStore.globalPreloadingData) {
-      integrationStore.initializeGlobalPreload()
-    }
-  }, [])
 
   // Load workflow if ID is provided
   useEffect(() => {
@@ -645,9 +381,9 @@ export default function WorkflowBuilder() {
   }
 
   const handleAppSelected = (app: any) => {
-    const integration = integrations.find((i) => i.provider === app.id)
+    const integrationStatus = getEnhancedIntegrationStatus(app.id)
 
-    if (!integration || integration.status !== "connected") {
+    if (!integrationStatus.isConnected) {
       setSelectedApp(app)
       setShowAppSelector(false)
       setShowConnectModal(true)
@@ -697,7 +433,7 @@ export default function WorkflowBuilder() {
           appId: selectedApp.id,
           appName: selectedApp.name,
           actionName: actionName,
-          config: {}, // Empty config for simple triggers
+          config: {},
           isConfigured: true,
         }
 
@@ -705,7 +441,6 @@ export default function WorkflowBuilder() {
         newSteps.splice(currentStepIndex, 0, newStep)
         setWorkflowSteps(newSteps)
 
-        // Close modals and reset state
         setShowActionSelector(false)
         setSelectedApp(null)
         setSelectedAction("")
@@ -779,7 +514,6 @@ export default function WorkflowBuilder() {
 
     setSaving(true)
     try {
-      // Convert workflow steps to the format expected by the backend
       const updatedWorkflow = {
         ...currentWorkflow,
         nodes: workflowSteps.map((step, index) => ({
@@ -879,8 +613,7 @@ export default function WorkflowBuilder() {
     setRefreshingIntegrations(true)
     try {
       await fetchIntegrations(true)
-      // Re-preload data after refresh
-      await preloadAllIntegrationData()
+      await initializeGlobalPreload()
       toast({
         title: "Success",
         description: "Integration permissions refreshed",
@@ -893,6 +626,25 @@ export default function WorkflowBuilder() {
       })
     } finally {
       setRefreshingIntegrations(false)
+    }
+  }
+
+  const handleRefreshProviderResources = async (provider: string) => {
+    setResourceRefreshStates((prev) => ({ ...prev, [provider]: true }))
+    try {
+      await refreshResourcesForProvider(provider)
+      toast({
+        title: "Success",
+        description: `${provider} resources refreshed`,
+      })
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: `Failed to refresh ${provider} resources`,
+        variant: "destructive",
+      })
+    } finally {
+      setResourceRefreshStates((prev) => ({ ...prev, [provider]: false }))
     }
   }
 
@@ -925,361 +677,88 @@ export default function WorkflowBuilder() {
   const workflowOptimizations = currentWorkflow ? optimizations[currentWorkflow.id] || [] : []
   const workflowAnomalies = currentWorkflow ? anomalies[currentWorkflow.id] || [] : []
 
-  // Update the getConfigFields function to include dynamic selects for actions
+  // Enhanced config field rendering with resource selection
   const getConfigFields = () => {
     if (currentStepIndex === 0) {
-      // For triggers
       return TRIGGER_CONFIGS[selectedAction as keyof typeof TRIGGER_CONFIGS] || []
     } else {
-      // For actions - return existing action config fields with dynamic selects
-      if (selectedAction === "Send Email") {
-        return [
-          { key: "to", label: "To", type: "email", placeholder: "recipient@example.com", required: true },
-          { key: "subject", label: "Subject", type: "text", placeholder: "Email subject", required: true },
-          { key: "body", label: "Body", type: "textarea", placeholder: "Email content...", required: true },
-        ]
-      } else if (selectedAction === "Send Message") {
-        if (selectedApp?.id === "slack") {
-          return [
-            {
-              key: "channel",
-              label: "Channel",
-              type: "dynamic_select",
-              provider: "slack",
-              dataType: "channels",
-              placeholder: "Select a channel",
-              required: true,
-            },
-            { key: "message", label: "Message", type: "textarea", placeholder: "Your message...", required: true },
-          ]
-        } else if (selectedApp?.id === "discord") {
-          return [
-            {
-              key: "channel_id",
-              label: "Channel",
-              type: "dynamic_select",
-              provider: "discord",
-              dataType: "channels",
-              placeholder: "Select a channel",
-              required: true,
-            },
-            { key: "message", label: "Message", type: "textarea", placeholder: "Your message...", required: true },
-          ]
-        } else if (selectedApp?.id === "teams") {
-          return [
-            {
-              key: "team_id",
-              label: "Team",
-              type: "dynamic_select",
-              provider: "teams",
-              dataType: "teams",
-              placeholder: "Select a team",
-              required: true,
-            },
-            { key: "message", label: "Message", type: "textarea", placeholder: "Your message...", required: true },
-          ]
-        }
-        return [
-          { key: "channel", label: "Channel", type: "text", placeholder: "#general", required: true },
-          { key: "message", label: "Message", type: "textarea", placeholder: "Your message...", required: true },
-        ]
-      } else if (selectedAction === "Create Page") {
-        return [
-          { key: "title", label: "Page Title", type: "text", placeholder: "Page title", required: true },
-          { key: "content", label: "Content", type: "textarea", placeholder: "Page content...", required: false },
-        ]
-      } else if (selectedAction === "Create Contact") {
-        return [
-          { key: "email", label: "Email", type: "email", placeholder: "contact@example.com", required: true },
-          { key: "first_name", label: "First Name", type: "text", placeholder: "John", required: false },
-          { key: "last_name", label: "Last Name", type: "text", placeholder: "Doe", required: false },
-          { key: "company", label: "Company", type: "text", placeholder: "Company Name", required: false },
-        ]
-      } else if (selectedAction === "Update Deal") {
-        return [
-          {
-            key: "pipeline_id",
-            label: "Pipeline",
-            type: "dynamic_select",
-            provider: "hubspot",
-            dataType: "pipelines",
-            placeholder: "Select a pipeline",
-            required: false,
-          },
-          { key: "deal_name", label: "Deal Name", type: "text", placeholder: "Deal Name", required: true },
-          { key: "amount", label: "Amount", type: "number", placeholder: "1000", required: false },
-          { key: "stage", label: "Stage", type: "text", placeholder: "qualified", required: false },
-        ]
-      } else if (selectedAction === "Create Event") {
-        return [
-          {
-            key: "calendar_id",
-            label: "Calendar",
-            type: "dynamic_select",
-            provider: "google-calendar",
-            dataType: "calendars",
-            placeholder: "Select a calendar",
-            required: false,
-          },
-          { key: "title", label: "Event Title", type: "text", placeholder: "Meeting Title", required: true },
-          { key: "start_time", label: "Start Time", type: "datetime-local", placeholder: "", required: true },
-          { key: "end_time", label: "End Time", type: "datetime-local", placeholder: "", required: true },
-          {
-            key: "description",
-            label: "Description",
-            type: "textarea",
-            placeholder: "Event description...",
-            required: false,
-          },
-        ]
-      } else if (selectedAction === "Add Row") {
-        return [
-          {
-            key: "spreadsheet_id",
-            label: "Spreadsheet",
-            type: "dynamic_select",
-            provider: "google-sheets",
-            dataType: "spreadsheets",
-            placeholder: "Select a spreadsheet",
-            required: true,
-          },
-          { key: "sheet_name", label: "Sheet Name", type: "text", placeholder: "Sheet1", required: false },
-          {
-            key: "values",
-            label: "Values (comma-separated)",
-            type: "text",
-            placeholder: "Value1, Value2, Value3",
-            required: true,
-          },
-        ]
-      } else if (selectedAction === "Create Record") {
-        return [
-          {
-            key: "base_id",
-            label: "Base",
-            type: "dynamic_select",
-            provider: "airtable",
-            dataType: "bases",
-            placeholder: "Select a base",
-            required: true,
-          },
-          { key: "table_name", label: "Table Name", type: "text", placeholder: "Table Name", required: true },
-          {
-            key: "fields",
-            label: "Fields (JSON)",
-            type: "textarea",
-            placeholder: '{"Name": "John", "Email": "john@example.com"}',
-            required: true,
-          },
-        ]
-      } else if (selectedAction === "Create Card") {
-        return [
-          {
-            key: "board_id",
-            label: "Board",
-            type: "dynamic_select",
-            provider: "trello",
-            dataType: "boards",
-            placeholder: "Select a board",
-            required: true,
-          },
-          { key: "list_name", label: "List Name", type: "text", placeholder: "To Do", required: true },
-          { key: "card_name", label: "Card Name", type: "text", placeholder: "Task Name", required: true },
-          {
-            key: "description",
-            label: "Description",
-            type: "textarea",
-            placeholder: "Task description...",
-            required: false,
-          },
-        ]
-      } else if (selectedAction === "Create Issue") {
-        return [
-          {
-            key: "repository",
-            label: "Repository",
-            type: "dynamic_select",
-            provider: "github",
-            dataType: "repositories",
-            placeholder: "Select a repository",
-            required: true,
-          },
-          { key: "title", label: "Issue Title", type: "text", placeholder: "Bug report", required: true },
-          { key: "body", label: "Issue Body", type: "textarea", placeholder: "Describe the issue...", required: false },
-          {
-            key: "labels",
-            label: "Labels (comma-separated)",
-            type: "text",
-            placeholder: "bug, urgent",
-            required: false,
-          },
-        ]
-      } else if (selectedAction === "Upload File") {
-        if (selectedApp?.id === "google-drive") {
-          return [
-            {
-              key: "folder_id",
-              label: "Folder",
-              type: "dynamic_select",
-              provider: "google-drive",
-              dataType: "folders",
-              placeholder: "Select a folder",
-              required: false,
-            },
-            { key: "file_name", label: "File Name", type: "text", placeholder: "document.pdf", required: true },
-            {
-              key: "file_content",
-              label: "File Content/URL",
-              type: "text",
-              placeholder: "File content or URL",
-              required: true,
-            },
-          ]
-        }
-        return [
-          { key: "file_name", label: "File Name", type: "text", placeholder: "document.pdf", required: true },
-          {
-            key: "file_content",
-            label: "File Content/URL",
-            type: "text",
-            placeholder: "File content or URL",
-            required: true,
-          },
-        ]
-      } else if (selectedAction === "Send Campaign") {
-        return [
-          {
-            key: "list_id",
-            label: "Mailing List",
-            type: "dynamic_select",
-            provider: "mailchimp",
-            dataType: "lists",
-            placeholder: "Select a mailing list",
-            required: true,
-          },
-          { key: "subject", label: "Subject", type: "text", placeholder: "Newsletter Subject", required: true },
-          { key: "content", label: "Content", type: "textarea", placeholder: "Email content...", required: true },
-        ]
-      } else if (selectedAction === "Time-based") {
-        return [
-          {
-            key: "delayType",
-            label: "Delay Type",
-            type: "select",
-            options: ["minutes", "hours", "days", "specific"],
-            required: true,
-          },
-          {
-            key: "delayValue",
-            label: "Delay Value",
-            type: "number",
-            placeholder: "Enter delay amount",
-            required: true,
-          },
-        ]
-      } else if (selectedAction === "Field-based") {
-        return [
-          {
-            key: "field",
-            label: "Field to Check",
-            type: "text",
-            placeholder: "e.g., email, status, amount",
-            required: true,
-          },
-          {
-            key: "operator",
-            label: "Operator",
-            type: "select",
-            options: ["equals", "contains", "greater", "less"],
-            required: true,
-          },
-          { key: "value", label: "Value", type: "text", placeholder: "Value to compare against", required: true },
-        ]
-      } else if (selectedAction === "AI-based") {
-        return [
-          {
-            key: "prompt",
-            label: "AI Prompt",
-            type: "textarea",
-            placeholder: "Describe what the AI should check for...",
-            required: true,
-          },
-          {
-            key: "confidence",
-            label: "Confidence Threshold",
-            type: "select",
-            options: ["low", "medium", "high"],
-            required: false,
-          },
-        ]
-      }
+      // Return existing action config fields
       return []
     }
   }
 
-  // Improved renderConfigField function with better error handling
   const renderConfigField = (field: any) => {
-    if (field.type === "dynamic_select") {
-      const cacheKey = `${field.provider}-${field.dataType}`
-      const options = dynamicData[cacheKey] || []
-      const isLoading = fieldLoadingStates[cacheKey] || globalPreloadingData || !preloadProgress[cacheKey]
-      const isDisabled = isLoading || (globalPreloadingData && options.length === 0)
+    if (field.type === "resource_select") {
+      const resources = getDynamicData(field.provider, field.dataType)
+      const isLoading = isResourceLoading(field.provider, field.dataType) || globalPreloadingData
+      const isRefreshing = resourceRefreshStates[field.provider]
 
       return (
-        <Select
-          value={currentConfig[field.key] || ""}
-          onValueChange={(value) => setCurrentConfig({ ...currentConfig, [field.key]: value })}
-          disabled={isDisabled}
-        >
-          <SelectTrigger className={isDisabled ? "opacity-50 cursor-not-allowed" : ""}>
-            <SelectValue
-              placeholder={
-                isLoading ? "Loading data..." : globalPreloadingData ? "Preparing data..." : field.placeholder
-              }
-            />
-          </SelectTrigger>
-          <SelectContent side="bottom" align="start" className="max-h-[200px] overflow-y-auto" sideOffset={4}>
-            {isLoading ? (
-              <div className="p-2 text-sm text-muted-foreground flex items-center gap-2">
-                <Loader2 className="w-3 h-3 animate-spin" />
-                Loading {field.dataType}...
-              </div>
-            ) : options.length === 0 ? (
-              <div className="p-2 text-sm text-muted-foreground">No items found</div>
-            ) : (
-              options.map((option: any, index: number) => {
-                // Ensure unique and valid keys with defensive checks
-                const key = option.id || option.value || option.name || `option-${index}`
-                const value = option.id || option.value || option.name || ""
-                const label = option.name || option.label || option.title || value || "Unknown"
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label htmlFor={field.key} className="text-sm font-medium">
+              {field.label} {field.required && "*"}
+            </Label>
+            <div className="flex items-center gap-2">
+              {resources.length > 0 && (
+                <Badge variant="secondary" className="text-xs">
+                  {resources.length} available
+                </Badge>
+              )}
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => handleRefreshProviderResources(field.provider)}
+                disabled={isRefreshing}
+                className="h-6 w-6 p-0"
+              >
+                <RefreshCw className={`w-3 h-3 ${isRefreshing ? "animate-spin" : ""}`} />
+              </Button>
+            </div>
+          </div>
 
-                return (
-                  <SelectItem key={key} value={value}>
-                    {label}
+          <Select
+            value={currentConfig[field.key] || ""}
+            onValueChange={(value) => setCurrentConfig({ ...currentConfig, [field.key]: value })}
+            disabled={isLoading || isRefreshing}
+          >
+            <SelectTrigger className={isLoading || isRefreshing ? "opacity-50 cursor-not-allowed" : ""}>
+              <SelectValue
+                placeholder={
+                  isLoading || isRefreshing
+                    ? "Loading resources..."
+                    : resources.length === 0
+                      ? "No resources found"
+                      : field.placeholder
+                }
+              />
+            </SelectTrigger>
+            <SelectContent side="bottom" align="start" className="max-h-[200px] overflow-y-auto" sideOffset={4}>
+              {isLoading || isRefreshing ? (
+                <div className="p-2 text-sm text-muted-foreground flex items-center gap-2">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  Loading {field.dataType}...
+                </div>
+              ) : resources.length === 0 ? (
+                <div className="p-2 text-sm text-muted-foreground">
+                  No {field.dataType} found. Try refreshing or check your {field.provider} connection.
+                </div>
+              ) : (
+                resources.map((resource, index) => (
+                  <SelectItem key={resource.id || index} value={resource.value}>
+                    <div className="flex items-center gap-2">
+                      <Database className="w-3 h-3 text-muted-foreground" />
+                      {resource.name}
+                    </div>
                   </SelectItem>
-                )
-              })
-            )}
-          </SelectContent>
-        </Select>
-      )
-    } else if (field.type === "select") {
-      return (
-        <Select
-          value={currentConfig[field.key] || ""}
-          onValueChange={(value) => setCurrentConfig({ ...currentConfig, [field.key]: value })}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder={`Select ${field.label.toLowerCase()}`} />
-          </SelectTrigger>
-          <SelectContent side="bottom" align="start" className="max-h-[200px] overflow-y-auto" sideOffset={4}>
-            {field.options?.map((option: string) => (
-              <SelectItem key={option} value={option}>
-                {option.charAt(0).toUpperCase() + option.slice(1)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+                ))
+              )}
+            </SelectContent>
+          </Select>
+
+          {field.description && <p className="text-xs text-muted-foreground">{field.description}</p>}
+        </div>
       )
     } else if (field.type === "textarea") {
       return (
@@ -1311,92 +790,17 @@ export default function WorkflowBuilder() {
     if (step.type === "trigger") {
       const triggerConfig = TRIGGER_CONFIGS[step.actionName as keyof typeof TRIGGER_CONFIGS]
       return triggerConfig && triggerConfig.length > 0
-    } else {
-      // Check if action has configurable options
-      const configurableActions = [
-        "Send Email",
-        "Send Message",
-        "Create Page",
-        "Time-based",
-        "Field-based",
-        "AI-based",
-        "Create Contact",
-        "Update Deal",
-        "Create Issue",
-        "Create Pull Request",
-        "Add Comment",
-        "Create Event",
-        "Update Event",
-        "Delete Event",
-        "Add Row",
-        "Update Row",
-        "Create Sheet",
-        "Upload File",
-        "Create Folder",
-        "Share File",
-        "Create Document",
-        "Update Document",
-        "Create Record",
-        "Update Record",
-        "Delete Record",
-        "Create Card",
-        "Move Card",
-        "Update Card",
-        "Schedule Meeting",
-        "Create Merge Request",
-        "Create Post",
-        "Reply to Comment",
-        "Share Post",
-        "Upload Video",
-        "Update Video",
-        "Add Subscriber",
-        "Send Campaign",
-        "Update Subscriber",
-        "Connect with User",
-        "Reply to Email",
-        "Forward Email",
-        "Create Channel",
-        "Update Status",
-        "Update Database",
-        "Create Customer",
-        "Send Invoice",
-        "Refund Payment",
-        "Assign Role",
-      ]
-      return configurableActions.includes(step.actionName)
     }
+    return false
   }
 
-  // Improved image error handler to prevent infinite loops
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
     const target = e.currentTarget
     if (target.src !== "/placeholder.svg?height=32&width=32") {
-      target.onerror = null // Prevent infinite loop
+      target.onerror = null
       target.src = "/placeholder.svg?height=32&width=32"
     }
   }
-
-  // Initialize with cached data on component mount
-  useEffect(() => {
-    const integrationStore = useIntegrationStore.getState()
-    const allDataTypes = getAllDynamicDataTypes
-    const connectedProviders = integrations.filter((i) => i.status === "connected").map((i) => i.provider)
-    const relevantDataTypes = allDataTypes.filter((dt) => connectedProviders.includes(dt.provider))
-
-    // Load cached data immediately
-    const initialData: Record<string, any[]> = {}
-    relevantDataTypes.forEach(({ provider, dataType }) => {
-      const cacheKey = `${provider}-${dataType}`
-      const cachedData = integrationStore.getDynamicData(provider, dataType)
-      if (cachedData.length > 0) {
-        initialData[cacheKey] = cachedData
-      }
-    })
-
-    if (Object.keys(initialData).length > 0) {
-      setDynamicData(initialData)
-    }
-  }, [integrations, getAllDynamicDataTypes])
 
   if (!currentWorkflow) {
     return (
@@ -1427,7 +831,7 @@ export default function WorkflowBuilder() {
             </DialogHeader>
             <div className="space-y-4">
               <Textarea
-                placeholder="e.g., Send Slack notifications when new emails arrive from important clients"
+                placeholder="e.g., Send Slack notifications when new Notion pages are created in my project database"
                 value={aiPrompt}
                 onChange={(e) => setAiPrompt(e.target.value)}
                 rows={4}
@@ -1462,7 +866,7 @@ export default function WorkflowBuilder() {
   return (
     <AppLayout>
       <div className="h-full flex flex-col">
-        {/* Toolbar */}
+        {/* Enhanced Toolbar with Integration Status */}
         <div className="flex items-center justify-between p-4 bg-white border-b border-slate-200 shadow-sm">
           <div className="flex items-center gap-4">
             <Button
@@ -1483,8 +887,12 @@ export default function WorkflowBuilder() {
             </div>
           </div>
           <div className="flex items-center space-x-2">
+            {/* Enhanced Integration Status */}
             <div className="flex items-center gap-2 px-3 py-1 bg-slate-50 rounded-lg text-sm text-slate-600">
-              <span>{connectedIntegrationsCount} integrations</span>
+              <div className="flex items-center gap-1">
+                <CheckCircle className="w-3 h-3 text-green-500" />
+                <span>{connectedIntegrationsCount} connected</span>
+              </div>
               <Button
                 variant="ghost"
                 size="sm"
@@ -1496,16 +904,16 @@ export default function WorkflowBuilder() {
               </Button>
             </div>
 
+            {/* Enhanced Preloading Status */}
             {globalPreloadingData && (
               <div className="flex items-center gap-2 px-3 py-1 bg-blue-50 rounded-lg text-sm text-blue-600">
                 <Loader2 className="w-3 h-3 animate-spin" />
-                <span>Loading integration data...</span>
-              </div>
-            )}
-
-            {globalPreloadingData && Object.keys(preloadProgress).length > 0 && (
-              <div className="text-xs text-slate-500">
-                {Object.values(preloadProgress).filter(Boolean).length}/{Object.keys(preloadProgress).length}
+                <span>Loading resources...</span>
+                {Object.keys(preloadProgress).length > 0 && (
+                  <Badge variant="secondary" className="text-xs">
+                    {Object.values(preloadProgress).filter(Boolean).length}/{Object.keys(preloadProgress).length}
+                  </Badge>
+                )}
               </div>
             )}
 
@@ -1581,21 +989,15 @@ export default function WorkflowBuilder() {
                   <span className="text-sm font-medium text-slate-900">AI Insights</span>
                 </div>
                 {workflowOptimizations.length > 0 && (
-                  <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-                    {workflowOptimizations.length} optimization{workflowOptimizations.length !== 1 ? "s" : ""}
-                  </Badge>
+                  <Badge variant="secondary">{workflowOptimizations.length} optimizations</Badge>
                 )}
-                {workflowAnomalies.length > 0 && (
-                  <Badge variant="destructive">
-                    {workflowAnomalies.length} anomal{workflowAnomalies.length !== 1 ? "ies" : "y"}
-                  </Badge>
-                )}
+                {workflowAnomalies.length > 0 && <Badge variant="destructive">{workflowAnomalies.length} issues</Badge>}
               </div>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setShowOptimizer(true)}
-                className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                className="hover:bg-white hover:shadow-sm"
               >
                 View Details
               </Button>
@@ -1603,411 +1005,407 @@ export default function WorkflowBuilder() {
           </div>
         )}
 
-        {/* Main Canvas - Vertical Chain Builder */}
-        <div className="flex-1 bg-slate-50 overflow-y-auto">
-          <div className="max-w-2xl mx-auto py-8 px-4">
-            {workflowSteps.length === 0 ? (
-              // Empty state - single large + button
-              <div className="flex flex-col items-center justify-center min-h-[400px]">
-                <div className="text-center mb-8">
-                  <h3 className="text-lg font-medium text-slate-900 mb-2">Start Building Your Workflow</h3>
-                  <p className="text-slate-600">Click the button below to add your first step</p>
-                </div>
-                <Button
-                  onClick={() => handleAddStep(0)}
-                  size="lg"
-                  className="w-16 h-16 rounded-full bg-blue-600 hover:bg-blue-700 shadow-lg hover:shadow-xl transition-all duration-200"
-                >
-                  <Plus className="w-8 h-8" />
-                </Button>
+        {/* Enhanced Workflow Builder */}
+        <div className="flex-1 p-6 bg-slate-50 overflow-auto">
+          <div className="max-w-2xl mx-auto space-y-4">
+            {/* Start Trigger */}
+            <div className="flex items-center justify-center">
+              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                <div className="w-6 h-6 bg-green-500 rounded-full" />
               </div>
-            ) : (
-              // Workflow chain
-              <div className="space-y-4">
-                {workflowSteps.map((step, index) => (
-                  <div key={step.id} className="relative">
-                    {/* Enhanced connecting line - more prominent */}
-                    {index > 0 && (
-                      <div className="flex justify-center">
-                        <div className="w-px h-6 bg-gradient-to-b from-blue-400 to-blue-600"></div>
-                      </div>
-                    )}
+            </div>
 
-                    {/* Step card with enhanced styling */}
-                    <Card className="relative bg-white border-2 border-slate-200 hover:shadow-lg hover:border-blue-300 transition-all duration-200">
-                      <CardContent className="p-6">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-4">
-                            <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center shadow-md border border-slate-200">
-                              <img
-                                src={
-                                  AVAILABLE_INTEGRATIONS.find((app) => app.id === step.appId)?.logo ||
-                                  "/placeholder.svg?height=32&width=32" ||
-                                  "/placeholder.svg" ||
-                                  "/placeholder.svg"
-                                }
-                                alt={step.appName}
-                                className="w-8 h-8 object-contain"
-                                onError={handleImageError}
-                              />
-                            </div>
-                            <div>
-                              <h4 className="font-medium text-slate-900">{step.appName}</h4>
-                              <p className="text-sm text-slate-600">{step.actionName}</p>
-                              <div className="flex items-center gap-2 mt-1">
-                                {step.type === "trigger" && (
-                                  <Badge variant="secondary" className="text-xs bg-green-100 text-green-800">
-                                    Trigger
-                                  </Badge>
-                                )}
-                                {index > 0 && (
-                                  <Badge variant="outline" className="text-xs">
-                                    Step {index + 1}
-                                  </Badge>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            {hasConfigurableOptions(step) && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleEditStep(index)}
-                                className="hover:bg-slate-100"
-                              >
-                                <Edit className="w-4 h-4" />
-                              </Button>
-                            )}
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDeleteStep(index)}
-                              className="hover:bg-red-50 hover:text-red-600"
-                            >
-                              <X className="w-4 h-4" />
-                            </Button>
-                          </div>
+            {/* Workflow Steps */}
+            {workflowSteps.map((step, index) => (
+              <div key={step.id} className="space-y-4">
+                {/* Step Card */}
+                <Card className="bg-white shadow-sm hover:shadow-md transition-shadow duration-200">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center">
+                          <img
+                            src={
+                              AVAILABLE_INTEGRATIONS.find((app) => app.id === step.appId)?.logo || "/placeholder.svg"
+                            }
+                            alt={step.appName}
+                            className="w-6 h-6"
+                            onError={handleImageError}
+                          />
                         </div>
-                      </CardContent>
-                    </Card>
-                  </div>
-                ))}
-
-                {/* Single add step button at the end */}
-                {workflowSteps.length > 0 && (
-                  <div className="flex flex-col items-center mt-4">
-                    <div className="w-px h-6 bg-gradient-to-b from-blue-400 to-blue-600 mb-2"></div>
-                    <Button
-                      onClick={() => handleAddStep(workflowSteps.length)}
-                      variant="outline"
-                      className="w-12 h-12 rounded-full border-2 border-dashed border-slate-300 hover:border-blue-400 hover:bg-blue-50 shadow-sm hover:shadow-md transition-all duration-200"
-                    >
-                      <Plus className="w-5 h-5" />
-                    </Button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* App Selector Modal */}
-      <Dialog open={showAppSelector} onOpenChange={setShowAppSelector}>
-        <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Choose an App</DialogTitle>
-            <DialogDescription>Select the app you want to use for this step</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2 mt-4">
-            {AVAILABLE_INTEGRATIONS.map((app) => {
-              const integration = integrations.find((i) => i.provider === app.id)
-              const isConnected = integration?.status === "connected"
-
-              return (
-                <Button
-                  key={app.id}
-                  variant="outline"
-                  className="w-full justify-start h-auto p-4 hover:bg-blue-50 hover:border-blue-300 transition-colors"
-                  onClick={() => handleAppSelected(app)}
-                >
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 flex items-center justify-center">
-                      <img
-                        src={app.logo || "/placeholder.svg"}
-                        alt={app.name}
-                        className="w-6 h-6 object-contain"
-                        onError={(e) => {
-                          const target = e.currentTarget
-                          if (target.src !== "/placeholder.svg?height=24&width=24") {
-                            target.onerror = null
-                            target.src = "/placeholder.svg?height=24&width=24"
-                          }
-                        }}
-                      />
-                    </div>
-                    <div className="text-left">
-                      <div className="font-medium text-slate-900">{app.name}</div>
-                    </div>
-                  </div>
-                </Button>
-              )
-            })}
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Connect App Modal */}
-      <Dialog open={showConnectModal} onOpenChange={setShowConnectModal}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Connect {selectedApp?.name}</DialogTitle>
-            <DialogDescription>
-              You need to connect your {selectedApp?.name} account to use this app in your workflow.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex gap-3 pt-4">
-            <Button variant="outline" onClick={() => setShowConnectModal(false)} className="flex-1">
-              Cancel
-            </Button>
-            <Button onClick={() => handleConnectApp(selectedApp?.id)} className="flex-1">
-              Connect {selectedApp?.name}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Action Selector Modal */}
-      <Dialog open={showActionSelector} onOpenChange={setShowActionSelector}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Choose {currentStepIndex === 0 ? "a Trigger" : "an Action"}</DialogTitle>
-            <DialogDescription>Select what you want to do with {selectedApp?.name}</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3 mt-4">
-            {currentStepIndex === 0 ? (
-              // Show triggers for first step - smaller buttons in vertical list
-              <div className="space-y-2">
-                {selectedApp?.triggers.map((trigger: string) => (
-                  <Button
-                    key={trigger}
-                    variant="outline"
-                    className="w-full justify-start h-auto p-4 hover:bg-blue-50 hover:border-blue-300 transition-colors"
-                    onClick={() => handleActionSelected(trigger)}
-                  >
-                    <div className="text-left">
-                      <div className="font-medium text-slate-900">{trigger}</div>
-                      <div className="text-sm text-slate-500 mt-1">
-                        Triggers when {trigger.toLowerCase()} in {selectedApp?.name}
+                        <div>
+                          <div className="font-medium text-slate-900">{step.actionName}</div>
+                          <div className="text-sm text-slate-500">{step.appName}</div>
+                          {hasConfigurableOptions(step) && Object.keys(step.config).length > 0 && (
+                            <div className="text-xs text-blue-600 mt-1">
+                              {Object.entries(step.config)
+                                .filter(([_, value]) => value)
+                                .map(([key, value]) => `${key}: ${value}`)
+                                .join(", ")}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Badge variant={step.type === "trigger" ? "default" : "secondary"}>{step.type}</Badge>
+                        {hasConfigurableOptions(step) && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEditStep(index)}
+                            className="hover:bg-slate-100"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteStep(index)}
+                          className="hover:bg-red-50 hover:text-red-600"
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
                       </div>
                     </div>
-                  </Button>
-                ))}
-              </div>
-            ) : (
-              // Show actions and conditions for subsequent steps
-              <>
-                <div className="mb-4">
-                  <h4 className="font-medium text-slate-900 mb-2">Actions</h4>
-                  <div className="space-y-2">
-                    {selectedApp?.actions.map((action: string) => (
-                      <Card
-                        key={action}
-                        className="cursor-pointer hover:shadow-md transition-shadow duration-200 border hover:border-blue-200"
-                        onClick={() => handleActionSelected(action, "action")}
-                      >
-                        <CardContent className="p-3">
-                          <h5 className="font-medium text-slate-900">{action}</h5>
-                        </CardContent>
-                      </Card>
-                    ))}
+                  </CardContent>
+                </Card>
+
+                {/* Add Step Button */}
+                <div className="flex items-center justify-center">
+                  <div className="flex flex-col items-center">
+                    <div className="w-px h-6 bg-slate-300" />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleAddStep(index + 1)}
+                      className="w-8 h-8 rounded-full p-0 hover:bg-blue-50 hover:border-blue-200"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </Button>
+                    <div className="w-px h-6 bg-slate-300" />
                   </div>
                 </div>
-
-                <div>
-                  <h4 className="font-medium text-slate-900 mb-2">Conditions</h4>
-                  <div className="space-y-2">
-                    {CONDITION_TYPES.map((condition) => (
-                      <Card
-                        key={condition.id}
-                        className="cursor-pointer hover:shadow-md transition-shadow duration-200 border hover:border-purple-200"
-                        onClick={() => handleActionSelected(condition.name, "condition")}
-                      >
-                        <CardContent className="p-3">
-                          <h5 className="font-medium text-slate-900">{condition.name}</h5>
-                          <p className="text-sm text-slate-600">{condition.description}</p>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Configuration Modal */}
-      <Dialog open={showConfigModal} onOpenChange={setShowConfigModal}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Configure {selectedAction}</DialogTitle>
-            <DialogDescription>
-              {currentStepIndex === 0
-                ? "Configure the trigger settings"
-                : "Fill in the required information for this action"}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 mt-4">
-            {getConfigFields().map((field) => (
-              <div key={field.key} className="space-y-2">
-                <Label htmlFor={field.key} className="text-sm font-medium">
-                  {field.label} {field.required && "*"}
-                </Label>
-                {renderConfigField(field)}
               </div>
             ))}
-          </div>
 
-          <div className="flex gap-3 pt-6">
-            <Button variant="outline" onClick={() => setShowConfigModal(false)} className="flex-1">
-              Cancel
-            </Button>
-            <Button
-              onClick={
-                currentStepIndex >= 0 && currentStepIndex < workflowSteps.length
-                  ? handleUpdateStep
-                  : handleConfigComplete
-              }
-              className="flex-1"
-              disabled={(() => {
-                const fields = getConfigFields()
-                return fields.some((field) => field.required && !currentConfig[field.key])
-              })()}
-            >
-              {currentStepIndex >= 0 && currentStepIndex < workflowSteps.length ? "Update Step" : "Add Step"}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+            {/* Initial Add Step Button */}
+            {workflowSteps.length === 0 && (
+              <div className="flex items-center justify-center">
+                <Button
+                  variant="outline"
+                  onClick={() => handleAddStep(0)}
+                  className="flex items-center gap-2 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Trigger
+                </Button>
+              </div>
+            )}
 
-      {/* Exit Confirmation Dialog */}
-      <Dialog open={showExitDialog} onOpenChange={setShowExitDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Unsaved Changes</DialogTitle>
-            <DialogDescription>
-              You have unsaved changes. Do you want to save as a draft or discard before exiting?
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex gap-3 pt-4">
-            <Button variant="outline" onClick={() => setShowExitDialog(false)} className="flex-1">
-              Cancel
-            </Button>
-            <Button
-              variant="outline"
-              onClick={handleDiscardAndExit}
-              className="flex-1 hover:bg-red-50 hover:text-red-600 hover:border-red-200"
-            >
-              Discard
-            </Button>
-            <Button onClick={handleSaveAndExit} className="flex-1">
-              Save and Exit
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* AI Generation Dialog */}
-      <Dialog open={showAIGenerator} onOpenChange={setShowAIGenerator}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Generate Workflow with AI</DialogTitle>
-            <DialogDescription>
-              Describe what you want your workflow to do, and AI will create it for you.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <Textarea
-              placeholder="e.g., Send Slack notifications when new emails arrive from important clients"
-              value={aiPrompt}
-              onChange={(e) => setAiPrompt(e.target.value)}
-              rows={4}
-            />
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setShowAIGenerator(false)} className="flex-1">
-                Cancel
-              </Button>
-              <Button onClick={handleGenerateWithAI} disabled={!aiPrompt.trim() || generatingAI} className="flex-1">
-                {generatingAI ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Generating...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-4 h-4 mr-2" />
-                    Generate
-                  </>
-                )}
-              </Button>
+            {/* End */}
+            <div className="flex items-center justify-center">
+              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                <div className="w-6 h-6 bg-red-500 rounded-full" />
+              </div>
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
+        </div>
 
-      {/* AI Dialogs */}
-      <WorkflowOptimizer open={showOptimizer} onOpenChange={setShowOptimizer} workflow={currentWorkflow} />
+        {/* Enhanced App Selector Modal */}
+        <Dialog open={showAppSelector} onOpenChange={setShowAppSelector}>
+          <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden">
+            <DialogHeader>
+              <DialogTitle>Choose an Integration</DialogTitle>
+              <DialogDescription>
+                Select an app to {currentStepIndex === 0 ? "trigger" : "perform an action in"} your workflow
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[60vh] overflow-y-auto">
+              {AVAILABLE_INTEGRATIONS.map((app) => {
+                const integrationStatus = getEnhancedIntegrationStatus(app.id)
+                const isConnected = integrationStatus.isConnected
+                const resourceCount = integrationStatus.resourceCount
+                const isLoading = integrationStatus.isLoading
 
-      <AIChatAssistant />
+                return (
+                  <Card
+                    key={app.id}
+                    className={`cursor-pointer transition-all duration-200 hover:shadow-md ${
+                      isConnected ? "border-green-200 bg-green-50/30" : "border-slate-200 hover:border-blue-200"
+                    }`}
+                    onClick={() => handleAppSelected(app)}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center">
+                            <img
+                              src={app.logo || "/placeholder.svg"}
+                              alt={app.name}
+                              className="w-6 h-6"
+                              onError={handleImageError}
+                            />
+                          </div>
+                          <div>
+                            <div className="font-medium text-slate-900">{app.name}</div>
+                            <Badge variant="outline" className="text-xs">
+                              {app.category}
+                            </Badge>
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end gap-1">
+                          {isConnected ? (
+                            <div className="flex items-center gap-1">
+                              <CheckCircle className="w-4 h-4 text-green-500" />
+                              <span className="text-xs text-green-600">Connected</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1">
+                              <AlertCircle className="w-4 h-4 text-orange-500" />
+                              <span className="text-xs text-orange-600">Not connected</span>
+                            </div>
+                          )}
+                          {isConnected && resourceCount > 0 && (
+                            <Badge variant="secondary" className="text-xs">
+                              {resourceCount} resources
+                            </Badge>
+                          )}
+                          {isLoading && (
+                            <div className="flex items-center gap-1">
+                              <Loader2 className="w-3 h-3 animate-spin text-blue-500" />
+                              <span className="text-xs text-blue-600">Loading...</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <p className="text-sm text-slate-600 mb-3">{app.description}</p>
+                      <div className="space-y-2">
+                        <div className="text-xs font-medium text-slate-700">
+                          {currentStepIndex === 0 ? "Available Triggers:" : "Available Actions:"}
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {(currentStepIndex === 0 ? app.triggers : app.actions).slice(0, 3).map((item) => (
+                            <Badge key={item} variant="outline" className="text-xs">
+                              {item}
+                            </Badge>
+                          ))}
+                          {(currentStepIndex === 0 ? app.triggers : app.actions).length > 3 && (
+                            <Badge variant="outline" className="text-xs">
+                              +{(currentStepIndex === 0 ? app.triggers : app.actions).length - 3} more
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )
+              })}
+            </div>
+          </DialogContent>
+        </Dialog>
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete Step</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete this step? This action cannot be undone.
-              {stepToDelete >= 0 && workflowSteps[stepToDelete] && (
-                <div className="mt-2 p-3 bg-slate-50 rounded-lg">
-                  <div className="flex items-center space-x-2">
-                    <img
-                      src={
-                        AVAILABLE_INTEGRATIONS.find((app) => app.id === workflowSteps[stepToDelete].appId)?.logo ||
-                        "/placeholder.svg?height=24&width=24" ||
-                        "/placeholder.svg" ||
-                        "/placeholder.svg"
-                      }
-                      alt={workflowSteps[stepToDelete].appName}
-                      className="w-6 h-6 object-contain"
-                      onError={(e) => {
-                        const target = e.currentTarget
-                        if (target.src !== "/placeholder.svg?height=24&width=24") {
-                          target.onerror = null
-                          target.src = "/placeholder.svg?height=24&width=24"
-                        }
-                      }}
-                    />
-                    <div>
-                      <div className="font-medium text-slate-900">{workflowSteps[stepToDelete].appName}</div>
-                      <div className="text-sm text-slate-600">{workflowSteps[stepToDelete].actionName}</div>
+        {/* Enhanced Action Selector Modal */}
+        <Dialog open={showActionSelector} onOpenChange={setShowActionSelector}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>
+                Choose {currentStepIndex === 0 ? "Trigger" : "Action"} - {selectedApp?.name}
+              </DialogTitle>
+              <DialogDescription>
+                Select what should {currentStepIndex === 0 ? "trigger" : "happen in"} this step
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-2 max-h-[60vh] overflow-y-auto">
+              {(currentStepIndex === 0 ? selectedApp?.triggers : selectedApp?.actions)?.map((action) => (
+                <Button
+                  key={action}
+                  variant="outline"
+                  className="justify-start h-auto p-4 text-left hover:bg-blue-50 hover:border-blue-200"
+                  onClick={() => handleActionSelected(action)}
+                >
+                  <div>
+                    <div className="font-medium">{action}</div>
+                    <div className="text-sm text-slate-500 mt-1">
+                      {currentStepIndex === 0
+                        ? `Triggers when ${action.toLowerCase()}`
+                        : `Performs ${action.toLowerCase()}`}
                     </div>
+                  </div>
+                </Button>
+              ))}
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Enhanced Configuration Modal */}
+        <Dialog open={showConfigModal} onOpenChange={setShowConfigModal}>
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden">
+            <DialogHeader>
+              <DialogTitle>
+                Configure {selectedAction} - {selectedApp?.name}
+              </DialogTitle>
+              <DialogDescription>
+                Set up the parameters for this {currentStepIndex === 0 ? "trigger" : "action"}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 max-h-[60vh] overflow-y-auto">
+              {getConfigFields().map((field) => (
+                <div key={field.key} className="space-y-2">
+                  <Label htmlFor={field.key} className="text-sm font-medium">
+                    {field.label} {field.required && <span className="text-red-500">*</span>}
+                  </Label>
+                  {renderConfigField(field)}
+                  {field.description && <p className="text-xs text-slate-500">{field.description}</p>}
+                </div>
+              ))}
+              {getConfigFields().length === 0 && (
+                <div className="text-center py-8 text-slate-500">
+                  <div className="text-lg font-medium mb-2">No configuration needed</div>
+                  <div className="text-sm">
+                    This {currentStepIndex === 0 ? "trigger" : "action"} works automatically
                   </div>
                 </div>
               )}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex gap-3 pt-4">
-            <Button variant="outline" onClick={() => setShowDeleteDialog(false)} className="flex-1">
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={confirmDeleteStep} className="flex-1">
-              Delete Step
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+            </div>
+            <div className="flex gap-2 pt-4 border-t">
+              <Button variant="outline" onClick={() => setShowConfigModal(false)} className="flex-1">
+                Cancel
+              </Button>
+              <Button
+                onClick={
+                  currentStepIndex >= 0 && currentStepIndex < workflowSteps.length
+                    ? handleUpdateStep
+                    : handleConfigComplete
+                }
+                className="flex-1"
+              >
+                {currentStepIndex >= 0 && currentStepIndex < workflowSteps.length ? "Update Step" : "Add Step"}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Connect Integration Modal */}
+        <Dialog open={showConnectModal} onOpenChange={setShowConnectModal}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Connect {selectedApp?.name}</DialogTitle>
+              <DialogDescription>You need to connect {selectedApp?.name} to use it in your workflow</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="flex items-center space-x-3 p-4 bg-slate-50 rounded-lg">
+                <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center shadow-sm">
+                  <img
+                    src={selectedApp?.logo || "/placeholder.svg"}
+                    alt={selectedApp?.name}
+                    className="w-6 h-6"
+                    onError={handleImageError}
+                  />
+                </div>
+                <div>
+                  <div className="font-medium">{selectedApp?.name}</div>
+                  <div className="text-sm text-slate-500">{selectedApp?.description}</div>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setShowConnectModal(false)} className="flex-1">
+                  Cancel
+                </Button>
+                <Button onClick={() => handleConnectApp(selectedApp?.id)} className="flex-1">
+                  Connect {selectedApp?.name}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete Step</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to delete this step? This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setShowDeleteDialog(false)} className="flex-1">
+                Cancel
+              </Button>
+              <Button variant="destructive" onClick={confirmDeleteStep} className="flex-1">
+                Delete Step
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Exit Confirmation Dialog */}
+        <Dialog open={showExitDialog} onOpenChange={setShowExitDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Unsaved Changes</DialogTitle>
+              <DialogDescription>You have unsaved changes. What would you like to do?</DialogDescription>
+            </DialogHeader>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={handleDiscardAndExit} className="flex-1">
+                Discard Changes
+              </Button>
+              <Button onClick={handleSaveAndExit} className="flex-1">
+                Save & Exit
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* AI Generator Modal */}
+        <Dialog open={showAIGenerator} onOpenChange={setShowAIGenerator}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Generate Workflow with AI</DialogTitle>
+              <DialogDescription>
+                Describe what you want your workflow to do, and AI will create it for you.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <Textarea
+                placeholder="e.g., Send Slack notifications when new Notion pages are created in my project database"
+                value={aiPrompt}
+                onChange={(e) => setAiPrompt(e.target.value)}
+                rows={4}
+              />
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setShowAIGenerator(false)} className="flex-1">
+                  Cancel
+                </Button>
+                <Button onClick={handleGenerateWithAI} disabled={!aiPrompt.trim() || generatingAI} className="flex-1">
+                  {generatingAI ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      Generate
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Workflow Optimizer Modal */}
+        <WorkflowOptimizer
+          isOpen={showOptimizer}
+          onClose={() => setShowOptimizer(false)}
+          workflowId={currentWorkflow?.id}
+        />
+
+        {/* AI Chat Assistant */}
+        <AIChatAssistant />
+      </div>
     </AppLayout>
   )
 }

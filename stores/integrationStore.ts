@@ -27,6 +27,15 @@ interface Provider {
   isAvailable: boolean
 }
 
+interface CachedResource {
+  id: string
+  name: string
+  value: string
+  type?: string
+  metadata?: any
+  lastUpdated: number
+}
+
 interface IntegrationState {
   integrations: Integration[]
   providers: Provider[]
@@ -38,9 +47,12 @@ interface IntegrationState {
   globalPreloadingData: boolean
   preloadProgress: { [key: string]: boolean }
   preloadStarted: boolean
-  dynamicData: Record<string, any[]>
+  dynamicData: Record<string, CachedResource[]>
   dataLastFetched: Record<string, number>
   hydrated: boolean
+  resourceLoadingStates: Record<string, boolean>
+
+  // Enhanced methods
   fetchIntegrations: (forceRefresh?: boolean) => Promise<void>
   verifyIntegrationScopes: () => Promise<void>
   connectIntegration: (providerId: string) => Promise<void>
@@ -53,15 +65,33 @@ interface IntegrationState {
   }>
   handleOAuthSuccess: () => void
   initializeGlobalPreload: () => Promise<void>
-  fetchDynamicData: (provider: string, dataType: string) => Promise<any>
+  fetchDynamicData: (provider: string, dataType: string) => Promise<CachedResource[]>
   ensureDataPreloaded: () => Promise<void>
-  getDynamicData: (provider: string, dataType: string) => any[]
+  getDynamicData: (provider: string, dataType: string) => CachedResource[]
   isDataFresh: (provider: string, dataType: string) => boolean
   clearAllData: () => void
   setHydrated: () => void
+
+  // New enhanced methods
+  preloadResourcesForProvider: (provider: string) => Promise<void>
+  getResourcesForTrigger: (provider: string, trigger: string) => CachedResource[]
+  refreshResourcesForProvider: (provider: string) => Promise<void>
+  isResourceLoading: (provider: string, dataType: string) => boolean
+  getIntegrationStatus: (provider: string) => "connected" | "disconnected" | "error" | "not_found"
+  getCachedResourceCount: (provider: string) => number
 }
 
 const availableProviders: Provider[] = [
+  {
+    id: "notion",
+    name: "Notion",
+    description: "Create pages, manage databases, and organize your workspace",
+    category: "Productivity",
+    logoUrl: "/placeholder.svg?height=40&width=40&text=N",
+    capabilities: ["Pages", "Databases", "Blocks", "Users"],
+    scopes: ["read_content", "insert_content"],
+    isAvailable: true,
+  },
   {
     id: "gmail",
     name: "Gmail",
@@ -70,56 +100,6 @@ const availableProviders: Provider[] = [
     logoUrl: "/placeholder.svg?height=40&width=40&text=GM",
     capabilities: ["Send Email", "Read Email", "Manage Labels", "Search"],
     scopes: ["email", "gmail.send", "gmail.modify"],
-    isAvailable: true,
-  },
-  {
-    id: "google-drive",
-    name: "Google Drive",
-    description: "Upload files, manage folders, and share documents in Google Drive",
-    category: "Storage",
-    logoUrl: "/placeholder.svg?height=40&width=40&text=GD",
-    capabilities: ["File Upload", "File Management", "Sharing", "Folder Creation"],
-    scopes: ["drive", "drive.file"],
-    isAvailable: true,
-  },
-  {
-    id: "google-calendar",
-    name: "Google Calendar",
-    description: "Create events, manage calendars, and schedule meetings",
-    category: "Productivity",
-    logoUrl: "/placeholder.svg?height=40&width=40&text=GC",
-    capabilities: ["Create Events", "Read Events", "Manage Calendars", "Send Invites"],
-    scopes: ["calendar", "calendar.events"],
-    isAvailable: true,
-  },
-  {
-    id: "google-sheets",
-    name: "Google Sheets",
-    description: "Read and write data to Google Sheets spreadsheets",
-    category: "Productivity",
-    logoUrl: "/placeholder.svg?height=40&width=40&text=GS",
-    capabilities: ["Read Data", "Write Data", "Create Sheets", "Format Cells"],
-    scopes: ["spreadsheets"],
-    isAvailable: true,
-  },
-  {
-    id: "google-docs",
-    name: "Google Docs",
-    description: "Create, edit, and collaborate on documents",
-    category: "Productivity",
-    logoUrl: "/placeholder.svg?height=40&width=40&text=GD",
-    capabilities: ["Create Documents", "Edit Content", "Share Documents", "Comments"],
-    scopes: ["documents"],
-    isAvailable: true,
-  },
-  {
-    id: "youtube",
-    name: "YouTube",
-    description: "Upload videos, manage channels, and access analytics",
-    category: "Media",
-    logoUrl: "/placeholder.svg?height=40&width=40&text=YT",
-    capabilities: ["Upload Videos", "Manage Channel", "Read Analytics", "Manage Playlists"],
-    scopes: ["youtube.upload", "youtube.readonly"],
     isAvailable: true,
   },
   {
@@ -133,53 +113,33 @@ const availableProviders: Provider[] = [
     isAvailable: true,
   },
   {
-    id: "github",
-    name: "GitHub",
-    description: "Manage repositories, issues, pull requests, and deployments",
-    category: "Development",
-    logoUrl: "/placeholder.svg?height=40&width=40&text=GH",
-    capabilities: ["Repositories", "Issues", "Pull Requests", "Actions"],
-    scopes: ["repo", "user", "workflow"],
-    isAvailable: true,
-  },
-  {
-    id: "discord",
-    name: "Discord",
-    description: "Send messages, manage servers, and interact with Discord communities",
-    category: "Communication",
-    logoUrl: "/placeholder.svg?height=40&width=40&text=D",
-    capabilities: ["Messaging", "Servers", "Channels", "Webhooks"],
-    scopes: ["bot", "identify", "guilds"],
-    isAvailable: true,
-  },
-  {
-    id: "teams",
-    name: "Microsoft Teams",
-    description: "Send messages, schedule meetings, and collaborate with your team",
+    id: "google-sheets",
+    name: "Google Sheets",
+    description: "Read and write data to Google Sheets spreadsheets",
     category: "Productivity",
-    logoUrl: "/placeholder.svg?height=40&width=40&text=T",
-    capabilities: ["Messaging", "Meetings", "Files", "Channels"],
-    scopes: ["Chat.ReadWrite", "Team.ReadBasic.All"],
+    logoUrl: "/placeholder.svg?height=40&width=40&text=GS",
+    capabilities: ["Read Data", "Write Data", "Create Sheets", "Format Cells"],
+    scopes: ["spreadsheets"],
     isAvailable: true,
   },
   {
-    id: "trello",
-    name: "Trello",
-    description: "Create cards, manage boards, and organize your projects",
-    category: "Project Management",
-    logoUrl: "/placeholder.svg?height=40&width=40&text=TR",
-    capabilities: ["Boards", "Cards", "Lists", "Members"],
-    scopes: ["read", "write"],
-    isAvailable: true,
-  },
-  {
-    id: "notion",
-    name: "Notion",
-    description: "Create pages, manage databases, and organize your workspace",
+    id: "google-calendar",
+    name: "Google Calendar",
+    description: "Create events, manage calendars, and schedule meetings",
     category: "Productivity",
-    logoUrl: "/placeholder.svg?height=40&width=40&text=N",
-    capabilities: ["Pages", "Databases", "Blocks", "Users"],
-    scopes: ["read_content", "insert_content"],
+    logoUrl: "/placeholder.svg?height=40&width=40&text=GC",
+    capabilities: ["Create Events", "Read Events", "Manage Calendars", "Send Invites"],
+    scopes: ["calendar", "calendar.events"],
+    isAvailable: true,
+  },
+  {
+    id: "google-drive",
+    name: "Google Drive",
+    description: "Upload files, manage folders, and share documents in Google Drive",
+    category: "Storage",
+    logoUrl: "/placeholder.svg?height=40&width=40&text=GD",
+    capabilities: ["File Upload", "File Management", "Sharing", "Folder Creation"],
+    scopes: ["drive", "drive.file"],
     isAvailable: true,
   },
   {
@@ -193,13 +153,23 @@ const availableProviders: Provider[] = [
     isAvailable: true,
   },
   {
-    id: "dropbox",
-    name: "Dropbox",
-    description: "Upload files, manage folders, and share content",
-    category: "Storage",
-    logoUrl: "/placeholder.svg?height=40&width=40&text=DB",
-    capabilities: ["Files", "Folders", "Sharing", "Metadata"],
-    scopes: ["files.content.write", "files.content.read"],
+    id: "trello",
+    name: "Trello",
+    description: "Create cards, manage boards, and organize your projects",
+    category: "Project Management",
+    logoUrl: "/placeholder.svg?height=40&width=40&text=TR",
+    capabilities: ["Boards", "Cards", "Lists", "Members"],
+    scopes: ["read", "write"],
+    isAvailable: true,
+  },
+  {
+    id: "github",
+    name: "GitHub",
+    description: "Manage repositories, issues, pull requests, and deployments",
+    category: "Development",
+    logoUrl: "/placeholder.svg?height=40&width=40&text=GH",
+    capabilities: ["Repositories", "Issues", "Pull Requests", "Actions"],
+    scopes: ["repo", "user", "workflow"],
     isAvailable: true,
   },
   {
@@ -212,127 +182,53 @@ const availableProviders: Provider[] = [
     scopes: ["crm.objects.contacts.read", "crm.objects.deals.read"],
     isAvailable: true,
   },
-  {
-    id: "linkedin",
-    name: "LinkedIn",
-    description: "Share posts, manage connections, and access professional data",
-    category: "Social",
-    logoUrl: "/placeholder.svg?height=40&width=40&text=LI",
-    capabilities: ["Posts", "Connections", "Profile", "Companies"],
-    scopes: ["r_liteprofile", "w_member_social"],
-    isAvailable: true,
-  },
-  {
-    id: "facebook",
-    name: "Facebook",
-    description: "Post content, manage pages, and access social insights",
-    category: "Social",
-    logoUrl: "/placeholder.svg?height=40&width=40&text=F",
-    capabilities: ["Posts", "Pages", "Insights", "Events"],
-    scopes: ["public_profile", "email", "pages_show_list", "pages_manage_posts", "pages_read_engagement"],
-    isAvailable: true,
-  },
-  {
-    id: "instagram",
-    name: "Instagram",
-    description: "Post photos, manage content, and access media insights",
-    category: "Social",
-    logoUrl: "/placeholder.svg?height=40&width=40&text=IG",
-    capabilities: ["Posts", "Stories", "Media", "Insights"],
-    scopes: ["instagram_basic", "instagram_content_publish"],
-    isAvailable: true,
-  },
-  {
-    id: "twitter",
-    name: "X",
-    description: "Post tweets, manage followers, and access social data",
-    category: "Social",
-    logoUrl: "/placeholder.svg?height=40&width=40&text=X",
-    capabilities: ["Tweets", "Followers", "Direct Messages", "Analytics"],
-    scopes: ["tweet.read", "tweet.write", "users.read"],
-    isAvailable: true,
-  },
-  {
-    id: "tiktok",
-    name: "TikTok",
-    description: "Post videos, manage content, and access creator tools",
-    category: "Social",
-    logoUrl: "/placeholder.svg?height=40&width=40&text=TT",
-    capabilities: ["Videos", "Analytics", "User Info"],
-    scopes: ["user.info.basic", "video.upload"],
-    isAvailable: true,
-  },
-  {
-    id: "mailchimp",
-    name: "Mailchimp",
-    description: "Manage email campaigns, lists, and marketing automation",
-    category: "Marketing",
-    logoUrl: "/placeholder.svg?height=40&width=40&text=MC",
-    capabilities: ["Campaigns", "Lists", "Automation", "Reports"],
-    scopes: ["read", "write"],
-    isAvailable: true,
-  },
-  {
-    id: "shopify",
-    name: "Shopify",
-    description: "Manage products, orders, customers, and store data",
-    category: "E-commerce",
-    logoUrl: "/placeholder.svg?height=40&width=40&text=SH",
-    capabilities: ["Products", "Orders", "Customers", "Inventory"],
-    scopes: ["read_products", "write_products", "read_orders"],
-    isAvailable: true,
-  },
-  {
-    id: "stripe",
-    name: "Stripe",
-    description: "Process payments, manage customers, and handle subscriptions",
-    category: "Payments",
-    logoUrl: "/placeholder.svg?height=40&width=40&text=ST",
-    capabilities: ["Payments", "Customers", "Subscriptions", "Invoices"],
-    scopes: ["read_write"],
-    isAvailable: true,
-  },
-  {
-    id: "paypal",
-    name: "PayPal",
-    description: "Process payments, manage transactions, and handle disputes",
-    category: "Payments",
-    logoUrl: "/placeholder.svg?height=40&width=40&text=PP",
-    capabilities: ["Payments", "Transactions", "Disputes", "Invoices"],
-    scopes: ["openid", "profile", "email"],
-    isAvailable: true,
-  },
-  {
-    id: "gitlab",
-    name: "GitLab",
-    description: "Manage repositories, issues, merge requests, and CI/CD pipelines",
-    category: "Development",
-    logoUrl: "/placeholder.svg?height=40&width=40&text=GL",
-    capabilities: ["Repositories", "Issues", "Merge Requests", "Pipelines"],
-    scopes: ["api", "read_user", "read_repository"],
-    isAvailable: true,
-  },
-  {
-    id: "docker",
-    name: "Docker Hub",
-    description: "Manage container images, repositories, and deployments",
-    category: "Development",
-    logoUrl: "/placeholder.svg?height=40&width=40&text=DH",
-    capabilities: ["Images", "Repositories", "Tags", "Webhooks"],
-    scopes: ["repo:read", "repo:write"],
-    isAvailable: false,
-  },
-  {
-    id: "onedrive",
-    name: "OneDrive",
-    description: "Upload files, manage folders, and share documents",
-    category: "Storage",
-    logoUrl: "/placeholder.svg?height=40&width=40&text=OD",
-    capabilities: ["Files", "Folders", "Sharing", "Sync"],
-    scopes: ["Files.ReadWrite", "Files.ReadWrite.All"],
-    isAvailable: true,
-  },
 ]
+
+// Enhanced trigger-to-resource mapping
+const TRIGGER_RESOURCE_MAPPING = {
+  notion: {
+    "Page Updated": ["pages"],
+    "Database Item Added": ["databases"],
+    "Database Item Updated": ["databases"],
+    "New Page Created": ["pages"],
+  },
+  gmail: {
+    "New Email": ["labels", "folders"],
+    "Email Received from Specific Sender": ["contacts"],
+    "Email with Attachment": ["labels"],
+    "Important Email": ["labels"],
+  },
+  slack: {
+    "New Message in Channel": ["channels"],
+    "Direct Message Received": ["users"],
+    "User Mentioned": ["channels"],
+    "File Uploaded": ["channels"],
+  },
+  "google-sheets": {
+    "New Row Added": ["spreadsheets"],
+    "Row Updated": ["spreadsheets"],
+    "Cell Changed": ["spreadsheets"],
+  },
+  "google-calendar": {
+    "New Event": ["calendars"],
+    "Event Updated": ["calendars"],
+    "Event Starting Soon": ["calendars"],
+  },
+  airtable: {
+    "New Record": ["bases"],
+    "Record Updated": ["bases"],
+  },
+  trello: {
+    "New Card": ["boards"],
+    "Card Moved": ["boards"],
+    "Card Updated": ["boards"],
+  },
+  github: {
+    "New Issue": ["repositories"],
+    "Pull Request Created": ["repositories"],
+    "Push to Repository": ["repositories"],
+  },
+}
 
 const timeoutPromise = (ms: number) => {
   return new Promise((_, reject) => {
@@ -347,15 +243,12 @@ const getAllDynamicDataTypes = () => {
     { provider: "slack", dataType: "channels" },
     { provider: "slack", dataType: "users" },
     { provider: "github", dataType: "repositories" },
-    { provider: "discord", dataType: "channels" },
-    { provider: "teams", dataType: "teams" },
-    { provider: "trello", dataType: "boards" },
-    { provider: "airtable", dataType: "bases" },
-    { provider: "hubspot", dataType: "pipelines" },
-    { provider: "mailchimp", dataType: "lists" },
     { provider: "google-sheets", dataType: "spreadsheets" },
     { provider: "google-calendar", dataType: "calendars" },
     { provider: "google-drive", dataType: "folders" },
+    { provider: "airtable", dataType: "bases" },
+    { provider: "trello", dataType: "boards" },
+    { provider: "hubspot", dataType: "pipelines" },
   ]
 }
 
@@ -375,6 +268,7 @@ export const useIntegrationStore = create<IntegrationState>()(
       dynamicData: {},
       dataLastFetched: {},
       hydrated: false,
+      resourceLoadingStates: {},
 
       setHydrated: () => {
         set({ hydrated: true })
@@ -399,7 +293,7 @@ export const useIntegrationStore = create<IntegrationState>()(
             return
           }
 
-          console.log("Fetching integrations for user:", user.id)
+          console.log("🔄 Fetching integrations for user:", user.id)
 
           const fetchPromise = supabase
             .from("integrations")
@@ -408,7 +302,6 @@ export const useIntegrationStore = create<IntegrationState>()(
             .order("created_at", { ascending: false })
 
           const result = await Promise.race([fetchPromise, timeoutPromise(10000)])
-
           const { data, error } = result as any
 
           if (error) {
@@ -416,7 +309,7 @@ export const useIntegrationStore = create<IntegrationState>()(
             throw new Error(error.message)
           }
 
-          console.log("Fetched integrations:", data?.length || 0)
+          console.log("✅ Fetched integrations:", data?.length || 0)
 
           set({
             integrations: data || [],
@@ -467,8 +360,6 @@ export const useIntegrationStore = create<IntegrationState>()(
             throw new Error("Authentication required. Please refresh the page and try again.")
           }
 
-          console.log("Making API call to generate auth URL")
-
           const fetchPromise = fetch(`/api/integrations/auth/generate-url`, {
             method: "POST",
             headers: {
@@ -482,29 +373,16 @@ export const useIntegrationStore = create<IntegrationState>()(
 
           const response = (await Promise.race([fetchPromise, timeoutPromise(15000)])) as Response
 
-          console.log("API response status:", response.status)
-
           if (!response.ok) {
             const errorData = await response.json().catch(() => ({}))
-            console.error("API error:", errorData)
-
             if (response.status === 503) {
               throw new Error(errorData.error || `${providerId} integration is not configured. Please contact support.`)
             }
-
             throw new Error(errorData.error || "Failed to generate auth URL")
           }
 
           const { authUrl } = await response.json()
-          console.log("Generated auth URL, redirecting...")
-
-          if (providerId === "teams") {
-            const url = new URL(authUrl)
-            url.searchParams.append("_t", Date.now().toString())
-            window.location.href = url.toString()
-          } else {
-            window.location.href = authUrl
-          }
+          window.location.href = authUrl
         } catch (error: any) {
           console.error("Failed to connect integration:", error)
           throw error
@@ -577,9 +455,7 @@ export const useIntegrationStore = create<IntegrationState>()(
           const response = (await Promise.race([fetchPromise, timeoutPromise(15000)])) as Response
 
           if (!response.ok) {
-            console.log("Token refresh endpoint not available, just refreshing data")
             await get().fetchIntegrations(true)
-
             set({
               refreshing: false,
               lastRefreshed: new Date().toISOString(),
@@ -593,7 +469,6 @@ export const useIntegrationStore = create<IntegrationState>()(
           }
 
           const data = await response.json()
-
           await get().fetchIntegrations(true)
 
           set({
@@ -608,26 +483,11 @@ export const useIntegrationStore = create<IntegrationState>()(
           }
         } catch (error: any) {
           console.error("Error refreshing tokens:", error)
-
-          try {
-            await get().fetchIntegrations(true)
-            set({
-              refreshing: false,
-              lastRefreshed: new Date().toISOString(),
-            })
-
-            return {
-              success: true,
-              message: "Integration data refreshed",
-              refreshedCount: 0,
-            }
-          } catch (fallbackError: any) {
-            set({ refreshing: false })
-            return {
-              success: false,
-              message: fallbackError.message || "Failed to refresh",
-              refreshedCount: 0,
-            }
+          set({ refreshing: false })
+          return {
+            success: false,
+            message: error.message || "Failed to refresh",
+            refreshedCount: 0,
           }
         }
       },
@@ -657,11 +517,10 @@ export const useIntegrationStore = create<IntegrationState>()(
           return
         }
 
-        console.log("🚀 Starting global preload initialization...")
+        console.log("🚀 Starting enhanced global preload initialization...")
         set({ preloadStarted: true, globalPreloadingData: true })
 
         try {
-          // First fetch integrations if not already loaded
           if (state.integrations.length === 0) {
             console.log("📡 Fetching integrations first...")
             await state.fetchIntegrations(true)
@@ -676,92 +535,34 @@ export const useIntegrationStore = create<IntegrationState>()(
             return
           }
 
-          const allDataTypes = getAllDynamicDataTypes()
-          const connectedProviders = connectedIntegrations.map((i) => i.provider)
-          const relevantDataTypes = allDataTypes.filter((dt) => connectedProviders.includes(dt.provider))
+          console.log(`🔄 Preloading resources for ${connectedIntegrations.length} connected integrations`)
 
-          console.log(
-            `📊 Starting background preload for ${relevantDataTypes.length} data types across ${connectedProviders.length} providers:`,
-            connectedProviders,
-          )
-
-          const initialProgress: { [key: string]: boolean } = {}
-          relevantDataTypes.forEach(({ provider, dataType }) => {
-            initialProgress[`${provider}-${dataType}`] = false
-          })
-          set({ preloadProgress: initialProgress })
-
-          // Fetch all data types with controlled concurrency - prioritize Notion
-          const notionTypes = relevantDataTypes.filter((dt) => dt.provider === "notion")
-          const otherTypes = relevantDataTypes.filter((dt) => dt.provider !== "notion")
-
-          // Process Notion first
-          for (const { provider, dataType } of notionTypes) {
-            try {
-              console.log(`🔄 Fetching data for ${provider}-${dataType}`)
-              const data = await get().fetchDynamicData(provider, dataType)
-              console.log(`✅ Successfully fetched ${data.length} items for ${provider}-${dataType}`)
-
-              set((state) => ({
-                preloadProgress: {
-                  ...state.preloadProgress,
-                  [`${provider}-${dataType}`]: true,
-                },
-              }))
-            } catch (error) {
-              console.error(`❌ Failed to preload ${provider}-${dataType}:`, error)
-              set((state) => ({
-                preloadProgress: {
-                  ...state.preloadProgress,
-                  [`${provider}-${dataType}`]: true,
-                },
-              }))
-            }
-
-            // Small delay between requests
-            await new Promise((resolve) => setTimeout(resolve, 500))
+          // Preload resources for each connected provider
+          for (const integration of connectedIntegrations) {
+            await get().preloadResourcesForProvider(integration.provider)
           }
 
-          // Then process other types in batches
-          const batchSize = 2
-          for (let i = 0; i < otherTypes.length; i += batchSize) {
-            const batch = otherTypes.slice(i, i + batchSize)
-
-            await Promise.allSettled(
-              batch.map(async ({ provider, dataType }) => {
-                try {
-                  console.log(`🔄 Fetching data for ${provider}-${dataType}`)
-                  const data = await get().fetchDynamicData(provider, dataType)
-                  console.log(`✅ Successfully fetched ${data.length} items for ${provider}-${dataType}`)
-
-                  set((state) => ({
-                    preloadProgress: {
-                      ...state.preloadProgress,
-                      [`${provider}-${dataType}`]: true,
-                    },
-                  }))
-                } catch (error) {
-                  console.error(`❌ Failed to preload ${provider}-${dataType}:`, error)
-                  set((state) => ({
-                    preloadProgress: {
-                      ...state.preloadProgress,
-                      [`${provider}-${dataType}`]: true,
-                    },
-                  }))
-                }
-              }),
-            )
-
-            if (i + batchSize < otherTypes.length) {
-              await new Promise((resolve) => setTimeout(resolve, 1000))
-            }
-          }
-
-          console.log("🎉 Background preload completed successfully")
+          console.log("🎉 Enhanced global preload completed successfully")
         } catch (error) {
-          console.error("💥 Error during background preload:", error)
+          console.error("💥 Error during enhanced global preload:", error)
         } finally {
           set({ globalPreloadingData: false })
+        }
+      },
+
+      preloadResourcesForProvider: async (provider: string) => {
+        const allDataTypes = getAllDynamicDataTypes()
+        const providerDataTypes = allDataTypes.filter((dt) => dt.provider === provider)
+
+        console.log(`🔄 Preloading ${providerDataTypes.length} resource types for ${provider}`)
+
+        for (const { dataType } of providerDataTypes) {
+          try {
+            await get().fetchDynamicData(provider, dataType)
+            console.log(`✅ Preloaded ${provider}-${dataType}`)
+          } catch (error) {
+            console.error(`❌ Failed to preload ${provider}-${dataType}:`, error)
+          }
         }
       },
 
@@ -769,14 +570,19 @@ export const useIntegrationStore = create<IntegrationState>()(
         const cacheKey = `${provider}-${dataType}`
         const state = get()
 
-        // Check if data is fresh (less than 10 minutes old)
-        if (state.isDataFresh(provider, dataType)) {
-          const cachedData = state.dynamicData[cacheKey] || []
-          console.log(`💾 Using cached data for ${cacheKey}: ${cachedData.length} items`)
-          return cachedData
-        }
+        // Set loading state
+        set((state) => ({
+          resourceLoadingStates: { ...state.resourceLoadingStates, [cacheKey]: true },
+        }))
 
         try {
+          // Check if data is fresh (less than 10 minutes old)
+          if (state.isDataFresh(provider, dataType)) {
+            const cachedData = state.dynamicData[cacheKey] || []
+            console.log(`💾 Using cached data for ${cacheKey}: ${cachedData.length} items`)
+            return cachedData
+          }
+
           console.log(`🌐 Fetching fresh data for ${cacheKey}`)
 
           const response = await fetch("/api/integrations/fetch-user-data", {
@@ -794,22 +600,28 @@ export const useIntegrationStore = create<IntegrationState>()(
           }
 
           const result = await response.json()
-          console.log(`📦 API response for ${cacheKey}:`, result)
 
           if (result.success) {
-            const options = result.data || []
-            console.log(`✅ Successfully fetched ${options.length} items for ${cacheKey}`)
+            const resources: CachedResource[] = (result.data || []).map((item: any) => ({
+              id: item.id || item.value,
+              name: item.name,
+              value: item.value || item.id,
+              type: dataType,
+              metadata: item.metadata || {},
+              lastUpdated: Date.now(),
+            }))
+
+            console.log(`✅ Successfully fetched ${resources.length} resources for ${cacheKey}`)
 
             // Store in cache with timestamp
             set((state) => ({
-              dynamicData: { ...state.dynamicData, [cacheKey]: options },
+              dynamicData: { ...state.dynamicData, [cacheKey]: resources },
               dataLastFetched: { ...state.dataLastFetched, [cacheKey]: Date.now() },
             }))
 
-            return options
+            return resources
           } else {
             console.error(`❌ API error for ${cacheKey}:`, result.error)
-            // Store empty array to prevent repeated failed requests
             set((state) => ({
               dynamicData: { ...state.dynamicData, [cacheKey]: [] },
               dataLastFetched: { ...state.dataLastFetched, [cacheKey]: Date.now() },
@@ -818,12 +630,16 @@ export const useIntegrationStore = create<IntegrationState>()(
           }
         } catch (error) {
           console.error(`💥 Network error fetching ${cacheKey}:`, error)
-          // Store empty array to prevent repeated failed requests
           set((state) => ({
             dynamicData: { ...state.dynamicData, [cacheKey]: [] },
             dataLastFetched: { ...state.dataLastFetched, [cacheKey]: Date.now() },
           }))
           return []
+        } finally {
+          // Clear loading state
+          set((state) => ({
+            resourceLoadingStates: { ...state.resourceLoadingStates, [cacheKey]: false },
+          }))
         }
       },
 
@@ -835,15 +651,6 @@ export const useIntegrationStore = create<IntegrationState>()(
           return
         }
 
-        if (state.lastRefreshed) {
-          const lastRefresh = new Date(state.lastRefreshed)
-          const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000)
-          if (lastRefresh > tenMinutesAgo && state.integrations.length > 0) {
-            console.log("✅ Data is recent, skipping preload")
-            return
-          }
-        }
-
         console.log("🔄 Starting background data preload")
         await state.initializeGlobalPreload()
       },
@@ -851,7 +658,6 @@ export const useIntegrationStore = create<IntegrationState>()(
       getDynamicData: (provider: string, dataType: string) => {
         const cacheKey = `${provider}-${dataType}`
         const data = get().dynamicData[cacheKey] || []
-        console.log(`📋 Getting cached data for ${cacheKey}: ${data.length} items`)
         return data
       },
 
@@ -860,17 +666,10 @@ export const useIntegrationStore = create<IntegrationState>()(
         const state = get()
         const lastFetched = state.dataLastFetched[cacheKey]
 
-        if (!lastFetched) {
-          console.log(`❓ No cache timestamp for ${cacheKey}`)
-          return false
-        }
+        if (!lastFetched) return false
 
         const tenMinutesAgo = Date.now() - 10 * 60 * 1000
-        const isFresh = lastFetched > tenMinutesAgo
-        console.log(
-          `🕒 Data freshness check for ${cacheKey}: ${isFresh ? "fresh" : "stale"} (${Math.round((Date.now() - lastFetched) / 1000 / 60)} minutes old)`,
-        )
-        return isFresh
+        return lastFetched > tenMinutesAgo
       },
 
       clearAllData: () => {
@@ -883,7 +682,54 @@ export const useIntegrationStore = create<IntegrationState>()(
           globalPreloadingData: false,
           dataLastFetched: {},
           lastRefreshed: null,
+          resourceLoadingStates: {},
         })
+      },
+
+      // New enhanced methods
+      getResourcesForTrigger: (provider: string, trigger: string) => {
+        const mapping = TRIGGER_RESOURCE_MAPPING[provider as keyof typeof TRIGGER_RESOURCE_MAPPING]
+        if (!mapping || !mapping[trigger as keyof typeof mapping]) {
+          return []
+        }
+
+        const resourceTypes = mapping[trigger as keyof typeof mapping]
+        const allResources: CachedResource[] = []
+
+        resourceTypes.forEach((dataType) => {
+          const resources = get().getDynamicData(provider, dataType)
+          allResources.push(...resources)
+        })
+
+        return allResources
+      },
+
+      refreshResourcesForProvider: async (provider: string) => {
+        console.log(`🔄 Refreshing all resources for ${provider}`)
+        await get().preloadResourcesForProvider(provider)
+      },
+
+      isResourceLoading: (provider: string, dataType: string) => {
+        const cacheKey = `${provider}-${dataType}`
+        return get().resourceLoadingStates[cacheKey] || false
+      },
+
+      getIntegrationStatus: (provider: string) => {
+        const integration = get().integrations.find((i) => i.provider === provider)
+        return integration?.status || "not_found"
+      },
+
+      getCachedResourceCount: (provider: string) => {
+        const allDataTypes = getAllDynamicDataTypes()
+        const providerDataTypes = allDataTypes.filter((dt) => dt.provider === provider)
+
+        let totalCount = 0
+        providerDataTypes.forEach(({ dataType }) => {
+          const resources = get().getDynamicData(provider, dataType)
+          totalCount += resources.length
+        })
+
+        return totalCount
       },
     }),
     {
@@ -899,11 +745,10 @@ export const useIntegrationStore = create<IntegrationState>()(
       }),
       onRehydrateStorage: () => (state) => {
         console.log(
-          "🔄 Integration store rehydrated with",
+          "🔄 Enhanced integration store rehydrated with",
           Object.keys(state?.dynamicData || {}).length,
-          "cached data types",
+          "cached resource types",
         )
-        console.log("📊 Cached data:", Object.keys(state?.dynamicData || {}))
         state?.setHydrated()
       },
     },
