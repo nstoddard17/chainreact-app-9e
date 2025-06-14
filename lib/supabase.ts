@@ -25,7 +25,7 @@ export const isSupabaseConfigured = () => {
   return true
 }
 
-// Browser client for client-side operations
+// Browser client for client-side operations with persistence
 export const createBrowserSupabaseClient = () => {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -45,7 +45,16 @@ export const createBrowserSupabaseClient = () => {
     }
   }
 
-  return createClientComponentClient<Database>()
+  return createClientComponentClient<Database>({
+    options: {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+        flowType: "pkce",
+      },
+    },
+  })
 }
 
 // Global singleton for browser usage
