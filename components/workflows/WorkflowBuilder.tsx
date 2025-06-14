@@ -411,7 +411,7 @@ const TRIGGER_CONFIGS = {
     },
   ],
   "Event Starting Soon": [
-    { key: "minutes_before", label: "Minutes Before", type = "number", placeholder = "15", required = true },
+    { key: "minutes_before", label: "Minutes Before", type: "number", placeholder: "15", required: true },
     {
       key: "calendar_id",
       label: "Calendar",
@@ -423,73 +423,73 @@ const TRIGGER_CONFIGS = {
     },
   ],
   "Cell Changed": [
-    { key: "spreadsheet_id", label: "Spreadsheet ID", type = "text", placeholder = "Spreadsheet ID", required = true },
-    { key: "range", label: "Cell Range (optional)", type = "text", placeholder = "A1:Z100", required = false },
+    { key: "spreadsheet_id", label: "Spreadsheet ID", type: "text", placeholder: "Spreadsheet ID", required: true },
+    { key: "range", label: "Cell Range (optional)", type: "text", placeholder: "A1:Z100", required: false },
   ],
   "File Shared": [
     {
       key: "folder_path",
       label: "Folder Path (optional)",
-      type = "text",
-      placeholder = "/folder/path",
-      required = false,
+      type: "text",
+      placeholder: "/folder/path",
+      required: false,
     },
-    { key: "share_type", label: "Share Type", type = "select", options: ["anyone", "specific"], required = false },
+    { key: "share_type", label: "Share Type", type: "select", options: ["anyone", "specific"], required: false },
   ],
   "Comment Added": [
     {
       key: "document_id",
       label: "Document ID (optional)",
-      type = "text",
-      placeholder = "Document ID",
-      required = false,
+      type: "text",
+      placeholder: "Document ID",
+      required: false,
     },
   ],
   "Document Shared": [
     {
       key: "document_id",
       label: "Document ID (optional)",
-      type = "text",
-      placeholder = "Document ID",
-      required = false,
+      type: "text",
+      placeholder: "Document ID",
+      required: false,
     },
   ],
   "Due Date Approaching": [
-    { key: "board_id", label: "Board ID", type = "text", placeholder = "Board ID", required = true },
-    { key: "days_before", label: "Days Before", type = "number", placeholder = "1", required = true },
+    { key: "board_id", label: "Board ID", type: "text", placeholder: "Board ID", required: true },
+    { key: "days_before", label: "Days Before", type: "number", placeholder: "1", required: true },
   ],
   "Card Updated": [
-    { key: "board_id", label: "Board ID", type = "text", placeholder = "Board ID", required = true },
-    { key: "list_name", label: "List Name (optional)", type = "text", placeholder = "In Progress", required = false },
+    { key: "board_id", label: "Board ID", type: "text", placeholder: "Board ID", required: true },
+    { key: "list_name", label: "List Name (optional)", type: "text", placeholder: "In Progress", required: false },
   ],
   "Pipeline Failed": [
-    { key: "repository", label: "Repository", type = "text", placeholder = "owner/repo", required = true },
-    { key: "branch", label: "Branch (optional)", type = "text", placeholder = "main", required = false },
+    { key: "repository", label: "Repository", type: "text", placeholder: "owner/repo", required: true },
+    { key: "branch", label: "Branch (optional)", type: "text", placeholder: "main", required: false },
   ],
   "Merge Request Created": [
-    { key: "repository", label: "Repository", type = "text", placeholder = "owner/repo", required = true },
-    { key: "target_branch", label: "Target Branch (optional)", type = "text", placeholder = "main", required = false },
+    { key: "repository", label: "Repository", type: "text", placeholder: "owner/repo", required: true },
+    { key: "target_branch", label: "Target Branch (optional)", type: "text", placeholder: "main", required: false },
   ],
   "Release Published": [
-    { key: "repository", label: "Repository", type = "text", placeholder = "owner/repo", required = true },
-    { key: "prerelease", label: "Include Prereleases", type = "select", options = ["yes", "no"], required = false },
+    { key: "repository", label: "Repository", type: "text", placeholder: "owner/repo", required: true },
+    { key: "prerelease", label: "Include Prereleases", type: "select", options: ["yes", "no"], required: false },
   ],
   "User Joined Server": [
-    { key: "server_id", label: "Server ID (optional)", type = "text", placeholder = "Server ID", required = false },
+    { key: "server_id", label: "Server ID (optional)", type: "text", placeholder: "Server ID", required: false },
   ],
   "User Left Server": [
-    { key: "server_id", label: "Server ID (optional)", type = "text", placeholder = "Server ID", required = false },
+    { key: "server_id", label: "Server ID (optional)", type: "text", placeholder: "Server ID", required: false },
   ],
   "Reaction Added": [
-    { key: "channel_id", label: "Channel ID (optional)", type = "text", placeholder = "Channel ID", required = false },
-    { key: "emoji", label: "Specific Emoji (optional)", type = "text", placeholder = "👍", required = false },
+    { key: "channel_id", label: "Channel ID (optional)", type: "text", placeholder: "Channel ID", required: false },
+    { key: "emoji", label: "Specific Emoji (optional)", type: "text", placeholder: "👍", required: false },
   ],
   "Subscription Created": [
-    { key: "plan_id", label: "Plan ID (optional)", type = "text", placeholder = "price_xxx", required = false },
-    { key: "amount_min", label: "Minimum Amount (cents)", type = "number", placeholder = "1000", required = false },
+    { key: "plan_id", label: "Plan ID (optional)", type: "text", placeholder: "price_xxx", required: false },
+    { key: "amount_min", label: "Minimum Amount (cents)", type: "number", placeholder: "1000", required: false },
   ],
   "Payment Failed": [
-    { key: "amount_min", label: "Minimum Amount (cents)", type = "number", placeholder = "1000", required = false },
+    { key: "amount_min", label: "Minimum Amount (cents)", type: "number", placeholder: "1000", required: false },
     {
       key: "failure_code",
       label: "Failure Code (optional)",
@@ -517,10 +517,10 @@ const TRIGGER_CONFIGS = {
       placeholder: "Select a pipeline",
       required: false,
     },
-    { key: "stage", label: "Deal Stage (optional)", type = "text", placeholder: "qualified", required: false },
+    { key: "stage", label: "Deal Stage (optional)", type: "text", placeholder: "qualified", required: false },
   ],
   "Contact Updated": [
-    { key: "property", label: "Property Changed (optional)", type = "text", placeholder: "email", required = false },
+    { key: "property", label: "Property Changed (optional)", type: "text", placeholder: "email", required: false },
   ],
   "Deal Created": [
     {
@@ -532,7 +532,7 @@ const TRIGGER_CONFIGS = {
       placeholder: "Select a pipeline",
       required: false,
     },
-    { key: "amount_min", label: "Minimum Amount", type = "number", placeholder = "1000", required = false },
+    { key: "amount_min", label: "Minimum Amount", type: "number", placeholder: "1000", required: false },
   ],
 }
 
@@ -1728,6 +1728,7 @@ export default function WorkflowBuilder() {
                                 src={
                                   AVAILABLE_INTEGRATIONS.find((app) => app.id === step.appId)?.logo ||
                                   "/placeholder.svg?height=32&width=32" ||
+                                  "/placeholder.svg" ||
                                   "/placeholder.svg"
                                 }
                                 alt={step.appName}
@@ -2057,6 +2058,7 @@ export default function WorkflowBuilder() {
                     <img
                       src={
                         AVAILABLE_INTEGRATIONS.find((app) => app.id === workflowSteps[stepToDelete].appId)?.logo ||
+                        "/placeholder.svg" ||
                         "/placeholder.svg" ||
                         "/placeholder.svg"
                       }
