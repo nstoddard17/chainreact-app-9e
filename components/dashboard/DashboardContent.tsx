@@ -12,26 +12,34 @@ import { Workflow, Clock, Puzzle, Zap } from "lucide-react"
 
 export default function DashboardContent() {
   const { metrics, chartData, fetchMetrics, fetchChartData } = useAnalyticsStore()
-  const { user } = useAuthStore()
-  const { integrations, fetchIntegrations } = useIntegrationStore()
+  const { user, profile } = useAuthStore()
+  const { ensureDataPreloaded } = useIntegrationStore()
 
   useEffect(() => {
-    // Initialize dashboard data
+    // Start background data loading immediately without blocking UI
     const initializeDashboard = async () => {
       try {
-        await Promise.all([fetchMetrics(), fetchChartData(), fetchIntegrations(true)])
+        // Start both analytics and integration data loading in parallel
+        await Promise.all([
+          fetchMetrics(),
+          fetchChartData(),
+          ensureDataPreloaded(), // This runs in background
+        ])
       } catch (error) {
         console.error("Error initializing dashboard:", error)
       }
     }
 
     initializeDashboard()
-  }, [fetchMetrics, fetchChartData, fetchIntegrations])
+  }, [fetchMetrics, fetchChartData, ensureDataPreloaded])
 
   // Get the user's first name for personalized greeting
   const getFirstName = () => {
-    if (user?.name) {
-      return user.name.split(" ")[0]
+    if (profile?.first_name) {
+      return profile.first_name
+    }
+    if (user?.user_metadata?.first_name) {
+      return user.user_metadata.first_name
     }
     if (user?.email) {
       return user.email.split("@")[0]
@@ -63,7 +71,13 @@ export default function DashboardContent() {
             change="+12%"
           />
           <MetricCard title="Hours Saved" value={metrics?.hoursSaved || 0} icon={Clock} color="green" change="+8%" />
-          <MetricCard title="Integrations" value={integrations?.length || 0} icon={Puzzle} color="purple" change="+2" />
+          <MetricCard
+            title="Integrations"
+            value={metrics?.integrations || 0}
+            icon={Puzzle}
+            color="purple"
+            change="+2"
+          />
           <MetricCard title="AI Commands" value={metrics?.aiCommands || 0} icon={Zap} color="yellow" change="+15%" />
         </div>
 
