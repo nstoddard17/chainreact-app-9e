@@ -1,5 +1,5 @@
 import { create } from "zustand"
-import { persist } from "zustand/middleware"
+import { persist, createJSONStorage } from "zustand/middleware"
 import { supabase } from "@/lib/supabase"
 
 interface Integration {
@@ -56,6 +56,7 @@ interface IntegrationState {
   ensureDataPreloaded: () => Promise<void>
   getDynamicData: (provider: string, dataType: string) => any[]
   isDataFresh: (provider: string, dataType: string) => boolean
+  clearAllData: () => void
 }
 
 const availableProviders: Provider[] = [
@@ -317,7 +318,7 @@ const availableProviders: Provider[] = [
     logoUrl: "/placeholder.svg?height=40&width=40&text=DH",
     capabilities: ["Images", "Repositories", "Tags", "Webhooks"],
     scopes: ["repo:read", "repo:write"],
-    isAvailable: false, // Set to false to show "Coming Soon"
+    isAvailable: false,
   },
   {
     id: "onedrive",
@@ -331,7 +332,6 @@ const availableProviders: Provider[] = [
   },
 ]
 
-// Helper function to create a promise that rejects after a timeout
 const timeoutPromise = (ms: number) => {
   return new Promise((_, reject) => {
     setTimeout(() => reject(new Error(`Request timed out after ${ms}ms`)), ms)
@@ -409,17 +409,13 @@ export const useIntegrationStore = create<IntegrationState>()(
 
           console.log("Fetching integrations for user:", user.id)
 
-          // Use Promise.race to implement a timeout
           const fetchPromise = supabase
             .from("integrations")
             .select("*")
             .eq("user_id", user.id)
             .order("created_at", { ascending: false })
 
-          const result = await Promise.race([
-            fetchPromise,
-            timeoutPromise(10000), // 10 second timeout
-          ])
+          const result = await Promise.race([fetchPromise, timeoutPromise(10000)])
 
           const { data, error } = result as any
 
@@ -492,10 +488,7 @@ export const useIntegrationStore = create<IntegrationState>()(
             }),
           })
 
-          const response = (await Promise.race([
-            fetchPromise,
-            timeoutPromise(15000), // 15 second timeout
-          ])) as Response
+          const response = (await Promise.race([fetchPromise, timeoutPromise(15000)])) as Response
 
           console.log("API response status:", response.status)
 
@@ -564,10 +557,7 @@ export const useIntegrationStore = create<IntegrationState>()(
             }),
           })
 
-          const response = (await Promise.race([
-            fetchPromise,
-            timeoutPromise(10000), // 10 second timeout
-          ])) as Response
+          const response = (await Promise.race([fetchPromise, timeoutPromise(10000)])) as Response
 
           if (!response.ok) {
             const errorData = await response.json().catch(() => ({}))
@@ -592,10 +582,7 @@ export const useIntegrationStore = create<IntegrationState>()(
             },
           })
 
-          const response = (await Promise.race([
-            fetchPromise,
-            timeoutPromise(15000), // 15 second timeout
-          ])) as Response
+          const response = (await Promise.race([fetchPromise, timeoutPromise(15000)])) as Response
 
           if (!response.ok) {
             console.log("Token refresh endpoint not available, just refreshing data")
@@ -674,14 +661,17 @@ export const useIntegrationStore = create<IntegrationState>()(
       initializeGlobalPreload: async () => {
         const state = get()
         if (state.preloadStarted || state.globalPreloadingData) {
+          console.log("Global preload already started or in progress")
           return
         }
 
+        console.log("Starting global preload initialization...")
         set({ preloadStarted: true, globalPreloadingData: true })
 
         try {
           // First fetch integrations if not already loaded
           if (state.integrations.length === 0) {
+            console.log("Fetching integrations first...")
             await state.fetchIntegrations(true)
           }
 
@@ -689,6 +679,7 @@ export const useIntegrationStore = create<IntegrationState>()(
           const connectedIntegrations = updatedState.integrations.filter((i) => i.status === "connected")
 
           if (connectedIntegrations.length === 0) {
+            console.log("No connected integrations found")
             set({ globalPreloadingData: false })
             return
           }
@@ -715,6 +706,7 @@ export const useIntegrationStore = create<IntegrationState>()(
             await Promise.allSettled(
               batch.map(async ({ provider, dataType }) => {
                 try {
+                  console.log(`Fetching data for ${provider}-${dataType}`)
                   await get().fetchDynamicData(provider, dataType)
                   set((state) => ({
                     preloadProgress: {
@@ -722,6 +714,7 @@ export const useIntegrationStore = create<IntegrationState>()(
                       [`${provider}-${dataType}`]: true,
                     },
                   }))
+                  console.log(`Successfully fetched data for ${provider}-${dataType}`)
                 } catch (error) {
                   console.error(`Failed to preload ${provider}-${dataType}:`, error)
                   set((state) => ({
@@ -739,7 +732,7 @@ export const useIntegrationStore = create<IntegrationState>()(
             }
           }
 
-          console.log("Background preload completed")
+          console.log("Background preload completed successfully")
         } catch (error) {
           console.error("Error during background preload:", error)
         } finally {
@@ -772,6 +765,8 @@ export const useIntegrationStore = create<IntegrationState>()(
 
           if (result.success) {
             const options = result.data || []
+            console.log(`Successfully fetched ${options.length} items for ${cacheKey}`)
+
             set((state) => ({
               dynamicData: { ...state.dynamicData, [cacheKey]: options },
               dataLastFetched: { ...state.dataLastFetched, [cacheKey]: Date.now() },
@@ -799,6 +794,7 @@ export const useIntegrationStore = create<IntegrationState>()(
         const state = get()
 
         if (state.globalPreloadingData || state.preloadStarted) {
+          console.log("Data preload already in progress or completed")
           return
         }
 
@@ -817,7 +813,9 @@ export const useIntegrationStore = create<IntegrationState>()(
 
       getDynamicData: (provider: string, dataType: string) => {
         const cacheKey = `${provider}-${dataType}`
-        return get().dynamicData[cacheKey] || []
+        const data = get().dynamicData[cacheKey] || []
+        console.log(`Getting cached data for ${cacheKey}: ${data.length} items`)
+        return data
       },
 
       isDataFresh: (provider: string, dataType: string) => {
@@ -828,11 +826,27 @@ export const useIntegrationStore = create<IntegrationState>()(
         if (!lastFetched) return false
 
         const fiveMinutesAgo = Date.now() - 5 * 60 * 1000
-        return lastFetched > fiveMinutesAgo
+        const isFresh = lastFetched > fiveMinutesAgo
+        console.log(`Data freshness check for ${cacheKey}: ${isFresh ? "fresh" : "stale"}`)
+        return isFresh
+      },
+
+      clearAllData: () => {
+        console.log("Clearing all integration data")
+        set({
+          integrations: [],
+          dynamicData: {},
+          preloadProgress: {},
+          preloadStarted: false,
+          globalPreloadingData: false,
+          dataLastFetched: {},
+          lastRefreshed: null,
+        })
       },
     }),
     {
-      name: "integration-storage",
+      name: "chainreact-integrations",
+      storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         integrations: state.integrations,
         dynamicData: state.dynamicData,
