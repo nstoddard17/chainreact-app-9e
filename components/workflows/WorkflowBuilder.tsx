@@ -560,6 +560,9 @@ export default function WorkflowBuilder() {
 
   // Add this state near the other state declarations
   const [dynamicData, setDynamicData] = useState<Record<string, any[]>>({})
+  // Add this state near the other state declarations (around line 300)
+  const [fieldLoadingStates, setFieldLoadingStates] = useState<Record<string, boolean>>({})
+  const [fieldOptions, setFieldOptions] = useState<Record<string, any[]>>({})
 
   // Fetch integrations on mount
   useEffect(() => {
@@ -1164,21 +1167,24 @@ export default function WorkflowBuilder() {
     }
   }
 
-  // Update the renderConfigField function to handle dynamic_select
+  // Replace the renderConfigField function with this corrected version:
   const renderConfigField = (field: any) => {
     const cacheKey = `${field.provider}-${field.dataType}`
-    const [options, setOptions] = useState<any[]>([])
-    const [isLoading, setIsLoading] = useState(false)
 
+    // Handle dynamic select fields
     useEffect(() => {
-      if (field.provider && field.dataType) {
+      if (field.type === "dynamic_select" && field.provider && field.dataType) {
         const fetchData = async () => {
-          if (dynamicData[cacheKey]) {
-            setOptions(dynamicData[cacheKey])
+          // Check if we already have this data
+          if (dynamicData[cacheKey] || fieldOptions[cacheKey]) {
+            if (!fieldOptions[cacheKey]) {
+              setFieldOptions((prev) => ({ ...prev, [cacheKey]: dynamicData[cacheKey] || [] }))
+            }
             return
           }
 
-          setIsLoading(true)
+          setFieldLoadingStates((prev) => ({ ...prev, [cacheKey]: true }))
+
           try {
             const response = await fetch("/api/integrations/fetch-user-data", {
               method: "POST",
@@ -1191,23 +1197,29 @@ export default function WorkflowBuilder() {
             const result = await response.json()
 
             if (result.success) {
-              setOptions(result.data)
-              setDynamicData((prev) => ({ ...prev, [cacheKey]: result.data }))
+              const options = result.data || []
+              setFieldOptions((prev) => ({ ...prev, [cacheKey]: options }))
+              setDynamicData((prev) => ({ ...prev, [cacheKey]: options }))
             } else {
               console.error("Failed to fetch dynamic data:", result.error)
+              setFieldOptions((prev) => ({ ...prev, [cacheKey]: [] }))
             }
           } catch (error) {
             console.error("Error fetching dynamic data:", error)
+            setFieldOptions((prev) => ({ ...prev, [cacheKey]: [] }))
           } finally {
-            setIsLoading(false)
+            setFieldLoadingStates((prev) => ({ ...prev, [cacheKey]: false }))
           }
         }
 
         fetchData()
       }
-    }, [field.provider, field.dataType, cacheKey, dynamicData])
+    }, [field.provider, field.dataType, cacheKey, dynamicData, fieldOptions])
 
     if (field.type === "dynamic_select") {
+      const options = fieldOptions[cacheKey] || []
+      const isLoading = fieldLoadingStates[cacheKey] || false
+
       return (
         <Select
           value={currentConfig[field.key] || ""}
@@ -1573,6 +1585,7 @@ export default function WorkflowBuilder() {
                                   "/placeholder.svg" ||
                                   "/placeholder.svg" ||
                                   "/placeholder.svg" ||
+                                  "/placeholder.svg" ||
                                   "/placeholder.svg"
                                 }
                                 alt={step.appName}
@@ -1902,6 +1915,7 @@ export default function WorkflowBuilder() {
                     <img
                       src={
                         AVAILABLE_INTEGRATIONS.find((app) => app.id === workflowSteps[stepToDelete].appId)?.logo ||
+                        "/placeholder.svg" ||
                         "/placeholder.svg" ||
                         "/placeholder.svg" ||
                         "/placeholder.svg" ||
