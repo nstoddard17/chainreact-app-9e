@@ -627,8 +627,8 @@ export default function WorkflowBuilder() {
                   <div key={step.id} className="relative">
                     {/* Enhanced connecting line - more prominent */}
                     {index > 0 && (
-                      <div className="flex justify-center mb-2">
-                        <div className="w-px h-8 bg-gradient-to-b from-blue-400 to-blue-600"></div>
+                      <div className="flex justify-center">
+                        <div className="w-px h-6 bg-gradient-to-b from-blue-400 to-blue-600"></div>
                       </div>
                     )}
 
@@ -678,20 +678,22 @@ export default function WorkflowBuilder() {
                         </div>
                       </CardContent>
                     </Card>
-
-                    {/* Add step button after each step with connecting line */}
-                    <div className="flex flex-col items-center mt-4">
-                      <div className="w-px h-4 bg-gradient-to-b from-blue-400 to-blue-600 mb-2"></div>
-                      <Button
-                        onClick={() => handleAddStep(index + 1)}
-                        variant="outline"
-                        className="w-12 h-12 rounded-full border-2 border-dashed border-slate-300 hover:border-blue-400 hover:bg-blue-50 shadow-sm hover:shadow-md transition-all duration-200"
-                      >
-                        <Plus className="w-5 h-5" />
-                      </Button>
-                    </div>
                   </div>
                 ))}
+
+                {/* Single add step button at the end */}
+                {workflowSteps.length > 0 && (
+                  <div className="flex flex-col items-center mt-4">
+                    <div className="w-px h-6 bg-gradient-to-b from-blue-400 to-blue-600 mb-2"></div>
+                    <Button
+                      onClick={() => handleAddStep(workflowSteps.length)}
+                      variant="outline"
+                      className="w-12 h-12 rounded-full border-2 border-dashed border-slate-300 hover:border-blue-400 hover:bg-blue-50 shadow-sm hover:shadow-md transition-all duration-200"
+                    >
+                      <Plus className="w-5 h-5" />
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
           </div>
