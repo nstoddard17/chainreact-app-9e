@@ -88,7 +88,7 @@ async function fetchSlackData(accessToken: string, dataType: string) {
   switch (dataType) {
     case "channels":
       const channelsResponse = await fetch(
-        "https://slack.com/api/conversations.list?types=public_channel,private_channel",
+        "https://slack.com/api/conversations.list?types=public_channel,private_channel&exclude_archived=true&limit=200",
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -97,15 +97,17 @@ async function fetchSlackData(accessToken: string, dataType: string) {
       )
       const channelsData = await channelsResponse.json()
       return (
-        channelsData.channels?.map((channel: any) => ({
-          id: channel.id,
-          name: `#${channel.name}`,
-          value: channel.id,
-        })) || []
+        channelsData.channels
+          ?.filter((channel: any) => !channel.is_archived && channel.is_member)
+          .map((channel: any) => ({
+            id: channel.id,
+            name: `#${channel.name}`,
+            value: channel.id,
+          })) || []
       )
 
     case "users":
-      const usersResponse = await fetch("https://slack.com/api/users.list", {
+      const usersResponse = await fetch("https://slack.com/api/users.list?limit=200", {
         headers: {
           Authorization: `Bearer ${accessToken}`,
         },
@@ -113,7 +115,7 @@ async function fetchSlackData(accessToken: string, dataType: string) {
       const usersData = await usersResponse.json()
       return (
         usersData.members
-          ?.filter((user: any) => !user.deleted && !user.is_bot)
+          ?.filter((user: any) => !user.deleted && !user.is_bot && !user.is_app_user)
           .map((user: any) => ({
             id: user.id,
             name: user.real_name || user.name,
@@ -138,8 +140,8 @@ async function fetchDiscordData(accessToken: string, dataType: string) {
       const guilds = await guildsResponse.json()
 
       const allChannels = []
-      for (const guild of guilds.slice(0, 5)) {
-        // Limit to first 5 guilds to avoid rate limits
+      for (const guild of guilds.slice(0, 10)) {
+        // Limit to first 10 guilds
         try {
           const channelsResponse = await fetch(`https://discord.com/api/v10/guilds/${guild.id}/channels`, {
             headers: {
@@ -181,15 +183,22 @@ async function fetchNotionData(accessToken: string, dataType: string) {
             property: "object",
             value: "database",
           },
+          page_size: 100,
         }),
       })
       const data = await response.json()
       return (
-        data.results?.map((db: any) => ({
-          id: db.id,
-          name: db.title?.[0]?.plain_text || "Untitled Database",
-          value: db.id,
-        })) || []
+        data.results
+          ?.filter((db: any) => {
+            // Filter out databases without proper titles or that are archived
+            const hasTitle = db.title && db.title.length > 0 && db.title[0].plain_text
+            return hasTitle && !db.archived
+          })
+          .map((db: any) => ({
+            id: db.id,
+            name: db.title[0].plain_text,
+            value: db.id,
+          })) || []
       )
 
     case "pages":
@@ -209,16 +218,28 @@ async function fetchNotionData(accessToken: string, dataType: string) {
         }),
       })
       const pagesData = await pagesResponse.json()
+
       return (
-        pagesData.results?.map((page: any) => ({
-          id: page.id,
-          name:
-            page.properties?.title?.title?.[0]?.plain_text ||
-            page.properties?.Name?.title?.[0]?.plain_text ||
-            page.properties?.Title?.title?.[0]?.plain_text ||
-            "Untitled Page",
-          value: page.id,
-        })) || []
+        pagesData.results
+          ?.filter((page: any) => {
+            // Filter out pages that are:
+            // 1. Archived
+            // 2. Don't have proper titles
+            // 3. Are database items (have a parent database)
+            // 4. Are template pages
+            if (page.archived) return false
+            if (page.parent?.type === "database_id") return false // Skip database items
+
+            // Try to get a meaningful title
+            const title = getPageTitle(page)
+            return title && title.trim() !== "" && title !== "Untitled"
+          })
+          .map((page: any) => ({
+            id: page.id,
+            name: getPageTitle(page),
+            value: page.id,
+          }))
+          .sort((a: any, b: any) => a.name.localeCompare(b.name)) || []
       )
 
     default:
@@ -226,11 +247,41 @@ async function fetchNotionData(accessToken: string, dataType: string) {
   }
 }
 
+// Helper function to extract page title from various Notion page structures
+function getPageTitle(page: any): string {
+  // Try different ways to get the title
+  if (page.properties) {
+    // Check for common title property names
+    const titleProps = ["title", "Title", "Name", "name"]
+    for (const prop of titleProps) {
+      if (page.properties[prop]?.title?.[0]?.plain_text) {
+        return page.properties[prop].title[0].plain_text
+      }
+    }
+  }
+
+  // For regular pages (not database items), check the page title
+  if (page.properties?.title?.title?.[0]?.plain_text) {
+    return page.properties.title.title[0].plain_text
+  }
+
+  // Fallback to URL or ID-based name
+  if (page.url) {
+    const urlParts = page.url.split("/")
+    const lastPart = urlParts[urlParts.length - 1]
+    if (lastPart && lastPart !== page.id) {
+      return decodeURIComponent(lastPart.replace(/-/g, " "))
+    }
+  }
+
+  return `Page ${page.id.slice(0, 8)}...`
+}
+
 async function fetchGoogleSheetsData(accessToken: string, dataType: string) {
   switch (dataType) {
     case "spreadsheets":
       const response = await fetch(
-        "https://www.googleapis.com/drive/v3/files?q=mimeType='application/vnd.google-apps.spreadsheet'&pageSize=50",
+        "https://www.googleapis.com/drive/v3/files?q=mimeType='application/vnd.google-apps.spreadsheet' and trashed=false&pageSize=100&orderBy=modifiedTime desc",
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -239,11 +290,13 @@ async function fetchGoogleSheetsData(accessToken: string, dataType: string) {
       )
       const data = await response.json()
       return (
-        data.files?.map((file: any) => ({
-          id: file.id,
-          name: file.name,
-          value: file.id,
-        })) || []
+        data.files
+          ?.filter((file: any) => file.name && !file.name.startsWith("Copy of"))
+          .map((file: any) => ({
+            id: file.id,
+            name: file.name,
+            value: file.id,
+          })) || []
       )
 
     default:
@@ -254,18 +307,20 @@ async function fetchGoogleSheetsData(accessToken: string, dataType: string) {
 async function fetchGoogleCalendarData(accessToken: string, dataType: string) {
   switch (dataType) {
     case "calendars":
-      const response = await fetch("https://www.googleapis.com/calendar/v3/users/me/calendarList", {
+      const response = await fetch("https://www.googleapis.com/calendar/v3/users/me/calendarList?maxResults=50", {
         headers: {
           Authorization: `Bearer ${accessToken}`,
         },
       })
       const data = await response.json()
       return (
-        data.items?.map((calendar: any) => ({
-          id: calendar.id,
-          name: calendar.summary,
-          value: calendar.id,
-        })) || []
+        data.items
+          ?.filter((calendar: any) => !calendar.deleted && calendar.accessRole !== "freeBusyReader")
+          .map((calendar: any) => ({
+            id: calendar.id,
+            name: calendar.summary,
+            value: calendar.id,
+          })) || []
       )
 
     default:
@@ -277,7 +332,7 @@ async function fetchGoogleDriveData(accessToken: string, dataType: string) {
   switch (dataType) {
     case "folders":
       const response = await fetch(
-        "https://www.googleapis.com/drive/v3/files?q=mimeType='application/vnd.google-apps.folder'&pageSize=50",
+        "https://www.googleapis.com/drive/v3/files?q=mimeType='application/vnd.google-apps.folder' and trashed=false&pageSize=100&orderBy=name",
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -286,11 +341,13 @@ async function fetchGoogleDriveData(accessToken: string, dataType: string) {
       )
       const data = await response.json()
       return (
-        data.files?.map((folder: any) => ({
-          id: folder.id,
-          name: folder.name,
-          value: folder.id,
-        })) || []
+        data.files
+          ?.filter((folder: any) => folder.name && folder.name !== "")
+          .map((folder: any) => ({
+            id: folder.id,
+            name: folder.name,
+            value: folder.id,
+          })) || []
       )
 
     default:
@@ -308,11 +365,13 @@ async function fetchAirtableData(accessToken: string, dataType: string) {
       })
       const data = await response.json()
       return (
-        data.bases?.map((base: any) => ({
-          id: base.id,
-          name: base.name,
-          value: base.id,
-        })) || []
+        data.bases
+          ?.filter((base: any) => base.name && !base.name.startsWith("Copy of"))
+          .map((base: any) => ({
+            id: base.id,
+            name: base.name,
+            value: base.id,
+          })) || []
       )
 
     default:
@@ -323,18 +382,20 @@ async function fetchAirtableData(accessToken: string, dataType: string) {
 async function fetchTrelloData(accessToken: string, dataType: string) {
   switch (dataType) {
     case "boards":
-      const response = await fetch("https://api.trello.com/1/members/me/boards", {
+      const response = await fetch("https://api.trello.com/1/members/me/boards?filter=open&limit=50", {
         headers: {
           Authorization: `OAuth oauth_consumer_key="${process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID}", oauth_token="${accessToken}"`,
         },
       })
       const data = await response.json()
       return (
-        data?.map((board: any) => ({
-          id: board.id,
-          name: board.name,
-          value: board.id,
-        })) || []
+        data
+          ?.filter((board: any) => !board.closed && board.name)
+          .map((board: any) => ({
+            id: board.id,
+            name: board.name,
+            value: board.id,
+          })) || []
       )
 
     default:
@@ -345,18 +406,23 @@ async function fetchTrelloData(accessToken: string, dataType: string) {
 async function fetchGitHubData(accessToken: string, dataType: string) {
   switch (dataType) {
     case "repositories":
-      const response = await fetch("https://api.github.com/user/repos?per_page=50&sort=updated", {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
+      const response = await fetch(
+        "https://api.github.com/user/repos?per_page=100&sort=updated&affiliation=owner,collaborator",
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
         },
-      })
+      )
       const data = await response.json()
       return (
-        data?.map((repo: any) => ({
-          id: repo.id,
-          name: repo.full_name,
-          value: repo.full_name,
-        })) || []
+        data
+          ?.filter((repo: any) => !repo.archived && !repo.disabled)
+          .map((repo: any) => ({
+            id: repo.id,
+            name: repo.full_name,
+            value: repo.full_name,
+          })) || []
       )
 
     default:
@@ -374,11 +440,13 @@ async function fetchHubSpotData(accessToken: string, dataType: string) {
       })
       const data = await response.json()
       return (
-        data.results?.map((pipeline: any) => ({
-          id: pipeline.id,
-          name: pipeline.label,
-          value: pipeline.id,
-        })) || []
+        data.results
+          ?.filter((pipeline: any) => !pipeline.archived)
+          .map((pipeline: any) => ({
+            id: pipeline.id,
+            name: pipeline.label,
+            value: pipeline.id,
+          })) || []
       )
 
     default:
@@ -396,11 +464,13 @@ async function fetchTeamsData(accessToken: string, dataType: string) {
       })
       const data = await response.json()
       return (
-        data.value?.map((team: any) => ({
-          id: team.id,
-          name: team.displayName,
-          value: team.id,
-        })) || []
+        data.value
+          ?.filter((team: any) => team.displayName)
+          .map((team: any) => ({
+            id: team.id,
+            name: team.displayName,
+            value: team.id,
+          })) || []
       )
 
     default:
@@ -420,18 +490,20 @@ async function fetchMailchimpData(accessToken: string, dataType: string) {
       const rootData = await rootResponse.json()
       const dc = rootData.dc
 
-      const response = await fetch(`https://${dc}.api.mailchimp.com/3.0/lists`, {
+      const response = await fetch(`https://${dc}.api.mailchimp.com/3.0/lists?count=100`, {
         headers: {
           Authorization: `Bearer ${accessToken}`,
         },
       })
       const data = await response.json()
       return (
-        data.lists?.map((list: any) => ({
-          id: list.id,
-          name: list.name,
-          value: list.id,
-        })) || []
+        data.lists
+          ?.filter((list: any) => list.name && !list.name.startsWith("Test"))
+          .map((list: any) => ({
+            id: list.id,
+            name: list.name,
+            value: list.id,
+          })) || []
       )
 
     default:

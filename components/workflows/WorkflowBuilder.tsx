@@ -569,6 +569,47 @@ export default function WorkflowBuilder() {
   // Dynamic data states - moved to top level
   const [dynamicData, setDynamicData] = useState<Record<string, any[]>>({})
   const [fieldLoadingStates, setFieldLoadingStates] = useState<Record<string, boolean>>({})
+  const [preloadingData, setPreloadingData] = useState(false)
+
+  // Get all possible dynamic data types that could be needed
+  const getAllDynamicDataTypes = useCallback(() => {
+    const dataTypes: Array<{ provider: string; dataType: string }> = []
+
+    // Add all dynamic selects from trigger configs
+    Object.values(TRIGGER_CONFIGS).forEach((config) => {
+      config.forEach((field) => {
+        if (field.type === "dynamic_select" && field.provider && field.dataType) {
+          dataTypes.push({ provider: field.provider, dataType: field.dataType })
+        }
+      })
+    })
+
+    // Add common action dynamic selects
+    const actionDataTypes = [
+      { provider: "slack", dataType: "channels" },
+      { provider: "slack", dataType: "users" },
+      { provider: "discord", dataType: "channels" },
+      { provider: "notion", dataType: "databases" },
+      { provider: "notion", dataType: "pages" },
+      { provider: "google-sheets", dataType: "spreadsheets" },
+      { provider: "google-calendar", dataType: "calendars" },
+      { provider: "google-drive", dataType: "folders" },
+      { provider: "airtable", dataType: "bases" },
+      { provider: "trello", dataType: "boards" },
+      { provider: "github", dataType: "repositories" },
+      { provider: "hubspot", dataType: "pipelines" },
+      { provider: "teams", dataType: "teams" },
+      { provider: "mailchimp", dataType: "lists" },
+    ]
+
+    dataTypes.push(...actionDataTypes)
+
+    // Remove duplicates
+    return dataTypes.filter(
+      (item, index, self) =>
+        index === self.findIndex((t) => t.provider === item.provider && t.dataType === item.dataType),
+    )
+  }, [])
 
   // Fetch dynamic data function
   const fetchDynamicData = useCallback(
@@ -610,7 +651,29 @@ export default function WorkflowBuilder() {
     [dynamicData, fieldLoadingStates],
   )
 
-  // Pre-fetch dynamic data when config modal opens
+  // Pre-load all integration data when component mounts
+  const preloadAllIntegrationData = useCallback(async () => {
+    if (preloadingData) return
+
+    setPreloadingData(true)
+    const allDataTypes = getAllDynamicDataTypes()
+
+    // Only fetch data for connected integrations
+    const connectedProviders = integrations.filter((i) => i.status === "connected").map((i) => i.provider)
+
+    const relevantDataTypes = allDataTypes.filter((dt) => connectedProviders.includes(dt.provider))
+
+    // Fetch all data types in parallel, but limit concurrency
+    const batchSize = 3
+    for (let i = 0; i < relevantDataTypes.length; i += batchSize) {
+      const batch = relevantDataTypes.slice(i, i + batchSize)
+      await Promise.all(batch.map(({ provider, dataType }) => fetchDynamicData(provider, dataType)))
+    }
+
+    setPreloadingData(false)
+  }, [integrations, getAllDynamicDataTypes, fetchDynamicData, preloadingData])
+
+  // Pre-fetch dynamic data when config modal opens (fallback)
   useEffect(() => {
     if (showConfigModal && selectedAction && selectedApp) {
       const fields = getConfigFields()
@@ -627,6 +690,13 @@ export default function WorkflowBuilder() {
   useEffect(() => {
     fetchIntegrations()
   }, [fetchIntegrations])
+
+  // Pre-load integration data when integrations are loaded
+  useEffect(() => {
+    if (integrations.length > 0 && !preloadingData) {
+      preloadAllIntegrationData()
+    }
+  }, [integrations, preloadAllIntegrationData, preloadingData])
 
   // Load workflow if ID is provided
   useEffect(() => {
@@ -890,6 +960,8 @@ export default function WorkflowBuilder() {
     setRefreshingIntegrations(true)
     try {
       await fetchIntegrations(true)
+      // Re-preload data after refresh
+      await preloadAllIntegrationData()
       toast({
         title: "Success",
         description: "Integration permissions refreshed",
@@ -1242,12 +1314,16 @@ export default function WorkflowBuilder() {
           <SelectTrigger>
             <SelectValue placeholder={isLoading ? "Loading..." : field.placeholder} />
           </SelectTrigger>
-          <SelectContent>
-            {options.map((option: any) => (
-              <SelectItem key={option.id || option.value} value={option.id || option.value}>
-                {option.name || option.label || option.title}
-              </SelectItem>
-            ))}
+          <SelectContent side="bottom" align="start" className="max-h-[200px] overflow-y-auto" sideOffset={4}>
+            {options.length === 0 && !isLoading ? (
+              <div className="p-2 text-sm text-muted-foreground">No items found</div>
+            ) : (
+              options.map((option: any) => (
+                <SelectItem key={option.id || option.value} value={option.id || option.value}>
+                  {option.name || option.label || option.title}
+                </SelectItem>
+              ))
+            )}
           </SelectContent>
         </Select>
       )
@@ -1260,7 +1336,7 @@ export default function WorkflowBuilder() {
           <SelectTrigger>
             <SelectValue placeholder={`Select ${field.label.toLowerCase()}`} />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent side="bottom" align="start" className="max-h-[200px] overflow-y-auto" sideOffset={4}>
             {field.options?.map((option: string) => (
               <SelectItem key={option} value={option}>
                 {option.charAt(0).toUpperCase() + option.slice(1)}
@@ -1460,6 +1536,13 @@ export default function WorkflowBuilder() {
                 <RefreshCw className={`w-3 h-3 ${refreshingIntegrations ? "animate-spin" : ""}`} />
               </Button>
             </div>
+
+            {preloadingData && (
+              <div className="flex items-center gap-2 px-3 py-1 bg-blue-50 rounded-lg text-sm text-blue-600">
+                <Loader2 className="w-3 h-3 animate-spin" />
+                <span>Loading data...</span>
+              </div>
+            )}
 
             <Button variant="outline" size="sm" disabled>
               <Undo className="w-4 h-4" />
@@ -1925,7 +2008,6 @@ export default function WorkflowBuilder() {
                     <img
                       src={
                         AVAILABLE_INTEGRATIONS.find((app) => app.id === workflowSteps[stepToDelete].appId)?.logo ||
-                        "/placeholder.svg" ||
                         "/placeholder.svg" ||
                         "/placeholder.svg"
                       }
