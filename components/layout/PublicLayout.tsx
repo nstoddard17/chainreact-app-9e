@@ -1,11 +1,11 @@
 "use client"
 
 import type React from "react"
-import { useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Menu, X, User, LogOut } from "lucide-react"
 import Link from "next/link"
 import { useState } from "react"
+import { useAuth } from "@/hooks/use-auth"
 import { useAuthStore } from "@/stores/authStore"
 
 interface PublicLayoutProps {
@@ -14,33 +14,8 @@ interface PublicLayoutProps {
 
 export function PublicLayout({ children }: PublicLayoutProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const authStore = useAuthStore()
-  const { user, session, loading, profile, signOut: authSignOut } = authStore
-
-  // Safely get the initialize function
-  const initialize = authStore.initialize || (() => Promise.resolve())
-
-  // Initialize auth on component mount
-  useEffect(() => {
-    // Safely call initialize with error handling
-    const initializeAuth = async () => {
-      try {
-        if (initialize && typeof initialize === "function") {
-          await initialize()
-        } else {
-          console.warn("Initialize function not available in auth store")
-          // Set loading to false if initialize is not available
-          authStore.set({ loading: false, initialized: true })
-        }
-      } catch (error) {
-        console.error("Failed to initialize auth:", error)
-        // Set loading to false even if initialization fails
-        authStore.set({ loading: false, initialized: true })
-      }
-    }
-
-    initializeAuth()
-  }, [initialize])
+  const { isAuthenticated, user, isReady } = useAuth()
+  const { signOut } = useAuthStore()
 
   const handlePageNavigation = (path: string) => {
     // Close mobile menu if open
@@ -56,12 +31,12 @@ export function PublicLayout({ children }: PublicLayoutProps) {
   }
 
   const handleSignOut = async () => {
-    await authSignOut()
+    await signOut()
     setMobileMenuOpen(false)
   }
 
   // Show loading state while checking auth
-  if (loading) {
+  if (!isReady) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
@@ -69,11 +44,11 @@ export function PublicLayout({ children }: PublicLayoutProps) {
     )
   }
 
-  const isLoggedIn = !!user && !!session
-
-  // Get the first name from profile or user metadata
+  // Get the first name from user data
   const firstName =
-    profile?.first_name || user?.user_metadata?.first_name || (user?.email ? user.email.split("@")[0] : "User")
+    user?.user_metadata?.first_name ||
+    user?.user_metadata?.name?.split(" ")[0] ||
+    (user?.email ? user.email.split("@")[0] : "User")
 
   return (
     <div className="min-h-screen bg-white">
@@ -101,9 +76,11 @@ export function PublicLayout({ children }: PublicLayoutProps) {
                 >
                   Integrations
                 </Link>
-                <Link href="/#pricing" className="text-slate-600 hover:text-indigo-600 px-3 py-2 text-sm font-medium">
-                  Pricing
-                </Link>
+                {!isAuthenticated && (
+                  <Link href="/#pricing" className="text-slate-600 hover:text-indigo-600 px-3 py-2 text-sm font-medium">
+                    Pricing
+                  </Link>
+                )}
                 <Link
                   href="/templates"
                   className="text-slate-600 hover:text-indigo-600 px-3 py-2 text-sm font-medium"
@@ -123,7 +100,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
 
             {/* Desktop Auth Buttons */}
             <div className="hidden md:flex items-center space-x-4">
-              {isLoggedIn ? (
+              {isAuthenticated ? (
                 <>
                   <div className="flex items-center space-x-2 text-sm text-slate-600">
                     <User className="h-4 w-4" />
@@ -185,13 +162,15 @@ export function PublicLayout({ children }: PublicLayoutProps) {
               >
                 Integrations
               </Link>
-              <Link
-                href="/#pricing"
-                className="text-slate-600 hover:text-indigo-600 block px-3 py-2 text-base font-medium"
-                onClick={handleMobileMenuClose}
-              >
-                Pricing
-              </Link>
+              {!isAuthenticated && (
+                <Link
+                  href="/#pricing"
+                  className="text-slate-600 hover:text-indigo-600 block px-3 py-2 text-base font-medium"
+                  onClick={handleMobileMenuClose}
+                >
+                  Pricing
+                </Link>
+              )}
               <Link
                 href="/templates"
                 className="text-slate-600 hover:text-indigo-600 block px-3 py-2 text-base font-medium"
@@ -209,7 +188,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
 
               {/* Mobile Auth Section */}
               <div className="pt-4 pb-3 border-t border-slate-200">
-                {isLoggedIn ? (
+                {isAuthenticated ? (
                   <>
                     <div className="px-3 py-2">
                       <div className="flex items-center space-x-2 text-sm text-slate-600">
@@ -276,11 +255,13 @@ export function PublicLayout({ children }: PublicLayoutProps) {
                     Integrations
                   </Link>
                 </li>
-                <li>
-                  <Link href="/#pricing" className="hover:text-indigo-300">
-                    Pricing
-                  </Link>
-                </li>
+                {!isAuthenticated && (
+                  <li>
+                    <Link href="/#pricing" className="hover:text-indigo-300">
+                      Pricing
+                    </Link>
+                  </li>
+                )}
                 <li>
                   <Link
                     href="/templates"

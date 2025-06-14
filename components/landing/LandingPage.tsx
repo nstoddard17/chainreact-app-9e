@@ -22,16 +22,12 @@ import {
   Smartphone,
   Code,
   Play,
-  Settings,
-  LogOut,
 } from "lucide-react"
 import Link from "next/link"
 import { useAuth } from "@/hooks/use-auth"
-import { useAuthStore } from "@/stores/authStore"
 
 export default function LandingPage() {
   const { isAuthenticated, user, isReady } = useAuth()
-  const { signOut } = useAuthStore()
 
   // Show loading state while auth is initializing
   if (!isReady) {
@@ -47,36 +43,6 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Navigation Bar for Logged In Users */}
-      {isAuthenticated && (
-        <nav className="bg-white border-b border-slate-200 sticky top-0 z-50">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center h-16">
-              <div className="flex items-center">
-                <h1 className="text-xl font-bold text-indigo-600">ChainReact</h1>
-              </div>
-              <div className="flex items-center space-x-4">
-                <span className="text-sm text-slate-600">Welcome back, {user?.name || user?.email}</span>
-                <Link href="/dashboard">
-                  <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700">
-                    <Workflow className="h-4 w-4 mr-2" />
-                    Dashboard
-                  </Button>
-                </Link>
-                <Link href="/settings">
-                  <Button size="sm" variant="outline">
-                    <Settings className="h-4 w-4" />
-                  </Button>
-                </Link>
-                <Button size="sm" variant="outline" onClick={() => signOut()}>
-                  <LogOut className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </div>
-        </nav>
-      )}
-
       {/* Hero Section */}
       <section className="pt-24 pb-16 bg-gradient-to-br from-indigo-50 via-purple-50 to-blue-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -91,8 +57,11 @@ export default function LandingPage() {
                   <span className="text-indigo-600 block">Amazing Workflows?</span>
                 </h1>
                 <p className="text-xl text-slate-600 mb-8 max-w-3xl mx-auto">
-                  Welcome back, {user?.name || user?.email?.split("@")[0]}! Continue building powerful workflows and
-                  automating your tasks.
+                  Welcome back,{" "}
+                  {user?.user_metadata?.first_name ||
+                    user?.user_metadata?.name?.split(" ")[0] ||
+                    user?.email?.split("@")[0]}
+                  ! Continue building powerful workflows and automating your tasks.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
                   <Link href="/dashboard">
@@ -238,13 +207,6 @@ export default function LandingPage() {
                 </div>
                 <h3 className="text-xl font-semibold text-blue-900 mb-2">Enterprise Security</h3>
                 <p className="text-black">Bank-grade encryption, SOC 2 compliance, and advanced security controls.</p>
-                {isAuthenticated && (
-                  <Link href="/settings" className="inline-block mt-3">
-                    <Button size="sm" variant="outline" className="text-blue-600 border-blue-600">
-                      Security Settings
-                    </Button>
-                  </Link>
-                )}
               </CardContent>
             </Card>
 
