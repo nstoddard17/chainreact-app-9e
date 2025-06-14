@@ -37,140 +37,140 @@ const AVAILABLE_INTEGRATIONS = [
   {
     id: "gmail",
     name: "Gmail",
-    icon: "📧",
+    logo: "https://upload.wikimedia.org/wikipedia/commons/7/7e/Gmail_icon_%282020%29.svg",
     triggers: ["New Email", "Email Received from Specific Sender", "Email with Attachment", "Important Email"],
     actions: ["Send Email", "Reply to Email", "Forward Email"],
   },
   {
     id: "slack",
     name: "Slack",
-    icon: "💬",
+    logo: "https://upload.wikimedia.org/wikipedia/commons/d/d5/Slack_icon_2019.svg",
     triggers: ["New Message in Channel", "Direct Message Received", "User Mentioned", "File Uploaded"],
     actions: ["Send Message", "Create Channel", "Update Status"],
   },
   {
     id: "notion",
     name: "Notion",
-    icon: "📝",
+    logo: "https://upload.wikimedia.org/wikipedia/commons/4/45/Notion_app_logo.png",
     triggers: ["New Page Created", "Database Item Added", "Page Updated", "Database Item Updated"],
     actions: ["Create Page", "Update Database", "Add Comment"],
   },
   {
     id: "discord",
     name: "Discord",
-    icon: "🎮",
+    logo: "https://assets-global.website-files.com/6257adef93867e50d84d30e2/636e0a6a49cf127bf92de1e2_icon_clyde_blurple_RGB.png",
     triggers: ["New Message", "User Joined Server", "User Left Server", "Reaction Added"],
     actions: ["Send Message", "Create Channel", "Assign Role"],
   },
   {
     id: "stripe",
     name: "Stripe",
-    icon: "💳",
+    logo: "https://upload.wikimedia.org/wikipedia/commons/b/ba/Stripe_Logo%2C_revised_2016.svg",
     triggers: ["Payment Received", "Subscription Created", "Payment Failed", "Customer Created"],
     actions: ["Create Customer", "Send Invoice", "Refund Payment"],
   },
   {
     id: "hubspot",
     name: "HubSpot",
-    icon: "🎯",
+    logo: "https://upload.wikimedia.org/wikipedia/commons/3/3f/HubSpot_Logo.svg",
     triggers: ["New Contact", "Deal Updated", "Contact Updated", "Deal Created"],
     actions: ["Create Contact", "Update Deal", "Send Email"],
   },
   {
     id: "github",
     name: "GitHub",
-    icon: "🐙",
+    logo: "https://upload.wikimedia.org/wikipedia/commons/9/91/Octicons-mark-github.svg",
     triggers: ["New Issue", "Pull Request Created", "Push to Repository", "Release Published"],
     actions: ["Create Issue", "Create Pull Request", "Add Comment"],
   },
   {
     id: "google-calendar",
     name: "Google Calendar",
-    icon: "📅",
+    logo: "https://upload.wikimedia.org/wikipedia/commons/a/a5/Google_Calendar_icon_%282020%29.svg",
     triggers: ["New Event", "Event Updated", "Event Starting Soon", "Event Cancelled"],
     actions: ["Create Event", "Update Event", "Delete Event"],
   },
   {
     id: "google-sheets",
     name: "Google Sheets",
-    icon: "📊",
+    logo: "https://upload.wikimedia.org/wikipedia/commons/3/30/Google_Sheets_logo_%282014-2020%29.svg",
     triggers: ["New Row Added", "Row Updated", "Cell Changed", "Sheet Created"],
     actions: ["Add Row", "Update Row", "Create Sheet"],
   },
   {
     id: "google-drive",
     name: "Google Drive",
-    icon: "💾",
+    logo: "https://upload.wikimedia.org/wikipedia/commons/1/12/Google_Drive_icon_%282020%29.svg",
     triggers: ["New File", "File Updated", "File Shared", "Folder Created"],
     actions: ["Upload File", "Create Folder", "Share File"],
   },
   {
     id: "google-docs",
     name: "Google Docs",
-    icon: "📄",
+    logo: "https://upload.wikimedia.org/wikipedia/commons/0/01/Google_Docs_logo_%282014-2020%29.svg",
     triggers: ["New Document", "Document Updated", "Comment Added", "Document Shared"],
     actions: ["Create Document", "Update Document", "Add Comment"],
   },
   {
     id: "airtable",
     name: "Airtable",
-    icon: "🗃️",
+    logo: "https://upload.wikimedia.org/wikipedia/commons/4/4b/Airtable_Logo.svg",
     triggers: ["New Record", "Record Updated", "View Updated", "Base Shared"],
     actions: ["Create Record", "Update Record", "Delete Record"],
   },
   {
     id: "trello",
     name: "Trello",
-    icon: "📋",
+    logo: "https://upload.wikimedia.org/wikipedia/en/8/8c/Trello_logo.svg",
     triggers: ["New Card", "Card Moved", "Card Updated", "Due Date Approaching"],
     actions: ["Create Card", "Move Card", "Update Card"],
   },
   {
     id: "dropbox",
     name: "Dropbox",
-    icon: "📦",
+    logo: "https://upload.wikimedia.org/wikipedia/commons/c/cb/Dropbox_logo_2017.svg",
     triggers: ["New File", "File Updated", "File Shared", "Folder Created"],
     actions: ["Upload File", "Create Folder", "Share File"],
   },
   {
     id: "teams",
     name: "Microsoft Teams",
-    icon: "👥",
+    logo: "https://upload.wikimedia.org/wikipedia/commons/c/c9/Microsoft_Office_Teams_%282018%E2%80%93present%29.svg",
     triggers: ["New Message", "Meeting Started", "File Shared", "Channel Created"],
     actions: ["Send Message", "Schedule Meeting", "Share File"],
   },
   {
     id: "gitlab",
     name: "GitLab",
-    icon: "🦊",
+    logo: "https://upload.wikimedia.org/wikipedia/commons/1/18/GitLab_Logo.svg",
     triggers: ["New Issue", "Merge Request Created", "Pipeline Failed", "Push to Branch"],
     actions: ["Create Issue", "Create Merge Request", "Add Comment"],
   },
   {
     id: "facebook",
     name: "Facebook",
-    icon: "👤",
+    logo: "https://upload.wikimedia.org/wikipedia/commons/5/51/Facebook_f_logo_%282019%29.svg",
     triggers: ["New Post", "Page Mention", "Comment on Post", "New Page Like"],
     actions: ["Create Post", "Reply to Comment", "Share Post"],
   },
   {
     id: "youtube",
     name: "YouTube",
-    icon: "📺",
+    logo: "https://upload.wikimedia.org/wikipedia/commons/0/09/YouTube_full-color_icon_%282017%29.svg",
     triggers: ["New Video Uploaded", "New Comment", "New Subscriber", "Video Liked"],
     actions: ["Upload Video", "Reply to Comment", "Update Video"],
   },
   {
     id: "mailchimp",
     name: "Mailchimp",
-    icon: "🐵",
+    logo: "https://upload.wikimedia.org/wikipedia/commons/2/27/Mailchimp_Logo.svg",
     triggers: ["New Subscriber", "Email Campaign Sent", "Subscriber Updated", "Unsubscribe"],
     actions: ["Add Subscriber", "Send Campaign", "Update Subscriber"],
   },
   {
     id: "linkedin",
     name: "LinkedIn",
-    icon: "💼",
+    logo: "https://upload.wikimedia.org/wikipedia/commons/c/ca/LinkedIn_logo_initials.png",
     triggers: ["New Connection", "Post Engagement", "Message Received", "Profile View"],
     actions: ["Create Post", "Send Message", "Connect with User"],
   },
@@ -759,8 +759,18 @@ export default function WorkflowBuilder() {
                       <CardContent className="p-6">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center space-x-4">
-                            <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-blue-600 rounded-lg flex items-center justify-center text-white text-xl shadow-md">
-                              {AVAILABLE_INTEGRATIONS.find((app) => app.id === step.appId)?.icon || "⚡"}
+                            <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center shadow-md border border-slate-200">
+                              <img
+                                src={
+                                  AVAILABLE_INTEGRATIONS.find((app) => app.id === step.appId)?.logo ||
+                                  "/placeholder.svg?height=32&width=32"
+                                }
+                                alt={step.appName}
+                                className="w-8 h-8 object-contain"
+                                onError={(e) => {
+                                  e.currentTarget.src = "/placeholder.svg?height=32&width=32"
+                                }}
+                              />
                             </div>
                             <div>
                               <h4 className="font-medium text-slate-900">{step.appName}</h4>
@@ -842,7 +852,16 @@ export default function WorkflowBuilder() {
                   onClick={() => handleAppSelected(app)}
                 >
                   <div className="flex items-center space-x-3">
-                    <div className="text-2xl">{app.icon}</div>
+                    <div className="w-8 h-8 flex items-center justify-center">
+                      <img
+                        src={app.logo || "/placeholder.svg"}
+                        alt={app.name}
+                        className="w-6 h-6 object-contain"
+                        onError={(e) => {
+                          e.currentTarget.src = "/placeholder.svg?height=24&width=24"
+                        }}
+                      />
+                    </div>
                     <div className="text-left">
                       <div className="font-medium text-slate-900">{app.name}</div>
                     </div>
