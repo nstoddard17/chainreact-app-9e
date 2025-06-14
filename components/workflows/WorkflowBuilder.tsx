@@ -392,7 +392,6 @@ const TRIGGER_CONFIGS = {
     },
     { key: "amount_min", label: "Minimum Amount", type: "number", placeholder: "1000", required: false },
   ],
-  // Add more configurations as needed...
 }
 
 interface WorkflowStep {
@@ -757,45 +756,52 @@ export default function WorkflowBuilder() {
   const workflowOptimizations = currentWorkflow ? optimizations[currentWorkflow.id] || [] : []
   const workflowAnomalies = currentWorkflow ? anomalies[currentWorkflow.id] || [] : []
 
-  const fetchDynamicData = useCallback(async (provider: string, dataType: string, cacheKey: string) => {
-    if (dynamicData[cacheKey]) {
-      return dynamicData[cacheKey] || []
-    }
-  
-    setLoadingDynamicData(prev => ({ ...prev, [cacheKey]: true }))
-  
-    try {
-      const response = await fetch("/api/integrations/fetch-user-data", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ provider, dataType }),
-      })
-  
-      const result = await response.json()
-      
-      if (result.success) {
-        setDynamicData(prev => ({ ...prev, [cacheKey]: result.data }))
-        return result.data
-      } else {
-        console.error("Failed to fetch dynamic data:", result.error)
-        return []
+  const fetchDynamicData = useCallback(
+    async (provider: string, dataType: string, cacheKey: string) => {
+      if (dynamicData[cacheKey]) {
+        return dynamicData[cacheKey] || []
       }
-    } catch (error) {
-      console.error("Error fetching dynamic data:", error)
-      return []
-    } finally {
-      setLoadingDynamicData(prev => ({ ...prev, [cacheKey]: false }))
-    }
-  }, [dynamicData])
+
+      setLoadingDynamicData((prev) => ({ ...prev, [cacheKey]: true }))
+
+      try {
+        const response = await fetch("/api/integrations/fetch-user-data", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ provider, dataType }),
+        })
+
+        const result = await response.json()
+
+        if (result.success) {
+          setDynamicData((prev) => ({ ...prev, [cacheKey]: result.data }))
+          return result.data
+        } else {
+          console.error("Failed to fetch dynamic data:", result.error)
+          return []
+        }
+      } catch (error) {
+        console.error("Error fetching dynamic data:", error)
+        return []
+      } finally {
+        setLoadingDynamicData((prev) => ({ ...prev, [cacheKey]: false }))
+      }
+    },
+    [dynamicData],
+  )
 
   const getConfigFields = () => {
+    const [options, setOptions] = useState<any[]>([])
+    const [isLoading, setIsLoading] = useState(false)
+
     if (currentStepIndex === 0) {
       // For triggers
       return TRIGGER_CONFIGS[selectedAction as keyof typeof TRIGGER_CONFIGS] || []
     } else {
       // For actions - return existing action config fields
+
       if (selectedAction === "Send Email") {
         return [
           { key: "to", label: "To", type: "email", placeholder: "recipient@example.com", required: true },
@@ -805,40 +811,40 @@ export default function WorkflowBuilder() {
       } else if (selectedAction === "Send Message") {
         if (selectedApp?.id === "slack") {
           return [
-            { 
-              key: "channel", 
-              label: "Channel", 
-              type: "dynamic_select", 
+            {
+              key: "channel",
+              label: "Channel",
+              type: "dynamic_select",
               provider: "slack",
               dataType: "channels",
-              placeholder: "Select a channel", 
-              required: true 
+              placeholder: "Select a channel",
+              required: true,
             },
             { key: "message", label: "Message", type: "textarea", placeholder: "Your message...", required: true },
           ]
         } else if (selectedApp?.id === "discord") {
           return [
-            { 
-              key: "channel_id", 
-              label: "Channel", 
-              type: "dynamic_select", 
+            {
+              key: "channel_id",
+              label: "Channel",
+              type: "dynamic_select",
               provider: "discord",
               dataType: "channels",
-              placeholder: "Select a channel", 
-              required: true 
+              placeholder: "Select a channel",
+              required: true,
             },
             { key: "message", label: "Message", type: "textarea", placeholder: "Your message...", required: true },
           ]
         } else if (selectedApp?.id === "teams") {
           return [
-            { 
-              key: "team_id", 
-              label: "Team", 
-              type: "dynamic_select", 
+            {
+              key: "team_id",
+              label: "Team",
+              type: "dynamic_select",
               provider: "teams",
               dataType: "teams",
-              placeholder: "Select a team", 
-              required: true 
+              placeholder: "Select a team",
+              required: true,
             },
             { key: "message", label: "Message", type: "textarea", placeholder: "Your message...", required: true },
           ]
@@ -861,14 +867,14 @@ export default function WorkflowBuilder() {
         ]
       } else if (selectedAction === "Update Deal") {
         return [
-          { 
-            key: "pipeline_id", 
-            label: "Pipeline", 
-            type: "dynamic_select", 
+          {
+            key: "pipeline_id",
+            label: "Pipeline",
+            type: "dynamic_select",
             provider: "hubspot",
             dataType: "pipelines",
-            placeholder: "Select a pipeline", 
-            required: false 
+            placeholder: "Select a pipeline",
+            required: false,
           },
           { key: "deal_name", label: "Deal Name", type: "text", placeholder: "Deal Name", required: true },
           { key: "amount", label: "Amount", type: "number", placeholder: "1000", required: false },
@@ -876,184 +882,225 @@ export default function WorkflowBuilder() {
         ]
       } else if (selectedAction === "Create Event") {
         return [
-          { 
-            key: "calendar_id", 
-            label: "Calendar", 
-            type: "dynamic_select", 
+          {
+            key: "calendar_id",
+            label: "Calendar",
+            type: "dynamic_select",
             provider: "google-calendar",
             dataType: "calendars",
-            placeholder: "Select a calendar", 
-            required: false 
-        },
-        { key: "title", label: "Event Title", type: "text", placeholder: "Meeting Title", required: true },
-        { key: "start_time", label: "Start Time", type: "datetime-local", placeholder: "", required: true },
-        { key: "end_time", label: "End Time", type: "datetime-local", placeholder: "", required: true },
-        { key: "description", label: "Description", type: "textarea", placeholder: "Event description...", required: false },
-      ]
-    } else if (selectedAction === "Add Row") {
-      return [
-        { 
-          key: "spreadsheet_id", 
-          label: "Spreadsheet", 
-          type: "dynamic_select", 
-          provider: "google-sheets",
-          dataType: "spreadsheets",
-          placeholder: "Select a spreadsheet", 
-          required: true 
-        },
-        { key: "sheet_name", label: "Sheet Name", type: "text", placeholder: "Sheet1", required: false },
-        { key: "values", label: "Values (comma-separated)", type: "text", placeholder: "Value1, Value2, Value3", required: true },
-      ]
-    } else if (selectedAction === "Create Record") {
-      return [
-        { 
-          key: "base_id", 
-          label: "Base", 
-          type: "dynamic_select", 
-          provider: "airtable",
-          dataType: "bases",
-          placeholder: "Select a base", 
-          required: true 
-        },
-        { key: "table_name", label: "Table Name", type: "text", placeholder: "Table Name", required: true },
-        { key: "fields", label: "Fields (JSON)", type: "textarea", placeholder: '{"Name": "John", "Email": "john@example.com"}', required: true },
-      ]
-    } else if (selectedAction === "Create Card") {
-      return [
-        { 
-          key: "board_id", 
-          label: "Board", 
-          type: "dynamic_select", 
-          provider: "trello",
-          dataType: "boards",
-          placeholder: "Select a board", 
-          required: true 
-        },
-        { key: "list_name", label: "List Name", type: "text", placeholder: "To Do", required: true },
-        { key: "card_name", label: "Card Name", type: "text", placeholder: "Task Name", required: true },
-        { key: "description", label: "Description", type: "textarea", placeholder: "Task description...", required: false },
-      ]
-    } else if (selectedAction === "Create Issue") {
-      return [
-        { 
-          key: "repository", 
-          label: "Repository", 
-          type: "dynamic_select", 
-          provider: "github",
-          dataType: "repositories",
-          placeholder: "Select a repository", 
-          required: true 
-        },
-        { key: "title", label: "Issue Title", type: "text", placeholder: "Bug report", required: true },
-        { key: "body", label: "Issue Body", type: "textarea", placeholder: "Describe the issue...", required: false },
-        { key: "labels", label: "Labels (comma-separated)", type: "text", placeholder: "bug, urgent", required: false },
-      ]
-    } else if (selectedAction === "Upload File") {
-      if (selectedApp?.id === "google-drive") {
-        return [
-          { 
-            key: "folder_id", 
-            label: "Folder", 
-            type: "dynamic_select", 
-            provider: "google-drive",
-            dataType: "folders",
-            placeholder: "Select a folder", 
-            required: false 
+            placeholder: "Select a calendar",
+            required: false,
           },
+          { key: "title", label: "Event Title", type: "text", placeholder: "Meeting Title", required: true },
+          { key: "start_time", label: "Start Time", type: "datetime-local", placeholder: "", required: true },
+          { key: "end_time", label: "End Time", type: "datetime-local", placeholder: "", required: true },
+          {
+            key: "description",
+            label: "Description",
+            type: "textarea",
+            placeholder: "Event description...",
+            required: false,
+          },
+        ]
+      } else if (selectedAction === "Add Row") {
+        return [
+          {
+            key: "spreadsheet_id",
+            label: "Spreadsheet",
+            type: "dynamic_select",
+            provider: "google-sheets",
+            dataType: "spreadsheets",
+            placeholder: "Select a spreadsheet",
+            required: true,
+          },
+          { key: "sheet_name", label: "Sheet Name", type: "text", placeholder: "Sheet1", required: false },
+          {
+            key: "values",
+            label: "Values (comma-separated)",
+            type: "text",
+            placeholder: "Value1, Value2, Value3",
+            required: true,
+          },
+        ]
+      } else if (selectedAction === "Create Record") {
+        return [
+          {
+            key: "base_id",
+            label: "Base",
+            type: "dynamic_select",
+            provider: "airtable",
+            dataType: "bases",
+            placeholder: "Select a base",
+            required: true,
+          },
+          { key: "table_name", label: "Table Name", type: "text", placeholder: "Table Name", required: true },
+          {
+            key: "fields",
+            label: "Fields (JSON)",
+            type: "textarea",
+            placeholder: '{"Name": "John", "Email": "john@example.com"}',
+            required: true,
+          },
+        ]
+      } else if (selectedAction === "Create Card") {
+        return [
+          {
+            key: "board_id",
+            label: "Board",
+            type: "dynamic_select",
+            provider: "trello",
+            dataType: "boards",
+            placeholder: "Select a board",
+            required: true,
+          },
+          { key: "list_name", label: "List Name", type: "text", placeholder: "To Do", required: true },
+          { key: "card_name", label: "Card Name", type: "text", placeholder: "Task Name", required: true },
+          {
+            key: "description",
+            label: "Description",
+            type: "textarea",
+            placeholder: "Task description...",
+            required: false,
+          },
+        ]
+      } else if (selectedAction === "Create Issue") {
+        return [
+          {
+            key: "repository",
+            label: "Repository",
+            type: "dynamic_select",
+            provider: "github",
+            dataType: "repositories",
+            placeholder: "Select a repository",
+            required: true,
+          },
+          { key: "title", label: "Issue Title", type: "text", placeholder: "Bug report", required: true },
+          { key: "body", label: "Issue Body", type: "textarea", placeholder: "Describe the issue...", required: false },
+          {
+            key: "labels",
+            label: "Labels (comma-separated)",
+            type: "text",
+            placeholder: "bug, urgent",
+            required: false,
+          },
+        ]
+      } else if (selectedAction === "Upload File") {
+        if (selectedApp?.id === "google-drive") {
+          return [
+            {
+              key: "folder_id",
+              label: "Folder",
+              type: "dynamic_select",
+              provider: "google-drive",
+              dataType: "folders",
+              placeholder: "Select a folder",
+              required: false,
+            },
+            { key: "file_name", label: "File Name", type: "text", placeholder: "document.pdf", required: true },
+            {
+              key: "file_content",
+              label: "File Content/URL",
+              type: "text",
+              placeholder: "File content or URL",
+              required: true,
+            },
+          ]
+        }
+        return [
           { key: "file_name", label: "File Name", type: "text", placeholder: "document.pdf", required: true },
-          { key: "file_content", label: "File Content/URL", type: "text", placeholder: "File content or URL", required: true },
+          {
+            key: "file_content",
+            label: "File Content/URL",
+            type: "text",
+            placeholder: "File content or URL",
+            required: true,
+          },
+        ]
+      } else if (selectedAction === "Send Campaign") {
+        return [
+          {
+            key: "list_id",
+            label: "Mailing List",
+            type: "dynamic_select",
+            provider: "mailchimp",
+            dataType: "lists",
+            placeholder: "Select a mailing list",
+            required: true,
+          },
+          { key: "subject", label: "Subject", type: "text", placeholder: "Newsletter Subject", required: true },
+          { key: "content", label: "Content", type: "textarea", placeholder: "Email content...", required: true },
+        ]
+      } else if (selectedAction === "Time-based") {
+        return [
+          {
+            key: "delayType",
+            label: "Delay Type",
+            type: "select",
+            options: ["minutes", "hours", "days", "specific"],
+            required: true,
+          },
+          {
+            key: "delayValue",
+            label: "Delay Value",
+            type: "number",
+            placeholder: "Enter delay amount",
+            required: true,
+          },
+        ]
+      } else if (selectedAction === "Field-based") {
+        return [
+          {
+            key: "field",
+            label: "Field to Check",
+            type: "text",
+            placeholder: "e.g., email, status, amount",
+            required: true,
+          },
+          {
+            key: "operator",
+            label: "Operator",
+            type: "select",
+            options: ["equals", "contains", "greater", "less"],
+            required: true,
+          },
+          { key: "value", label: "Value", type: "text", placeholder: "Value to compare against", required: true },
+        ]
+      } else if (selectedAction === "AI-based") {
+        return [
+          {
+            key: "prompt",
+            label: "AI Prompt",
+            type: "textarea",
+            placeholder: "Describe what the AI should check for...",
+            required: true,
+          },
+          {
+            key: "confidence",
+            label: "Confidence Threshold",
+            type: "select",
+            options: ["low", "medium", "high"],
+            required: false,
+          },
         ]
       }
-      return [
-        { key: "file_name", label: "File Name", type: "text", placeholder: "document.pdf", required: true },
-        { key: "file_content", label: "File Content/URL", type: "text", placeholder: "File content or URL", required: true },
-      ]
-    } else if (selectedAction === "Send Campaign") {
-      return [
-        { 
-          key: "list_id", 
-          label: "Mailing List", 
-          type: "dynamic_select", 
-          provider: "mailchimp",
-          dataType: "lists",
-          placeholder: "Select a mailing list", 
-          required: true 
-        },
-        { key: "subject", label: "Subject", type: "text", placeholder: "Newsletter Subject", required: true },
-        { key: "content", label: "Content", type: "textarea", placeholder: "Email content...", required: true },
-      ]
-    } else if (selectedAction === "Time-based") {
-      return [
-        {
-          key: "delayType",
-          label: "Delay Type",
-          type: "select",
-          options: ["minutes", "hours", "days", "specific"],
-          required: true,
-        },
-        {
-          key: "delayValue",
-          label: "Delay Value",
-          type: "number",
-          placeholder: "Enter delay amount",
-          required: true,
-        },
-      ]
-    } else if (selectedAction === "Field-based") {
-      return [
-        {
-          key: "field",
-          label: "Field to Check",
-          type: "text",
-          placeholder: "e.g., email, status, amount",
-          required: true,
-        },
-        {
-          key: "operator",
-          label: "Operator",
-          type: "select",
-          options: ["equals", "contains", "greater", "less"],
-          required: true,
-        },
-        { key: "value", label: "Value", type: "text", placeholder: "Value to compare against", required: true },
-      ]
-    } else if (selectedAction === "AI-based") {
-      return [
-        {
-          key: "prompt",
-          label: "AI Prompt",
-          type: "textarea",
-          placeholder: "Describe what the AI should check for...",
-          required: true,
-        },
-        {
-          key: "confidence",
-          label: "Confidence Threshold",
-          type: "select",
-          options: ["low", "medium", "high"],
-          required: false,
-        },
-      ]
+      return []
     }
-    return []
   }
 
-  const [isFetchingDynamicData, setIsFetchingDynamicData] = useState(false);
-
   const renderConfigField = (field: any) => {
-    const cacheKey = `${field.provider}-${field.dataType}`;
-    const [options, setOptions] = useState<any[]>([]);
-    const [isLoading, setIsLoading] = useState(false);
+    const cacheKey = `${field.provider}-${field.dataType}`
+    const [options, setOptions] = useState<any[]>([])
+    const [isLoading, setIsLoading] = useState(false)
 
     useEffect(() => {
       if (field.provider && field.dataType) {
         const fetchData = async () => {
           if (dynamicData[cacheKey]) {
-            setOptions(dynamicData[cacheKey]);
-            return;
+            setOptions(dynamicData[cacheKey])
+            return
           }
 
-          setIsLoading(true);
+          setIsLoading(true)
           try {
             const response = await fetch("/api/integrations/fetch-user-data", {
               method: "POST",
@@ -1061,26 +1108,26 @@ export default function WorkflowBuilder() {
                 "Content-Type": "application/json",
               },
               body: JSON.stringify({ provider: field.provider, dataType: field.dataType }),
-            });
+            })
 
-            const result = await response.json();
+            const result = await response.json()
 
             if (result.success) {
-              setOptions(result.data);
-              setDynamicData(prev => ({ ...prev, [cacheKey]: result.data }));
+              setOptions(result.data)
+              setDynamicData((prev) => ({ ...prev, [cacheKey]: result.data }))
             } else {
-              console.error("Failed to fetch dynamic data:", result.error);
+              console.error("Failed to fetch dynamic data:", result.error)
             }
           } catch (error) {
-            console.error("Error fetching dynamic data:", error);
+            console.error("Error fetching dynamic data:", error)
           } finally {
-            setIsLoading(false);
+            setIsLoading(false)
           }
-        };
+        }
 
-        fetchData();
+        fetchData()
       }
-    }, [field.provider, field.dataType, cacheKey, dynamicData]);
+    }, [field.provider, field.dataType, cacheKey, dynamicData])
 
     if (field.type === "dynamic_select") {
       return (
@@ -1100,7 +1147,7 @@ export default function WorkflowBuilder() {
             ))}
           </SelectContent>
         </Select>
-      );
+      )
     } else if (field.type === "select") {
       return (
         <Select
@@ -1118,7 +1165,7 @@ export default function WorkflowBuilder() {
             ))}
           </SelectContent>
         </Select>
-      );
+      )
     } else if (field.type === "textarea") {
       return (
         <Textarea
@@ -1128,7 +1175,7 @@ export default function WorkflowBuilder() {
           placeholder={field.placeholder}
           rows={3}
         />
-      );
+      )
     } else {
       return (
         <Input
@@ -1141,77 +1188,69 @@ export default function WorkflowBuilder() {
           }}
           placeholder={field.placeholder}
         />
-      );
+      )
     }
   }
 
-const hasConfigurableOptions = (step: WorkflowStep) => {
-  if (step.type === "trigger") {
-    const triggerConfig = TRIGGER_CONFIGS[step.actionName as keyof typeof TRIGGER_CONFIGS]
-    return triggerConfig && triggerConfig.length > 0
-  } else {
-    // Check if action has configurable options
-    const configurableActions = [
-      "Send Email",
-      "Send Message",
-      "Create Page",
-      "Time-based",
-      "Field-based",
-      "AI-based",
-      "Create Contact",
-      "Update Deal",
-      "Send Email", // HubSpot
-      "Create Issue",
-      "Create Pull Request",
-      "Add Comment", // GitHub
-      "Create Event",
-      "Update Event",
-      "Delete Event",
-      "Add Row",
-      "Update Row",
-      "Create Sheet",
-      "Upload File",
-      "Create Folder",
-      "Share File",
-      "Create Document",
-      "Update Document",
-      "Add Comment", // Google Docs
-      "Create Record",
-      "Update Record",
-      "Delete Record",
-      "Create Card",
-      "Move Card",
-      "Update Card",
-      "Schedule Meeting",
-      "Share File", // Teams
-      "Create Merge Request",
-      "Add Comment", // GitLab
-      "Create Post",
-      "Reply to Comment",
-      "Share Post",
-      "Upload Video",
-      "Reply to Comment", // YouTube
-      "Update Video",
-      "Add Subscriber",
-      "Send Campaign",
-      "Update Subscriber",
-      "Create Post", // LinkedIn
-      "Send Message", // LinkedIn
-      "Connect with User",
-      "Reply to Email",
-      "Forward Email",
-      "Create Channel", // Slack
-      "Update Status",
-      "Update Database",
-      "Add Comment", // Notion
-      "Create Customer",
-      "Send Invoice",
-      "Refund Payment",
-      "Assign Role", // Discord
-    ]
-    return configurableActions.includes(step.actionName)
+  const hasConfigurableOptions = (step: WorkflowStep) => {
+    if (step.type === "trigger") {
+      const triggerConfig = TRIGGER_CONFIGS[step.actionName as keyof typeof TRIGGER_CONFIGS]
+      return triggerConfig && triggerConfig.length > 0
+    } else {
+      // Check if action has configurable options
+      const configurableActions = [
+        "Send Email",
+        "Send Message",
+        "Create Page",
+        "Time-based",
+        "Field-based",
+        "AI-based",
+        "Create Contact",
+        "Update Deal",
+        "Create Issue",
+        "Create Pull Request",
+        "Add Comment",
+        "Create Event",
+        "Update Event",
+        "Delete Event",
+        "Add Row",
+        "Update Row",
+        "Create Sheet",
+        "Upload File",
+        "Create Folder",
+        "Share File",
+        "Create Document",
+        "Update Document",
+        "Create Record",
+        "Update Record",
+        "Delete Record",
+        "Create Card",
+        "Move Card",
+        "Update Card",
+        "Schedule Meeting",
+        "Create Merge Request",
+        "Create Post",
+        "Reply to Comment",
+        "Share Post",
+        "Upload Video",
+        "Update Video",
+        "Add Subscriber",
+        "Send Campaign",
+        "Update Subscriber",
+        "Connect with User",
+        "Reply to Email",
+        "Forward Email",
+        "Create Channel",
+        "Update Status",
+        "Update Database",
+        "Create Customer",
+        "Send Invoice",
+        "Refund Payment",
+        "Assign Role",
+      ]
+      return configurableActions.includes(step.actionName)
+    }
   }
-}
 
   return (
     <AppLayout>
@@ -1252,8 +1291,17 @@ const hasConfigurableOptions = (step: WorkflowStep) => {
                     Connect your accounts to unlock the full potential of your workflows.
                   </p>
                 </div>
-                <Button size="sm" variant="secondary" onClick={handleRefreshIntegrations} disabled={refreshingIntegrations}>
-                  {refreshingIntegrations ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={handleRefreshIntegrations}
+                  disabled={refreshingIntegrations}
+                >
+                  {refreshingIntegrations ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                  )}
                   Refresh Integrations
                 </Button>
               </div>
@@ -1386,7 +1434,9 @@ const hasConfigurableOptions = (step: WorkflowStep) => {
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>Configure {selectedAction}</DialogTitle>
-            <DialogDescription>Configure the settings for {selectedAction} with {selectedApp?.name}.</DialogDescription>
+            <DialogDescription>
+              Configure the settings for {selectedAction} with {selectedApp?.name}.
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             {getConfigFields().map((field) => (
@@ -1412,7 +1462,11 @@ const hasConfigurableOptions = (step: WorkflowStep) => {
             <DialogDescription>Describe the workflow you want to generate with AI.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <Textarea placeholder="Describe your workflow..." value={aiPrompt} onChange={(e) => setAiPrompt(e.target.value)} />
+            <Textarea
+              placeholder="Describe your workflow..."
+              value={aiPrompt}
+              onChange={(e) => setAiPrompt(e.target.value)}
+            />
           </div>
           <div className="flex justify-end">
             <Button onClick={handleGenerateWithAI} disabled={generatingAI}>
@@ -1482,8 +1536,8 @@ const hasConfigurableOptions = (step: WorkflowStep) => {
           </div>
         </DialogContent>
       </Dialog>
-      {/* AIChatAssistant */}
+
       <AIChatAssistant />
     </AppLayout>
-  );
+  )
 }
