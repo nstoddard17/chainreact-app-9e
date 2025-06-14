@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import {
   Save,
   Play,
@@ -33,7 +34,10 @@ import {
   X,
   Database,
   CheckCircle,
-  AlertCircle,
+  ExternalLink,
+  ArrowRight,
+  Wifi,
+  WifiOff,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
@@ -42,92 +46,176 @@ const AVAILABLE_INTEGRATIONS = [
   {
     id: "notion",
     name: "Notion",
-    logo: "https://upload.wikimedia.org/wikipedia/commons/4/45/Notion_app_logo.png",
-    triggers: ["Page Updated", "Database Item Added", "Database Item Updated", "New Page Created"],
+    logo: "/placeholder.svg?height=40&width=40&text=N",
+    triggers: [
+      { id: "page_updated", name: "Page Updated", description: "Triggers when a page is modified" },
+      {
+        id: "database_item_added",
+        name: "Database Item Added",
+        description: "Triggers when a new item is added to a database",
+      },
+      {
+        id: "database_item_updated",
+        name: "Database Item Updated",
+        description: "Triggers when a database item is modified",
+      },
+      { id: "new_page_created", name: "New Page Created", description: "Triggers when a new page is created" },
+    ],
     actions: ["Create Page", "Update Database", "Add Comment"],
     category: "Productivity",
     description: "Manage pages and databases in your Notion workspace",
+    color: "bg-gray-100 text-gray-900",
   },
   {
     id: "gmail",
     name: "Gmail",
-    logo: "https://upload.wikimedia.org/wikipedia/commons/7/7e/Gmail_icon_%282020%29.svg",
-    triggers: ["New Email", "Email Received from Specific Sender", "Email with Attachment", "Important Email"],
+    logo: "/placeholder.svg?height=40&width=40&text=GM",
+    triggers: [
+      { id: "new_email", name: "New Email", description: "Triggers when a new email is received" },
+      {
+        id: "email_from_sender",
+        name: "Email from Specific Sender",
+        description: "Triggers when an email is received from a specific sender",
+      },
+      {
+        id: "email_with_attachment",
+        name: "Email with Attachment",
+        description: "Triggers when an email with attachments is received",
+      },
+      { id: "important_email", name: "Important Email", description: "Triggers when an important email is received" },
+    ],
     actions: ["Send Email", "Reply to Email", "Forward Email"],
     category: "Email",
     description: "Automate your email workflows and responses",
+    color: "bg-red-100 text-red-900",
   },
   {
     id: "slack",
     name: "Slack",
-    logo: "https://upload.wikimedia.org/wikipedia/commons/d/d5/Slack_icon_2019.svg",
-    triggers: ["New Message in Channel", "Direct Message Received", "User Mentioned", "File Uploaded"],
+    logo: "/placeholder.svg?height=40&width=40&text=S",
+    triggers: [
+      {
+        id: "new_message_in_channel",
+        name: "New Message in Channel",
+        description: "Triggers when a new message is posted in a channel",
+      },
+      {
+        id: "direct_message_received",
+        name: "Direct Message Received",
+        description: "Triggers when a direct message is received",
+      },
+      { id: "user_mentioned", name: "User Mentioned", description: "Triggers when you are mentioned in a message" },
+      { id: "file_uploaded", name: "File Uploaded", description: "Triggers when a file is uploaded to a channel" },
+    ],
     actions: ["Send Message", "Create Channel", "Update Status"],
     category: "Communication",
     description: "Integrate with your Slack workspace and channels",
+    color: "bg-purple-100 text-purple-900",
   },
   {
     id: "google-sheets",
     name: "Google Sheets",
-    logo: "https://upload.wikimedia.org/wikipedia/commons/3/30/Google_Sheets_logo_%282014-2020%29.svg",
-    triggers: ["New Row Added", "Row Updated", "Cell Changed", "Sheet Created"],
+    logo: "/placeholder.svg?height=40&width=40&text=GS",
+    triggers: [
+      { id: "new_row_added", name: "New Row Added", description: "Triggers when a new row is added to a spreadsheet" },
+      { id: "row_updated", name: "Row Updated", description: "Triggers when a row is updated" },
+      { id: "cell_changed", name: "Cell Changed", description: "Triggers when a specific cell is changed" },
+      { id: "sheet_created", name: "Sheet Created", description: "Triggers when a new sheet is created" },
+    ],
     actions: ["Add Row", "Update Row", "Create Sheet"],
     category: "Productivity",
     description: "Work with spreadsheets and data automation",
+    color: "bg-green-100 text-green-900",
   },
   {
     id: "google-calendar",
     name: "Google Calendar",
-    logo: "https://upload.wikimedia.org/wikipedia/commons/a/a5/Google_Calendar_icon_%282020%29.svg",
-    triggers: ["New Event", "Event Updated", "Event Starting Soon", "Event Cancelled"],
+    logo: "/placeholder.svg?height=40&width=40&text=GC",
+    triggers: [
+      { id: "new_event", name: "New Event", description: "Triggers when a new event is created" },
+      { id: "event_updated", name: "Event Updated", description: "Triggers when an event is modified" },
+      { id: "event_starting_soon", name: "Event Starting Soon", description: "Triggers before an event starts" },
+      { id: "event_cancelled", name: "Event Cancelled", description: "Triggers when an event is cancelled" },
+    ],
     actions: ["Create Event", "Update Event", "Delete Event"],
     category: "Productivity",
     description: "Manage calendar events and scheduling",
+    color: "bg-blue-100 text-blue-900",
   },
   {
     id: "airtable",
     name: "Airtable",
-    logo: "https://upload.wikimedia.org/wikipedia/commons/4/4b/Airtable_Logo.svg",
-    triggers: ["New Record", "Record Updated", "View Updated", "Base Shared"],
+    logo: "/placeholder.svg?height=40&width=40&text=A",
+    triggers: [
+      { id: "new_record", name: "New Record", description: "Triggers when a new record is added" },
+      { id: "record_updated", name: "Record Updated", description: "Triggers when a record is updated" },
+      { id: "view_updated", name: "View Updated", description: "Triggers when a view is modified" },
+      { id: "base_shared", name: "Base Shared", description: "Triggers when a base is shared" },
+    ],
     actions: ["Create Record", "Update Record", "Delete Record"],
     category: "Database",
     description: "Organize and automate your Airtable bases",
+    color: "bg-orange-100 text-orange-900",
   },
   {
     id: "trello",
     name: "Trello",
-    logo: "https://upload.wikimedia.org/wikipedia/en/8/8c/Trello_logo.svg",
-    triggers: ["New Card", "Card Moved", "Card Updated", "Due Date Approaching"],
+    logo: "/placeholder.svg?height=40&width=40&text=T",
+    triggers: [
+      { id: "new_card", name: "New Card", description: "Triggers when a new card is created" },
+      { id: "card_moved", name: "Card Moved", description: "Triggers when a card is moved between lists" },
+      { id: "card_updated", name: "Card Updated", description: "Triggers when a card is updated" },
+      {
+        id: "due_date_approaching",
+        name: "Due Date Approaching",
+        description: "Triggers when a card's due date is approaching",
+      },
+    ],
     actions: ["Create Card", "Move Card", "Update Card"],
     category: "Project Management",
     description: "Manage boards, cards, and project workflows",
+    color: "bg-indigo-100 text-indigo-900",
   },
   {
     id: "github",
     name: "GitHub",
-    logo: "https://upload.wikimedia.org/wikipedia/commons/9/91/Octicons-mark-github.svg",
-    triggers: ["New Issue", "Pull Request Created", "Push to Repository", "Release Published"],
+    logo: "/placeholder.svg?height=40&width=40&text=GH",
+    triggers: [
+      { id: "new_issue", name: "New Issue", description: "Triggers when a new issue is created" },
+      {
+        id: "pull_request_created",
+        name: "Pull Request Created",
+        description: "Triggers when a new pull request is created",
+      },
+      {
+        id: "push_to_repository",
+        name: "Push to Repository",
+        description: "Triggers when code is pushed to a repository",
+      },
+      { id: "release_published", name: "Release Published", description: "Triggers when a new release is published" },
+    ],
     actions: ["Create Issue", "Create Pull Request", "Add Comment"],
     category: "Development",
     description: "Automate your development and code workflows",
+    color: "bg-gray-100 text-gray-900",
   },
 ]
 
 // Enhanced trigger configurations with resource requirements
 const TRIGGER_CONFIGS = {
-  "Page Updated": [
+  page_updated: [
     {
       key: "page_id",
-      label: "Notion Page",
+      label: "Notion Page (Optional)",
       type: "resource_select",
       provider: "notion",
       dataType: "pages",
-      placeholder: "Select a page to monitor",
+      placeholder: "Select a specific page or leave empty for all pages",
       required: false,
-      description: "Choose a specific page to monitor for updates, or leave empty to monitor all pages",
+      description: "Choose a specific page to monitor, or leave empty to monitor all pages you have access to",
     },
   ],
-  "Database Item Added": [
+  database_item_added: [
     {
       key: "database_id",
       label: "Notion Database",
@@ -139,7 +227,7 @@ const TRIGGER_CONFIGS = {
       description: "Choose the database to monitor for new items",
     },
   ],
-  "Database Item Updated": [
+  database_item_updated: [
     {
       key: "database_id",
       label: "Notion Database",
@@ -151,9 +239,9 @@ const TRIGGER_CONFIGS = {
       description: "Choose the database to monitor for item updates",
     },
   ],
-  "New Message in Channel": [
+  new_message_in_channel: [
     {
-      key: "channel",
+      key: "channel_id",
       label: "Slack Channel",
       type: "resource_select",
       provider: "slack",
@@ -163,19 +251,19 @@ const TRIGGER_CONFIGS = {
       description: "Choose the channel to monitor for new messages",
     },
   ],
-  "Direct Message Received": [
+  direct_message_received: [
     {
       key: "from_user",
-      label: "From User (optional)",
+      label: "From User (Optional)",
       type: "resource_select",
       provider: "slack",
       dataType: "users",
-      placeholder: "Select a user",
+      placeholder: "Select a user or leave empty for all users",
       required: false,
       description: "Optionally filter messages from a specific user",
     },
   ],
-  "New Row Added": [
+  new_row_added: [
     {
       key: "spreadsheet_id",
       label: "Google Spreadsheet",
@@ -188,26 +276,26 @@ const TRIGGER_CONFIGS = {
     },
     {
       key: "sheet_name",
-      label: "Sheet Name (optional)",
+      label: "Sheet Name (Optional)",
       type: "text",
       placeholder: "Sheet1",
       required: false,
       description: "Specify a particular sheet within the spreadsheet",
     },
   ],
-  "New Event": [
+  new_event: [
     {
       key: "calendar_id",
-      label: "Google Calendar",
+      label: "Google Calendar (Optional)",
       type: "resource_select",
       provider: "google-calendar",
       dataType: "calendars",
-      placeholder: "Select a calendar",
+      placeholder: "Select a calendar or leave empty for all calendars",
       required: false,
       description: "Choose a specific calendar, or leave empty to monitor all calendars",
     },
   ],
-  "New Record": [
+  new_record: [
     {
       key: "base_id",
       label: "Airtable Base",
@@ -227,7 +315,7 @@ const TRIGGER_CONFIGS = {
       description: "Specify the table within the base",
     },
   ],
-  "New Card": [
+  new_card: [
     {
       key: "board_id",
       label: "Trello Board",
@@ -240,14 +328,14 @@ const TRIGGER_CONFIGS = {
     },
     {
       key: "list_name",
-      label: "List Name (optional)",
+      label: "List Name (Optional)",
       type: "text",
       placeholder: "To Do",
       required: false,
       description: "Optionally specify a particular list within the board",
     },
   ],
-  "New Issue": [
+  new_issue: [
     {
       key: "repository",
       label: "GitHub Repository",
@@ -267,6 +355,7 @@ interface WorkflowStep {
   appId: string
   appName: string
   actionName: string
+  actionId: string
   config: Record<string, any>
   isConfigured: boolean
 }
@@ -288,7 +377,6 @@ export default function WorkflowBuilder() {
     preloadProgress,
     initializeGlobalPreload,
     getDynamicData,
-    getResourcesForTrigger,
     isResourceLoading,
     getIntegrationStatus,
     getCachedResourceCount,
@@ -299,33 +387,33 @@ export default function WorkflowBuilder() {
   const [saving, setSaving] = useState(false)
   const [testing, setTesting] = useState(false)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
-  const [refreshingIntegrations, setRefreshingIntegrations] = useState(false)
 
-  // Modal states
-  const [showAppSelector, setShowAppSelector] = useState(false)
-  const [showActionSelector, setShowActionSelector] = useState(false)
+  // Modal states - streamlined for new flow
+  const [showTriggerModal, setShowTriggerModal] = useState(false)
+  const [showIntegrationList, setShowIntegrationList] = useState(true)
+  const [showTriggerList, setShowTriggerList] = useState(false)
   const [showConfigModal, setShowConfigModal] = useState(false)
+  const [showConnectModal, setShowConnectModal] = useState(false)
   const [showAIGenerator, setShowAIGenerator] = useState(false)
   const [showOptimizer, setShowOptimizer] = useState(false)
   const [showExitDialog, setShowExitDialog] = useState(false)
-  const [showConnectModal, setShowConnectModal] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [stepToDelete, setStepToDelete] = useState<number>(-1)
 
-  // Current selection states
-  const [currentStepIndex, setCurrentStepIndex] = useState<number>(-1)
-  const [selectedApp, setSelectedApp] = useState<any>(null)
-  const [selectedAction, setSelectedAction] = useState<string>("")
+  // Selection states
+  const [selectedIntegration, setSelectedIntegration] = useState<any>(null)
+  const [selectedTrigger, setSelectedTrigger] = useState<any>(null)
   const [currentConfig, setCurrentConfig] = useState<Record<string, any>>({})
   const [aiPrompt, setAiPrompt] = useState("")
   const [generatingAI, setGeneratingAI] = useState(false)
+  const [isConnecting, setIsConnecting] = useState(false)
 
   const { toast } = useToast()
 
   // Enhanced resource management
   const [resourceRefreshStates, setResourceRefreshStates] = useState<Record<string, boolean>>({})
 
-  // Memoized connected providers to prevent unnecessary re-renders
+  // Memoized connected providers
   const connectedProviders = useMemo(() => {
     return integrations.filter((i) => i.status === "connected").map((i) => i.provider)
   }, [integrations])
@@ -348,10 +436,17 @@ export default function WorkflowBuilder() {
     [getIntegrationStatus, getCachedResourceCount, globalPreloadingData, isResourceLoading],
   )
 
-  // Fetch integrations on mount
+  // Initialize data on mount
   useEffect(() => {
-    fetchIntegrations()
-  }, [fetchIntegrations])
+    const initializeData = async () => {
+      await fetchIntegrations()
+      // Start background preloading
+      if (connectedProviders.length > 0) {
+        initializeGlobalPreload()
+      }
+    }
+    initializeData()
+  }, [fetchIntegrations, initializeGlobalPreload, connectedProviders.length])
 
   // Load workflow if ID is provided
   useEffect(() => {
@@ -375,124 +470,146 @@ export default function WorkflowBuilder() {
     setHasUnsavedChanges(workflowSteps.length > 0)
   }, [workflowSteps])
 
-  const handleAddStep = (index: number) => {
-    setCurrentStepIndex(index)
-    setShowAppSelector(true)
+  // Streamlined trigger addition flow
+  const handleAddTrigger = () => {
+    setShowTriggerModal(true)
+    setShowIntegrationList(true)
+    setShowTriggerList(false)
+    setSelectedIntegration(null)
+    setSelectedTrigger(null)
   }
 
-  const handleAppSelected = (app: any) => {
-    const integrationStatus = getEnhancedIntegrationStatus(app.id)
+  const handleIntegrationSelected = (integration: any) => {
+    setSelectedIntegration(integration)
+    setShowIntegrationList(false)
+    setShowTriggerList(true)
+  }
+
+  const handleTriggerSelected = (trigger: any) => {
+    setSelectedTrigger(trigger)
+
+    const integrationStatus = getEnhancedIntegrationStatus(selectedIntegration.id)
 
     if (!integrationStatus.isConnected) {
-      setSelectedApp(app)
-      setShowAppSelector(false)
+      setShowTriggerModal(false)
       setShowConnectModal(true)
       return
     }
 
-    setSelectedApp(app)
-    setShowAppSelector(false)
-    setShowActionSelector(true)
+    // Check if trigger needs configuration
+    const triggerConfig = TRIGGER_CONFIGS[trigger.id as keyof typeof TRIGGER_CONFIGS]
+
+    if (triggerConfig && triggerConfig.length > 0) {
+      setCurrentConfig({})
+      setShowTriggerModal(false)
+      setShowConfigModal(true)
+    } else {
+      // Add trigger directly without configuration
+      addTriggerStep(trigger, {})
+    }
   }
 
-  const handleConnectApp = async (appId: string) => {
+  const addTriggerStep = (trigger: any, config: Record<string, any>) => {
+    const newStep: WorkflowStep = {
+      id: `step-${Date.now()}`,
+      type: "trigger",
+      appId: selectedIntegration.id,
+      appName: selectedIntegration.name,
+      actionName: trigger.name,
+      actionId: trigger.id,
+      config: config,
+      isConfigured: true,
+    }
+
+    setWorkflowSteps([newStep])
+    resetModalStates()
+  }
+
+  const resetModalStates = () => {
+    setShowTriggerModal(false)
+    setShowConfigModal(false)
+    setShowConnectModal(false)
+    setShowIntegrationList(true)
+    setShowTriggerList(false)
+    setSelectedIntegration(null)
+    setSelectedTrigger(null)
+    setCurrentConfig({})
+  }
+
+  const handleConnectIntegration = async () => {
+    if (!selectedIntegration) return
+
+    setIsConnecting(true)
     try {
-      await connectIntegration(appId)
-      setShowConnectModal(false)
-      setShowActionSelector(true)
+      await connectIntegration(selectedIntegration.id)
+
+      // Open in new tab for OAuth
       toast({
-        title: "Success",
-        description: `${selectedApp?.name} connected successfully`,
+        title: "Connecting...",
+        description: `Opening ${selectedIntegration.name} authorization in a new tab`,
       })
+
+      // After connection, continue with trigger setup
+      setTimeout(() => {
+        setShowConnectModal(false)
+
+        // Check if trigger needs configuration
+        const triggerConfig = TRIGGER_CONFIGS[selectedTrigger.id as keyof typeof TRIGGER_CONFIGS]
+
+        if (triggerConfig && triggerConfig.length > 0) {
+          setCurrentConfig({})
+          setShowConfigModal(true)
+        } else {
+          addTriggerStep(selectedTrigger, {})
+        }
+      }, 1000)
     } catch (error: any) {
       toast({
         title: "Connection Failed",
         description: error.message,
         variant: "destructive",
       })
+    } finally {
+      setIsConnecting(false)
     }
-  }
-
-  const handleActionSelected = (actionName: string, actionType: "action" | "condition" = "action") => {
-    setSelectedAction(actionName)
-
-    // For triggers (first step), check if configuration is needed
-    if (currentStepIndex === 0) {
-      const triggerConfig = TRIGGER_CONFIGS[actionName as keyof typeof TRIGGER_CONFIGS]
-
-      if (triggerConfig && triggerConfig.length > 0) {
-        // This trigger needs configuration
-        setCurrentConfig({})
-        setShowActionSelector(false)
-        setShowConfigModal(true)
-      } else {
-        // This trigger doesn't need configuration, add it directly
-        const newStep: WorkflowStep = {
-          id: `step-${Date.now()}`,
-          type: "trigger",
-          appId: selectedApp.id,
-          appName: selectedApp.name,
-          actionName: actionName,
-          config: {},
-          isConfigured: true,
-        }
-
-        const newSteps = [...workflowSteps]
-        newSteps.splice(currentStepIndex, 0, newStep)
-        setWorkflowSteps(newSteps)
-
-        setShowActionSelector(false)
-        setSelectedApp(null)
-        setSelectedAction("")
-        setCurrentConfig({})
-      }
-      return
-    }
-
-    // For actions and conditions, continue with configuration modal
-    setCurrentConfig({})
-    setShowActionSelector(false)
-    setShowConfigModal(true)
   }
 
   const handleConfigComplete = () => {
-    const newStep: WorkflowStep = {
-      id: `step-${Date.now()}`,
-      type: currentStepIndex === 0 ? "trigger" : "action",
-      appId: selectedApp.id,
-      appName: selectedApp.name,
-      actionName: selectedAction,
-      config: currentConfig,
-      isConfigured: true,
+    if (selectedTrigger) {
+      addTriggerStep(selectedTrigger, currentConfig)
     }
+  }
 
-    const newSteps = [...workflowSteps]
-    newSteps.splice(currentStepIndex, 0, newStep)
-    setWorkflowSteps(newSteps)
-
-    setShowConfigModal(false)
-    setSelectedApp(null)
-    setSelectedAction("")
-    setCurrentConfig({})
+  const handleBackToIntegrations = () => {
+    setShowIntegrationList(true)
+    setShowTriggerList(false)
+    setSelectedIntegration(null)
   }
 
   const handleEditStep = (index: number) => {
     const step = workflowSteps[index]
-    setCurrentStepIndex(index)
-    setSelectedApp(AVAILABLE_INTEGRATIONS.find((app) => app.id === step.appId))
-    setSelectedAction(step.actionName)
-    setCurrentConfig(step.config)
-    setShowConfigModal(true)
+    const integration = AVAILABLE_INTEGRATIONS.find((app) => app.id === step.appId)
+    const trigger = integration?.triggers.find((t) => t.id === step.actionId)
+
+    if (integration && trigger) {
+      setSelectedIntegration(integration)
+      setSelectedTrigger(trigger)
+      setCurrentConfig(step.config)
+      setShowConfigModal(true)
+    }
   }
 
   const handleUpdateStep = () => {
-    const updatedSteps = [...workflowSteps]
-    updatedSteps[currentStepIndex] = {
-      ...updatedSteps[currentStepIndex],
-      config: currentConfig,
+    if (workflowSteps.length > 0) {
+      const updatedSteps = [...workflowSteps]
+      updatedSteps[0] = {
+        ...updatedSteps[0],
+        config: currentConfig,
+      }
+      setWorkflowSteps(updatedSteps)
+      setShowConfigModal(false)
+      resetModalStates()
     }
-    setWorkflowSteps(updatedSteps)
-    setShowConfigModal(false)
   }
 
   const handleDeleteStep = (index: number) => {
@@ -609,45 +726,6 @@ export default function WorkflowBuilder() {
     router.push("/workflows")
   }
 
-  const handleRefreshIntegrations = async () => {
-    setRefreshingIntegrations(true)
-    try {
-      await fetchIntegrations(true)
-      await initializeGlobalPreload()
-      toast({
-        title: "Success",
-        description: "Integration permissions refreshed",
-      })
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to refresh integrations",
-        variant: "destructive",
-      })
-    } finally {
-      setRefreshingIntegrations(false)
-    }
-  }
-
-  const handleRefreshProviderResources = async (provider: string) => {
-    setResourceRefreshStates((prev) => ({ ...prev, [provider]: true }))
-    try {
-      await refreshResourcesForProvider(provider)
-      toast({
-        title: "Success",
-        description: `${provider} resources refreshed`,
-      })
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: `Failed to refresh ${provider} resources`,
-        variant: "destructive",
-      })
-    } finally {
-      setResourceRefreshStates((prev) => ({ ...prev, [provider]: false }))
-    }
-  }
-
   const handleGenerateWithAI = async () => {
     if (!aiPrompt.trim()) return
 
@@ -677,14 +755,10 @@ export default function WorkflowBuilder() {
   const workflowOptimizations = currentWorkflow ? optimizations[currentWorkflow.id] || [] : []
   const workflowAnomalies = currentWorkflow ? anomalies[currentWorkflow.id] || [] : []
 
-  // Enhanced config field rendering with resource selection
+  // Enhanced config field rendering
   const getConfigFields = () => {
-    if (currentStepIndex === 0) {
-      return TRIGGER_CONFIGS[selectedAction as keyof typeof TRIGGER_CONFIGS] || []
-    } else {
-      // Return existing action config fields
-      return []
-    }
+    if (!selectedTrigger) return []
+    return TRIGGER_CONFIGS[selectedTrigger.id as keyof typeof TRIGGER_CONFIGS] || []
   }
 
   const renderConfigField = (field: any) => {
@@ -697,7 +771,7 @@ export default function WorkflowBuilder() {
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <Label htmlFor={field.key} className="text-sm font-medium">
-              {field.label} {field.required && "*"}
+              {field.label} {field.required && <span className="text-red-500">*</span>}
             </Label>
             <div className="flex items-center gap-2">
               {resources.length > 0 && (
@@ -709,7 +783,12 @@ export default function WorkflowBuilder() {
                 type="button"
                 variant="ghost"
                 size="sm"
-                onClick={() => handleRefreshProviderResources(field.provider)}
+                onClick={() => {
+                  setResourceRefreshStates((prev) => ({ ...prev, [field.provider]: true }))
+                  refreshResourcesForProvider(field.provider).finally(() => {
+                    setResourceRefreshStates((prev) => ({ ...prev, [field.provider]: false }))
+                  })
+                }}
                 disabled={isRefreshing}
                 className="h-6 w-6 p-0"
               >
@@ -787,11 +866,8 @@ export default function WorkflowBuilder() {
   }
 
   const hasConfigurableOptions = (step: WorkflowStep) => {
-    if (step.type === "trigger") {
-      const triggerConfig = TRIGGER_CONFIGS[step.actionName as keyof typeof TRIGGER_CONFIGS]
-      return triggerConfig && triggerConfig.length > 0
-    }
-    return false
+    const triggerConfig = TRIGGER_CONFIGS[step.actionId as keyof typeof TRIGGER_CONFIGS]
+    return triggerConfig && triggerConfig.length > 0
   }
 
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
@@ -866,7 +942,7 @@ export default function WorkflowBuilder() {
   return (
     <AppLayout>
       <div className="h-full flex flex-col">
-        {/* Enhanced Toolbar with Integration Status */}
+        {/* Enhanced Toolbar */}
         <div className="flex items-center justify-between p-4 bg-white border-b border-slate-200 shadow-sm">
           <div className="flex items-center gap-4">
             <Button
@@ -887,24 +963,15 @@ export default function WorkflowBuilder() {
             </div>
           </div>
           <div className="flex items-center space-x-2">
-            {/* Enhanced Integration Status */}
+            {/* Integration Status */}
             <div className="flex items-center gap-2 px-3 py-1 bg-slate-50 rounded-lg text-sm text-slate-600">
               <div className="flex items-center gap-1">
                 <CheckCircle className="w-3 h-3 text-green-500" />
                 <span>{connectedIntegrationsCount} connected</span>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleRefreshIntegrations}
-                disabled={refreshingIntegrations}
-                className="h-6 w-6 p-0 hover:bg-slate-200"
-              >
-                <RefreshCw className={`w-3 h-3 ${refreshingIntegrations ? "animate-spin" : ""}`} />
-              </Button>
             </div>
 
-            {/* Enhanced Preloading Status */}
+            {/* Preloading Status */}
             {globalPreloadingData && (
               <div className="flex items-center gap-2 px-3 py-1 bg-blue-50 rounded-lg text-sm text-blue-600">
                 <Loader2 className="w-3 h-3 animate-spin" />
@@ -1005,106 +1072,111 @@ export default function WorkflowBuilder() {
           </div>
         )}
 
-        {/* Enhanced Workflow Builder */}
-        <div className="flex-1 p-6 bg-slate-50 overflow-auto">
-          <div className="max-w-2xl mx-auto space-y-4">
-            {/* Start Trigger */}
-            <div className="flex items-center justify-center">
+        {/* Streamlined Workflow Builder */}
+        <div className="flex-1 p-8 bg-slate-50 overflow-auto">
+          <div className="max-w-2xl mx-auto">
+            {/* Start Indicator */}
+            <div className="flex items-center justify-center mb-8">
               <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
                 <div className="w-6 h-6 bg-green-500 rounded-full" />
               </div>
             </div>
 
-            {/* Workflow Steps */}
-            {workflowSteps.map((step, index) => (
-              <div key={step.id} className="space-y-4">
-                {/* Step Card */}
-                <Card className="bg-white shadow-sm hover:shadow-md transition-shadow duration-200">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center">
-                          <img
-                            src={
-                              AVAILABLE_INTEGRATIONS.find((app) => app.id === step.appId)?.logo || "/placeholder.svg"
-                            }
-                            alt={step.appName}
-                            className="w-6 h-6"
-                            onError={handleImageError}
-                          />
-                        </div>
-                        <div>
-                          <div className="font-medium text-slate-900">{step.actionName}</div>
-                          <div className="text-sm text-slate-500">{step.appName}</div>
-                          {hasConfigurableOptions(step) && Object.keys(step.config).length > 0 && (
-                            <div className="text-xs text-blue-600 mt-1">
-                              {Object.entries(step.config)
-                                .filter(([_, value]) => value)
-                                .map(([key, value]) => `${key}: ${value}`)
-                                .join(", ")}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Badge variant={step.type === "trigger" ? "default" : "secondary"}>{step.type}</Badge>
-                        {hasConfigurableOptions(step) && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleEditStep(index)}
-                            className="hover:bg-slate-100"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                        )}
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDeleteStep(index)}
-                          className="hover:bg-red-50 hover:text-red-600"
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Add Step Button */}
-                <div className="flex items-center justify-center">
-                  <div className="flex flex-col items-center">
-                    <div className="w-px h-6 bg-slate-300" />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleAddStep(index + 1)}
-                      className="w-8 h-8 rounded-full p-0 hover:bg-blue-50 hover:border-blue-200"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </Button>
-                    <div className="w-px h-6 bg-slate-300" />
-                  </div>
+            {/* Workflow Steps or Add Trigger */}
+            {workflowSteps.length === 0 ? (
+              // Clean Add Trigger Button
+              <div className="flex flex-col items-center justify-center space-y-4">
+                <div
+                  className="w-16 h-16 border-2 border-dashed border-slate-300 rounded-full flex items-center justify-center hover:border-blue-400 hover:bg-blue-50 transition-all duration-200 cursor-pointer group"
+                  onClick={handleAddTrigger}
+                >
+                  <Plus className="w-8 h-8 text-slate-400 group-hover:text-blue-500 transition-colors duration-200" />
                 </div>
-              </div>
-            ))}
-
-            {/* Initial Add Step Button */}
-            {workflowSteps.length === 0 && (
-              <div className="flex items-center justify-center">
                 <Button
                   variant="outline"
-                  onClick={() => handleAddStep(0)}
-                  className="flex items-center gap-2 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600"
+                  onClick={handleAddTrigger}
+                  className="flex items-center gap-2 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600 transition-all duration-200"
                 >
                   <Plus className="w-4 h-4" />
                   Add Trigger
                 </Button>
+                <p className="text-sm text-slate-500 text-center max-w-md">
+                  Start building your workflow by adding a trigger. Choose from various integrations to automate your
+                  tasks.
+                </p>
+              </div>
+            ) : (
+              // Existing Workflow Steps
+              <div className="space-y-6">
+                {workflowSteps.map((step, index) => (
+                  <div key={step.id}>
+                    <Card className="bg-white shadow-sm hover:shadow-md transition-shadow duration-200 border-l-4 border-l-blue-500">
+                      <CardContent className="p-6">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-4">
+                            <div className="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center">
+                              <img
+                                src={
+                                  AVAILABLE_INTEGRATIONS.find((app) => app.id === step.appId)?.logo ||
+                                  "/placeholder.svg"
+                                }
+                                alt={step.appName}
+                                className="w-8 h-8"
+                                onError={handleImageError}
+                              />
+                            </div>
+                            <div>
+                              <div className="font-semibold text-slate-900">{step.actionName}</div>
+                              <div className="text-sm text-slate-500">{step.appName}</div>
+                              <Badge variant="default" className="mt-1 text-xs">
+                                Trigger
+                              </Badge>
+                              {hasConfigurableOptions(step) && Object.keys(step.config).length > 0 && (
+                                <div className="text-xs text-blue-600 mt-2 space-y-1">
+                                  {Object.entries(step.config)
+                                    .filter(([_, value]) => value)
+                                    .map(([key, value]) => (
+                                      <div key={key} className="flex items-center gap-1">
+                                        <Database className="w-3 h-3" />
+                                        <span>
+                                          {key}: {value}
+                                        </span>
+                                      </div>
+                                    ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            {hasConfigurableOptions(step) && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEditStep(index)}
+                                className="hover:bg-slate-100"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </Button>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteStep(index)}
+                              className="hover:bg-red-50 hover:text-red-600"
+                            >
+                              <X className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                ))}
               </div>
             )}
 
-            {/* End */}
-            <div className="flex items-center justify-center">
+            {/* End Indicator */}
+            <div className="flex items-center justify-center mt-8">
               <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
                 <div className="w-6 h-6 bg-red-500 rounded-full" />
               </div>
@@ -1112,210 +1184,213 @@ export default function WorkflowBuilder() {
           </div>
         </div>
 
-        {/* Enhanced App Selector Modal */}
-        <Dialog open={showAppSelector} onOpenChange={setShowAppSelector}>
-          <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden">
-            <DialogHeader>
-              <DialogTitle>Choose an Integration</DialogTitle>
-              <DialogDescription>
-                Select an app to {currentStepIndex === 0 ? "trigger" : "perform an action in"} your workflow
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[60vh] overflow-y-auto">
-              {AVAILABLE_INTEGRATIONS.map((app) => {
-                const integrationStatus = getEnhancedIntegrationStatus(app.id)
-                const isConnected = integrationStatus.isConnected
-                const resourceCount = integrationStatus.resourceCount
-                const isLoading = integrationStatus.isLoading
-
-                return (
-                  <Card
-                    key={app.id}
-                    className={`cursor-pointer transition-all duration-200 hover:shadow-md ${
-                      isConnected ? "border-green-200 bg-green-50/30" : "border-slate-200 hover:border-blue-200"
-                    }`}
-                    onClick={() => handleAppSelected(app)}
-                  >
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center">
-                            <img
-                              src={app.logo || "/placeholder.svg"}
-                              alt={app.name}
-                              className="w-6 h-6"
-                              onError={handleImageError}
-                            />
-                          </div>
-                          <div>
-                            <div className="font-medium text-slate-900">{app.name}</div>
-                            <Badge variant="outline" className="text-xs">
-                              {app.category}
-                            </Badge>
-                          </div>
-                        </div>
-                        <div className="flex flex-col items-end gap-1">
-                          {isConnected ? (
-                            <div className="flex items-center gap-1">
-                              <CheckCircle className="w-4 h-4 text-green-500" />
-                              <span className="text-xs text-green-600">Connected</span>
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-1">
-                              <AlertCircle className="w-4 h-4 text-orange-500" />
-                              <span className="text-xs text-orange-600">Not connected</span>
-                            </div>
-                          )}
-                          {isConnected && resourceCount > 0 && (
-                            <Badge variant="secondary" className="text-xs">
-                              {resourceCount} resources
-                            </Badge>
-                          )}
-                          {isLoading && (
-                            <div className="flex items-center gap-1">
-                              <Loader2 className="w-3 h-3 animate-spin text-blue-500" />
-                              <span className="text-xs text-blue-600">Loading...</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      <p className="text-sm text-slate-600 mb-3">{app.description}</p>
-                      <div className="space-y-2">
-                        <div className="text-xs font-medium text-slate-700">
-                          {currentStepIndex === 0 ? "Available Triggers:" : "Available Actions:"}
-                        </div>
-                        <div className="flex flex-wrap gap-1">
-                          {(currentStepIndex === 0 ? app.triggers : app.actions).slice(0, 3).map((item) => (
-                            <Badge key={item} variant="outline" className="text-xs">
-                              {item}
-                            </Badge>
-                          ))}
-                          {(currentStepIndex === 0 ? app.triggers : app.actions).length > 3 && (
-                            <Badge variant="outline" className="text-xs">
-                              +{(currentStepIndex === 0 ? app.triggers : app.actions).length - 3} more
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )
-              })}
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        {/* Enhanced Action Selector Modal */}
-        <Dialog open={showActionSelector} onOpenChange={setShowActionSelector}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>
-                Choose {currentStepIndex === 0 ? "Trigger" : "Action"} - {selectedApp?.name}
-              </DialogTitle>
-              <DialogDescription>
-                Select what should {currentStepIndex === 0 ? "trigger" : "happen in"} this step
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-2 max-h-[60vh] overflow-y-auto">
-              {(currentStepIndex === 0 ? selectedApp?.triggers : selectedApp?.actions)?.map((action) => (
-                <Button
-                  key={action}
-                  variant="outline"
-                  className="justify-start h-auto p-4 text-left hover:bg-blue-50 hover:border-blue-200"
-                  onClick={() => handleActionSelected(action)}
-                >
-                  <div>
-                    <div className="font-medium">{action}</div>
-                    <div className="text-sm text-slate-500 mt-1">
-                      {currentStepIndex === 0
-                        ? `Triggers when ${action.toLowerCase()}`
-                        : `Performs ${action.toLowerCase()}`}
-                    </div>
-                  </div>
-                </Button>
-              ))}
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        {/* Enhanced Configuration Modal */}
-        <Dialog open={showConfigModal} onOpenChange={setShowConfigModal}>
+        {/* Streamlined Trigger Selection Modal */}
+        <Dialog open={showTriggerModal} onOpenChange={setShowTriggerModal}>
           <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden">
             <DialogHeader>
-              <DialogTitle>
-                Configure {selectedAction} - {selectedApp?.name}
+              <DialogTitle className="flex items-center gap-2">
+                {showTriggerList && (
+                  <Button variant="ghost" size="sm" onClick={handleBackToIntegrations} className="p-1 h-auto">
+                    <ArrowLeft className="w-4 h-4" />
+                  </Button>
+                )}
+                {showIntegrationList ? "Choose Integration" : `${selectedIntegration?.name} Triggers`}
               </DialogTitle>
               <DialogDescription>
-                Set up the parameters for this {currentStepIndex === 0 ? "trigger" : "action"}
+                {showIntegrationList
+                  ? "Select an integration to see available triggers"
+                  : `Choose a trigger for ${selectedIntegration?.name}`}
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 max-h-[60vh] overflow-y-auto">
-              {getConfigFields().map((field) => (
-                <div key={field.key} className="space-y-2">
-                  <Label htmlFor={field.key} className="text-sm font-medium">
-                    {field.label} {field.required && <span className="text-red-500">*</span>}
-                  </Label>
-                  {renderConfigField(field)}
-                  {field.description && <p className="text-xs text-slate-500">{field.description}</p>}
-                </div>
-              ))}
-              {getConfigFields().length === 0 && (
-                <div className="text-center py-8 text-slate-500">
-                  <div className="text-lg font-medium mb-2">No configuration needed</div>
-                  <div className="text-sm">
-                    This {currentStepIndex === 0 ? "trigger" : "action"} works automatically
-                  </div>
+
+            <ScrollArea className="max-h-[60vh]">
+              {showIntegrationList && (
+                <div className="space-y-2">
+                  {AVAILABLE_INTEGRATIONS.map((integration) => {
+                    const integrationStatus = getEnhancedIntegrationStatus(integration.id)
+                    const isConnected = integrationStatus.isConnected
+                    const resourceCount = integrationStatus.resourceCount
+
+                    return (
+                      <Card
+                        key={integration.id}
+                        className={`cursor-pointer transition-all duration-200 hover:shadow-md ${
+                          isConnected ? "border-green-200 bg-green-50/30" : "border-slate-200 hover:border-blue-200"
+                        }`}
+                        onClick={() => handleIntegrationSelected(integration)}
+                      >
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-3">
+                              <div
+                                className={`w-12 h-12 rounded-lg flex items-center justify-center ${integration.color}`}
+                              >
+                                <img
+                                  src={integration.logo || "/placeholder.svg"}
+                                  alt={integration.name}
+                                  className="w-8 h-8"
+                                  onError={handleImageError}
+                                />
+                              </div>
+                              <div>
+                                <div className="font-medium text-slate-900">{integration.name}</div>
+                                <div className="text-sm text-slate-500">{integration.description}</div>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <Badge variant="outline" className="text-xs">
+                                    {integration.category}
+                                  </Badge>
+                                  <Badge variant="secondary" className="text-xs">
+                                    {integration.triggers.length} triggers
+                                  </Badge>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex flex-col items-end gap-2">
+                              <div className="flex items-center gap-1">
+                                {isConnected ? (
+                                  <>
+                                    <Wifi className="w-4 h-4 text-green-500" />
+                                    <span className="text-xs text-green-600">Connected</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <WifiOff className="w-4 h-4 text-orange-500" />
+                                    <span className="text-xs text-orange-600">Not connected</span>
+                                  </>
+                                )}
+                              </div>
+                              {isConnected && resourceCount > 0 && (
+                                <Badge variant="secondary" className="text-xs">
+                                  {resourceCount} resources
+                                </Badge>
+                              )}
+                              <ArrowRight className="w-4 h-4 text-slate-400" />
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )
+                  })}
                 </div>
               )}
-            </div>
-            <div className="flex gap-2 pt-4 border-t">
-              <Button variant="outline" onClick={() => setShowConfigModal(false)} className="flex-1">
-                Cancel
-              </Button>
-              <Button
-                onClick={
-                  currentStepIndex >= 0 && currentStepIndex < workflowSteps.length
-                    ? handleUpdateStep
-                    : handleConfigComplete
-                }
-                className="flex-1"
-              >
-                {currentStepIndex >= 0 && currentStepIndex < workflowSteps.length ? "Update Step" : "Add Step"}
-              </Button>
-            </div>
+
+              {showTriggerList && selectedIntegration && (
+                <div className="space-y-2">
+                  {selectedIntegration.triggers.map((trigger: any) => (
+                    <Card
+                      key={trigger.id}
+                      className="cursor-pointer transition-all duration-200 hover:shadow-md hover:border-blue-200"
+                      onClick={() => handleTriggerSelected(trigger)}
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="font-medium text-slate-900">{trigger.name}</div>
+                            <div className="text-sm text-slate-500 mt-1">{trigger.description}</div>
+                          </div>
+                          <ArrowRight className="w-4 h-4 text-slate-400" />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </ScrollArea>
           </DialogContent>
         </Dialog>
 
-        {/* Connect Integration Modal */}
+        {/* Connection Modal */}
         <Dialog open={showConnectModal} onOpenChange={setShowConnectModal}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Connect {selectedApp?.name}</DialogTitle>
-              <DialogDescription>You need to connect {selectedApp?.name} to use it in your workflow</DialogDescription>
+              <DialogTitle>Connect {selectedIntegration?.name}</DialogTitle>
+              <DialogDescription>
+                You need to connect {selectedIntegration?.name} to use this trigger in your workflow.
+              </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div className="flex items-center space-x-3 p-4 bg-slate-50 rounded-lg">
-                <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center shadow-sm">
+                <div
+                  className={`w-12 h-12 rounded-lg flex items-center justify-center ${selectedIntegration?.color || "bg-slate-100"}`}
+                >
                   <img
-                    src={selectedApp?.logo || "/placeholder.svg"}
-                    alt={selectedApp?.name}
-                    className="w-6 h-6"
+                    src={selectedIntegration?.logo || "/placeholder.svg"}
+                    alt={selectedIntegration?.name}
+                    className="w-8 h-8"
                     onError={handleImageError}
                   />
                 </div>
                 <div>
-                  <div className="font-medium">{selectedApp?.name}</div>
-                  <div className="text-sm text-slate-500">{selectedApp?.description}</div>
+                  <div className="font-medium">{selectedIntegration?.name}</div>
+                  <div className="text-sm text-slate-500">{selectedIntegration?.description}</div>
                 </div>
+              </div>
+              <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
+                <ExternalLink className="w-4 h-4" />
+                <span>This will open a new tab for authorization</span>
               </div>
               <div className="flex gap-2">
                 <Button variant="outline" onClick={() => setShowConnectModal(false)} className="flex-1">
                   Cancel
                 </Button>
-                <Button onClick={() => handleConnectApp(selectedApp?.id)} className="flex-1">
-                  Connect {selectedApp?.name}
+                <Button onClick={handleConnectIntegration} disabled={isConnecting} className="flex-1">
+                  {isConnecting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Connecting...
+                    </>
+                  ) : (
+                    <>
+                      <ExternalLink className="w-4 h-4 mr-2" />
+                      Connect {selectedIntegration?.name}
+                    </>
+                  )}
                 </Button>
               </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Configuration Modal */}
+        <Dialog open={showConfigModal} onOpenChange={setShowConfigModal}>
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden">
+            <DialogHeader>
+              <DialogTitle>Configure {selectedTrigger?.name}</DialogTitle>
+              <DialogDescription>Set up the parameters for this trigger</DialogDescription>
+            </DialogHeader>
+            <ScrollArea className="max-h-[60vh]">
+              <div className="space-y-4 p-1">
+                {getConfigFields().map((field) => (
+                  <div key={field.key} className="space-y-2">
+                    <Label htmlFor={field.key} className="text-sm font-medium">
+                      {field.label} {field.required && <span className="text-red-500">*</span>}
+                    </Label>
+                    {renderConfigField(field)}
+                    {field.description && <p className="text-xs text-slate-500">{field.description}</p>}
+                  </div>
+                ))}
+                {getConfigFields().length === 0 && (
+                  <div className="text-center py-8 text-slate-500">
+                    <div className="text-lg font-medium mb-2">No configuration needed</div>
+                    <div className="text-sm">This trigger works automatically without additional setup</div>
+                  </div>
+                )}
+              </div>
+            </ScrollArea>
+            <div className="flex gap-2 pt-4 border-t">
+              <Button variant="outline" onClick={() => setShowConfigModal(false)} className="flex-1">
+                Cancel
+              </Button>
+              <Button
+                onClick={workflowSteps.length > 0 ? handleUpdateStep : handleConfigComplete}
+                className="flex-1"
+                disabled={(() => {
+                  const fields = getConfigFields()
+                  return fields.some((field) => field.required && !currentConfig[field.key])
+                })()}
+              >
+                {workflowSteps.length > 0 ? "Update Trigger" : "Add Trigger"}
+              </Button>
             </div>
           </DialogContent>
         </Dialog>
@@ -1324,9 +1399,9 @@ export default function WorkflowBuilder() {
         <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Delete Step</DialogTitle>
+              <DialogTitle>Delete Trigger</DialogTitle>
               <DialogDescription>
-                Are you sure you want to delete this step? This action cannot be undone.
+                Are you sure you want to delete this trigger? This action cannot be undone.
               </DialogDescription>
             </DialogHeader>
             <div className="flex gap-2">
@@ -1334,7 +1409,7 @@ export default function WorkflowBuilder() {
                 Cancel
               </Button>
               <Button variant="destructive" onClick={confirmDeleteStep} className="flex-1">
-                Delete Step
+                Delete Trigger
               </Button>
             </div>
           </DialogContent>
