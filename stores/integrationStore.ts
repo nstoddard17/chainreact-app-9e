@@ -506,19 +506,39 @@ export const useIntegrationStore = create<IntegrationState>()(
             throw new Error(result.error || "Failed to generate auth URL")
           }
 
-          // Open in new tab
-          const popup = window.open(result.authUrl, "_blank", "width=600,height=700")
+          // Open in new tab instead of popup
+          const newTab = window.open(result.authUrl, "_blank")
 
-          // Listen for the popup to close or for a message
-          const checkClosed = setInterval(() => {
-            if (popup?.closed) {
-              clearInterval(checkClosed)
-              // Refresh integrations after popup closes
+          // Check if the tab was blocked by popup blocker
+          if (!newTab) {
+            throw new Error("Please allow popups for this site to connect integrations")
+          }
+
+          // Set up a listener for when the user returns to this tab
+          const handleVisibilityChange = () => {
+            if (!document.hidden) {
+              // User returned to this tab, refresh integrations after a short delay
               setTimeout(() => {
                 get().fetchIntegrations(true)
               }, 1000)
+
+              // Remove the listener after first use
+              document.removeEventListener("visibilitychange", handleVisibilityChange)
             }
-          }, 1000)
+          }
+
+          // Listen for when user returns to this tab
+          document.addEventListener("visibilitychange", handleVisibilityChange)
+
+          // Also set up a periodic check in case visibility change doesn't fire
+          const intervalId = setInterval(() => {
+            get().fetchIntegrations(true)
+          }, 5000) // Check every 5 seconds
+
+          // Clear the interval after 2 minutes
+          setTimeout(() => {
+            clearInterval(intervalId)
+          }, 120000) // 2 minutes
         } catch (error: any) {
           console.error("Failed to connect integration:", error)
           throw error
