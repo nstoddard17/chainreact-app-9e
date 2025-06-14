@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { CheckCircle, Loader2, RefreshCw, AlertCircle } from "lucide-react"
+import { CheckCircle, Loader2, RefreshCw } from "lucide-react"
 import { useIntegrationStore } from "@/stores/integrationStore"
 import { useToast } from "@/hooks/use-toast"
 import { supabase } from "@/lib/supabase"
@@ -155,11 +155,6 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
     ? new Date(provider.integration.updated_at).toLocaleDateString()
     : null
 
-  // Determine connection status
-  const isConnected = provider.integration?.status === "connected"
-  const hasError = provider.integration?.status === "error"
-  const wasConnected = !!provider.integration && !isConnected
-
   return (
     <Card className="overflow-hidden border border-slate-200 transition-all hover:shadow-md">
       <CardContent className="p-0">
@@ -178,7 +173,7 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
               </div>
               <div>
                 <h3 className="font-semibold text-slate-900">{provider.name}</h3>
-                {isConnected && (
+                {provider.connected && (
                   <div className="flex items-center text-xs text-slate-500">
                     <RefreshCw className="w-3 h-3 mr-1" />
                     {lastUpdated ? `Updated ${lastUpdated}` : "Connected"}
@@ -186,17 +181,12 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
                 )}
               </div>
             </div>
-            {isConnected ? (
+            {provider.connected ? (
               <Badge className="bg-green-100 text-green-800 border-green-200">
                 <CheckCircle className="w-3 h-3 mr-1" />
                 Connected
               </Badge>
-            ) : hasError ? (
-              <Badge variant="outline" className="bg-red-50 text-red-600 border-red-200">
-                <AlertCircle className="w-3 h-3 mr-1" />
-                Error
-              </Badge>
-            ) : wasConnected ? (
+            ) : provider.wasConnected ? (
               <Badge variant="outline" className="bg-slate-100 text-slate-600 border-slate-200">
                 Disconnected
               </Badge>
@@ -228,67 +218,26 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
         </div>
 
         <div className="bg-slate-50 p-4 border-t border-slate-200">
-          {isConnected ? (
+          {provider.connected ? (
             <div className="flex gap-2">
               <Button
                 variant="outline"
                 size="sm"
-                className="flex-1 bg-white hover:bg-red-50 hover:text-red-600 hover:border-red-200"
+                className="flex-1 bg-white"
                 onClick={handleDisconnect}
-                disabled={isDisconnecting || isRefreshing}
+                disabled={isDisconnecting || !provider.isAvailable || isRefreshing}
               >
                 {isDisconnecting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                {isDisconnecting ? "Disconnecting..." : "Disconnect"}
+                Disconnect
               </Button>
               <Button
                 variant="outline"
                 size="sm"
                 className="bg-white"
                 onClick={handleRefresh}
-                disabled={isDisconnecting || isRefreshing}
-                title="Refresh connection"
+                disabled={isDisconnecting || !provider.isAvailable || isRefreshing}
               >
                 {isRefreshing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-              </Button>
-            </div>
-          ) : hasError ? (
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex-1 bg-white"
-                onClick={handleConnect}
-                disabled={isConnecting}
-              >
-                {isConnecting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                {isConnecting ? "Reconnecting..." : "Reconnect"}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="bg-white hover:bg-red-50 hover:text-red-600 hover:border-red-200"
-                onClick={handleDisconnect}
-                disabled={isDisconnecting}
-              >
-                {isDisconnecting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                Remove
-              </Button>
-            </div>
-          ) : wasConnected ? (
-            <div className="flex gap-2">
-              <Button variant="default" size="sm" className="flex-1" onClick={handleConnect} disabled={isConnecting}>
-                {isConnecting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                {isConnecting ? "Reconnecting..." : "Reconnect"}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="bg-white hover:bg-red-50 hover:text-red-600 hover:border-red-200"
-                onClick={handleDisconnect}
-                disabled={isDisconnecting}
-              >
-                {isDisconnecting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                Remove
               </Button>
             </div>
           ) : (
@@ -300,7 +249,7 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
               disabled={isConnecting || !provider.isAvailable}
             >
               {isConnecting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-              {!provider.isAvailable ? "Coming Soon" : isConnecting ? "Connecting..." : "Connect"}
+              {!provider.isAvailable ? "Coming Soon" : "Connect"}
             </Button>
           )}
         </div>
