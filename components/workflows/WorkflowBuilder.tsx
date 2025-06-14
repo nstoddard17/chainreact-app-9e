@@ -142,7 +142,7 @@ const AVAILABLE_INTEGRATIONS = [
   {
     id: "gitlab",
     name: "GitLab",
-    logo: "https://upload.wikimedia.org/wikipedia/commons/1/18/GitLab_Logo.svg",
+    logo: "https://about.gitlab.com/images/press/logo/svg/gitlab-logo-500.svg",
     triggers: ["New Issue", "Merge Request Created", "Pipeline Failed", "Push to Branch"],
     actions: ["Create Issue", "Create Merge Request", "Add Comment"],
   },
@@ -163,7 +163,7 @@ const AVAILABLE_INTEGRATIONS = [
   {
     id: "mailchimp",
     name: "Mailchimp",
-    logo: "https://upload.wikimedia.org/wikipedia/commons/2/27/Mailchimp_Logo.svg",
+    logo: "https://eep.io/images/yzco4xsimv0y/5b2Gqz4ZhSWOaas4aUkUWi/c91e5b8b3b8b8b8b8b8b8b8b/mailchimp-freddie-wink.svg",
     triggers: ["New Subscriber", "Email Campaign Sent", "Subscriber Updated", "Unsubscribe"],
     actions: ["Add Subscriber", "Send Campaign", "Update Subscriber"],
   },
@@ -763,7 +763,8 @@ export default function WorkflowBuilder() {
                               <img
                                 src={
                                   AVAILABLE_INTEGRATIONS.find((app) => app.id === step.appId)?.logo ||
-                                  "/placeholder.svg?height=32&width=32"
+                                  "/placeholder.svg?height=32&width=32" ||
+                                  "/placeholder.svg"
                                 }
                                 alt={step.appName}
                                 className="w-8 h-8 object-contain"
