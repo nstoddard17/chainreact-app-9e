@@ -40,43 +40,141 @@ const AVAILABLE_INTEGRATIONS = [
     id: "gmail",
     name: "Gmail",
     icon: "📧",
-    triggers: ["New Email", "Email Received from Specific Sender"],
+    triggers: ["New Email", "Email Received from Specific Sender", "Email with Attachment", "Important Email"],
     actions: ["Send Email", "Reply to Email", "Forward Email"],
   },
   {
     id: "slack",
     name: "Slack",
     icon: "💬",
-    triggers: ["New Message in Channel", "Direct Message Received"],
+    triggers: ["New Message in Channel", "Direct Message Received", "User Mentioned", "File Uploaded"],
     actions: ["Send Message", "Create Channel", "Update Status"],
   },
   {
     id: "notion",
     name: "Notion",
     icon: "📝",
-    triggers: ["New Page Created", "Database Item Added"],
+    triggers: ["New Page Created", "Database Item Added", "Page Updated", "Database Item Updated"],
     actions: ["Create Page", "Update Database", "Add Comment"],
   },
   {
     id: "discord",
     name: "Discord",
     icon: "🎮",
-    triggers: ["New Message", "User Joined Server"],
+    triggers: ["New Message", "User Joined Server", "User Left Server", "Reaction Added"],
     actions: ["Send Message", "Create Channel", "Assign Role"],
   },
   {
     id: "stripe",
     name: "Stripe",
     icon: "💳",
-    triggers: ["Payment Received", "Subscription Created"],
+    triggers: ["Payment Received", "Subscription Created", "Payment Failed", "Customer Created"],
     actions: ["Create Customer", "Send Invoice", "Refund Payment"],
   },
   {
     id: "hubspot",
     name: "HubSpot",
     icon: "🎯",
-    triggers: ["New Contact", "Deal Updated"],
+    triggers: ["New Contact", "Deal Updated", "Contact Updated", "Deal Created"],
     actions: ["Create Contact", "Update Deal", "Send Email"],
+  },
+  {
+    id: "github",
+    name: "GitHub",
+    icon: "🐙",
+    triggers: ["New Issue", "Pull Request Created", "Push to Repository", "Release Published"],
+    actions: ["Create Issue", "Create Pull Request", "Add Comment"],
+  },
+  {
+    id: "google-calendar",
+    name: "Google Calendar",
+    icon: "📅",
+    triggers: ["New Event", "Event Updated", "Event Starting Soon", "Event Cancelled"],
+    actions: ["Create Event", "Update Event", "Delete Event"],
+  },
+  {
+    id: "google-sheets",
+    name: "Google Sheets",
+    icon: "📊",
+    triggers: ["New Row Added", "Row Updated", "Cell Changed", "Sheet Created"],
+    actions: ["Add Row", "Update Row", "Create Sheet"],
+  },
+  {
+    id: "google-drive",
+    name: "Google Drive",
+    icon: "💾",
+    triggers: ["New File", "File Updated", "File Shared", "Folder Created"],
+    actions: ["Upload File", "Create Folder", "Share File"],
+  },
+  {
+    id: "google-docs",
+    name: "Google Docs",
+    icon: "📄",
+    triggers: ["New Document", "Document Updated", "Comment Added", "Document Shared"],
+    actions: ["Create Document", "Update Document", "Add Comment"],
+  },
+  {
+    id: "airtable",
+    name: "Airtable",
+    icon: "🗃️",
+    triggers: ["New Record", "Record Updated", "View Updated", "Base Shared"],
+    actions: ["Create Record", "Update Record", "Delete Record"],
+  },
+  {
+    id: "trello",
+    name: "Trello",
+    icon: "📋",
+    triggers: ["New Card", "Card Moved", "Card Updated", "Due Date Approaching"],
+    actions: ["Create Card", "Move Card", "Update Card"],
+  },
+  {
+    id: "dropbox",
+    name: "Dropbox",
+    icon: "📦",
+    triggers: ["New File", "File Updated", "File Shared", "Folder Created"],
+    actions: ["Upload File", "Create Folder", "Share File"],
+  },
+  {
+    id: "teams",
+    name: "Microsoft Teams",
+    icon: "👥",
+    triggers: ["New Message", "Meeting Started", "File Shared", "Channel Created"],
+    actions: ["Send Message", "Schedule Meeting", "Share File"],
+  },
+  {
+    id: "gitlab",
+    name: "GitLab",
+    icon: "🦊",
+    triggers: ["New Issue", "Merge Request Created", "Pipeline Failed", "Push to Branch"],
+    actions: ["Create Issue", "Create Merge Request", "Add Comment"],
+  },
+  {
+    id: "facebook",
+    name: "Facebook",
+    icon: "👤",
+    triggers: ["New Post", "Page Mention", "Comment on Post", "New Page Like"],
+    actions: ["Create Post", "Reply to Comment", "Share Post"],
+  },
+  {
+    id: "youtube",
+    name: "YouTube",
+    icon: "📺",
+    triggers: ["New Video Uploaded", "New Comment", "New Subscriber", "Video Liked"],
+    actions: ["Upload Video", "Reply to Comment", "Update Video"],
+  },
+  {
+    id: "mailchimp",
+    name: "Mailchimp",
+    icon: "🐵",
+    triggers: ["New Subscriber", "Email Campaign Sent", "Subscriber Updated", "Unsubscribe"],
+    actions: ["Add Subscriber", "Send Campaign", "Update Subscriber"],
+  },
+  {
+    id: "linkedin",
+    name: "LinkedIn",
+    icon: "💼",
+    triggers: ["New Connection", "Post Engagement", "Message Received", "Profile View"],
+    actions: ["Create Post", "Send Message", "Connect with User"],
   },
 ]
 
@@ -199,6 +297,32 @@ export default function WorkflowBuilder() {
 
   const handleActionSelected = (actionName: string, actionType: "action" | "condition" = "action") => {
     setSelectedAction(actionName)
+
+    // For triggers (first step), automatically add without configuration modal
+    if (currentStepIndex === 0) {
+      const newStep: WorkflowStep = {
+        id: `step-${Date.now()}`,
+        type: "trigger",
+        appId: selectedApp.id,
+        appName: selectedApp.name,
+        actionName: actionName,
+        config: {}, // Triggers typically don't need configuration
+        isConfigured: true,
+      }
+
+      const newSteps = [...workflowSteps]
+      newSteps.splice(currentStepIndex, 0, newStep)
+      setWorkflowSteps(newSteps)
+
+      // Close modals and reset state
+      setShowActionSelector(false)
+      setSelectedApp(null)
+      setSelectedAction("")
+      setCurrentConfig({})
+      return
+    }
+
+    // For actions and conditions, continue with configuration modal
     setCurrentConfig({})
     setShowActionSelector(false)
     setShowConfigModal(true)
@@ -769,18 +893,24 @@ export default function WorkflowBuilder() {
           </DialogHeader>
           <div className="space-y-3 mt-4">
             {currentStepIndex === 0 ? (
-              // Show triggers for first step
-              selectedApp?.triggers.map((trigger: string) => (
-                <Card
-                  key={trigger}
-                  className="cursor-pointer hover:shadow-md transition-shadow duration-200 border hover:border-blue-200"
-                  onClick={() => handleActionSelected(trigger)}
-                >
-                  <CardContent className="p-4">
-                    <h4 className="font-medium text-slate-900">{trigger}</h4>
-                  </CardContent>
-                </Card>
-              ))
+              // Show triggers for first step - smaller buttons in vertical list
+              <div className="space-y-2">
+                {selectedApp?.triggers.map((trigger: string) => (
+                  <Button
+                    key={trigger}
+                    variant="outline"
+                    className="w-full justify-start h-auto p-4 hover:bg-blue-50 hover:border-blue-300 transition-colors"
+                    onClick={() => handleActionSelected(trigger)}
+                  >
+                    <div className="text-left">
+                      <div className="font-medium text-slate-900">{trigger}</div>
+                      <div className="text-sm text-slate-500 mt-1">
+                        Triggers when {trigger.toLowerCase()} in {selectedApp?.name}
+                      </div>
+                    </div>
+                  </Button>
+                ))}
+              </div>
             ) : (
               // Show actions and conditions for subsequent steps
               <>
