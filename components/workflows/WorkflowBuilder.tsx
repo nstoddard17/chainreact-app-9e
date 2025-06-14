@@ -182,6 +182,66 @@ const CONDITION_TYPES = [
   { id: "ai", name: "AI-based", description: "Use AI to make intelligent decisions" },
 ]
 
+// Define which triggers need configuration
+const TRIGGER_CONFIGS = {
+  "Email Received from Specific Sender": [
+    { key: "sender_email", label: "Sender Email", type: "email", placeholder: "sender@example.com", required: true },
+  ],
+  "New Message in Channel": [
+    { key: "channel", label: "Channel", type: "text", placeholder: "#general", required: true },
+  ],
+  "Direct Message Received": [
+    { key: "from_user", label: "From User (optional)", type: "text", placeholder: "@username", required: false },
+  ],
+  "User Mentioned": [
+    { key: "channel", label: "Channel (optional)", type: "text", placeholder: "#general", required: false },
+  ],
+  "New Message": [
+    { key: "channel_id", label: "Channel ID (optional)", type: "text", placeholder: "Channel ID", required: false },
+  ],
+  "Database Item Added": [
+    { key: "database_id", label: "Database ID", type: "text", placeholder: "Database ID", required: true },
+  ],
+  "Database Item Updated": [
+    { key: "database_id", label: "Database ID", type: "text", placeholder: "Database ID", required: true },
+  ],
+  "New Row Added": [
+    { key: "spreadsheet_id", label: "Spreadsheet ID", type: "text", placeholder: "Spreadsheet ID", required: true },
+    { key: "sheet_name", label: "Sheet Name", type: "text", placeholder: "Sheet1", required: false },
+  ],
+  "Row Updated": [
+    { key: "spreadsheet_id", label: "Spreadsheet ID", type: "text", placeholder: "Spreadsheet ID", required: true },
+    { key: "sheet_name", label: "Sheet Name", type: "text", placeholder: "Sheet1", required: false },
+  ],
+  "New File": [
+    { key: "folder_path", label: "Folder Path (optional)", type: "text", placeholder: "/folder/path", required: false },
+  ],
+  "File Updated": [
+    { key: "folder_path", label: "Folder Path (optional)", type: "text", placeholder: "/folder/path", required: false },
+  ],
+  "New Record": [
+    { key: "base_id", label: "Base ID", type: "text", placeholder: "Base ID", required: true },
+    { key: "table_name", label: "Table Name", type: "text", placeholder: "Table Name", required: true },
+  ],
+  "Record Updated": [
+    { key: "base_id", label: "Base ID", type: "text", placeholder: "Base ID", required: true },
+    { key: "table_name", label: "Table Name", type: "text", placeholder: "Table Name", required: true },
+  ],
+  "New Card": [
+    { key: "board_id", label: "Board ID", type: "text", placeholder: "Board ID", required: true },
+    { key: "list_name", label: "List Name (optional)", type: "text", placeholder: "To Do", required: false },
+  ],
+  "Card Moved": [{ key: "board_id", label: "Board ID", type: "text", placeholder: "Board ID", required: true }],
+  "Push to Repository": [
+    { key: "repository", label: "Repository", type: "text", placeholder: "owner/repo", required: true },
+    { key: "branch", label: "Branch (optional)", type: "text", placeholder: "main", required: false },
+  ],
+  "New Issue": [{ key: "repository", label: "Repository", type: "text", placeholder: "owner/repo", required: true }],
+  "Pull Request Created": [
+    { key: "repository", label: "Repository", type: "text", placeholder: "owner/repo", required: true },
+  ],
+}
+
 interface WorkflowStep {
   id: string
   type: "trigger" | "action" | "condition"
@@ -296,27 +356,37 @@ export default function WorkflowBuilder() {
   const handleActionSelected = (actionName: string, actionType: "action" | "condition" = "action") => {
     setSelectedAction(actionName)
 
-    // For triggers (first step), automatically add without configuration modal
+    // For triggers (first step), check if configuration is needed
     if (currentStepIndex === 0) {
-      const newStep: WorkflowStep = {
-        id: `step-${Date.now()}`,
-        type: "trigger",
-        appId: selectedApp.id,
-        appName: selectedApp.name,
-        actionName: actionName,
-        config: {}, // Triggers typically don't need configuration
-        isConfigured: true,
+      const triggerConfig = TRIGGER_CONFIGS[actionName as keyof typeof TRIGGER_CONFIGS]
+
+      if (triggerConfig && triggerConfig.length > 0) {
+        // This trigger needs configuration
+        setCurrentConfig({})
+        setShowActionSelector(false)
+        setShowConfigModal(true)
+      } else {
+        // This trigger doesn't need configuration, add it directly
+        const newStep: WorkflowStep = {
+          id: `step-${Date.now()}`,
+          type: "trigger",
+          appId: selectedApp.id,
+          appName: selectedApp.name,
+          actionName: actionName,
+          config: {},
+          isConfigured: true,
+        }
+
+        const newSteps = [...workflowSteps]
+        newSteps.splice(currentStepIndex, 0, newStep)
+        setWorkflowSteps(newSteps)
+
+        // Close modals and reset state
+        setShowActionSelector(false)
+        setSelectedApp(null)
+        setSelectedAction("")
+        setCurrentConfig({})
       }
-
-      const newSteps = [...workflowSteps]
-      newSteps.splice(currentStepIndex, 0, newStep)
-      setWorkflowSteps(newSteps)
-
-      // Close modals and reset state
-      setShowActionSelector(false)
-      setSelectedApp(null)
-      setSelectedAction("")
-      setCurrentConfig({})
       return
     }
 
@@ -519,6 +589,131 @@ export default function WorkflowBuilder() {
   const connectedIntegrationsCount = integrations.filter((i) => i.status === "connected").length
   const workflowOptimizations = currentWorkflow ? optimizations[currentWorkflow.id] || [] : []
   const workflowAnomalies = currentWorkflow ? anomalies[currentWorkflow.id] || [] : []
+
+  // Get configuration fields for the current trigger/action
+  const getConfigFields = () => {
+    if (currentStepIndex === 0) {
+      // For triggers
+      return TRIGGER_CONFIGS[selectedAction as keyof typeof TRIGGER_CONFIGS] || []
+    } else {
+      // For actions - return existing action config fields
+      if (selectedAction === "Send Email") {
+        return [
+          { key: "to", label: "To", type: "email", placeholder: "recipient@example.com", required: true },
+          { key: "subject", label: "Subject", type: "text", placeholder: "Email subject", required: true },
+          { key: "body", label: "Body", type: "textarea", placeholder: "Email content...", required: true },
+        ]
+      } else if (selectedAction === "Send Message") {
+        return [
+          { key: "channel", label: "Channel", type: "text", placeholder: "#general", required: true },
+          { key: "message", label: "Message", type: "textarea", placeholder: "Your message...", required: true },
+        ]
+      } else if (selectedAction === "Create Page") {
+        return [
+          { key: "title", label: "Page Title", type: "text", placeholder: "Page title", required: true },
+          { key: "content", label: "Content", type: "textarea", placeholder: "Page content...", required: false },
+        ]
+      } else if (selectedAction === "Time-based") {
+        return [
+          {
+            key: "delayType",
+            label: "Delay Type",
+            type: "select",
+            options: ["minutes", "hours", "days", "specific"],
+            required: true,
+          },
+          {
+            key: "delayValue",
+            label: "Delay Value",
+            type: "number",
+            placeholder: "Enter delay amount",
+            required: true,
+          },
+        ]
+      } else if (selectedAction === "Field-based") {
+        return [
+          {
+            key: "field",
+            label: "Field to Check",
+            type: "text",
+            placeholder: "e.g., email, status, amount",
+            required: true,
+          },
+          {
+            key: "operator",
+            label: "Operator",
+            type: "select",
+            options: ["equals", "contains", "greater", "less"],
+            required: true,
+          },
+          { key: "value", label: "Value", type: "text", placeholder: "Value to compare against", required: true },
+        ]
+      } else if (selectedAction === "AI-based") {
+        return [
+          {
+            key: "prompt",
+            label: "AI Prompt",
+            type: "textarea",
+            placeholder: "Describe what the AI should check for...",
+            required: true,
+          },
+          {
+            key: "confidence",
+            label: "Confidence Threshold",
+            type: "select",
+            options: ["low", "medium", "high"],
+            required: false,
+          },
+        ]
+      }
+      return []
+    }
+  }
+
+  const renderConfigField = (field: any) => {
+    if (field.type === "select") {
+      return (
+        <Select
+          value={currentConfig[field.key] || ""}
+          onValueChange={(value) => setCurrentConfig({ ...currentConfig, [field.key]: value })}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder={`Select ${field.label.toLowerCase()}`} />
+          </SelectTrigger>
+          <SelectContent>
+            {field.options?.map((option: string) => (
+              <SelectItem key={option} value={option}>
+                {option.charAt(0).toUpperCase() + option.slice(1)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )
+    } else if (field.type === "textarea") {
+      return (
+        <Textarea
+          id={field.key}
+          value={currentConfig[field.key] || ""}
+          onChange={(e) => setCurrentConfig({ ...currentConfig, [field.key]: e.target.value })}
+          placeholder={field.placeholder}
+          rows={3}
+        />
+      )
+    } else {
+      return (
+        <Input
+          id={field.key}
+          type={field.type}
+          value={currentConfig[field.key] || ""}
+          onChange={(e) => {
+            const value = field.type === "number" ? Number(e.target.value) : e.target.value
+            setCurrentConfig({ ...currentConfig, [field.key]: value })
+          }}
+          placeholder={field.placeholder}
+        />
+      )
+    }
+  }
 
   if (!currentWorkflow) {
     return (
@@ -733,18 +928,6 @@ export default function WorkflowBuilder() {
             ) : (
               // Workflow chain
               <div className="space-y-4">
-                {/* Remove this entire section when there are steps: */}
-                {/* Add step button at the top */}
-                {/* <div className="flex justify-center">
-                  <Button
-                    onClick={() => handleAddStep(0)}
-                    variant="outline"
-                    className="w-12 h-12 rounded-full border-2 border-dashed border-slate-300 hover:border-blue-400 hover:bg-blue-50"
-                  >
-                    <Plus className="w-5 h-5" />
-                  </Button>
-                </div> */}
-
                 {workflowSteps.map((step, index) => (
                   <div key={step.id} className="relative">
                     {/* Enhanced connecting line - more prominent */}
@@ -764,7 +947,6 @@ export default function WorkflowBuilder() {
                                 src={
                                   AVAILABLE_INTEGRATIONS.find((app) => app.id === step.appId)?.logo ||
                                   "/placeholder.svg?height=32&width=32" ||
-                                  "/placeholder.svg" ||
                                   "/placeholder.svg"
                                 }
                                 alt={step.appName}
@@ -970,196 +1152,21 @@ export default function WorkflowBuilder() {
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Configure {selectedAction}</DialogTitle>
-            <DialogDescription>Fill in the required information for this action</DialogDescription>
+            <DialogDescription>
+              {currentStepIndex === 0
+                ? "Configure the trigger settings"
+                : "Fill in the required information for this action"}
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 mt-4">
-            {/* Mock configuration fields based on action type */}
-            {selectedAction === "Send Email" && (
-              <>
-                <div>
-                  <Label htmlFor="to">To *</Label>
-                  <Input
-                    id="to"
-                    placeholder="recipient@example.com"
-                    value={currentConfig.to || ""}
-                    onChange={(e) => setCurrentConfig({ ...currentConfig, to: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="subject">Subject *</Label>
-                  <Input
-                    id="subject"
-                    placeholder="Email subject"
-                    value={currentConfig.subject || ""}
-                    onChange={(e) => setCurrentConfig({ ...currentConfig, subject: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="body">Body *</Label>
-                  <Textarea
-                    id="body"
-                    placeholder="Email content..."
-                    rows={4}
-                    value={currentConfig.body || ""}
-                    onChange={(e) => setCurrentConfig({ ...currentConfig, body: e.target.value })}
-                  />
-                </div>
-              </>
-            )}
-
-            {selectedAction === "Send Message" && (
-              <>
-                <div>
-                  <Label htmlFor="channel">Channel *</Label>
-                  <Input
-                    id="channel"
-                    placeholder="#general"
-                    value={currentConfig.channel || ""}
-                    onChange={(e) => setCurrentConfig({ ...currentConfig, channel: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="message">Message *</Label>
-                  <Textarea
-                    id="message"
-                    placeholder="Your message..."
-                    rows={3}
-                    value={currentConfig.message || ""}
-                    onChange={(e) => setCurrentConfig({ ...currentConfig, message: e.target.value })}
-                  />
-                </div>
-              </>
-            )}
-
-            {selectedAction === "Create Page" && (
-              <>
-                <div>
-                  <Label htmlFor="title">Page Title *</Label>
-                  <Input
-                    id="title"
-                    placeholder="Page title"
-                    value={currentConfig.title || ""}
-                    onChange={(e) => setCurrentConfig({ ...currentConfig, title: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="content">Content</Label>
-                  <Textarea
-                    id="content"
-                    placeholder="Page content..."
-                    rows={4}
-                    value={currentConfig.content || ""}
-                    onChange={(e) => setCurrentConfig({ ...currentConfig, content: e.target.value })}
-                  />
-                </div>
-              </>
-            )}
-
-            {/* Time-based condition */}
-            {selectedAction === "Time-based" && (
-              <>
-                <div>
-                  <Label htmlFor="delay">Delay Type</Label>
-                  <Select
-                    value={currentConfig.delayType || ""}
-                    onValueChange={(value) => setCurrentConfig({ ...currentConfig, delayType: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select delay type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="minutes">Minutes</SelectItem>
-                      <SelectItem value="hours">Hours</SelectItem>
-                      <SelectItem value="days">Days</SelectItem>
-                      <SelectItem value="specific">Specific Time</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="delayValue">Delay Value *</Label>
-                  <Input
-                    id="delayValue"
-                    type="number"
-                    placeholder="Enter delay amount"
-                    value={currentConfig.delayValue || ""}
-                    onChange={(e) => setCurrentConfig({ ...currentConfig, delayValue: e.target.value })}
-                  />
-                </div>
-              </>
-            )}
-
-            {/* Field-based condition */}
-            {selectedAction === "Field-based" && (
-              <>
-                <div>
-                  <Label htmlFor="field">Field to Check *</Label>
-                  <Input
-                    id="field"
-                    placeholder="e.g., email, status, amount"
-                    value={currentConfig.field || ""}
-                    onChange={(e) => setCurrentConfig({ ...currentConfig, field: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="operator">Operator</Label>
-                  <Select
-                    value={currentConfig.operator || ""}
-                    onValueChange={(value) => setCurrentConfig({ ...currentConfig, operator: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select operator" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="equals">Equals</SelectItem>
-                      <SelectItem value="contains">Contains</SelectItem>
-                      <SelectItem value="greater">Greater than</SelectItem>
-                      <SelectItem value="less">Less than</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="value">Value *</Label>
-                  <Input
-                    id="value"
-                    placeholder="Value to compare against"
-                    value={currentConfig.value || ""}
-                    onChange={(e) => setCurrentConfig({ ...currentConfig, value: e.target.value })}
-                  />
-                </div>
-              </>
-            )}
-
-            {/* AI-based condition */}
-            {selectedAction === "AI-based" && (
-              <>
-                <div>
-                  <Label htmlFor="prompt">AI Prompt *</Label>
-                  <Textarea
-                    id="prompt"
-                    placeholder="Describe what the AI should check for..."
-                    rows={3}
-                    value={currentConfig.prompt || ""}
-                    onChange={(e) => setCurrentConfig({ ...currentConfig, prompt: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="confidence">Confidence Threshold</Label>
-                  <Select
-                    value={currentConfig.confidence || ""}
-                    onValueChange={(value) => setCurrentConfig({ ...currentConfig, confidence: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select confidence level" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="low">Low (60%)</SelectItem>
-                      <SelectItem value="medium">Medium (80%)</SelectItem>
-                      <SelectItem value="high">High (95%)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </>
-            )}
+            {getConfigFields().map((field) => (
+              <div key={field.key} className="space-y-2">
+                <Label htmlFor={field.key} className="text-sm font-medium">
+                  {field.label} {field.required && "*"}
+                </Label>
+                {renderConfigField(field)}
+              </div>
+            ))}
           </div>
 
           <div className="flex gap-3 pt-6">
@@ -1173,15 +1180,10 @@ export default function WorkflowBuilder() {
                   : handleConfigComplete
               }
               className="flex-1"
-              disabled={
-                (selectedAction === "Send Email" &&
-                  (!currentConfig.to || !currentConfig.subject || !currentConfig.body)) ||
-                (selectedAction === "Send Message" && (!currentConfig.channel || !currentConfig.message)) ||
-                (selectedAction === "Create Page" && !currentConfig.title) ||
-                (selectedAction === "Time-based" && !currentConfig.delayValue) ||
-                (selectedAction === "Field-based" && (!currentConfig.field || !currentConfig.value)) ||
-                (selectedAction === "AI-based" && !currentConfig.prompt)
-              }
+              disabled={() => {
+                const fields = getConfigFields()
+                return fields.some((field) => field.required && !currentConfig[field.key])
+              }}
             >
               {currentStepIndex >= 0 && currentStepIndex < workflowSteps.length ? "Update Step" : "Add Step"}
             </Button>
