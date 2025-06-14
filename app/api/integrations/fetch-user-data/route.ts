@@ -16,7 +16,7 @@ export async function POST(request: Request) {
 
     const { provider, dataType } = await request.json()
 
-    // Get integration details
+    // Get integration for the provider
     const { data: integration, error } = await supabase
       .from("integrations")
       .select("*")
@@ -26,94 +26,75 @@ export async function POST(request: Request) {
       .single()
 
     if (error || !integration) {
-      return NextResponse.json({ error: "Integration not found" }, { status: 404 })
+      return NextResponse.json({ error: "Integration not found or not connected" }, { status: 404 })
     }
 
     let data = []
 
-    switch (provider) {
-      case "discord":
-        data = await fetchDiscordData(integration, dataType)
-        break
-      case "slack":
-        data = await fetchSlackData(integration, dataType)
-        break
-      case "notion":
-        data = await fetchNotionData(integration, dataType)
-        break
-      case "google-sheets":
-        data = await fetchGoogleSheetsData(integration, dataType)
-        break
-      case "google-calendar":
-        data = await fetchGoogleCalendarData(integration, dataType)
-        break
-      case "google-drive":
-        data = await fetchGoogleDriveData(integration, dataType)
-        break
-      case "airtable":
-        data = await fetchAirtableData(integration, dataType)
-        break
-      case "trello":
-        data = await fetchTrelloData(integration, dataType)
-        break
-      case "github":
-        data = await fetchGitHubData(integration, dataType)
-        break
-      case "gitlab":
-        data = await fetchGitLabData(integration, dataType)
-        break
-      case "hubspot":
-        data = await fetchHubSpotData(integration, dataType)
-        break
-      case "teams":
-        data = await fetchTeamsData(integration, dataType)
-        break
-      case "mailchimp":
-        data = await fetchMailchimpData(integration, dataType)
-        break
-      default:
-        return NextResponse.json({ error: "Unsupported provider" }, { status: 400 })
+    try {
+      switch (provider) {
+        case "slack":
+          data = await fetchSlackData(integration.access_token, dataType)
+          break
+        case "discord":
+          data = await fetchDiscordData(integration.access_token, dataType)
+          break
+        case "notion":
+          data = await fetchNotionData(integration.access_token, dataType)
+          break
+        case "google-sheets":
+          data = await fetchGoogleSheetsData(integration.access_token, dataType)
+          break
+        case "google-calendar":
+          data = await fetchGoogleCalendarData(integration.access_token, dataType)
+          break
+        case "google-drive":
+          data = await fetchGoogleDriveData(integration.access_token, dataType)
+          break
+        case "airtable":
+          data = await fetchAirtableData(integration.access_token, dataType)
+          break
+        case "trello":
+          data = await fetchTrelloData(integration.access_token, dataType)
+          break
+        case "github":
+          data = await fetchGitHubData(integration.access_token, dataType)
+          break
+        case "hubspot":
+          data = await fetchHubSpotData(integration.access_token, dataType)
+          break
+        case "teams":
+          data = await fetchTeamsData(integration.access_token, dataType)
+          break
+        case "mailchimp":
+          data = await fetchMailchimpData(integration.access_token, dataType)
+          break
+        default:
+          return NextResponse.json({ error: "Unsupported provider" }, { status: 400 })
+      }
+
+      return NextResponse.json({ success: true, data })
+    } catch (fetchError) {
+      console.error(`Error fetching ${dataType} from ${provider}:`, fetchError)
+      return NextResponse.json({ error: `Failed to fetch ${dataType}` }, { status: 500 })
     }
-
-    return NextResponse.json({ success: true, data })
   } catch (error) {
-    console.error("Error fetching user data:", error)
-    return NextResponse.json({ error: "Failed to fetch data" }, { status: 500 })
+    console.error("Error in fetch-user-data:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
 
-async function fetchDiscordData(integration: any, dataType: string) {
-  switch (dataType) {
-    case "guilds":
-      const guildsResponse = await fetch("https://discord.com/api/users/@me/guilds", {
-        headers: {
-          Authorization: `Bearer ${integration.access_token}`,
-        },
-      })
-      const guilds = await guildsResponse.json()
-      return guilds.map((guild: any) => ({
-        id: guild.id,
-        name: guild.name,
-        icon: guild.icon ? `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.png` : null,
-      }))
-
-    case "channels":
-      // Note: This requires guild_id parameter
-      return []
-
-    default:
-      return []
-  }
-}
-
-async function fetchSlackData(integration: any, dataType: string) {
+async function fetchSlackData(accessToken: string, dataType: string) {
   switch (dataType) {
     case "channels":
-      const channelsResponse = await fetch("https://slack.com/api/conversations.list", {
-        headers: {
-          Authorization: `Bearer ${integration.access_token}`,
+      const channelsResponse = await fetch(
+        "https://slack.com/api/conversations.list?types=public_channel,private_channel",
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
         },
-      })
+      )
       const channelsData = await channelsResponse.json()
       return (
         channelsData.channels?.map((channel: any) => ({
@@ -126,7 +107,7 @@ async function fetchSlackData(integration: any, dataType: string) {
     case "users":
       const usersResponse = await fetch("https://slack.com/api/users.list", {
         headers: {
-          Authorization: `Bearer ${integration.access_token}`,
+          Authorization: `Bearer ${accessToken}`,
         },
       })
       const usersData = await usersResponse.json()
@@ -145,13 +126,53 @@ async function fetchSlackData(integration: any, dataType: string) {
   }
 }
 
-async function fetchNotionData(integration: any, dataType: string) {
+async function fetchDiscordData(accessToken: string, dataType: string) {
+  switch (dataType) {
+    case "channels":
+      // First get user's guilds
+      const guildsResponse = await fetch("https://discord.com/api/v10/users/@me/guilds", {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      })
+      const guilds = await guildsResponse.json()
+
+      const allChannels = []
+      for (const guild of guilds.slice(0, 5)) {
+        // Limit to first 5 guilds to avoid rate limits
+        try {
+          const channelsResponse = await fetch(`https://discord.com/api/v10/guilds/${guild.id}/channels`, {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          })
+          const channels = await channelsResponse.json()
+          const textChannels = channels.filter((channel: any) => channel.type === 0) // Text channels only
+          allChannels.push(
+            ...textChannels.map((channel: any) => ({
+              id: channel.id,
+              name: `#${channel.name} (${guild.name})`,
+              value: channel.id,
+            })),
+          )
+        } catch (error) {
+          console.error(`Error fetching channels for guild ${guild.id}:`, error)
+        }
+      }
+      return allChannels
+
+    default:
+      return []
+  }
+}
+
+async function fetchNotionData(accessToken: string, dataType: string) {
   switch (dataType) {
     case "databases":
-      const dbResponse = await fetch("https://api.notion.com/v1/search", {
+      const response = await fetch("https://api.notion.com/v1/search", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${integration.access_token}`,
+          Authorization: `Bearer ${accessToken}`,
           "Content-Type": "application/json",
           "Notion-Version": "2022-06-28",
         },
@@ -162,36 +183,12 @@ async function fetchNotionData(integration: any, dataType: string) {
           },
         }),
       })
-      const dbData = await dbResponse.json()
+      const data = await response.json()
       return (
-        dbData.results?.map((db: any) => ({
+        data.results?.map((db: any) => ({
           id: db.id,
           name: db.title?.[0]?.plain_text || "Untitled Database",
           value: db.id,
-        })) || []
-      )
-
-    case "pages":
-      const pagesResponse = await fetch("https://api.notion.com/v1/search", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${integration.access_token}`,
-          "Content-Type": "application/json",
-          "Notion-Version": "2022-06-28",
-        },
-        body: JSON.stringify({
-          filter: {
-            property: "object",
-            value: "page",
-          },
-        }),
-      })
-      const pagesData = await pagesResponse.json()
-      return (
-        pagesData.results?.map((page: any) => ({
-          id: page.id,
-          name: page.properties?.title?.title?.[0]?.plain_text || "Untitled Page",
-          value: page.id,
         })) || []
       )
 
@@ -200,14 +197,14 @@ async function fetchNotionData(integration: any, dataType: string) {
   }
 }
 
-async function fetchGoogleSheetsData(integration: any, dataType: string) {
+async function fetchGoogleSheetsData(accessToken: string, dataType: string) {
   switch (dataType) {
     case "spreadsheets":
       const response = await fetch(
-        "https://www.googleapis.com/drive/v3/files?q=mimeType='application/vnd.google-apps.spreadsheet'",
+        "https://www.googleapis.com/drive/v3/files?q=mimeType='application/vnd.google-apps.spreadsheet'&pageSize=50",
         {
           headers: {
-            Authorization: `Bearer ${integration.access_token}`,
+            Authorization: `Bearer ${accessToken}`,
           },
         },
       )
@@ -225,12 +222,12 @@ async function fetchGoogleSheetsData(integration: any, dataType: string) {
   }
 }
 
-async function fetchGoogleCalendarData(integration: any, dataType: string) {
+async function fetchGoogleCalendarData(accessToken: string, dataType: string) {
   switch (dataType) {
     case "calendars":
       const response = await fetch("https://www.googleapis.com/calendar/v3/users/me/calendarList", {
         headers: {
-          Authorization: `Bearer ${integration.access_token}`,
+          Authorization: `Bearer ${accessToken}`,
         },
       })
       const data = await response.json()
@@ -247,14 +244,14 @@ async function fetchGoogleCalendarData(integration: any, dataType: string) {
   }
 }
 
-async function fetchGoogleDriveData(integration: any, dataType: string) {
+async function fetchGoogleDriveData(accessToken: string, dataType: string) {
   switch (dataType) {
     case "folders":
       const response = await fetch(
-        "https://www.googleapis.com/drive/v3/files?q=mimeType='application/vnd.google-apps.folder'",
+        "https://www.googleapis.com/drive/v3/files?q=mimeType='application/vnd.google-apps.folder'&pageSize=50",
         {
           headers: {
-            Authorization: `Bearer ${integration.access_token}`,
+            Authorization: `Bearer ${accessToken}`,
           },
         },
       )
@@ -272,12 +269,12 @@ async function fetchGoogleDriveData(integration: any, dataType: string) {
   }
 }
 
-async function fetchAirtableData(integration: any, dataType: string) {
+async function fetchAirtableData(accessToken: string, dataType: string) {
   switch (dataType) {
     case "bases":
       const response = await fetch("https://api.airtable.com/v0/meta/bases", {
         headers: {
-          Authorization: `Bearer ${integration.access_token}`,
+          Authorization: `Bearer ${accessToken}`,
         },
       })
       const data = await response.json()
@@ -294,12 +291,12 @@ async function fetchAirtableData(integration: any, dataType: string) {
   }
 }
 
-async function fetchTrelloData(integration: any, dataType: string) {
+async function fetchTrelloData(accessToken: string, dataType: string) {
   switch (dataType) {
     case "boards":
       const response = await fetch("https://api.trello.com/1/members/me/boards", {
         headers: {
-          Authorization: `OAuth oauth_consumer_key="${process.env.TRELLO_CLIENT_ID}", oauth_token="${integration.access_token}"`,
+          Authorization: `OAuth oauth_consumer_key="${process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID}", oauth_token="${accessToken}"`,
         },
       })
       const data = await response.json()
@@ -311,21 +308,17 @@ async function fetchTrelloData(integration: any, dataType: string) {
         })) || []
       )
 
-    case "lists":
-      // Note: This requires board_id parameter
-      return []
-
     default:
       return []
   }
 }
 
-async function fetchGitHubData(integration: any, dataType: string) {
+async function fetchGitHubData(accessToken: string, dataType: string) {
   switch (dataType) {
     case "repositories":
-      const response = await fetch("https://api.github.com/user/repos?per_page=100", {
+      const response = await fetch("https://api.github.com/user/repos?per_page=50&sort=updated", {
         headers: {
-          Authorization: `Bearer ${integration.access_token}`,
+          Authorization: `Bearer ${accessToken}`,
         },
       })
       const data = await response.json()
@@ -342,34 +335,12 @@ async function fetchGitHubData(integration: any, dataType: string) {
   }
 }
 
-async function fetchGitLabData(integration: any, dataType: string) {
-  switch (dataType) {
-    case "projects":
-      const response = await fetch("https://gitlab.com/api/v4/projects?membership=true&per_page=100", {
-        headers: {
-          Authorization: `Bearer ${integration.access_token}`,
-        },
-      })
-      const data = await response.json()
-      return (
-        data?.map((project: any) => ({
-          id: project.id,
-          name: project.path_with_namespace,
-          value: project.path_with_namespace,
-        })) || []
-      )
-
-    default:
-      return []
-  }
-}
-
-async function fetchHubSpotData(integration: any, dataType: string) {
+async function fetchHubSpotData(accessToken: string, dataType: string) {
   switch (dataType) {
     case "pipelines":
       const response = await fetch("https://api.hubapi.com/crm/v3/pipelines/deals", {
         headers: {
-          Authorization: `Bearer ${integration.access_token}`,
+          Authorization: `Bearer ${accessToken}`,
         },
       })
       const data = await response.json()
@@ -381,34 +352,17 @@ async function fetchHubSpotData(integration: any, dataType: string) {
         })) || []
       )
 
-    case "contacts":
-      const contactsResponse = await fetch("https://api.hubapi.com/crm/v3/objects/contacts?limit=100", {
-        headers: {
-          Authorization: `Bearer ${integration.access_token}`,
-        },
-      })
-      const contactsData = await contactsResponse.json()
-      return (
-        contactsData.results?.map((contact: any) => ({
-          id: contact.id,
-          name:
-            `${contact.properties.firstname || ""} ${contact.properties.lastname || ""}`.trim() ||
-            contact.properties.email,
-          value: contact.id,
-        })) || []
-      )
-
     default:
       return []
   }
 }
 
-async function fetchTeamsData(integration: any, dataType: string) {
+async function fetchTeamsData(accessToken: string, dataType: string) {
   switch (dataType) {
     case "teams":
       const response = await fetch("https://graph.microsoft.com/v1.0/me/joinedTeams", {
         headers: {
-          Authorization: `Bearer ${integration.access_token}`,
+          Authorization: `Bearer ${accessToken}`,
         },
       })
       const data = await response.json()
@@ -420,21 +374,26 @@ async function fetchTeamsData(integration: any, dataType: string) {
         })) || []
       )
 
-    case "channels":
-      // Note: This requires team_id parameter
-      return []
-
     default:
       return []
   }
 }
 
-async function fetchMailchimpData(integration: any, dataType: string) {
+async function fetchMailchimpData(accessToken: string, dataType: string) {
   switch (dataType) {
     case "lists":
-      const response = await fetch("https://us1.api.mailchimp.com/3.0/lists", {
+      // First get the server prefix
+      const rootResponse = await fetch("https://login.mailchimp.com/oauth2/metadata", {
         headers: {
-          Authorization: `Bearer ${integration.access_token}`,
+          Authorization: `Bearer ${accessToken}`,
+        },
+      })
+      const rootData = await rootResponse.json()
+      const dc = rootData.dc
+
+      const response = await fetch(`https://${dc}.api.mailchimp.com/3.0/lists`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
         },
       })
       const data = await response.json()

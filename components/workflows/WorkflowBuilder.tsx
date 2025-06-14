@@ -1,12 +1,11 @@
 "use client"
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
+import AppLayout from "@/components/layout/AppLayout"
 import { useWorkflowStore } from "@/stores/workflowStore"
 import { useAIStore } from "@/stores/aiStore"
 import { useIntegrationStore } from "@/stores/integrationStore"
-import { useToast } from "@/hooks/use-toast"
-
-import AppLayout from "@/components/layout/AppLayout"
+import { AIChatAssistant } from "@/components/ai/AIChatAssistant"
 import { WorkflowOptimizer } from "@/components/ai/WorkflowOptimizer"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -16,8 +15,22 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Save, Play, Loader2, Sparkles, Zap, Brain, ArrowLeft, RefreshCw, Plus, Edit, X } from "lucide-react"
-import { AIChatAssistant } from "@/components/ai/AIChatAssistant"
+import {
+  Save,
+  Play,
+  Loader2,
+  Sparkles,
+  Zap,
+  Brain,
+  ArrowLeft,
+  Undo,
+  Redo,
+  RefreshCw,
+  Plus,
+  Edit,
+  X,
+} from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 
 // Mock data for available integrations and their actions
 const AVAILABLE_INTEGRATIONS = [
@@ -25,7 +38,13 @@ const AVAILABLE_INTEGRATIONS = [
     id: "gmail",
     name: "Gmail",
     logo: "https://upload.wikimedia.org/wikipedia/commons/7/7e/Gmail_icon_%282020%29.svg",
-    triggers: ["New Email", "Email Received from Specific Sender", "Email with Attachment", "Important Email"],
+    triggers: [
+      "New Email",
+      "Email Received from Specific Sender",
+      "Email Received from Specific Sender",
+      "Email with Attachment",
+      "Important Email",
+    ],
     actions: ["Send Email", "Reply to Email", "Forward Email"],
   },
   {
@@ -108,7 +127,7 @@ const AVAILABLE_INTEGRATIONS = [
   {
     id: "trello",
     name: "Trello",
-    logo: "https://upload.wikimedia.org/wikipedia/commons/en/8/8c/Trello_logo.svg",
+    logo: "https://upload.wikimedia.org/wikipedia/en/8/8c/Trello_logo.svg",
     triggers: ["New Card", "Card Moved", "Card Updated", "Due Date Approaching"],
     actions: ["Create Card", "Move Card", "Update Card"],
   },
@@ -345,6 +364,33 @@ const TRIGGER_CONFIGS = {
       required: true,
     },
   ],
+  "Email with Attachment": [
+    {
+      key: "attachment_type",
+      label: "Attachment Type (optional)",
+      type: "select",
+      options: ["any", "pdf", "image", "document"],
+      required: false,
+    },
+    { key: "min_size_mb", label: "Minimum Size (MB)", type: "number", placeholder: "1", required: false },
+  ],
+  "Important Email": [
+    { key: "importance_level", label: "Importance Level", type: "select", options: ["high", "normal"], required: true },
+    { key: "keywords", label: "Keywords (optional)", type: "text", placeholder: "urgent, important", required: false },
+  ],
+  "File Uploaded": [
+    { key: "channel", label: "Channel (optional)", type: "text", placeholder: "#general", required: false },
+    {
+      key: "file_type",
+      label: "File Type (optional)",
+      type: "select",
+      options: ["any", "image", "document", "video"],
+      required: false,
+    },
+  ],
+  "Page Updated": [
+    { key: "page_id", label: "Page ID (optional)", type: "text", placeholder: "Page ID", required: false },
+  ],
   "Event Updated": [
     {
       key: "calendar_id",
@@ -368,6 +414,73 @@ const TRIGGER_CONFIGS = {
       required: false,
     },
   ],
+  "Cell Changed": [
+    { key: "spreadsheet_id", label: "Spreadsheet ID", type: "text", placeholder: "Spreadsheet ID", required: true },
+    { key: "range", label: "Cell Range (optional)", type: "text", placeholder: "A1:Z100", required: false },
+  ],
+  "File Shared": [
+    { key: "folder_path", label: "Folder Path (optional)", type: "text", placeholder: "/folder/path", required: false },
+    { key: "share_type", label: "Share Type", type: "select", options: ["anyone", "specific"], required: false },
+  ],
+  "Comment Added": [
+    { key: "document_id", label: "Document ID (optional)", type: "text", placeholder: "Document ID", required: false },
+  ],
+  "Document Shared": [
+    { key: "document_id", label: "Document ID (optional)", type: "text", placeholder: "Document ID", required: false },
+  ],
+  "Due Date Approaching": [
+    { key: "board_id", label: "Board ID", type: "text", placeholder: "Board ID", required: true },
+    { key: "days_before", label: "Days Before", type: "number", placeholder: "1", required: true },
+  ],
+  "Card Updated": [
+    { key: "board_id", label: "Board ID", type: "text", placeholder: "Board ID", required: true },
+    { key: "list_name", label: "List Name (optional)", type: "text", placeholder: "In Progress", required: false },
+  ],
+  "Pipeline Failed": [
+    { key: "repository", label: "Repository", type: "text", placeholder: "owner/repo", required: true },
+    { key: "branch", label: "Branch (optional)", type: "text", placeholder: "main", required: false },
+  ],
+  "Merge Request Created": [
+    { key: "repository", label: "Repository", type: "text", placeholder: "owner/repo", required: true },
+    { key: "target_branch", label: "Target Branch (optional)", type: "text", placeholder: "main", required: false },
+  ],
+  "Release Published": [
+    { key: "repository", label: "Repository", type: "text", placeholder: "owner/repo", required: true },
+    { key: "prerelease", label: "Include Prereleases", type: "select", options: ["yes", "no"], required: false },
+  ],
+  "User Joined Server": [
+    { key: "server_id", label: "Server ID (optional)", type: "text", placeholder: "Server ID", required: false },
+  ],
+  "User Left Server": [
+    { key: "server_id", label: "Server ID (optional)", type: "text", placeholder: "Server ID", required: false },
+  ],
+  "Reaction Added": [
+    { key: "channel_id", label: "Channel ID (optional)", type: "text", placeholder: "Channel ID", required: false },
+    { key: "emoji", label: "Specific Emoji (optional)", type: "text", placeholder: "👍", required: false },
+  ],
+  "Subscription Created": [
+    { key: "plan_id", label: "Plan ID (optional)", type: "text", placeholder: "price_xxx", required: false },
+    { key: "amount_min", label: "Minimum Amount (cents)", type: "number", placeholder: "1000", required: false },
+  ],
+  "Payment Failed": [
+    { key: "amount_min", label: "Minimum Amount (cents)", type: "number", placeholder: "1000", required: false },
+    {
+      key: "failure_code",
+      label: "Failure Code (optional)",
+      type: "text",
+      placeholder: "card_declined",
+      required: false,
+    },
+  ],
+  "Customer Created": [
+    {
+      key: "email_domain",
+      label: "Email Domain (optional)",
+      type: "text",
+      placeholder: "company.com",
+      required: false,
+    },
+  ],
   "Deal Updated": [
     {
       key: "pipeline_id",
@@ -379,6 +492,9 @@ const TRIGGER_CONFIGS = {
       required: false,
     },
     { key: "stage", label: "Deal Stage (optional)", type: "text", placeholder: "qualified", required: false },
+  ],
+  "Contact Updated": [
+    { key: "property", label: "Property Changed (optional)", type: "text", placeholder: "email", required: false },
   ],
   "Deal Created": [
     {
@@ -442,6 +558,7 @@ export default function WorkflowBuilder() {
 
   const { toast } = useToast()
 
+  // Add this state near the other state declarations
   const [dynamicData, setDynamicData] = useState<Record<string, any[]>>({})
 
   // Fetch integrations on mount
@@ -580,6 +697,16 @@ export default function WorkflowBuilder() {
     setSelectedAction(step.actionName)
     setCurrentConfig(step.config)
     setShowConfigModal(true)
+  }
+
+  const handleUpdateStep = () => {
+    const updatedSteps = [...workflowSteps]
+    updatedSteps[currentStepIndex] = {
+      ...updatedSteps[currentStepIndex],
+      config: currentConfig,
+    }
+    setWorkflowSteps(updatedSteps)
+    setShowConfigModal(false)
   }
 
   const handleDeleteStep = (index: number) => {
@@ -745,51 +872,13 @@ export default function WorkflowBuilder() {
   const workflowOptimizations = currentWorkflow ? optimizations[currentWorkflow.id] || [] : []
   const workflowAnomalies = currentWorkflow ? anomalies[currentWorkflow.id] || [] : []
 
+  // Update the getConfigFields function to include dynamic selects for actions
   const getConfigFields = () => {
-    const [options, setOptions] = useState<any[]>([])
-    const [isLoading, setIsLoading] = useState(false)
-
-    const fetchDynamicData = useCallback(
-      async (field: any) => {
-        const cacheKey = `${field.provider}-${field.dataType}`
-
-        if (dynamicData[cacheKey]) {
-          setOptions(dynamicData[cacheKey])
-          return
-        }
-
-        setIsLoading(true)
-        try {
-          const response = await fetch("/api/integrations/fetch-user-data", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ provider: field.provider, dataType: field.dataType }),
-          })
-
-          const result = await response.json()
-
-          if (result.success) {
-            setOptions(result.data)
-            setDynamicData((prev) => ({ ...prev, [cacheKey]: result.data }))
-          } else {
-            console.error("Failed to fetch dynamic data:", result.error)
-          }
-        } catch (error) {
-          console.error("Error fetching dynamic data:", error)
-        } finally {
-          setIsLoading(false)
-        }
-      },
-      [dynamicData],
-    )
-
     if (currentStepIndex === 0) {
       // For triggers
       return TRIGGER_CONFIGS[selectedAction as keyof typeof TRIGGER_CONFIGS] || []
     } else {
-      // For actions - return existing action config fields
+      // For actions - return existing action config fields with dynamic selects
       if (selectedAction === "Send Email") {
         return [
           { key: "to", label: "To", type: "email", placeholder: "recipient@example.com", required: true },
@@ -1075,6 +1164,7 @@ export default function WorkflowBuilder() {
     }
   }
 
+  // Update the renderConfigField function to handle dynamic_select
   const renderConfigField = (field: any) => {
     const cacheKey = `${field.provider}-${field.dataType}`
     const [options, setOptions] = useState<any[]>([])
@@ -1195,9 +1285,10 @@ export default function WorkflowBuilder() {
         "AI-based",
         "Create Contact",
         "Update Deal",
+        "Send Email", // HubSpot
         "Create Issue",
         "Create Pull Request",
-        "Add Comment",
+        "Add Comment", // GitHub
         "Create Event",
         "Update Event",
         "Delete Event",
@@ -1209,6 +1300,7 @@ export default function WorkflowBuilder() {
         "Share File",
         "Create Document",
         "Update Document",
+        "Add Comment", // Google Docs
         "Create Record",
         "Update Record",
         "Delete Record",
@@ -1216,195 +1308,350 @@ export default function WorkflowBuilder() {
         "Move Card",
         "Update Card",
         "Schedule Meeting",
+        "Share File", // Teams
         "Create Merge Request",
+        "Add Comment", // GitLab
         "Create Post",
         "Reply to Comment",
         "Share Post",
         "Upload Video",
+        "Reply to Comment", // YouTube
         "Update Video",
         "Add Subscriber",
         "Send Campaign",
         "Update Subscriber",
+        "Create Post", // LinkedIn
+        "Send Message", // LinkedIn
         "Connect with User",
         "Reply to Email",
         "Forward Email",
-        "Create Channel",
+        "Create Channel", // Slack
         "Update Status",
         "Update Database",
+        "Add Comment", // Notion
         "Create Customer",
         "Send Invoice",
         "Refund Payment",
-        "Assign Role",
+        "Assign Role", // Discord
       ]
       return configurableActions.includes(step.actionName)
     }
   }
 
-  return (
-    <AppLayout>
-      <div className="container mx-auto p-6">
-        <div className="mb-6 flex items-center justify-between">
-          <Button variant="ghost" onClick={handleBack}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Workflows
-          </Button>
-          <div className="flex items-center space-x-2">
-            <Button variant="outline" onClick={() => setShowAIGenerator(true)}>
-              <Brain className="mr-2 h-4 w-4" />
+  if (!currentWorkflow) {
+    return (
+      <AppLayout>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="text-lg font-medium text-slate-900 mb-2">No workflow selected</div>
+            <div className="text-sm text-slate-500 mb-4">
+              Create a new workflow or select an existing one to start building
+            </div>
+            <Button
+              onClick={() => setShowAIGenerator(true)}
+              className="flex items-center gap-2 hover:shadow-lg hover:scale-105 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200"
+            >
+              <Sparkles className="w-4 h-4" />
               Generate with AI
-            </Button>
-            <Button variant="outline" onClick={() => setShowOptimizer(true)}>
-              <Sparkles className="mr-2 h-4 w-4" />
-              Optimize
-            </Button>
-            <Button onClick={handleTest} disabled={testing}>
-              {testing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-2 h-4 w-4" />}
-              Test Workflow
-            </Button>
-            <Button onClick={handleSave} disabled={saving || !hasUnsavedChanges}>
-              {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-              Save Workflow
             </Button>
           </div>
         </div>
 
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold">Workflow Builder</h1>
-          <p className="text-muted-foreground">Build powerful automations by connecting your favorite apps</p>
+        <Dialog open={showAIGenerator} onOpenChange={setShowAIGenerator}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Generate Workflow with AI</DialogTitle>
+              <DialogDescription>
+                Describe what you want your workflow to do, and AI will create it for you.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <Textarea
+                placeholder="e.g., Send Slack notifications when new emails arrive from important clients"
+                value={aiPrompt}
+                onChange={(e) => setAiPrompt(e.target.value)}
+                rows={4}
+              />
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setShowAIGenerator(false)} className="flex-1">
+                  Cancel
+                </Button>
+                <Button onClick={handleGenerateWithAI} disabled={!aiPrompt.trim() || generatingAI} className="flex-1">
+                  {generatingAI ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      Generate
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <AIChatAssistant />
+      </AppLayout>
+    )
+  }
+
+  return (
+    <AppLayout>
+      <div className="h-full flex flex-col">
+        {/* Keep existing toolbar exactly as is */}
+        <div className="flex items-center justify-between p-4 bg-white border-b border-slate-200 shadow-sm">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleBack}
+              className="hover:bg-slate-50 hover:shadow-sm focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back
+            </Button>
+            <div>
+              <h1 className="text-xl font-semibold text-slate-900 flex items-center gap-2">
+                {currentWorkflow.name}
+                {hasUnsavedChanges && <span className="w-2 h-2 bg-orange-400 rounded-full" title="Unsaved changes" />}
+              </h1>
+              <p className="text-sm text-slate-500">{currentWorkflow.description}</p>
+            </div>
+          </div>
+          <div className="flex items-center space-x-2">
+            <div className="flex items-center gap-2 px-3 py-1 bg-slate-50 rounded-lg text-sm text-slate-600">
+              <span>{connectedIntegrationsCount} integrations</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleRefreshIntegrations}
+                disabled={refreshingIntegrations}
+                className="h-6 w-6 p-0 hover:bg-slate-200"
+              >
+                <RefreshCw className={`w-3 h-3 ${refreshingIntegrations ? "animate-spin" : ""}`} />
+              </Button>
+            </div>
+
+            <Button variant="outline" size="sm" disabled>
+              <Undo className="w-4 h-4" />
+            </Button>
+            <Button variant="outline" size="sm" disabled>
+              <Redo className="w-4 h-4" />
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowAIGenerator(true)}
+              className="flex items-center gap-2 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200"
+            >
+              <Sparkles className="w-4 h-4" />
+              AI Generate
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowOptimizer(true)}
+              className="flex items-center gap-2 hover:bg-purple-50 hover:text-purple-600 hover:border-purple-200"
+            >
+              <Zap className="w-4 h-4" />
+              Optimize
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleTest}
+              disabled={testing}
+              className="hover:bg-green-50 hover:text-green-600 hover:border-green-200"
+            >
+              {testing ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Testing...
+                </>
+              ) : (
+                <>
+                  <Play className="w-4 h-4 mr-2" />
+                  Test
+                </>
+              )}
+            </Button>
+            <Button size="sm" onClick={handleSave} disabled={saving} className="bg-blue-600 hover:bg-blue-700">
+              {saving ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4 mr-2" />
+                  Save
+                </>
+              )}
+            </Button>
+          </div>
         </div>
 
-        {/* Integration Status Alert */}
-        {connectedIntegrationsCount < integrations.length && (
-          <Card className="mb-6 border-orange-200 bg-orange-50">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
+        {/* AI Insights Bar */}
+        {(workflowOptimizations.length > 0 || workflowAnomalies.length > 0) && (
+          <div className="p-4 bg-gradient-to-r from-blue-50 to-purple-50 border-b border-slate-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
                 <div className="flex items-center space-x-2">
-                  <div className="h-2 w-2 rounded-full bg-orange-500" />
-                  <p className="text-sm font-medium">
-                    {connectedIntegrationsCount} of {integrations.length} integrations connected
-                  </p>
+                  <Brain className="w-5 h-5 text-blue-600" />
+                  <span className="text-sm font-medium text-slate-900">AI Insights</span>
+                </div>
+                {workflowOptimizations.length > 0 && (
+                  <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                    {workflowOptimizations.length} optimization{workflowOptimizations.length !== 1 ? "s" : ""}
+                  </Badge>
+                )}
+                {workflowAnomalies.length > 0 && (
+                  <Badge variant="destructive">
+                    {workflowAnomalies.length} anomal{workflowAnomalies.length !== 1 ? "ies" : "y"}
+                  </Badge>
+                )}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowOptimizer(true)}
+                className="text-blue-600 border-blue-200 hover:bg-blue-50"
+              >
+                View Details
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Main Canvas - Vertical Chain Builder */}
+        <div className="flex-1 bg-slate-50 overflow-y-auto">
+          <div className="max-w-2xl mx-auto py-8 px-4">
+            {workflowSteps.length === 0 ? (
+              // Empty state - single large + button
+              <div className="flex flex-col items-center justify-center min-h-[400px]">
+                <div className="text-center mb-8">
+                  <h3 className="text-lg font-medium text-slate-900 mb-2">Start Building Your Workflow</h3>
+                  <p className="text-slate-600">Click the button below to add your first step</p>
                 </div>
                 <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleRefreshIntegrations}
-                  disabled={refreshingIntegrations}
+                  onClick={() => handleAddStep(0)}
+                  size="lg"
+                  className="w-16 h-16 rounded-full bg-blue-600 hover:bg-blue-700 shadow-lg hover:shadow-xl transition-all duration-200"
                 >
-                  {refreshingIntegrations ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <RefreshCw className="mr-2 h-4 w-4" />
-                  )}
-                  Refresh
+                  <Plus className="w-8 h-8" />
                 </Button>
               </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Optimization Suggestions */}
-        {workflowOptimizations.length > 0 && (
-          <Card className="mb-6 border-blue-200 bg-blue-50">
-            <CardContent className="p-4">
-              <div className="flex items-start justify-between">
-                <div className="space-y-2">
-                  <div className="flex items-center space-x-2">
-                    <Zap className="h-4 w-4 text-blue-600" />
-                    <p className="text-sm font-medium text-blue-900">Optimization Suggestions Available</p>
-                  </div>
-                  <ul className="space-y-1">
-                    {workflowOptimizations.slice(0, 2).map((opt, index) => (
-                      <li key={index} className="text-sm text-blue-800">
-                        • {opt.description}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                <Button size="sm" variant="outline" onClick={() => setShowOptimizer(true)}>
-                  View All
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Workflow Steps */}
-        <div className="space-y-4">
-          {workflowSteps.length === 0 ? (
-            <Card className="border-dashed">
-              <CardContent className="flex flex-col items-center justify-center py-12">
-                <div className="text-center">
-                  <h3 className="text-lg font-semibold mb-2">Start Building Your Workflow</h3>
-                  <p className="text-muted-foreground mb-4">Add your first step to get started</p>
-                  <Button onClick={() => handleAddStep(0)}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add First Step
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <>
-              {workflowSteps.map((step, index) => (
-                <div key={step.id} className="relative">
-                  <Card>
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-4">
-                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-medium">
-                            {index + 1}
-                          </div>
-                          <div>
-                            <h3 className="font-semibold">{step.actionName}</h3>
-                            <p className="text-sm text-muted-foreground">{step.appName}</p>
-                            {hasConfigurableOptions(step) && (
-                              <Badge
-                                variant={Object.keys(step.config).length > 0 ? "default" : "secondary"}
-                                className="mt-1"
-                              >
-                                {Object.keys(step.config).length > 0 ? "Configured" : "Needs Configuration"}
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Button size="sm" variant="outline" onClick={() => handleEditStep(index)}>
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button size="sm" variant="outline" onClick={() => handleDeleteStep(index)}>
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
+            ) : (
+              // Workflow chain
+              <div className="space-y-4">
+                {workflowSteps.map((step, index) => (
+                  <div key={step.id} className="relative">
+                    {/* Enhanced connecting line - more prominent */}
+                    {index > 0 && (
+                      <div className="flex justify-center">
+                        <div className="w-px h-6 bg-gradient-to-b from-blue-400 to-blue-600"></div>
                       </div>
-                    </CardContent>
-                  </Card>
-                  {index < workflowSteps.length - 1 && (
-                    <div className="flex justify-center py-2">
-                      <div className="h-6 w-px bg-border" />
-                    </div>
-                  )}
-                </div>
-              ))}
-              <div className="flex justify-center">
-                <Button variant="outline" onClick={() => handleAddStep(workflowSteps.length)}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Step
-                </Button>
+                    )}
+
+                    {/* Step card with enhanced styling */}
+                    <Card className="relative bg-white border-2 border-slate-200 hover:shadow-lg hover:border-blue-300 transition-all duration-200">
+                      <CardContent className="p-6">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-4">
+                            <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center shadow-md border border-slate-200">
+                              <img
+                                src={
+                                  AVAILABLE_INTEGRATIONS.find((app) => app.id === step.appId)?.logo ||
+                                  "/placeholder.svg?height=32&width=32" ||
+                                  "/placeholder.svg" ||
+                                  "/placeholder.svg" ||
+                                  "/placeholder.svg" ||
+                                  "/placeholder.svg"
+                                }
+                                alt={step.appName}
+                                className="w-8 h-8 object-contain"
+                                onError={(e) => {
+                                  e.currentTarget.src = "/placeholder.svg?height=32&width=32"
+                                }}
+                              />
+                            </div>
+                            <div>
+                              <h4 className="font-medium text-slate-900">{step.appName}</h4>
+                              <p className="text-sm text-slate-600">{step.actionName}</p>
+                              <div className="flex items-center gap-2 mt-1">
+                                {step.type === "trigger" && (
+                                  <Badge variant="secondary" className="text-xs bg-green-100 text-green-800">
+                                    Trigger
+                                  </Badge>
+                                )}
+                                {index > 0 && (
+                                  <Badge variant="outline" className="text-xs">
+                                    Step {index + 1}
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            {hasConfigurableOptions(step) && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEditStep(index)}
+                                className="hover:bg-slate-100"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </Button>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteStep(index)}
+                              className="hover:bg-red-50 hover:text-red-600"
+                            >
+                              <X className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                ))}
+
+                {/* Single add step button at the end */}
+                {workflowSteps.length > 0 && (
+                  <div className="flex flex-col items-center mt-4">
+                    <div className="w-px h-6 bg-gradient-to-b from-blue-400 to-blue-600 mb-2"></div>
+                    <Button
+                      onClick={() => handleAddStep(workflowSteps.length)}
+                      variant="outline"
+                      className="w-12 h-12 rounded-full border-2 border-dashed border-slate-300 hover:border-blue-400 hover:bg-blue-50 shadow-sm hover:shadow-md transition-all duration-200"
+                    >
+                      <Plus className="w-5 h-5" />
+                    </Button>
+                  </div>
+                )}
               </div>
-            </>
-          )}
+            )}
+          </div>
         </div>
       </div>
 
-      {/* All the existing modals remain the same */}
       {/* App Selector Modal */}
       <Dialog open={showAppSelector} onOpenChange={setShowAppSelector}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Choose an App</DialogTitle>
-            <DialogDescription>Select the app you want to use for this workflow step.</DialogDescription>
+            <DialogDescription>Select the app you want to use for this step</DialogDescription>
           </DialogHeader>
-          <div className="grid grid-cols-2 gap-4 py-4">
+          <div className="space-y-2 mt-4">
             {AVAILABLE_INTEGRATIONS.map((app) => {
               const integration = integrations.find((i) => i.provider === app.id)
               const isConnected = integration?.status === "connected"
@@ -1413,14 +1660,22 @@ export default function WorkflowBuilder() {
                 <Button
                   key={app.id}
                   variant="outline"
-                  className="h-auto p-4 justify-start"
+                  className="w-full justify-start h-auto p-4 hover:bg-blue-50 hover:border-blue-300 transition-colors"
                   onClick={() => handleAppSelected(app)}
                 >
                   <div className="flex items-center space-x-3">
-                    <img src={app.logo || "/placeholder.svg"} alt={app.name} className="h-8 w-8" />
+                    <div className="w-8 h-8 flex items-center justify-center">
+                      <img
+                        src={app.logo || "/placeholder.svg"}
+                        alt={app.name}
+                        className="w-6 h-6 object-contain"
+                        onError={(e) => {
+                          e.currentTarget.src = "/placeholder.svg?height=24&width=24"
+                        }}
+                      />
+                    </div>
                     <div className="text-left">
-                      <div className="font-medium">{app.name}</div>
-                      <div className="text-xs text-muted-foreground">{isConnected ? "Connected" : "Not connected"}</div>
+                      <div className="font-medium text-slate-900">{app.name}</div>
                     </div>
                   </div>
                 </Button>
@@ -1430,171 +1685,253 @@ export default function WorkflowBuilder() {
         </DialogContent>
       </Dialog>
 
+      {/* Connect App Modal */}
+      <Dialog open={showConnectModal} onOpenChange={setShowConnectModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Connect {selectedApp?.name}</DialogTitle>
+            <DialogDescription>
+              You need to connect your {selectedApp?.name} account to use this app in your workflow.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-3 pt-4">
+            <Button variant="outline" onClick={() => setShowConnectModal(false)} className="flex-1">
+              Cancel
+            </Button>
+            <Button onClick={() => handleConnectApp(selectedApp?.id)} className="flex-1">
+              Connect {selectedApp?.name}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Action Selector Modal */}
       <Dialog open={showActionSelector} onOpenChange={setShowActionSelector}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Choose an Action</DialogTitle>
-            <DialogDescription>What do you want to do with {selectedApp?.name}?</DialogDescription>
+            <DialogTitle>Choose {currentStepIndex === 0 ? "a Trigger" : "an Action"}</DialogTitle>
+            <DialogDescription>Select what you want to do with {selectedApp?.name}</DialogDescription>
           </DialogHeader>
-          <div className="space-y-2 py-4">
-            {currentStepIndex === 0
-              ? // Show triggers for first step
-                selectedApp?.triggers.map((trigger) => (
+          <div className="space-y-3 mt-4">
+            {currentStepIndex === 0 ? (
+              // Show triggers for first step - smaller buttons in vertical list
+              <div className="space-y-2">
+                {selectedApp?.triggers.map((trigger: string) => (
                   <Button
                     key={trigger}
                     variant="outline"
-                    className="w-full justify-start"
+                    className="w-full justify-start h-auto p-4 hover:bg-blue-50 hover:border-blue-300 transition-colors"
                     onClick={() => handleActionSelected(trigger)}
                   >
-                    {trigger}
-                  </Button>
-                ))
-              : // Show actions for subsequent steps
-                selectedApp?.actions.map((action) => (
-                  <Button
-                    key={action}
-                    variant="outline"
-                    className="w-full justify-start"
-                    onClick={() => handleActionSelected(action)}
-                  >
-                    {action}
+                    <div className="text-left">
+                      <div className="font-medium text-slate-900">{trigger}</div>
+                      <div className="text-sm text-slate-500 mt-1">
+                        Triggers when {trigger.toLowerCase()} in {selectedApp?.name}
+                      </div>
+                    </div>
                   </Button>
                 ))}
+              </div>
+            ) : (
+              // Show actions and conditions for subsequent steps
+              <>
+                <div className="mb-4">
+                  <h4 className="font-medium text-slate-900 mb-2">Actions</h4>
+                  <div className="space-y-2">
+                    {selectedApp?.actions.map((action: string) => (
+                      <Card
+                        key={action}
+                        className="cursor-pointer hover:shadow-md transition-shadow duration-200 border hover:border-blue-200"
+                        onClick={() => handleActionSelected(action, "action")}
+                      >
+                        <CardContent className="p-3">
+                          <h5 className="font-medium text-slate-900">{action}</h5>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="font-medium text-slate-900 mb-2">Conditions</h4>
+                  <div className="space-y-2">
+                    {CONDITION_TYPES.map((condition) => (
+                      <Card
+                        key={condition.id}
+                        className="cursor-pointer hover:shadow-md transition-shadow duration-200 border hover:border-purple-200"
+                        onClick={() => handleActionSelected(condition.name, "condition")}
+                      >
+                        <CardContent className="p-3">
+                          <h5 className="font-medium text-slate-900">{condition.name}</h5>
+                          <p className="text-sm text-slate-600">{condition.description}</p>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </DialogContent>
       </Dialog>
 
       {/* Configuration Modal */}
       <Dialog open={showConfigModal} onOpenChange={setShowConfigModal}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Configure {selectedAction}</DialogTitle>
             <DialogDescription>
-              Set up the configuration for {selectedAction} with {selectedApp?.name}.
+              {currentStepIndex === 0
+                ? "Configure the trigger settings"
+                : "Fill in the required information for this action"}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 mt-4">
             {getConfigFields().map((field) => (
               <div key={field.key} className="space-y-2">
-                <Label htmlFor={field.key}>
-                  {field.label}
-                  {field.required && <span className="text-red-500 ml-1">*</span>}
+                <Label htmlFor={field.key} className="text-sm font-medium">
+                  {field.label} {field.required && "*"}
                 </Label>
                 {renderConfigField(field)}
               </div>
             ))}
           </div>
-          <div className="flex justify-end space-x-2">
-            <Button variant="outline" onClick={() => setShowConfigModal(false)}>
+
+          <div className="flex gap-3 pt-6">
+            <Button variant="outline" onClick={() => setShowConfigModal(false)} className="flex-1">
               Cancel
             </Button>
-            <Button onClick={handleConfigComplete}>
-              {currentStepIndex >= 0 && workflowSteps[currentStepIndex] ? "Update Step" : "Add Step"}
+            <Button
+              onClick={
+                currentStepIndex >= 0 && currentStepIndex < workflowSteps.length
+                  ? handleUpdateStep
+                  : handleConfigComplete
+              }
+              className="flex-1"
+              disabled={(() => {
+                const fields = getConfigFields()
+                return fields.some((field) => field.required && !currentConfig[field.key])
+              })()}
+            >
+              {currentStepIndex >= 0 && currentStepIndex < workflowSteps.length ? "Update Step" : "Add Step"}
             </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* AI Generator Modal */}
-      <Dialog open={showAIGenerator} onOpenChange={setShowAIGenerator}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>Generate Workflow with AI</DialogTitle>
-            <DialogDescription>
-              Describe what you want your workflow to do, and AI will create it for you.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <Textarea
-              placeholder="Example: When I receive an email from a client, create a task in Trello and send a Slack notification to my team..."
-              value={aiPrompt}
-              onChange={(e) => setAiPrompt(e.target.value)}
-              rows={4}
-            />
-          </div>
-          <div className="flex justify-end space-x-2">
-            <Button variant="outline" onClick={() => setShowAIGenerator(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleGenerateWithAI} disabled={generatingAI || !aiPrompt.trim()}>
-              {generatingAI ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Brain className="mr-2 h-4 w-4" />}
-              Generate Workflow
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Workflow Optimizer Modal */}
-      <Dialog open={showOptimizer} onOpenChange={setShowOptimizer}>
-        <DialogContent className="sm:max-w-[800px]">
-          <DialogHeader>
-            <DialogTitle>Workflow Optimizer</DialogTitle>
-            <DialogDescription>
-              AI-powered suggestions to improve your workflow performance and reliability.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <WorkflowOptimizer workflowId={currentWorkflow?.id || ""} />
           </div>
         </DialogContent>
       </Dialog>
 
       {/* Exit Confirmation Dialog */}
       <Dialog open={showExitDialog} onOpenChange={setShowExitDialog}>
-        <DialogContent className="sm:max-w-[400px]">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>Unsaved Changes</DialogTitle>
-            <DialogDescription>You have unsaved changes to your workflow. What would you like to do?</DialogDescription>
+            <DialogDescription>
+              You have unsaved changes. Do you want to save as a draft or discard before exiting?
+            </DialogDescription>
           </DialogHeader>
-          <div className="flex justify-end space-x-2 pt-4">
-            <Button variant="outline" onClick={handleDiscardAndExit}>
-              Discard Changes
+          <div className="flex gap-3 pt-4">
+            <Button variant="outline" onClick={() => setShowExitDialog(false)} className="flex-1">
+              Cancel
             </Button>
-            <Button onClick={handleSaveAndExit}>Save & Exit</Button>
+            <Button
+              variant="outline"
+              onClick={handleDiscardAndExit}
+              className="flex-1 hover:bg-red-50 hover:text-red-600 hover:border-red-200"
+            >
+              Discard
+            </Button>
+            <Button onClick={handleSaveAndExit} className="flex-1">
+              Save and Exit
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Connect App Modal */}
-      <Dialog open={showConnectModal} onOpenChange={setShowConnectModal}>
-        <DialogContent className="sm:max-w-[400px]">
+      {/* AI Generation Dialog */}
+      <Dialog open={showAIGenerator} onOpenChange={setShowAIGenerator}>
+        <DialogContent>
           <DialogHeader>
-            <DialogTitle>Connect {selectedApp?.name}</DialogTitle>
+            <DialogTitle>Generate Workflow with AI</DialogTitle>
             <DialogDescription>
-              You need to connect your {selectedApp?.name} account to use this integration in your workflow.
+              Describe what you want your workflow to do, and AI will create it for you.
             </DialogDescription>
           </DialogHeader>
-          <div className="flex justify-end space-x-2 pt-4">
-            <Button variant="outline" onClick={() => setShowConnectModal(false)}>
-              Cancel
-            </Button>
-            <Button onClick={() => handleConnectApp(selectedApp?.id)}>Connect {selectedApp?.name}</Button>
+          <div className="space-y-4">
+            <Textarea
+              placeholder="e.g., Send Slack notifications when new emails arrive from important clients"
+              value={aiPrompt}
+              onChange={(e) => setAiPrompt(e.target.value)}
+              rows={4}
+            />
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setShowAIGenerator(false)} className="flex-1">
+                Cancel
+              </Button>
+              <Button onClick={handleGenerateWithAI} disabled={!aiPrompt.trim() || generatingAI} className="flex-1">
+                {generatingAI ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    Generate
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* AI Dialogs */}
+      <WorkflowOptimizer open={showOptimizer} onOpenChange={setShowOptimizer} workflow={currentWorkflow} />
+
+      <AIChatAssistant />
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <DialogContent className="sm:max-w-[400px]">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete Step</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete this workflow step? This action cannot be undone.
+              Are you sure you want to delete this step? This action cannot be undone.
+              {stepToDelete >= 0 && workflowSteps[stepToDelete] && (
+                <div className="mt-2 p-3 bg-slate-50 rounded-lg">
+                  <div className="flex items-center space-x-2">
+                    <img
+                      src={
+                        AVAILABLE_INTEGRATIONS.find((app) => app.id === workflowSteps[stepToDelete].appId)?.logo ||
+                        "/placeholder.svg" ||
+                        "/placeholder.svg" ||
+                        "/placeholder.svg" ||
+                        "/placeholder.svg"
+                      }
+                      alt={workflowSteps[stepToDelete].appName}
+                      className="w-6 h-6 object-contain"
+                      onError={(e) => {
+                        e.currentTarget.src = "/placeholder.svg?height=24&width=24"
+                      }}
+                    />
+                    <div>
+                      <div className="font-medium text-slate-900">{workflowSteps[stepToDelete].appName}</div>
+                      <div className="text-sm text-slate-600">{workflowSteps[stepToDelete].actionName}</div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </DialogDescription>
           </DialogHeader>
-          <div className="flex justify-end space-x-2 pt-4">
-            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+          <div className="flex gap-3 pt-4">
+            <Button variant="outline" onClick={() => setShowDeleteDialog(false)} className="flex-1">
               Cancel
             </Button>
-            <Button variant="destructive" onClick={confirmDeleteStep}>
+            <Button variant="destructive" onClick={confirmDeleteStep} className="flex-1">
               Delete Step
             </Button>
           </div>
         </DialogContent>
       </Dialog>
-
-      <AIChatAssistant />
     </AppLayout>
   )
 }
