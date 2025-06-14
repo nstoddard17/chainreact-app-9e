@@ -611,8 +611,9 @@ export default function WorkflowBuilder() {
             ) : (
               // Workflow chain
               <div className="space-y-4">
+                {/* Remove this entire section when there are steps: */}
                 {/* Add step button at the top */}
-                <div className="flex justify-center">
+                {/* <div className="flex justify-center">
                   <Button
                     onClick={() => handleAddStep(0)}
                     variant="outline"
@@ -620,31 +621,40 @@ export default function WorkflowBuilder() {
                   >
                     <Plus className="w-5 h-5" />
                   </Button>
-                </div>
+                </div> */}
 
                 {workflowSteps.map((step, index) => (
                   <div key={step.id} className="relative">
-                    {/* Connecting line */}
+                    {/* Enhanced connecting line - more prominent */}
                     {index > 0 && (
-                      <div className="absolute left-1/2 -top-4 w-px h-4 bg-slate-300 transform -translate-x-1/2" />
+                      <div className="flex justify-center mb-2">
+                        <div className="w-px h-8 bg-gradient-to-b from-blue-400 to-blue-600"></div>
+                      </div>
                     )}
 
-                    {/* Step card */}
-                    <Card className="relative bg-white border border-slate-200 hover:shadow-md transition-shadow duration-200">
+                    {/* Step card with enhanced styling */}
+                    <Card className="relative bg-white border-2 border-slate-200 hover:shadow-lg hover:border-blue-300 transition-all duration-200">
                       <CardContent className="p-6">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center space-x-4">
-                            <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-blue-600 rounded-lg flex items-center justify-center text-white text-xl">
+                            <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-blue-600 rounded-lg flex items-center justify-center text-white text-xl shadow-md">
                               {AVAILABLE_INTEGRATIONS.find((app) => app.id === step.appId)?.icon || "⚡"}
                             </div>
                             <div>
                               <h4 className="font-medium text-slate-900">{step.appName}</h4>
                               <p className="text-sm text-slate-600">{step.actionName}</p>
-                              {step.type === "trigger" && (
-                                <Badge variant="secondary" className="mt-1 text-xs">
-                                  Trigger
-                                </Badge>
-                              )}
+                              <div className="flex items-center gap-2 mt-1">
+                                {step.type === "trigger" && (
+                                  <Badge variant="secondary" className="text-xs bg-green-100 text-green-800">
+                                    Trigger
+                                  </Badge>
+                                )}
+                                {index > 0 && (
+                                  <Badge variant="outline" className="text-xs">
+                                    Step {index + 1}
+                                  </Badge>
+                                )}
+                              </div>
                             </div>
                           </div>
                           <div className="flex items-center space-x-2">
@@ -669,12 +679,13 @@ export default function WorkflowBuilder() {
                       </CardContent>
                     </Card>
 
-                    {/* Add step button after each step */}
-                    <div className="flex justify-center mt-4">
+                    {/* Add step button after each step with connecting line */}
+                    <div className="flex flex-col items-center mt-4">
+                      <div className="w-px h-4 bg-gradient-to-b from-blue-400 to-blue-600 mb-2"></div>
                       <Button
                         onClick={() => handleAddStep(index + 1)}
                         variant="outline"
-                        className="w-12 h-12 rounded-full border-2 border-dashed border-slate-300 hover:border-blue-400 hover:bg-blue-50"
+                        className="w-12 h-12 rounded-full border-2 border-dashed border-slate-300 hover:border-blue-400 hover:bg-blue-50 shadow-sm hover:shadow-md transition-all duration-200"
                       >
                         <Plus className="w-5 h-5" />
                       </Button>
