@@ -16,6 +16,7 @@ interface AuthState {
   loading: boolean
   initialized: boolean
   error: string | null
+  hydrated: boolean
   initialize: () => Promise<void>
   signOut: () => Promise<void>
   updateProfile: (updates: Partial<User>) => Promise<void>
@@ -23,6 +24,7 @@ interface AuthState {
   signUp: (email: string, password: string, metadata?: Record<string, any>) => Promise<void>
   signInWithGoogle: () => Promise<void>
   getCurrentUserId: () => string | null
+  setHydrated: () => void
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -32,6 +34,11 @@ export const useAuthStore = create<AuthState>()(
       loading: false,
       initialized: false,
       error: null,
+      hydrated: false,
+
+      setHydrated: () => {
+        set({ hydrated: true })
+      },
 
       initialize: async () => {
         const state = get()
@@ -67,17 +74,21 @@ export const useAuthStore = create<AuthState>()(
 
             set({ user, loading: false, initialized: true })
 
-            // Start background data preloading
+            // Start background data preloading after a short delay
             console.log("User authenticated, starting background data preload...")
             setTimeout(async () => {
               try {
                 const { useIntegrationStore } = await import("./integrationStore")
                 const integrationStore = useIntegrationStore.getState()
+
+                // First fetch integrations, then preload data
+                await integrationStore.fetchIntegrations(true)
                 await integrationStore.initializeGlobalPreload()
+                console.log("Background preload completed")
               } catch (error) {
                 console.error("Background preload failed:", error)
               }
-            }, 100)
+            }, 1000)
           } else {
             console.log("No existing session found")
             set({ user: null, loading: false, initialized: true })
@@ -103,11 +114,15 @@ export const useAuthStore = create<AuthState>()(
                 try {
                   const { useIntegrationStore } = await import("./integrationStore")
                   const integrationStore = useIntegrationStore.getState()
+
+                  // First fetch integrations, then preload data
+                  await integrationStore.fetchIntegrations(true)
                   await integrationStore.initializeGlobalPreload()
+                  console.log("Background preload completed")
                 } catch (error) {
                   console.error("Background preload failed:", error)
                 }
-              }, 100)
+              }, 1000)
             } else if (event === "SIGNED_OUT") {
               console.log("User signed out")
               set({ user: null, error: null })
@@ -116,14 +131,7 @@ export const useAuthStore = create<AuthState>()(
               setTimeout(async () => {
                 try {
                   const { useIntegrationStore } = await import("./integrationStore")
-                  useIntegrationStore.setState({
-                    integrations: [],
-                    dynamicData: {},
-                    preloadProgress: {},
-                    preloadStarted: false,
-                    globalPreloadingData: false,
-                    dataLastFetched: {},
-                  })
+                  useIntegrationStore.getState().clearAllData()
                 } catch (error) {
                   console.error("Error clearing integration data:", error)
                 }
@@ -150,14 +158,7 @@ export const useAuthStore = create<AuthState>()(
           setTimeout(async () => {
             try {
               const { useIntegrationStore } = await import("./integrationStore")
-              useIntegrationStore.setState({
-                integrations: [],
-                dynamicData: {},
-                preloadProgress: {},
-                preloadStarted: false,
-                globalPreloadingData: false,
-                dataLastFetched: {},
-              })
+              useIntegrationStore.getState().clearAllData()
             } catch (error) {
               console.error("Error clearing integration data:", error)
             }
@@ -286,6 +287,10 @@ export const useAuthStore = create<AuthState>()(
         user: state.user,
         initialized: state.initialized,
       }),
+      onRehydrateStorage: () => (state) => {
+        console.log("Auth store rehydrated:", state?.user?.email || "no user")
+        state?.setHydrated()
+      },
     },
   ),
 )
