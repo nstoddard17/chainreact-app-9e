@@ -1,54 +1,82 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { useEffect } from "react"
+import { useAnalyticsStore } from "@/stores/analyticsStore"
+import { useAuthStore } from "@/stores/authStore"
+import { useIntegrationStore } from "@/stores/integrationStore"
+import AppLayout from "@/components/layout/AppLayout"
+import MetricCard from "@/components/dashboard/MetricCard"
+import ActivityFeed from "@/components/dashboard/ActivityFeed"
+import WorkflowChart from "@/components/dashboard/WorkflowChart"
+import { Workflow, Clock, Puzzle, Zap } from "lucide-react"
 
-const DashboardContent = () => {
-  const [isLoading, setIsLoading] = useState(true)
-  const [data, setData] = useState<any>(null)
-  const supabase = createClientComponentClient()
+export default function DashboardContent() {
+  const { metrics, chartData, fetchMetrics, fetchChartData } = useAnalyticsStore()
+  const { user } = useAuthStore()
+  const { integrations, fetchIntegrations } = useIntegrationStore()
 
   useEffect(() => {
-    const fetchData = async () => {
-      setIsLoading(true)
+    // Initialize dashboard data
+    const initializeDashboard = async () => {
       try {
-        const { data, error } = await supabase
-          .from("your_table") // Replace 'your_table' with your actual table name
-          .select("*")
-
-        if (error) {
-          console.error("Error fetching data:", error)
-        } else {
-          setData(data)
-        }
+        await Promise.all([fetchMetrics(), fetchChartData(), fetchIntegrations(true)])
       } catch (error) {
-        console.error("Unexpected error:", error)
-      } finally {
-        setIsLoading(false)
+        console.error("Error initializing dashboard:", error)
       }
     }
 
-    fetchData()
-  }, [supabase])
+    initializeDashboard()
+  }, [fetchMetrics, fetchChartData, fetchIntegrations])
 
-  if (isLoading) {
-    return <div>Loading...</div>
+  // Get the user's first name for personalized greeting
+  const getFirstName = () => {
+    if (user?.name) {
+      return user.name.split(" ")[0]
+    }
+    if (user?.email) {
+      return user.email.split("@")[0]
+    }
+    return "User"
   }
 
-  if (!data) {
-    return <div>No data available.</div>
-  }
+  const firstName = getFirstName()
 
   return (
-    <div>
-      <h1>Dashboard Content</h1>
-      <ul>
-        {data.map((item: any) => (
-          <li key={item.id}>{item.name}</li> // Adjust based on your table structure
-        ))}
-      </ul>
-    </div>
+    <AppLayout>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900">Dashboard</h1>
+            <p className="text-slate-600 mt-1">
+              Welcome back, {firstName}! Here's what's happening with your workflows.
+            </p>
+          </div>
+        </div>
+
+        {/* Metrics Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <MetricCard
+            title="Workflows Run"
+            value={metrics?.workflowsRun || 0}
+            icon={Workflow}
+            color="blue"
+            change="+12%"
+          />
+          <MetricCard title="Hours Saved" value={metrics?.hoursSaved || 0} icon={Clock} color="green" change="+8%" />
+          <MetricCard title="Integrations" value={integrations?.length || 0} icon={Puzzle} color="purple" change="+2" />
+          <MetricCard title="AI Commands" value={metrics?.aiCommands || 0} icon={Zap} color="yellow" change="+15%" />
+        </div>
+
+        {/* Charts and Activity */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">
+            <WorkflowChart data={chartData} />
+          </div>
+          <div className="lg:col-span-1">
+            <ActivityFeed />
+          </div>
+        </div>
+      </div>
+    </AppLayout>
   )
 }
-
-export default DashboardContent
