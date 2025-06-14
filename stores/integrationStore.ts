@@ -653,7 +653,7 @@ export const useIntegrationStore = create<IntegrationState>()(
       initializeGlobalPreload: async () => {
         const state = get()
         if (state.preloadStarted || state.globalPreloadingData) {
-          console.log("Global preload already started or in progress")
+          console.log("⚠️ Global preload already started or in progress")
           return
         }
 
@@ -691,10 +691,41 @@ export const useIntegrationStore = create<IntegrationState>()(
           })
           set({ preloadProgress: initialProgress })
 
-          // Fetch all data types with controlled concurrency
-          const batchSize = 3
-          for (let i = 0; i < relevantDataTypes.length; i += batchSize) {
-            const batch = relevantDataTypes.slice(i, i + batchSize)
+          // Fetch all data types with controlled concurrency - prioritize Notion
+          const notionTypes = relevantDataTypes.filter((dt) => dt.provider === "notion")
+          const otherTypes = relevantDataTypes.filter((dt) => dt.provider !== "notion")
+
+          // Process Notion first
+          for (const { provider, dataType } of notionTypes) {
+            try {
+              console.log(`🔄 Fetching data for ${provider}-${dataType}`)
+              const data = await get().fetchDynamicData(provider, dataType)
+              console.log(`✅ Successfully fetched ${data.length} items for ${provider}-${dataType}`)
+
+              set((state) => ({
+                preloadProgress: {
+                  ...state.preloadProgress,
+                  [`${provider}-${dataType}`]: true,
+                },
+              }))
+            } catch (error) {
+              console.error(`❌ Failed to preload ${provider}-${dataType}:`, error)
+              set((state) => ({
+                preloadProgress: {
+                  ...state.preloadProgress,
+                  [`${provider}-${dataType}`]: true,
+                },
+              }))
+            }
+
+            // Small delay between requests
+            await new Promise((resolve) => setTimeout(resolve, 500))
+          }
+
+          // Then process other types in batches
+          const batchSize = 2
+          for (let i = 0; i < otherTypes.length; i += batchSize) {
+            const batch = otherTypes.slice(i, i + batchSize)
 
             await Promise.allSettled(
               batch.map(async ({ provider, dataType }) => {
@@ -721,7 +752,7 @@ export const useIntegrationStore = create<IntegrationState>()(
               }),
             )
 
-            if (i + batchSize < relevantDataTypes.length) {
+            if (i + batchSize < otherTypes.length) {
               await new Promise((resolve) => setTimeout(resolve, 1000))
             }
           }
@@ -757,10 +788,13 @@ export const useIntegrationStore = create<IntegrationState>()(
           })
 
           if (!response.ok) {
+            const errorText = await response.text()
+            console.error(`❌ HTTP ${response.status} for ${cacheKey}:`, errorText)
             throw new Error(`HTTP ${response.status}: ${response.statusText}`)
           }
 
           const result = await response.json()
+          console.log(`📦 API response for ${cacheKey}:`, result)
 
           if (result.success) {
             const options = result.data || []
@@ -869,6 +903,7 @@ export const useIntegrationStore = create<IntegrationState>()(
           Object.keys(state?.dynamicData || {}).length,
           "cached data types",
         )
+        console.log("📊 Cached data:", Object.keys(state?.dynamicData || {}))
         state?.setHydrated()
       },
     },
