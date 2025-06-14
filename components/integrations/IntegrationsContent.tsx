@@ -10,12 +10,123 @@ import IntegrationCard from "./IntegrationCard"
 import ScopeValidationAlert from "./ScopeValidationAlert"
 import { useIntegrationStore } from "@/stores/integrationStore"
 
+// Define available integrations with their metadata
+const AVAILABLE_INTEGRATIONS = [
+  {
+    id: "notion",
+    name: "Notion",
+    description: "All-in-one workspace for notes, docs, and collaboration",
+    category: "productivity",
+    icon: "🗒️",
+    color: "#000000",
+    isAvailable: true,
+    scopes: ["read", "write"],
+  },
+  {
+    id: "slack",
+    name: "Slack",
+    description: "Team communication and collaboration platform",
+    category: "communication",
+    icon: "💬",
+    color: "#4A154B",
+    isAvailable: true,
+    scopes: ["channels:read", "users:read", "chat:write"],
+  },
+  {
+    id: "google-sheets",
+    name: "Google Sheets",
+    description: "Cloud-based spreadsheet application",
+    category: "productivity",
+    icon: "📊",
+    color: "#34A853",
+    isAvailable: true,
+    scopes: ["spreadsheets", "drive.file"],
+  },
+  {
+    id: "google-calendar",
+    name: "Google Calendar",
+    description: "Schedule and organize your time",
+    category: "productivity",
+    icon: "📅",
+    color: "#4285F4",
+    isAvailable: true,
+    scopes: ["calendar", "calendar.events"],
+  },
+  {
+    id: "gmail",
+    name: "Gmail",
+    description: "Email service by Google",
+    category: "communication",
+    icon: "📧",
+    color: "#EA4335",
+    isAvailable: true,
+    scopes: ["gmail.readonly", "gmail.send"],
+  },
+  {
+    id: "github",
+    name: "GitHub",
+    description: "Code hosting and version control",
+    category: "development",
+    icon: "🐙",
+    color: "#181717",
+    isAvailable: true,
+    scopes: ["repo", "user"],
+  },
+  {
+    id: "airtable",
+    name: "Airtable",
+    description: "Database and spreadsheet hybrid",
+    category: "productivity",
+    icon: "🗃️",
+    color: "#18BFFF",
+    isAvailable: true,
+    scopes: ["data.records:read", "data.records:write"],
+  },
+  {
+    id: "trello",
+    name: "Trello",
+    description: "Visual project management tool",
+    category: "productivity",
+    icon: "📋",
+    color: "#0079BF",
+    isAvailable: true,
+    scopes: ["read", "write"],
+  },
+  {
+    id: "dropbox",
+    name: "Dropbox",
+    description: "Cloud storage and file sharing",
+    category: "storage",
+    icon: "📦",
+    color: "#0061FF",
+    isAvailable: true,
+    scopes: ["files.content.read", "files.content.write"],
+  },
+  {
+    id: "discord",
+    name: "Discord",
+    description: "Voice, video and text communication",
+    category: "communication",
+    icon: "🎮",
+    color: "#5865F2",
+    isAvailable: true,
+    scopes: ["bot", "guilds"],
+  },
+]
+
 const IntegrationsContent = () => {
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
   const [isRefreshing, setIsRefreshing] = useState(false)
 
-  const { providers, isLoading, error, fetchIntegrations, refreshAllTokens } = useIntegrationStore()
+  const {
+    integrations = [],
+    isLoading,
+    error,
+    fetchIntegrations,
+    getIntegrationStatus,
+    clearError,
+  } = useIntegrationStore()
 
   useEffect(() => {
     fetchIntegrations()
@@ -24,14 +135,28 @@ const IntegrationsContent = () => {
   const handleRefreshAll = async () => {
     setIsRefreshing(true)
     try {
-      await refreshAllTokens()
-      await fetchIntegrations(true)
+      await fetchIntegrations()
     } catch (error) {
       console.error("Failed to refresh integrations:", error)
     } finally {
       setIsRefreshing(false)
     }
   }
+
+  // Combine available integrations with connection status
+  const providers = AVAILABLE_INTEGRATIONS.map((integration) => {
+    const connectionStatus = getIntegrationStatus(integration.id)
+    const connectedIntegration = integrations.find((i) => i.provider === integration.id)
+
+    return {
+      ...integration,
+      connected: connectionStatus === "connected",
+      status: connectionStatus,
+      connectedAt: connectedIntegration?.connectedAt,
+      lastSync: connectedIntegration?.lastSync,
+      error: connectedIntegration?.error,
+    }
+  })
 
   // Filter providers based on search and category
   const filteredProviders = providers.filter((provider) => {
@@ -55,7 +180,7 @@ const IntegrationsContent = () => {
   const availableCount = providers.filter((p) => p.isAvailable !== false).length
   const totalCount = providers.length
 
-  if (isLoading && providers.length === 0) {
+  if (isLoading && integrations.length === 0) {
     return (
       <div className="container mx-auto p-6">
         <div className="flex items-center justify-center min-h-[400px]">
@@ -172,9 +297,14 @@ const IntegrationsContent = () => {
               <div>
                 <p className="font-medium text-red-900">Unable to load integrations</p>
                 <p className="text-sm text-red-700 mt-1">{error}</p>
-                <Button variant="outline" size="sm" onClick={() => fetchIntegrations(true)} className="mt-3">
-                  Try Again
-                </Button>
+                <div className="flex gap-2 mt-3">
+                  <Button variant="outline" size="sm" onClick={() => fetchIntegrations()}>
+                    Try Again
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={clearError}>
+                    Dismiss
+                  </Button>
+                </div>
               </div>
             </div>
           </CardContent>
@@ -209,7 +339,7 @@ const IntegrationsContent = () => {
       )}
 
       {/* Loading State for Refresh */}
-      {isLoading && providers.length > 0 && (
+      {isLoading && integrations.length > 0 && (
         <div className="fixed bottom-4 right-4 bg-white border border-slate-200 rounded-lg shadow-lg p-4 flex items-center gap-3">
           <RefreshCw className="h-4 w-4 animate-spin text-blue-600" />
           <span className="text-sm font-medium">Updating integrations...</span>
