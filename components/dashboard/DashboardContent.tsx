@@ -5,9 +5,9 @@ import { useAnalyticsStore } from "@/stores/analyticsStore"
 import { useAuthStore } from "@/stores/authStore"
 import { useIntegrationStore } from "@/stores/integrationStore"
 import AppLayout from "@/components/layout/AppLayout"
-import MetricCard from "./MetricCard"
-import ActivityFeed from "./ActivityFeed"
-import WorkflowChart from "./WorkflowChart"
+import MetricCard from "@/components/dashboard/MetricCard"
+import ActivityFeed from "@/components/dashboard/ActivityFeed"
+import WorkflowChart from "@/components/dashboard/WorkflowChart"
 import { Workflow, Clock, Puzzle, Zap, Loader2 } from "lucide-react"
 
 export default function DashboardContent() {
