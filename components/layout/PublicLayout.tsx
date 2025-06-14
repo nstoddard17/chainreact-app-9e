@@ -18,9 +18,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
   const { signOut } = useAuthStore()
 
   const handlePageNavigation = (path: string) => {
-    // Close mobile menu if open
     setMobileMenuOpen(false)
-    // Scroll to top after navigation
     setTimeout(() => {
       window.scrollTo({ top: 0, behavior: "smooth" })
     }, 100)
@@ -35,7 +33,6 @@ export function PublicLayout({ children }: PublicLayoutProps) {
     setMobileMenuOpen(false)
   }
 
-  // Show loading state while checking auth
   if (!isReady) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
@@ -44,30 +41,12 @@ export function PublicLayout({ children }: PublicLayoutProps) {
     )
   }
 
-  // Extract first name from various possible sources
   const getFirstName = () => {
     if (!user) return ""
-
-    // Try user metadata first name
-    if (user.user_metadata?.first_name) {
-      return user.user_metadata.first_name
-    }
-
-    // Try user metadata full name and extract first part
-    if (user.user_metadata?.name) {
-      return user.user_metadata.name.split(" ")[0]
-    }
-
-    // Try the name field directly
-    if (user.name) {
-      return user.name.split(" ")[0]
-    }
-
-    // Fallback to email username if no name available
-    if (user.email) {
-      return user.email.split("@")[0]
-    }
-
+    if (user.user_metadata?.first_name) return user.user_metadata.first_name
+    if (user.user_metadata?.name) return user.user_metadata.name.split(" ")[0]
+    if (user.name) return user.name.split(" ")[0]
+    if (user.email) return user.email.split("@")[0]
     return "User"
   }
 
@@ -78,42 +57,47 @@ export function PublicLayout({ children }: PublicLayoutProps) {
       {/* Navigation */}
       <nav className="fixed top-0 w-full bg-white/95 backdrop-blur-sm border-b border-slate-200 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <Link href="/" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
-                  <h1 className="text-2xl font-bold text-indigo-600 cursor-pointer">ChainReact</h1>
-                </Link>
-              </div>
+          <div className="flex items-center justify-between h-16">
+            {/* Left: Logo */}
+            <div className="flex-shrink-0 w-48">
+              <Link href="/" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
+                <h1 className="text-2xl font-bold text-indigo-600 cursor-pointer">ChainReact</h1>
+              </Link>
             </div>
 
-            {/* Desktop Navigation */}
-            <div className="hidden md:block">
-              <div className="ml-10 flex items-baseline space-x-4">
-                <Link href="/#features" className="text-slate-600 hover:text-indigo-600 px-3 py-2 text-sm font-medium">
+            {/* Center: Navigation Links */}
+            <div className="hidden lg:flex items-center justify-center flex-1">
+              <div className="flex items-center space-x-8">
+                <Link
+                  href="/#features"
+                  className="text-slate-600 hover:text-indigo-600 px-3 py-2 text-sm font-medium transition-colors duration-200"
+                >
                   Features
                 </Link>
                 <Link
                   href="/#integrations"
-                  className="text-slate-600 hover:text-indigo-600 px-3 py-2 text-sm font-medium"
+                  className="text-slate-600 hover:text-indigo-600 px-3 py-2 text-sm font-medium transition-colors duration-200"
                 >
                   Integrations
                 </Link>
                 {!isAuthenticated && (
-                  <Link href="/#pricing" className="text-slate-600 hover:text-indigo-600 px-3 py-2 text-sm font-medium">
+                  <Link
+                    href="/#pricing"
+                    className="text-slate-600 hover:text-indigo-600 px-3 py-2 text-sm font-medium transition-colors duration-200"
+                  >
                     Pricing
                   </Link>
                 )}
                 <Link
                   href="/templates"
-                  className="text-slate-600 hover:text-indigo-600 px-3 py-2 text-sm font-medium"
+                  className="text-slate-600 hover:text-indigo-600 px-3 py-2 text-sm font-medium transition-colors duration-200"
                   onClick={() => handlePageNavigation("/templates")}
                 >
                   Templates
                 </Link>
                 <Link
                   href="/support"
-                  className="text-slate-600 hover:text-indigo-600 px-3 py-2 text-sm font-medium"
+                  className="text-slate-600 hover:text-indigo-600 px-3 py-2 text-sm font-medium transition-colors duration-200"
                   onClick={() => handlePageNavigation("/support")}
                 >
                   Support
@@ -121,45 +105,106 @@ export function PublicLayout({ children }: PublicLayoutProps) {
               </div>
             </div>
 
-            {/* Desktop Auth Buttons */}
-            <div className="hidden md:flex items-center space-x-4">
+            {/* Right: Auth Buttons */}
+            <div className="hidden lg:flex items-center justify-end w-48">
               {isAuthenticated ? (
-                <>
-                  <div className="flex items-center space-x-2 text-sm text-slate-600">
-                    <User className="h-4 w-4" />
-                    <span>Welcome, {firstName}!</span>
+                <div className="flex items-center space-x-3">
+                  <div className="flex items-center space-x-2 text-sm text-slate-600 whitespace-nowrap">
+                    <User className="h-4 w-4 flex-shrink-0" />
+                    <span className="font-medium">Welcome, {firstName}!</span>
                   </div>
                   <Link href="/dashboard">
-                    <Button className="bg-indigo-600 text-white hover:bg-indigo-700">Dashboard</Button>
+                    <Button
+                      size="sm"
+                      className="bg-indigo-600 text-white hover:bg-indigo-700 transition-colors duration-200"
+                    >
+                      Dashboard
+                    </Button>
                   </Link>
                   <Button
+                    size="sm"
                     variant="outline"
                     onClick={handleSignOut}
-                    className="border-slate-300 text-slate-600 hover:bg-slate-50"
+                    className="border-slate-300 text-slate-600 hover:bg-slate-50 transition-colors duration-200"
                   >
-                    <LogOut className="h-4 w-4 mr-2" />
-                    Sign Out
+                    <LogOut className="h-4 w-4" />
                   </Button>
-                </>
+                </div>
               ) : (
-                <>
+                <div className="flex items-center space-x-3">
                   <Link href="/auth/login">
-                    <Button className="border-2 border-indigo-600 text-indigo-600 bg-white hover:bg-indigo-50">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-slate-600 hover:text-indigo-600 transition-colors duration-200"
+                    >
                       Login
                     </Button>
                   </Link>
                   <Link href="/auth/register">
-                    <Button className="bg-indigo-600 text-white hover:bg-indigo-700">Sign Up</Button>
+                    <Button
+                      size="sm"
+                      className="bg-indigo-600 text-white hover:bg-indigo-700 transition-colors duration-200"
+                    >
+                      Sign Up
+                    </Button>
                   </Link>
-                </>
+                </div>
+              )}
+            </div>
+
+            {/* Medium screens: Simplified layout */}
+            <div className="hidden md:flex lg:hidden items-center space-x-6 flex-1 justify-end">
+              <div className="flex items-center space-x-6">
+                <Link href="/#features" className="text-slate-600 hover:text-indigo-600 text-sm font-medium">
+                  Features
+                </Link>
+                <Link href="/#integrations" className="text-slate-600 hover:text-indigo-600 text-sm font-medium">
+                  Integrations
+                </Link>
+                <Link href="/support" className="text-slate-600 hover:text-indigo-600 text-sm font-medium">
+                  Support
+                </Link>
+              </div>
+
+              {isAuthenticated ? (
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm text-slate-600">Hi, {firstName}!</span>
+                  <Link href="/dashboard">
+                    <Button size="sm" className="bg-indigo-600 text-white hover:bg-indigo-700">
+                      Dashboard
+                    </Button>
+                  </Link>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleSignOut}
+                    className="border-slate-300 text-slate-600 hover:bg-slate-50"
+                  >
+                    <LogOut className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center space-x-2">
+                  <Link href="/auth/login">
+                    <Button size="sm" variant="ghost">
+                      Login
+                    </Button>
+                  </Link>
+                  <Link href="/auth/register">
+                    <Button size="sm" className="bg-indigo-600 text-white hover:bg-indigo-700">
+                      Sign Up
+                    </Button>
+                  </Link>
+                </div>
               )}
             </div>
 
             {/* Mobile menu button */}
-            <div className="md:hidden">
+            <div className="md:hidden flex items-center">
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="text-slate-600 hover:text-indigo-600"
+                className="text-slate-600 hover:text-indigo-600 p-2 transition-colors duration-200"
               >
                 {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
               </button>
@@ -169,81 +214,82 @@ export function PublicLayout({ children }: PublicLayoutProps) {
 
         {/* Mobile Navigation */}
         {mobileMenuOpen && (
-          <div className="md:hidden">
-            <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-white border-t border-slate-200">
-              <Link
-                href="/#features"
-                className="text-slate-600 hover:text-indigo-600 block px-3 py-2 text-base font-medium"
-                onClick={handleMobileMenuClose}
-              >
-                Features
-              </Link>
-              <Link
-                href="/#integrations"
-                className="text-slate-600 hover:text-indigo-600 block px-3 py-2 text-base font-medium"
-                onClick={handleMobileMenuClose}
-              >
-                Integrations
-              </Link>
-              {!isAuthenticated && (
+          <div className="md:hidden border-t border-slate-200 bg-white">
+            <div className="px-4 py-3 space-y-3">
+              {/* Navigation Links */}
+              <div className="space-y-2">
                 <Link
-                  href="/#pricing"
-                  className="text-slate-600 hover:text-indigo-600 block px-3 py-2 text-base font-medium"
+                  href="/#features"
+                  className="block text-slate-600 hover:text-indigo-600 py-2 text-base font-medium transition-colors duration-200"
                   onClick={handleMobileMenuClose}
                 >
-                  Pricing
+                  Features
                 </Link>
-              )}
-              <Link
-                href="/templates"
-                className="text-slate-600 hover:text-indigo-600 block px-3 py-2 text-base font-medium"
-                onClick={() => handlePageNavigation("/templates")}
-              >
-                Templates
-              </Link>
-              <Link
-                href="/support"
-                className="text-slate-600 hover:text-indigo-600 block px-3 py-2 text-base font-medium"
-                onClick={() => handlePageNavigation("/support")}
-              >
-                Support
-              </Link>
+                <Link
+                  href="/#integrations"
+                  className="block text-slate-600 hover:text-indigo-600 py-2 text-base font-medium transition-colors duration-200"
+                  onClick={handleMobileMenuClose}
+                >
+                  Integrations
+                </Link>
+                {!isAuthenticated && (
+                  <Link
+                    href="/#pricing"
+                    className="block text-slate-600 hover:text-indigo-600 py-2 text-base font-medium transition-colors duration-200"
+                    onClick={handleMobileMenuClose}
+                  >
+                    Pricing
+                  </Link>
+                )}
+                <Link
+                  href="/templates"
+                  className="block text-slate-600 hover:text-indigo-600 py-2 text-base font-medium transition-colors duration-200"
+                  onClick={() => handlePageNavigation("/templates")}
+                >
+                  Templates
+                </Link>
+                <Link
+                  href="/support"
+                  className="block text-slate-600 hover:text-indigo-600 py-2 text-base font-medium transition-colors duration-200"
+                  onClick={() => handlePageNavigation("/support")}
+                >
+                  Support
+                </Link>
+              </div>
 
-              {/* Mobile Auth Section */}
-              <div className="pt-4 pb-3 border-t border-slate-200">
+              {/* Auth Section */}
+              <div className="pt-4 border-t border-slate-200">
                 {isAuthenticated ? (
-                  <>
-                    <div className="px-3 py-2">
-                      <div className="flex items-center space-x-2 text-sm text-slate-600">
-                        <User className="h-4 w-4" />
-                        <span>Welcome, {firstName}!</span>
-                      </div>
+                  <div className="space-y-3">
+                    <div className="flex items-center space-x-2 text-slate-600">
+                      <User className="h-4 w-4" />
+                      <span className="font-medium">Welcome, {firstName}!</span>
                     </div>
-                    <Link href="/dashboard" className="block px-3 py-2">
-                      <Button className="w-full bg-indigo-600 text-white hover:bg-indigo-700">Dashboard</Button>
-                    </Link>
-                    <div className="px-3 py-2">
+                    <div className="flex space-x-3">
+                      <Link href="/dashboard" className="flex-1">
+                        <Button className="w-full bg-indigo-600 text-white hover:bg-indigo-700">Dashboard</Button>
+                      </Link>
                       <Button
                         variant="outline"
                         onClick={handleSignOut}
-                        className="w-full border-slate-300 text-slate-600 hover:bg-slate-50"
+                        className="border-slate-300 text-slate-600 hover:bg-slate-50"
                       >
                         <LogOut className="h-4 w-4 mr-2" />
                         Sign Out
                       </Button>
                     </div>
-                  </>
+                  </div>
                 ) : (
-                  <>
-                    <Link href="/auth/login" className="block px-3 py-2">
-                      <Button className="w-full border-2 border-indigo-600 text-indigo-600 bg-white hover:bg-indigo-50">
+                  <div className="flex space-x-3">
+                    <Link href="/auth/login" className="flex-1">
+                      <Button variant="outline" className="w-full border-indigo-600 text-indigo-600 hover:bg-indigo-50">
                         Login
                       </Button>
                     </Link>
-                    <Link href="/auth/register" className="block px-3 py-2">
+                    <Link href="/auth/register" className="flex-1">
                       <Button className="w-full bg-indigo-600 text-white hover:bg-indigo-700">Sign Up</Button>
                     </Link>
-                  </>
+                  </div>
                 )}
               </div>
             </div>
@@ -269,18 +315,18 @@ export function PublicLayout({ children }: PublicLayoutProps) {
               <h4 className="font-semibold mb-4 text-indigo-300">Product</h4>
               <ul className="space-y-2 text-slate-400">
                 <li>
-                  <Link href="/#features" className="hover:text-indigo-300">
+                  <Link href="/#features" className="hover:text-indigo-300 transition-colors duration-200">
                     Features
                   </Link>
                 </li>
                 <li>
-                  <Link href="/#integrations" className="hover:text-indigo-300">
+                  <Link href="/#integrations" className="hover:text-indigo-300 transition-colors duration-200">
                     Integrations
                   </Link>
                 </li>
                 {!isAuthenticated && (
                   <li>
-                    <Link href="/#pricing" className="hover:text-indigo-300">
+                    <Link href="/#pricing" className="hover:text-indigo-300 transition-colors duration-200">
                       Pricing
                     </Link>
                   </li>
@@ -288,7 +334,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
                 <li>
                   <Link
                     href="/templates"
-                    className="hover:text-indigo-300"
+                    className="hover:text-indigo-300 transition-colors duration-200"
                     onClick={() => handlePageNavigation("/templates")}
                   >
                     Templates
@@ -301,24 +347,24 @@ export function PublicLayout({ children }: PublicLayoutProps) {
               <h4 className="font-semibold mb-4 text-indigo-300">Company</h4>
               <ul className="space-y-2 text-slate-400">
                 <li>
-                  <Link href="/community" className="hover:text-indigo-300">
+                  <Link href="/community" className="hover:text-indigo-300 transition-colors duration-200">
                     Community
                   </Link>
                 </li>
                 <li>
-                  <Link href="/learn" className="hover:text-indigo-300">
+                  <Link href="/learn" className="hover:text-indigo-300 transition-colors duration-200">
                     Learn
                   </Link>
                 </li>
                 <li>
-                  <Link href="/enterprise" className="hover:text-indigo-300">
+                  <Link href="/enterprise" className="hover:text-indigo-300 transition-colors duration-200">
                     Enterprise
                   </Link>
                 </li>
                 <li>
                   <Link
                     href="/support"
-                    className="hover:text-indigo-300"
+                    className="hover:text-indigo-300 transition-colors duration-200"
                     onClick={() => handlePageNavigation("/support")}
                   >
                     Support
@@ -331,19 +377,19 @@ export function PublicLayout({ children }: PublicLayoutProps) {
               <h4 className="font-semibold mb-4 text-indigo-300">Legal</h4>
               <ul className="space-y-2 text-slate-400">
                 <li>
-                  <Link href="/privacy" className="hover:text-indigo-300">
+                  <Link href="/privacy" className="hover:text-indigo-300 transition-colors duration-200">
                     Privacy Policy
                   </Link>
                 </li>
                 <li>
-                  <Link href="/terms" className="hover:text-indigo-300">
+                  <Link href="/terms" className="hover:text-indigo-300 transition-colors duration-200">
                     Terms of Service
                   </Link>
                 </li>
                 <li>
                   <Link
                     href="/support"
-                    className="hover:text-indigo-300"
+                    className="hover:text-indigo-300 transition-colors duration-200"
                     onClick={() => handlePageNavigation("/support")}
                   >
                     Support
@@ -362,5 +408,4 @@ export function PublicLayout({ children }: PublicLayoutProps) {
   )
 }
 
-// Export as default for compatibility
 export default PublicLayout
