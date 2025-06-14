@@ -28,8 +28,6 @@ import {
   RefreshCw,
   Plus,
   Edit,
-  CheckCircle,
-  AlertCircle,
   X,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
@@ -826,38 +824,30 @@ export default function WorkflowBuilder() {
 
       {/* App Selector Modal */}
       <Dialog open={showAppSelector} onOpenChange={setShowAppSelector}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Choose an App</DialogTitle>
             <DialogDescription>Select the app you want to use for this step</DialogDescription>
           </DialogHeader>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4">
+          <div className="space-y-2 mt-4">
             {AVAILABLE_INTEGRATIONS.map((app) => {
               const integration = integrations.find((i) => i.provider === app.id)
               const isConnected = integration?.status === "connected"
 
               return (
-                <Card
+                <Button
                   key={app.id}
-                  className="cursor-pointer hover:shadow-md transition-shadow duration-200 border-2 hover:border-blue-200"
+                  variant="outline"
+                  className="w-full justify-start h-auto p-4 hover:bg-blue-50 hover:border-blue-300 transition-colors"
                   onClick={() => handleAppSelected(app)}
                 >
-                  <CardContent className="p-4 text-center">
-                    <div className="text-3xl mb-2">{app.icon}</div>
-                    <h3 className="font-medium text-slate-900 mb-1">{app.name}</h3>
-                    {isConnected ? (
-                      <div className="flex items-center justify-center text-green-600 text-sm">
-                        <CheckCircle className="w-4 h-4 mr-1" />
-                        Connected
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-center text-slate-500 text-sm">
-                        <AlertCircle className="w-4 h-4 mr-1" />
-                        Not Connected
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
+                  <div className="flex items-center space-x-3">
+                    <div className="text-2xl">{app.icon}</div>
+                    <div className="text-left">
+                      <div className="font-medium text-slate-900">{app.name}</div>
+                    </div>
+                  </div>
+                </Button>
               )
             })}
           </div>
