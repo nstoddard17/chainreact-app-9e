@@ -1,5 +1,7 @@
 "use client"
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useMemo } from "react"
+import type React from "react"
+
 import { useSearchParams, useRouter } from "next/navigation"
 import AppLayout from "@/components/layout/AppLayout"
 import { useWorkflowStore } from "@/stores/workflowStore"
@@ -38,13 +40,7 @@ const AVAILABLE_INTEGRATIONS = [
     id: "gmail",
     name: "Gmail",
     logo: "https://upload.wikimedia.org/wikipedia/commons/7/7e/Gmail_icon_%282020%29.svg",
-    triggers: [
-      "New Email",
-      "Email Received from Specific Sender",
-      "Email Received from Specific Sender",
-      "Email with Attachment",
-      "Important Email",
-    ],
+    triggers: ["New Email", "Email Received from Specific Sender", "Email with Attachment", "Important Email"],
     actions: ["Send Email", "Reply to Email", "Forward Email"],
   },
   {
@@ -340,7 +336,7 @@ const TRIGGER_CONFIGS = {
       placeholder: "Select a repository",
       required: true,
     },
-    { key: "branch", label: "Branch (optional)", type = "text", placeholder = "main", required = false },
+    { key: "branch", label: "Branch (optional)", type: "text", placeholder: "main", required: false },
   ],
   "New Issue": [
     {
@@ -422,100 +418,6 @@ const TRIGGER_CONFIGS = {
       required: false,
     },
   ],
-  "Cell Changed": [
-    { key: "spreadsheet_id", label: "Spreadsheet ID", type: "text", placeholder: "Spreadsheet ID", required: true },
-    { key: "range", label: "Cell Range (optional)", type: "text", placeholder: "A1:Z100", required: false },
-  ],
-  "File Shared": [
-    { key: "folder_path", label: "Folder Path (optional)", type: "text", placeholder: "/folder/path", required: false },
-    { key: "share_type", label: "Share Type", type: "select", options: ["anyone", "specific"], required: false },
-  ],
-  "Comment Added": [
-    { key: "document_id", label: "Document ID (optional)", type: "text", placeholder: "Document ID", required: false },
-  ],
-  "Document Shared": [
-    { key: "document_id", label: "Document ID (optional)", type: "text", placeholder: "Document ID", required: false },
-  ],
-  "Due Date Approaching": [
-    { key: "board_id", label: "Board ID", type: "text", placeholder: "Board ID", required: true },
-    { key: "days_before", label: "Days Before", type: "number", placeholder: "1", required: true },
-  ],
-  "Card Updated": [
-    { key: "board_id", label: "Board ID", type: "text", placeholder: "Board ID", required: true },
-    { key: "list_name", label: "List Name (optional)", type = "text", placeholder = "In Progress", required = false },
-  ],
-  "Pipeline Failed": [
-    { key: "repository", label: "Repository", type: "text", placeholder: "owner/repo", required: true },
-    { key: "branch", label: "Branch (optional)", type = "text", placeholder = "main", required = false },
-  ],
-  "Merge Request Created": [
-    { key: "repository", label: "Repository", type: "text", placeholder: "owner/repo", required: true },
-    { key: "target_branch", label: "Target Branch (optional)", type = "text", placeholder = "main", required = false },
-  ],
-  "Release Published": [
-    { key: "repository", label: "Repository", type: "text", placeholder: "owner/repo", required: true },
-    { key: "prerelease", label: "Include Prereleases", type = "select", options = ["yes", "no"], required = false },
-  ],
-  "User Joined Server": [
-    { key: "server_id", label: "Server ID (optional)", type = "text", placeholder = "Server ID", required = false },
-  ],
-  "User Left Server": [
-    { key: "server_id", label: "Server ID (optional)", type = "text", placeholder = "Server ID", required = false },
-  ],
-  "Reaction Added": [
-    { key: "channel_id", label: "Channel ID (optional)", type = "text", placeholder = "Channel ID", required = false },
-    { key: "emoji", label: "Specific Emoji (optional)", type = "text", placeholder = "👍", required = false },
-  ],
-  "Subscription Created": [
-    { key: "plan_id", label: "Plan ID (optional)", type = "text", placeholder = "price_xxx", required = false },
-    { key: "amount_min", label: "Minimum Amount (cents)", type = "number", placeholder = "1000", required = false },
-  ],
-  "Payment Failed": [
-    { key: "amount_min", label: "Minimum Amount (cents)", type = "number", placeholder = "1000", required = false },
-    {
-      key: "failure_code",
-      label: "Failure Code (optional)",
-      type: "text",
-      placeholder: "card_declined",
-      required: false,
-    },
-  ],
-  "Customer Created": [
-    {
-      key: "email_domain",
-      label: "Email Domain (optional)",
-      type: "text",
-      placeholder: "company.com",
-      required: false,
-    },
-  ],
-  "Deal Updated": [
-    {
-      key: "pipeline_id",
-      label: "Pipeline",
-      type: "dynamic_select",
-      provider: "hubspot",
-      dataType: "pipelines",
-      placeholder: "Select a pipeline",
-      required: false,
-    },
-    { key: "stage", label: "Deal Stage (optional)", type = "text", placeholder = "qualified", required = false },
-  ],
-  "Contact Updated": [
-    { key: "property", label: "Property Changed (optional)", type = "text", placeholder = "email", required = false },
-  ],
-  "Deal Created": [
-    {
-      key: "pipeline_id",
-      label: "Pipeline",
-      type: "dynamic_select",
-      provider: "hubspot",
-      dataType: "pipelines",
-      placeholder: "Select a pipeline",
-      required: false,
-    },
-    { key: "amount_min", label: "Minimum Amount", type = "number", placeholder = "1000", required = false },
-  ],
 }
 
 interface WorkflowStep {
@@ -573,13 +475,14 @@ export default function WorkflowBuilder() {
 
   const { toast } = useToast()
 
-  // Dynamic data states - moved to top level
+  // Dynamic data states
   const [dynamicData, setDynamicData] = useState<Record<string, any[]>>({})
   const [fieldLoadingStates, setFieldLoadingStates] = useState<Record<string, boolean>>({})
   const [preloadingData, setPreloadingData] = useState(false)
+  const [fetchingData, setFetchingData] = useState<Set<string>>(new Set())
 
-  // Get all possible dynamic data types that could be needed
-  const getAllDynamicDataTypes = useCallback(() => {
+  // Memoized function to get all possible dynamic data types
+  const getAllDynamicDataTypes = useMemo(() => {
     const dataTypes: Array<{ provider: string; dataType: string }> = []
 
     // Add all dynamic selects from trigger configs
@@ -618,16 +521,18 @@ export default function WorkflowBuilder() {
     )
   }, [])
 
-  // Fetch dynamic data function
+  // Improved fetchDynamicData function with race condition protection
   const fetchDynamicData = useCallback(
     async (provider: string, dataType: string) => {
       const cacheKey = `${provider}-${dataType}`
 
       // Check if we already have this data or are currently loading it
-      if (dynamicData[cacheKey] || fieldLoadingStates[cacheKey]) {
+      if (dynamicData[cacheKey] || fieldLoadingStates[cacheKey] || fetchingData.has(cacheKey)) {
         return
       }
 
+      // Mark as fetching to prevent race conditions
+      setFetchingData((prev) => new Set(prev).add(cacheKey))
       setFieldLoadingStates((prev) => ({ ...prev, [cacheKey]: true }))
 
       try {
@@ -653,22 +558,27 @@ export default function WorkflowBuilder() {
         setDynamicData((prev) => ({ ...prev, [cacheKey]: [] }))
       } finally {
         setFieldLoadingStates((prev) => ({ ...prev, [cacheKey]: false }))
+        setFetchingData((prev) => {
+          const newSet = new Set(prev)
+          newSet.delete(cacheKey)
+          return newSet
+        })
       }
     },
-    [dynamicData, fieldLoadingStates],
+    [dynamicData, fieldLoadingStates, fetchingData],
   )
+
+  // Memoized connected providers to prevent unnecessary re-renders
+  const connectedProviders = useMemo(() => {
+    return integrations.filter((i) => i.status === "connected").map((i) => i.provider)
+  }, [integrations])
 
   // Pre-load all integration data when component mounts
   const preloadAllIntegrationData = useCallback(async () => {
-    if (preloadingData) return
+    if (preloadingData || connectedProviders.length === 0) return
 
     setPreloadingData(true)
-    const allDataTypes = getAllDynamicDataTypes()
-
-    // Only fetch data for connected integrations
-    const connectedProviders = integrations.filter((i) => i.status === "connected").map((i) => i.provider)
-
-    const relevantDataTypes = allDataTypes.filter((dt) => connectedProviders.includes(dt.provider))
+    const relevantDataTypes = getAllDynamicDataTypes.filter((dt) => connectedProviders.includes(dt.provider))
 
     // Fetch all data types in parallel, but limit concurrency
     const batchSize = 3
@@ -678,7 +588,7 @@ export default function WorkflowBuilder() {
     }
 
     setPreloadingData(false)
-  }, [integrations, getAllDynamicDataTypes, fetchDynamicData, preloadingData])
+  }, [getAllDynamicDataTypes, connectedProviders, fetchDynamicData, preloadingData])
 
   // Pre-fetch dynamic data when config modal opens (fallback)
   useEffect(() => {
@@ -698,12 +608,12 @@ export default function WorkflowBuilder() {
     fetchIntegrations()
   }, [fetchIntegrations])
 
-  // Pre-load integration data when integrations are loaded
+  // Pre-load integration data when integrations are loaded - with stable dependencies
   useEffect(() => {
-    if (integrations.length > 0 && !preloadingData) {
+    if (connectedProviders.length > 0 && !preloadingData) {
       preloadAllIntegrationData()
     }
-  }, [integrations, preloadAllIntegrationData, preloadingData])
+  }, [connectedProviders.length, preloadingData, preloadAllIntegrationData])
 
   // Ensure global preloading is started
   useEffect(() => {
@@ -1313,7 +1223,7 @@ export default function WorkflowBuilder() {
     }
   }
 
-  // Simplified renderConfigField function - no hooks inside
+  // Improved renderConfigField function with better error handling
   const renderConfigField = (field: any) => {
     if (field.type === "dynamic_select") {
       const cacheKey = `${field.provider}-${field.dataType}`
@@ -1343,11 +1253,18 @@ export default function WorkflowBuilder() {
             ) : options.length === 0 ? (
               <div className="p-2 text-sm text-muted-foreground">No items found</div>
             ) : (
-              options.map((option: any) => (
-                <SelectItem key={option.id || option.value} value={option.id || option.value}>
-                  {option.name || option.label || option.title}
-                </SelectItem>
-              ))
+              options.map((option: any, index: number) => {
+                // Ensure unique and valid keys with defensive checks
+                const key = option.id || option.value || option.name || `option-${index}`
+                const value = option.id || option.value || option.name || ""
+                const label = option.name || option.label || option.title || value || "Unknown"
+
+                return (
+                  <SelectItem key={key} value={value}>
+                    {label}
+                  </SelectItem>
+                )
+              })
             )}
           </SelectContent>
         </Select>
@@ -1411,10 +1328,9 @@ export default function WorkflowBuilder() {
         "AI-based",
         "Create Contact",
         "Update Deal",
-        "Send Email", // HubSpot
         "Create Issue",
         "Create Pull Request",
-        "Add Comment", // GitHub
+        "Add Comment",
         "Create Event",
         "Update Event",
         "Delete Event",
@@ -1426,7 +1342,6 @@ export default function WorkflowBuilder() {
         "Share File",
         "Create Document",
         "Update Document",
-        "Add Comment", // Google Docs
         "Create Record",
         "Update Record",
         "Delete Record",
@@ -1434,33 +1349,36 @@ export default function WorkflowBuilder() {
         "Move Card",
         "Update Card",
         "Schedule Meeting",
-        "Share File", // Teams
         "Create Merge Request",
-        "Add Comment", // GitLab
         "Create Post",
         "Reply to Comment",
         "Share Post",
         "Upload Video",
-        "Reply to Comment", // YouTube
         "Update Video",
         "Add Subscriber",
         "Send Campaign",
         "Update Subscriber",
-        "Create Post", // LinkedIn
-        "Send Message", // LinkedIn
         "Connect with User",
         "Reply to Email",
         "Forward Email",
-        "Create Channel", // Slack
+        "Create Channel",
         "Update Status",
         "Update Database",
-        "Add Comment", // Notion
         "Create Customer",
         "Send Invoice",
         "Refund Payment",
-        "Assign Role", // Discord
+        "Assign Role",
       ]
       return configurableActions.includes(step.actionName)
+    }
+  }
+
+  // Improved image error handler to prevent infinite loops
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+    const target = e.currentTarget
+    if (target.src !== "/placeholder.svg?height=32&width=32") {
+      target.onerror = null // Prevent infinite loop
+      target.src = "/placeholder.svg?height=32&width=32"
     }
   }
 
@@ -1528,7 +1446,7 @@ export default function WorkflowBuilder() {
   return (
     <AppLayout>
       <div className="h-full flex flex-col">
-        {/* Keep existing toolbar exactly as is */}
+        {/* Toolbar */}
         <div className="flex items-center justify-between p-4 bg-white border-b border-slate-200 shadow-sm">
           <div className="flex items-center gap-4">
             <Button
@@ -1569,7 +1487,6 @@ export default function WorkflowBuilder() {
               </div>
             )}
 
-            {/* Show progress if we have detailed progress info */}
             {globalPreloadingData && Object.keys(preloadProgress).length > 0 && (
               <div className="text-xs text-slate-500">
                 {Object.values(preloadProgress).filter(Boolean).length}/{Object.keys(preloadProgress).length}
@@ -1710,15 +1627,11 @@ export default function WorkflowBuilder() {
                                 src={
                                   AVAILABLE_INTEGRATIONS.find((app) => app.id === step.appId)?.logo ||
                                   "/placeholder.svg?height=32&width=32" ||
-                                  "/placeholder.svg" ||
-                                  "/placeholder.svg" ||
                                   "/placeholder.svg"
                                 }
                                 alt={step.appName}
                                 className="w-8 h-8 object-contain"
-                                onError={(e) => {
-                                  e.currentTarget.src = "/placeholder.svg?height=32&width=32"
-                                }}
+                                onError={handleImageError}
                               />
                             </div>
                             <div>
@@ -1809,7 +1722,11 @@ export default function WorkflowBuilder() {
                         alt={app.name}
                         className="w-6 h-6 object-contain"
                         onError={(e) => {
-                          e.currentTarget.src = "/placeholder.svg?height=24&width=24"
+                          const target = e.currentTarget
+                          if (target.src !== "/placeholder.svg?height=24&width=24") {
+                            target.onerror = null
+                            target.src = "/placeholder.svg?height=24&width=24"
+                          }
                         }}
                       />
                     </div>
@@ -2041,14 +1958,17 @@ export default function WorkflowBuilder() {
                     <img
                       src={
                         AVAILABLE_INTEGRATIONS.find((app) => app.id === workflowSteps[stepToDelete].appId)?.logo ||
-                        "/placeholder.svg" ||
-                        "/placeholder.svg" ||
+                        "/placeholder.svg?height=24&width=24" ||
                         "/placeholder.svg"
                       }
                       alt={workflowSteps[stepToDelete].appName}
                       className="w-6 h-6 object-contain"
                       onError={(e) => {
-                        e.currentTarget.src = "/placeholder.svg?height=24&width=24"
+                        const target = e.currentTarget
+                        if (target.src !== "/placeholder.svg?height=24&width=24") {
+                          target.onerror = null
+                          target.src = "/placeholder.svg?height=24&width=24"
+                        }
                       }}
                     />
                     <div>
