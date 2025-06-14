@@ -96,12 +96,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         } else if (event === "SIGNED_OUT") {
           set({ user: null, error: null })
 
-          // Clear integration data on sign out
+          // Clear integration data on sign out properly
           const integrationStore = useIntegrationStore.getState()
-          integrationStore.integrations = []
-          integrationStore.dynamicData = {}
-          integrationStore.preloadProgress = {}
-          integrationStore.preloadStarted = false
+          if (integrationStore.clearAllData) {
+            integrationStore.clearAllData()
+          } else {
+            useIntegrationStore.setState({
+              integrations: [],
+              dynamicData: {},
+              preloadProgress: {},
+              preloadStarted: false,
+              globalPreloadingData: false,
+            })
+          }
         }
       })
     } catch (error: any) {
@@ -119,13 +126,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // Clear all stores
       set({ user: null, loading: false, error: null })
 
-      // Clear integration store
+      // Clear integration store properly
       const integrationStore = useIntegrationStore.getState()
-      integrationStore.integrations = []
-      integrationStore.dynamicData = {}
-      integrationStore.preloadProgress = {}
-      integrationStore.preloadStarted = false
-      integrationStore.globalPreloadingData = false
+      if (integrationStore.clearAllData) {
+        integrationStore.clearAllData()
+      } else {
+        useIntegrationStore.setState({
+          integrations: [],
+          dynamicData: {},
+          preloadProgress: {},
+          preloadStarted: false,
+          globalPreloadingData: false,
+        })
+      }
     } catch (error: any) {
       console.error("Sign out error:", error)
       set({ error: error.message, loading: false })
