@@ -28,6 +28,9 @@ export function getOAuthProvider(provider: string): OAuthProvider {
     case "github":
       return {
         generateAuthUrl: (baseUrl: string, reconnect = false, integrationId?: string, userId?: string) => {
+          const clientId = process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID
+          if (!clientId) throw new Error("GitHub client ID not configured")
+
           const state = btoa(
             JSON.stringify({
               provider: "github",
@@ -39,7 +42,7 @@ export function getOAuthProvider(provider: string): OAuthProvider {
           )
 
           const params = new URLSearchParams({
-            client_id: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID!,
+            client_id: clientId,
             redirect_uri: `${baseUrl}/api/integrations/github/callback`,
             scope: "repo user",
             state,
@@ -48,6 +51,11 @@ export function getOAuthProvider(provider: string): OAuthProvider {
           return `https://github.com/login/oauth/authorize?${params.toString()}`
         },
         exchangeCodeForToken: async (code: string) => {
+          // This should only be called server-side
+          if (typeof window !== "undefined") {
+            throw new Error("Token exchange must be done server-side")
+          }
+
           const response = await fetch("https://github.com/login/oauth/access_token", {
             method: "POST",
             headers: {
@@ -81,6 +89,9 @@ export function getOAuthProvider(provider: string): OAuthProvider {
     case "youtube":
       return {
         generateAuthUrl: (baseUrl: string, reconnect = false, integrationId?: string, userId?: string) => {
+          const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
+          if (!clientId) throw new Error("Google client ID not configured")
+
           const scopes = getGoogleScopes(provider)
           const state = btoa(
             JSON.stringify({
@@ -93,7 +104,7 @@ export function getOAuthProvider(provider: string): OAuthProvider {
           )
 
           const params = new URLSearchParams({
-            client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!,
+            client_id: clientId,
             redirect_uri: `${baseUrl}/api/integrations/${provider}/callback`,
             response_type: "code",
             scope: scopes.join(" "),
@@ -105,6 +116,11 @@ export function getOAuthProvider(provider: string): OAuthProvider {
           return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`
         },
         exchangeCodeForToken: async (code: string) => {
+          // This should only be called server-side
+          if (typeof window !== "undefined") {
+            throw new Error("Token exchange must be done server-side")
+          }
+
           const response = await fetch("https://oauth2.googleapis.com/token", {
             method: "POST",
             headers: {
@@ -132,6 +148,9 @@ export function getOAuthProvider(provider: string): OAuthProvider {
     case "notion":
       return {
         generateAuthUrl: (baseUrl: string, reconnect = false, integrationId?: string, userId?: string) => {
+          const clientId = process.env.NEXT_PUBLIC_NOTION_CLIENT_ID
+          if (!clientId) throw new Error("Notion client ID not configured")
+
           const state = btoa(
             JSON.stringify({
               provider: "notion",
@@ -143,7 +162,7 @@ export function getOAuthProvider(provider: string): OAuthProvider {
           )
 
           const params = new URLSearchParams({
-            client_id: process.env.NEXT_PUBLIC_NOTION_CLIENT_ID!,
+            client_id: clientId,
             response_type: "code",
             owner: "user",
             redirect_uri: `${baseUrl}/api/integrations/notion/callback`,
@@ -153,12 +172,22 @@ export function getOAuthProvider(provider: string): OAuthProvider {
           return `https://api.notion.com/v1/oauth/authorize?${params.toString()}`
         },
         exchangeCodeForToken: async (code: string) => {
+          // This should only be called server-side
+          if (typeof window !== "undefined") {
+            throw new Error("Token exchange must be done server-side")
+          }
+
+          // Server-side token exchange - credentials are safely accessed here
+          const clientId = process.env.NEXT_PUBLIC_NOTION_CLIENT_ID!
+          const clientSecret = process.env.NOTION_CLIENT_SECRET!
+          const authHeader = Buffer.from(`${clientId}:${clientSecret}`).toString("base64")
+
           const response = await fetch("https://api.notion.com/v1/oauth/token", {
             method: "POST",
             headers: {
               Accept: "application/json",
               "Content-Type": "application/json",
-              Authorization: `Basic ${Buffer.from(`${process.env.NEXT_PUBLIC_NOTION_CLIENT_ID}:${process.env.NOTION_CLIENT_SECRET}`).toString("base64")}`,
+              Authorization: `Basic ${authHeader}`,
             },
             body: JSON.stringify({
               grant_type: "authorization_code",
