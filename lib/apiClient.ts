@@ -1,93 +1,95 @@
-// Client-side API utilities for making requests to our API routes
-export class ApiClient {
+import { getBaseUrl } from "./utils/getBaseUrl"
+
+interface ApiResponse<T = any> {
+  success: boolean
+  data?: T
+  error?: string
+  message?: string
+}
+
+class ApiClient {
   private baseUrl: string
 
   constructor() {
-    this.baseUrl = process.env.NEXT_PUBLIC_APP_URL || ""
+    this.baseUrl = getBaseUrl()
   }
 
-  async request<T>(endpoint: string, options: RequestInit = {}): Promise<{ data?: T; error?: string }> {
+  private async request<T = any>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
     try {
-      const response = await fetch(`${this.baseUrl}${endpoint}`, {
+      // Ensure we're using the same domain to avoid CORS issues
+      const url = `${this.baseUrl}${endpoint}`
+
+      const defaultHeaders = {
+        "Content-Type": "application/json",
+      }
+
+      const config: RequestInit = {
+        ...options,
         headers: {
-          "Content-Type": "application/json",
+          ...defaultHeaders,
           ...options.headers,
         },
-        ...options,
-      })
+        credentials: "include", // Include cookies for authentication
+      }
+
+      console.log(`🌐 API Request: ${config.method || "GET"} ${url}`)
+
+      const response = await fetch(url, config)
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        return { error: errorData.error || `HTTP ${response.status}` }
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
       }
 
       const data = await response.json()
-      return { data }
-    } catch (error) {
-      console.error("API request failed:", error)
-      return { error: "Network error" }
+      console.log(`✅ API Response: ${endpoint}`, data)
+
+      return {
+        success: true,
+        data: data.data || data,
+        message: data.message,
+      }
+    } catch (error: any) {
+      console.error(`❌ API Error: ${endpoint}`, error)
+
+      // Return a structured error response instead of throwing
+      return {
+        success: false,
+        error: error.message || "Network error",
+        data: null,
+      }
     }
   }
 
-  async get<T>(endpoint: string): Promise<{ data?: T; error?: string }> {
+  async get<T = any>(endpoint: string): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, { method: "GET" })
   }
 
-  async post<T>(endpoint: string, body?: any): Promise<{ data?: T; error?: string }> {
+  async post<T = any>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, {
       method: "POST",
-      body: body ? JSON.stringify(body) : undefined,
+      body: data ? JSON.stringify(data) : undefined,
     })
   }
 
-  async put<T>(endpoint: string, body?: any): Promise<{ data?: T; error?: string }> {
+  async put<T = any>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, {
       method: "PUT",
-      body: body ? JSON.stringify(body) : undefined,
+      body: data ? JSON.stringify(data) : undefined,
     })
   }
 
-  async delete<T>(endpoint: string): Promise<{ data?: T; error?: string }> {
+  async delete<T = any>(endpoint: string): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, { method: "DELETE" })
+  }
+
+  async patch<T = any>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint, {
+      method: "PATCH",
+      body: data ? JSON.stringify(data) : undefined,
+    })
   }
 }
 
-// Singleton instance - NAMED EXPORT
+// Export singleton instance
 export const apiClient = new ApiClient()
-
-// Convenience functions
-export const api = {
-  // Auth
-  signIn: (email: string, password: string) => apiClient.post("/api/auth/signin", { email, password }),
-  signUp: (email: string, password: string) => apiClient.post("/api/auth/signup", { email, password }),
-  signOut: () => apiClient.post("/api/auth/signout"),
-
-  // Integrations
-  getIntegrations: () => apiClient.get("/api/integrations"),
-  connectIntegration: (provider: string) => apiClient.post(`/api/integrations/${provider}/connect`),
-  disconnectIntegration: (id: string) => apiClient.delete(`/api/integrations/${id}`),
-
-  // Workflows
-  getWorkflows: () => apiClient.get("/api/workflows"),
-  createWorkflow: (workflow: any) => apiClient.post("/api/workflows", workflow),
-  updateWorkflow: (id: string, workflow: any) => apiClient.put(`/api/workflows/${id}`, workflow),
-  deleteWorkflow: (id: string) => apiClient.delete(`/api/workflows/${id}`),
-  executeWorkflow: (id: string, data?: any) => apiClient.post(`/api/workflows/${id}/execute`, data),
-
-  // Organizations
-  getOrganizations: () => apiClient.get("/api/organizations"),
-  createOrganization: (org: any) => apiClient.post("/api/organizations", org),
-  updateOrganization: (id: string, org: any) => apiClient.put(`/api/organizations/${id}`, org),
-
-  // Templates
-  getTemplates: () => apiClient.get("/api/templates"),
-  copyTemplate: (id: string) => apiClient.post(`/api/templates/${id}/copy`),
-
-  // Analytics
-  getAnalytics: () => apiClient.get("/api/analytics"),
-  getMetrics: () => apiClient.get("/api/analytics/metrics"),
-  getChartData: () => apiClient.get("/api/analytics/charts"),
-}
-
-// Default export for compatibility
 export default apiClient
