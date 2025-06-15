@@ -19,26 +19,26 @@ export async function POST(request: NextRequest) {
     // Create Supabase client with cookies
     const supabase = createServerComponentClient({ cookies })
 
-    // Get the current user session
+    // Use getUser() instead of getSession() for secure authentication
     const {
-      data: { session },
-      error: sessionError,
-    } = await supabase.auth.getSession()
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
 
-    if (sessionError) {
-      console.error("Session error:", sessionError)
+    if (userError) {
+      console.error("User authentication error:", userError)
       return NextResponse.json(
         {
           success: false,
           error: "Authentication error",
-          details: sessionError.message,
+          details: userError.message,
         },
         { status: 401 },
       )
     }
 
-    if (!session?.user?.id) {
-      console.error("No valid session found")
+    if (!user?.id) {
+      console.error("No authenticated user found")
       return NextResponse.json(
         {
           success: false,
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const userId = session.user.id
+    const userId = user.id
     console.log(`✅ User authenticated: ${userId}`)
 
     let authUrl: string

@@ -9,7 +9,7 @@ export const INTEGRATION_SCOPES = {
     optional: ["guilds.join", "messages.read"],
   },
   github: {
-    required: ["repo", "user:email"],
+    required: ["repo", "user"],
     optional: ["read:org", "gist"],
   },
   google: {
@@ -61,7 +61,7 @@ export const INTEGRATION_SCOPES = {
     optional: ["tweet.write", "follows.read"],
   },
   linkedin: {
-    required: ["r_liteprofile"],
+    required: [],
     optional: ["w_member_social"],
   },
   facebook: {
@@ -77,12 +77,12 @@ export const INTEGRATION_SCOPES = {
     optional: ["video.list", "video.upload"],
   },
   teams: {
-    required: ["User.Read"],
+    required: ["https://graph.microsoft.com/User.Read"],
     optional: ["Chat.ReadWrite", "Files.ReadWrite"],
   },
   onedrive: {
-    required: ["Files.Read"],
-    optional: ["Files.ReadWrite"],
+    required: ["https://graph.microsoft.com/Files.ReadWrite"],
+    optional: [],
   },
   hubspot: {
     required: ["crm.objects.contacts.read"],
