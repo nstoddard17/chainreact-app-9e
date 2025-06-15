@@ -183,6 +183,16 @@ function IntegrationsContent() {
     }
   })
 
+  console.log("🔍 Debug info:", {
+    localLoading,
+    isLoading,
+    providersLength: providers.length,
+    integrationsLength: integrations.length,
+    error,
+    loadError,
+    providersWithStatus: providersWithStatus.length,
+  })
+
   const connectedCount = integrations.filter((i) => i.status === "connected").length
   const connectedProviders = getConnectedProviders()
 
@@ -208,7 +218,7 @@ function IntegrationsContent() {
   }
 
   // Show loading state
-  if (localLoading || (isLoading && providers.length === 0 && !error && !loadError)) {
+  if (localLoading && providers.length === 0) {
     return (
       <AppLayout>
         <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
@@ -229,6 +239,31 @@ function IntegrationsContent() {
                 Cancel
               </Button>
             </div>
+          </div>
+        </div>
+      </AppLayout>
+    )
+  }
+
+  // Add a fallback message if no providers are found
+  if (!localLoading && providers.length === 0 && !error && !loadError) {
+    return (
+      <AppLayout>
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+          <div className="container mx-auto px-4 py-8">
+            <Alert className="mb-6">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>No Integrations Found</AlertTitle>
+              <AlertDescription>
+                No integrations are currently available. This might be due to missing environment variables or
+                configuration issues.
+                <div className="flex gap-2 mt-3">
+                  <Button variant="outline" size="sm" onClick={loadData}>
+                    Retry
+                  </Button>
+                </div>
+              </AlertDescription>
+            </Alert>
           </div>
         </div>
       </AppLayout>
