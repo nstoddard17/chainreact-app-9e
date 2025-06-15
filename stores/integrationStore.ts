@@ -108,6 +108,10 @@ export const useIntegrationStore = create<IntegrationStore>()(
 
           // Get the current user's session for authorization
           const supabase = getSupabaseClient()
+          if (!supabase) {
+            throw new Error("Supabase client not available")
+          }
+
           const {
             data: { session },
           } = await supabase.auth.getSession()
@@ -201,11 +205,26 @@ export const useIntegrationStore = create<IntegrationStore>()(
         try {
           console.log(`🔗 Connecting to ${providerId}...`)
 
+          // Get the current user's session for authorization
+          const supabase = getSupabaseClient()
+          if (!supabase) {
+            throw new Error("Supabase client not available")
+          }
+
+          const {
+            data: { session },
+          } = await supabase.auth.getSession()
+
+          if (!session?.access_token) {
+            throw new Error("No valid session found. Please log in again.")
+          }
+
           // Generate OAuth URL
-          const response = await fetch("/api/integrations/oauth/generate-url", {
+          const response = await fetch("/api/integrations/auth/generate-url", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
+              Authorization: `Bearer ${session.access_token}`,
             },
             body: JSON.stringify({
               provider: providerId,
@@ -248,6 +267,10 @@ export const useIntegrationStore = create<IntegrationStore>()(
         try {
           // Get the current user's session for authorization
           const supabase = getSupabaseClient()
+          if (!supabase) {
+            throw new Error("Supabase client not available")
+          }
+
           const {
             data: { session },
           } = await supabase.auth.getSession()
@@ -293,6 +316,10 @@ export const useIntegrationStore = create<IntegrationStore>()(
         try {
           // Get the current user's session for authorization
           const supabase = getSupabaseClient()
+          if (!supabase) {
+            throw new Error("Supabase client not available")
+          }
+
           const {
             data: { session },
           } = await supabase.auth.getSession()
