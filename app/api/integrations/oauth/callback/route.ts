@@ -10,6 +10,8 @@ export async function GET(request: NextRequest) {
     const error = searchParams.get("error")
     const errorDescription = searchParams.get("error_description")
 
+    console.log("OAuth callback received:", { provider, code: !!code, state: !!state, error })
+
     // Handle OAuth errors from provider
     if (error) {
       console.error(`OAuth error for ${provider}:`, error, errorDescription)
@@ -52,6 +54,11 @@ export async function GET(request: NextRequest) {
               opacity: 0.9;
               font-size: 0.9rem;
             }
+            .debug { 
+              font-size: 0.8rem; 
+              opacity: 0.7; 
+              margin-top: 1rem;
+            }
           </style>
         </head>
         <body>
@@ -59,22 +66,41 @@ export async function GET(request: NextRequest) {
             <div class="error-icon">❌</div>
             <h1>Connection Failed</h1>
             <p>${errorMessage}</p>
-            <p>This window will close automatically...</p>
+            <p>Closing window...</p>
+            <div class="debug">Debug: Sending error message to parent</div>
           </div>
           <script>
+            console.log('OAuth error page loaded');
+            console.log('Window opener exists:', !!window.opener);
+            console.log('Sending error message...');
+            
             // Send error message to parent window
-            if (window.opener) {
-              window.opener.postMessage({
-                type: 'oauth-error',
-                provider: '${provider || "unknown"}',
-                error: '${errorMessage}'
-              }, window.location.origin);
+            if (window.opener && !window.opener.closed) {
+              try {
+                window.opener.postMessage({
+                  type: 'oauth-error',
+                  provider: '${provider || "unknown"}',
+                  error: '${errorMessage.replace(/'/g, "\\'")}'
+                }, '*');
+                console.log('Error message sent successfully');
+              } catch (e) {
+                console.error('Failed to send message:', e);
+              }
+            } else {
+              console.log('No opener window available');
             }
             
-            // Close window after a short delay
+            // Try multiple methods to close the window
             setTimeout(() => {
-              window.close();
-            }, 3000);
+              console.log('Attempting to close window...');
+              try {
+                window.close();
+              } catch (e) {
+                console.error('Failed to close window:', e);
+                // Fallback: try to navigate away
+                window.location.href = 'about:blank';
+              }
+            }, 2000);
           </script>
         </body>
         </html>
@@ -87,6 +113,8 @@ export async function GET(request: NextRequest) {
 
     // Check for required parameters
     if (!code || !state) {
+      console.error("Missing required parameters:", { code: !!code, state: !!state })
+
       const errorHtml = `
         <!DOCTYPE html>
         <html>
@@ -131,22 +159,30 @@ export async function GET(request: NextRequest) {
             <div class="error-icon">❌</div>
             <h1>Connection Failed</h1>
             <p>Missing required parameters from OAuth provider</p>
-            <p>This window will close automatically...</p>
+            <p>Closing window...</p>
           </div>
           <script>
-            // Send error message to parent window
-            if (window.opener) {
-              window.opener.postMessage({
-                type: 'oauth-error',
-                provider: '${provider || "unknown"}',
-                error: 'Missing required parameters'
-              }, window.location.origin);
+            console.log('Missing parameters page loaded');
+            
+            if (window.opener && !window.opener.closed) {
+              try {
+                window.opener.postMessage({
+                  type: 'oauth-error',
+                  provider: '${provider || "unknown"}',
+                  error: 'Missing required parameters'
+                }, '*');
+              } catch (e) {
+                console.error('Failed to send message:', e);
+              }
             }
             
-            // Close window after a short delay
             setTimeout(() => {
-              window.close();
-            }, 3000);
+              try {
+                window.close();
+              } catch (e) {
+                window.location.href = 'about:blank';
+              }
+            }, 2000);
           </script>
         </body>
         </html>
@@ -164,12 +200,15 @@ export async function GET(request: NextRequest) {
       try {
         const stateData = JSON.parse(Buffer.from(state, "base64").toString())
         actualProvider = stateData.provider
+        console.log("Extracted provider from state:", actualProvider)
       } catch (e) {
         console.error("Failed to parse state:", e)
       }
     }
 
     if (!actualProvider) {
+      console.error("No provider identified")
+
       const errorHtml = `
         <!DOCTYPE html>
         <html>
@@ -214,22 +253,28 @@ export async function GET(request: NextRequest) {
             <div class="error-icon">❌</div>
             <h1>Connection Failed</h1>
             <p>Unable to identify the integration provider</p>
-            <p>This window will close automatically...</p>
+            <p>Closing window...</p>
           </div>
           <script>
-            // Send error message to parent window
-            if (window.opener) {
-              window.opener.postMessage({
-                type: 'oauth-error',
-                provider: 'unknown',
-                error: 'Unable to identify provider'
-              }, window.location.origin);
+            if (window.opener && !window.opener.closed) {
+              try {
+                window.opener.postMessage({
+                  type: 'oauth-error',
+                  provider: 'unknown',
+                  error: 'Unable to identify provider'
+                }, '*');
+              } catch (e) {
+                console.error('Failed to send message:', e);
+              }
             }
             
-            // Close window after a short delay
             setTimeout(() => {
-              window.close();
-            }, 3000);
+              try {
+                window.close();
+              } catch (e) {
+                window.location.href = 'about:blank';
+              }
+            }, 2000);
           </script>
         </body>
         </html>
@@ -241,7 +286,9 @@ export async function GET(request: NextRequest) {
     }
 
     try {
+      console.log(`Processing OAuth callback for ${actualProvider}`)
       const result = await handleCallback(actualProvider, code, state)
+      console.log(`OAuth callback result for ${actualProvider}:`, { success: result.success, error: result.error })
 
       if (result.success) {
         // Success page that sends message to parent and closes
@@ -280,9 +327,10 @@ export async function GET(request: NextRequest) {
                 margin: 0; 
                 opacity: 0.9;
               }
-              .countdown {
-                font-weight: bold;
-                color: #ffd700;
+              .debug { 
+                font-size: 0.8rem; 
+                opacity: 0.7; 
+                margin-top: 1rem;
               }
             </style>
           </head>
@@ -291,33 +339,54 @@ export async function GET(request: NextRequest) {
               <div class="success-icon">✅</div>
               <h1>Connection Successful!</h1>
               <p>Your ${actualProvider} integration has been connected.</p>
-              <p>This window will close in <span class="countdown" id="countdown">3</span> seconds...</p>
+              <p>Closing window...</p>
+              <div class="debug">Debug: Sending success message to parent</div>
             </div>
             <script>
+              console.log('OAuth success page loaded');
+              console.log('Window opener exists:', !!window.opener);
+              console.log('Window opener closed:', window.opener ? window.opener.closed : 'N/A');
+              
               // Send success message to parent window immediately
-              if (window.opener) {
-                window.opener.postMessage({
-                  type: 'oauth-success',
-                  provider: '${actualProvider}'
-                }, window.location.origin);
+              if (window.opener && !window.opener.closed) {
+                try {
+                  console.log('Sending success message...');
+                  window.opener.postMessage({
+                    type: 'oauth-success',
+                    provider: '${actualProvider}'
+                  }, '*');
+                  console.log('Success message sent successfully');
+                } catch (e) {
+                  console.error('Failed to send success message:', e);
+                }
+              } else {
+                console.log('No opener window available or opener is closed');
               }
               
-              // Countdown and close
-              let count = 3;
-              const countdownEl = document.getElementById('countdown');
-              const interval = setInterval(() => {
-                count--;
-                if (countdownEl) countdownEl.textContent = count.toString();
-                if (count <= 0) {
-                  clearInterval(interval);
-                  window.close();
-                }
-              }, 1000);
-              
-              // Fallback close in case countdown fails
+              // Try multiple methods to close the window
               setTimeout(() => {
-                window.close();
-              }, 4000);
+                console.log('Attempting to close window...');
+                try {
+                  window.close();
+                  console.log('Window.close() called');
+                } catch (e) {
+                  console.error('Failed to close window:', e);
+                  // Fallback: try to navigate away
+                  window.location.href = 'about:blank';
+                }
+              }, 1500);
+              
+              // Additional fallback
+              setTimeout(() => {
+                if (!window.closed) {
+                  console.log('Window still open, trying alternative close methods...');
+                  try {
+                    window.location.href = 'about:blank';
+                  } catch (e) {
+                    console.error('All close methods failed:', e);
+                  }
+                }
+              }, 3000);
             </script>
           </body>
           </html>
@@ -328,6 +397,7 @@ export async function GET(request: NextRequest) {
         })
       } else {
         // Error page that sends message to parent and closes
+        const errorMessage = result.error || "Connection failed"
         const errorHtml = `
           <!DOCTYPE html>
           <html>
@@ -365,45 +435,37 @@ export async function GET(request: NextRequest) {
                 opacity: 0.9;
                 font-size: 0.9rem;
               }
-              .countdown {
-                font-weight: bold;
-                color: #ffd700;
-              }
             </style>
           </head>
           <body>
             <div class="container">
               <div class="error-icon">❌</div>
               <h1>Connection Failed</h1>
-              <p>${result.error || "Connection failed"}</p>
-              <p>This window will close in <span class="countdown" id="countdown">5</span> seconds...</p>
+              <p>${errorMessage}</p>
+              <p>Closing window...</p>
             </div>
             <script>
-              // Send error message to parent window immediately
-              if (window.opener) {
-                window.opener.postMessage({
-                  type: 'oauth-error',
-                  provider: '${actualProvider}',
-                  error: '${result.error || "Connection failed"}'
-                }, window.location.origin);
+              console.log('OAuth error page loaded');
+              
+              if (window.opener && !window.opener.closed) {
+                try {
+                  window.opener.postMessage({
+                    type: 'oauth-error',
+                    provider: '${actualProvider}',
+                    error: '${errorMessage.replace(/'/g, "\\'")}'
+                  }, '*');
+                } catch (e) {
+                  console.error('Failed to send error message:', e);
+                }
               }
               
-              // Countdown and close
-              let count = 5;
-              const countdownEl = document.getElementById('countdown');
-              const interval = setInterval(() => {
-                count--;
-                if (countdownEl) countdownEl.textContent = count.toString();
-                if (count <= 0) {
-                  clearInterval(interval);
-                  window.close();
-                }
-              }, 1000);
-              
-              // Fallback close in case countdown fails
               setTimeout(() => {
-                window.close();
-              }, 6000);
+                try {
+                  window.close();
+                } catch (e) {
+                  window.location.href = 'about:blank';
+                }
+              }, 2000);
             </script>
           </body>
           </html>
@@ -453,10 +515,6 @@ export async function GET(request: NextRequest) {
               opacity: 0.9;
               font-size: 0.9rem;
             }
-            .countdown {
-              font-weight: bold;
-              color: #ffd700;
-            }
           </style>
         </head>
         <body>
@@ -464,34 +522,28 @@ export async function GET(request: NextRequest) {
             <div class="error-icon">❌</div>
             <h1>Connection Failed</h1>
             <p>${error.message || "An unexpected error occurred"}</p>
-            <p>This window will close in <span class="countdown" id="countdown">5</span> seconds...</p>
+            <p>Closing window...</p>
           </div>
           <script>
-            // Send error message to parent window immediately
-            if (window.opener) {
-              window.opener.postMessage({
-                type: 'oauth-error',
-                provider: '${actualProvider}',
-                error: '${error.message || "An unexpected error occurred"}'
-              }, window.location.origin);
+            if (window.opener && !window.opener.closed) {
+              try {
+                window.opener.postMessage({
+                  type: 'oauth-error',
+                  provider: '${actualProvider}',
+                  error: '${(error.message || "An unexpected error occurred").replace(/'/g, "\\'")}'
+                }, '*');
+              } catch (e) {
+                console.error('Failed to send error message:', e);
+              }
             }
             
-            // Countdown and close
-            let count = 5;
-            const countdownEl = document.getElementById('countdown');
-            const interval = setInterval(() => {
-              count--;
-              if (countdownEl) countdownEl.textContent = count.toString();
-              if (count <= 0) {
-                clearInterval(interval);
-                window.close();
-              }
-            }, 1000);
-            
-            // Fallback close in case countdown fails
             setTimeout(() => {
-              window.close();
-            }, 6000);
+              try {
+                window.close();
+              } catch (e) {
+                window.location.href = 'about:blank';
+              }
+            }, 2000);
           </script>
         </body>
         </html>
@@ -541,10 +593,6 @@ export async function GET(request: NextRequest) {
             opacity: 0.9;
             font-size: 0.9rem;
           }
-          .countdown {
-            font-weight: bold;
-            color: #ffd700;
-          }
         </style>
       </head>
       <body>
@@ -552,34 +600,28 @@ export async function GET(request: NextRequest) {
           <div class="error-icon">❌</div>
           <h1>Connection Failed</h1>
           <p>An unexpected error occurred during the OAuth callback</p>
-          <p>This window will close in <span class="countdown" id="countdown">5</span> seconds...</p>
+          <p>Closing window...</p>
         </div>
         <script>
-          // Send error message to parent window immediately
-          if (window.opener) {
-            window.opener.postMessage({
-              type: 'oauth-error',
-              provider: 'unknown',
-              error: 'OAuth callback failed'
-            }, window.location.origin);
+          if (window.opener && !window.opener.closed) {
+            try {
+              window.opener.postMessage({
+                type: 'oauth-error',
+                provider: 'unknown',
+                error: 'OAuth callback failed'
+              }, '*');
+            } catch (e) {
+              console.error('Failed to send error message:', e);
+            }
           }
           
-          // Countdown and close
-          let count = 5;
-          const countdownEl = document.getElementById('countdown');
-          const interval = setInterval(() => {
-            count--;
-            if (countdownEl) countdownEl.textContent = count.toString();
-            if (count <= 0) {
-              clearInterval(interval);
-              window.close();
-            }
-          }, 1000);
-          
-          // Fallback close in case countdown fails
           setTimeout(() => {
-            window.close();
-          }, 6000);
+            try {
+              window.close();
+            } catch (e) {
+              window.location.href = 'about:blank';
+            }
+          }, 2000);
         </script>
       </body>
       </html>
