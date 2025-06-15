@@ -4,7 +4,11 @@ export function getBaseUrl(): string {
     return window.location.origin
   }
 
-  // Server-side fallback
+  // Server-side fallback with proper priority
+  if (process.env.NEXT_PUBLIC_SITE_URL) {
+    return process.env.NEXT_PUBLIC_SITE_URL
+  }
+
   if (process.env.NEXT_PUBLIC_APP_URL) {
     return process.env.NEXT_PUBLIC_APP_URL
   }
@@ -13,5 +17,16 @@ export function getBaseUrl(): string {
     return `https://${process.env.VERCEL_URL}`
   }
 
+  // Development fallback
   return "http://localhost:3000"
+}
+
+export function getOAuthRedirectUri(provider: string): string {
+  const baseUrl = getBaseUrl()
+  return `${baseUrl}/api/integrations/${provider}/callback`
+}
+
+export function getOAuthReturnUrl(): string {
+  const baseUrl = getBaseUrl()
+  return `${baseUrl}/integrations`
 }
