@@ -4,9 +4,7 @@ import type React from "react"
 import { Button } from "@/components/ui/button"
 import { Menu, X, User, LogOut } from "lucide-react"
 import Link from "next/link"
-import { useState } from "react"
-import { useAuth } from "@/hooks/use-auth"
-import { useAuthStore } from "@/stores/authStore"
+import { useState, useEffect } from "react"
 
 interface PublicLayoutProps {
   children: React.ReactNode
@@ -14,8 +12,39 @@ interface PublicLayoutProps {
 
 export function PublicLayout({ children }: PublicLayoutProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const { isAuthenticated, user, isReady } = useAuth()
-  const { signOut } = useAuthStore()
+  const [isClient, setIsClient] = useState(false)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [firstName, setFirstName] = useState("")
+
+  useEffect(() => {
+    setIsClient(true)
+
+    // Simple auth check
+    const checkAuth = () => {
+      try {
+        const hasSession = typeof window !== "undefined" && localStorage.getItem("supabase.auth.token")
+        setIsAuthenticated(!!hasSession)
+
+        if (hasSession) {
+          const userInfo = localStorage.getItem("supabase.auth.user")
+          if (userInfo) {
+            const user = JSON.parse(userInfo)
+            const name =
+              user?.user_metadata?.first_name ||
+              user?.user_metadata?.name?.split(" ")[0] ||
+              user?.email?.split("@")[0] ||
+              "User"
+            setFirstName(name)
+          }
+        }
+      } catch (error) {
+        console.log("Auth check error:", error)
+        setIsAuthenticated(false)
+      }
+    }
+
+    checkAuth()
+  }, [])
 
   const handlePageNavigation = (path: string) => {
     setMobileMenuOpen(false)
@@ -29,28 +58,26 @@ export function PublicLayout({ children }: PublicLayoutProps) {
   }
 
   const handleSignOut = async () => {
-    await signOut()
-    setMobileMenuOpen(false)
+    try {
+      // Simple sign out - clear localStorage
+      localStorage.removeItem("supabase.auth.token")
+      localStorage.removeItem("supabase.auth.user")
+      setIsAuthenticated(false)
+      setFirstName("")
+      setMobileMenuOpen(false)
+      window.location.href = "/"
+    } catch (error) {
+      console.log("Sign out error:", error)
+    }
   }
 
-  if (!isReady) {
+  if (!isClient) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
       </div>
     )
   }
-
-  const getFirstName = () => {
-    if (!user) return ""
-    if (user.user_metadata?.first_name) return user.user_metadata.first_name
-    if (user.user_metadata?.name) return user.user_metadata.name.split(" ")[0]
-    if (user.name) return user.name.split(" ")[0]
-    if (user.email) return user.email.split("@")[0]
-    return "User"
-  }
-
-  const firstName = getFirstName()
 
   return (
     <div className="min-h-screen bg-white">
@@ -91,14 +118,12 @@ export function PublicLayout({ children }: PublicLayoutProps) {
                 <Link
                   href="/templates"
                   className="text-slate-600 hover:text-indigo-600 px-3 py-2 text-sm font-medium transition-colors duration-200"
-                  onClick={() => handlePageNavigation("/templates")}
                 >
                   Templates
                 </Link>
                 <Link
                   href="/support"
                   className="text-slate-600 hover:text-indigo-600 px-3 py-2 text-sm font-medium transition-colors duration-200"
-                  onClick={() => handlePageNavigation("/support")}
                 >
                   Support
                 </Link>
@@ -153,55 +178,8 @@ export function PublicLayout({ children }: PublicLayoutProps) {
               )}
             </div>
 
-            {/* Medium screens: Simplified layout */}
-            <div className="hidden md:flex lg:hidden items-center space-x-6 flex-1 justify-end">
-              <div className="flex items-center space-x-6">
-                <Link href="/#features" className="text-slate-600 hover:text-indigo-600 text-sm font-medium">
-                  Features
-                </Link>
-                <Link href="/#integrations" className="text-slate-600 hover:text-indigo-600 text-sm font-medium">
-                  Integrations
-                </Link>
-                <Link href="/support" className="text-slate-600 hover:text-indigo-600 text-sm font-medium">
-                  Support
-                </Link>
-              </div>
-
-              {isAuthenticated ? (
-                <div className="flex items-center space-x-2">
-                  <span className="text-sm text-slate-600">Hi, {firstName}!</span>
-                  <Link href="/dashboard">
-                    <Button size="sm" className="bg-indigo-600 text-white hover:bg-indigo-700">
-                      Dashboard
-                    </Button>
-                  </Link>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={handleSignOut}
-                    className="border-slate-300 text-slate-600 hover:bg-slate-50"
-                  >
-                    <LogOut className="h-4 w-4" />
-                  </Button>
-                </div>
-              ) : (
-                <div className="flex items-center space-x-2">
-                  <Link href="/auth/login">
-                    <Button size="sm" variant="ghost">
-                      Login
-                    </Button>
-                  </Link>
-                  <Link href="/auth/register">
-                    <Button size="sm" className="bg-indigo-600 text-white hover:bg-indigo-700">
-                      Sign Up
-                    </Button>
-                  </Link>
-                </div>
-              )}
-            </div>
-
             {/* Mobile menu button */}
-            <div className="md:hidden flex items-center">
+            <div className="lg:hidden flex items-center">
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                 className="text-slate-600 hover:text-indigo-600 p-2 transition-colors duration-200"
@@ -214,7 +192,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
 
         {/* Mobile Navigation */}
         {mobileMenuOpen && (
-          <div className="md:hidden border-t border-slate-200 bg-white">
+          <div className="lg:hidden border-t border-slate-200 bg-white">
             <div className="px-4 py-3 space-y-3">
               {/* Navigation Links */}
               <div className="space-y-2">
@@ -244,14 +222,14 @@ export function PublicLayout({ children }: PublicLayoutProps) {
                 <Link
                   href="/templates"
                   className="block text-slate-600 hover:text-indigo-600 py-2 text-base font-medium transition-colors duration-200"
-                  onClick={() => handlePageNavigation("/templates")}
+                  onClick={handleMobileMenuClose}
                 >
                   Templates
                 </Link>
                 <Link
                   href="/support"
                   className="block text-slate-600 hover:text-indigo-600 py-2 text-base font-medium transition-colors duration-200"
-                  onClick={() => handlePageNavigation("/support")}
+                  onClick={handleMobileMenuClose}
                 >
                   Support
                 </Link>
@@ -332,11 +310,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
                   </li>
                 )}
                 <li>
-                  <Link
-                    href="/templates"
-                    className="hover:text-indigo-300 transition-colors duration-200"
-                    onClick={() => handlePageNavigation("/templates")}
-                  >
+                  <Link href="/templates" className="hover:text-indigo-300 transition-colors duration-200">
                     Templates
                   </Link>
                 </li>
@@ -362,11 +336,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
                   </Link>
                 </li>
                 <li>
-                  <Link
-                    href="/support"
-                    className="hover:text-indigo-300 transition-colors duration-200"
-                    onClick={() => handlePageNavigation("/support")}
-                  >
+                  <Link href="/support" className="hover:text-indigo-300 transition-colors duration-200">
                     Support
                   </Link>
                 </li>
@@ -387,11 +357,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
                   </Link>
                 </li>
                 <li>
-                  <Link
-                    href="/support"
-                    className="hover:text-indigo-300 transition-colors duration-200"
-                    onClick={() => handlePageNavigation("/support")}
-                  >
+                  <Link href="/support" className="hover:text-indigo-300 transition-colors duration-200">
                     Support
                   </Link>
                 </li>
