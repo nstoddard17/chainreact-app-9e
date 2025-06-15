@@ -39,6 +39,7 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
     getIntegrationStatus,
     getIntegrationByProvider,
     debugInfo,
+    connectTwitterWithPopup,
   } = useIntegrationStore()
   const { toast } = useToast()
 
@@ -64,7 +65,33 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
     try {
       setIsConnecting(true)
 
-      // Show immediate feedback
+      // Special handling for Twitter with popup
+      if (provider.id === "twitter") {
+        toast({
+          title: "Opening Twitter Authorization",
+          description: "A popup window will open for Twitter authentication.",
+          duration: 3000,
+        })
+
+        const { useAuthStore } = await import("@/stores/authStore")
+        const userId = useAuthStore.getState().getCurrentUserId()
+
+        if (!userId) {
+          throw new Error("User not authenticated")
+        }
+
+        await connectTwitterWithPopup(userId)
+
+        toast({
+          title: "Twitter Connected!",
+          description: "Your Twitter account has been connected successfully.",
+          duration: 4000,
+        })
+
+        return
+      }
+
+      // For other providers, show redirect message
       toast({
         title: "Redirecting to Authorization",
         description: `You'll be redirected to ${provider.name} to authorize the connection.`,
@@ -72,13 +99,14 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
       })
 
       await connectIntegration(provider.id)
-      // Note: This won't execute as we redirect immediately in connectIntegration
     } catch (error: any) {
       console.error(`Failed to connect ${provider.name}:`, error)
 
       let errorMessage = error.message || `Failed to connect ${provider.name}`
 
-      if (error.message?.includes("not configured")) {
+      if (error.message?.includes("popup")) {
+        errorMessage = "Please allow popups for this site and try again."
+      } else if (error.message?.includes("not configured")) {
         errorMessage = `${provider.name} integration is not configured. Please contact support.`
       }
 
@@ -88,9 +116,10 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
         variant: "destructive",
         duration: 8000,
       })
+    } finally {
       setIsConnecting(false)
     }
-  }, [provider, connectIntegration, toast])
+  }, [provider, connectIntegration, connectTwitterWithPopup, toast])
 
   const handleDisconnect = useCallback(async () => {
     if (!integration?.id) {
