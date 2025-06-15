@@ -4,13 +4,13 @@ import type { Database } from "@/types/supabase"
 
 // Server client for route handlers - only use this in API routes
 export const createServerSupabaseClient = () => {
-  const supabaseUrl = process.env.SUPABASE_URL
-  const supabaseAnonKey = process.env.SUPABASE_ANON_KEY
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
   if (!supabaseUrl || !supabaseAnonKey) {
     const missingVars = []
-    if (!supabaseUrl) missingVars.push("SUPABASE_URL")
-    if (!supabaseAnonKey) missingVars.push("SUPABASE_ANON_KEY")
+    if (!supabaseUrl) missingVars.push("NEXT_PUBLIC_SUPABASE_URL")
+    if (!supabaseAnonKey) missingVars.push("NEXT_PUBLIC_SUPABASE_ANON_KEY")
 
     const errorMessage = `Missing required server-side Supabase environment variables: ${missingVars.join(", ")}`
 

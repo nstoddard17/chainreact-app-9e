@@ -1,513 +1,231 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
-
-// OAuth service imports
-import { GoogleOAuthService } from "@/lib/oauth/google"
-import { SlackOAuthService } from "@/lib/oauth/slack"
+import { createServerSupabaseClient } from "@/lib/supabase-server"
+import { generateOAuthState, getOAuthRedirectUri } from "@/lib/oauth/utils"
 
 export async function POST(request: NextRequest) {
   try {
     const { provider } = await request.json()
 
     if (!provider) {
-      return NextResponse.json({ success: false, error: "Provider is required" }, { status: 400 })
+      return NextResponse.json({ error: "Provider is required" }, { status: 400 })
     }
 
-    console.log(`🔗 Generating OAuth URL for provider: ${provider}`)
-
-    // Create Supabase client with cookies
-    const supabase = createServerComponentClient({ cookies })
-
-    // Use getUser() instead of getSession() for secure authentication
+    // Get user from session
+    const supabase = createServerSupabaseClient()
     const {
       data: { user },
-      error: userError,
+      error: authError,
     } = await supabase.auth.getUser()
 
-    if (userError) {
-      console.error("User authentication error:", userError)
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Authentication error",
-          details: userError.message,
-        },
-        { status: 401 },
-      )
+    if (authError || !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    if (!user?.id) {
-      console.error("No authenticated user found")
-      return NextResponse.json(
-        {
-          success: false,
-          error: "User not authenticated. Please log in to continue.",
-        },
-        { status: 401 },
-      )
-    }
+    // Generate consistent redirect URI
+    const redirectUri = getOAuthRedirectUri(provider)
+    console.log(`Generating OAuth URL for ${provider} with redirect URI: ${redirectUri}`)
 
-    const userId = user.id
-    console.log(`✅ User authenticated: ${userId}`)
+    // Generate state parameter
+    const state = generateOAuthState({
+      provider,
+      userId: user.id,
+      timestamp: Date.now(),
+    })
 
     let authUrl: string
 
-    // Generate OAuth URL based on provider
-    try {
-      switch (provider.toLowerCase()) {
-        case "google":
-        case "gmail":
-        case "google-calendar":
-        case "google-drive":
-        case "google-sheets":
-        case "google-docs":
-        case "youtube":
-          authUrl = GoogleOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
-          break
+    switch (provider.toLowerCase()) {
+      case "google":
+        const googleScopes = [
+          "https://www.googleapis.com/auth/userinfo.email",
+          "https://www.googleapis.com/auth/userinfo.profile",
+          "https://www.googleapis.com/auth/calendar",
+          "https://www.googleapis.com/auth/drive.file",
+          "https://www.googleapis.com/auth/spreadsheets",
+          "https://www.googleapis.com/auth/documents",
+          "https://www.googleapis.com/auth/gmail.send",
+          "https://www.googleapis.com/auth/youtube.readonly",
+        ]
+        const googleParams = new URLSearchParams({
+          client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!,
+          redirect_uri: redirectUri,
+          response_type: "code",
+          scope: googleScopes.join(" "),
+          access_type: "offline",
+          prompt: "consent",
+          state,
+          include_granted_scopes: "true",
+        })
+        authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${googleParams.toString()}`
+        break
 
-        case "slack":
-          authUrl = SlackOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
-          break
+      case "slack":
+        const slackScopes = [
+          "channels:read",
+          "chat:write",
+          "users:read",
+          "team:read",
+          "files:write",
+          "channels:history",
+          "groups:history",
+          "im:history",
+          "mpim:history",
+        ]
+        const slackParams = new URLSearchParams({
+          client_id: process.env.NEXT_PUBLIC_SLACK_CLIENT_ID!,
+          scope: slackScopes.join(","),
+          redirect_uri: redirectUri,
+          state,
+          response_type: "code",
+        })
+        authUrl = `https://slack.com/oauth/v2/authorize?${slackParams.toString()}`
+        break
 
-        case "github":
-          authUrl = generateGitHubAuthUrl(userId)
-          break
+      case "twitter":
+        const twitterScopes = [
+          "tweet.read",
+          "tweet.write",
+          "users.read",
+          "follows.read",
+          "follows.write",
+          "offline.access",
+        ]
+        const twitterParams = new URLSearchParams({
+          response_type: "code",
+          client_id: process.env.NEXT_PUBLIC_TWITTER_CLIENT_ID!,
+          redirect_uri: redirectUri,
+          scope: twitterScopes.join(" "),
+          state,
+          code_challenge: "challenge",
+          code_challenge_method: "plain",
+        })
+        authUrl = `https://twitter.com/i/oauth2/authorize?${twitterParams.toString()}`
+        break
 
-        case "discord":
-          authUrl = generateDiscordAuthUrl(userId)
-          break
+      case "github":
+        const githubParams = new URLSearchParams({
+          client_id: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID!,
+          redirect_uri: redirectUri,
+          scope: "repo user workflow",
+          state,
+          allow_signup: "true",
+        })
+        authUrl = `https://github.com/login/oauth/authorize?${githubParams.toString()}`
+        break
 
-        case "twitter":
-          authUrl = generateTwitterAuthUrl(userId)
-          break
+      case "discord":
+        const discordScopes = ["identify", "guilds", "guilds.join", "messages.read"]
+        const discordParams = new URLSearchParams({
+          client_id: process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID!,
+          redirect_uri: redirectUri,
+          response_type: "code",
+          scope: discordScopes.join(" "),
+          prompt: "consent",
+          state,
+        })
+        authUrl = `https://discord.com/api/oauth2/authorize?${discordParams.toString()}`
+        break
 
-        case "linkedin":
-          authUrl = generateLinkedInAuthUrl(userId)
-          break
+      case "linkedin":
+        const linkedinScopes = ["r_liteprofile", "r_emailaddress", "w_member_social"]
+        const linkedinParams = new URLSearchParams({
+          response_type: "code",
+          client_id: process.env.NEXT_PUBLIC_LINKEDIN_CLIENT_ID!,
+          redirect_uri: redirectUri,
+          scope: linkedinScopes.join(" "),
+          state,
+        })
+        authUrl = `https://www.linkedin.com/oauth/v2/authorization?${linkedinParams.toString()}`
+        break
 
-        case "facebook":
-          authUrl = generateFacebookAuthUrl(userId)
-          break
+      case "facebook":
+        const facebookScopes = ["email", "public_profile", "pages_manage_posts", "pages_read_engagement"]
+        const facebookParams = new URLSearchParams({
+          client_id: process.env.NEXT_PUBLIC_FACEBOOK_CLIENT_ID!,
+          redirect_uri: redirectUri,
+          scope: facebookScopes.join(","),
+          response_type: "code",
+          state,
+        })
+        authUrl = `https://www.facebook.com/v18.0/dialog/oauth?${facebookParams.toString()}`
+        break
 
-        case "instagram":
-          authUrl = generateInstagramAuthUrl(userId)
-          break
+      case "dropbox":
+        const dropboxParams = new URLSearchParams({
+          client_id: process.env.NEXT_PUBLIC_DROPBOX_CLIENT_ID!,
+          redirect_uri: redirectUri,
+          response_type: "code",
+          state,
+        })
+        authUrl = `https://www.dropbox.com/oauth2/authorize?${dropboxParams.toString()}`
+        break
 
-        case "tiktok":
-          authUrl = generateTikTokAuthUrl(userId)
-          break
+      case "teams":
+      case "onedrive":
+        const msScopes =
+          provider === "teams"
+            ? [
+                "openid",
+                "profile",
+                "email",
+                "offline_access",
+                "https://graph.microsoft.com/User.Read",
+                "https://graph.microsoft.com/Chat.ReadWrite",
+                "https://graph.microsoft.com/ChannelMessage.Send",
+                "https://graph.microsoft.com/Team.ReadBasic.All",
+              ]
+            : [
+                "openid",
+                "profile",
+                "email",
+                "offline_access",
+                "https://graph.microsoft.com/User.Read",
+                "https://graph.microsoft.com/Files.ReadWrite.All",
+                "https://graph.microsoft.com/Sites.ReadWrite.All",
+              ]
+        const msParams = new URLSearchParams({
+          client_id: process.env.NEXT_PUBLIC_TEAMS_CLIENT_ID!,
+          response_type: "code",
+          redirect_uri: redirectUri,
+          scope: msScopes.join(" "),
+          prompt: "consent",
+          state,
+        })
+        authUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${msParams.toString()}`
+        break
 
-        case "notion":
-          authUrl = generateNotionAuthUrl(userId)
-          break
+      case "hubspot":
+        const hubspotScopes = ["contacts", "content", "reports", "social", "automation"]
+        const hubspotParams = new URLSearchParams({
+          client_id: process.env.NEXT_PUBLIC_HUBSPOT_CLIENT_ID!,
+          redirect_uri: redirectUri,
+          scope: hubspotScopes.join(" "),
+          response_type: "code",
+          state,
+        })
+        authUrl = `https://app.hubspot.com/oauth/authorize?${hubspotParams.toString()}`
+        break
 
-        case "trello":
-          authUrl = generateTrelloAuthUrl(userId)
-          break
-
-        case "dropbox":
-          authUrl = generateDropboxAuthUrl(userId)
-          break
-
-        case "hubspot":
-          authUrl = generateHubSpotAuthUrl(userId)
-          break
-
-        case "airtable":
-          authUrl = generateAirtableAuthUrl(userId)
-          break
-
-        case "mailchimp":
-          authUrl = generateMailchimpAuthUrl(userId)
-          break
-
-        case "shopify":
-          authUrl = generateShopifyAuthUrl(userId)
-          break
-
-        case "stripe":
-          authUrl = generateStripeAuthUrl(userId)
-          break
-
-        case "paypal":
-          authUrl = generatePayPalAuthUrl(userId)
-          break
-
-        case "teams":
-          authUrl = generateTeamsAuthUrl(userId)
-          break
-
-        case "onedrive":
-          authUrl = generateOneDriveAuthUrl(userId)
-          break
-
-        case "gitlab":
-          authUrl = generateGitLabAuthUrl(userId)
-          break
-
-        case "docker":
-          authUrl = generateDockerAuthUrl(userId)
-          break
-
-        default:
-          console.error(`Unsupported provider: ${provider}`)
-          return NextResponse.json({ success: false, error: `Unsupported provider: ${provider}` }, { status: 400 })
-      }
-
-      console.log(`✅ Generated OAuth URL for ${provider}`)
-
-      return NextResponse.json({
-        success: true,
-        authUrl,
-        provider,
-        userId,
-      })
-    } catch (providerError: any) {
-      console.error(`Error generating OAuth URL for ${provider}:`, providerError)
-
-      let errorMessage = `Failed to generate authorization URL for ${provider}`
-
-      if (providerError.message.includes("client ID not configured")) {
-        errorMessage = `${provider} integration is not configured. Please contact support.`
-      }
-
-      return NextResponse.json(
-        {
-          success: false,
-          error: errorMessage,
-          details: providerError.message,
-        },
-        { status: 500 },
-      )
+      default:
+        return NextResponse.json({ error: `Unsupported provider: ${provider}` }, { status: 400 })
     }
+
+    console.log(`Generated OAuth URL for ${provider}: ${authUrl.substring(0, 100)}...`)
+
+    return NextResponse.json({
+      authUrl,
+      provider,
+      redirectUri,
+      state,
+    })
   } catch (error: any) {
-    console.error("Error in OAuth URL generation:", error)
+    console.error("Error generating OAuth URL:", error)
     return NextResponse.json(
       {
-        success: false,
-        error: "Internal server error",
-        details: error.message,
+        error: "Failed to generate OAuth URL",
+        details: process.env.NODE_ENV === "development" ? error.message : undefined,
       },
       { status: 500 },
     )
   }
-}
-
-// Helper functions to generate OAuth URLs for each provider
-function generateGitHubAuthUrl(userId: string): string {
-  const clientId = process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID
-  if (!clientId) throw new Error("GitHub client ID not configured")
-
-  const state = btoa(JSON.stringify({ provider: "github", userId, timestamp: Date.now() }))
-  const params = new URLSearchParams({
-    client_id: clientId,
-    redirect_uri: "https://chainreact.app/api/integrations/github/callback",
-    scope: "repo user read:org",
-    state,
-  })
-
-  return `https://github.com/login/oauth/authorize?${params.toString()}`
-}
-
-function generateDiscordAuthUrl(userId: string): string {
-  const clientId = process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID
-  if (!clientId) throw new Error("Discord client ID not configured")
-
-  const state = btoa(JSON.stringify({ provider: "discord", userId, timestamp: Date.now() }))
-  const params = new URLSearchParams({
-    client_id: clientId,
-    redirect_uri: "https://chainreact.app/api/integrations/discord/callback",
-    response_type: "code",
-    scope: "identify guilds",
-    state,
-  })
-
-  return `https://discord.com/api/oauth2/authorize?${params.toString()}`
-}
-
-function generateTwitterAuthUrl(userId: string): string {
-  const clientId = process.env.NEXT_PUBLIC_TWITTER_CLIENT_ID
-  if (!clientId) throw new Error("Twitter client ID not configured")
-
-  const state = btoa(JSON.stringify({ provider: "twitter", userId, timestamp: Date.now() }))
-  const params = new URLSearchParams({
-    client_id: clientId,
-    redirect_uri: "https://chainreact.app/api/integrations/twitter/callback",
-    response_type: "code",
-    scope: "tweet.read tweet.write users.read",
-    state,
-    code_challenge_method: "S256",
-    code_challenge: "challenge", // In production, generate proper PKCE challenge
-  })
-
-  return `https://twitter.com/i/oauth2/authorize?${params.toString()}`
-}
-
-function generateLinkedInAuthUrl(userId: string): string {
-  const clientId = process.env.NEXT_PUBLIC_LINKEDIN_CLIENT_ID
-  if (!clientId) throw new Error("LinkedIn client ID not configured")
-
-  const state = btoa(JSON.stringify({ provider: "linkedin", userId, timestamp: Date.now() }))
-  const params = new URLSearchParams({
-    client_id: clientId,
-    redirect_uri: "https://chainreact.app/api/integrations/linkedin/callback",
-    response_type: "code",
-    scope: "r_liteprofile w_member_social",
-    state,
-  })
-
-  return `https://www.linkedin.com/oauth/v2/authorization?${params.toString()}`
-}
-
-function generateFacebookAuthUrl(userId: string): string {
-  const clientId = process.env.NEXT_PUBLIC_FACEBOOK_CLIENT_ID
-  if (!clientId) throw new Error("Facebook client ID not configured")
-
-  const state = btoa(JSON.stringify({ provider: "facebook", userId, timestamp: Date.now() }))
-  const params = new URLSearchParams({
-    client_id: clientId,
-    redirect_uri: "https://chainreact.app/api/integrations/facebook/callback",
-    response_type: "code",
-    scope: "public_profile pages_manage_posts",
-    state,
-  })
-
-  return `https://www.facebook.com/v18.0/dialog/oauth?${params.toString()}`
-}
-
-function generateInstagramAuthUrl(userId: string): string {
-  const clientId = process.env.NEXT_PUBLIC_INSTAGRAM_CLIENT_ID
-  if (!clientId) throw new Error("Instagram client ID not configured")
-
-  const state = btoa(JSON.stringify({ provider: "instagram", userId, timestamp: Date.now() }))
-  const params = new URLSearchParams({
-    client_id: clientId,
-    redirect_uri: "https://chainreact.app/api/integrations/instagram/callback",
-    response_type: "code",
-    scope: "user_profile user_media",
-    state,
-  })
-
-  return `https://api.instagram.com/oauth/authorize?${params.toString()}`
-}
-
-function generateTikTokAuthUrl(userId: string): string {
-  const clientId = process.env.NEXT_PUBLIC_TIKTOK_CLIENT_ID
-  if (!clientId) throw new Error("TikTok client ID not configured")
-
-  const state = btoa(JSON.stringify({ provider: "tiktok", userId, timestamp: Date.now() }))
-  const params = new URLSearchParams({
-    client_key: clientId,
-    redirect_uri: "https://chainreact.app/api/integrations/tiktok/callback",
-    response_type: "code",
-    scope: "user.info.basic video.list",
-    state,
-  })
-
-  return `https://www.tiktok.com/auth/authorize/?${params.toString()}`
-}
-
-function generateNotionAuthUrl(userId: string): string {
-  const clientId = process.env.NEXT_PUBLIC_NOTION_CLIENT_ID
-  if (!clientId) throw new Error("Notion client ID not configured")
-
-  const state = btoa(JSON.stringify({ provider: "notion", userId, timestamp: Date.now() }))
-  const params = new URLSearchParams({
-    client_id: clientId,
-    redirect_uri: "https://chainreact.app/api/integrations/notion/callback",
-    response_type: "code",
-    state,
-  })
-
-  return `https://api.notion.com/v1/oauth/authorize?${params.toString()}`
-}
-
-function generateTrelloAuthUrl(userId: string): string {
-  const clientId = process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID
-  if (!clientId) throw new Error("Trello client ID not configured")
-
-  const params = new URLSearchParams({
-    key: clientId,
-    return_url: "https://chainreact.app/api/integrations/trello/callback",
-    scope: "read,write,account",
-    expiration: "never",
-    name: "ChainReact",
-    response_type: "token",
-  })
-
-  return `https://trello.com/1/authorize?${params.toString()}`
-}
-
-function generateDropboxAuthUrl(userId: string): string {
-  const clientId = process.env.NEXT_PUBLIC_DROPBOX_CLIENT_ID
-  if (!clientId) throw new Error("Dropbox client ID not configured")
-
-  const state = btoa(JSON.stringify({ provider: "dropbox", userId, timestamp: Date.now() }))
-  const params = new URLSearchParams({
-    client_id: clientId,
-    redirect_uri: "https://chainreact.app/api/integrations/dropbox/callback",
-    response_type: "code",
-    state,
-  })
-
-  return `https://www.dropbox.com/oauth2/authorize?${params.toString()}`
-}
-
-function generateHubSpotAuthUrl(userId: string): string {
-  const clientId = process.env.NEXT_PUBLIC_HUBSPOT_CLIENT_ID
-  if (!clientId) throw new Error("HubSpot client ID not configured")
-
-  const state = btoa(JSON.stringify({ provider: "hubspot", userId, timestamp: Date.now() }))
-  const params = new URLSearchParams({
-    client_id: clientId,
-    redirect_uri: "https://chainreact.app/api/integrations/hubspot/callback",
-    scope: "crm.objects.contacts.read crm.objects.deals.read",
-    state,
-  })
-
-  return `https://app.hubspot.com/oauth/authorize?${params.toString()}`
-}
-
-function generateAirtableAuthUrl(userId: string): string {
-  const clientId = process.env.NEXT_PUBLIC_AIRTABLE_CLIENT_ID
-  if (!clientId) throw new Error("Airtable client ID not configured")
-
-  const state = btoa(JSON.stringify({ provider: "airtable", userId, timestamp: Date.now() }))
-  const params = new URLSearchParams({
-    client_id: clientId,
-    redirect_uri: "https://chainreact.app/api/integrations/airtable/callback",
-    response_type: "code",
-    scope: "data.records:read data.records:write",
-    state,
-  })
-
-  return `https://airtable.com/oauth2/v1/authorize?${params.toString()}`
-}
-
-function generateMailchimpAuthUrl(userId: string): string {
-  const clientId = process.env.NEXT_PUBLIC_MAILCHIMP_CLIENT_ID
-  if (!clientId) throw new Error("Mailchimp client ID not configured")
-
-  const state = btoa(JSON.stringify({ provider: "mailchimp", userId, timestamp: Date.now() }))
-  const params = new URLSearchParams({
-    client_id: clientId,
-    redirect_uri: "https://chainreact.app/api/integrations/mailchimp/callback",
-    response_type: "code",
-    state,
-  })
-
-  return `https://login.mailchimp.com/oauth2/authorize?${params.toString()}`
-}
-
-function generateShopifyAuthUrl(userId: string): string {
-  const clientId = process.env.NEXT_PUBLIC_SHOPIFY_CLIENT_ID
-  if (!clientId) throw new Error("Shopify client ID not configured")
-
-  const state = btoa(JSON.stringify({ provider: "shopify", userId, timestamp: Date.now() }))
-  const params = new URLSearchParams({
-    client_id: clientId,
-    redirect_uri: "https://chainreact.app/api/integrations/shopify/callback",
-    response_type: "code",
-    scope: "read_products write_products",
-    state,
-  })
-
-  return `https://shopify.com/oauth/authorize?${params.toString()}`
-}
-
-function generateStripeAuthUrl(userId: string): string {
-  const clientId = process.env.NEXT_PUBLIC_STRIPE_CLIENT_ID
-  if (!clientId) throw new Error("Stripe client ID not configured")
-
-  const state = btoa(JSON.stringify({ provider: "stripe", userId, timestamp: Date.now() }))
-  const params = new URLSearchParams({
-    client_id: clientId,
-    redirect_uri: "https://chainreact.app/api/integrations/stripe/callback",
-    response_type: "code",
-    scope: "read_write",
-    state,
-  })
-
-  return `https://connect.stripe.com/oauth/authorize?${params.toString()}`
-}
-
-function generatePayPalAuthUrl(userId: string): string {
-  const clientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID
-  if (!clientId) throw new Error("PayPal client ID not configured")
-
-  const state = btoa(JSON.stringify({ provider: "paypal", userId, timestamp: Date.now() }))
-  const params = new URLSearchParams({
-    client_id: clientId,
-    redirect_uri: "https://chainreact.app/api/integrations/paypal/callback",
-    response_type: "code",
-    scope: "openid profile email",
-    state,
-  })
-
-  return `https://www.paypal.com/signin/authorize?${params.toString()}`
-}
-
-function generateTeamsAuthUrl(userId: string): string {
-  const clientId = process.env.NEXT_PUBLIC_TEAMS_CLIENT_ID
-  if (!clientId) throw new Error("Teams client ID not configured")
-
-  const state = btoa(JSON.stringify({ provider: "teams", userId, timestamp: Date.now() }))
-  const params = new URLSearchParams({
-    client_id: clientId,
-    redirect_uri: "https://chainreact.app/api/integrations/teams/callback",
-    response_type: "code",
-    scope: "User.Read Chat.ReadWrite",
-    state,
-  })
-
-  return `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`
-}
-
-function generateOneDriveAuthUrl(userId: string): string {
-  const clientId = process.env.NEXT_PUBLIC_ONEDRIVE_CLIENT_ID
-  if (!clientId) throw new Error("OneDrive client ID not configured")
-
-  const state = btoa(JSON.stringify({ provider: "onedrive", userId, timestamp: Date.now() }))
-  const params = new URLSearchParams({
-    client_id: clientId,
-    redirect_uri: "https://chainreact.app/api/integrations/onedrive/callback",
-    response_type: "code",
-    scope: "Files.ReadWrite.All",
-    state,
-  })
-
-  return `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`
-}
-
-function generateGitLabAuthUrl(userId: string): string {
-  const clientId = process.env.NEXT_PUBLIC_GITLAB_CLIENT_ID
-  if (!clientId) throw new Error("GitLab client ID not configured")
-
-  const state = btoa(JSON.stringify({ provider: "gitlab", userId, timestamp: Date.now() }))
-  const params = new URLSearchParams({
-    client_id: clientId,
-    redirect_uri: "https://chainreact.app/api/integrations/gitlab/callback",
-    response_type: "code",
-    scope: "api read_user",
-    state,
-  })
-
-  return `https://gitlab.com/oauth/authorize?${params.toString()}`
-}
-
-function generateDockerAuthUrl(userId: string): string {
-  const clientId = process.env.NEXT_PUBLIC_DOCKER_CLIENT_ID
-  if (!clientId) throw new Error("Docker client ID not configured")
-
-  const state = btoa(JSON.stringify({ provider: "docker", userId, timestamp: Date.now() }))
-  const params = new URLSearchParams({
-    client_id: clientId,
-    redirect_uri: "https://chainreact.app/api/integrations/docker/callback",
-    response_type: "code",
-    scope: "repo:admin",
-    state,
-  })
-
-  return `https://hub.docker.com/oauth/authorize?${params.toString()}`
 }

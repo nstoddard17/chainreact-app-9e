@@ -1,95 +1,53 @@
-import { getBaseUrl } from "./utils/getBaseUrl"
-
-interface ApiResponse<T = any> {
-  success: boolean
-  data?: T
-  error?: string
-  message?: string
-}
+import { createClient } from "@supabase/supabase-js"
+import type { Database } from "@/types/supabase"
 
 class ApiClient {
-  private baseUrl: string
+  private supabase: ReturnType<typeof createClient<Database>> | null = null
 
   constructor() {
-    this.baseUrl = getBaseUrl()
+    this.initializeSupabase()
   }
 
-  private async request<T = any>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
-    try {
-      // Ensure we're using the same domain to avoid CORS issues
-      const url = `${this.baseUrl}${endpoint}`
+  private initializeSupabase() {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-      const defaultHeaders = {
-        "Content-Type": "application/json",
-      }
-
-      const config: RequestInit = {
-        ...options,
-        headers: {
-          ...defaultHeaders,
-          ...options.headers,
-        },
-        credentials: "include", // Include cookies for authentication
-      }
-
-      console.log(`🌐 API Request: ${config.method || "GET"} ${url}`)
-
-      const response = await fetch(url, config)
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-      }
-
-      const data = await response.json()
-      console.log(`✅ API Response: ${endpoint}`, data)
-
-      return {
-        success: true,
-        data: data.data || data,
-        message: data.message,
-      }
-    } catch (error: any) {
-      console.error(`❌ API Error: ${endpoint}`, error)
-
-      // Return a structured error response instead of throwing
-      return {
-        success: false,
-        error: error.message || "Network error",
-        data: null,
-      }
+    if (!supabaseUrl || !supabaseAnonKey) {
+      console.error("Missing Supabase environment variables")
+      return
     }
+
+    this.supabase = createClient<Database>(supabaseUrl, supabaseAnonKey)
   }
 
-  async get<T = any>(endpoint: string): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, { method: "GET" })
+  getSupabase() {
+    if (!this.supabase) {
+      throw new Error("Supabase client not initialized")
+    }
+    return this.supabase
   }
 
-  async post<T = any>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, {
+  async get(endpoint: string) {
+    const response = await fetch(endpoint)
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+    return response.json()
+  }
+
+  async post(endpoint: string, data: any) {
+    const response = await fetch(endpoint, {
       method: "POST",
-      body: data ? JSON.stringify(data) : undefined,
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
     })
-  }
-
-  async put<T = any>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, {
-      method: "PUT",
-      body: data ? JSON.stringify(data) : undefined,
-    })
-  }
-
-  async delete<T = any>(endpoint: string): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, { method: "DELETE" })
-  }
-
-  async patch<T = any>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, {
-      method: "PATCH",
-      body: data ? JSON.stringify(data) : undefined,
-    })
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+    return response.json()
   }
 }
 
-// Export singleton instance
 export const apiClient = new ApiClient()
-export default apiClient

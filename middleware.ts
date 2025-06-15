@@ -7,13 +7,20 @@ export async function middleware(request: NextRequest) {
     const res = NextResponse.next()
     const pathname = request.nextUrl.pathname
 
-    // Skip middleware for static files and API routes
-    if (
-      pathname.startsWith("/_next") ||
-      pathname.startsWith("/api") ||
-      pathname.startsWith("/auth") ||
-      pathname.includes(".")
-    ) {
+    // Add CORS headers for API routes
+    if (pathname.startsWith("/api")) {
+      res.headers.set("Access-Control-Allow-Origin", "*")
+      res.headers.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+      res.headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+      // Handle preflight requests
+      if (request.method === "OPTIONS") {
+        return new NextResponse(null, { status: 200, headers: res.headers })
+      }
+    }
+
+    // Skip middleware for static files and certain routes
+    if (pathname.startsWith("/_next") || pathname.startsWith("/auth") || pathname.includes(".")) {
       return res
     }
 

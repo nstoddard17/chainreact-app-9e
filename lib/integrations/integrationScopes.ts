@@ -9,7 +9,7 @@ export const INTEGRATION_SCOPES = {
     optional: ["guilds.join", "messages.read"],
   },
   github: {
-    required: ["repo", "user"],
+    required: ["repo", "user:email"],
     optional: ["read:org", "gist"],
   },
   google: {
@@ -61,8 +61,8 @@ export const INTEGRATION_SCOPES = {
     optional: ["tweet.write", "follows.read"],
   },
   linkedin: {
-    required: ["w_member_social"],
-    optional: [],
+    required: ["r_liteprofile"],
+    optional: ["w_member_social"],
   },
   facebook: {
     required: ["public_profile"],
@@ -77,12 +77,12 @@ export const INTEGRATION_SCOPES = {
     optional: ["video.list", "video.upload"],
   },
   teams: {
-    required: ["https://graph.microsoft.com/User.Read],
+    required: ["User.Read"],
     optional: ["Chat.ReadWrite", "Files.ReadWrite"],
   },
   onedrive: {
-    required: ["https://graph.microsoft.com/Files.ReadWrite", "https://graph.microsoft.com/User.Read", "https://graph.microsoft.com/Files.ReadWrite.All"],
-    optional: [],
+    required: ["Files.Read"],
+    optional: ["Files.ReadWrite"],
   },
   hubspot: {
     required: ["crm.objects.contacts.read"],
@@ -149,14 +149,29 @@ export function validateScopes(
   }
 }
 
-export function isComponentAvailable(provider: string): boolean {
+export function isIntegrationConfigured(provider: string): boolean {
   // Check if the provider is supported and has proper configuration
   const config = INTEGRATION_SCOPES[provider]
   if (!config) return false
 
   // Check if required environment variables are available
   const envVars = getRequiredEnvVars(provider)
-  return envVars.every((envVar) => process.env[envVar])
+  const hasAllEnvVars = envVars.every((envVar) => {
+    const value = process.env[envVar]
+    return value && value.trim() !== ""
+  })
+
+  if (!hasAllEnvVars) {
+    const missingVars = envVars.filter((envVar) => !process.env[envVar] || process.env[envVar]?.trim() === "")
+    console.warn(`Integration ${provider} missing environment variables:`, missingVars)
+  }
+
+  return hasAllEnvVars
+}
+
+// Legacy function name for backward compatibility
+export function isComponentAvailable(provider: string): boolean {
+  return isIntegrationConfigured(provider)
 }
 
 function getRequiredEnvVars(provider: string): string[] {
@@ -192,4 +207,52 @@ function getRequiredEnvVars(provider: string): string[] {
   }
 
   return envVarMap[provider] || []
+}
+
+// Environment validation utility
+export function validateEnvironmentVariables(): {
+  valid: boolean
+  missing: string[]
+  configured: string[]
+  warnings: string[]
+} {
+  const warnings: string[] = []
+  const missing: string[] = []
+  const configured: string[] = []
+
+  // Check Supabase configuration
+  const supabaseVars = [
+    "NEXT_PUBLIC_SUPABASE_URL",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+    "SUPABASE_URL",
+    "SUPABASE_SERVICE_ROLE_KEY",
+  ]
+
+  supabaseVars.forEach((varName) => {
+    if (!process.env[varName] || process.env[varName]?.trim() === "") {
+      missing.push(varName)
+    } else {
+      configured.push(varName)
+    }
+  })
+
+  // Check integration providers
+  Object.keys(INTEGRATION_SCOPES).forEach((provider) => {
+    const envVars = getRequiredEnvVars(provider)
+    const hasAllVars = envVars.every((envVar) => process.env[envVar] && process.env[envVar]?.trim() !== "")
+
+    if (!hasAllVars) {
+      const missingForProvider = envVars.filter((envVar) => !process.env[envVar] || process.env[envVar]?.trim() === "")
+      warnings.push(`Integration '${provider}' missing: ${missingForProvider.join(", ")}`)
+    } else {
+      configured.push(`${provider} integration`)
+    }
+  })
+
+  return {
+    valid: missing.length === 0,
+    missing,
+    configured,
+    warnings,
+  }
 }
