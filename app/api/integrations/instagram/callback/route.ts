@@ -1,37 +1,79 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { InstagramOAuthService } from "@/lib/oauth/instagram"
 
 export async function GET(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams
-  const baseUrl = new URL(request.url).origin
+  const { searchParams } = new URL(request.url)
   const code = searchParams.get("code")
-  const state = searchParams.get("state")
   const error = searchParams.get("error")
+  const error_description = searchParams.get("error_description")
 
-  console.log("Instagram OAuth callback:", { code: !!code, state, error })
+  let postMessage = ""
 
-  if (error) {
-    console.error("Instagram OAuth error:", error)
-    return NextResponse.redirect(new URL("/integrations?error=oauth_error&provider=instagram", baseUrl))
+  if (code) {
+    postMessage = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Instagram Authentication</title>
+      </head>
+      <body>
+        <h1>Instagram Authentication Successful!</h1>
+        <p>You can now close this window.</p>
+        <script>
+          window.opener.postMessage({
+            type: 'instagram',
+            payload: { code: '${code}' }
+          }, window.location.origin);
+          window.close();
+        </script>
+      </body>
+      </html>
+    `
+  } else if (error) {
+    postMessage = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Instagram Authentication Error</title>
+      </head>
+      <body>
+        <h1>Instagram Authentication Error!</h1>
+        <p>Error: ${error}</p>
+        <p>Description: ${error_description}</p>
+        <script>
+          window.opener.postMessage({
+            type: 'instagram',
+            payload: { error: '${error}', error_description: '${error_description}' }
+          }, window.location.origin);
+          window.close();
+        </script>
+      </body>
+      </html>
+    `
+  } else {
+    postMessage = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Instagram Authentication Error</title>
+      </head>
+      <body>
+        <h1>Instagram Authentication Error!</h1>
+        <p>Unknown error occurred.</p>
+        <script>
+          window.opener.postMessage({
+            type: 'instagram',
+            payload: { error: 'unknown', error_description: 'Unknown error occurred' }
+          }, window.location.origin);
+          window.close();
+        </script>
+      </body>
+      </html>
+    `
   }
 
-  if (!code || !state) {
-    console.error("Missing code or state in Instagram callback")
-    return NextResponse.redirect(new URL("/integrations?error=missing_params&provider=instagram", baseUrl))
-  }
-
-  try {
-    const result = await InstagramOAuthService.handleCallback(code, state, baseUrl)
-
-    console.log("Instagram OAuth result:", result.success ? "success" : "failed")
-    return NextResponse.redirect(new URL(result.redirectUrl, baseUrl))
-  } catch (error: any) {
-    console.error("Instagram OAuth callback error:", error)
-    return NextResponse.redirect(
-      new URL(
-        `/integrations?error=callback_failed&provider=instagram&message=${encodeURIComponent(error.message)}`,
-        baseUrl,
-      ),
-    )
-  }
+  return new NextResponse(postMessage, {
+    headers: {
+      "Content-Type": "text/html",
+    },
+  })
 }

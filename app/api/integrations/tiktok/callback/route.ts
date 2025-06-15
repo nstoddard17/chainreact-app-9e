@@ -1,37 +1,79 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { TikTokOAuthService } from "@/lib/oauth/tiktok"
 
 export async function GET(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams
-  const baseUrl = new URL(request.url).origin
+  const { searchParams } = new URL(request.url)
   const code = searchParams.get("code")
-  const state = searchParams.get("state")
   const error = searchParams.get("error")
+  const error_description = searchParams.get("error_description")
 
-  console.log("TikTok OAuth callback:", { code: !!code, state, error })
+  let postMessage = ""
 
-  if (error) {
-    console.error("TikTok OAuth error:", error)
-    return NextResponse.redirect(new URL("/integrations?error=oauth_error&provider=tiktok", baseUrl))
+  if (code) {
+    postMessage = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>TikTok Authentication</title>
+      </head>
+      <body>
+        <h1>TikTok Authentication Successful!</h1>
+        <p>You can now close this window.</p>
+        <script>
+          window.opener.postMessage({
+            type: 'tiktok',
+            payload: { code: '${code}' }
+          }, window.location.origin);
+          window.close();
+        </script>
+      </body>
+      </html>
+    `
+  } else if (error) {
+    postMessage = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>TikTok Authentication Error</title>
+      </head>
+      <body>
+        <h1>TikTok Authentication Error!</h1>
+        <p>Error: ${error}</p>
+        <p>Description: ${error_description || "No description provided."}</p>
+        <script>
+          window.opener.postMessage({
+            type: 'tiktok',
+            payload: { error: '${error}', error_description: '${error_description}' }
+          }, window.location.origin);
+          window.close();
+        </script>
+      </body>
+      </html>
+    `
+  } else {
+    postMessage = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>TikTok Authentication Issue</title>
+      </head>
+      <body>
+        <h1>TikTok Authentication Issue!</h1>
+        <p>No code or error received from TikTok.</p>
+        <script>
+          window.opener.postMessage({
+            type: 'tiktok',
+            payload: { error: 'No code or error received' }
+          }, window.location.origin);
+          window.close();
+        </script>
+      </body>
+      </html>
+    `
   }
 
-  if (!code || !state) {
-    console.error("Missing code or state in TikTok callback")
-    return NextResponse.redirect(new URL("/integrations?error=missing_params&provider=tiktok", baseUrl))
-  }
-
-  try {
-    const result = await TikTokOAuthService.handleCallback(code, state, baseUrl)
-
-    console.log("TikTok OAuth result:", result.success ? "success" : "failed")
-    return NextResponse.redirect(new URL(result.redirectUrl, baseUrl))
-  } catch (error: any) {
-    console.error("TikTok OAuth callback error:", error)
-    return NextResponse.redirect(
-      new URL(
-        `/integrations?error=callback_failed&provider=tiktok&message=${encodeURIComponent(error.message)}`,
-        baseUrl,
-      ),
-    )
-  }
+  return new NextResponse(postMessage, {
+    headers: {
+      "Content-Type": "text/html",
+    },
+  })
 }

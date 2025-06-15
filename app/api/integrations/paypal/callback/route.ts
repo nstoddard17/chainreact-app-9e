@@ -1,37 +1,79 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { PayPalOAuthService } from "@/lib/oauth/paypal"
 
 export async function GET(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams
-  const baseUrl = new URL(request.url).origin
+  const { searchParams } = new URL(request.url)
   const code = searchParams.get("code")
-  const state = searchParams.get("state")
   const error = searchParams.get("error")
+  const error_description = searchParams.get("error_description")
 
-  console.log("PayPal OAuth callback:", { code: !!code, state, error })
+  let content
 
-  if (error) {
-    console.error("PayPal OAuth error:", error)
-    return NextResponse.redirect(new URL("/integrations?error=oauth_error&provider=paypal", baseUrl))
+  if (code) {
+    content = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>PayPal Authentication</title>
+      </head>
+      <body>
+        <h1>PayPal Authentication Successful!</h1>
+        <p>You can now close this window.</p>
+        <script>
+          window.opener.postMessage({
+            type: 'paypal',
+            payload: { code: '${code}' },
+          }, window.location.origin);
+          window.close();
+        </script>
+      </body>
+      </html>
+    `
+  } else if (error) {
+    content = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>PayPal Authentication Error</title>
+      </head>
+      <body>
+        <h1>PayPal Authentication Error!</h1>
+        <p>Error: ${error}</p>
+        <p>Description: ${error_description}</p>
+        <script>
+          window.opener.postMessage({
+            type: 'paypal',
+            payload: { error: '${error}', error_description: '${error_description}' },
+          }, window.location.origin);
+          window.close();
+        </script>
+      </body>
+      </html>
+    `
+  } else {
+    content = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>PayPal Authentication</title>
+      </head>
+      <body>
+        <h1>PayPal Authentication</h1>
+        <p>Something went wrong. Please try again.</p>
+        <script>
+          window.opener.postMessage({
+            type: 'paypal',
+            payload: { error: 'Unknown error' },
+          }, window.location.origin);
+          window.close();
+        </script>
+      </body>
+      </html>
+    `
   }
 
-  if (!code || !state) {
-    console.error("Missing code or state in PayPal callback")
-    return NextResponse.redirect(new URL("/integrations?error=missing_params&provider=paypal", baseUrl))
-  }
-
-  try {
-    const result = await PayPalOAuthService.handleCallback(code, state, baseUrl)
-
-    console.log("PayPal OAuth result:", result.success ? "success" : "failed")
-    return NextResponse.redirect(new URL(result.redirectUrl, baseUrl))
-  } catch (error: any) {
-    console.error("PayPal OAuth callback error:", error)
-    return NextResponse.redirect(
-      new URL(
-        `/integrations?error=callback_failed&provider=paypal&message=${encodeURIComponent(error.message)}`,
-        baseUrl,
-      ),
-    )
-  }
+  return new NextResponse(content, {
+    headers: {
+      "Content-Type": "text/html",
+    },
+  })
 }

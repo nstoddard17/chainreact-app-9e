@@ -27,12 +27,58 @@ export async function GET(request: NextRequest) {
 
   if (error) {
     console.error("Google Sheets OAuth error:", error)
-    return NextResponse.redirect(new URL("/integrations?error=oauth_error&provider=google-sheets", baseUrl))
+    return new NextResponse(
+      `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Google Sheets Authentication Failed</title>
+        </head>
+        <body>
+          <h1>Google Sheets Authentication Failed</h1>
+          <p>An error occurred during the Google Sheets authentication process.</p>
+          <script>
+            window.opener.postMessage({ type: 'google-sheets-auth-error', error: '${error}' }, window.location.origin);
+            window.close();
+          </script>
+        </body>
+      </html>
+    `,
+      {
+        status: 200,
+        headers: {
+          "Content-Type": "text/html",
+        },
+      },
+    )
   }
 
   if (!code || !state) {
     console.error("Missing code or state in Google Sheets callback")
-    return NextResponse.redirect(new URL("/integrations?error=missing_params&provider=google-sheets", baseUrl))
+    return new NextResponse(
+      `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Google Sheets Authentication Failed</title>
+        </head>
+        <body>
+          <h1>Google Sheets Authentication Failed</h1>
+          <p>Missing parameters during the Google Sheets authentication process.</p>
+          <script>
+            window.opener.postMessage({ type: 'google-sheets-auth-error', error: 'missing_params' }, window.location.origin);
+            window.close();
+          </script>
+        </body>
+      </html>
+    `,
+      {
+        status: 200,
+        headers: {
+          "Content-Type": "text/html",
+        },
+      },
+    )
   }
 
   try {
@@ -42,14 +88,60 @@ export async function GET(request: NextRequest) {
       stateData = JSON.parse(atob(state))
     } catch (e) {
       console.error("Failed to parse state:", e)
-      return NextResponse.redirect(new URL("/integrations?error=invalid_state&provider=google-sheets", baseUrl))
+      return new NextResponse(
+        `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Google Sheets Authentication Failed</title>
+          </head>
+          <body>
+            <h1>Google Sheets Authentication Failed</h1>
+            <p>Invalid state during the Google Sheets authentication process.</p>
+            <script>
+              window.opener.postMessage({ type: 'google-sheets-auth-error', error: 'invalid_state' }, window.location.origin);
+              window.close();
+            </script>
+          </body>
+        </html>
+      `,
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "text/html",
+          },
+        },
+      )
     }
 
     const userId = stateData.userId
 
     if (!userId) {
       console.error("No user ID in state")
-      return NextResponse.redirect(new URL("/integrations?error=missing_user_id&provider=google-sheets", baseUrl))
+      return new NextResponse(
+        `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Google Sheets Authentication Failed</title>
+          </head>
+          <body>
+            <h1>Google Sheets Authentication Failed</h1>
+            <p>Missing user ID during the Google Sheets authentication process.</p>
+            <script>
+              window.opener.postMessage({ type: 'google-sheets-auth-error', error: 'missing_user_id' }, window.location.origin);
+              window.close();
+            </script>
+          </body>
+        </html>
+      `,
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "text/html",
+          },
+        },
+      )
     }
 
     const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
@@ -57,8 +149,29 @@ export async function GET(request: NextRequest) {
 
     if (!clientId || !clientSecret) {
       console.error("Missing Google client ID or secret")
-      return NextResponse.redirect(
-        new URL("/integrations?error=missing_client_credentials&provider=google-sheets", baseUrl),
+      return new NextResponse(
+        `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Google Sheets Authentication Failed</title>
+          </head>
+          <body>
+            <h1>Google Sheets Authentication Failed</h1>
+            <p>Missing client credentials during the Google Sheets authentication process.</p>
+            <script>
+              window.opener.postMessage({ type: 'google-sheets-auth-error', error: 'missing_client_credentials' }, window.location.origin);
+              window.close();
+            </script>
+          </body>
+        </html>
+      `,
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "text/html",
+          },
+        },
       )
     }
 
@@ -80,11 +193,29 @@ export async function GET(request: NextRequest) {
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text()
       console.error("Google Sheets token exchange failed:", errorText)
-      return NextResponse.redirect(
-        new URL(
-          `/integrations?error=token_exchange_failed&provider=google-sheets&message=${encodeURIComponent(errorText)}`,
-          baseUrl,
-        ),
+      return new NextResponse(
+        `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Google Sheets Authentication Failed</title>
+          </head>
+          <body>
+            <h1>Google Sheets Authentication Failed</h1>
+            <p>Token exchange failed during the Google Sheets authentication process.</p>
+            <script>
+              window.opener.postMessage({ type: 'google-sheets-auth-error', error: 'token_exchange_failed', message: '${errorText}' }, window.location.origin);
+              window.close();
+            </script>
+          </body>
+        </html>
+      `,
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "text/html",
+          },
+        },
       )
     }
 
@@ -100,7 +231,30 @@ export async function GET(request: NextRequest) {
 
     if (!userResponse.ok) {
       console.error("Failed to get Google user info:", await userResponse.text())
-      return NextResponse.redirect(new URL("/integrations?error=user_info_failed&provider=google-sheets", baseUrl))
+      return new NextResponse(
+        `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Google Sheets Authentication Failed</title>
+          </head>
+          <body>
+            <h1>Google Sheets Authentication Failed</h1>
+            <p>Failed to get user info during the Google Sheets authentication process.</p>
+            <script>
+              window.opener.postMessage({ type: 'google-sheets-auth-error', error: 'user_info_failed' }, window.location.origin);
+              window.close();
+            </script>
+          </body>
+        </html>
+      `,
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "text/html",
+          },
+        },
+      )
     }
 
     const userData = await userResponse.json()
@@ -139,8 +293,29 @@ export async function GET(request: NextRequest) {
 
       if (error) {
         console.error("Error updating Google Sheets integration:", error)
-        return NextResponse.redirect(
-          new URL("/integrations?error=database_update_failed&provider=google-sheets", baseUrl),
+        return new NextResponse(
+          `
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <title>Google Sheets Authentication Failed</title>
+            </head>
+            <body>
+              <h1>Google Sheets Authentication Failed</h1>
+              <p>Database update failed during the Google Sheets authentication process.</p>
+              <script>
+                window.opener.postMessage({ type: 'google-sheets-auth-error', error: 'database_update_failed' }, window.location.origin);
+                window.close();
+              </script>
+            </body>
+          </html>
+        `,
+          {
+            status: 200,
+            headers: {
+              "Content-Type": "text/html",
+            },
+          },
         )
       }
     } else {
@@ -151,8 +326,29 @@ export async function GET(request: NextRequest) {
 
       if (error) {
         console.error("Error inserting Google Sheets integration:", error)
-        return NextResponse.redirect(
-          new URL("/integrations?error=database_insert_failed&provider=google-sheets", baseUrl),
+        return new NextResponse(
+          `
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <title>Google Sheets Authentication Failed</title>
+            </head>
+            <body>
+              <h1>Google Sheets Authentication Failed</h1>
+              <p>Database insert failed during the Google Sheets authentication process.</p>
+              <script>
+                window.opener.postMessage({ type: 'google-sheets-auth-error', error: 'database_insert_failed' }, window.location.origin);
+                window.close();
+              </script>
+            </body>
+          </html>
+        `,
+          {
+            status: 200,
+            headers: {
+              "Content-Type": "text/html",
+            },
+          },
         )
       }
     }
@@ -160,14 +356,55 @@ export async function GET(request: NextRequest) {
     // Add a delay to ensure database operations complete
     await new Promise((resolve) => setTimeout(resolve, 500))
 
-    return NextResponse.redirect(new URL(`/integrations?success=true&provider=google-sheets&t=${Date.now()}`, baseUrl))
+    return new NextResponse(
+      `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Google Sheets Authentication Successful</title>
+        </head>
+        <body>
+          <h1>Google Sheets Authentication Successful</h1>
+          <p>Google Sheets has been successfully authenticated.</p>
+          <script>
+            window.opener.postMessage({ type: 'google-sheets-auth-success' }, window.location.origin);
+            window.close();
+          </script>
+        </body>
+      </html>
+    `,
+      {
+        status: 200,
+        headers: {
+          "Content-Type": "text/html",
+        },
+      },
+    )
   } catch (error: any) {
     console.error("Google Sheets OAuth callback error:", error)
-    return NextResponse.redirect(
-      new URL(
-        `/integrations?error=callback_failed&provider=google-sheets&message=${encodeURIComponent(error.message)}`,
-        baseUrl,
-      ),
+    return new NextResponse(
+      `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Google Sheets Authentication Failed</title>
+        </head>
+        <body>
+          <h1>Google Sheets Authentication Failed</h1>
+          <p>An unexpected error occurred during the Google Sheets authentication process.</p>
+          <script>
+            window.opener.postMessage({ type: 'google-sheets-auth-error', error: 'callback_failed', message: '${error.message}' }, window.location.origin);
+            window.close();
+          </script>
+        </body>
+      </html>
+    `,
+      {
+        status: 200,
+        headers: {
+          "Content-Type": "text/html",
+        },
+      },
     )
   }
 }

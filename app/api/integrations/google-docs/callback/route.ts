@@ -27,12 +27,58 @@ export async function GET(request: NextRequest) {
 
   if (error) {
     console.error("Google Docs OAuth error:", error)
-    return NextResponse.redirect(new URL("/integrations?error=oauth_error&provider=google-docs", baseUrl))
+    return new NextResponse(
+      `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Google Docs Integration Failed</title>
+        </head>
+        <body>
+          <h1>Google Docs Integration Failed</h1>
+          <p>An error occurred during the Google Docs integration process: ${error}</p>
+          <script>
+            window.opener.postMessage({ type: 'google-docs-integration-error', error: '${error}' }, window.location.origin);
+            window.close();
+          </script>
+        </body>
+      </html>
+    `,
+      {
+        status: 200,
+        headers: {
+          "Content-Type": "text/html",
+        },
+      },
+    )
   }
 
   if (!code || !state) {
     console.error("Missing code or state in Google Docs callback")
-    return NextResponse.redirect(new URL("/integrations?error=missing_params&provider=google-docs", baseUrl))
+    return new NextResponse(
+      `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Google Docs Integration Failed</title>
+        </head>
+        <body>
+          <h1>Google Docs Integration Failed</h1>
+          <p>Missing parameters in the Google Docs integration callback.</p>
+          <script>
+            window.opener.postMessage({ type: 'google-docs-integration-error', error: 'missing_params' }, window.location.origin);
+            window.close();
+          </script>
+        </body>
+      </html>
+    `,
+      {
+        status: 200,
+        headers: {
+          "Content-Type": "text/html",
+        },
+      },
+    )
   }
 
   try {
@@ -42,14 +88,60 @@ export async function GET(request: NextRequest) {
       stateData = JSON.parse(atob(state))
     } catch (e) {
       console.error("Failed to parse state:", e)
-      return NextResponse.redirect(new URL("/integrations?error=invalid_state&provider=google-docs", baseUrl))
+      return new NextResponse(
+        `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Google Docs Integration Failed</title>
+          </head>
+          <body>
+            <h1>Google Docs Integration Failed</h1>
+            <p>Failed to parse the state parameter.</p>
+            <script>
+              window.opener.postMessage({ type: 'google-docs-integration-error', error: 'invalid_state' }, window.location.origin);
+              window.close();
+            </script>
+          </body>
+        </html>
+      `,
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "text/html",
+          },
+        },
+      )
     }
 
     const userId = stateData.userId
 
     if (!userId) {
       console.error("No user ID in state")
-      return NextResponse.redirect(new URL("/integrations?error=missing_user_id&provider=google-docs", baseUrl))
+      return new NextResponse(
+        `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Google Docs Integration Failed</title>
+          </head>
+          <body>
+            <h1>Google Docs Integration Failed</h1>
+            <p>User ID is missing from the state parameter.</p>
+            <script>
+              window.opener.postMessage({ type: 'google-docs-integration-error', error: 'missing_user_id' }, window.location.origin);
+              window.close();
+            </script>
+          </body>
+        </html>
+      `,
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "text/html",
+          },
+        },
+      )
     }
 
     const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
@@ -57,8 +149,29 @@ export async function GET(request: NextRequest) {
 
     if (!clientId || !clientSecret) {
       console.error("Missing Google client ID or secret")
-      return NextResponse.redirect(
-        new URL("/integrations?error=missing_client_credentials&provider=google-docs", baseUrl),
+      return new NextResponse(
+        `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Google Docs Integration Failed</title>
+          </head>
+          <body>
+            <h1>Google Docs Integration Failed</h1>
+            <p>Missing Google client credentials.</p>
+            <script>
+              window.opener.postMessage({ type: 'google-docs-integration-error', error: 'missing_client_credentials' }, window.location.origin);
+              window.close();
+            </script>
+          </body>
+        </html>
+      `,
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "text/html",
+          },
+        },
       )
     }
 
@@ -80,11 +193,29 @@ export async function GET(request: NextRequest) {
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text()
       console.error("Google Docs token exchange failed:", errorText)
-      return NextResponse.redirect(
-        new URL(
-          `/integrations?error=token_exchange_failed&provider=google-docs&message=${encodeURIComponent(errorText)}`,
-          baseUrl,
-        ),
+      return new NextResponse(
+        `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Google Docs Integration Failed</title>
+          </head>
+          <body>
+            <h1>Google Docs Integration Failed</h1>
+            <p>Failed to exchange code for token.</p>
+            <script>
+              window.opener.postMessage({ type: 'google-docs-integration-error', error: 'token_exchange_failed', message: '${errorText}' }, window.location.origin);
+              window.close();
+            </script>
+          </body>
+        </html>
+      `,
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "text/html",
+          },
+        },
       )
     }
 
@@ -100,7 +231,30 @@ export async function GET(request: NextRequest) {
 
     if (!userResponse.ok) {
       console.error("Failed to get Google user info:", await userResponse.text())
-      return NextResponse.redirect(new URL("/integrations?error=user_info_failed&provider=google-docs", baseUrl))
+      return new NextResponse(
+        `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Google Docs Integration Failed</title>
+          </head>
+          <body>
+            <h1>Google Docs Integration Failed</h1>
+            <p>Failed to retrieve user information from Google.</p>
+            <script>
+              window.opener.postMessage({ type: 'google-docs-integration-error', error: 'user_info_failed' }, window.location.origin);
+              window.close();
+            </script>
+          </body>
+        </html>
+      `,
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "text/html",
+          },
+        },
+      )
     }
 
     const userData = await userResponse.json()
@@ -139,8 +293,29 @@ export async function GET(request: NextRequest) {
 
       if (error) {
         console.error("Error updating Google Docs integration:", error)
-        return NextResponse.redirect(
-          new URL("/integrations?error=database_update_failed&provider=google-docs", baseUrl),
+        return new NextResponse(
+          `
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <title>Google Docs Integration Failed</title>
+            </head>
+            <body>
+              <h1>Google Docs Integration Failed</h1>
+              <p>Failed to update the Google Docs integration in the database.</p>
+              <script>
+                window.opener.postMessage({ type: 'google-docs-integration-error', error: 'database_update_failed' }, window.location.origin);
+                window.close();
+              </script>
+            </body>
+          </html>
+        `,
+          {
+            status: 200,
+            headers: {
+              "Content-Type": "text/html",
+            },
+          },
         )
       }
     } else {
@@ -151,8 +326,29 @@ export async function GET(request: NextRequest) {
 
       if (error) {
         console.error("Error inserting Google Docs integration:", error)
-        return NextResponse.redirect(
-          new URL("/integrations?error=database_insert_failed&provider=google-docs", baseUrl),
+        return new NextResponse(
+          `
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <title>Google Docs Integration Failed</title>
+            </head>
+            <body>
+              <h1>Google Docs Integration Failed</h1>
+              <p>Failed to insert the Google Docs integration into the database.</p>
+              <script>
+                window.opener.postMessage({ type: 'google-docs-integration-error', error: 'database_insert_failed' }, window.location.origin);
+                window.close();
+              </script>
+            </body>
+          </html>
+        `,
+          {
+            status: 200,
+            headers: {
+              "Content-Type": "text/html",
+            },
+          },
         )
       }
     }
@@ -160,14 +356,55 @@ export async function GET(request: NextRequest) {
     // Add a delay to ensure database operations complete
     await new Promise((resolve) => setTimeout(resolve, 500))
 
-    return NextResponse.redirect(new URL(`/integrations?success=true&provider=google-docs&t=${Date.now()}`, baseUrl))
+    return new NextResponse(
+      `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Google Docs Integration Successful</title>
+        </head>
+        <body>
+          <h1>Google Docs Integration Successful</h1>
+          <p>Google Docs integration was successful!</p>
+          <script>
+            window.opener.postMessage({ type: 'google-docs-integration-success' }, window.location.origin);
+            window.close();
+          </script>
+        </body>
+      </html>
+    `,
+      {
+        status: 200,
+        headers: {
+          "Content-Type": "text/html",
+        },
+      },
+    )
   } catch (error: any) {
     console.error("Google Docs OAuth callback error:", error)
-    return NextResponse.redirect(
-      new URL(
-        `/integrations?error=callback_failed&provider=google-docs&message=${encodeURIComponent(error.message)}`,
-        baseUrl,
-      ),
+    return new NextResponse(
+      `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Google Docs Integration Failed</title>
+        </head>
+        <body>
+          <h1>Google Docs Integration Failed</h1>
+          <p>An unexpected error occurred during the Google Docs integration process.</p>
+          <script>
+            window.opener.postMessage({ type: 'google-docs-integration-error', error: 'callback_failed', message: '${error.message}' }, window.location.origin);
+            window.close();
+          </script>
+        </body>
+      </html>
+    `,
+      {
+        status: 200,
+        headers: {
+          "Content-Type": "text/html",
+        },
+      },
     )
   }
 }

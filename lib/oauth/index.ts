@@ -122,7 +122,6 @@ export function getOAuthProvider(provider: string): OAuthProvider {
           return response.json()
         },
       }
-    case "google":
     case "gmail":
     case "google-drive":
     case "google-sheets":

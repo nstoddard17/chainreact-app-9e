@@ -24,24 +24,6 @@ export interface IntegrationConfig {
 
 // Complete integration configurations with all metadata
 export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
-  // Google Services
-  google: {
-    id: "google",
-    name: "Google",
-    description: "Access Google services including Gmail, Drive, Calendar, and more",
-    category: "productivity",
-    logoUrl: "/integrations/google.svg",
-    capabilities: ["Authentication", "Profile Access", "Email", "Calendar", "Drive"],
-    scopes: ["https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"],
-    isAvailable: false,
-    requiresClientId: "NEXT_PUBLIC_GOOGLE_CLIENT_ID",
-    requiresClientSecret: "GOOGLE_CLIENT_SECRET",
-    authUrl: "https://accounts.google.com/o/oauth2/v2/auth",
-    tokenUrl: "https://oauth2.googleapis.com/token",
-    color: "#4285F4",
-    docsUrl: "https://developers.google.com/identity/protocols/oauth2",
-  },
-
   gmail: {
     id: "gmail",
     name: "Gmail",
