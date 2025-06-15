@@ -1,27 +1,16 @@
 import { createClient } from "@supabase/supabase-js"
-import type { NextRequest } from "next/server"
-import type { Database } from "@/types/supabase"
 
-/**
- * Create admin client only for server-side operations
- */
-export const createAdminSupabaseClient = () => {
-  if (typeof window !== "undefined") {
-    console.warn("Warning: Attempted to create admin Supabase client on the client side")
-    return null
-  }
-
-  const supabaseUrl = process.env.SUPABASE_URL
+// Create admin Supabase client with service role key
+export function createAdminSupabaseClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
   if (!supabaseUrl || !supabaseServiceKey) {
-    const missingVars = []
-    if (!supabaseUrl) missingVars.push("SUPABASE_URL")
-    if (!supabaseServiceKey) missingVars.push("SUPABASE_SERVICE_ROLE_KEY")
-    throw new Error(`Missing required Supabase admin environment variables: ${missingVars.join(", ")}`)
+    console.error("Missing Supabase environment variables for admin client")
+    throw new Error("Missing required Supabase environment variables")
   }
 
-  return createClient<Database>(supabaseUrl, supabaseServiceKey, {
+  return createClient(supabaseUrl, supabaseServiceKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
@@ -29,344 +18,155 @@ export const createAdminSupabaseClient = () => {
   })
 }
 
-/**
- * Get standardized redirect URI for OAuth providers
- */
-export function getOAuthRedirectUri(provider: string, req?: Request): string {
-  // Use the production domain for all redirect URIs
-  const baseUrl = "https://chainreact.app"
+// Get OAuth redirect URI for a provider
+export function getOAuthRedirectUri(provider: string): string {
+  const baseUrl = getAbsoluteBaseUrl()
   return `${baseUrl}/api/integrations/${provider}/callback`
 }
 
-/**
- * Get base URL for the application
- */
-export function getBaseUrl(req?: Request | NextRequest): string {
-  // Always use production URL for OAuth redirects to ensure consistency
-  return "https://chainreact.app"
-}
-
-/**
- * Upsert integration data safely
- */
-export async function upsertIntegration(
-  supabase: any,
-  integrationData: {
-    user_id: string
-    provider: string
-    provider_user_id?: string
-    status: string
-    scopes?: string[]
-    access_token?: string
-    refresh_token?: string
-    expires_at?: string | null
-    metadata: any
-  },
-): Promise<any> {
+// Upsert integration data to Supabase
+export async function upsertIntegration(integrationData: any) {
   try {
-    const now = new Date().toISOString()
+    const supabase = createAdminSupabaseClient()
 
-    const mainIntegrationData = {
-      user_id: integrationData.user_id,
-      provider: integrationData.provider,
-      provider_user_id: integrationData.provider_user_id,
-      status: integrationData.status,
-      scopes: integrationData.scopes,
-      access_token: integrationData.access_token,
-      refresh_token: integrationData.refresh_token,
-      expires_at: integrationData.expires_at,
-      metadata: integrationData.metadata,
-      updated_at: now,
-    }
-
-    // Check if integration exists
-    const { data: existingIntegration, error: findError } = await supabase
+    const { data, error } = await supabase
       .from("integrations")
-      .select("id")
-      .eq("user_id", integrationData.user_id)
-      .eq("provider", integrationData.provider)
-      .maybeSingle()
+      .upsert(integrationData, {
+        onConflict: "user_id,provider",
+      })
+      .select()
 
-    if (findError) {
-      console.error("Error checking for existing integration:", findError)
+    if (error) {
+      console.error("Error upserting integration:", error)
+      throw error
     }
 
-    let result
-    if (existingIntegration) {
-      result = await supabase
-        .from("integrations")
-        .update(mainIntegrationData)
-        .eq("id", existingIntegration.id)
-        .select()
-        .single()
-    } else {
-      result = await supabase
-        .from("integrations")
-        .insert({
-          ...mainIntegrationData,
-          created_at: now,
-        })
-        .select()
-        .single()
-    }
-
-    if (result.error) {
-      console.error("Error upserting integration:", result.error)
-      throw result.error
-    }
-
-    return result.data
+    return { success: true, data }
   } catch (error) {
-    console.error("Error in upsertIntegration:", error)
-    throw error
+    console.error("Failed to upsert integration:", error)
+    return { success: false, error }
   }
 }
 
-export function getAbsoluteBaseUrl(request: NextRequest): string {
-  // Always return production URL for consistency
-  return "https://chainreact.app"
-}
+// Validate OAuth scopes
+export function validateScopes(provider: string, grantedScopes: string[]): boolean {
+  const requiredScopes = getRequiredScopes(provider)
 
-export function validateEnvironmentVariables(provider: string): { isValid: boolean; missing: string[] } {
-  const missing: string[] = []
-
-  switch (provider.toLowerCase()) {
-    case "slack":
-      if (!process.env.NEXT_PUBLIC_SLACK_CLIENT_ID) missing.push("NEXT_PUBLIC_SLACK_CLIENT_ID")
-      if (!process.env.SLACK_CLIENT_SECRET) missing.push("SLACK_CLIENT_SECRET")
-      break
-    case "discord":
-      if (!process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID) missing.push("NEXT_PUBLIC_DISCORD_CLIENT_ID")
-      if (!process.env.DISCORD_CLIENT_SECRET) missing.push("DISCORD_CLIENT_SECRET")
-      break
-    case "github":
-      if (!process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID) missing.push("NEXT_PUBLIC_GITHUB_CLIENT_ID")
-      if (!process.env.GITHUB_CLIENT_SECRET) missing.push("GITHUB_CLIENT_SECRET")
-      break
-    case "google":
-    case "gmail":
-    case "google-drive":
-    case "google-sheets":
-    case "google-docs":
-    case "google-calendar":
-    case "youtube":
-      if (!process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) missing.push("NEXT_PUBLIC_GOOGLE_CLIENT_ID")
-      if (!process.env.GOOGLE_CLIENT_SECRET) missing.push("GOOGLE_CLIENT_SECRET")
-      break
-    case "notion":
-      if (!process.env.NEXT_PUBLIC_NOTION_CLIENT_ID) missing.push("NEXT_PUBLIC_NOTION_CLIENT_ID")
-      if (!process.env.NOTION_CLIENT_SECRET) missing.push("NOTION_CLIENT_SECRET")
-      break
-    case "twitter":
-      if (!process.env.NEXT_PUBLIC_TWITTER_CLIENT_ID) missing.push("NEXT_PUBLIC_TWITTER_CLIENT_ID")
-      if (!process.env.TWITTER_CLIENT_SECRET) missing.push("TWITTER_CLIENT_SECRET")
-      break
-    case "linkedin":
-      if (!process.env.NEXT_PUBLIC_LINKEDIN_CLIENT_ID) missing.push("NEXT_PUBLIC_LINKEDIN_CLIENT_ID")
-      if (!process.env.LINKEDIN_CLIENT_SECRET) missing.push("LINKEDIN_CLIENT_SECRET")
-      break
-    case "dropbox":
-      if (!process.env.NEXT_PUBLIC_DROPBOX_CLIENT_ID) missing.push("NEXT_PUBLIC_DROPBOX_CLIENT_ID")
-      if (!process.env.DROPBOX_CLIENT_SECRET) missing.push("DROPBOX_CLIENT_SECRET")
-      break
-    case "trello":
-      if (!process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID) missing.push("NEXT_PUBLIC_TRELLO_CLIENT_ID")
-      if (!process.env.TRELLO_CLIENT_SECRET) missing.push("TRELLO_CLIENT_SECRET")
-      break
+  if (!requiredScopes || requiredScopes.length === 0) {
+    return true // No specific scopes required
   }
 
-  return {
-    isValid: missing.length === 0,
-    missing,
+  return requiredScopes.every((scope) => grantedScopes.includes(scope))
+}
+
+// Get required scopes for each provider
+export function getRequiredScopes(provider: string): string[] {
+  const scopeMap: Record<string, string[]> = {
+    google: ["openid", "email", "profile"],
+    "google-calendar": ["https://www.googleapis.com/auth/calendar"],
+    "google-drive": ["https://www.googleapis.com/auth/drive"],
+    "google-sheets": ["https://www.googleapis.com/auth/spreadsheets"],
+    "google-docs": ["https://www.googleapis.com/auth/documents"],
+    gmail: ["https://www.googleapis.com/auth/gmail.modify"],
+    youtube: ["https://www.googleapis.com/auth/youtube"],
+    slack: ["channels:read", "chat:write", "users:read"],
+    github: ["repo", "user:email"],
+    gitlab: ["read_user", "read_repository"],
+    discord: ["identify", "email"],
+    twitter: ["tweet.read", "users.read"],
+    linkedin: ["r_liteprofile", "r_emailaddress"],
+    facebook: ["email", "public_profile"],
+    instagram: ["user_profile", "user_media"],
+    tiktok: ["user.info.basic"],
+    notion: ["read_content"],
+    trello: ["read", "write"],
+    airtable: ["data.records:read", "data.records:write"],
+    dropbox: ["files.content.read", "files.content.write"],
+    onedrive: ["Files.Read", "Files.ReadWrite"],
+    shopify: ["read_products", "write_products"],
+    stripe: ["read_write"],
+    paypal: ["openid", "profile"],
+    mailchimp: ["read", "write"],
+    hubspot: ["contacts", "content"],
+    teams: ["User.Read", "Chat.ReadWrite"],
+    docker: ["repo:read"],
+  }
+
+  return scopeMap[provider] || []
+}
+
+// Parse OAuth state parameter
+export function parseOAuthState(state: string): any {
+  try {
+    return JSON.parse(decodeURIComponent(state))
+  } catch (error) {
+    console.error("Failed to parse OAuth state:", error)
+    return {}
   }
 }
 
-/**
- * Generate OAuth state with consistent structure
- */
+// Generate OAuth state parameter
 export function generateOAuthState(
   provider: string,
   userId: string,
   options: {
     reconnect?: boolean
     integrationId?: string
+    returnUrl?: string
   } = {},
 ): string {
-  const state = {
+  const stateData = {
     provider,
     userId,
     timestamp: Date.now(),
-    reconnect: options.reconnect || false,
-    integrationId: options.integrationId,
+    nonce: Math.random().toString(36).substring(2, 15),
+    ...options,
   }
 
-  return Buffer.from(JSON.stringify(state)).toString("base64")
+  return Buffer.from(JSON.stringify(stateData)).toString("base64")
 }
 
-export function generateRandomState(): string {
-  return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
-}
-
-export function createOAuthState(
-  provider: string,
-  userId: string,
-  options: {
-    reconnect?: boolean
-    integrationId?: string
-  } = {},
-): string {
-  const state = {
-    provider,
-    userId,
-    reconnect: options.reconnect || false,
-    integrationId: options.integrationId,
-    timestamp: Date.now(),
-    nonce: generateRandomState(),
+// Get absolute base URL
+export function getAbsoluteBaseUrl(): string {
+  // Check for configured URLs first
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    return process.env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "")
   }
 
-  return btoa(JSON.stringify(state))
+  if (process.env.NEXT_PUBLIC_SITE_URL) {
+    return process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, "")
+  }
+
+  // Fallback for development
+  if (process.env.NODE_ENV === "development") {
+    return "http://localhost:3000"
+  }
+
+  // Default fallback
+  return "https://your-app.vercel.app"
 }
 
-export function parseOAuthState(stateString: string) {
+// Validate user session
+export async function validateSession(sessionToken?: string): Promise<{ valid: boolean; user?: any }> {
+  if (!sessionToken) {
+    return { valid: false }
+  }
+
   try {
-    const decoded = atob(stateString)
-    const state = JSON.parse(decoded)
-
-    // Validate state structure
-    if (!state.provider || !state.userId || !state.timestamp) {
-      throw new Error("Invalid state structure")
-    }
-
-    // Check if state is not too old (10 minutes)
-    const maxAge = 10 * 60 * 1000 // 10 minutes in milliseconds
-    if (Date.now() - state.timestamp > maxAge) {
-      throw new Error("State has expired")
-    }
-
-    return state
-  } catch (error) {
-    throw new Error("Invalid or expired state parameter")
-  }
-}
-
-export function buildOAuthUrl(config: {
-  authUrl: string
-  clientId: string
-  redirectUri: string
-  scopes: string[]
-  state: string
-  additionalParams?: Record<string, string>
-}): string {
-  const params = new URLSearchParams({
-    client_id: config.clientId,
-    redirect_uri: config.redirectUri,
-    response_type: "code",
-    scope: config.scopes.join(" "),
-    state: config.state,
-    ...config.additionalParams,
-  })
-
-  return `${config.authUrl}?${params.toString()}`
-}
-
-/**
- * Validate user session from request
- */
-export async function validateSession(request: NextRequest): Promise<string | null> {
-  try {
-    const supabaseUrl = process.env.SUPABASE_URL
-    const supabaseAnonKey = process.env.SUPABASE_ANON_KEY
-
-    if (!supabaseUrl || !supabaseAnonKey) {
-      const missingVars = []
-      if (!supabaseUrl) missingVars.push("SUPABASE_URL")
-      if (!supabaseAnonKey) missingVars.push("SUPABASE_ANON_KEY")
-
-      console.error(`Missing required Supabase environment variables for session validation: ${missingVars.join(", ")}`)
-      return null
-    }
-
-    // Try to get session from cookie
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-      cookies: {
-        get(name: string) {
-          return request.cookies.get(name)?.value
-        },
-      },
-    })
+    const supabase = createAdminSupabaseClient()
 
     const {
-      data: { session },
-    } = await supabase.auth.getSession()
+      data: { user },
+      error,
+    } = await supabase.auth.getUser(sessionToken)
 
-    if (session?.user?.id) {
-      return session.user.id
+    if (error || !user) {
+      return { valid: false }
     }
 
-    // Try to get from authorization header
-    const authHeader = request.headers.get("authorization")
-    if (authHeader?.startsWith("Bearer ")) {
-      const token = authHeader.substring(7)
-      const { data } = await supabase.auth.getUser(token)
-      if (data?.user?.id) {
-        return data.user.id
-      }
-    }
-
-    return null
+    return { valid: true, user }
   } catch (error) {
-    console.error("Error validating session:", error)
-    return null
-  }
-}
-
-/**
- * Validate required scopes against granted scopes
- */
-export function validateScopes(
-  requiredScopes: string[],
-  grantedScopes: string[],
-): {
-  valid: boolean
-  missingScopes: string[]
-} {
-  const missingScopes = requiredScopes.filter((scope) => !grantedScopes.includes(scope))
-  return {
-    valid: missingScopes.length === 0,
-    missingScopes,
-  }
-}
-
-/**
- * Get required scopes for each provider
- */
-export function getRequiredScopes(provider: string): string[] {
-  switch (provider.toLowerCase()) {
-    case "slack":
-      return ["chat:write", "channels:read", "users:read"]
-    case "discord":
-      return ["identify", "guilds"]
-    case "google":
-      return ["https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"]
-    case "github":
-      return ["repo", "user"]
-    case "trello":
-      return ["read", "write"]
-    case "notion":
-      return ["read_content", "insert_content"]
-    case "airtable":
-      return ["data.records:read", "data.records:write"]
-    case "dropbox":
-      return ["files.content.read", "files.content.write"]
-    case "hubspot":
-      return ["crm.objects.contacts.read", "crm.objects.deals.read"]
-    case "linkedin":
-      return ["r_liteprofile", "w_member_social"]
-    case "facebook":
-      return ["pages_manage_posts", "pages_read_engagement"]
-    case "teams":
-      return ["User.Read", "Chat.ReadWrite"]
-    default:
-      return []
+    console.error("Session validation error:", error)
+    return { valid: false }
   }
 }

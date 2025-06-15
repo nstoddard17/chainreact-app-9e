@@ -79,7 +79,7 @@ function IntegrationsContent() {
     }
   }, [user, providers.length, loadData])
 
-  // Enhanced OAuth callback handling
+  // Enhanced OAuth callback handling with redirect support
   useEffect(() => {
     if (oauthProcessed) return
 
@@ -87,10 +87,11 @@ function IntegrationsContent() {
     const error = searchParams.get("error")
     const provider = searchParams.get("provider")
     const message = searchParams.get("message")
+    const state = searchParams.get("state")
 
     if ((success || error) && provider) {
       setOauthProcessed(true)
-      console.log("🔄 Processing OAuth callback:", { success, error, provider, message })
+      console.log("🔄 Processing OAuth callback:", { success, error, provider, message, state })
 
       if (success === "true") {
         const refreshIntegrationsList = async () => {
@@ -124,9 +125,10 @@ function IntegrationsContent() {
         })
       }
 
-      // Clean up URL parameters
+      // Clean up URL parameters after processing
       setTimeout(() => {
-        router.replace("/integrations")
+        const cleanUrl = window.location.pathname
+        window.history.replaceState({}, document.title, cleanUrl)
       }, 1000)
     }
   }, [searchParams, toast, fetchIntegrations, router, oauthProcessed])

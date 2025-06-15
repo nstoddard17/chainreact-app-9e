@@ -1,69 +1,71 @@
+import { createMiddlewareClient } from "@supabase/auth-helpers-nextjs"
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
-import { createMiddlewareClient } from "@supabase/auth-helpers-nextjs"
 
 export async function middleware(request: NextRequest) {
-  const res = NextResponse.next()
-
   try {
-    const url = request.nextUrl.pathname
+    const res = NextResponse.next()
+    const pathname = request.nextUrl.pathname
 
-    // Skip middleware for static files and API routes (except protected ones)
+    // Skip middleware for static files and API routes
     if (
-      url.startsWith("/_next") ||
-      url.startsWith("/api/auth") ||
-      url.includes("/callback") ||
-      url.startsWith("/auth/")
+      pathname.startsWith("/_next") ||
+      pathname.startsWith("/api") ||
+      pathname.startsWith("/auth") ||
+      pathname.includes(".")
     ) {
       return res
     }
 
-    // Create middleware client
+    // Create a Supabase client configured to use cookies
     const supabase = createMiddlewareClient({ req: request, res })
 
-    // Check if user is authenticated
+    // Use getUser() instead of getSession() for secure authentication
     const {
-      data: { session },
-    } = await supabase.auth.getSession()
+      data: { user },
+      error,
+    } = await supabase.auth.getUser()
 
-    // Define protected routes
-    const isProtectedRoute =
-      url.startsWith("/dashboard") ||
-      url.startsWith("/workflows") ||
-      url.startsWith("/integrations") ||
-      url.startsWith("/analytics") ||
-      url.startsWith("/settings") ||
-      url.startsWith("/teams") ||
-      url.startsWith("/templates") ||
-      url.startsWith("/enterprise") ||
-      url.startsWith("/learn") ||
-      url.startsWith("/community")
+    // Protected routes
+    const protectedRoutes = [
+      "/dashboard",
+      "/workflows",
+      "/integrations",
+      "/analytics",
+      "/settings",
+      "/teams",
+      "/templates",
+      "/enterprise",
+      "/learn",
+      "/community",
+    ]
 
-    // For development, be more lenient
-    const isDevelopment = process.env.NODE_ENV === "development"
+    const isProtectedRoute = protectedRoutes.some((route) => pathname.startsWith(route))
 
-    // Only redirect if we're absolutely sure there's no session and it's a protected route
-    if (!session && isProtectedRoute && !isDevelopment) {
-      console.log("Middleware: No session found, redirecting to login")
-      return NextResponse.redirect(new URL("/auth/login", request.url))
+    // Only redirect if no user and accessing protected route
+    if (!user && isProtectedRoute) {
+      const redirectUrl = new URL("/auth/login", request.url)
+      redirectUrl.searchParams.set("redirectTo", pathname)
+      return NextResponse.redirect(redirectUrl)
     }
 
-    // Track API usage if session exists
-    if (session && url.startsWith("/api/")) {
-      if (url.startsWith("/api/workflows/execute")) {
-        await trackUsage(supabase, session.user.id, "execution", "run")
-      } else if (url.startsWith("/api/workflows") && request.method === "POST") {
-        await trackUsage(supabase, session.user.id, "workflow", "create")
-      } else if (url.startsWith("/api/integrations") && request.method === "POST") {
-        await trackUsage(supabase, session.user.id, "integration", "connect")
+    // Track API usage if user exists
+    if (user && pathname.startsWith("/api/")) {
+      if (pathname.startsWith("/api/workflows/execute")) {
+        await trackUsage(supabase, user.id, "execution", "run")
+      } else if (pathname.startsWith("/api/workflows") && request.method === "POST") {
+        await trackUsage(supabase, user.id, "workflow", "create")
+      } else if (pathname.startsWith("/api/integrations") && request.method === "POST") {
+        await trackUsage(supabase, user.id, "integration", "connect")
       }
     }
+
+    return res
   } catch (error) {
     console.error("Middleware error:", error)
-    // In case of error, don't redirect - let client handle auth
+    // Don't redirect on middleware errors, let the app handle it
+    return NextResponse.next()
   }
-
-  return res
 }
 
 async function trackUsage(supabase: any, userId: string, resourceType: string, action: string) {
@@ -108,5 +110,13 @@ function getUsageField(resourceType: string): string | null {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.svg).*)"],
+  matcher: [
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     */
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+  ],
 }
