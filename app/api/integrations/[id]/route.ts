@@ -6,6 +6,7 @@ const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SE
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const integrationId = params.id
+    console.log("🗑️ DELETE request for integration:", integrationId)
 
     if (!integrationId) {
       return NextResponse.json({ success: false, error: "Integration ID is required" }, { status: 400 })
@@ -13,6 +14,8 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
 
     // Get the current user
     const authHeader = request.headers.get("authorization")
+    console.log("🔐 Auth header present:", !!authHeader)
+
     if (!authHeader) {
       return NextResponse.json({ success: false, error: "Authorization header required" }, { status: 401 })
     }
@@ -27,8 +30,11 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     } = await supabase.auth.getUser(token)
 
     if (authError || !user) {
+      console.error("❌ Auth error:", authError)
       return NextResponse.json({ success: false, error: "Invalid authentication token" }, { status: 401 })
     }
+
+    console.log("👤 Authenticated user:", user.id)
 
     // First, get the integration to verify ownership
     const { data: integration, error: fetchError } = await supabase
@@ -38,9 +44,19 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       .eq("user_id", user.id)
       .single()
 
-    if (fetchError || !integration) {
+    if (fetchError) {
+      console.error("❌ Fetch error:", fetchError)
+      if (fetchError.code === "PGRST116") {
+        return NextResponse.json({ success: false, error: "Integration not found" }, { status: 404 })
+      }
+      return NextResponse.json({ success: false, error: "Database error" }, { status: 500 })
+    }
+
+    if (!integration) {
       return NextResponse.json({ success: false, error: "Integration not found or access denied" }, { status: 404 })
     }
+
+    console.log("🔍 Found integration:", integration.provider)
 
     // Delete the integration
     const { error: deleteError } = await supabase
@@ -50,16 +66,18 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       .eq("user_id", user.id)
 
     if (deleteError) {
-      console.error("Error deleting integration:", deleteError)
-      return NextResponse.json({ success: false, error: "Failed to delete integration" }, { status: 500 })
+      console.error("❌ Delete error:", deleteError)
+      return NextResponse.json({ success: false, error: "Failed to delete integration from database" }, { status: 500 })
     }
+
+    console.log("✅ Integration deleted successfully")
 
     return NextResponse.json({
       success: true,
       message: `${integration.provider} integration disconnected successfully`,
     })
   } catch (error) {
-    console.error("Error in DELETE /api/integrations/[id]:", error)
+    console.error("❌ Error in DELETE /api/integrations/[id]:", error)
     return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 })
   }
 }

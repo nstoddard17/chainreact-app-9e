@@ -1,6 +1,9 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 import { detectAvailableIntegrations, type IntegrationConfig } from "@/lib/integrations/availableIntegrations"
+import { createClient } from "@supabase/supabase-js"
+
+const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
 export interface Integration {
   id: string
@@ -234,8 +237,21 @@ export const useIntegrationStore = create<IntegrationStore>()(
         setLoading(`disconnect-${integrationId}`, true)
 
         try {
+          // Get the current user's session token
+          const {
+            data: { session },
+          } = await supabase.auth.getSession()
+
+          if (!session?.access_token) {
+            throw new Error("User not authenticated")
+          }
+
           const response = await fetch(`/api/integrations/${integrationId}`, {
             method: "DELETE",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${session.access_token}`,
+            },
           })
 
           const data = await response.json()
@@ -244,14 +260,15 @@ export const useIntegrationStore = create<IntegrationStore>()(
             throw new Error(data.error || "Failed to disconnect integration")
           }
 
-          // Update local state
+          // Remove the integration from local state immediately
           set((state) => ({
-            integrations: state.integrations.map((i) =>
-              i.id === integrationId ? { ...i, status: "disconnected" as const } : i,
-            ),
+            integrations: state.integrations.filter((i) => i.id !== integrationId),
           }))
+
+          console.log("✅ Integration disconnected successfully")
+          return data
         } catch (error: any) {
-          console.error("Failed to disconnect integration:", error)
+          console.error("❌ Failed to disconnect integration:", error)
           set({ error: error.message })
           throw error
         } finally {
