@@ -1,7 +1,6 @@
 import { createClient } from "@supabase/supabase-js"
 import type { NextRequest } from "next/server"
 import type { Database } from "@/types/supabase"
-import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 
 /**
  * Create admin client only for server-side operations
@@ -31,11 +30,20 @@ export const createAdminSupabaseClient = () => {
 }
 
 /**
- * Get hardcoded redirect URI for OAuth providers
+ * Get standardized redirect URI for OAuth providers
  */
 export function getOAuthRedirectUri(provider: string, req?: Request): string {
-  const baseUrl = getBaseUrl(req)
+  // Use the production domain for all redirect URIs
+  const baseUrl = "https://chainreact.app"
   return `${baseUrl}/api/integrations/${provider}/callback`
+}
+
+/**
+ * Get base URL for the application
+ */
+export function getBaseUrl(req?: Request | NextRequest): string {
+  // Always use production URL for OAuth redirects to ensure consistency
+  return "https://chainreact.app"
 }
 
 /**
@@ -115,20 +123,8 @@ export async function upsertIntegration(
 }
 
 export function getAbsoluteBaseUrl(request: NextRequest): string {
-  // Check for environment variable first
-  if (process.env.NEXT_PUBLIC_SITE_URL) {
-    return process.env.NEXT_PUBLIC_SITE_URL
-  }
-
-  if (process.env.NEXT_PUBLIC_APP_URL) {
-    return process.env.NEXT_PUBLIC_APP_URL
-  }
-
-  // Fallback to request headers
-  const protocol = request.headers.get("x-forwarded-proto") || "http"
-  const host = request.headers.get("host") || "localhost:3000"
-
-  return `${protocol}://${host}`
+  // Always return production URL for consistency
+  return "https://chainreact.app"
 }
 
 export function validateEnvironmentVariables(provider: string): { isValid: boolean; missing: string[] } {
