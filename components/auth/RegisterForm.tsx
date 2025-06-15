@@ -9,8 +9,7 @@ import { useAuthStore } from "@/stores/authStore"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Mail, Lock, User, Database, Wifi } from "lucide-react"
-import { toast } from "@/components/ui/use-toast"
+import { Mail, Lock, User } from "lucide-react"
 
 export default function RegisterForm() {
   const [email, setEmail] = useState("")
@@ -18,7 +17,7 @@ export default function RegisterForm() {
   const [firstName, setFirstName] = useState("")
   const [lastName, setLastName] = useState("")
   const [loading, setLoading] = useState(false)
-  const { signUp, signInWithGoogle, usingSupabase } = useAuthStore()
+  const { signUp, signInWithGoogle } = useAuthStore()
   const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -30,24 +29,10 @@ export default function RegisterForm() {
         first_name: firstName,
         last_name: lastName,
         full_name: `${firstName} ${lastName}`.trim(),
-        name: `${firstName} ${lastName}`.trim(),
       })
-
-      toast({
-        title: "Account Created!",
-        description: usingSupabase
-          ? "Your account has been created with Supabase. Please check your email for verification."
-          : "Your demo account has been created successfully.",
-      })
-
       router.push("/dashboard")
     } catch (error) {
       console.error("Registration error:", error)
-      toast({
-        title: "Registration Failed",
-        description: error instanceof Error ? error.message : "Failed to create account. Please try again.",
-        variant: "destructive",
-      })
     } finally {
       setLoading(false)
     }
@@ -57,21 +42,8 @@ export default function RegisterForm() {
     setLoading(true)
     try {
       await signInWithGoogle()
-      if (!usingSupabase) {
-        // Only show toast for mock mode, Supabase will redirect
-        toast({
-          title: "Welcome!",
-          description: "You have been successfully signed in with Google (demo mode).",
-        })
-        router.push("/dashboard")
-      }
     } catch (error) {
       console.error("Google sign in error:", error)
-      toast({
-        title: "Google Sign In Failed",
-        description: "Could not sign in with Google. Please try again.",
-        variant: "destructive",
-      })
     } finally {
       setLoading(false)
     }
@@ -117,29 +89,6 @@ export default function RegisterForm() {
           <CardTitle className="text-2xl font-bold text-slate-900">Create Account</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Authentication Mode Indicator */}
-          <div
-            className={`${usingSupabase ? "bg-green-50 border-green-200" : "bg-blue-50 border-blue-200"} border rounded-lg p-3`}
-          >
-            <div className="flex items-start space-x-2">
-              {usingSupabase ? (
-                <Database className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
-              ) : (
-                <Wifi className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
-              )}
-              <div className="text-sm">
-                <p className={`${usingSupabase ? "text-green-800" : "text-blue-800"} font-medium`}>
-                  {usingSupabase ? "Supabase Mode" : "Demo Mode"}
-                </p>
-                <p className={`${usingSupabase ? "text-green-700" : "text-blue-700"} mt-1`}>
-                  {usingSupabase
-                    ? "Creating a real account with Supabase authentication"
-                    : "Creating a demo account for testing purposes"}
-                </p>
-              </div>
-            </div>
-          </div>
-
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">

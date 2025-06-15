@@ -1,23 +1,17 @@
 export function getBaseUrl(): string {
-  // In browser, use current origin
+  // In browser, use current origin to avoid CORS issues
   if (typeof window !== "undefined") {
     return window.location.origin
   }
 
-  // In server-side rendering, use environment variables
+  // Server-side fallback
   if (process.env.NEXT_PUBLIC_APP_URL) {
     return process.env.NEXT_PUBLIC_APP_URL
   }
 
-  if (process.env.NEXT_PUBLIC_SITE_URL) {
-    return process.env.NEXT_PUBLIC_SITE_URL
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`
   }
 
-  // Fallback for development
-  if (process.env.NODE_ENV === "development") {
-    return "http://localhost:3000"
-  }
-
-  // Production fallback
-  return "https://chainreact.app"
+  return "http://localhost:3000"
 }

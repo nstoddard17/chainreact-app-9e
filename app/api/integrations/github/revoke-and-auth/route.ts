@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/utils/supabase/server"
+import { createServerClient } from "@/utils/supabase/server"
 
 export async function GET(request: NextRequest) {
   try {
@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL("/integrations?error=missing_oauth_url", request.url))
     }
 
-    const supabase = createClient()
+    const supabase = createServerClient()
     const {
       data: { user },
     } = await supabase.auth.getUser()

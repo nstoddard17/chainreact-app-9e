@@ -15,12 +15,12 @@ export function createAdminSupabaseClient() {
     return adminClient
   }
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseUrl = process.env.SUPABASE_URL
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
   if (!supabaseUrl || !supabaseServiceKey) {
     const missingVars = []
-    if (!supabaseUrl) missingVars.push("NEXT_PUBLIC_SUPABASE_URL")
+    if (!supabaseUrl) missingVars.push("SUPABASE_URL")
     if (!supabaseServiceKey) missingVars.push("SUPABASE_SERVICE_ROLE_KEY")
 
     const errorMessage = `Missing required Supabase admin environment variables: ${missingVars.join(", ")}`

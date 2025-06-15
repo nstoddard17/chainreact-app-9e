@@ -1,40 +1,26 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useAuthStore } from "@/stores/authStore"
 
 export function useAuth() {
-  const {
-    user,
-    loading,
-    initialized,
-    error,
-    hydrated,
-    initialize,
-    signOut,
-    signIn,
-    signUp,
-    signInWithGoogle,
-    clearError,
-  } = useAuthStore()
+  const { user, loading, initialized, hydrated, error } = useAuthStore()
+  const [isReady, setIsReady] = useState(false)
 
   useEffect(() => {
-    if (hydrated && !initialized) {
-      initialize()
+    // Auth is ready when it's hydrated and initialized
+    if (hydrated && initialized) {
+      setIsReady(true)
     }
-  }, [hydrated, initialized, initialize])
+  }, [hydrated, initialized])
 
   return {
     user,
     loading,
     initialized,
+    hydrated,
     error,
-    isAuthenticated: !!user,
-    isReady: hydrated && initialized,
-    signOut,
-    signIn,
-    signUp,
-    signInWithGoogle,
-    clearError,
+    isReady,
+    isAuthenticated: !!user && isReady,
   }
 }

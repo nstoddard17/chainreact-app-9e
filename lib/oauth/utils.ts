@@ -1,20 +1,13 @@
 import { createClient } from "@supabase/supabase-js"
 
+// Create admin Supabase client with service role key
 export function createAdminSupabaseClient() {
-  if (typeof window !== "undefined") {
-    throw new Error("Admin client can only be used server-side")
-  }
-
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
   if (!supabaseUrl || !supabaseServiceKey) {
-    const missingVars = []
-    if (!supabaseUrl) missingVars.push("NEXT_PUBLIC_SUPABASE_URL")
-    if (!supabaseServiceKey) missingVars.push("SUPABASE_SERVICE_ROLE_KEY")
-
-    console.error(`Missing Supabase environment variables: ${missingVars.join(", ")}`)
-    throw new Error(`Missing required Supabase environment variables: ${missingVars.join(", ")}`)
+    console.error("Missing Supabase configuration")
+    return null
   }
 
   return createClient(supabaseUrl, supabaseServiceKey, {
@@ -208,13 +201,24 @@ export function getRequiredScopes(provider: string): string[] {
 }
 
 // Generate OAuth state parameter
-export function generateOAuthState(data: any): string {
-  return btoa(
-    JSON.stringify({
-      ...data,
-      timestamp: Date.now(),
-    }),
-  )
+export function generateOAuthState(
+  provider: string,
+  userId: string,
+  options: {
+    reconnect?: boolean
+    integrationId?: string
+    returnUrl?: string
+  } = {},
+): string {
+  const stateData = {
+    provider,
+    userId,
+    timestamp: Date.now(),
+    nonce: Math.random().toString(36).substring(2, 15),
+    ...options,
+  }
+
+  return Buffer.from(JSON.stringify(stateData)).toString("base64")
 }
 
 // Validate OAuth callback parameters

@@ -1,8 +1,6 @@
 import { create } from "zustand"
-import { persist, createJSONStorage } from "zustand/middleware"
+import { persist } from "zustand/middleware"
 import { detectAvailableIntegrations, type IntegrationConfig } from "@/lib/integrations/availableIntegrations"
-import { initializePreloadingForUser } from "@/lib/integrations/globalDataPreloader"
-import { validateAllIntegrations, validateAndUpdateIntegrationScopes } from "@/lib/integrations/scopeValidation"
 
 export interface Integration {
   id: string
@@ -14,14 +12,10 @@ export interface Integration {
   refresh_token?: string
   expires_at?: string | null
   scopes?: string[]
-  granted_scopes?: string[]
-  missing_scopes?: string[]
-  scope_validation_status?: "valid" | "invalid" | "partial"
   metadata?: Record<string, any>
   created_at: string
   updated_at: string
   last_sync?: string
-  last_scope_check?: string
   error_message?: string
 }
 
@@ -36,10 +30,6 @@ interface DynamicData {
   }
 }
 
-interface PreloadProgress {
-  [provider: string]: boolean
-}
-
 interface IntegrationStore {
   // State
   integrations: Integration[]
@@ -49,11 +39,6 @@ interface IntegrationStore {
   error: string | null
   lastFetch: number | null
   debugInfo: any
-  initialized: boolean
-  preloadStarted: boolean
-  globalPreloadingData: boolean
-  verifyingScopes: boolean
-  preloadProgress: PreloadProgress
 
   // Loading states for specific operations
   loadingStates: Record<string, boolean>
@@ -64,20 +49,12 @@ interface IntegrationStore {
   connectIntegration: (providerId: string) => Promise<void>
   disconnectIntegration: (integrationId: string) => Promise<void>
   refreshIntegration: (integrationId: string) => Promise<void>
-  refreshAllTokens: () => Promise<{ stats?: { successful: number; skipped: number; failed: number } }>
+  refreshAllTokens: () => Promise<void>
 
   // Dynamic data methods
   getDynamicData: (provider: string, dataType: string) => any[]
   fetchDynamicData: (provider: string, dataType: string) => Promise<void>
   isResourceLoading: (provider: string, dataType: string) => boolean
-
-  // Preloading methods
-  ensureDataPreloaded: () => Promise<void>
-  startGlobalPreload: (connectedProviders: string[]) => Promise<void>
-
-  // Scope validation methods
-  verifyIntegrationScopes: () => Promise<void>
-  validateProviderScopes: (provider: string) => Promise<void>
 
   // Utility methods
   getIntegrationStatus: (providerId: string) => string
@@ -86,7 +63,6 @@ interface IntegrationStore {
   clearError: () => void
   setLoading: (key: string, loading: boolean) => void
   setDebugInfo: (info: any) => void
-  clearAllData: () => void
 }
 
 export const useIntegrationStore = create<IntegrationStore>()(
@@ -101,11 +77,6 @@ export const useIntegrationStore = create<IntegrationStore>()(
       lastFetch: null,
       loadingStates: {},
       debugInfo: null,
-      initialized: false,
-      preloadStarted: false,
-      globalPreloadingData: false,
-      verifyingScopes: false,
-      preloadProgress: {},
 
       // Initialize providers based on environment variables
       initializeProviders: () => {
@@ -116,7 +87,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
           unavailable: availableProviders.filter((p) => !p.isAvailable).length,
         })
 
-        set({ providers: availableProviders, initialized: true })
+        set({ providers: availableProviders })
       },
 
       // Fetch integrations with enhanced debugging
@@ -397,130 +368,6 @@ export const useIntegrationStore = create<IntegrationStore>()(
         return loadingStates[`${provider}-${dataType}`] || false
       },
 
-      // Ensure data is preloaded
-      ensureDataPreloaded: async () => {
-        const { preloadStarted, getConnectedProviders } = get()
-
-        if (preloadStarted) {
-          console.log("⏭️ Preload already started")
-          return
-        }
-
-        try {
-          set({ preloadStarted: true, globalPreloadingData: true })
-          console.log("🚀 Starting data preload...")
-
-          const connectedProviders = getConnectedProviders()
-
-          if (connectedProviders.length > 0) {
-            await get().startGlobalPreload(connectedProviders)
-          }
-
-          console.log("✅ Data preload completed")
-        } catch (error) {
-          console.error("❌ Data preload failed:", error)
-        } finally {
-          set({ globalPreloadingData: false })
-        }
-      },
-
-      // Start global preload
-      startGlobalPreload: async (connectedProviders: string[]) => {
-        try {
-          set({ globalPreloadingData: true })
-          console.log("🌐 Starting global preload for providers:", connectedProviders)
-
-          const progressCallback = (progress: { [key: string]: boolean }) => {
-            set({ preloadProgress: progress })
-          }
-
-          await initializePreloadingForUser(connectedProviders, progressCallback)
-
-          console.log("✅ Global preload completed")
-        } catch (error) {
-          console.error("❌ Global preload failed:", error)
-        } finally {
-          set({ globalPreloadingData: false })
-        }
-      },
-
-      // Verify integration scopes
-      verifyIntegrationScopes: async () => {
-        const { integrations } = get()
-
-        if (integrations.length === 0) {
-          console.log("⏭️ No integrations to verify")
-          return
-        }
-
-        try {
-          set({ verifyingScopes: true })
-          console.log("🔍 Verifying integration scopes...")
-
-          // Get user ID from auth store
-          const { useAuthStore } = await import("./authStore")
-          const userId = useAuthStore.getState().getCurrentUserId()
-
-          if (!userId) {
-            throw new Error("User not authenticated")
-          }
-
-          const results = await validateAllIntegrations(userId)
-
-          // Update integrations with validation results
-          set((state) => ({
-            integrations: state.integrations.map((integration) => {
-              const result = results.find((r) => r.integrationId === integration.id)
-              if (result) {
-                return {
-                  ...integration,
-                  missing_scopes: result.missing,
-                  granted_scopes: result.granted,
-                  scope_validation_status: result.status,
-                  last_scope_check: new Date().toISOString(),
-                }
-              }
-              return integration
-            }),
-          }))
-
-          console.log("✅ Scope verification completed")
-        } catch (error) {
-          console.error("❌ Scope verification failed:", error)
-          set({ error: (error as Error).message })
-        } finally {
-          set({ verifyingScopes: false })
-        }
-      },
-
-      // Validate provider scopes
-      validateProviderScopes: async (provider: string) => {
-        const { integrations } = get()
-        const integration = integrations.find((i) => i.provider === provider)
-
-        if (!integration) {
-          console.log(`⏭️ No ${provider} integration found`)
-          return
-        }
-
-        try {
-          console.log(`🔍 Validating ${provider} scopes...`)
-
-          const result = await validateAndUpdateIntegrationScopes(integration.id, integration.granted_scopes || [])
-
-          // Update the integration with validation results
-          set((state) => ({
-            integrations: state.integrations.map((i) =>
-              i.id === integration.id ? { ...i, ...result.integration } : i,
-            ),
-          }))
-
-          console.log(`✅ ${provider} scope validation completed`)
-        } catch (error) {
-          console.error(`❌ ${provider} scope validation failed:`, error)
-        }
-      },
-
       // Get integration status by provider ID
       getIntegrationStatus: (providerId: string) => {
         const { integrations } = get()
@@ -559,31 +406,13 @@ export const useIntegrationStore = create<IntegrationStore>()(
       },
 
       setDebugInfo: (info: any) => set({ debugInfo: info }),
-
-      clearAllData: () => {
-        set({
-          integrations: [],
-          dynamicData: {},
-          error: null,
-          lastFetch: null,
-          loadingStates: {},
-          debugInfo: null,
-          preloadStarted: false,
-          globalPreloadingData: false,
-          verifyingScopes: false,
-          preloadProgress: {},
-        })
-      },
     }),
     {
-      name: "chainreact-integrations",
-      storage: createJSONStorage(() => localStorage),
+      name: "integration-store",
       partialize: (state) => ({
         integrations: state.integrations,
         dynamicData: state.dynamicData,
         lastFetch: state.lastFetch,
-        initialized: state.initialized,
-        preloadStarted: state.preloadStarted,
       }),
     },
   ),
