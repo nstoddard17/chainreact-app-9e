@@ -12,7 +12,6 @@ export async function GET(request: NextRequest) {
 
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || request.nextUrl.origin
 
-    // Handle OAuth errors
     if (error) {
       console.error(`OAuth error for ${provider}:`, error, errorDescription)
       const errorMessage = errorDescription || error
@@ -25,7 +24,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL(`/integrations?error=missing_parameters&provider=${provider}`, baseUrl))
     }
 
-    // Extract provider from state if not in query params
     let actualProvider = provider
     let returnUrl = "/integrations"
 
@@ -47,7 +45,6 @@ export async function GET(request: NextRequest) {
       const result = await handleCallback(actualProvider, code, state)
 
       if (result.success) {
-        // Add success parameters and timestamp for better UX
         const successUrl = new URL(returnUrl, baseUrl)
         successUrl.searchParams.set("success", actualProvider)
         successUrl.searchParams.set("provider", actualProvider)
