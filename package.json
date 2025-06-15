@@ -83,7 +83,6 @@
     "next-themes": "latest",
     "openai": "latest",
     "pg": "latest",
-    "pinia": "latest",
     "postgres": "latest",
     "react": "^19",
     "react-day-picker": "latest",
@@ -99,7 +98,6 @@
     "tailwindcss-animate": "^1.0.7",
     "use-sync-external-store": "latest",
     "vaul": "latest",
-    "vue": "latest",
     "ws": "latest",
     "zod": "latest",
     "zustand": "latest"
