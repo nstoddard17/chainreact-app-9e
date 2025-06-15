@@ -69,21 +69,37 @@ export const useIntegrationStore = create<IntegrationStore>((set, get) => ({
     try {
       set({ loading: true, error: null })
 
-      const response = await fetch("/api/integrations/available")
+      // Add timeout to prevent hanging
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 second timeout
+
+      const response = await fetch("/api/integrations/available", {
+        signal: controller.signal,
+      })
+
+      clearTimeout(timeoutId)
+
       if (!response.ok) {
         throw new Error("Failed to fetch available integrations")
       }
 
       const data = await response.json()
+
+      // Ensure we have valid data structure
+      const providers = Array.isArray(data) ? data : data.providers || []
+
       set({
-        providers: data.providers || [],
+        providers,
         loading: false,
       })
+
+      console.log("✅ Providers initialized:", providers.length)
     } catch (error: any) {
       console.error("Failed to initialize providers:", error)
       set({
-        error: error.message,
+        error: error.name === "AbortError" ? "Request timed out" : error.message,
         loading: false,
+        providers: [], // Set empty array as fallback
       })
     }
   },
@@ -103,32 +119,47 @@ export const useIntegrationStore = create<IntegrationStore>((set, get) => ({
       } = await supabase.auth.getSession()
 
       if (!session?.access_token) {
-        throw new Error("No valid session found. Please log in again.")
+        set({
+          integrations: [],
+          loading: false,
+          error: "Please log in to view integrations",
+        })
+        return
       }
+
+      // Add timeout to prevent hanging
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 15000) // 15 second timeout
 
       const response = await fetch("/api/integrations", {
         headers: {
           Authorization: `Bearer ${session.access_token}`,
         },
+        signal: controller.signal,
       })
 
+      clearTimeout(timeoutId)
+
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || "Failed to fetch integrations")
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || `HTTP ${response.status}: Failed to fetch integrations`)
       }
 
       const data = await response.json()
 
       set({
-        integrations: data.integrations || [],
+        integrations: Array.isArray(data.data) ? data.data : data.integrations || [],
         loading: false,
         debugInfo: data.debug || {},
       })
+
+      console.log("✅ Integrations fetched:", data.data?.length || 0)
     } catch (error: any) {
       console.error("Failed to fetch integrations:", error)
       set({
-        error: error.message,
+        error: error.name === "AbortError" ? "Request timed out - please try again" : error.message,
         loading: false,
+        integrations: [], // Set empty array as fallback
       })
     }
   },
