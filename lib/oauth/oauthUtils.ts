@@ -40,12 +40,16 @@ export async function generateAuthUrl(
   options: {
     reconnect?: boolean
     integrationId?: string
+    returnUrl?: string
   } = {},
 ): Promise<string> {
   try {
-    // Generate secure state
+    // Generate secure state with return URL
     const { generateOAuthState, getOAuthRedirectUri } = await import("./utils")
-    const state = generateOAuthState(provider, userId, options)
+    const state = generateOAuthState(provider, userId, {
+      ...options,
+      returnUrl: options.returnUrl || process.env.NEXT_PUBLIC_SITE_URL + "/integrations",
+    })
 
     // Store state in secure cookie
     const cookieStore = cookies()
@@ -53,13 +57,13 @@ export async function generateAuthUrl(
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      maxAge: 600, // 10 minutes
+      maxAge: 1800, // 30 minutes for redirect flow
     })
 
     // Get redirect URI
     const redirectUri = getOAuthRedirectUri(provider)
 
-    // Provider-specific auth URL generation
+    // Provider-specific auth URL generation (existing code remains the same)
     switch (provider.toLowerCase()) {
       case "slack":
         return generateSlackAuthUrl(scopes, state, redirectUri)
