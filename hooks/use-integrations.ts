@@ -90,6 +90,10 @@ export function useIntegrations(): UseIntegrationsReturn {
     try {
       setError(null)
 
+      // Store the current integration state before redirect
+      localStorage.setItem("integration_connecting", providerId)
+      localStorage.setItem("integration_redirect_timestamp", Date.now().toString())
+
       // Update integration status to pending
       setIntegrations((prev) =>
         prev.map((integration) =>
@@ -112,11 +116,20 @@ export function useIntegrations(): UseIntegrationsReturn {
 
       const { authUrl } = await response.json()
 
-      // Redirect to OAuth provider
+      // Store return URL for after authorization
+      const returnUrl = window.location.href
+      localStorage.setItem("integration_return_url", returnUrl)
+
+      // Redirect directly to OAuth provider
       window.location.href = authUrl
     } catch (err) {
       console.error("Error connecting integration:", err)
       setError(err instanceof Error ? err.message : "Failed to connect integration")
+
+      // Clean up localStorage on error
+      localStorage.removeItem("integration_connecting")
+      localStorage.removeItem("integration_redirect_timestamp")
+      localStorage.removeItem("integration_return_url")
 
       // Reset integration status
       setIntegrations((prev) =>
@@ -187,6 +200,65 @@ export function useIntegrations(): UseIntegrationsReturn {
     [integrations],
   )
 
+  const handlePostRedirectSetup = useCallback(() => {
+    const urlParams = new URLSearchParams(window.location.search)
+    const success = urlParams.get("success")
+    const error = urlParams.get("error")
+    const provider = urlParams.get("provider")
+
+    const connectingProvider = localStorage.getItem("integration_connecting")
+    const redirectTimestamp = localStorage.getItem("integration_redirect_timestamp")
+    const returnUrl = localStorage.getItem("integration_return_url")
+
+    // Check if we're returning from an OAuth flow
+    if ((success || error) && provider) {
+      // Clean up localStorage
+      localStorage.removeItem("integration_connecting")
+      localStorage.removeItem("integration_redirect_timestamp")
+      localStorage.removeItem("integration_return_url")
+
+      if (success) {
+        toast({
+          title: "Integration Connected",
+          description: `Successfully connected ${provider} integration.`,
+          duration: 5000,
+        })
+      } else if (error) {
+        toast({
+          title: "Connection Failed",
+          description: decodeURIComponent(error),
+          variant: "destructive",
+          duration: 8000,
+        })
+      }
+
+      // Clean up URL parameters
+      const cleanUrl = window.location.pathname
+      window.history.replaceState({}, document.title, cleanUrl)
+
+      // Refresh integrations
+      fetchIntegrations()
+    }
+    // Handle case where user returns but connection is still pending
+    else if (connectingProvider && redirectTimestamp) {
+      const timestamp = Number.parseInt(redirectTimestamp)
+      const timeSinceRedirect = Date.now() - timestamp
+
+      // If more than 5 minutes have passed, assume connection failed
+      if (timeSinceRedirect > 300000) {
+        localStorage.removeItem("integration_connecting")
+        localStorage.removeItem("integration_redirect_timestamp")
+        localStorage.removeItem("integration_return_url")
+
+        toast({
+          title: "Connection Timeout",
+          description: "The connection process took too long. Please try again.",
+          variant: "destructive",
+        })
+      }
+    }
+  }, [fetchIntegrations])
+
   // Initial fetch
   useEffect(() => {
     fetchIntegrations()
@@ -216,6 +288,10 @@ export function useIntegrations(): UseIntegrationsReturn {
     window.addEventListener("message", handleMessage)
     return () => window.removeEventListener("message", handleMessage)
   }, [refreshIntegrations])
+
+  useEffect(() => {
+    handlePostRedirectSetup()
+  }, [handlePostRedirectSetup])
 
   return {
     integrations,

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { CheckCircle, Loader2, RefreshCw, ExternalLink, AlertCircle } from "lucide-react"
 import { useIntegrationStore } from "@/stores/integrationStore"
 import { useToast } from "@/hooks/use-toast"
+import RedirectLoadingOverlay from "./RedirectLoadingOverlay"
 
 interface IntegrationCardProps {
   provider: {
@@ -63,61 +64,21 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
     try {
       setIsConnecting(true)
 
-      // Set a timeout to reset the connecting state
-      const timeoutId = setTimeout(() => {
-        setIsConnecting(false)
-        toast({
-          title: "Connection Timeout",
-          description: "The connection is taking longer than expected. Please check if a popup was blocked.",
-          variant: "destructive",
-          duration: 8000,
-        })
-      }, 15000)
-
-      await connectIntegration(provider.id)
-      clearTimeout(timeoutId)
-
+      // Show immediate feedback
       toast({
-        title: "Authorization Started",
-        description: `Opening ${provider.name} authorization. Please complete the process in the new tab.`,
-        duration: 6000,
+        title: "Redirecting to Authorization",
+        description: `You'll be redirected to ${provider.name} to authorize the connection.`,
+        duration: 3000,
       })
 
-      // Monitor for connection completion
-      const checkConnection = async () => {
-        try {
-          await fetchIntegrations(true)
-          return true
-        } catch (error) {
-          console.error("Error checking connection:", error)
-          return false
-        }
-      }
-
-      // Start monitoring after a delay
-      setTimeout(() => {
-        const intervalId = setInterval(async () => {
-          const connected = await checkConnection()
-          if (connected) {
-            clearInterval(intervalId)
-            setIsConnecting(false)
-          }
-        }, 3000)
-
-        // Stop monitoring after 3 minutes
-        setTimeout(() => {
-          clearInterval(intervalId)
-          setIsConnecting(false)
-        }, 180000)
-      }, 2000)
+      await connectIntegration(provider.id)
+      // Note: This won't execute as we redirect immediately in connectIntegration
     } catch (error: any) {
       console.error(`Failed to connect ${provider.name}:`, error)
 
       let errorMessage = error.message || `Failed to connect ${provider.name}`
 
-      if (error.message?.includes("popup")) {
-        errorMessage = "Please allow popups for this site to connect integrations"
-      } else if (error.message?.includes("not configured")) {
+      if (error.message?.includes("not configured")) {
         errorMessage = `${provider.name} integration is not configured. Please contact support.`
       }
 
@@ -129,7 +90,7 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
       })
       setIsConnecting(false)
     }
-  }, [provider, connectIntegration, fetchIntegrations, toast])
+  }, [provider, connectIntegration, toast])
 
   const handleDisconnect = useCallback(async () => {
     if (!integration?.id) {
@@ -235,6 +196,14 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
   // Format the last updated date
   const lastUpdated = integration?.updated_at ? new Date(integration.updated_at).toLocaleDateString() : null
 
+  // Add this after the existing useEffect hooks
+  useEffect(() => {
+    const connectingProvider = localStorage.getItem("integration_connecting")
+    if (connectingProvider === provider.id) {
+      setIsConnecting(true)
+    }
+  }, [provider.id])
+
   const getStatusBadge = () => {
     if (isConnected) {
       return (
@@ -260,6 +229,8 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
       </Badge>
     )
   }
+
+  const showRedirectOverlay = isConnecting && !isDisconnecting && !isRefreshing
 
   return (
     <Card className="overflow-hidden border border-slate-200 transition-all hover:shadow-md group">
@@ -364,6 +335,7 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
           )}
         </div>
       </CardContent>
+      {showRedirectOverlay && <RedirectLoadingOverlay provider={provider.name} isVisible={showRedirectOverlay} />}
     </Card>
   )
 }
