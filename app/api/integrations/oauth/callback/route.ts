@@ -1,4 +1,4 @@
-import { type NextRequest, NextResponse } from "next/server"
+import type { NextRequest } from "next/server"
 import { handleCallback } from "@/lib/oauth/oauthUtils"
 
 export async function GET(request: NextRequest) {
@@ -10,174 +10,404 @@ export async function GET(request: NextRequest) {
     const error = searchParams.get("error")
     const errorDescription = searchParams.get("error_description")
 
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || request.nextUrl.origin
-
-    // Handle OAuth errors
+    // Handle OAuth errors from provider
     if (error) {
       console.error(`OAuth error for ${provider}:`, error, errorDescription)
       const errorMessage = errorDescription || error
-      return NextResponse.redirect(
-        new URL(`/integrations?error=${encodeURIComponent(errorMessage)}&provider=${provider}`, baseUrl),
-      )
+
+      const errorHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Connection Failed</title>
+          <style>
+            body { 
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              display: flex; 
+              align-items: center; 
+              justify-content: center; 
+              height: 100vh; 
+              margin: 0;
+              background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+              color: white;
+            }
+            .container { 
+              text-align: center; 
+              padding: 2rem;
+              background: rgba(255,255,255,0.1);
+              border-radius: 12px;
+              backdrop-filter: blur(10px);
+              max-width: 400px;
+            }
+            .error-icon { 
+              font-size: 3rem; 
+              margin-bottom: 1rem; 
+            }
+            h1 { 
+              margin: 0 0 0.5rem 0; 
+              font-size: 1.5rem;
+            }
+            p { 
+              margin: 0.5rem 0; 
+              opacity: 0.9;
+              font-size: 0.9rem;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="error-icon">❌</div>
+            <h1>Connection Failed</h1>
+            <p>${errorMessage}</p>
+            <p>This window will close automatically...</p>
+          </div>
+          <script>
+            // Send error message to parent window
+            if (window.opener) {
+              window.opener.postMessage({
+                type: 'oauth-error',
+                provider: '${provider || "unknown"}',
+                error: '${errorMessage}'
+              }, window.location.origin);
+            }
+            
+            // Close window after a short delay
+            setTimeout(() => {
+              window.close();
+            }, 3000);
+          </script>
+        </body>
+        </html>
+      `
+
+      return new Response(errorHtml, {
+        headers: { "Content-Type": "text/html" },
+      })
     }
 
+    // Check for required parameters
     if (!code || !state) {
-      return NextResponse.redirect(new URL(`/integrations?error=missing_parameters&provider=${provider}`, baseUrl))
+      const errorHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Connection Failed</title>
+          <style>
+            body { 
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              display: flex; 
+              align-items: center; 
+              justify-content: center; 
+              height: 100vh; 
+              margin: 0;
+              background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+              color: white;
+            }
+            .container { 
+              text-align: center; 
+              padding: 2rem;
+              background: rgba(255,255,255,0.1);
+              border-radius: 12px;
+              backdrop-filter: blur(10px);
+              max-width: 400px;
+            }
+            .error-icon { 
+              font-size: 3rem; 
+              margin-bottom: 1rem; 
+            }
+            h1 { 
+              margin: 0 0 0.5rem 0; 
+              font-size: 1.5rem;
+            }
+            p { 
+              margin: 0.5rem 0; 
+              opacity: 0.9;
+              font-size: 0.9rem;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="error-icon">❌</div>
+            <h1>Connection Failed</h1>
+            <p>Missing required parameters from OAuth provider</p>
+            <p>This window will close automatically...</p>
+          </div>
+          <script>
+            // Send error message to parent window
+            if (window.opener) {
+              window.opener.postMessage({
+                type: 'oauth-error',
+                provider: '${provider || "unknown"}',
+                error: 'Missing required parameters'
+              }, window.location.origin);
+            }
+            
+            // Close window after a short delay
+            setTimeout(() => {
+              window.close();
+            }, 3000);
+          </script>
+        </body>
+        </html>
+      `
+
+      return new Response(errorHtml, {
+        headers: { "Content-Type": "text/html" },
+      })
     }
 
     // Extract provider from state if not in query params
     let actualProvider = provider
-    let returnUrl = "/integrations"
 
     if (!actualProvider && state) {
       try {
         const stateData = JSON.parse(Buffer.from(state, "base64").toString())
         actualProvider = stateData.provider
-        returnUrl = stateData.returnUrl || "/integrations"
       } catch (e) {
         console.error("Failed to parse state:", e)
       }
     }
 
     if (!actualProvider) {
-      return NextResponse.redirect(new URL(`/integrations?error=missing_provider`, baseUrl))
+      const errorHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Connection Failed</title>
+          <style>
+            body { 
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              display: flex; 
+              align-items: center; 
+              justify-content: center; 
+              height: 100vh; 
+              margin: 0;
+              background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+              color: white;
+            }
+            .container { 
+              text-align: center; 
+              padding: 2rem;
+              background: rgba(255,255,255,0.1);
+              border-radius: 12px;
+              backdrop-filter: blur(10px);
+              max-width: 400px;
+            }
+            .error-icon { 
+              font-size: 3rem; 
+              margin-bottom: 1rem; 
+            }
+            h1 { 
+              margin: 0 0 0.5rem 0; 
+              font-size: 1.5rem;
+            }
+            p { 
+              margin: 0.5rem 0; 
+              opacity: 0.9;
+              font-size: 0.9rem;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="error-icon">❌</div>
+            <h1>Connection Failed</h1>
+            <p>Unable to identify the integration provider</p>
+            <p>This window will close automatically...</p>
+          </div>
+          <script>
+            // Send error message to parent window
+            if (window.opener) {
+              window.opener.postMessage({
+                type: 'oauth-error',
+                provider: 'unknown',
+                error: 'Unable to identify provider'
+              }, window.location.origin);
+            }
+            
+            // Close window after a short delay
+            setTimeout(() => {
+              window.close();
+            }, 3000);
+          </script>
+        </body>
+        </html>
+      `
+
+      return new Response(errorHtml, {
+        headers: { "Content-Type": "text/html" },
+      })
     }
 
     try {
       const result = await handleCallback(actualProvider, code, state)
 
       if (result.success) {
-        // Create a success page that sends message to parent and closes
+        // Success page that sends message to parent and closes
         const successHtml = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <title>Connection Successful</title>
-      <style>
-        body { 
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-          display: flex; 
-          align-items: center; 
-          justify-content: center; 
-          height: 100vh; 
-          margin: 0;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          color: white;
-        }
-        .container { 
-          text-align: center; 
-          padding: 2rem;
-          background: rgba(255,255,255,0.1);
-          border-radius: 12px;
-          backdrop-filter: blur(10px);
-        }
-        .success-icon { 
-          font-size: 3rem; 
-          margin-bottom: 1rem; 
-        }
-        h1 { 
-          margin: 0 0 0.5rem 0; 
-          font-size: 1.5rem;
-        }
-        p { 
-          margin: 0; 
-          opacity: 0.9;
-        }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <div class="success-icon">✅</div>
-        <h1>Connection Successful!</h1>
-        <p>Your ${actualProvider} integration has been connected.</p>
-        <p>This window will close automatically...</p>
-      </div>
-      <script>
-        // Send success message to parent window
-        if (window.opener) {
-          window.opener.postMessage({
-            type: 'oauth-success',
-            provider: '${actualProvider}'
-          }, window.location.origin);
-        }
-        
-        // Close window after a short delay
-        setTimeout(() => {
-          window.close();
-        }, 2000);
-      </script>
-    </body>
-    </html>
-  `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>Connection Successful</title>
+            <style>
+              body { 
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                display: flex; 
+                align-items: center; 
+                justify-content: center; 
+                height: 100vh; 
+                margin: 0;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+              }
+              .container { 
+                text-align: center; 
+                padding: 2rem;
+                background: rgba(255,255,255,0.1);
+                border-radius: 12px;
+                backdrop-filter: blur(10px);
+              }
+              .success-icon { 
+                font-size: 3rem; 
+                margin-bottom: 1rem; 
+              }
+              h1 { 
+                margin: 0 0 0.5rem 0; 
+                font-size: 1.5rem;
+              }
+              p { 
+                margin: 0; 
+                opacity: 0.9;
+              }
+              .countdown {
+                font-weight: bold;
+                color: #ffd700;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="success-icon">✅</div>
+              <h1>Connection Successful!</h1>
+              <p>Your ${actualProvider} integration has been connected.</p>
+              <p>This window will close in <span class="countdown" id="countdown">3</span> seconds...</p>
+            </div>
+            <script>
+              // Send success message to parent window immediately
+              if (window.opener) {
+                window.opener.postMessage({
+                  type: 'oauth-success',
+                  provider: '${actualProvider}'
+                }, window.location.origin);
+              }
+              
+              // Countdown and close
+              let count = 3;
+              const countdownEl = document.getElementById('countdown');
+              const interval = setInterval(() => {
+                count--;
+                if (countdownEl) countdownEl.textContent = count.toString();
+                if (count <= 0) {
+                  clearInterval(interval);
+                  window.close();
+                }
+              }, 1000);
+              
+              // Fallback close in case countdown fails
+              setTimeout(() => {
+                window.close();
+              }, 4000);
+            </script>
+          </body>
+          </html>
+        `
 
         return new Response(successHtml, {
           headers: { "Content-Type": "text/html" },
         })
       } else {
+        // Error page that sends message to parent and closes
         const errorHtml = `
-  <!DOCTYPE html>
-  <html>
-  <head>
-    <title>Connection Failed</title>
-    <style>
-      body { 
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        display: flex; 
-        align-items: center; 
-        justify-content: center; 
-        height: 100vh; 
-        margin: 0;
-        background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
-        color: white;
-      }
-      .container { 
-        text-align: center; 
-        padding: 2rem;
-        background: rgba(255,255,255,0.1);
-        border-radius: 12px;
-        backdrop-filter: blur(10px);
-        max-width: 400px;
-      }
-      .error-icon { 
-        font-size: 3rem; 
-        margin-bottom: 1rem; 
-      }
-      h1 { 
-        margin: 0 0 0.5rem 0; 
-        font-size: 1.5rem;
-      }
-      p { 
-        margin: 0.5rem 0; 
-        opacity: 0.9;
-        font-size: 0.9rem;
-      }
-    </style>
-  </head>
-  <body>
-    <div class="container">
-      <div class="error-icon">❌</div>
-      <h1>Connection Failed</h1>
-      <p>${result.error || "Connection failed"}</p>
-      <p>This window will close automatically...</p>
-    </div>
-    <script>
-      // Send error message to parent window
-      if (window.opener) {
-        window.opener.postMessage({
-          type: 'oauth-error',
-          provider: '${actualProvider}',
-          error: '${result.error || "Connection failed"}'
-        }, window.location.origin);
-      }
-      
-      // Close window after a short delay
-      setTimeout(() => {
-        window.close();
-      }, 3000);
-    </script>
-  </body>
-  </html>
-`
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>Connection Failed</title>
+            <style>
+              body { 
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                display: flex; 
+                align-items: center; 
+                justify-content: center; 
+                height: 100vh; 
+                margin: 0;
+                background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+                color: white;
+              }
+              .container { 
+                text-align: center; 
+                padding: 2rem;
+                background: rgba(255,255,255,0.1);
+                border-radius: 12px;
+                backdrop-filter: blur(10px);
+                max-width: 400px;
+              }
+              .error-icon { 
+                font-size: 3rem; 
+                margin-bottom: 1rem; 
+              }
+              h1 { 
+                margin: 0 0 0.5rem 0; 
+                font-size: 1.5rem;
+              }
+              p { 
+                margin: 0.5rem 0; 
+                opacity: 0.9;
+                font-size: 0.9rem;
+              }
+              .countdown {
+                font-weight: bold;
+                color: #ffd700;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="error-icon">❌</div>
+              <h1>Connection Failed</h1>
+              <p>${result.error || "Connection failed"}</p>
+              <p>This window will close in <span class="countdown" id="countdown">5</span> seconds...</p>
+            </div>
+            <script>
+              // Send error message to parent window immediately
+              if (window.opener) {
+                window.opener.postMessage({
+                  type: 'oauth-error',
+                  provider: '${actualProvider}',
+                  error: '${result.error || "Connection failed"}'
+                }, window.location.origin);
+              }
+              
+              // Countdown and close
+              let count = 5;
+              const countdownEl = document.getElementById('countdown');
+              const interval = setInterval(() => {
+                count--;
+                if (countdownEl) countdownEl.textContent = count.toString();
+                if (count <= 0) {
+                  clearInterval(interval);
+                  window.close();
+                }
+              }, 1000);
+              
+              // Fallback close in case countdown fails
+              setTimeout(() => {
+                window.close();
+              }, 6000);
+            </script>
+          </body>
+          </html>
+        `
 
         return new Response(errorHtml, {
           headers: { "Content-Type": "text/html" },
@@ -185,15 +415,178 @@ export async function GET(request: NextRequest) {
       }
     } catch (error: any) {
       console.error(`OAuth callback error for ${actualProvider}:`, error)
-      const errorUrl = new URL(returnUrl, baseUrl)
-      errorUrl.searchParams.set("error", encodeURIComponent(error.message || "Connection failed"))
-      errorUrl.searchParams.set("provider", actualProvider)
 
-      return NextResponse.redirect(errorUrl)
+      const errorHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Connection Failed</title>
+          <style>
+            body { 
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              display: flex; 
+              align-items: center; 
+              justify-content: center; 
+              height: 100vh; 
+              margin: 0;
+              background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+              color: white;
+            }
+            .container { 
+              text-align: center; 
+              padding: 2rem;
+              background: rgba(255,255,255,0.1);
+              border-radius: 12px;
+              backdrop-filter: blur(10px);
+              max-width: 400px;
+            }
+            .error-icon { 
+              font-size: 3rem; 
+              margin-bottom: 1rem; 
+            }
+            h1 { 
+              margin: 0 0 0.5rem 0; 
+              font-size: 1.5rem;
+            }
+            p { 
+              margin: 0.5rem 0; 
+              opacity: 0.9;
+              font-size: 0.9rem;
+            }
+            .countdown {
+              font-weight: bold;
+              color: #ffd700;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="error-icon">❌</div>
+            <h1>Connection Failed</h1>
+            <p>${error.message || "An unexpected error occurred"}</p>
+            <p>This window will close in <span class="countdown" id="countdown">5</span> seconds...</p>
+          </div>
+          <script>
+            // Send error message to parent window immediately
+            if (window.opener) {
+              window.opener.postMessage({
+                type: 'oauth-error',
+                provider: '${actualProvider}',
+                error: '${error.message || "An unexpected error occurred"}'
+              }, window.location.origin);
+            }
+            
+            // Countdown and close
+            let count = 5;
+            const countdownEl = document.getElementById('countdown');
+            const interval = setInterval(() => {
+              count--;
+              if (countdownEl) countdownEl.textContent = count.toString();
+              if (count <= 0) {
+                clearInterval(interval);
+                window.close();
+              }
+            }, 1000);
+            
+            // Fallback close in case countdown fails
+            setTimeout(() => {
+              window.close();
+            }, 6000);
+          </script>
+        </body>
+        </html>
+      `
+
+      return new Response(errorHtml, {
+        headers: { "Content-Type": "text/html" },
+      })
     }
   } catch (error: any) {
     console.error("OAuth callback error:", error)
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || request.nextUrl.origin
-    return NextResponse.redirect(new URL(`/integrations?error=callback_failed`, baseUrl))
+
+    const errorHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Connection Failed</title>
+        <style>
+          body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            height: 100vh; 
+            margin: 0;
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+            color: white;
+          }
+          .container { 
+            text-align: center; 
+            padding: 2rem;
+            background: rgba(255,255,255,0.1);
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+            max-width: 400px;
+          }
+          .error-icon { 
+            font-size: 3rem; 
+            margin-bottom: 1rem; 
+          }
+          h1 { 
+            margin: 0 0 0.5rem 0; 
+            font-size: 1.5rem;
+          }
+          p { 
+            margin: 0.5rem 0; 
+            opacity: 0.9;
+            font-size: 0.9rem;
+          }
+          .countdown {
+            font-weight: bold;
+            color: #ffd700;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="error-icon">❌</div>
+          <h1>Connection Failed</h1>
+          <p>An unexpected error occurred during the OAuth callback</p>
+          <p>This window will close in <span class="countdown" id="countdown">5</span> seconds...</p>
+        </div>
+        <script>
+          // Send error message to parent window immediately
+          if (window.opener) {
+            window.opener.postMessage({
+              type: 'oauth-error',
+              provider: 'unknown',
+              error: 'OAuth callback failed'
+            }, window.location.origin);
+          }
+          
+          // Countdown and close
+          let count = 5;
+          const countdownEl = document.getElementById('countdown');
+          const interval = setInterval(() => {
+            count--;
+            if (countdownEl) countdownEl.textContent = count.toString();
+            if (count <= 0) {
+              clearInterval(interval);
+              window.close();
+            }
+          }, 1000);
+          
+          // Fallback close in case countdown fails
+          setTimeout(() => {
+            window.close();
+          }, 6000);
+        </script>
+      </body>
+      </html>
+    `
+
+    return new Response(errorHtml, {
+      headers: { "Content-Type": "text/html" },
+    })
   }
 }
