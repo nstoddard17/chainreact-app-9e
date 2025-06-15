@@ -9,14 +9,14 @@ import { useAuthStore } from "@/stores/authStore"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
-import { Mail, Lock } from "lucide-react"
+import { Mail, Lock, Database, Wifi } from "lucide-react"
 import { toast } from "@/components/ui/use-toast"
 
 export default function LoginForm() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
-  const { signIn, signInWithGoogle } = useAuthStore()
+  const { signIn, signInWithGoogle, usingSupabase } = useAuthStore()
   const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -25,12 +25,18 @@ export default function LoginForm() {
 
     try {
       await signIn(email, password)
-      window.location.href = "/dashboard"
+      toast({
+        title: "Welcome back!",
+        description: usingSupabase
+          ? "You have been successfully signed in with Supabase."
+          : "You have been successfully signed in with demo mode.",
+      })
+      router.push("/dashboard")
     } catch (error) {
       console.error("Login error:", error)
       toast({
         title: "Login Failed",
-        description: "Invalid email or password. Please try again.",
+        description: error instanceof Error ? error.message : "Invalid email or password. Please try again.",
         variant: "destructive",
       })
     } finally {
@@ -42,9 +48,14 @@ export default function LoginForm() {
     setLoading(true)
     try {
       await signInWithGoogle()
-      setTimeout(() => {
-        window.location.href = "/dashboard"
-      }, 1000)
+      if (!usingSupabase) {
+        // Only show toast for mock mode, Supabase will redirect
+        toast({
+          title: "Welcome!",
+          description: "You have been successfully signed in with Google (demo mode).",
+        })
+        router.push("/dashboard")
+      }
     } catch (error) {
       console.error("Google sign in error:", error)
       toast({
@@ -55,6 +66,11 @@ export default function LoginForm() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const fillDemoCredentials = () => {
+    setEmail("demo@example.com")
+    setPassword("password")
   }
 
   return (
@@ -94,6 +110,39 @@ export default function LoginForm() {
 
       <Card className="w-full max-w-md bg-white rounded-2xl shadow-lg border border-slate-200">
         <CardContent className="space-y-6 p-6">
+          {/* Authentication Mode Indicator */}
+          <div
+            className={`${usingSupabase ? "bg-green-50 border-green-200" : "bg-blue-50 border-blue-200"} border rounded-lg p-3`}
+          >
+            <div className="flex items-start space-x-2">
+              {usingSupabase ? (
+                <Database className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+              ) : (
+                <Wifi className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+              )}
+              <div className="text-sm">
+                <p className={`${usingSupabase ? "text-green-800" : "text-blue-800"} font-medium`}>
+                  {usingSupabase ? "Supabase Mode" : "Demo Mode"}
+                </p>
+                <p className={`${usingSupabase ? "text-green-700" : "text-blue-700"} mt-1`}>
+                  {usingSupabase
+                    ? "Connected to Supabase - use your real account credentials"
+                    : "Use demo@example.com / password for testing"}
+                </p>
+                {!usingSupabase && (
+                  <Button
+                    type="button"
+                    variant="link"
+                    className="text-blue-600 p-0 h-auto text-sm"
+                    onClick={fillDemoCredentials}
+                  >
+                    Click to fill demo credentials
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email" className="text-slate-700">
@@ -107,7 +156,7 @@ export default function LoginForm() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="black-text-input w-full pl-10 pr-3 py-2 bg-slate-100 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter your email"
+                  placeholder={usingSupabase ? "Enter your email" : "demo@example.com"}
                   required
                   style={{
                     color: "#000000 !important",
@@ -130,7 +179,7 @@ export default function LoginForm() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="black-text-input w-full pl-10 pr-3 py-2 bg-slate-100 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter your password"
+                  placeholder={usingSupabase ? "Enter your password" : "password"}
                   required
                   style={{
                     color: "#000000 !important",
