@@ -1,10 +1,16 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
+import { createClient } from "@supabase/supabase-js"
 
 // OAuth service imports
 import { GoogleOAuthService } from "@/lib/oauth/google"
 import { SlackOAuthService } from "@/lib/oauth/slack"
+
+const supabaseUrl = process.env.SUPABASE_URL
+const supabaseAnonKey = process.env.SUPABASE_ANON_KEY
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error("SUPABASE_URL and SUPABASE_ANON_KEY must be defined")
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,181 +20,144 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Provider is required" }, { status: 400 })
     }
 
-    console.log(`🔗 Generating OAuth URL for provider: ${provider}`)
+    // Get user from session
+    const authHeader = request.headers.get("authorization")
+    const cookieHeader = request.headers.get("cookie")
 
-    // Create Supabase client with cookies
-    const supabase = createServerComponentClient({ cookies })
+    let userId: string | null = null
 
-    // Get the current user session
-    const {
-      data: { session },
-      error: sessionError,
-    } = await supabase.auth.getSession()
-
-    if (sessionError) {
-      console.error("Session error:", sessionError)
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Authentication error",
-          details: sessionError.message,
-        },
-        { status: 401 },
-      )
+    // Try to get user from auth header first
+    if (authHeader?.startsWith("Bearer ")) {
+      const token = authHeader.substring(7)
+      const supabase = createClient(supabaseUrl, supabaseAnonKey)
+      const { data } = await supabase.auth.getUser(token)
+      userId = data?.user?.id || null
     }
 
-    if (!session?.user?.id) {
-      console.error("No valid session found")
-      return NextResponse.json(
-        {
-          success: false,
-          error: "User not authenticated. Please log in to continue.",
+    // If no user from auth header, try cookies
+    if (!userId && cookieHeader) {
+      const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+        global: {
+          headers: {
+            Cookie: cookieHeader,
+          },
         },
-        { status: 401 },
-      )
+      })
+      const { data } = await supabase.auth.getSession()
+      userId = data?.session?.user?.id || null
     }
 
-    const userId = session.user.id
-    console.log(`✅ User authenticated: ${userId}`)
+    if (!userId) {
+      return NextResponse.json({ success: false, error: "User not authenticated" }, { status: 401 })
+    }
 
     let authUrl: string
 
     // Generate OAuth URL based on provider
-    try {
-      switch (provider.toLowerCase()) {
-        case "google":
-        case "gmail":
-        case "google-calendar":
-        case "google-drive":
-        case "google-sheets":
-        case "google-docs":
-        case "youtube":
-          authUrl = GoogleOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
-          break
+    switch (provider.toLowerCase()) {
+      case "google":
+      case "gmail":
+      case "google-calendar":
+      case "google-drive":
+      case "google-sheets":
+      case "google-docs":
+      case "youtube":
+        authUrl = GoogleOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
+        break
 
-        case "slack":
-          authUrl = SlackOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
-          break
+      case "slack":
+        authUrl = SlackOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
+        break
 
-        case "github":
-          authUrl = generateGitHubAuthUrl(userId)
-          break
+      case "github":
+        authUrl = generateGitHubAuthUrl(userId)
+        break
 
-        case "discord":
-          authUrl = generateDiscordAuthUrl(userId)
-          break
+      case "discord":
+        authUrl = generateDiscordAuthUrl(userId)
+        break
 
-        case "twitter":
-          authUrl = generateTwitterAuthUrl(userId)
-          break
+      case "twitter":
+        authUrl = generateTwitterAuthUrl(userId)
+        break
 
-        case "linkedin":
-          authUrl = generateLinkedInAuthUrl(userId)
-          break
+      case "linkedin":
+        authUrl = generateLinkedInAuthUrl(userId)
+        break
 
-        case "facebook":
-          authUrl = generateFacebookAuthUrl(userId)
-          break
+      case "facebook":
+        authUrl = generateFacebookAuthUrl(userId)
+        break
 
-        case "instagram":
-          authUrl = generateInstagramAuthUrl(userId)
-          break
+      case "instagram":
+        authUrl = generateInstagramAuthUrl(userId)
+        break
 
-        case "tiktok":
-          authUrl = generateTikTokAuthUrl(userId)
-          break
+      case "tiktok":
+        authUrl = generateTikTokAuthUrl(userId)
+        break
 
-        case "notion":
-          authUrl = generateNotionAuthUrl(userId)
-          break
+      case "notion":
+        authUrl = generateNotionAuthUrl(userId)
+        break
 
-        case "trello":
-          authUrl = generateTrelloAuthUrl(userId)
-          break
+      case "trello":
+        authUrl = generateTrelloAuthUrl(userId)
+        break
 
-        case "dropbox":
-          authUrl = generateDropboxAuthUrl(userId)
-          break
+      case "dropbox":
+        authUrl = generateDropboxAuthUrl(userId)
+        break
 
-        case "hubspot":
-          authUrl = generateHubSpotAuthUrl(userId)
-          break
+      case "hubspot":
+        authUrl = generateHubSpotAuthUrl(userId)
+        break
 
-        case "airtable":
-          authUrl = generateAirtableAuthUrl(userId)
-          break
+      case "airtable":
+        authUrl = generateAirtableAuthUrl(userId)
+        break
 
-        case "mailchimp":
-          authUrl = generateMailchimpAuthUrl(userId)
-          break
+      case "mailchimp":
+        authUrl = generateMailchimpAuthUrl(userId)
+        break
 
-        case "shopify":
-          authUrl = generateShopifyAuthUrl(userId)
-          break
+      case "shopify":
+        authUrl = generateShopifyAuthUrl(userId)
+        break
 
-        case "stripe":
-          authUrl = generateStripeAuthUrl(userId)
-          break
+      case "stripe":
+        authUrl = generateStripeAuthUrl(userId)
+        break
 
-        case "paypal":
-          authUrl = generatePayPalAuthUrl(userId)
-          break
+      case "paypal":
+        authUrl = generatePayPalAuthUrl(userId)
+        break
 
-        case "teams":
-          authUrl = generateTeamsAuthUrl(userId)
-          break
+      case "teams":
+        authUrl = generateTeamsAuthUrl(userId)
+        break
 
-        case "onedrive":
-          authUrl = generateOneDriveAuthUrl(userId)
-          break
+      case "onedrive":
+        authUrl = generateOneDriveAuthUrl(userId)
+        break
 
-        case "gitlab":
-          authUrl = generateGitLabAuthUrl(userId)
-          break
+      case "gitlab":
+        authUrl = generateGitLabAuthUrl(userId)
+        break
 
-        case "docker":
-          authUrl = generateDockerAuthUrl(userId)
-          break
+      case "docker":
+        authUrl = generateDockerAuthUrl(userId)
+        break
 
-        default:
-          console.error(`Unsupported provider: ${provider}`)
-          return NextResponse.json({ success: false, error: `Unsupported provider: ${provider}` }, { status: 400 })
-      }
-
-      console.log(`✅ Generated OAuth URL for ${provider}`)
-
-      return NextResponse.json({
-        success: true,
-        authUrl,
-        provider,
-        userId,
-      })
-    } catch (providerError: any) {
-      console.error(`Error generating OAuth URL for ${provider}:`, providerError)
-
-      let errorMessage = `Failed to generate authorization URL for ${provider}`
-
-      if (providerError.message.includes("client ID not configured")) {
-        errorMessage = `${provider} integration is not configured. Please contact support.`
-      }
-
-      return NextResponse.json(
-        {
-          success: false,
-          error: errorMessage,
-          details: providerError.message,
-        },
-        { status: 500 },
-      )
+      default:
+        return NextResponse.json({ success: false, error: `Unsupported provider: ${provider}` }, { status: 400 })
     }
+
+    return NextResponse.json({ success: true, authUrl })
   } catch (error: any) {
-    console.error("Error in OAuth URL generation:", error)
+    console.error("Error generating OAuth URL:", error)
     return NextResponse.json(
-      {
-        success: false,
-        error: "Internal server error",
-        details: error.message,
-      },
+      { success: false, error: error.message || "Failed to generate OAuth URL" },
       { status: 500 },
     )
   }
