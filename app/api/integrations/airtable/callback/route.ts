@@ -1,92 +1,131 @@
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 import { type NextRequest, NextResponse } from "next/server"
-import { cookies } from "next/headers"
+import { createAdminSupabaseClient, parseOAuthState, upsertIntegration } from "@/lib/oauth/utils"
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const code = searchParams.get("code")
     const state = searchParams.get("state")
+    const error = searchParams.get("error")
 
-    if (!code) {
-      const error = searchParams.get("error")
+    const baseUrl = getBaseUrl(request)
+
+    // Handle OAuth errors
+    if (error) {
       const error_description = searchParams.get("error_description")
       console.error("Airtable OAuth Error:", error, error_description)
-      const baseUrl = getBaseUrl(request)
-      return NextResponse.redirect(`${baseUrl}/integrations?error=airtable_auth_failed`)
+      return NextResponse.redirect(
+        `${baseUrl}/integrations?error=oauth_error&message=${encodeURIComponent(error_description || error)}`,
+      )
     }
 
-    if (!state) {
-      console.error("Missing state parameter")
-      const baseUrl = getBaseUrl(request)
-      return NextResponse.redirect(`${baseUrl}/integrations?error=missing_state`)
+    if (!code || !state) {
+      console.error("Missing code or state parameter")
+      return NextResponse.redirect(`${baseUrl}/integrations?error=missing_params`)
     }
 
-    const storedState = cookies().get("airtable_oauth_state")?.value
-
-    if (state !== storedState) {
-      console.error("State mismatch")
-      const baseUrl = getBaseUrl(request)
-      return NextResponse.redirect(`${baseUrl}/integrations?error=state_mismatch`)
+    // Parse state to get user info
+    let stateData
+    try {
+      stateData = parseOAuthState(state)
+    } catch (error) {
+      console.error("Invalid state parameter:", error)
+      return NextResponse.redirect(`${baseUrl}/integrations?error=invalid_state`)
     }
 
-    cookies().delete("airtable_oauth_state")
+    const { provider, userId, reconnect, integrationId } = stateData
 
-    const redirectUri = `${getBaseUrl(request)}/api/integrations/airtable/callback`
-    const clientId = process.env.AIRTABLE_CLIENT_ID
+    if (provider !== "airtable" || !userId) {
+      console.error("Invalid state data")
+      return NextResponse.redirect(`${baseUrl}/integrations?error=invalid_state`)
+    }
+
+    // Exchange code for access token
+    const clientId = process.env.NEXT_PUBLIC_AIRTABLE_CLIENT_ID
     const clientSecret = process.env.AIRTABLE_CLIENT_SECRET
 
     if (!clientId || !clientSecret) {
-      console.error("Missing Airtable client ID or secret")
-      const baseUrl = getBaseUrl(request)
+      console.error("Missing Airtable credentials")
       return NextResponse.redirect(`${baseUrl}/integrations?error=missing_credentials`)
     }
 
-    const tokenEndpoint = "https://airtable.com/oauth/v2/token"
+    const redirectUri = `${baseUrl}/api/integrations/airtable/callback`
 
-    const params = new URLSearchParams({
-      grant_type: "authorization_code",
-      code: code,
-      redirect_uri: redirectUri,
-    })
-
-    const authString = `${clientId}:${clientSecret}`
-    const encodedAuth = Buffer.from(authString).toString("base64")
-
-    const response = await fetch(tokenEndpoint, {
+    const tokenResponse = await fetch("https://airtable.com/oauth2/v1/token", {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
-        Authorization: `Basic ${encodedAuth}`,
+        Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`,
       },
-      body: params,
+      body: new URLSearchParams({
+        grant_type: "authorization_code",
+        code,
+        redirect_uri: redirectUri,
+      }),
     })
 
-    if (!response.ok) {
-      console.error("Failed to retrieve Airtable access token", response.status, await response.text())
-      const baseUrl = getBaseUrl(request)
-      return NextResponse.redirect(`${baseUrl}/integrations?error=token_retrieval_failed`)
+    if (!tokenResponse.ok) {
+      const errorText = await tokenResponse.text()
+      console.error("Token exchange failed:", errorText)
+      return NextResponse.redirect(`${baseUrl}/integrations?error=token_exchange_failed`)
     }
 
-    const data = await response.json()
-    const accessToken = data.access_token
+    const tokenData = await tokenResponse.json()
 
-    if (!accessToken) {
-      console.error("Missing access token in response")
-      const baseUrl = getBaseUrl(request)
-      return NextResponse.redirect(`${baseUrl}/integrations?error=missing_access_token`)
+    if (!tokenData.access_token) {
+      console.error("No access token received")
+      return NextResponse.redirect(`${baseUrl}/integrations?error=no_access_token`)
     }
 
-    cookies().set("airtable_access_token", accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
+    // Get user info from Airtable
+    const userResponse = await fetch("https://api.airtable.com/v0/meta/whoami", {
+      headers: {
+        Authorization: `Bearer ${tokenData.access_token}`,
+      },
     })
 
-    return NextResponse.redirect(`${getBaseUrl(request)}/integrations?success=airtable_connected`)
-  } catch (error) {
-    console.error("Airtable OAuth Callback Error:", error)
+    if (!userResponse.ok) {
+      console.error("Failed to get user info")
+      return NextResponse.redirect(`${baseUrl}/integrations?error=user_info_failed`)
+    }
+
+    const userData = await userResponse.json()
+
+    // Save integration to database
+    const supabase = createAdminSupabaseClient()
+    if (!supabase) {
+      console.error("Failed to create Supabase client")
+      return NextResponse.redirect(`${baseUrl}/integrations?error=database_error`)
+    }
+
+    const integrationData = {
+      user_id: userId,
+      provider: "airtable",
+      provider_user_id: userData.id,
+      access_token: tokenData.access_token,
+      refresh_token: tokenData.refresh_token || null,
+      expires_at: tokenData.expires_in ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString() : null,
+      status: "connected" as const,
+      scopes: tokenData.scope ? tokenData.scope.split(" ") : [],
+      metadata: {
+        user_name: userData.name,
+        user_email: userData.email,
+        connected_at: new Date().toISOString(),
+      },
+    }
+
+    await upsertIntegration(supabase, integrationData)
+
+    console.log("Airtable integration saved successfully")
+
+    // Redirect back to integrations page with success
+    return NextResponse.redirect(`${baseUrl}/integrations?success=true&provider=airtable`)
+  } catch (error: any) {
+    console.error("Airtable OAuth callback error:", error)
     const baseUrl = getBaseUrl(request)
-    return NextResponse.redirect(`${baseUrl}/integrations?error=airtable_callback_error`)
+    return NextResponse.redirect(
+      `${baseUrl}/integrations?error=callback_error&message=${encodeURIComponent(error.message)}`,
+    )
   }
 }

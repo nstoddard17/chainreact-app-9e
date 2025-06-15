@@ -87,11 +87,10 @@ function IntegrationsContent() {
     const error = searchParams.get("error")
     const provider = searchParams.get("provider")
     const message = searchParams.get("message")
-    const state = searchParams.get("state")
 
     if ((success || error) && provider) {
       setOauthProcessed(true)
-      console.log("🔄 Processing OAuth callback:", { success, error, provider, message, state })
+      console.log("🔄 Processing OAuth callback:", { success, error, provider, message })
 
       if (success === "true") {
         const refreshIntegrationsList = async () => {
@@ -100,8 +99,9 @@ function IntegrationsContent() {
             console.log("🔄 Refreshing integrations after OAuth success...")
             await fetchIntegrations(true)
 
-            // Schedule additional refreshes
-            setTimeout(() => fetchIntegrations(true), 1500)
+            // Schedule additional refreshes to ensure UI updates
+            setTimeout(() => fetchIntegrations(true), 1000)
+            setTimeout(() => fetchIntegrations(true), 2000)
             setTimeout(() => fetchIntegrations(true), 3000)
 
             toast({
@@ -116,10 +116,10 @@ function IntegrationsContent() {
 
         refreshIntegrationsList()
       } else if (error) {
-        const errorMsg = message || "Failed to connect integration"
+        const errorMsg = message ? decodeURIComponent(message) : "Failed to connect integration"
         toast({
           title: "Connection Failed",
-          description: decodeURIComponent(errorMsg),
+          description: errorMsg,
           variant: "destructive",
           duration: 7000,
         })
@@ -131,7 +131,7 @@ function IntegrationsContent() {
         window.history.replaceState({}, document.title, cleanUrl)
       }, 1000)
     }
-  }, [searchParams, toast, fetchIntegrations, router, oauthProcessed])
+  }, [searchParams, toast, fetchIntegrations, oauthProcessed])
 
   // Enhanced token refresh with better error handling
   const handleRefreshTokens = useCallback(async () => {
