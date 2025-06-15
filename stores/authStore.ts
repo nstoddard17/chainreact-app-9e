@@ -2,8 +2,19 @@
 
 import { create } from "zustand"
 import { persist, createJSONStorage } from "zustand/middleware"
-import { supabase } from "@/utils/supabaseClient"
-import type { Session } from "@supabase/supabase-js"
+import { createClient } from "@supabase/supabase-js"
+
+// Create Supabase client
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+
+const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+  },
+})
 
 interface AuthUser {
   id: string
@@ -14,7 +25,6 @@ interface AuthUser {
 
 interface AuthState {
   user: AuthUser | null
-  session: Session | null
   loading: boolean
   initialized: boolean
   error: string | null
@@ -29,7 +39,6 @@ interface AuthState {
   signInWithGoogle: () => Promise<void>
   getCurrentUserId: () => string | null
   setHydrated: () => void
-  refreshSession: () => Promise<void>
   clearError: () => void
 }
 
@@ -37,7 +46,6 @@ export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
       user: null,
-      session: null,
       loading: false,
       initialized: false,
       error: null,
@@ -49,36 +57,6 @@ export const useAuthStore = create<AuthState>()(
 
       clearError: () => {
         set({ error: null })
-      },
-
-      refreshSession: async () => {
-        try {
-          const {
-            data: { session },
-            error,
-          } = await supabase.auth.getSession()
-
-          if (error) {
-            console.error("Session refresh error:", error)
-            set({ session: null, user: null, error: error.message })
-            return
-          }
-
-          if (session?.user) {
-            const user: AuthUser = {
-              id: session.user.id,
-              email: session.user.email || "",
-              name: session.user.user_metadata?.full_name || session.user.user_metadata?.name,
-              avatar: session.user.user_metadata?.avatar_url,
-            }
-            set({ session, user, error: null })
-          } else {
-            set({ session: null, user: null })
-          }
-        } catch (error: any) {
-          console.error("Session refresh failed:", error)
-          set({ error: error.message })
-        }
       },
 
       initialize: async () => {
@@ -100,7 +78,7 @@ export const useAuthStore = create<AuthState>()(
 
           if (sessionError) {
             console.error("Session error:", sessionError)
-            set({ user: null, session: null, error: sessionError.message, loading: false, initialized: true })
+            set({ user: null, error: sessionError.message, loading: false, initialized: true })
             return
           }
 
@@ -113,7 +91,7 @@ export const useAuthStore = create<AuthState>()(
               avatar: session.user.user_metadata?.avatar_url,
             }
 
-            set({ user, session, loading: false, initialized: true, error: null })
+            set({ user, loading: false, initialized: true, error: null })
 
             // Start background data preloading
             console.log("🚀 Starting background data preload...")
@@ -121,16 +99,26 @@ export const useAuthStore = create<AuthState>()(
               try {
                 const { useIntegrationStore } = await import("./integrationStore")
                 const integrationStore = useIntegrationStore.getState()
-                await integrationStore.fetchIntegrations(true)
-                await integrationStore.initializeGlobalPreload()
-                console.log("✅ Background preload completed")
+
+                // Wait for integration store to be ready
+                let attempts = 0
+                while (!integrationStore.hydrated && attempts < 20) {
+                  await new Promise((resolve) => setTimeout(resolve, 250))
+                  attempts++
+                }
+
+                if (integrationStore.hydrated) {
+                  await integrationStore.fetchIntegrations(true)
+                  await integrationStore.initializeGlobalPreload()
+                  console.log("✅ Background preload completed")
+                }
               } catch (error) {
                 console.error("❌ Background preload failed:", error)
               }
             }, 1000)
           } else {
             console.log("❌ No valid session found")
-            set({ user: null, session: null, loading: false, initialized: true })
+            set({ user: null, loading: false, initialized: true })
           }
 
           // Set up auth state listener for real-time updates
@@ -144,11 +132,11 @@ export const useAuthStore = create<AuthState>()(
                 name: session.user.user_metadata?.full_name || session.user.user_metadata?.name,
                 avatar: session.user.user_metadata?.avatar_url,
               }
-              set({ user, session, error: null })
+              set({ user, error: null })
             } else if (event === "SIGNED_OUT") {
               console.log("👋 User signed out")
-              set({ user: null, session: null, error: null })
-            } else if (event === "TOKEN_REFRESHED" && session) {
+              set({ user: null, error: null })
+            } else if (event === "TOKEN_REFRESHED" && session?.user) {
               console.log("🔄 Token refreshed")
               const user: AuthUser = {
                 id: session.user.id,
@@ -156,12 +144,14 @@ export const useAuthStore = create<AuthState>()(
                 name: session.user.user_metadata?.full_name || session.user.user_metadata?.name,
                 avatar: session.user.user_metadata?.avatar_url,
               }
-              set({ user, session })
+              set({ user })
             }
           })
+
+          set({ initialized: true })
         } catch (error: any) {
           console.error("💥 Auth initialization error:", error)
-          set({ user: null, session: null, error: error.message, loading: false, initialized: true })
+          set({ user: null, error: error.message, loading: false, initialized: true })
         }
       },
 
@@ -171,7 +161,7 @@ export const useAuthStore = create<AuthState>()(
           const { error } = await supabase.auth.signOut()
           if (error) throw error
 
-          set({ user: null, session: null, loading: false, error: null })
+          set({ user: null, loading: false, error: null })
 
           // Clear integration store
           setTimeout(async () => {
@@ -226,7 +216,7 @@ export const useAuthStore = create<AuthState>()(
 
           if (error) throw error
 
-          if (data.user && data.session) {
+          if (data.user) {
             const user: AuthUser = {
               id: data.user.id,
               email: data.user.email || "",
@@ -234,7 +224,7 @@ export const useAuthStore = create<AuthState>()(
               avatar: data.user.user_metadata?.avatar_url,
             }
 
-            set({ user, session: data.session, loading: false })
+            set({ user, loading: false })
           }
         } catch (error: any) {
           console.error("Sign in error:", error)
@@ -257,7 +247,7 @@ export const useAuthStore = create<AuthState>()(
 
           if (error) throw error
 
-          if (data.user && data.session) {
+          if (data.user) {
             const user: AuthUser = {
               id: data.user.id,
               email: data.user.email || "",
@@ -265,7 +255,7 @@ export const useAuthStore = create<AuthState>()(
               avatar: data.user.user_metadata?.avatar_url,
             }
 
-            set({ user, session: data.session, loading: false })
+            set({ user, loading: false })
           }
         } catch (error: any) {
           console.error("Sign up error:", error)
@@ -304,7 +294,6 @@ export const useAuthStore = create<AuthState>()(
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         user: state.user,
-        session: state.session,
       }),
       onRehydrateStorage: () => (state) => {
         console.log("🔄 Auth store rehydrated:", state?.user?.email || "no user")
@@ -320,3 +309,6 @@ export const useAuthStore = create<AuthState>()(
     },
   ),
 )
+
+// Export the supabase client for use in other parts of the app
+export { supabase }
