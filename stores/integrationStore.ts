@@ -1,6 +1,7 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 import { detectAvailableIntegrations, type IntegrationConfig } from "@/lib/integrations/availableIntegrations"
+import { getSupabaseClient } from "@/lib/supabase-client"
 
 export interface Integration {
   id: string
@@ -105,10 +106,21 @@ export const useIntegrationStore = create<IntegrationStore>()(
         try {
           console.log("🔄 Fetching integrations from API...")
 
+          // Get the current user's session for authorization
+          const supabase = getSupabaseClient()
+          const {
+            data: { session },
+          } = await supabase.auth.getSession()
+
+          if (!session?.access_token) {
+            throw new Error("No valid session found. Please log in again.")
+          }
+
           const response = await fetch("/api/integrations", {
             method: "GET",
             headers: {
               "Content-Type": "application/json",
+              Authorization: `Bearer ${session.access_token}`,
             },
             credentials: "include", // Important for session cookies
           })
@@ -234,8 +246,22 @@ export const useIntegrationStore = create<IntegrationStore>()(
         setLoading(`disconnect-${integrationId}`, true)
 
         try {
+          // Get the current user's session for authorization
+          const supabase = getSupabaseClient()
+          const {
+            data: { session },
+          } = await supabase.auth.getSession()
+
+          if (!session?.access_token) {
+            throw new Error("No valid session found. Please log in again.")
+          }
+
           const response = await fetch(`/api/integrations/${integrationId}`, {
             method: "DELETE",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${session.access_token}`,
+            },
           })
 
           const data = await response.json()
@@ -244,12 +270,12 @@ export const useIntegrationStore = create<IntegrationStore>()(
             throw new Error(data.error || "Failed to disconnect integration")
           }
 
-          // Update local state
+          // Remove the integration from local state
           set((state) => ({
-            integrations: state.integrations.map((i) =>
-              i.id === integrationId ? { ...i, status: "disconnected" as const } : i,
-            ),
+            integrations: state.integrations.filter((i) => i.id !== integrationId),
           }))
+
+          console.log(`✅ Successfully disconnected integration ${integrationId}`)
         } catch (error: any) {
           console.error("Failed to disconnect integration:", error)
           set({ error: error.message })
@@ -265,8 +291,22 @@ export const useIntegrationStore = create<IntegrationStore>()(
         setLoading(`refresh-${integrationId}`, true)
 
         try {
+          // Get the current user's session for authorization
+          const supabase = getSupabaseClient()
+          const {
+            data: { session },
+          } = await supabase.auth.getSession()
+
+          if (!session?.access_token) {
+            throw new Error("No valid session found. Please log in again.")
+          }
+
           const response = await fetch(`/api/integrations/${integrationId}/refresh`, {
             method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${session.access_token}`,
+            },
           })
 
           const data = await response.json()
@@ -417,3 +457,6 @@ export const useIntegrationStore = create<IntegrationStore>()(
     },
   ),
 )
+
+// Ensure the store is properly exported
+export default useIntegrationStore
