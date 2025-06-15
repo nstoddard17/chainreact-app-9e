@@ -9,7 +9,7 @@ export const INTEGRATION_SCOPES = {
     optional: ["guilds.join", "messages.read"],
   },
   github: {
-    required: ["repo", "user:email"],
+    required: ["repo", "user"],
     optional: ["read:org", "gist"],
   },
   google: {
@@ -81,8 +81,8 @@ export const INTEGRATION_SCOPES = {
     optional: ["Chat.ReadWrite", "Files.ReadWrite"],
   },
   onedrive: {
-    required: ["Files.Read"],
-    optional: ["Files.ReadWrite"],
+    required: ["Files.ReadWrite"],
+    optional: ["Files.Read"],
   },
   hubspot: {
     required: ["crm.objects.contacts.read"],
