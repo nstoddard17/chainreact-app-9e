@@ -9,7 +9,12 @@ export function createAdminSupabaseClient() {
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
   if (!supabaseUrl || !supabaseServiceKey) {
-    throw new Error("Missing Supabase environment variables")
+    const missingVars = []
+    if (!supabaseUrl) missingVars.push("NEXT_PUBLIC_SUPABASE_URL")
+    if (!supabaseServiceKey) missingVars.push("SUPABASE_SERVICE_ROLE_KEY")
+
+    console.error(`Missing Supabase environment variables: ${missingVars.join(", ")}`)
+    throw new Error(`Missing required Supabase environment variables: ${missingVars.join(", ")}`)
   }
 
   return createClient(supabaseUrl, supabaseServiceKey, {
