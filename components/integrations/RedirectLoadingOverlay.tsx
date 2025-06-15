@@ -9,7 +9,7 @@ interface RedirectLoadingOverlayProps {
   isVisible: boolean
 }
 
-export function RedirectLoadingOverlay({ provider, isVisible }: RedirectLoadingOverlayProps) {
+export default function RedirectLoadingOverlay({ provider, isVisible }: RedirectLoadingOverlayProps) {
   const [dots, setDots] = useState("")
 
   useEffect(() => {
