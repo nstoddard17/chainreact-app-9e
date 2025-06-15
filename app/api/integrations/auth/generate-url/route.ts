@@ -1,86 +1,70 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
+import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
-import { generateOAuthState } from "@/lib/oauth/utils"
-import { getOAuthProvider } from "@/lib/oauth/index"
+import { generateOAuthState, getAbsoluteBaseUrl } from "@/lib/oauth/utils"
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient({ cookies })
+    const supabase = createServerComponentClient({ cookies })
 
-    // Check authentication
+    // Get authenticated user
     const {
-      data: { session },
-      error: sessionError,
-    } = await supabase.auth.getSession()
-    if (sessionError || !session) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Authentication required",
-        },
-        { status: 401 },
-      )
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
+
+    if (userError || !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { provider, scopes } = await request.json()
+    const { provider, reconnect = false, integrationId } = await request.json()
 
     if (!provider) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Provider is required",
-        },
-        { status: 400 },
-      )
+      return NextResponse.json({ error: "Provider is required" }, { status: 400 })
     }
 
-    console.log(`Generating auth URL for provider: ${provider}`)
+    const baseUrl = getAbsoluteBaseUrl(request)
 
-    // Generate state with user ID
-    const state = generateOAuthState(provider, session.user.id)
+    // Generate state with user info
+    const state = generateOAuthState({
+      provider,
+      userId: user.id,
+      reconnect,
+      integrationId,
+      timestamp: Date.now(),
+    })
 
-    try {
-      const oauthProvider = getOAuthProvider(provider)
-      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || request.nextUrl.origin
-      const authUrl = oauthProvider.generateAuthUrl(baseUrl, false, undefined, session.user.id)
+    let authUrl: string
 
-      console.log(`Auth URL generated for ${provider}:`, authUrl.substring(0, 100) + "...")
+    switch (provider) {
+      case "airtable":
+        const airtableClientId = process.env.NEXT_PUBLIC_AIRTABLE_CLIENT_ID
+        if (!airtableClientId) {
+          return NextResponse.json({ error: "Airtable integration not configured" }, { status: 500 })
+        }
 
-      return NextResponse.json({
-        success: true,
-        authUrl,
-        state,
-      })
-    } catch (error: any) {
-      console.error(`Error generating auth URL for ${provider}:`, error)
+        const airtableParams = new URLSearchParams({
+          client_id: airtableClientId,
+          redirect_uri: `${baseUrl}/api/integrations/airtable/callback`,
+          response_type: "code",
+          state,
+          scope: "data.records:read data.records:write schema.bases:read schema.bases:write",
+        })
 
-      if (error.message.includes("Missing") && error.message.includes("configuration")) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: `${provider} is not configured. Please ensure the required environment variables are set.`,
-          },
-          { status: 400 },
-        )
-      }
+        authUrl = `https://airtable.com/oauth2/v1/authorize?${airtableParams.toString()}`
+        break
 
-      return NextResponse.json(
-        {
-          success: false,
-          error: error.message || `Failed to generate auth URL for ${provider}`,
-        },
-        { status: 500 },
-      )
+      default:
+        return NextResponse.json({ error: `Provider ${provider} not supported` }, { status: 400 })
     }
+
+    return NextResponse.json({
+      success: true,
+      authUrl,
+      provider,
+    })
   } catch (error: any) {
-    console.error("Error in auth URL generation:", error)
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Internal server error",
-      },
-      { status: 500 },
-    )
+    console.error("OAuth URL generation error:", error)
+    return NextResponse.json({ error: "Failed to generate OAuth URL", details: error.message }, { status: 500 })
   }
 }
