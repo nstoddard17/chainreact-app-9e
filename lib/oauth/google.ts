@@ -1,4 +1,4 @@
-import { generateOAuthState, getOAuthRedirectUri } from "./utils"
+import { generateOAuthState } from "./utils"
 
 export class GoogleOAuthService {
   private static getClientCredentials() {
@@ -16,7 +16,7 @@ export class GoogleOAuthService {
   }
 
   static getRedirectUri(): string {
-    return getOAuthRedirectUri("google")
+    return "https://chainreact.app/api/integrations/google/callback"
   }
 
   static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string, userId?: string): string {

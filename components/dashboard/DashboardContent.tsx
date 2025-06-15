@@ -52,6 +52,7 @@ export default function DashboardContent() {
   return (
     <AppLayout>
       <div className="space-y-6">
+        {/* Clean header without extraneous labels */}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-slate-900">Dashboard</h1>
