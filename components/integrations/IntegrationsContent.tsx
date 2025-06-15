@@ -4,12 +4,11 @@ import { useState, useEffect, useCallback } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { useIntegrationStore } from "@/stores/integrationStore"
 import { useAuthStore } from "@/stores/authStore"
-import { getIntegrationStats } from "@/lib/integrations/availableIntegrations"
 import ScopeValidationAlert from "./ScopeValidationAlert"
 import AppLayout from "@/components/layout/AppLayout"
 import IntegrationCard from "./IntegrationCard"
 import IntegrationDiagnostics from "./IntegrationDiagnostics"
-import { Loader2, CheckCircle, Stethoscope, RefreshCw, AlertCircle } from "lucide-react"
+import { Loader2, CheckCircle, Stethoscope, RefreshCw, AlertCircle, Bug } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -22,18 +21,20 @@ function IntegrationsContent() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [oauthProcessed, setOauthProcessed] = useState(false)
   const [tokenRefreshing, setTokenRefreshing] = useState(false)
+  const [showDebug, setShowDebug] = useState(false)
   const router = useRouter()
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
 
   const {
     integrations = [],
     providers = [],
     isLoading,
     error,
+    debugInfo,
     initializeProviders,
     fetchIntegrations,
     refreshAllTokens,
     clearError,
+    getConnectedProviders,
   } = useIntegrationStore()
 
   const searchParams = useSearchParams()
@@ -42,6 +43,7 @@ function IntegrationsContent() {
 
   // Initialize providers on mount
   useEffect(() => {
+    console.log("🚀 Initializing providers...")
     initializeProviders()
   }, [initializeProviders])
 
@@ -50,6 +52,7 @@ function IntegrationsContent() {
     try {
       setLocalLoading(true)
       setLoadError(null)
+      console.log("📊 Loading integrations data...")
 
       // Set a timeout to prevent infinite loading
       const timeoutId = setTimeout(() => {
@@ -57,10 +60,11 @@ function IntegrationsContent() {
         setLocalLoading(false)
       }, 15000)
 
-      await fetchIntegrations()
+      await fetchIntegrations(true) // Force refresh
       clearTimeout(timeoutId)
+      console.log("✅ Data loading completed")
     } catch (err: any) {
-      console.error("Failed to load integrations:", err)
+      console.error("❌ Failed to load integrations:", err)
       setLoadError(err.message || "Failed to load integrations. Please try again.")
     } finally {
       setLocalLoading(false)
@@ -70,6 +74,7 @@ function IntegrationsContent() {
   // Handle initial data loading
   useEffect(() => {
     if (user && providers.length > 0) {
+      console.log("👤 User authenticated, loading data...", { userId: user.id, providerCount: providers.length })
       loadData()
     }
   }, [user, providers.length, loadData])
@@ -85,11 +90,13 @@ function IntegrationsContent() {
 
     if ((success || error) && provider) {
       setOauthProcessed(true)
+      console.log("🔄 Processing OAuth callback:", { success, error, provider, message })
 
       if (success === "true") {
         const refreshIntegrationsList = async () => {
           try {
             // Multiple refresh attempts to ensure data consistency
+            console.log("🔄 Refreshing integrations after OAuth success...")
             await fetchIntegrations(true)
 
             // Schedule additional refreshes
@@ -151,11 +158,11 @@ function IntegrationsContent() {
 
       toast({
         title: "Tokens Refreshed",
-        description: `${data.stats.successful} refreshed, ${data.stats.skipped} already valid, ${data.stats.failed} failed`,
+        description: `${data.stats?.successful || 0} refreshed, ${data.stats?.skipped || 0} already valid, ${data.stats?.failed || 0} failed`,
         duration: 5000,
       })
 
-      if (data.stats.successful > 0) {
+      if (data.stats?.successful > 0) {
         await fetchIntegrations(true)
       }
     } catch (err: any) {
@@ -171,46 +178,31 @@ function IntegrationsContent() {
     }
   }, [getCurrentUserId, fetchIntegrations, toast])
 
-  // Get unique categories from providers
-  const categories = Array.from(new Set(providers.map((p) => p.category)))
-
-  // Enhanced filtering logic
-  const filteredProviders = providers.filter((provider) => {
-    const matchesSearch =
-      provider.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      provider.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (provider.capabilities || []).some((cap) => cap.toLowerCase().includes(searchTerm.toLowerCase()))
-
-    const matchesCategory = !selectedCategory || provider.category === selectedCategory
-
-    return matchesSearch && matchesCategory
-  })
-
   // Merge providers with integration status
   const providersWithStatus = providers.map((provider) => {
     const connectedIntegration = integrations.find((i) => i.provider === provider.id && i.status === "connected")
     const disconnectedIntegration = integrations.find((i) => i.provider === provider.id && i.status === "disconnected")
+    const anyIntegration = integrations.find((i) => i.provider === provider.id)
 
     return {
       ...provider,
       connected: !!connectedIntegration,
       wasConnected: !!disconnectedIntegration,
-      integration: connectedIntegration || disconnectedIntegration || null,
+      integration: connectedIntegration || disconnectedIntegration || anyIntegration || null,
       isAvailable: true,
     }
   })
 
-  // Group providers by category
-  const groupedProviders = categories.reduce(
-    (acc, category) => {
-      acc[category] = providersWithStatus.filter((p) => p.category === category)
-      return acc
-    },
-    {} as Record<string, typeof providersWithStatus>,
-  )
-
   const connectedCount = integrations.filter((i) => i.status === "connected").length
-  const stats = getIntegrationStats()
+  const connectedProviders = getConnectedProviders()
+
+  console.log("🔍 Current state:", {
+    integrations: integrations.length,
+    providers: providers.length,
+    connectedCount,
+    connectedProviders,
+    debugInfo,
+  })
 
   // Show loading state
   if (localLoading || (isLoading && integrations.length === 0)) {
@@ -221,7 +213,7 @@ function IntegrationsContent() {
             <div className="flex flex-col items-center justify-center h-64 space-y-4">
               <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
               <p className="text-slate-600 font-medium">Loading integrations...</p>
-              <p className="text-sm text-slate-500">Detecting available integrations from environment variables</p>
+              <p className="text-sm text-slate-500">Detecting available integrations and fetching connection status</p>
             </div>
           </div>
         </div>
@@ -282,8 +274,44 @@ function IntegrationsContent() {
                   {tokenRefreshing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
                   <span className="ml-2 hidden sm:inline">{tokenRefreshing ? "Refreshing..." : "Refresh Tokens"}</span>
                 </Button>
+                {process.env.NODE_ENV === "development" && (
+                  <Button
+                    onClick={() => setShowDebug(!showDebug)}
+                    variant="outline"
+                    size="sm"
+                    className="border-slate-300"
+                  >
+                    <Bug className="w-4 h-4" />
+                  </Button>
+                )}
               </div>
             </div>
+
+            {/* Debug Panel */}
+            {showDebug && process.env.NODE_ENV === "development" && (
+              <Alert className="bg-slate-50 border-slate-200">
+                <Bug className="h-4 w-4" />
+                <AlertTitle>Debug Information</AlertTitle>
+                <AlertDescription>
+                  <pre className="text-xs mt-2 overflow-auto">
+                    {JSON.stringify(
+                      {
+                        integrations: integrations.map((i) => ({
+                          id: i.id,
+                          provider: i.provider,
+                          status: i.status,
+                          created_at: i.created_at,
+                        })),
+                        connectedProviders,
+                        debugInfo,
+                      },
+                      null,
+                      2,
+                    )}
+                  </pre>
+                </AlertDescription>
+              </Alert>
+            )}
 
             {/* Tabs */}
             <Tabs defaultValue="integrations" className="w-full">

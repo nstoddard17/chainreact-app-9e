@@ -1,10 +1,10 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { CheckCircle, Loader2, RefreshCw, ExternalLink } from "lucide-react"
+import { CheckCircle, Loader2, RefreshCw, ExternalLink, AlertCircle } from "lucide-react"
 import { useIntegrationStore } from "@/stores/integrationStore"
 import { useToast } from "@/hooks/use-toast"
 
@@ -15,8 +15,8 @@ interface IntegrationCardProps {
     description: string
     logoUrl?: string
     capabilities: string[]
-    connected: boolean
-    wasConnected: boolean
+    connected?: boolean
+    wasConnected?: boolean
     isAvailable: boolean
     integration?: {
       id: string
@@ -31,8 +31,33 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
   const [isDisconnecting, setIsDisconnecting] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
 
-  const { connectIntegration, disconnectIntegration, fetchIntegrations } = useIntegrationStore()
+  const {
+    connectIntegration,
+    disconnectIntegration,
+    fetchIntegrations,
+    getIntegrationStatus,
+    getIntegrationByProvider,
+    debugInfo,
+  } = useIntegrationStore()
   const { toast } = useToast()
+
+  // Get real-time integration status
+  const integrationStatus = getIntegrationStatus(provider.id)
+  const integration = getIntegrationByProvider(provider.id)
+  const isConnected = integrationStatus === "connected"
+  const wasConnected = integration && integration.status === "disconnected"
+
+  // Debug logging
+  useEffect(() => {
+    console.log(`🔍 IntegrationCard for ${provider.name}:`, {
+      providerId: provider.id,
+      integrationStatus,
+      integration,
+      isConnected,
+      wasConnected,
+      debugInfo,
+    })
+  }, [provider.id, provider.name, integrationStatus, integration, isConnected, wasConnected, debugInfo])
 
   const handleConnect = useCallback(async () => {
     try {
@@ -61,7 +86,7 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
       // Monitor for connection completion
       const checkConnection = async () => {
         try {
-          await fetchIntegrations()
+          await fetchIntegrations(true)
           return true
         } catch (error) {
           console.error("Error checking connection:", error)
@@ -107,7 +132,7 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
   }, [provider, connectIntegration, fetchIntegrations, toast])
 
   const handleDisconnect = useCallback(async () => {
-    if (!provider.integration?.id) {
+    if (!integration?.id) {
       toast({
         title: "Error",
         description: "No integration found to disconnect",
@@ -119,7 +144,7 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
     try {
       setIsDisconnecting(true)
 
-      await disconnectIntegration(provider.id)
+      await disconnectIntegration(integration.id)
 
       toast({
         title: "Integration Disconnected",
@@ -128,7 +153,7 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
       })
 
       // Refresh the integrations list
-      await fetchIntegrations()
+      await fetchIntegrations(true)
     } catch (error: any) {
       console.error(`Failed to disconnect ${provider.name}:`, error)
       toast({
@@ -140,10 +165,10 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
     } finally {
       setIsDisconnecting(false)
     }
-  }, [provider, disconnectIntegration, fetchIntegrations, toast])
+  }, [provider, integration, disconnectIntegration, fetchIntegrations, toast])
 
   const handleRefresh = useCallback(async () => {
-    if (!provider.integration?.id) {
+    if (!integration?.id) {
       toast({
         title: "Error",
         description: "No integration found to refresh",
@@ -160,7 +185,7 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           provider: provider.id,
-          integrationId: provider.integration.id,
+          integrationId: integration.id,
         }),
       })
 
@@ -186,7 +211,7 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
         duration: 4000,
       })
 
-      await fetchIntegrations()
+      await fetchIntegrations(true)
     } catch (error: any) {
       console.error(`Failed to refresh ${provider.name}:`, error)
 
@@ -205,15 +230,13 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
     } finally {
       setIsRefreshing(false)
     }
-  }, [provider, fetchIntegrations, toast])
+  }, [provider, integration, fetchIntegrations, toast])
 
   // Format the last updated date
-  const lastUpdated = provider.integration?.updated_at
-    ? new Date(provider.integration.updated_at).toLocaleDateString()
-    : null
+  const lastUpdated = integration?.updated_at ? new Date(integration.updated_at).toLocaleDateString() : null
 
   const getStatusBadge = () => {
-    if (provider.connected) {
+    if (isConnected) {
       return (
         <Badge className="bg-green-100 text-green-800 border-green-200">
           <CheckCircle className="w-3 h-3 mr-1" />
@@ -222,15 +245,20 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
       )
     }
 
-    if (provider.wasConnected) {
+    if (wasConnected) {
       return (
-        <Badge variant="outline" className="bg-slate-100 text-slate-600 border-slate-200">
+        <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-200">
+          <AlertCircle className="w-3 h-3 mr-1" />
           Disconnected
         </Badge>
       )
     }
 
-    return null
+    return (
+      <Badge variant="outline" className="bg-slate-100 text-slate-600 border-slate-200">
+        Not Connected
+      </Badge>
+    )
   }
 
   return (
@@ -253,7 +281,7 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
                 <h3 className="font-semibold text-slate-900 group-hover:text-slate-700 transition-colors">
                   {provider.name}
                 </h3>
-                {provider.connected && (
+                {isConnected && (
                   <div className="flex items-center text-xs text-slate-500">
                     <RefreshCw className="w-3 h-3 mr-1" />
                     {lastUpdated ? `Updated ${lastUpdated}` : "Connected"}
@@ -282,10 +310,17 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
               </Badge>
             )}
           </div>
+
+          {/* Debug info in development */}
+          {process.env.NODE_ENV === "development" && (
+            <div className="text-xs text-slate-400 mb-2 font-mono">
+              Status: {integrationStatus} | ID: {integration?.id || "none"}
+            </div>
+          )}
         </div>
 
         <div className="bg-slate-50 p-4 border-t border-slate-200">
-          {provider.connected ? (
+          {isConnected ? (
             <div className="flex gap-2">
               <Button
                 variant="outline"
@@ -320,7 +355,7 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
                 {isConnecting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                 {isConnecting ? "Connecting..." : "Connect"}
               </Button>
-              {!provider.connected && (
+              {!isConnected && (
                 <Button variant="ghost" size="sm" className="px-2 hover:bg-slate-100" title="Learn more">
                   <ExternalLink className="w-4 h-4" />
                 </Button>
