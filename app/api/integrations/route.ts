@@ -6,29 +6,29 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = createServerComponentClient({ cookies })
 
-    // Get the current user
+    // Use getUser() instead of getSession() for secure authentication
     const {
-      data: { session },
-      error: sessionError,
-    } = await supabase.auth.getSession()
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
 
-    if (sessionError) {
-      console.error("Session error:", sessionError)
-      return NextResponse.json({ error: "Authentication error", details: sessionError.message }, { status: 401 })
+    if (userError) {
+      console.error("User authentication error:", userError)
+      return NextResponse.json({ error: "Authentication error", details: userError.message }, { status: 401 })
     }
 
-    if (!session?.user?.id) {
-      console.error("No session or user ID found")
-      return NextResponse.json({ error: "Unauthorized - no valid session" }, { status: 401 })
+    if (!user?.id) {
+      console.error("No authenticated user found")
+      return NextResponse.json({ error: "Unauthorized - no valid user" }, { status: 401 })
     }
 
-    console.log("Fetching integrations for user:", session.user.id)
+    console.log("Fetching integrations for authenticated user:", user.id)
 
     // Fetch user's integrations with detailed logging
     const { data: integrations, error } = await supabase
       .from("integrations")
       .select("*")
-      .eq("user_id", session.user.id)
+      .eq("user_id", user.id)
       .order("created_at", { ascending: false })
 
     if (error) {
@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    console.log(`Found ${integrations?.length || 0} integrations for user ${session.user.id}:`, integrations)
+    console.log(`Found ${integrations?.length || 0} integrations for user ${user.id}:`, integrations)
 
     // Transform the data to ensure consistent format
     const transformedIntegrations = (integrations || []).map((integration) => ({
@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
       success: true,
       data: transformedIntegrations,
       count: transformedIntegrations.length,
-      user_id: session.user.id,
+      user_id: user.id,
     })
   } catch (error) {
     console.error("API error in /api/integrations:", error)
