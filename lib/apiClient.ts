@@ -1,5 +1,3 @@
-import { getBaseUrl } from "./utils/getBaseUrl"
-
 interface ApiResponse<T = any> {
   success: boolean
   data?: T
@@ -8,16 +6,10 @@ interface ApiResponse<T = any> {
 }
 
 class ApiClient {
-  private baseUrl: string
-
-  constructor() {
-    this.baseUrl = getBaseUrl()
-  }
-
   private async request<T = any>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
     try {
-      // Ensure we're using the same domain to avoid CORS issues
-      const url = `${this.baseUrl}${endpoint}`
+      // Use relative URLs to avoid CORS issues
+      const url = endpoint.startsWith("/") ? endpoint : `/${endpoint}`
 
       const defaultHeaders = {
         "Content-Type": "application/json",
