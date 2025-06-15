@@ -1,5 +1,10 @@
 export function getBaseUrl(): string {
-  // In browser, use current origin to avoid CORS issues
+  // Always use the production URL for OAuth redirects to ensure consistency
+  if (process.env.NODE_ENV === "production" || process.env.VERCEL_ENV === "production") {
+    return "https://chainreact.app"
+  }
+
+  // In browser, use current origin for development
   if (typeof window !== "undefined") {
     return window.location.origin
   }
@@ -22,7 +27,8 @@ export function getBaseUrl(): string {
 }
 
 export function getOAuthRedirectUri(provider: string): string {
-  const baseUrl = getBaseUrl()
+  // Always use production URL for OAuth redirects
+  const baseUrl = process.env.NODE_ENV === "production" ? "https://chainreact.app" : getBaseUrl()
   return `${baseUrl}/api/integrations/${provider}/callback`
 }
 
