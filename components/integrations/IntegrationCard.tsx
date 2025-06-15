@@ -1,341 +1,207 @@
 "use client"
 
-import { useState, useCallback, useEffect } from "react"
-import { Card, CardContent } from "@/components/ui/card"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { CheckCircle, Loader2, RefreshCw, ExternalLink, AlertCircle } from "lucide-react"
-import { useIntegrationStore } from "@/stores/integrationStore"
 import { useToast } from "@/hooks/use-toast"
-import RedirectLoadingOverlay from "./RedirectLoadingOverlay"
+import { useIntegrationStore } from "@/stores/integrationStore"
+import { RedirectLoadingOverlay } from "./RedirectLoadingOverlay"
+import { Loader2, CheckCircle, AlertCircle, RefreshCw } from "lucide-react"
 
 interface IntegrationCardProps {
   provider: {
     id: string
     name: string
     description: string
-    logoUrl?: string
-    capabilities: string[]
-    connected?: boolean
-    wasConnected?: boolean
+    icon: string
+    category: string
+    isConnected: boolean
     isAvailable: boolean
-    integration?: {
-      id: string
-      updated_at: string
-      status: string
-    }
+    connectedAt?: string
+    lastSync?: string
+    status: "connected" | "disconnected" | "error" | "syncing"
+    scopes?: string[]
+    requiredScopes?: string[]
+    scopesValid?: boolean
   }
 }
 
 export default function IntegrationCard({ provider }: IntegrationCardProps) {
-  const [isConnecting, setIsConnecting] = useState(false)
-  const [isDisconnecting, setIsDisconnecting] = useState(false)
-  const [isRefreshing, setIsRefreshing] = useState(false)
-
-  const {
-    connectIntegration,
-    disconnectIntegration,
-    fetchIntegrations,
-    getIntegrationStatus,
-    getIntegrationByProvider,
-    debugInfo,
-  } = useIntegrationStore()
   const { toast } = useToast()
+  const { connectIntegration, disconnectIntegration, refreshIntegration, loadingStates } = useIntegrationStore()
+  const [isRedirecting, setIsRedirecting] = useState(false)
 
-  // Get real-time integration status
-  const integrationStatus = getIntegrationStatus(provider.id)
-  const integration = getIntegrationByProvider(provider.id)
-  const isConnected = integrationStatus === "connected"
-  const wasConnected = integration && integration.status === "disconnected"
+  const isConnecting = loadingStates[`connect-${provider.id}`] || false
+  const isDisconnecting = loadingStates[`disconnect-${provider.id}`] || false
+  const isRefreshing = loadingStates[`refresh-${provider.id}`] || false
 
-  // Debug logging
-  useEffect(() => {
-    console.log(`🔍 IntegrationCard for ${provider.name}:`, {
-      providerId: provider.id,
-      integrationStatus,
-      integration,
-      isConnected,
-      wasConnected,
-      debugInfo,
-    })
-  }, [provider.id, provider.name, integrationStatus, integration, isConnected, wasConnected, debugInfo])
-
-  const handleConnect = useCallback(async () => {
+  const handleConnect = async () => {
     try {
-      setIsConnecting(true)
-
-      // Show immediate feedback
-      toast({
-        title: "Redirecting to Authorization",
-        description: `You'll be redirected to ${provider.name} to authorize the connection.`,
-        duration: 3000,
-      })
-
+      setIsRedirecting(true)
       await connectIntegration(provider.id)
-      // Note: This won't execute as we redirect immediately in connectIntegration
-    } catch (error: any) {
-      console.error(`Failed to connect ${provider.name}:`, error)
 
-      let errorMessage = error.message || `Failed to connect ${provider.name}`
-
-      if (error.message?.includes("not configured")) {
-        errorMessage = `${provider.name} integration is not configured. Please contact support.`
-      }
-
+      toast({
+        title: "Integration Connected",
+        description: `${provider.name} has been connected successfully`,
+        duration: 4000,
+      })
+    } catch (err: any) {
       toast({
         title: "Connection Failed",
-        description: errorMessage,
-        variant: "destructive",
-        duration: 8000,
-      })
-      setIsConnecting(false)
-    }
-  }, [provider, connectIntegration, toast])
-
-  const handleDisconnect = useCallback(async () => {
-    if (!integration?.id) {
-      toast({
-        title: "Error",
-        description: "No integration found to disconnect",
+        description: err.message,
         variant: "destructive",
       })
-      return
+    } finally {
+      setIsRedirecting(false)
     }
+  }
 
+  const handleDisconnect = async () => {
     try {
-      setIsDisconnecting(true)
-
-      await disconnectIntegration(integration.id)
+      await disconnectIntegration(provider.id)
 
       toast({
         title: "Integration Disconnected",
-        description: `${provider.name} has been disconnected successfully`,
-        duration: 4000,
+        description: `${provider.name} has been disconnected`,
       })
-
-      // Refresh the integrations list
-      await fetchIntegrations(true)
-    } catch (error: any) {
-      console.error(`Failed to disconnect ${provider.name}:`, error)
+    } catch (err: any) {
       toast({
         title: "Disconnection Failed",
-        description: error.message || `Failed to disconnect ${provider.name}`,
-        variant: "destructive",
-        duration: 8000,
-      })
-    } finally {
-      setIsDisconnecting(false)
-    }
-  }, [provider, integration, disconnectIntegration, fetchIntegrations, toast])
-
-  const handleRefresh = useCallback(async () => {
-    if (!integration?.id) {
-      toast({
-        title: "Error",
-        description: "No integration found to refresh",
+        description: err.message,
         variant: "destructive",
       })
-      return
     }
+  }
 
+  const handleRefresh = async () => {
     try {
-      setIsRefreshing(true)
-
-      const response = await fetch("/api/integrations/oauth/refresh", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          provider: provider.id,
-          integrationId: integration.id,
-        }),
-      })
-
-      const result = await response.json()
-
-      if (!result.success) {
-        if (result.error?.includes("requires re-authentication") || result.error?.includes("expired")) {
-          toast({
-            title: "Reconnection Required",
-            description: `${provider.name} needs to be reconnected. Please disconnect and connect again.`,
-            variant: "destructive",
-            duration: 8000,
-          })
-        } else {
-          throw new Error(result.error || "Failed to refresh integration")
-        }
-        return
-      }
+      await refreshIntegration(provider.id)
 
       toast({
         title: "Integration Refreshed",
-        description: `${provider.name} connection has been refreshed successfully`,
-        duration: 4000,
+        description: `${provider.name} connection has been refreshed`,
       })
-
-      await fetchIntegrations(true)
-    } catch (error: any) {
-      console.error(`Failed to refresh ${provider.name}:`, error)
-
-      let errorMessage = error.message || `Failed to refresh ${provider.name}`
-
-      if (error.message?.includes("authentication") || error.message?.includes("expired")) {
-        errorMessage = `${provider.name} authentication expired. Please reconnect your account.`
-      }
-
+    } catch (err: any) {
       toast({
         title: "Refresh Failed",
-        description: errorMessage,
+        description: err.message,
         variant: "destructive",
-        duration: 8000,
       })
-    } finally {
-      setIsRefreshing(false)
     }
-  }, [provider, integration, fetchIntegrations, toast])
-
-  // Format the last updated date
-  const lastUpdated = integration?.updated_at ? new Date(integration.updated_at).toLocaleDateString() : null
-
-  // Add this after the existing useEffect hooks
-  useEffect(() => {
-    const connectingProvider = localStorage.getItem("integration_connecting")
-    if (connectingProvider === provider.id) {
-      setIsConnecting(true)
-    }
-  }, [provider.id])
-
-  const getStatusBadge = () => {
-    if (isConnected) {
-      return (
-        <Badge className="bg-green-100 text-green-800 border-green-200">
-          <CheckCircle className="w-3 h-3 mr-1" />
-          Connected
-        </Badge>
-      )
-    }
-
-    if (wasConnected) {
-      return (
-        <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-200">
-          <AlertCircle className="w-3 h-3 mr-1" />
-          Disconnected
-        </Badge>
-      )
-    }
-
-    return (
-      <Badge variant="outline" className="bg-slate-100 text-slate-600 border-slate-200">
-        Not Connected
-      </Badge>
-    )
   }
 
-  const showRedirectOverlay = isConnecting && !isDisconnecting && !isRefreshing
+  const getStatusIcon = () => {
+    switch (provider.status) {
+      case "connected":
+        return <CheckCircle className="h-4 w-4 text-green-500" />
+      case "error":
+        return <AlertCircle className="h-4 w-4 text-red-500" />
+      case "syncing":
+        return <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />
+      default:
+        return null
+    }
+  }
+
+  const getStatusBadge = () => {
+    if (!provider.isAvailable) {
+      return <Badge variant="secondary">Not Configured</Badge>
+    }
+
+    switch (provider.status) {
+      case "connected":
+        return (
+          <Badge variant="default" className="bg-green-100 text-green-800">
+            Connected
+          </Badge>
+        )
+      case "error":
+        return <Badge variant="destructive">Error</Badge>
+      case "syncing":
+        return <Badge variant="secondary">Syncing</Badge>
+      default:
+        return <Badge variant="outline">Disconnected</Badge>
+    }
+  }
 
   return (
-    <Card className="overflow-hidden border border-slate-200 transition-all hover:shadow-md group">
-      <CardContent className="p-0">
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-md bg-slate-100 flex items-center justify-center overflow-hidden">
-                <img
-                  src={provider.logoUrl || "/placeholder.svg"}
-                  alt={`${provider.name} logo`}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    e.currentTarget.src = "/placeholder.svg?height=40&width=40&text=" + provider.name.charAt(0)
-                  }}
-                />
-              </div>
-              <div>
-                <h3 className="font-semibold text-slate-900 group-hover:text-slate-700 transition-colors">
-                  {provider.name}
-                </h3>
-                {isConnected && (
-                  <div className="flex items-center text-xs text-slate-500">
-                    <RefreshCw className="w-3 h-3 mr-1" />
-                    {lastUpdated ? `Updated ${lastUpdated}` : "Connected"}
-                  </div>
-                )}
+    <>
+      <Card className="relative">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <div className="flex items-center space-x-2">
+            <div className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center">
+              <span className="text-sm font-semibold">{provider.icon}</span>
+            </div>
+            <div>
+              <CardTitle className="text-base">{provider.name}</CardTitle>
+              <div className="flex items-center space-x-2 mt-1">
+                {getStatusIcon()}
+                {getStatusBadge()}
               </div>
             </div>
-            {getStatusBadge()}
           </div>
+        </CardHeader>
 
-          <p className="text-sm text-slate-600 mb-4 line-clamp-2">{provider.description}</p>
+        <CardContent>
+          <CardDescription className="mb-4">{provider.description}</CardDescription>
 
-          <div className="flex flex-wrap gap-2 mb-4">
-            {provider.capabilities?.slice(0, 3).map((capability: string) => (
-              <Badge
-                key={capability}
-                variant="outline"
-                className="bg-slate-50 text-slate-700 border-slate-200 text-xs font-normal"
+          {provider.connectedAt && (
+            <p className="text-xs text-muted-foreground mb-2">
+              Connected: {new Date(provider.connectedAt).toLocaleDateString()}
+            </p>
+          )}
+
+          {provider.lastSync && (
+            <p className="text-xs text-muted-foreground mb-4">
+              Last sync: {new Date(provider.lastSync).toLocaleDateString()}
+            </p>
+          )}
+
+          <div className="flex space-x-2">
+            {!provider.isConnected ? (
+              <Button
+                onClick={handleConnect}
+                disabled={!provider.isAvailable || isConnecting || isRedirecting}
+                className="flex-1"
               >
-                {capability}
-              </Badge>
-            ))}
-            {provider.capabilities?.length > 3 && (
-              <Badge variant="outline" className="bg-slate-50 text-slate-500 border-slate-200 text-xs font-normal">
-                +{provider.capabilities.length - 3} more
-              </Badge>
+                {isConnecting || isRedirecting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Connecting...
+                  </>
+                ) : (
+                  "Connect"
+                )}
+              </Button>
+            ) : (
+              <>
+                <Button onClick={handleRefresh} disabled={isRefreshing} variant="outline" size="sm">
+                  {isRefreshing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                </Button>
+                <Button
+                  onClick={handleDisconnect}
+                  disabled={isDisconnecting}
+                  variant="destructive"
+                  size="sm"
+                  className="flex-1"
+                >
+                  {isDisconnecting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Disconnecting...
+                    </>
+                  ) : (
+                    "Disconnect"
+                  )}
+                </Button>
+              </>
             )}
           </div>
+        </CardContent>
+      </Card>
 
-          {/* Debug info in development */}
-          {process.env.NODE_ENV === "development" && (
-            <div className="text-xs text-slate-400 mb-2 font-mono">
-              Status: {integrationStatus} | ID: {integration?.id || "none"}
-            </div>
-          )}
-        </div>
-
-        <div className="bg-slate-50 p-4 border-t border-slate-200">
-          {isConnected ? (
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex-1 bg-white hover:bg-red-50 hover:border-red-200 hover:text-red-700 transition-colors"
-                onClick={handleDisconnect}
-                disabled={isDisconnecting || isRefreshing}
-              >
-                {isDisconnecting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                {isDisconnecting ? "Disconnecting..." : "Disconnect"}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="bg-white hover:bg-blue-50 hover:border-blue-200 transition-colors"
-                onClick={handleRefresh}
-                disabled={isDisconnecting || isRefreshing}
-                title="Refresh connection"
-              >
-                {isRefreshing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-              </Button>
-            </div>
-          ) : (
-            <div className="flex gap-2">
-              <Button
-                variant="default"
-                size="sm"
-                className="flex-1 transition-colors"
-                onClick={handleConnect}
-                disabled={isConnecting}
-              >
-                {isConnecting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                {isConnecting ? "Connecting..." : "Connect"}
-              </Button>
-              {!isConnected && (
-                <Button variant="ghost" size="sm" className="px-2 hover:bg-slate-100" title="Learn more">
-                  <ExternalLink className="w-4 h-4" />
-                </Button>
-              )}
-            </div>
-          )}
-        </div>
-      </CardContent>
-      {showRedirectOverlay && <RedirectLoadingOverlay provider={provider.name} isVisible={showRedirectOverlay} />}
-    </Card>
+      <RedirectLoadingOverlay provider={provider.name} isVisible={isRedirecting} />
+    </>
   )
 }
