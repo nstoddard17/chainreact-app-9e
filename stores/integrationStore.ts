@@ -247,6 +247,57 @@ export const useIntegrationStore = create<IntegrationStore>()(
             }
 
             console.log(`✅ OAuth URL opened for ${providerId}`)
+
+            // Monitor popup for completion or manual closure
+            const checkClosed = setInterval(() => {
+              if (popup.closed) {
+                clearInterval(checkClosed)
+                setLoading(`connect-${providerId}`, false)
+                console.log(`🔄 Popup closed for ${providerId}, refreshing integrations...`)
+
+                // Refresh integrations to check if connection was successful
+                setTimeout(() => {
+                  get().fetchIntegrations(true)
+                }, 1000)
+              }
+            }, 1000)
+
+            // Listen for success message from popup
+            const messageHandler = (event: MessageEvent) => {
+              if (event.origin !== window.location.origin) return
+
+              if (event.data?.type === "oauth-success" && event.data?.provider === providerId) {
+                console.log(`✅ OAuth success for ${providerId}`)
+                clearInterval(checkClosed)
+                popup.close()
+                setLoading(`connect-${providerId}`, false)
+                window.removeEventListener("message", messageHandler)
+
+                // Refresh integrations after successful connection
+                get().fetchIntegrations(true)
+              } else if (event.data?.type === "oauth-error" && event.data?.provider === providerId) {
+                console.error(`❌ OAuth error for ${providerId}:`, event.data.error)
+                clearInterval(checkClosed)
+                popup.close()
+                setLoading(`connect-${providerId}`, false)
+                window.removeEventListener("message", messageHandler)
+
+                // Set error in store
+                set({ error: event.data.error || `Failed to connect ${providerId}` })
+              }
+            }
+
+            window.addEventListener("message", messageHandler)
+
+            // Cleanup timeout - stop loading after 5 minutes regardless
+            setTimeout(() => {
+              if (!popup.closed) {
+                clearInterval(checkClosed)
+                popup.close()
+              }
+              setLoading(`connect-${providerId}`, false)
+              window.removeEventListener("message", messageHandler)
+            }, 300000) // 5 minutes
           } else {
             throw new Error(data.error || "Failed to generate OAuth URL")
           }
