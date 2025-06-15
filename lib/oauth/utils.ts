@@ -1,13 +1,15 @@
 import { createClient } from "@supabase/supabase-js"
 
-// Create admin Supabase client with service role key
 export function createAdminSupabaseClient() {
-  const supabaseUrl = process.env.SUPABASE_URL
+  if (typeof window !== "undefined") {
+    throw new Error("Admin client can only be used server-side")
+  }
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
   if (!supabaseUrl || !supabaseServiceKey) {
-    console.error("Missing Supabase configuration")
-    return null
+    throw new Error("Missing Supabase environment variables")
   }
 
   return createClient(supabaseUrl, supabaseServiceKey, {
@@ -30,12 +32,13 @@ export function parseOAuthState(state: string) {
 
 // Generate OAuth redirect URI
 export function getOAuthRedirectUri(provider: string): string {
-  return `https://chainreact.app/api/integrations/${provider}/callback`
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "https://chainreact.app"
+  return `${baseUrl}/api/integrations/${provider}/callback`
 }
 
 // Get absolute base URL
 export function getAbsoluteBaseUrl(request?: Request): string {
-  return "https://chainreact.app"
+  return process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "https://chainreact.app"
 }
 
 // Validate user session
