@@ -36,9 +36,6 @@ export function createClient() {
   )
 }
 
-// Export createClient as an alias to createServerClient for compatibility
-export const serverClient = createClient
-
 // Function to get session (use sparingly, prefer getUser for authentication)
 export const getSession = async () => {
   const supabase = createClient()
