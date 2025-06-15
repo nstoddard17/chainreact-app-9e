@@ -61,6 +61,7 @@
     "@xata.io/client": "latest",
     "@xyflow/react": "latest",
     "ai": "latest",
+    "arctic": "latest",
     "autoprefixer": "^10.4.20",
     "better-sqlite3": "latest",
     "bun-types": "latest",
