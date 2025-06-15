@@ -61,8 +61,8 @@ export const INTEGRATION_SCOPES = {
     optional: ["tweet.write", "follows.read"],
   },
   linkedin: {
-    required: ["r_liteprofile"],
-    optional: ["w_member_social"],
+    required: ["w_member_social"],
+    optional: [],
   },
   facebook: {
     required: ["public_profile"],
@@ -77,12 +77,12 @@ export const INTEGRATION_SCOPES = {
     optional: ["video.list", "video.upload"],
   },
   teams: {
-    required: ["User.Read"],
+    required: ["https://graph.microsoft.com/User.Read],
     optional: ["Chat.ReadWrite", "Files.ReadWrite"],
   },
   onedrive: {
-    required: ["Files.ReadWrite"],
-    optional: ["Files.Read"],
+    required: ["https://graph.microsoft.com/Files.ReadWrite", "https://graph.microsoft.com/User.Read", "https://graph.microsoft.com/Files.ReadWrite.All"],
+    optional: [],
   },
   hubspot: {
     required: ["crm.objects.contacts.read"],
