@@ -4,7 +4,8 @@ import type React from "react"
 import { Button } from "@/components/ui/button"
 import { Menu, X, User, LogOut } from "lucide-react"
 import Link from "next/link"
-import { useState, useEffect } from "react"
+import { useState } from "react"
+import { useAuth } from "@/hooks/use-auth"
 
 interface PublicLayoutProps {
   children: React.ReactNode
@@ -12,39 +13,7 @@ interface PublicLayoutProps {
 
 export function PublicLayout({ children }: PublicLayoutProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [isClient, setIsClient] = useState(false)
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [firstName, setFirstName] = useState("")
-
-  useEffect(() => {
-    setIsClient(true)
-
-    // Simple auth check
-    const checkAuth = () => {
-      try {
-        const hasSession = typeof window !== "undefined" && localStorage.getItem("supabase.auth.token")
-        setIsAuthenticated(!!hasSession)
-
-        if (hasSession) {
-          const userInfo = localStorage.getItem("supabase.auth.user")
-          if (userInfo) {
-            const user = JSON.parse(userInfo)
-            const name =
-              user?.user_metadata?.first_name ||
-              user?.user_metadata?.name?.split(" ")[0] ||
-              user?.email?.split("@")[0] ||
-              "User"
-            setFirstName(name)
-          }
-        }
-      } catch (error) {
-        console.log("Auth check error:", error)
-        setIsAuthenticated(false)
-      }
-    }
-
-    checkAuth()
-  }, [])
+  const { user, isAuthenticated, isReady, signOut } = useAuth()
 
   const handlePageNavigation = (path: string) => {
     setMobileMenuOpen(false)
@@ -58,26 +27,26 @@ export function PublicLayout({ children }: PublicLayoutProps) {
   }
 
   const handleSignOut = async () => {
-    try {
-      // Simple sign out - clear localStorage
-      localStorage.removeItem("supabase.auth.token")
-      localStorage.removeItem("supabase.auth.user")
-      setIsAuthenticated(false)
-      setFirstName("")
-      setMobileMenuOpen(false)
-      window.location.href = "/"
-    } catch (error) {
-      console.log("Sign out error:", error)
-    }
+    await signOut()
+    setMobileMenuOpen(false)
   }
 
-  if (!isClient) {
+  if (!isReady) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
       </div>
     )
   }
+
+  const getFirstName = () => {
+    if (!user) return ""
+    if (user.name) return user.name.split(" ")[0]
+    if (user.email) return user.email.split("@")[0]
+    return "User"
+  }
+
+  const firstName = getFirstName()
 
   return (
     <div className="min-h-screen bg-white">
