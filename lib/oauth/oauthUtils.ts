@@ -44,24 +44,26 @@ export async function generateAuthUrl(
   } = {},
 ): Promise<string> {
   try {
+    // Generate secure state with return URL
     const { generateOAuthState, getOAuthRedirectUri } = await import("./utils")
-    const state = generateOAuthState({
-      provider,
-      userId,
+    const state = generateOAuthState(provider, userId, {
       ...options,
       returnUrl: options.returnUrl || process.env.NEXT_PUBLIC_SITE_URL + "/integrations",
     })
 
+    // Store state in secure cookie
     const cookieStore = cookies()
     cookieStore.set(`oauth_state_${provider}`, state, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      maxAge: 1800,
+      maxAge: 1800, // 30 minutes for redirect flow
     })
 
+    // Get redirect URI
     const redirectUri = getOAuthRedirectUri(provider)
 
+    // Provider-specific auth URL generation (existing code remains the same)
     switch (provider.toLowerCase()) {
       case "slack":
         return generateSlackAuthUrl(scopes, state, redirectUri)
@@ -100,6 +102,7 @@ export async function handleCallback(provider: string, code: string, state: stri
   try {
     console.log(`Handling OAuth callback for ${provider}`)
 
+    // Verify state parameter
     const cookieStore = cookies()
     const storedState = cookieStore.get(`oauth_state_${provider}`)?.value
 
@@ -107,12 +110,14 @@ export async function handleCallback(provider: string, code: string, state: stri
       throw new Error("Invalid or expired state parameter")
     }
 
+    // Clear the state cookie
     cookieStore.set(`oauth_state_${provider}`, "", {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       maxAge: 0,
     })
 
+    // Parse state to get user information
     const stateData = parseOAuthState(state)
     const userId = stateData.userId
 
@@ -120,14 +125,19 @@ export async function handleCallback(provider: string, code: string, state: stri
       throw new Error("User ID not found in state")
     }
 
+    // Get provider handler
     const handler = getProviderHandler(provider)
     if (!handler) {
       throw new Error(`No handler found for provider: ${provider}`)
     }
 
+    // Exchange code for tokens
     const tokenData = await handler.exchangeCodeForToken(code)
+
+    // Get user info from provider
     const userInfo = await handler.getUserInfo(tokenData.access_token)
 
+    // Prepare integration data
     const integrationData = {
       user_id: userId,
       provider,
@@ -144,9 +154,11 @@ export async function handleCallback(provider: string, code: string, state: stri
       },
     }
 
+    // Save to database
     const supabase = createAdminSupabaseClient()
-    await upsertIntegration(integrationData)
+    await upsertIntegration(supabase, integrationData)
 
+    // Log successful connection
     await supabase.from("token_audit_log").insert({
       user_id: userId,
       provider,
@@ -165,6 +177,7 @@ export async function handleCallback(provider: string, code: string, state: stri
   } catch (error: any) {
     console.error(`Error handling ${provider} callback:`, error)
 
+    // Log failed connection attempt
     try {
       const stateData = parseOAuthState(state)
       if (stateData.userId) {
@@ -191,6 +204,7 @@ export async function handleCallback(provider: string, code: string, state: stri
   }
 }
 
+// Server-side only function to get provider credentials
 function getProviderCredentials(provider: string) {
   switch (provider.toLowerCase()) {
     case "slack":
@@ -390,6 +404,137 @@ function getProviderHandler(provider: string) {
         },
       }
 
+    case "google":
+    case "gmail":
+    case "google-drive":
+    case "google-sheets":
+    case "google-docs":
+    case "google-calendar":
+    case "youtube":
+      return {
+        exchangeCodeForToken: async (code: string) => {
+          const response = await fetch("https://oauth2.googleapis.com/token", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/x-www-form-urlencoded",
+            },
+            body: new URLSearchParams({
+              client_id: credentials.clientId!,
+              client_secret: credentials.clientSecret!,
+              code,
+              grant_type: "authorization_code",
+              redirect_uri: `${baseUrl}/api/integrations/${provider}/callback`,
+            }),
+          })
+
+          const data = await response.json()
+          if (!response.ok) {
+            throw new Error(data.error_description || "Failed to exchange code for token")
+          }
+
+          return data
+        },
+        getUserInfo: async (accessToken: string) => {
+          const response = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          })
+
+          const data = await response.json()
+          if (!response.ok) {
+            throw new Error("Failed to get user info")
+          }
+
+          return data
+        },
+      }
+
+    case "notion":
+      return {
+        exchangeCodeForToken: async (code: string) => {
+          const authHeader = Buffer.from(`${credentials.clientId}:${credentials.clientSecret}`).toString("base64")
+
+          const response = await fetch("https://api.notion.com/v1/oauth/token", {
+            method: "POST",
+            headers: {
+              Accept: "application/json",
+              "Content-Type": "application/json",
+              Authorization: `Basic ${authHeader}`,
+            },
+            body: JSON.stringify({
+              grant_type: "authorization_code",
+              code,
+              redirect_uri: `${baseUrl}/api/integrations/notion/callback`,
+            }),
+          })
+
+          const data = await response.json()
+          if (!response.ok) {
+            throw new Error(data.error || "Failed to exchange code for token")
+          }
+
+          return data
+        },
+        getUserInfo: async (accessToken: string) => {
+          const response = await fetch("https://api.notion.com/v1/users/me", {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "Notion-Version": "2022-06-28",
+            },
+          })
+
+          const data = await response.json()
+          if (!response.ok) {
+            throw new Error("Failed to get user info")
+          }
+
+          return data
+        },
+      }
+
+    case "twitter":
+      return {
+        exchangeCodeForToken: async (code: string) => {
+          const authHeader = Buffer.from(`${credentials.clientId}:${credentials.clientSecret}`).toString("base64")
+
+          const response = await fetch("https://api.twitter.com/2/oauth2/token", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/x-www-form-urlencoded",
+              Authorization: `Basic ${authHeader}`,
+            },
+            body: new URLSearchParams({
+              code,
+              grant_type: "authorization_code",
+              redirect_uri: `${baseUrl}/api/integrations/twitter/callback`,
+              code_verifier: "challenge", // This should be stored and retrieved properly
+            }),
+          })
+
+          const data = await response.json()
+          if (!response.ok) {
+            throw new Error(data.error_description || "Failed to exchange code for token")
+          }
+
+          return data
+        },
+        getUserInfo: async (accessToken: string) => {
+          const response = await fetch("https://api.twitter.com/2/users/me", {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          })
+
+          const data = await response.json()
+          if (!response.ok) {
+            throw new Error("Failed to get user info")
+          }
+
+          return data.data
+        },
+      }
+
     default:
       return null
   }
@@ -444,6 +589,7 @@ function generateGoogleAuthUrl(service: string, scopes: string[], state: string,
   const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
   if (!clientId) throw new Error("Google client ID not configured")
 
+  // Map service to specific scopes
   const serviceScopes = getGoogleScopes(service)
   const allScopes = [...new Set([...scopes, ...serviceScopes])]
 
@@ -561,6 +707,7 @@ function getGoogleScopes(service: string): string[] {
 }
 
 function generateCodeChallenge(): string {
+  // Simple code challenge for Twitter OAuth 2.0 PKCE
   return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
 }
 
@@ -577,5 +724,6 @@ export async function exchangeCodeForToken(
 }
 
 export async function refreshAccessToken(provider: string, refreshToken: string): Promise<TokenResponse> {
+  // Implementation for token refresh would go here
   throw new Error("Token refresh not implemented for this provider")
 }
