@@ -9,8 +9,17 @@ export class TwitterOAuthService {
     const clientId = process.env.NEXT_PUBLIC_TWITTER_CLIENT_ID
     const clientSecret = process.env.TWITTER_CLIENT_SECRET
 
+    console.log("🐦 Twitter OAuth Credentials Check:", {
+      hasClientId: !!clientId,
+      clientIdLength: clientId?.length || 0,
+      hasClientSecret: !!clientSecret,
+      clientSecretLength: clientSecret?.length || 0,
+    })
+
     if (!clientId || !clientSecret) {
-      throw new Error("Missing X (Twitter) OAuth configuration")
+      throw new Error(
+        "Missing X (Twitter) OAuth configuration. Please check NEXT_PUBLIC_TWITTER_CLIENT_ID and TWITTER_CLIENT_SECRET environment variables.",
+      )
     }
 
     return { clientId, clientSecret }
@@ -53,48 +62,75 @@ export class TwitterOAuthService {
     integrationId?: string,
     userId?: string,
   ): Promise<string> {
-    const { clientId } = this.getClientCredentials()
+    try {
+      const { clientId } = this.getClientCredentials()
 
-    // Use the provided baseUrl or get it from utility
-    const { getBaseUrl } = await import("@/lib/utils/getBaseUrl")
-    const actualBaseUrl = baseUrl || getBaseUrl()
-    const redirectUri = `${actualBaseUrl}/api/integrations/twitter/callback`
+      // Use the provided baseUrl or get it from utility
+      const { getBaseUrl } = await import("@/lib/utils/getBaseUrl")
+      const actualBaseUrl = baseUrl || getBaseUrl()
+      const redirectUri = `${actualBaseUrl}/api/integrations/twitter/callback`
 
-    console.log(`🐦 Twitter OAuth - Base URL: ${actualBaseUrl}, Redirect URI: ${redirectUri}`)
-
-    // Generate PKCE parameters
-    const codeVerifier = this.generateCodeVerifier()
-    const codeChallenge = await this.generateCodeChallenge(codeVerifier)
-
-    const scopes = ["tweet.read", "tweet.write", "users.read", "offline.access"]
-
-    const state = btoa(
-      JSON.stringify({
-        provider: "twitter",
+      console.log(`🐦 Twitter OAuth Configuration:`, {
+        clientId: clientId.substring(0, 10) + "...",
+        baseUrl: actualBaseUrl,
+        redirectUri,
         reconnect,
         integrationId,
         userId,
-        requireFullScopes: true,
-        timestamp: Date.now(),
-        codeVerifier, // Store verifier in state for later use
-        nonce: Math.random().toString(36).substring(2, 15),
-      }),
-    )
+      })
 
-    const params = new URLSearchParams({
-      response_type: "code",
-      client_id: clientId,
-      redirect_uri: redirectUri,
-      scope: scopes.join(" "),
-      state,
-      code_challenge: codeChallenge,
-      code_challenge_method: "S256",
-    })
+      // Generate PKCE parameters
+      const codeVerifier = this.generateCodeVerifier()
+      const codeChallenge = await this.generateCodeChallenge(codeVerifier)
 
-    const authUrl = `https://twitter.com/i/oauth2/authorize?${params.toString()}`
-    console.log(`🐦 Twitter Auth URL generated: ${authUrl.substring(0, 100)}...`)
+      console.log(`🐦 PKCE Parameters:`, {
+        codeVerifierLength: codeVerifier.length,
+        codeChallengeLength: codeChallenge.length,
+      })
 
-    return authUrl
+      // Updated scopes for Twitter API v2
+      const scopes = ["tweet.read", "tweet.write", "users.read", "offline.access"]
+
+      const state = btoa(
+        JSON.stringify({
+          provider: "twitter",
+          reconnect,
+          integrationId,
+          userId,
+          requireFullScopes: true,
+          timestamp: Date.now(),
+          codeVerifier, // Store verifier in state for later use
+          nonce: Math.random().toString(36).substring(2, 15),
+        }),
+      )
+
+      const params = new URLSearchParams({
+        response_type: "code",
+        client_id: clientId,
+        redirect_uri: redirectUri,
+        scope: scopes.join(" "),
+        state,
+        code_challenge: codeChallenge,
+        code_challenge_method: "S256",
+      })
+
+      const authUrl = `https://twitter.com/i/oauth2/authorize?${params.toString()}`
+
+      console.log(`🐦 Twitter Auth URL Parameters:`, {
+        response_type: "code",
+        client_id: clientId.substring(0, 10) + "...",
+        redirect_uri: redirectUri,
+        scope: scopes.join(" "),
+        code_challenge_method: "S256",
+        stateLength: state.length,
+        fullUrlLength: authUrl.length,
+      })
+
+      return authUrl
+    } catch (error: any) {
+      console.error("🐦 Error generating Twitter auth URL:", error)
+      throw new Error(`Failed to generate Twitter authorization URL: ${error.message}`)
+    }
   }
 
   static async handleCallback(
@@ -105,8 +141,24 @@ export class TwitterOAuthService {
     userId: string,
   ): Promise<TwitterOAuthResult> {
     try {
+      console.log("🐦 Twitter OAuth Callback Started:", {
+        hasCode: !!code,
+        codeLength: code?.length || 0,
+        hasState: !!state,
+        stateLength: state?.length || 0,
+        userId,
+      })
+
       const stateData = JSON.parse(atob(state))
       const { provider, reconnect, integrationId, requireFullScopes, codeVerifier } = stateData
+
+      console.log("🐦 Parsed State Data:", {
+        provider,
+        reconnect,
+        integrationId,
+        requireFullScopes,
+        hasCodeVerifier: !!codeVerifier,
+      })
 
       if (provider !== "twitter") {
         throw new Error("Invalid provider in state")
@@ -123,8 +175,8 @@ export class TwitterOAuthService {
       const actualBaseUrl = baseUrl || getBaseUrl()
       const redirectUri = `${actualBaseUrl}/api/integrations/twitter/callback`
 
-      console.log("🐦 Exchanging Twitter code for token:", {
-        clientId,
+      console.log("🐦 Token Exchange Parameters:", {
+        clientId: clientId.substring(0, 10) + "...",
         redirectUri,
         hasCode: !!code,
         hasCodeVerifier: !!codeVerifier,
@@ -146,6 +198,12 @@ export class TwitterOAuthService {
         }),
       })
 
+      console.log("🐦 Token Response Status:", {
+        status: tokenResponse.status,
+        statusText: tokenResponse.statusText,
+        ok: tokenResponse.ok,
+      })
+
       if (!tokenResponse.ok) {
         const errorText = await tokenResponse.text()
         console.error("🐦 Twitter token exchange failed:", {
@@ -159,7 +217,7 @@ export class TwitterOAuthService {
       const tokenData = await tokenResponse.json()
       const { access_token, refresh_token, expires_in, scope } = tokenData
 
-      console.log("🐦 Twitter token exchange successful:", {
+      console.log("🐦 Token exchange successful:", {
         hasAccessToken: !!access_token,
         hasRefreshToken: !!refresh_token,
         expiresIn: expires_in,
