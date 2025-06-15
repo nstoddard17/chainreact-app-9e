@@ -96,7 +96,7 @@ export const useIntegrationStore = create<IntegrationStore>((set, get) => ({
       console.log(
         "✅ Providers initialized:",
         providers.length,
-        providers.map((p) => p.name),
+        providers.map((p: Provider) => p.name),
       )
     } catch (error: any) {
       console.error("Failed to initialize providers:", error)
