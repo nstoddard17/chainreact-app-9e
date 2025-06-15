@@ -43,41 +43,29 @@ function IntegrationsContent() {
 
   // Initialize providers on mount
   useEffect(() => {
-    console.log("🚀 Initializing providers...")
-    initializeProviders()
-  }, [initializeProviders])
+    const initializeData = async () => {
+      try {
+        console.log("🚀 Starting initialization...")
 
-  // Memoized data loading function
-  const loadData = useCallback(async () => {
-    try {
-      setLocalLoading(true)
-      setLoadError(null)
-      console.log("📊 Loading integrations data...")
+        // Always initialize providers first
+        await initializeProviders()
 
-      // Set a timeout to prevent infinite loading
-      const timeoutId = setTimeout(() => {
-        setLoadError("Loading integrations timed out. Please refresh the page.")
+        // If user is available, fetch integrations
+        if (user) {
+          console.log("👤 User available, fetching integrations...")
+          await fetchIntegrations(true)
+        }
+
         setLocalLoading(false)
-      }, 15000)
-
-      await fetchIntegrations(true) // Force refresh
-      clearTimeout(timeoutId)
-      console.log("✅ Data loading completed")
-    } catch (err: any) {
-      console.error("❌ Failed to load integrations:", err)
-      setLoadError(err.message || "Failed to load integrations. Please try again.")
-    } finally {
-      setLocalLoading(false)
+      } catch (error: any) {
+        console.error("❌ Initialization failed:", error)
+        setLoadError(error.message || "Failed to initialize integrations")
+        setLocalLoading(false)
+      }
     }
-  }, [fetchIntegrations])
 
-  // Handle initial data loading
-  useEffect(() => {
-    if (user && providers.length > 0) {
-      console.log("👤 User authenticated, loading data...", { userId: user.id, providerCount: providers.length })
-      loadData()
-    }
-  }, [user, providers.length, loadData])
+    initializeData()
+  }, [user, initializeProviders, fetchIntegrations])
 
   // Enhanced OAuth callback handling with redirect support
   useEffect(() => {
@@ -206,8 +194,21 @@ function IntegrationsContent() {
     debugInfo,
   })
 
+  const loadData = async () => {
+    setLocalLoading(true)
+    setLoadError(null)
+    try {
+      await fetchIntegrations(true)
+    } catch (error: any) {
+      console.error("Failed to load integrations:", error)
+      setLoadError(error.message || "Failed to load integrations")
+    } finally {
+      setLocalLoading(false)
+    }
+  }
+
   // Show loading state
-  if (localLoading || (isLoading && integrations.length === 0)) {
+  if (localLoading || (isLoading && providers.length === 0 && !error && !loadError)) {
     return (
       <AppLayout>
         <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
@@ -216,6 +217,17 @@ function IntegrationsContent() {
               <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
               <p className="text-slate-600 font-medium">Loading integrations...</p>
               <p className="text-sm text-slate-500">Detecting available integrations and fetching connection status</p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setLocalLoading(false)
+                  setLoadError("Loading cancelled by user")
+                }}
+                className="mt-4"
+              >
+                Cancel
+              </Button>
             </div>
           </div>
         </div>
