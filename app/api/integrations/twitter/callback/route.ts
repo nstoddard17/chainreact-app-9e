@@ -1,240 +1,133 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createClient } from "@supabase/supabase-js"
-import { getBaseUrl } from "@/lib/utils/getBaseUrl"
-
-// Use direct Supabase client with service role for reliable database operations
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-if (!supabaseUrl || !supabaseKey) {
-  throw new Error("NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be defined")
-}
-
-const supabase = createClient(supabaseUrl, supabaseKey, {
-  auth: {
-    persistSession: false,
-  },
-})
+import { TwitterOAuthService } from "@/lib/oauth/twitter-simple"
+import { createAdminSupabaseClient, parseOAuthState, upsertIntegration } from "@/lib/oauth/utils"
 
 export async function GET(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams
-  const code = searchParams.get("code")
-  const state = searchParams.get("state")
-  const error = searchParams.get("error")
-  const errorDescription = searchParams.get("error_description")
-
-  // Get consistent base URL
-  const baseUrl = getBaseUrl(request)
-
-  console.log("X (Twitter) OAuth callback received:", {
-    hasCode: !!code,
-    hasState: !!state,
-    error,
-    errorDescription,
-    baseUrl,
-    fullUrl: request.url,
-  })
-
-  if (error) {
-    console.error("X (Twitter) OAuth error:", { error, errorDescription })
-    const errorMessage = errorDescription || error
-    return NextResponse.redirect(
-      new URL(`/integrations?error=oauth_error&provider=twitter&message=${encodeURIComponent(errorMessage)}`, baseUrl),
-    )
-  }
-
-  if (!code || !state) {
-    console.error("Missing code or state in X (Twitter) callback")
-    return NextResponse.redirect(new URL("/integrations?error=missing_params&provider=twitter", baseUrl))
-  }
-
   try {
+    const { searchParams } = new URL(request.url)
+    const code = searchParams.get("code")
+    const state = searchParams.get("state")
+    const error = searchParams.get("error")
+
+    console.log("Twitter callback received:", { code: !!code, state: !!state, error })
+
+    // Handle OAuth errors
+    if (error) {
+      console.error("Twitter OAuth error:", error)
+      return NextResponse.redirect(
+        `https://chainreact.app/integrations?error=oauth_error&provider=twitter&message=${encodeURIComponent(
+          `Twitter authorization failed: ${error}`,
+        )}`,
+      )
+    }
+
+    if (!code) {
+      console.error("No authorization code received from Twitter")
+      return NextResponse.redirect(
+        `https://chainreact.app/integrations?error=no_code&provider=twitter&message=${encodeURIComponent(
+          "No authorization code received from Twitter",
+        )}`,
+      )
+    }
+
+    if (!state) {
+      console.error("No state parameter received from Twitter")
+      return NextResponse.redirect(
+        `https://chainreact.app/integrations?error=no_state&provider=twitter&message=${encodeURIComponent(
+          "No state parameter received from Twitter",
+        )}`,
+      )
+    }
+
     // Parse state to get user ID
     let stateData
     try {
-      stateData = JSON.parse(atob(state))
-      console.log("Parsed state data:", stateData)
-    } catch (e) {
-      console.error("Failed to parse state:", e)
-      return NextResponse.redirect(new URL("/integrations?error=invalid_state&provider=twitter", baseUrl))
+      stateData = parseOAuthState(state)
+      console.log("Parsed state data:", { provider: stateData.provider, userId: !!stateData.userId })
+    } catch (error) {
+      console.error("Failed to parse Twitter OAuth state:", error)
+      return NextResponse.redirect(
+        `https://chainreact.app/integrations?error=invalid_state&provider=twitter&message=${encodeURIComponent(
+          "Invalid state parameter",
+        )}`,
+      )
     }
 
-    const userId = stateData.userId
+    const { userId, provider } = stateData
+
+    if (provider !== "twitter") {
+      console.error("State provider mismatch:", provider)
+      return NextResponse.redirect(
+        `https://chainreact.app/integrations?error=provider_mismatch&provider=twitter&message=${encodeURIComponent(
+          "Provider mismatch in state parameter",
+        )}`,
+      )
+    }
 
     if (!userId) {
-      console.error("No user ID in state")
-      return NextResponse.redirect(new URL("/integrations?error=missing_user_id&provider=twitter", baseUrl))
+      console.error("No user ID in Twitter OAuth state")
+      return NextResponse.redirect(
+        `https://chainreact.app/integrations?error=no_user_id&provider=twitter&message=${encodeURIComponent(
+          "No user ID found in OAuth state",
+        )}`,
+      )
     }
 
-    console.log("Processing Twitter OAuth for user:", userId)
+    console.log("Exchanging Twitter code for tokens...")
 
-    const clientId = process.env.NEXT_PUBLIC_TWITTER_CLIENT_ID
-    const clientSecret = process.env.TWITTER_CLIENT_SECRET
+    // Exchange code for tokens using the redirect URI
+    const redirectUri = `https://chainreact.app/api/integrations/twitter/callback`
+    const tokenData = await TwitterOAuthService.exchangeCodeForTokens(code, redirectUri)
 
-    if (!clientId || !clientSecret) {
-      console.error("Missing X (Twitter) client ID or secret")
-      return NextResponse.redirect(new URL("/integrations?error=missing_client_credentials&provider=twitter", baseUrl))
+    if (!tokenData.access_token) {
+      throw new Error("No access token received from Twitter")
     }
 
-    // Use consistent redirect URI
-    const redirectUri = `${baseUrl}/api/integrations/twitter/callback`
+    console.log("Twitter tokens received, getting user info...")
 
-    console.log("Exchanging code for token with:", {
-      clientId,
-      redirectUri,
-      hasClientSecret: !!clientSecret,
-    })
+    // Get user info from Twitter
+    const userInfo = await TwitterOAuthService.getUserInfo(tokenData.access_token)
+    console.log("Twitter user info received:", { id: userInfo.id, username: userInfo.username })
 
-    // Exchange code for token
-    const tokenResponse = await fetch("https://api.twitter.com/2/oauth2/token", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        Authorization: `Basic ${Buffer.from(clientId + ":" + clientSecret).toString("base64")}`,
-      },
-      body: new URLSearchParams({
-        code,
-        grant_type: "authorization_code",
-        client_id: clientId,
-        redirect_uri: redirectUri,
-        code_verifier: "challenge",
-      }),
-    })
+    // Calculate expiry time
+    const expiresAt = tokenData.expires_in ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString() : null
 
-    if (!tokenResponse.ok) {
-      const errorText = await tokenResponse.text()
-      console.error("X (Twitter) token exchange failed:", errorText)
-      return NextResponse.redirect(new URL("/integrations?error=token_exchange_failed&provider=twitter", baseUrl))
+    // Save integration to database
+    const supabase = createAdminSupabaseClient()
+    if (!supabase) {
+      throw new Error("Failed to create Supabase client")
     }
-
-    const tokenData = await tokenResponse.json()
-    const { access_token, refresh_token, expires_in, scope } = tokenData
-
-    console.log("Token exchange successful:", {
-      hasAccessToken: !!access_token,
-      hasRefreshToken: !!refresh_token,
-      expiresIn: expires_in,
-      scope,
-    })
-
-    // Get user info
-    const userResponse = await fetch("https://api.twitter.com/2/users/me", {
-      headers: {
-        Authorization: `Bearer ${access_token}`,
-      },
-    })
-
-    if (!userResponse.ok) {
-      const errorText = await userResponse.text()
-      console.error("X (Twitter) user info failed:", errorText)
-      return NextResponse.redirect(new URL("/integrations?error=user_info_failed&provider=twitter", baseUrl))
-    }
-
-    const userData = await userResponse.json()
-    const user = userData.data
-    const now = new Date().toISOString()
-
-    console.log("User info retrieved:", {
-      userId: user.id,
-      username: user.username,
-      name: user.name,
-    })
-
-    // Check if integration exists
-    const { data: existingIntegration, error: findError } = await supabase
-      .from("integrations")
-      .select("id")
-      .eq("user_id", userId)
-      .eq("provider", "twitter")
-      .maybeSingle()
-
-    if (findError) {
-      console.error("Error checking for existing integration:", findError)
-    }
-
-    console.log("Existing integration check:", { exists: !!existingIntegration, findError })
 
     const integrationData = {
       user_id: userId,
       provider: "twitter",
-      provider_user_id: user.id,
-      access_token,
-      refresh_token,
-      expires_at: expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null,
-      status: "connected",
-      scopes: scope ? scope.split(" ") : [],
+      provider_user_id: userInfo.id,
+      status: "connected" as const,
+      access_token: tokenData.access_token,
+      refresh_token: tokenData.refresh_token,
+      expires_at: expiresAt,
+      scopes: tokenData.scope ? tokenData.scope.split(" ") : [],
       metadata: {
-        username: user.username,
-        user_name: user.name,
-        connected_at: now,
-        scopes_validated: true,
-        access_token, // Store in metadata as backup
-        refresh_token, // Store in metadata as backup
+        username: userInfo.username,
+        name: userInfo.name,
+        profile_image_url: userInfo.profile_image_url,
+        verified: userInfo.verified,
+        public_metrics: userInfo.public_metrics,
       },
-      updated_at: now,
     }
 
-    console.log("Integration data to save:", {
-      ...integrationData,
-      access_token: "***",
-      refresh_token: "***",
-      metadata: {
-        ...integrationData.metadata,
-        access_token: "***",
-        refresh_token: "***",
-      },
-    })
+    console.log("Saving Twitter integration to database...")
+    await upsertIntegration(supabase, integrationData)
+    console.log("Twitter integration saved successfully")
 
-    let result
-    if (existingIntegration) {
-      console.log("Updating existing integration:", existingIntegration.id)
-      result = await supabase
-        .from("integrations")
-        .update(integrationData)
-        .eq("id", existingIntegration.id)
-        .select()
-        .single()
-
-      if (result.error) {
-        console.error("Error updating X (Twitter) integration:", result.error)
-        return NextResponse.redirect(new URL("/integrations?error=database_update_failed&provider=twitter", baseUrl))
-      }
-    } else {
-      console.log("Creating new integration")
-      result = await supabase
-        .from("integrations")
-        .insert({
-          ...integrationData,
-          created_at: now,
-        })
-        .select()
-        .single()
-
-      if (result.error) {
-        console.error("Error inserting X (Twitter) integration:", result.error)
-        return NextResponse.redirect(new URL("/integrations?error=database_insert_failed&provider=twitter", baseUrl))
-      }
-    }
-
-    console.log("Integration saved successfully:", {
-      id: result.data?.id,
-      provider: result.data?.provider,
-      status: result.data?.status,
-    })
-
-    // Add a longer delay to ensure database operations complete
-    await new Promise((resolve) => setTimeout(resolve, 1500))
-
-    return NextResponse.redirect(
-      new URL(`/integrations?success=twitter_connected&provider=twitter&t=${Date.now()}`, baseUrl),
-    )
+    // Redirect back to integrations page with success
+    return NextResponse.redirect(`https://chainreact.app/integrations?success=twitter_connected&provider=twitter`)
   } catch (error: any) {
-    console.error("X (Twitter) OAuth callback error:", error)
+    console.error("Twitter OAuth callback error:", error)
     return NextResponse.redirect(
-      new URL(
-        `/integrations?error=callback_failed&provider=twitter&message=${encodeURIComponent(error.message)}`,
-        baseUrl,
-      ),
+      `https://chainreact.app/integrations?error=callback_failed&provider=twitter&message=${encodeURIComponent(
+        error.message || "Twitter integration failed",
+      )}`,
     )
   }
 }

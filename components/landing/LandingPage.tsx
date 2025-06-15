@@ -12,7 +12,6 @@ import {
   Workflow,
   Clock,
   CheckCircle,
-  Star,
   Github,
   Slack,
   Calendar,
@@ -24,18 +23,54 @@ import {
   Play,
 } from "lucide-react"
 import Link from "next/link"
-import { useAuth } from "@/hooks/use-auth"
+import { useState, useEffect } from "react"
 
 export default function LandingPage() {
-  const { isAuthenticated, user, isReady } = useAuth()
+  const [isClient, setIsClient] = useState(false)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [firstName, setFirstName] = useState("")
 
-  // Show loading state while auth is initializing
-  if (!isReady) {
+  useEffect(() => {
+    setIsClient(true)
+
+    // Simple auth check without complex hooks
+    const checkAuth = async () => {
+      try {
+        // This is a simple check that won't cause SSR issues
+        const hasSession = typeof window !== "undefined" && localStorage.getItem("supabase.auth.token")
+        setIsAuthenticated(!!hasSession)
+
+        if (hasSession) {
+          // Try to get user info from localStorage if available
+          const userInfo = localStorage.getItem("supabase.auth.user")
+          if (userInfo) {
+            const user = JSON.parse(userInfo)
+            const name =
+              user?.user_metadata?.first_name ||
+              user?.user_metadata?.name?.split(" ")[0] ||
+              user?.email?.split("@")[0] ||
+              "User"
+            setFirstName(name)
+          }
+        }
+      } catch (error) {
+        console.log("Auth check error:", error)
+        setIsAuthenticated(false)
+      }
+    }
+
+    checkAuth()
+  }, [])
+
+  // Show loading state during hydration
+  if (!isClient) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-          <p className="text-slate-600">Loading...</p>
+      <div className="min-h-screen bg-white">
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+            <p className="text-slate-600">Loading...</p>
+          </div>
         </div>
       </div>
     )
@@ -57,11 +92,8 @@ export default function LandingPage() {
                   <span className="text-indigo-600 block">Amazing Workflows?</span>
                 </h1>
                 <p className="text-xl text-slate-600 mb-8 max-w-3xl mx-auto">
-                  Welcome back,{" "}
-                  {user?.user_metadata?.first_name ||
-                    user?.user_metadata?.name?.split(" ")[0] ||
-                    user?.email?.split("@")[0]}
-                  ! Continue building powerful workflows and automating your tasks.
+                  Welcome back{firstName ? `, ${firstName}` : ""}! Continue building powerful workflows and automating
+                  your tasks.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
                   <Link href="/dashboard">
@@ -78,35 +110,6 @@ export default function LandingPage() {
                       <Workflow className="mr-2 h-5 w-5" />
                       Build Workflows
                     </Button>
-                  </Link>
-                </div>
-                <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4 max-w-2xl mx-auto">
-                  <Link href="/integrations">
-                    <Card className="p-4 hover:shadow-md transition-shadow cursor-pointer">
-                      <CardContent className="p-0 text-center">
-                        <Database className="h-8 w-8 text-indigo-600 mx-auto mb-2" />
-                        <h3 className="font-semibold text-slate-900">Integrations</h3>
-                        <p className="text-sm text-slate-600">Connect your apps</p>
-                      </CardContent>
-                    </Card>
-                  </Link>
-                  <Link href="/analytics">
-                    <Card className="p-4 hover:shadow-md transition-shadow cursor-pointer">
-                      <CardContent className="p-0 text-center">
-                        <BarChart3 className="h-8 w-8 text-indigo-600 mx-auto mb-2" />
-                        <h3 className="font-semibold text-slate-900">Analytics</h3>
-                        <p className="text-sm text-slate-600">Track performance</p>
-                      </CardContent>
-                    </Card>
-                  </Link>
-                  <Link href="/teams">
-                    <Card className="p-4 hover:shadow-md transition-shadow cursor-pointer">
-                      <CardContent className="p-0 text-center">
-                        <Users className="h-8 w-8 text-indigo-600 mx-auto mb-2" />
-                        <h3 className="font-semibold text-slate-900">Teams</h3>
-                        <p className="text-sm text-slate-600">Collaborate</p>
-                      </CardContent>
-                    </Card>
                   </Link>
                 </div>
               </>
@@ -149,7 +152,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Features Section - Show for both logged in and out users */}
+      {/* Features Section */}
       <section id="features" className="py-16 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
@@ -173,13 +176,6 @@ export default function LandingPage() {
                 <p className="text-black">
                   Drag and drop interface to create complex workflows without writing a single line of code.
                 </p>
-                {isAuthenticated && (
-                  <Link href="/workflows" className="inline-block mt-3">
-                    <Button size="sm" variant="outline" className="text-indigo-600 border-indigo-600">
-                      Build Now
-                    </Button>
-                  </Link>
-                )}
               </CardContent>
             </Card>
 
@@ -190,13 +186,6 @@ export default function LandingPage() {
                 </div>
                 <h3 className="text-xl font-semibold text-purple-900 mb-2">Lightning Fast</h3>
                 <p className="text-black">Execute workflows in milliseconds with our optimized automation engine.</p>
-                {isAuthenticated && (
-                  <Link href="/analytics" className="inline-block mt-3">
-                    <Button size="sm" variant="outline" className="text-purple-600 border-purple-600">
-                      View Analytics
-                    </Button>
-                  </Link>
-                )}
               </CardContent>
             </Card>
 
@@ -217,13 +206,6 @@ export default function LandingPage() {
                 </div>
                 <h3 className="text-xl font-semibold text-green-900 mb-2">Team Collaboration</h3>
                 <p className="text-black">Share workflows, collaborate in real-time, and manage team permissions.</p>
-                {isAuthenticated && (
-                  <Link href="/teams" className="inline-block mt-3">
-                    <Button size="sm" variant="outline" className="text-green-600 border-green-600">
-                      Manage Teams
-                    </Button>
-                  </Link>
-                )}
               </CardContent>
             </Card>
 
@@ -234,13 +216,6 @@ export default function LandingPage() {
                 </div>
                 <h3 className="text-xl font-semibold text-amber-900 mb-2">Advanced Analytics</h3>
                 <p className="text-black">Monitor performance, track success rates, and optimize your workflows.</p>
-                {isAuthenticated && (
-                  <Link href="/analytics" className="inline-block mt-3">
-                    <Button size="sm" variant="outline" className="text-amber-600 border-amber-600">
-                      View Reports
-                    </Button>
-                  </Link>
-                )}
               </CardContent>
             </Card>
 
@@ -251,13 +226,6 @@ export default function LandingPage() {
                 </div>
                 <h3 className="text-xl font-semibold text-rose-900 mb-2">Smart Scheduling</h3>
                 <p className="text-black">Schedule workflows, set triggers, and automate based on time or events.</p>
-                {isAuthenticated && (
-                  <Link href="/workflows" className="inline-block mt-3">
-                    <Button size="sm" variant="outline" className="text-rose-600 border-rose-600">
-                      Schedule Workflows
-                    </Button>
-                  </Link>
-                )}
               </CardContent>
             </Card>
           </div>
@@ -308,213 +276,141 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Only show pricing and testimonials for non-authenticated users */}
+      {/* Only show pricing for non-authenticated users */}
       {!isAuthenticated && (
-        <>
-          {/* Pricing Section */}
-          <section id="pricing" className="py-16 bg-white">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="text-center mb-16">
-                <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">Simple, transparent pricing</h2>
-                <p className="text-xl text-slate-600 max-w-2xl mx-auto">
-                  Start free and scale as you grow. No hidden fees, no surprises.
-                </p>
-              </div>
+        <section id="pricing" className="py-16 bg-white">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-16">
+              <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">Simple, transparent pricing</h2>
+              <p className="text-xl text-slate-600 max-w-2xl mx-auto">
+                Start free and scale as you grow. No hidden fees, no surprises.
+              </p>
+            </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                {/* Free Plan */}
-                <Card className="p-8 bg-white border-2 border-slate-200 hover:border-indigo-200 hover:shadow-lg transition-all">
-                  <CardContent className="p-0">
-                    <div className="text-center">
-                      <h3 className="text-2xl font-bold text-slate-900 mb-2">Free</h3>
-                      <div className="text-4xl font-bold text-slate-900 mb-4">
-                        $0<span className="text-lg font-normal text-slate-600">/month</span>
-                      </div>
-                      <p className="text-black mb-6">Perfect for getting started</p>
-
-                      <ul className="space-y-3 mb-8 text-left">
-                        <li className="flex items-center">
-                          <CheckCircle className="h-5 w-5 text-green-500 mr-3" />
-                          <span className="text-black">100 workflow executions/month</span>
-                        </li>
-                        <li className="flex items-center">
-                          <CheckCircle className="h-5 w-5 text-green-500 mr-3" />
-                          <span className="text-black">5 active workflows</span>
-                        </li>
-                        <li className="flex items-center">
-                          <CheckCircle className="h-5 w-5 text-green-500 mr-3" />
-                          <span className="text-black">Basic integrations</span>
-                        </li>
-                        <li className="flex items-center">
-                          <CheckCircle className="h-5 w-5 text-green-500 mr-3" />
-                          <span className="text-black">Community support</span>
-                        </li>
-                      </ul>
-
-                      <Link href="/auth/register">
-                        <Button
-                          variant="outline"
-                          className="w-full border-indigo-600 text-indigo-600 hover:bg-indigo-50"
-                        >
-                          Get Started Free
-                        </Button>
-                      </Link>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {/* Free Plan */}
+              <Card className="p-8 bg-white border-2 border-slate-200 hover:border-indigo-200 hover:shadow-lg transition-all">
+                <CardContent className="p-0">
+                  <div className="text-center">
+                    <h3 className="text-2xl font-bold text-slate-900 mb-2">Free</h3>
+                    <div className="text-4xl font-bold text-slate-900 mb-4">
+                      $0<span className="text-lg font-normal text-slate-600">/month</span>
                     </div>
-                  </CardContent>
-                </Card>
+                    <p className="text-black mb-6">Perfect for getting started</p>
 
-                {/* Pro Plan */}
-                <Card className="p-8 bg-gradient-to-b from-white to-indigo-50 border-2 border-indigo-500 relative transform hover:scale-105 transition-all shadow-lg">
-                  <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                    <Badge className="bg-indigo-600 text-white">Most Popular</Badge>
+                    <ul className="space-y-3 mb-8 text-left">
+                      <li className="flex items-center">
+                        <CheckCircle className="h-5 w-5 text-green-500 mr-3" />
+                        <span className="text-black">100 workflow executions/month</span>
+                      </li>
+                      <li className="flex items-center">
+                        <CheckCircle className="h-5 w-5 text-green-500 mr-3" />
+                        <span className="text-black">5 active workflows</span>
+                      </li>
+                      <li className="flex items-center">
+                        <CheckCircle className="h-5 w-5 text-green-500 mr-3" />
+                        <span className="text-black">Basic integrations</span>
+                      </li>
+                      <li className="flex items-center">
+                        <CheckCircle className="h-5 w-5 text-green-500 mr-3" />
+                        <span className="text-black">Community support</span>
+                      </li>
+                    </ul>
+
+                    <Link href="/auth/register">
+                      <Button variant="outline" className="w-full border-indigo-600 text-indigo-600 hover:bg-indigo-50">
+                        Get Started Free
+                      </Button>
+                    </Link>
                   </div>
-                  <CardContent className="p-0">
-                    <div className="text-center">
-                      <h3 className="text-2xl font-bold text-indigo-900 mb-2">Pro</h3>
-                      <div className="text-4xl font-bold text-indigo-900 mb-4">
-                        $29<span className="text-lg font-normal text-indigo-700">/month</span>
-                      </div>
-                      <p className="text-black mb-6">For growing teams</p>
+                </CardContent>
+              </Card>
 
-                      <ul className="space-y-3 mb-8 text-left">
-                        <li className="flex items-center">
-                          <CheckCircle className="h-5 w-5 text-green-500 mr-3" />
-                          <span className="text-black">10,000 workflow executions/month</span>
-                        </li>
-                        <li className="flex items-center">
-                          <CheckCircle className="h-5 w-5 text-green-500 mr-3" />
-                          <span className="text-black">Unlimited workflows</span>
-                        </li>
-                        <li className="flex items-center">
-                          <CheckCircle className="h-5 w-5 text-green-500 mr-3" />
-                          <span className="text-black">All integrations</span>
-                        </li>
-                        <li className="flex items-center">
-                          <CheckCircle className="h-5 w-5 text-green-500 mr-3" />
-                          <span className="text-black">Priority support</span>
-                        </li>
-                        <li className="flex items-center">
-                          <CheckCircle className="h-5 w-5 text-green-500 mr-3" />
-                          <span className="text-black">Advanced analytics</span>
-                        </li>
-                      </ul>
-
-                      <Link href="/auth/register">
-                        <Button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white">
-                          Start Free Trial
-                        </Button>
-                      </Link>
+              {/* Pro Plan */}
+              <Card className="p-8 bg-gradient-to-b from-white to-indigo-50 border-2 border-indigo-500 relative transform hover:scale-105 transition-all shadow-lg">
+                <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
+                  <Badge className="bg-indigo-600 text-white">Most Popular</Badge>
+                </div>
+                <CardContent className="p-0">
+                  <div className="text-center">
+                    <h3 className="text-2xl font-bold text-indigo-900 mb-2">Pro</h3>
+                    <div className="text-4xl font-bold text-indigo-900 mb-4">
+                      $29<span className="text-lg font-normal text-indigo-700">/month</span>
                     </div>
-                  </CardContent>
-                </Card>
+                    <p className="text-black mb-6">For growing teams</p>
 
-                {/* Enterprise Plan */}
-                <Card className="p-8 bg-white border-2 border-slate-200 hover:border-indigo-200 hover:shadow-lg transition-all">
-                  <CardContent className="p-0">
-                    <div className="text-center">
-                      <h3 className="text-2xl font-bold text-slate-900 mb-2">Enterprise</h3>
-                      <div className="text-4xl font-bold text-slate-900 mb-4">Custom</div>
-                      <p className="text-black mb-6">For large organizations</p>
+                    <ul className="space-y-3 mb-8 text-left">
+                      <li className="flex items-center">
+                        <CheckCircle className="h-5 w-5 text-green-500 mr-3" />
+                        <span className="text-black">10,000 workflow executions/month</span>
+                      </li>
+                      <li className="flex items-center">
+                        <CheckCircle className="h-5 w-5 text-green-500 mr-3" />
+                        <span className="text-black">Unlimited workflows</span>
+                      </li>
+                      <li className="flex items-center">
+                        <CheckCircle className="h-5 w-5 text-green-500 mr-3" />
+                        <span className="text-black">All integrations</span>
+                      </li>
+                      <li className="flex items-center">
+                        <CheckCircle className="h-5 w-5 text-green-500 mr-3" />
+                        <span className="text-black">Priority support</span>
+                      </li>
+                      <li className="flex items-center">
+                        <CheckCircle className="h-5 w-5 text-green-500 mr-3" />
+                        <span className="text-black">Advanced analytics</span>
+                      </li>
+                    </ul>
 
-                      <ul className="space-y-3 mb-8 text-left">
-                        <li className="flex items-center">
-                          <CheckCircle className="h-5 w-5 text-green-500 mr-3" />
-                          <span className="text-black">Unlimited executions</span>
-                        </li>
-                        <li className="flex items-center">
-                          <CheckCircle className="h-5 w-5 text-green-500 mr-3" />
-                          <span className="text-black">Custom integrations</span>
-                        </li>
-                        <li className="flex items-center">
-                          <CheckCircle className="h-5 w-5 text-green-500 mr-3" />
-                          <span className="text-black">SSO & advanced security</span>
-                        </li>
-                        <li className="flex items-center">
-                          <CheckCircle className="h-5 w-5 text-green-500 mr-3" />
-                          <span className="text-black">Dedicated support</span>
-                        </li>
-                        <li className="flex items-center">
-                          <CheckCircle className="h-5 w-5 text-green-500 mr-3" />
-                          <span className="text-black">SLA guarantee</span>
-                        </li>
-                      </ul>
+                    <Link href="/auth/register">
+                      <Button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white">Start Free Trial</Button>
+                    </Link>
+                  </div>
+                </CardContent>
+              </Card>
 
-                      <Link href="/support">
-                        <Button
-                          variant="outline"
-                          className="w-full border-indigo-600 text-indigo-600 hover:bg-indigo-50"
-                        >
-                          Contact Sales
-                        </Button>
-                      </Link>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
+              {/* Enterprise Plan */}
+              <Card className="p-8 bg-white border-2 border-slate-200 hover:border-indigo-200 hover:shadow-lg transition-all">
+                <CardContent className="p-0">
+                  <div className="text-center">
+                    <h3 className="text-2xl font-bold text-slate-900 mb-2">Enterprise</h3>
+                    <div className="text-4xl font-bold text-slate-900 mb-4">Custom</div>
+                    <p className="text-black mb-6">For large organizations</p>
+
+                    <ul className="space-y-3 mb-8 text-left">
+                      <li className="flex items-center">
+                        <CheckCircle className="h-5 w-5 text-green-500 mr-3" />
+                        <span className="text-black">Unlimited executions</span>
+                      </li>
+                      <li className="flex items-center">
+                        <CheckCircle className="h-5 w-5 text-green-500 mr-3" />
+                        <span className="text-black">Custom integrations</span>
+                      </li>
+                      <li className="flex items-center">
+                        <CheckCircle className="h-5 w-5 text-green-500 mr-3" />
+                        <span className="text-black">SSO & advanced security</span>
+                      </li>
+                      <li className="flex items-center">
+                        <CheckCircle className="h-5 w-5 text-green-500 mr-3" />
+                        <span className="text-black">Dedicated support</span>
+                      </li>
+                      <li className="flex items-center">
+                        <CheckCircle className="h-5 w-5 text-green-500 mr-3" />
+                        <span className="text-black">SLA guarantee</span>
+                      </li>
+                    </ul>
+
+                    <Link href="/support">
+                      <Button variant="outline" className="w-full border-indigo-600 text-indigo-600 hover:bg-indigo-50">
+                        Contact Sales
+                      </Button>
+                    </Link>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
-          </section>
-
-          {/* Testimonials Section */}
-          <section className="py-16 bg-gradient-to-br from-indigo-50 to-purple-50">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="text-center mb-16">
-                <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">Loved by thousands of users</h2>
-                <p className="text-xl text-slate-600 max-w-2xl mx-auto">
-                  See what our customers are saying about ChainReact.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                {[
-                  {
-                    name: "Sarah Johnson",
-                    role: "Marketing Director",
-                    company: "TechCorp",
-                    content:
-                      "ChainReact has transformed how we handle our marketing workflows. We've saved 20+ hours per week on repetitive tasks.",
-                    rating: 5,
-                    color: "bg-indigo-50 border-indigo-200",
-                  },
-                  {
-                    name: "Mike Chen",
-                    role: "Operations Manager",
-                    company: "StartupXYZ",
-                    content:
-                      "The visual workflow builder is incredibly intuitive. Our entire team was up and running in minutes, not hours.",
-                    rating: 5,
-                    color: "bg-purple-50 border-purple-200",
-                  },
-                  {
-                    name: "Emily Rodriguez",
-                    role: "Product Manager",
-                    company: "InnovateCo",
-                    content:
-                      "The integrations are seamless and the analytics help us optimize our processes continuously. Highly recommended!",
-                    rating: 5,
-                    color: "bg-blue-50 border-blue-200",
-                  },
-                ].map((testimonial, index) => (
-                  <Card key={index} className={`p-6 ${testimonial.color} border hover:shadow-lg transition-shadow`}>
-                    <CardContent className="p-0">
-                      <div className="flex mb-4">
-                        {[...Array(testimonial.rating)].map((_, i) => (
-                          <Star key={i} className="h-5 w-5 text-yellow-400 fill-current" />
-                        ))}
-                      </div>
-                      <p className="text-black mb-4">"{testimonial.content}"</p>
-                      <div>
-                        <div className="font-semibold text-slate-900">{testimonial.name}</div>
-                        <div className="text-sm text-black">
-                          {testimonial.role} at {testimonial.company}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          </section>
-        </>
+          </div>
+        </section>
       )}
 
       {/* CTA Section */}

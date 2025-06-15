@@ -222,3 +222,6 @@ export class SimpleTwitterOAuth {
     }
   }
 }
+
+// Export for compatibility with existing imports
+export const TwitterOAuthService = SimpleTwitterOAuth
