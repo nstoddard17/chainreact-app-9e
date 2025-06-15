@@ -1,5 +1,5 @@
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
-import { type NextRequest, NextResponse } from "next/server"
+import type { NextRequest } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 
 // Use direct Supabase client with service role for reliable database operations
@@ -18,7 +18,6 @@ const supabase = createClient(supabaseUrl, supabaseKey, {
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
-  const baseUrl = new URL(request.url).origin
   const code = searchParams.get("code")
   const state = searchParams.get("state")
   const error = searchParams.get("error")
@@ -27,12 +26,112 @@ export async function GET(request: NextRequest) {
 
   if (error) {
     console.error("Google Calendar OAuth error:", error)
-    return NextResponse.redirect(new URL("/integrations?error=oauth_error&provider=google-calendar", baseUrl))
+
+    const errorHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Google Calendar Connection Failed</title>
+        <style>
+          body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            height: 100vh; 
+            margin: 0;
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+            color: white;
+          }
+          .container { 
+            text-align: center; 
+            padding: 2rem;
+            background: rgba(255,255,255,0.1);
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+          }
+          .error-icon { font-size: 3rem; margin-bottom: 1rem; }
+          h1 { margin: 0 0 0.5rem 0; font-size: 1.5rem; }
+          p { margin: 0.5rem 0; opacity: 0.9; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="error-icon">❌</div>
+          <h1>Google Calendar Connection Failed</h1>
+          <p>OAuth error: ${error}</p>
+          <p>This window will close automatically...</p>
+        </div>
+        <script>
+          if (window.opener) {
+            window.opener.postMessage({
+              type: 'oauth-error',
+              provider: 'google-calendar',
+              error: 'OAuth error: ${error}'
+            }, window.location.origin);
+          }
+          setTimeout(() => window.close(), 2000);
+        </script>
+      </body>
+      </html>
+    `
+
+    return new Response(errorHtml, { headers: { "Content-Type": "text/html" } })
   }
 
   if (!code || !state) {
     console.error("Missing code or state in Google Calendar callback")
-    return NextResponse.redirect(new URL("/integrations?error=missing_params&provider=google-calendar", baseUrl))
+
+    const errorHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Google Calendar Connection Failed</title>
+        <style>
+          body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            height: 100vh; 
+            margin: 0;
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+            color: white;
+          }
+          .container { 
+            text-align: center; 
+            padding: 2rem;
+            background: rgba(255,255,255,0.1);
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+          }
+          .error-icon { font-size: 3rem; margin-bottom: 1rem; }
+          h1 { margin: 0 0 0.5rem 0; font-size: 1.5rem; }
+          p { margin: 0.5rem 0; opacity: 0.9; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="error-icon">❌</div>
+          <h1>Google Calendar Connection Failed</h1>
+          <p>Missing required parameters</p>
+          <p>This window will close automatically...</p>
+        </div>
+        <script>
+          if (window.opener) {
+            window.opener.postMessage({
+              type: 'oauth-error',
+              provider: 'google-calendar',
+              error: 'Missing required parameters'
+            }, window.location.origin);
+          }
+          setTimeout(() => window.close(), 2000);
+        </script>
+      </body>
+      </html>
+    `
+
+    return new Response(errorHtml, { headers: { "Content-Type": "text/html" } })
   }
 
   try {
@@ -42,14 +141,114 @@ export async function GET(request: NextRequest) {
       stateData = JSON.parse(atob(state))
     } catch (e) {
       console.error("Failed to parse state:", e)
-      return NextResponse.redirect(new URL("/integrations?error=invalid_state&provider=google-calendar", baseUrl))
+
+      const errorHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Google Calendar Connection Failed</title>
+          <style>
+            body { 
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              display: flex; 
+              align-items: center; 
+              justify-content: center; 
+              height: 100vh; 
+              margin: 0;
+              background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+              color: white;
+            }
+            .container { 
+              text-align: center; 
+              padding: 2rem;
+              background: rgba(255,255,255,0.1);
+              border-radius: 12px;
+              backdrop-filter: blur(10px);
+            }
+            .error-icon { font-size: 3rem; margin-bottom: 1rem; }
+            h1 { margin: 0 0 0.5rem 0; font-size: 1.5rem; }
+            p { margin: 0.5rem 0; opacity: 0.9; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="error-icon">❌</div>
+            <h1>Google Calendar Connection Failed</h1>
+            <p>Invalid state parameter</p>
+            <p>This window will close automatically...</p>
+          </div>
+          <script>
+            if (window.opener) {
+              window.opener.postMessage({
+                type: 'oauth-error',
+                provider: 'google-calendar',
+                error: 'Invalid state parameter'
+              }, window.location.origin);
+            }
+            setTimeout(() => window.close(), 2000);
+          </script>
+        </body>
+        </html>
+      `
+
+      return new Response(errorHtml, { headers: { "Content-Type": "text/html" } })
     }
 
     const userId = stateData.userId
 
     if (!userId) {
       console.error("No user ID in state")
-      return NextResponse.redirect(new URL("/integrations?error=missing_user_id&provider=google-calendar", baseUrl))
+
+      const errorHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Google Calendar Connection Failed</title>
+          <style>
+            body { 
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              display: flex; 
+              align-items: center; 
+              justify-content: center; 
+              height: 100vh; 
+              margin: 0;
+              background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+              color: white;
+            }
+            .container { 
+              text-align: center; 
+              padding: 2rem;
+              background: rgba(255,255,255,0.1);
+              border-radius: 12px;
+              backdrop-filter: blur(10px);
+            }
+            .error-icon { font-size: 3rem; margin-bottom: 1rem; }
+            h1 { margin: 0 0 0.5rem 0; font-size: 1.5rem; }
+            p { margin: 0.5rem 0; opacity: 0.9; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="error-icon">❌</div>
+            <h1>Google Calendar Connection Failed</h1>
+            <p>Missing user ID</p>
+            <p>This window will close automatically...</p>
+          </div>
+          <script>
+            if (window.opener) {
+              window.opener.postMessage({
+                type: 'oauth-error',
+                provider: 'google-calendar',
+                error: 'Missing user ID'
+              }, window.location.origin);
+            }
+            setTimeout(() => window.close(), 2000);
+          </script>
+        </body>
+        </html>
+      `
+
+      return new Response(errorHtml, { headers: { "Content-Type": "text/html" } })
     }
 
     const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
@@ -57,9 +256,57 @@ export async function GET(request: NextRequest) {
 
     if (!clientId || !clientSecret) {
       console.error("Missing Google client ID or secret")
-      return NextResponse.redirect(
-        new URL("/integrations?error=missing_client_credentials&provider=google-calendar", baseUrl),
-      )
+
+      const errorHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Google Calendar Connection Failed</title>
+          <style>
+            body { 
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              display: flex; 
+              align-items: center; 
+              justify-content: center; 
+              height: 100vh; 
+              margin: 0;
+              background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+              color: white;
+            }
+            .container { 
+              text-align: center; 
+              padding: 2rem;
+              background: rgba(255,255,255,0.1);
+              border-radius: 12px;
+              backdrop-filter: blur(10px);
+            }
+            .error-icon { font-size: 3rem; margin-bottom: 1rem; }
+            h1 { margin: 0 0 0.5rem 0; font-size: 1.5rem; }
+            p { margin: 0.5rem 0; opacity: 0.9; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="error-icon">❌</div>
+            <h1>Google Calendar Connection Failed</h1>
+            <p>Missing client credentials</p>
+            <p>This window will close automatically...</p>
+          </div>
+          <script>
+            if (window.opener) {
+              window.opener.postMessage({
+                type: 'oauth-error',
+                provider: 'google-calendar',
+                error: 'Missing client credentials'
+              }, window.location.origin);
+            }
+            setTimeout(() => window.close(), 2000);
+          </script>
+        </body>
+        </html>
+      `
+
+      return new Response(errorHtml, { headers: { "Content-Type": "text/html" } })
     }
 
     // Exchange code for token
@@ -80,12 +327,57 @@ export async function GET(request: NextRequest) {
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text()
       console.error("Google Calendar token exchange failed:", errorText)
-      return NextResponse.redirect(
-        new URL(
-          `/integrations?error=token_exchange_failed&provider=google-calendar&message=${encodeURIComponent(errorText)}`,
-          baseUrl,
-        ),
-      )
+
+      const errorHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Google Calendar Connection Failed</title>
+          <style>
+            body { 
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              display: flex; 
+              align-items: center; 
+              justify-content: center; 
+              height: 100vh; 
+              margin: 0;
+              background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+              color: white;
+            }
+            .container { 
+              text-align: center; 
+              padding: 2rem;
+              background: rgba(255,255,255,0.1);
+              border-radius: 12px;
+              backdrop-filter: blur(10px);
+            }
+            .error-icon { font-size: 3rem; margin-bottom: 1rem; }
+            h1 { margin: 0 0 0.5rem 0; font-size: 1.5rem; }
+            p { margin: 0.5rem 0; opacity: 0.9; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="error-icon">❌</div>
+            <h1>Google Calendar Connection Failed</h1>
+            <p>Token exchange failed</p>
+            <p>This window will close automatically...</p>
+          </div>
+          <script>
+            if (window.opener) {
+              window.opener.postMessage({
+                type: 'oauth-error',
+                provider: 'google-calendar',
+                error: 'Token exchange failed'
+              }, window.location.origin);
+            }
+            setTimeout(() => window.close(), 2000);
+          </script>
+        </body>
+        </html>
+      `
+
+      return new Response(errorHtml, { headers: { "Content-Type": "text/html" } })
     }
 
     const tokenData = await tokenResponse.json()
@@ -100,7 +392,57 @@ export async function GET(request: NextRequest) {
 
     if (!userResponse.ok) {
       console.error("Failed to get Google user info:", await userResponse.text())
-      return NextResponse.redirect(new URL("/integrations?error=user_info_failed&provider=google-calendar", baseUrl))
+
+      const errorHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Google Calendar Connection Failed</title>
+          <style>
+            body { 
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              display: flex; 
+              align-items: center; 
+              justify-content: center; 
+              height: 100vh; 
+              margin: 0;
+              background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+              color: white;
+            }
+            .container { 
+              text-align: center; 
+              padding: 2rem;
+              background: rgba(255,255,255,0.1);
+              border-radius: 12px;
+              backdrop-filter: blur(10px);
+            }
+            .error-icon { font-size: 3rem; margin-bottom: 1rem; }
+            h1 { margin: 0 0 0.5rem 0; font-size: 1.5rem; }
+            p { margin: 0.5rem 0; opacity: 0.9; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="error-icon">❌</div>
+            <h1>Google Calendar Connection Failed</h1>
+            <p>User info failed</p>
+            <p>This window will close automatically...</p>
+          </div>
+          <script>
+            if (window.opener) {
+              window.opener.postMessage({
+                type: 'oauth-error',
+                provider: 'google-calendar',
+                error: 'User info failed'
+              }, window.location.origin);
+            }
+            setTimeout(() => window.close(), 2000);
+          </script>
+        </body>
+        </html>
+      `
+
+      return new Response(errorHtml, { headers: { "Content-Type": "text/html" } })
     }
 
     const userData = await userResponse.json()
@@ -139,9 +481,57 @@ export async function GET(request: NextRequest) {
 
       if (error) {
         console.error("Error updating Google Calendar integration:", error)
-        return NextResponse.redirect(
-          new URL("/integrations?error=database_update_failed&provider=google-calendar", baseUrl),
-        )
+
+        const errorHtml = `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>Google Calendar Connection Failed</title>
+            <style>
+              body { 
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                display: flex; 
+                align-items: center; 
+                justify-content: center; 
+                height: 100vh; 
+                margin: 0;
+                background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+                color: white;
+              }
+              .container { 
+                text-align: center; 
+                padding: 2rem;
+                background: rgba(255,255,255,0.1);
+                border-radius: 12px;
+                backdrop-filter: blur(10px);
+              }
+              .error-icon { font-size: 3rem; margin-bottom: 1rem; }
+              h1 { margin: 0 0 0.5rem 0; font-size: 1.5rem; }
+              p { margin: 0.5rem 0; opacity: 0.9; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="error-icon">❌</div>
+              <h1>Google Calendar Connection Failed</h1>
+              <p>Database update failed</p>
+              <p>This window will close automatically...</p>
+            </div>
+            <script>
+              if (window.opener) {
+                window.opener.postMessage({
+                  type: 'oauth-error',
+                  provider: 'google-calendar',
+                  error: 'Database update failed'
+                }, window.location.origin);
+              }
+              setTimeout(() => window.close(), 2000);
+            </script>
+          </body>
+          </html>
+        `
+
+        return new Response(errorHtml, { headers: { "Content-Type": "text/html" } })
       }
     } else {
       const { error } = await supabase.from("integrations").insert({
@@ -151,25 +541,167 @@ export async function GET(request: NextRequest) {
 
       if (error) {
         console.error("Error inserting Google Calendar integration:", error)
-        return NextResponse.redirect(
-          new URL("/integrations?error=database_insert_failed&provider=google-calendar", baseUrl),
-        )
+
+        const errorHtml = `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>Google Calendar Connection Failed</title>
+            <style>
+              body { 
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                display: flex; 
+                align-items: center; 
+                justify-content: center; 
+                height: 100vh; 
+                margin: 0;
+                background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+                color: white;
+              }
+              .container { 
+                text-align: center; 
+                padding: 2rem;
+                background: rgba(255,255,255,0.1);
+                border-radius: 12px;
+                backdrop-filter: blur(10px);
+              }
+              .error-icon { font-size: 3rem; margin-bottom: 1rem; }
+              h1 { margin: 0 0 0.5rem 0; font-size: 1.5rem; }
+              p { margin: 0.5rem 0; opacity: 0.9; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="error-icon">❌</div>
+              <h1>Google Calendar Connection Failed</h1>
+              <p>Database insert failed</p>
+              <p>This window will close automatically...</p>
+            </div>
+            <script>
+              if (window.opener) {
+                window.opener.postMessage({
+                  type: 'oauth-error',
+                  provider: 'google-calendar',
+                  error: 'Database insert failed'
+                }, window.location.origin);
+              }
+              setTimeout(() => window.close(), 2000);
+            </script>
+          </body>
+          </html>
+        `
+
+        return new Response(errorHtml, { headers: { "Content-Type": "text/html" } })
       }
     }
 
-    // Add a delay to ensure database operations complete
-    await new Promise((resolve) => setTimeout(resolve, 500))
+    // Success! Return HTML that closes the popup
+    const successHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Google Calendar Connected Successfully</title>
+        <style>
+          body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            height: 100vh; 
+            margin: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+          }
+          .container { 
+            text-align: center; 
+            padding: 2rem;
+            background: rgba(255,255,255,0.1);
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+          }
+          .success-icon { font-size: 3rem; margin-bottom: 1rem; }
+          h1 { margin: 0 0 0.5rem 0; font-size: 1.5rem; }
+          p { margin: 0.5rem 0; opacity: 0.9; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="success-icon">✅</div>
+          <h1>Google Calendar Connected Successfully!</h1>
+          <p>Your Google Calendar has been connected.</p>
+          <p>This window will close automatically...</p>
+        </div>
+        <script>
+          // Send success message to parent window
+          if (window.opener) {
+            window.opener.postMessage({
+              type: 'oauth-success',
+              provider: 'google-calendar'
+            }, window.location.origin);
+          }
+          
+          // Close the popup
+          setTimeout(() => {
+            window.close();
+          }, 1500);
+        </script>
+      </body>
+      </html>
+    `
 
-    return NextResponse.redirect(
-      new URL(`/integrations?success=true&provider=google-calendar&t=${Date.now()}`, baseUrl),
-    )
+    return new Response(successHtml, { headers: { "Content-Type": "text/html" } })
   } catch (error: any) {
     console.error("Google Calendar OAuth callback error:", error)
-    return NextResponse.redirect(
-      new URL(
-        `/integrations?error=callback_failed&provider=google-calendar&message=${encodeURIComponent(error.message)}`,
-        baseUrl,
-      ),
-    )
+
+    const errorHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Google Calendar Connection Failed</title>
+        <style>
+          body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            height: 100vh; 
+            margin: 0;
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+            color: white;
+          }
+          .container { 
+            text-align: center; 
+            padding: 2rem;
+            background: rgba(255,255,255,0.1);
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+          }
+          .error-icon { font-size: 3rem; margin-bottom: 1rem; }
+          h1 { margin: 0 0 0.5rem 0; font-size: 1.5rem; }
+          p { margin: 0.5rem 0; opacity: 0.9; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="error-icon">❌</div>
+          <h1>Google Calendar Connection Failed</h1>
+          <p>${(error.message || "An unexpected error occurred").replace(/'/g, "\\'")}</p>
+          <p>This window will close automatically...</p>
+        </div>
+        <script>
+          if (window.opener) {
+            window.opener.postMessage({
+              type: 'oauth-error',
+              provider: 'google-calendar',
+              error: '${(error.message || "An unexpected error occurred").replace(/'/g, "\\'")}'
+            }, window.location.origin);
+          }
+          setTimeout(() => window.close(), 2000);
+        </script>
+      </body>
+      </html>
+    `
+
+    return new Response(errorHtml, { headers: { "Content-Type": "text/html" } })
   }
 }

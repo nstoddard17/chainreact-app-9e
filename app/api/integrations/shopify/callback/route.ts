@@ -1,38 +1,56 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { ShopifyOAuthService } from "@/lib/oauth/shopify"
 
 export async function GET(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams
-  const baseUrl = new URL(request.url).origin
+  const { searchParams } = new URL(request.url)
   const code = searchParams.get("code")
-  const state = searchParams.get("state")
   const shop = searchParams.get("shop")
-  const error = searchParams.get("error")
 
-  console.log("Shopify OAuth callback:", { code: !!code, state, shop, error })
-
-  if (error) {
-    console.error("Shopify OAuth error:", error)
-    return NextResponse.redirect(new URL("/integrations?error=oauth_error&provider=shopify", baseUrl))
+  if (!code || !shop) {
+    return new NextResponse("Missing code or shop parameter", { status: 400 })
   }
 
-  if (!code || !state || !shop) {
-    console.error("Missing code, state, or shop in Shopify callback")
-    return NextResponse.redirect(new URL("/integrations?error=missing_params&provider=shopify", baseUrl))
-  }
+  const htmlContent = `
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Shopify Integration</title>
+</head>
+<body>
+  <h1>Shopify Integration</h1>
+  <p>Successfully authenticated with Shopify. You can now close this window.</p>
+  <script>
+    (function() {
+      function receiveMessage(event) {
+        if (event.origin !== window.location.origin) {
+          return;
+        }
 
-  try {
-    const result = await ShopifyOAuthService.handleCallback(code, state, shop, baseUrl)
+        if (event.data === 'close') {
+          window.close();
+        }
+      }
 
-    console.log("Shopify OAuth result:", result.success ? "success" : "failed")
-    return NextResponse.redirect(new URL(result.redirectUrl, baseUrl))
-  } catch (error: any) {
-    console.error("Shopify OAuth callback error:", error)
-    return NextResponse.redirect(
-      new URL(
-        `/integrations?error=callback_failed&provider=shopify&message=${encodeURIComponent(error.message)}`,
-        baseUrl,
-      ),
-    )
-  }
+      window.addEventListener("message", receiveMessage, false);
+
+      window.opener.postMessage(
+        {
+          type: 'shopify',
+          payload: {
+            code: '${code}',
+            shop: '${shop}'
+          }
+        },
+        window.location.origin
+      );
+    })()
+  </script>
+</body>
+</html>
+`
+
+  return new NextResponse(htmlContent, {
+    headers: {
+      "Content-Type": "text/html",
+    },
+  })
 }
