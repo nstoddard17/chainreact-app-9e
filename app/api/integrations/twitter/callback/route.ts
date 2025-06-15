@@ -1,102 +1,50 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createClient } from "@supabase/supabase-js"
-import { getBaseUrl } from "@/lib/utils/getBaseUrl"
-import { TwitterOAuthService } from "@/lib/services/TwitterOAuthService"
-
-// Use direct Supabase client with service role for reliable database operations
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-if (!supabaseUrl || !supabaseKey) {
-  throw new Error("NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be defined")
-}
-
-const supabase = createClient(supabaseUrl, supabaseKey, {
-  auth: {
-    persistSession: false,
-  },
-})
+import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
+import { cookies } from "next/headers"
+import { SimpleTwitterOAuth } from "@/lib/oauth/twitter-simple"
 
 export async function GET(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams
-  const code = searchParams.get("code")
-  const state = searchParams.get("state")
-  const error = searchParams.get("error")
-  const errorDescription = searchParams.get("error_description")
-
-  // Get consistent base URL
-  const baseUrl = getBaseUrl(request)
-
-  console.log("Twitter OAuth callback received:", {
-    hasCode: !!code,
-    hasState: !!state,
-    error,
-    errorDescription,
-    baseUrl,
-    fullUrl: request.url,
-  })
-
-  if (error) {
-    console.error("Twitter OAuth error:", { error, errorDescription })
-    let errorMessage = errorDescription || error
-
-    // Handle specific Twitter errors
-    if (error === "access_denied") {
-      errorMessage = "Authorization was cancelled. Please try connecting Twitter again."
-    } else if (error === "invalid_request") {
-      errorMessage = "Invalid request. Please try connecting Twitter again."
-    }
-
-    return NextResponse.redirect(
-      new URL(`/integrations?error=oauth_error&provider=twitter&message=${encodeURIComponent(errorMessage)}`, baseUrl),
-    )
-  }
-
-  if (!code || !state) {
-    console.error("Missing code or state in Twitter callback")
-    return NextResponse.redirect(new URL("/integrations?error=missing_params&provider=twitter", baseUrl))
-  }
-
   try {
-    // Parse state to get user ID and other data
-    let stateData
-    try {
-      stateData = JSON.parse(atob(state))
-      console.log("Parsed Twitter state data:", {
-        ...stateData,
-        codeVerifier: stateData.codeVerifier ? "***" : undefined,
-      })
-    } catch (e) {
-      console.error("Failed to parse Twitter state:", e)
-      return NextResponse.redirect(new URL("/integrations?error=invalid_state&provider=twitter", baseUrl))
+    const searchParams = request.nextUrl.searchParams
+    const code = searchParams.get("code")
+    const state = searchParams.get("state")
+    const error = searchParams.get("error")
+    const errorDescription = searchParams.get("error_description")
+
+    console.log("🐦 Twitter callback received:", {
+      hasCode: !!code,
+      hasState: !!state,
+      error,
+      errorDescription,
+    })
+
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || request.nextUrl.origin
+
+    // Handle OAuth errors from Twitter
+    if (error) {
+      console.error("🐦 Twitter OAuth error:", { error, errorDescription })
+      return NextResponse.redirect(
+        new URL(`/integrations?error=${encodeURIComponent(errorDescription || error)}&provider=twitter`, baseUrl),
+      )
     }
 
-    const userId = stateData.userId
-
-    if (!userId) {
-      console.error("No user ID in Twitter state")
-      return NextResponse.redirect(new URL("/integrations?error=missing_user_id&provider=twitter", baseUrl))
+    if (!code || !state) {
+      console.error("🐦 Missing code or state")
+      return NextResponse.redirect(new URL(`/integrations?error=missing_parameters&provider=twitter`, baseUrl))
     }
 
-    console.log("Processing Twitter OAuth for user:", userId)
+    // Create Supabase client
+    const supabase = createServerComponentClient({ cookies })
 
-    // Use the TwitterOAuthService to handle the callback
-    const result = await TwitterOAuthService.handleCallback(code, state, baseUrl, supabase, userId)
+    // Handle the callback
+    const result = await SimpleTwitterOAuth.handleCallback(code, state, supabase)
 
-    if (result.success) {
-      console.log("Twitter OAuth callback successful")
-      return NextResponse.redirect(new URL(result.redirectUrl, baseUrl))
-    } else {
-      console.error("Twitter OAuth callback failed:", result.error)
-      return NextResponse.redirect(new URL(result.redirectUrl, baseUrl))
-    }
+    return NextResponse.redirect(new URL(result.redirectUrl, baseUrl))
   } catch (error: any) {
-    console.error("Twitter OAuth callback error:", error)
+    console.error("🐦 Twitter callback route error:", error)
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || request.nextUrl.origin
     return NextResponse.redirect(
-      new URL(
-        `/integrations?error=callback_failed&provider=twitter&message=${encodeURIComponent(error.message)}`,
-        baseUrl,
-      ),
+      new URL(`/integrations?error=${encodeURIComponent(error.message)}&provider=twitter`, baseUrl),
     )
   }
 }
