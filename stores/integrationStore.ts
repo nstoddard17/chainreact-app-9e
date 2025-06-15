@@ -1,16 +1,17 @@
-import { create } from "zustand"
-import { persist } from "zustand/middleware"
-import { detectAvailableIntegrations, type IntegrationConfig } from "@/lib/integrations/availableIntegrations"
+"use client"
 
-export interface Integration {
+import { create } from "zustand"
+import { persist, createJSONStorage } from "zustand/middleware"
+
+interface Integration {
   id: string
   user_id: string
   provider: string
-  provider_user_id?: string
-  status: "connected" | "disconnected" | "error" | "pending"
+  provider_user_id: string
+  status: "connected" | "disconnected" | "error"
   access_token?: string
   refresh_token?: string
-  expires_at?: string | null
+  expires_at?: string
   scopes?: string[]
   metadata?: Record<string, any>
   created_at: string
@@ -30,164 +31,83 @@ interface DynamicData {
   }
 }
 
-interface IntegrationStore {
-  // State
+interface IntegrationState {
   integrations: Integration[]
-  providers: IntegrationConfig[]
-  dynamicData: DynamicData
-  isLoading: boolean
+  loading: boolean
   error: string | null
-  lastFetch: number | null
+  initialized: boolean
   debugInfo: any
 
-  // Loading states for specific operations
-  loadingStates: Record<string, boolean>
-
   // Actions
-  initializeProviders: () => void
   fetchIntegrations: (force?: boolean) => Promise<void>
-  connectIntegration: (providerId: string) => Promise<void>
+  connectIntegration: (provider: string) => Promise<void>
   disconnectIntegration: (integrationId: string) => Promise<void>
-  refreshIntegration: (integrationId: string) => Promise<void>
-  refreshAllTokens: () => Promise<void>
-
-  // Dynamic data methods
-  getDynamicData: (provider: string, dataType: string) => any[]
-  fetchDynamicData: (provider: string, dataType: string) => Promise<void>
-  isResourceLoading: (provider: string, dataType: string) => boolean
-
-  // Utility methods
-  getIntegrationStatus: (providerId: string) => string
-  getConnectedProviders: () => string[]
-  getIntegrationByProvider: (providerId: string) => Integration | null
-  clearError: () => void
-  setLoading: (key: string, loading: boolean) => void
-  setDebugInfo: (info: any) => void
+  getIntegrationByProvider: (provider: string) => Integration | undefined
+  getIntegrationStatus: (provider: string) => string
+  clearAllData: () => void
+  initializeGlobalPreload: () => Promise<void>
+  connectTwitterWithPopup: (userId: string) => Promise<void>
 }
 
-export const useIntegrationStore = create<IntegrationStore>()(
+export const useIntegrationStore = create<IntegrationState>()(
   persist(
     (set, get) => ({
-      // Initial state
       integrations: [],
-      providers: [],
-      dynamicData: {},
-      isLoading: false,
+      loading: false,
       error: null,
-      lastFetch: null,
-      loadingStates: {},
+      initialized: false,
       debugInfo: null,
 
-      // Initialize providers based on environment variables
-      initializeProviders: () => {
-        const availableProviders = detectAvailableIntegrations()
-        console.log("🔧 Detected integrations:", {
-          total: availableProviders.length,
-          available: availableProviders.filter((p) => p.isAvailable).length,
-          unavailable: availableProviders.filter((p) => !p.isAvailable).length,
-        })
-
-        set({ providers: availableProviders })
-      },
-
-      // Fetch integrations with enhanced debugging
       fetchIntegrations: async (force = false) => {
-        const { setLoading, lastFetch } = get()
-
-        // Skip if recently fetched and not forced
-        if (!force && lastFetch && Date.now() - lastFetch < 30000) {
-          console.log("⏭️ Skipping fetch - recently fetched")
-          return
-        }
-
-        setLoading("fetchIntegrations", true)
+        const state = get()
+        if (state.loading && !force) return
 
         try {
-          console.log("🔄 Fetching integrations from API...")
+          set({ loading: true, error: null })
+          console.log("🔄 Fetching integrations...")
 
           const response = await fetch("/api/integrations", {
             method: "GET",
             headers: {
               "Content-Type": "application/json",
             },
-            credentials: "include", // Important for session cookies
           })
 
-          console.log("📡 API Response status:", response.status)
-
           if (!response.ok) {
-            const errorText = await response.text()
-            console.error("❌ API Error:", errorText)
-            throw new Error(`API Error: ${response.status} - ${errorText}`)
+            const errorData = await response.json().catch(() => ({}))
+            throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`)
           }
 
           const data = await response.json()
-          console.log("📦 Raw API Response:", data)
+          console.log("✅ Integrations fetched:", data.count || 0)
 
-          if (data.success && Array.isArray(data.data)) {
-            const integrations = data.data
-            console.log("✅ Integrations fetched successfully:", {
-              count: integrations.length,
-              integrations: integrations.map((i) => ({
-                id: i.id,
-                provider: i.provider,
-                status: i.status,
-                created_at: i.created_at,
-              })),
-            })
-
-            set({
-              integrations,
-              error: null,
-              lastFetch: Date.now(),
-              debugInfo: {
-                lastFetch: new Date().toISOString(),
-                count: integrations.length,
-                providers: integrations.map((i) => i.provider),
-                statuses: integrations.reduce(
-                  (acc, i) => {
-                    acc[i.provider] = i.status
-                    return acc
-                  },
-                  {} as Record<string, string>,
-                ),
-              },
-            })
-          } else {
-            console.error("❌ Invalid API response format:", data)
-            throw new Error(data.error || "Invalid response format from API")
-          }
+          set({
+            integrations: data.data || [],
+            loading: false,
+            initialized: true,
+            debugInfo: {
+              lastFetch: new Date().toISOString(),
+              count: data.count || 0,
+              userId: data.user_id,
+            },
+          })
         } catch (error: any) {
           console.error("❌ Failed to fetch integrations:", error)
           set({
-            error: error.message || "Failed to fetch integrations",
+            error: error.message,
+            loading: false,
+            initialized: true,
             debugInfo: {
-              error: error.message,
-              timestamp: new Date().toISOString(),
+              lastError: error.message,
+              lastErrorTime: new Date().toISOString(),
             },
           })
-        } finally {
-          setLoading("fetchIntegrations", false)
         }
       },
 
-      // Connect integration
-      connectIntegration: async (providerId: string) => {
-        const { setLoading, providers } = get()
-        const provider = providers.find((p) => p.id === providerId)
-
-        if (!provider) {
-          throw new Error(`Provider ${providerId} not found`)
-        }
-
-        if (!provider.isAvailable) {
-          throw new Error(`${provider.name} integration is not configured. Missing environment variables.`)
-        }
-
-        setLoading(`connect-${providerId}`, true)
-
+      connectTwitterWithPopup: async (userId: string) => {
         try {
-          console.log(`🔗 Connecting to ${providerId}...`)
+          console.log("🐦 Starting Twitter OAuth with popup...")
 
           // Generate OAuth URL
           const response = await fetch("/api/integrations/oauth/generate-url", {
@@ -196,7 +116,8 @@ export const useIntegrationStore = create<IntegrationStore>()(
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              provider: providerId,
+              provider: "twitter",
+              userId,
             }),
           })
 
@@ -205,214 +126,165 @@ export const useIntegrationStore = create<IntegrationStore>()(
             throw new Error(errorData.error || "Failed to generate OAuth URL")
           }
 
-          const data = await response.json()
+          const { authUrl } = await response.json()
+          console.log("🐦 OAuth URL generated, opening popup...")
 
-          if (data.success && data.authUrl) {
-            // Open OAuth URL in new window
-            const popup = window.open(data.authUrl, "_blank", "width=600,height=700,scrollbars=yes,resizable=yes")
+          // Open popup window
+          const popup = window.open(
+            authUrl,
+            "twitter-oauth",
+            "width=600,height=700,scrollbars=yes,resizable=yes,status=yes,location=yes,toolbar=no,menubar=no",
+          )
 
-            if (!popup) {
-              throw new Error("Popup blocked. Please allow popups for this site to connect integrations.")
+          if (!popup) {
+            throw new Error("Failed to open popup window. Please allow popups for this site.")
+          }
+
+          // Monitor popup for completion
+          return new Promise<void>((resolve, reject) => {
+            const checkClosed = setInterval(() => {
+              if (popup.closed) {
+                clearInterval(checkClosed)
+                console.log("🐦 Popup closed, checking for integration...")
+
+                // Wait a moment then refresh integrations
+                setTimeout(async () => {
+                  try {
+                    await get().fetchIntegrations(true)
+                    const twitterIntegration = get().getIntegrationByProvider("twitter")
+
+                    if (twitterIntegration && twitterIntegration.status === "connected") {
+                      console.log("✅ Twitter integration successful!")
+                      resolve()
+                    } else {
+                      console.log("❌ Twitter integration not found or failed")
+                      reject(new Error("Twitter integration was not completed successfully"))
+                    }
+                  } catch (error) {
+                    reject(error)
+                  }
+                }, 2000)
+              }
+            }, 1000)
+
+            // Timeout after 5 minutes
+            setTimeout(() => {
+              clearInterval(checkClosed)
+              if (!popup.closed) {
+                popup.close()
+              }
+              reject(new Error("Twitter authentication timed out"))
+            }, 300000)
+          })
+        } catch (error: any) {
+          console.error("🐦 Twitter OAuth error:", error)
+          throw error
+        }
+      },
+
+      connectIntegration: async (provider: string) => {
+        try {
+          console.log(`🔗 Connecting ${provider} integration...`)
+
+          // Special handling for Twitter
+          if (provider === "twitter") {
+            const { useAuthStore } = await import("./authStore")
+            const userId = useAuthStore.getState().getCurrentUserId()
+
+            if (!userId) {
+              throw new Error("User not authenticated")
             }
 
-            console.log(`✅ OAuth URL opened for ${providerId}`)
-          } else {
-            throw new Error(data.error || "Failed to generate OAuth URL")
-          }
-        } catch (error: any) {
-          console.error(`❌ Failed to connect ${providerId}:`, error)
-          set({ error: error.message })
-          throw error
-        } finally {
-          setLoading(`connect-${providerId}`, false)
-        }
-      },
-
-      // Disconnect integration
-      disconnectIntegration: async (integrationId: string) => {
-        const { setLoading } = get()
-        setLoading(`disconnect-${integrationId}`, true)
-
-        try {
-          const response = await fetch(`/api/integrations/${integrationId}`, {
-            method: "DELETE",
-          })
-
-          const data = await response.json()
-
-          if (!response.ok || !data.success) {
-            throw new Error(data.error || "Failed to disconnect integration")
+            await get().connectTwitterWithPopup(userId)
+            return
           }
 
-          // Update local state
-          set((state) => ({
-            integrations: state.integrations.map((i) =>
-              i.id === integrationId ? { ...i, status: "disconnected" as const } : i,
-            ),
-          }))
-        } catch (error: any) {
-          console.error("Failed to disconnect integration:", error)
-          set({ error: error.message })
-          throw error
-        } finally {
-          setLoading(`disconnect-${integrationId}`, false)
-        }
-      },
-
-      // Refresh integration
-      refreshIntegration: async (integrationId: string) => {
-        const { setLoading } = get()
-        setLoading(`refresh-${integrationId}`, true)
-
-        try {
-          const response = await fetch(`/api/integrations/${integrationId}/refresh`, {
-            method: "POST",
-          })
-
-          const data = await response.json()
-
-          if (!response.ok || !data.success) {
-            throw new Error(data.error || "Failed to refresh integration")
-          }
-
-          // Update the integration in the store
-          set((state) => ({
-            integrations: state.integrations.map((i) =>
-              i.id === integrationId ? { ...i, last_sync: new Date().toISOString(), status: "connected" } : i,
-            ),
-          }))
-        } catch (error: any) {
-          console.error("Failed to refresh integration:", error)
-          set({ error: error.message })
-          throw error
-        } finally {
-          setLoading(`refresh-${integrationId}`, false)
-        }
-      },
-
-      // Refresh all tokens
-      refreshAllTokens: async () => {
-        const { setLoading } = get()
-        setLoading("refreshAllTokens", true)
-
-        try {
-          const response = await fetch("/api/integrations/refresh-all-tokens", {
-            method: "POST",
-          })
-
-          const data = await response.json()
-
-          if (!response.ok || !data.success) {
-            throw new Error(data.error || "Failed to refresh tokens")
-          }
-
-          // Refresh integrations list after token refresh
-          await get().fetchIntegrations(true)
-          return data
-        } catch (error: any) {
-          console.error("Failed to refresh all tokens:", error)
-          set({ error: error.message })
-          throw error
-        } finally {
-          setLoading("refreshAllTokens", false)
-        }
-      },
-
-      // Get dynamic data
-      getDynamicData: (provider: string, dataType: string) => {
-        const { dynamicData } = get()
-        return dynamicData[provider]?.[dataType] || []
-      },
-
-      // Fetch dynamic data
-      fetchDynamicData: async (provider: string, dataType: string) => {
-        const { setLoading } = get()
-        const key = `${provider}-${dataType}`
-        setLoading(key, true)
-
-        try {
-          const response = await fetch("/api/integrations/fetch-user-data", {
+          // For other providers, use the existing redirect flow
+          const response = await fetch("/api/integrations/oauth/generate-url", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
             },
-            body: JSON.stringify({
-              provider,
-              dataType,
-            }),
+            body: JSON.stringify({ provider }),
           })
 
-          const data = await response.json()
-
-          if (response.ok && data.success && data.data) {
-            set((state) => ({
-              dynamicData: {
-                ...state.dynamicData,
-                [provider]: {
-                  ...state.dynamicData[provider],
-                  [dataType]: data.data,
-                },
-              },
-            }))
+          if (!response.ok) {
+            const errorData = await response.json()
+            throw new Error(errorData.error || `Failed to generate ${provider} OAuth URL`)
           }
+
+          const { authUrl } = await response.json()
+          console.log(`🔗 Redirecting to ${provider} OAuth...`)
+
+          // Store connecting state
+          localStorage.setItem("integration_connecting", provider)
+
+          // Redirect to OAuth provider
+          window.location.href = authUrl
         } catch (error: any) {
-          console.warn(`Failed to fetch ${provider} ${dataType}:`, error)
-        } finally {
-          setLoading(key, false)
+          console.error(`❌ Failed to connect ${provider}:`, error)
+          throw error
         }
       },
 
-      // Check if resource is loading
-      isResourceLoading: (provider: string, dataType: string) => {
-        const { loadingStates } = get()
-        return loadingStates[`${provider}-${dataType}`] || false
+      disconnectIntegration: async (integrationId: string) => {
+        try {
+          console.log(`🔌 Disconnecting integration ${integrationId}...`)
+
+          const response = await fetch(`/api/integrations/${integrationId}`, {
+            method: "DELETE",
+          })
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}))
+            throw new Error(errorData.error || "Failed to disconnect integration")
+          }
+
+          console.log("✅ Integration disconnected")
+
+          // Refresh integrations list
+          await get().fetchIntegrations(true)
+        } catch (error: any) {
+          console.error("❌ Failed to disconnect integration:", error)
+          throw error
+        }
       },
 
-      // Get integration status by provider ID
-      getIntegrationStatus: (providerId: string) => {
-        const { integrations } = get()
-        const integration = integrations.find((i) => i.provider === providerId)
-        const status = integration?.status || "disconnected"
-        console.log(`🔍 Status for ${providerId}:`, status, integration)
-        return status
+      getIntegrationByProvider: (provider: string) => {
+        return get().integrations.find((integration) => integration.provider === provider)
       },
 
-      // Get connected providers
-      getConnectedProviders: () => {
-        const { integrations } = get()
-        const connected = integrations.filter((i) => i.status === "connected").map((i) => i.provider)
-        console.log("🔗 Connected providers:", connected)
-        return connected
+      getIntegrationStatus: (provider: string) => {
+        const integration = get().getIntegrationByProvider(provider)
+        return integration?.status || "disconnected"
       },
 
-      // Get integration by provider
-      getIntegrationByProvider: (providerId: string) => {
-        const { integrations } = get()
-        const integration = integrations.find((i) => i.provider === providerId)
-        console.log(`🔍 Integration for ${providerId}:`, integration)
-        return integration || null
+      clearAllData: () => {
+        set({
+          integrations: [],
+          loading: false,
+          error: null,
+          initialized: false,
+          debugInfo: null,
+        })
       },
 
-      // Utility methods
-      clearError: () => set({ error: null }),
-
-      setLoading: (key: string, loading: boolean) => {
-        set((state) => ({
-          loadingStates: {
-            ...state.loadingStates,
-            [key]: loading,
-          },
-        }))
+      initializeGlobalPreload: async () => {
+        try {
+          console.log("🚀 Initializing global data preload...")
+          // Add any global data preloading logic here
+          console.log("✅ Global preload completed")
+        } catch (error) {
+          console.error("❌ Global preload failed:", error)
+        }
       },
-
-      setDebugInfo: (info: any) => set({ debugInfo: info }),
     }),
     {
-      name: "integration-store",
+      name: "chainreact-integrations",
+      storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         integrations: state.integrations,
-        dynamicData: state.dynamicData,
-        lastFetch: state.lastFetch,
+        initialized: state.initialized,
       }),
     },
   ),
