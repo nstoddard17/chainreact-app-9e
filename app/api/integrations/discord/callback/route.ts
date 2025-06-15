@@ -1,4 +1,4 @@
-import { type NextRequest, NextResponse } from "next/server"
+import type { NextRequest } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 
 const discordClientId = process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID
@@ -29,12 +29,112 @@ export async function GET(request: NextRequest) {
 
   if (error) {
     console.error("Discord OAuth error:", error)
-    return NextResponse.redirect(`https://chainreact.app/integrations?error=discord_oauth_failed&message=${error}`)
+
+    const errorHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Discord Connection Failed</title>
+        <style>
+          body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            height: 100vh; 
+            margin: 0;
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+            color: white;
+          }
+          .container { 
+            text-align: center; 
+            padding: 2rem;
+            background: rgba(255,255,255,0.1);
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+          }
+          .error-icon { font-size: 3rem; margin-bottom: 1rem; }
+          h1 { margin: 0 0 0.5rem 0; font-size: 1.5rem; }
+          p { margin: 0.5rem 0; opacity: 0.9; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="error-icon">❌</div>
+          <h1>Discord Connection Failed</h1>
+          <p>${error}</p>
+          <p>This window will close automatically...</p>
+        </div>
+        <script>
+          if (window.opener) {
+            window.opener.postMessage({
+              type: 'oauth-error',
+              provider: 'discord',
+              error: '${error}'
+            }, window.location.origin);
+          }
+          setTimeout(() => window.close(), 2000);
+        </script>
+      </body>
+      </html>
+    `
+
+    return new Response(errorHtml, { headers: { "Content-Type": "text/html" } })
   }
 
   if (!code || !state) {
     console.error("Missing code or state in Discord callback")
-    return NextResponse.redirect(`https://chainreact.app/integrations?error=discord_oauth_failed`)
+
+    const errorHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Discord Connection Failed</title>
+        <style>
+          body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            height: 100vh; 
+            margin: 0;
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+            color: white;
+          }
+          .container { 
+            text-align: center; 
+            padding: 2rem;
+            background: rgba(255,255,255,0.1);
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+          }
+          .error-icon { font-size: 3rem; margin-bottom: 1rem; }
+          h1 { margin: 0 0 0.5rem 0; font-size: 1.5rem; }
+          p { margin: 0.5rem 0; opacity: 0.9; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="error-icon">❌</div>
+          <h1>Discord Connection Failed</h1>
+          <p>Missing required parameters</p>
+          <p>This window will close automatically...</p>
+        </div>
+        <script>
+          if (window.opener) {
+            window.opener.postMessage({
+              type: 'oauth-error',
+              provider: 'discord',
+              error: 'Missing required parameters'
+            }, window.location.origin);
+          }
+          setTimeout(() => window.close(), 2000);
+        </script>
+      </body>
+      </html>
+    `
+
+    return new Response(errorHtml, { headers: { "Content-Type": "text/html" } })
   }
 
   try {
@@ -44,14 +144,114 @@ export async function GET(request: NextRequest) {
       stateData = JSON.parse(atob(state))
     } catch (e) {
       console.error("Failed to parse state:", e)
-      return NextResponse.redirect(`https://chainreact.app/integrations?error=invalid_state`)
+
+      const errorHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Discord Connection Failed</title>
+          <style>
+            body { 
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              display: flex; 
+              align-items: center; 
+              justify-content: center; 
+              height: 100vh; 
+              margin: 0;
+              background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+              color: white;
+            }
+            .container { 
+              text-align: center; 
+              padding: 2rem;
+              background: rgba(255,255,255,0.1);
+              border-radius: 12px;
+              backdrop-filter: blur(10px);
+            }
+            .error-icon { font-size: 3rem; margin-bottom: 1rem; }
+            h1 { margin: 0 0 0.5rem 0; font-size: 1.5rem; }
+            p { margin: 0.5rem 0; opacity: 0.9; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="error-icon">❌</div>
+            <h1>Discord Connection Failed</h1>
+            <p>Invalid state parameter</p>
+            <p>This window will close automatically...</p>
+          </div>
+          <script>
+            if (window.opener) {
+              window.opener.postMessage({
+                type: 'oauth-error',
+                provider: 'discord',
+                error: 'Invalid state parameter'
+              }, window.location.origin);
+            }
+            setTimeout(() => window.close(), 2000);
+          </script>
+        </body>
+        </html>
+      `
+
+      return new Response(errorHtml, { headers: { "Content-Type": "text/html" } })
     }
 
     const userId = stateData.userId
 
     if (!userId) {
       console.error("No user ID in state")
-      return NextResponse.redirect(`https://chainreact.app/integrations?error=missing_user_id`)
+
+      const errorHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Discord Connection Failed</title>
+          <style>
+            body { 
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              display: flex; 
+              align-items: center; 
+              justify-content: center; 
+              height: 100vh; 
+              margin: 0;
+              background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+              color: white;
+            }
+            .container { 
+              text-align: center; 
+              padding: 2rem;
+              background: rgba(255,255,255,0.1);
+              border-radius: 12px;
+              backdrop-filter: blur(10px);
+            }
+            .error-icon { font-size: 3rem; margin-bottom: 1rem; }
+            h1 { margin: 0 0 0.5rem 0; font-size: 1.5rem; }
+            p { margin: 0.5rem 0; opacity: 0.9; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="error-icon">❌</div>
+            <h1>Discord Connection Failed</h1>
+            <p>Missing user ID</p>
+            <p>This window will close automatically...</p>
+          </div>
+          <script>
+            if (window.opener) {
+              window.opener.postMessage({
+                type: 'oauth-error',
+                provider: 'discord',
+                error: 'Missing user ID'
+              }, window.location.origin);
+            }
+            setTimeout(() => window.close(), 2000);
+          </script>
+        </body>
+        </html>
+      `
+
+      return new Response(errorHtml, { headers: { "Content-Type": "text/html" } })
     }
 
     // Exchange code for token
@@ -73,16 +273,114 @@ export async function GET(request: NextRequest) {
 
     if (!tokenResponse.ok || tokenData.error) {
       console.error("Discord token exchange error:", tokenData)
-      return NextResponse.redirect(
-        `https://chainreact.app/integrations?error=token_exchange_failed&message=${encodeURIComponent(tokenData.error_description || "Unknown error")}`,
-      )
+
+      const errorHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Discord Connection Failed</title>
+          <style>
+            body { 
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              display: flex; 
+              align-items: center; 
+              justify-content: center; 
+              height: 100vh; 
+              margin: 0;
+              background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+              color: white;
+            }
+            .container { 
+              text-align: center; 
+              padding: 2rem;
+              background: rgba(255,255,255,0.1);
+              border-radius: 12px;
+              backdrop-filter: blur(10px);
+            }
+            .error-icon { font-size: 3rem; margin-bottom: 1rem; }
+            h1 { margin: 0 0 0.5rem 0; font-size: 1.5rem; }
+            p { margin: 0.5rem 0; opacity: 0.9; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="error-icon">❌</div>
+            <h1>Discord Connection Failed</h1>
+            <p>Token exchange failed: ${tokenData.error_description || "Unknown error"}</p>
+            <p>This window will close automatically...</p>
+          </div>
+          <script>
+            if (window.opener) {
+              window.opener.postMessage({
+                type: 'oauth-error',
+                provider: 'discord',
+                error: '${tokenData.error_description || "Token exchange failed"}'
+              }, window.location.origin);
+            }
+            setTimeout(() => window.close(), 2000);
+          </script>
+        </body>
+        </html>
+      `
+
+      return new Response(errorHtml, { headers: { "Content-Type": "text/html" } })
     }
 
     const accessToken = tokenData.access_token
 
     if (!accessToken) {
       console.error("No access token in response")
-      return NextResponse.redirect(`https://chainreact.app/integrations?error=missing_access_token`)
+
+      const errorHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Discord Connection Failed</title>
+          <style>
+            body { 
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              display: flex; 
+              align-items: center; 
+              justify-content: center; 
+              height: 100vh; 
+              margin: 0;
+              background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+              color: white;
+            }
+            .container { 
+              text-align: center; 
+              padding: 2rem;
+              background: rgba(255,255,255,0.1);
+              border-radius: 12px;
+              backdrop-filter: blur(10px);
+            }
+            .error-icon { font-size: 3rem; margin-bottom: 1rem; }
+            h1 { margin: 0 0 0.5rem 0; font-size: 1.5rem; }
+            p { margin: 0.5rem 0; opacity: 0.9; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="error-icon">❌</div>
+            <h1>Discord Connection Failed</h1>
+            <p>Missing access token</p>
+            <p>This window will close automatically...</p>
+          </div>
+          <script>
+            if (window.opener) {
+              window.opener.postMessage({
+                type: 'oauth-error',
+                provider: 'discord',
+                error: 'Missing access token'
+              }, window.location.origin);
+            }
+            setTimeout(() => window.close(), 2000);
+          </script>
+        </body>
+        </html>
+      `
+
+      return new Response(errorHtml, { headers: { "Content-Type": "text/html" } })
     }
 
     // Get user info from Discord
@@ -96,9 +394,57 @@ export async function GET(request: NextRequest) {
 
     if (!userResponse.ok) {
       console.error("Discord user info error:", userData)
-      return NextResponse.redirect(
-        `https://chainreact.app/integrations?error=user_info_failed&message=${encodeURIComponent(userData.message || "Unknown error")}`,
-      )
+
+      const errorHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Discord Connection Failed</title>
+          <style>
+            body { 
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              display: flex; 
+              align-items: center; 
+              justify-content: center; 
+              height: 100vh; 
+              margin: 0;
+              background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+              color: white;
+            }
+            .container { 
+              text-align: center; 
+              padding: 2rem;
+              background: rgba(255,255,255,0.1);
+              border-radius: 12px;
+              backdrop-filter: blur(10px);
+            }
+            .error-icon { font-size: 3rem; margin-bottom: 1rem; }
+            h1 { margin: 0 0 0.5rem 0; font-size: 1.5rem; }
+            p { margin: 0.5rem 0; opacity: 0.9; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="error-icon">❌</div>
+            <h1>Discord Connection Failed</h1>
+            <p>User info failed: ${userData.message || "Unknown error"}</p>
+            <p>This window will close automatically...</p>
+          </div>
+          <script>
+            if (window.opener) {
+              window.opener.postMessage({
+                type: 'oauth-error',
+                provider: 'discord',
+                error: '${userData.message || "User info failed"}'
+              }, window.location.origin);
+            }
+            setTimeout(() => window.close(), 2000);
+          </script>
+        </body>
+        </html>
+      `
+
+      return new Response(errorHtml, { headers: { "Content-Type": "text/html" } })
     }
 
     const now = new Date().toISOString()
@@ -136,7 +482,57 @@ export async function GET(request: NextRequest) {
 
       if (error) {
         console.error("Error updating Discord integration:", error)
-        return NextResponse.redirect(`https://chainreact.app/integrations?error=database_update_failed`)
+
+        const errorHtml = `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>Discord Connection Failed</title>
+            <style>
+              body { 
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                display: flex; 
+                align-items: center; 
+                justify-content: center; 
+                height: 100vh; 
+                margin: 0;
+                background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+                color: white;
+              }
+              .container { 
+                text-align: center; 
+                padding: 2rem;
+                background: rgba(255,255,255,0.1);
+                border-radius: 12px;
+                backdrop-filter: blur(10px);
+              }
+              .error-icon { font-size: 3rem; margin-bottom: 1rem; }
+              h1 { margin: 0 0 0.5rem 0; font-size: 1.5rem; }
+              p { margin: 0.5rem 0; opacity: 0.9; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="error-icon">❌</div>
+              <h1>Discord Connection Failed</h1>
+              <p>Database update failed</p>
+              <p>This window will close automatically...</p>
+            </div>
+            <script>
+              if (window.opener) {
+                window.opener.postMessage({
+                  type: 'oauth-error',
+                  provider: 'discord',
+                  error: 'Database update failed'
+                }, window.location.origin);
+              }
+              setTimeout(() => window.close(), 2000);
+            </script>
+          </body>
+          </html>
+        `
+
+        return new Response(errorHtml, { headers: { "Content-Type": "text/html" } })
       }
     } else {
       const { error } = await supabase.from("integrations").insert({
@@ -146,17 +542,167 @@ export async function GET(request: NextRequest) {
 
       if (error) {
         console.error("Error inserting Discord integration:", error)
-        return NextResponse.redirect(`https://chainreact.app/integrations?error=database_insert_failed`)
+
+        const errorHtml = `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>Discord Connection Failed</title>
+            <style>
+              body { 
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                display: flex; 
+                align-items: center; 
+                justify-content: center; 
+                height: 100vh; 
+                margin: 0;
+                background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+                color: white;
+              }
+              .container { 
+                text-align: center; 
+                padding: 2rem;
+                background: rgba(255,255,255,0.1);
+                border-radius: 12px;
+                backdrop-filter: blur(10px);
+              }
+              .error-icon { font-size: 3rem; margin-bottom: 1rem; }
+              h1 { margin: 0 0 0.5rem 0; font-size: 1.5rem; }
+              p { margin: 0.5rem 0; opacity: 0.9; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="error-icon">❌</div>
+              <h1>Discord Connection Failed</h1>
+              <p>Database insert failed</p>
+              <p>This window will close automatically...</p>
+            </div>
+            <script>
+              if (window.opener) {
+                window.opener.postMessage({
+                  type: 'oauth-error',
+                  provider: 'discord',
+                  error: 'Database insert failed'
+                }, window.location.origin);
+              }
+              setTimeout(() => window.close(), 2000);
+            </script>
+          </body>
+          </html>
+        `
+
+        return new Response(errorHtml, { headers: { "Content-Type": "text/html" } })
       }
     }
 
-    return NextResponse.redirect(
-      `https://chainreact.app/integrations?success=discord_connected&provider=discord&t=${Date.now()}`,
-    )
+    // Success! Return HTML that closes the popup
+    const successHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Discord Connected Successfully</title>
+        <style>
+          body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            height: 100vh; 
+            margin: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+          }
+          .container { 
+            text-align: center; 
+            padding: 2rem;
+            background: rgba(255,255,255,0.1);
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+          }
+          .success-icon { font-size: 3rem; margin-bottom: 1rem; }
+          h1 { margin: 0 0 0.5rem 0; font-size: 1.5rem; }
+          p { margin: 0.5rem 0; opacity: 0.9; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="success-icon">✅</div>
+          <h1>Discord Connected Successfully!</h1>
+          <p>Your Discord account has been connected.</p>
+          <p>This window will close automatically...</p>
+        </div>
+        <script>
+          // Send success message to parent window
+          if (window.opener) {
+            window.opener.postMessage({
+              type: 'oauth-success',
+              provider: 'discord'
+            }, window.location.origin);
+          }
+          
+          // Close the popup
+          setTimeout(() => {
+            window.close();
+          }, 1500);
+        </script>
+      </body>
+      </html>
+    `
+
+    return new Response(successHtml, { headers: { "Content-Type": "text/html" } })
   } catch (error: any) {
     console.error("Error during Discord callback:", error)
-    return NextResponse.redirect(
-      `https://chainreact.app/integrations?error=discord_oauth_failed&message=${encodeURIComponent(error.message)}`,
-    )
+
+    const errorHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Discord Connection Failed</title>
+        <style>
+          body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            height: 100vh; 
+            margin: 0;
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+            color: white;
+          }
+          .container { 
+            text-align: center; 
+            padding: 2rem;
+            background: rgba(255,255,255,0.1);
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+          }
+          .error-icon { font-size: 3rem; margin-bottom: 1rem; }
+          h1 { margin: 0 0 0.5rem 0; font-size: 1.5rem; }
+          p { margin: 0.5rem 0; opacity: 0.9; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="error-icon">❌</div>
+          <h1>Discord Connection Failed</h1>
+          <p>${error.message || "An unexpected error occurred"}</p>
+          <p>This window will close automatically...</p>
+        </div>
+        <script>
+          if (window.opener) {
+            window.opener.postMessage({
+              type: 'oauth-error',
+              provider: 'discord',
+              error: '${(error.message || "An unexpected error occurred").replace(/'/g, "\\'")}'
+            }, window.location.origin);
+          }
+          setTimeout(() => window.close(), 2000);
+        </script>
+      </body>
+      </html>
+    `
+
+    return new Response(errorHtml, { headers: { "Content-Type": "text/html" } })
   }
 }
