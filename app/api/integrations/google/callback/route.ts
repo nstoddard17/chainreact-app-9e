@@ -1,4 +1,4 @@
-import { type NextRequest, NextResponse } from "next/server"
+import type { NextRequest } from "next/server"
 import { GoogleOAuthService } from "@/lib/oauth/google"
 import { createAdminSupabaseClient, upsertIntegration, parseOAuthState } from "@/lib/oauth/utils"
 
@@ -12,15 +12,110 @@ export async function GET(request: NextRequest) {
     // Handle OAuth errors
     if (error) {
       console.error("OAuth error:", error)
-      return NextResponse.redirect(
-        `https://chainreact.app/integrations?error=true&message=${encodeURIComponent("OAuth authorization failed")}&provider=google`,
-      )
+
+      const errorHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Google Connection Failed</title>
+          <style>
+            body { 
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              display: flex; 
+              align-items: center; 
+              justify-content: center; 
+              height: 100vh; 
+              margin: 0;
+              background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+              color: white;
+            }
+            .container { 
+              text-align: center; 
+              padding: 2rem;
+              background: rgba(255,255,255,0.1);
+              border-radius: 12px;
+              backdrop-filter: blur(10px);
+            }
+            .error-icon { font-size: 3rem; margin-bottom: 1rem; }
+            h1 { margin: 0 0 0.5rem 0; font-size: 1.5rem; }
+            p { margin: 0.5rem 0; opacity: 0.9; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="error-icon">❌</div>
+            <h1>Google Connection Failed</h1>
+            <p>OAuth authorization failed</p>
+            <p>This window will close automatically...</p>
+          </div>
+          <script>
+            if (window.opener) {
+              window.opener.postMessage({
+                type: 'oauth-error',
+                provider: 'google',
+                error: 'OAuth authorization failed'
+              }, window.location.origin);
+            }
+            setTimeout(() => window.close(), 2000);
+          </script>
+        </body>
+        </html>
+      `
+
+      return new Response(errorHtml, { headers: { "Content-Type": "text/html" } })
     }
 
     if (!code) {
-      return NextResponse.redirect(
-        `https://chainreact.app/integrations?error=true&message=${encodeURIComponent("No authorization code received")}&provider=google`,
-      )
+      const errorHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Google Connection Failed</title>
+          <style>
+            body { 
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              display: flex; 
+              align-items: center; 
+              justify-content: center; 
+              height: 100vh; 
+              margin: 0;
+              background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+              color: white;
+            }
+            .container { 
+              text-align: center; 
+              padding: 2rem;
+              background: rgba(255,255,255,0.1);
+              border-radius: 12px;
+              backdrop-filter: blur(10px);
+            }
+            .error-icon { font-size: 3rem; margin-bottom: 1rem; }
+            h1 { margin: 0 0 0.5rem 0; font-size: 1.5rem; }
+            p { margin: 0.5rem 0; opacity: 0.9; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="error-icon">❌</div>
+            <h1>Google Connection Failed</h1>
+            <p>No authorization code received</p>
+            <p>This window will close automatically...</p>
+          </div>
+          <script>
+            if (window.opener) {
+              window.opener.postMessage({
+                type: 'oauth-error',
+                provider: 'google',
+                error: 'No authorization code received'
+              }, window.location.origin);
+            }
+            setTimeout(() => window.close(), 2000);
+          </script>
+        </body>
+        </html>
+      `
+
+      return new Response(errorHtml, { headers: { "Content-Type": "text/html" } })
     }
 
     // Parse state to get user ID
@@ -31,6 +126,57 @@ export async function GET(request: NextRequest) {
         userId = stateData.userId
       } catch (error) {
         console.error("Failed to parse state:", error)
+
+        const errorHtml = `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>Google Connection Failed</title>
+            <style>
+              body { 
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                display: flex; 
+                align-items: center; 
+                justify-content: center; 
+                height: 100vh; 
+                margin: 0;
+                background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+                color: white;
+              }
+              .container { 
+                text-align: center; 
+                padding: 2rem;
+                background: rgba(255,255,255,0.1);
+                border-radius: 12px;
+                backdrop-filter: blur(10px);
+              }
+              .error-icon { font-size: 3rem; margin-bottom: 1rem; }
+              h1 { margin: 0 0 0.5rem 0; font-size: 1.5rem; }
+              p { margin: 0.5rem 0; opacity: 0.9; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="error-icon">❌</div>
+              <h1>Google Connection Failed</h1>
+              <p>Invalid state parameter</p>
+              <p>This window will close automatically...</p>
+            </div>
+            <script>
+              if (window.opener) {
+                window.opener.postMessage({
+                  type: 'oauth-error',
+                  provider: 'google',
+                  error: 'Invalid state parameter'
+                }, window.location.origin);
+              }
+              setTimeout(() => window.close(), 2000);
+            </script>
+          </body>
+          </html>
+        `
+
+        return new Response(errorHtml, { headers: { "Content-Type": "text/html" } })
       }
     }
 
@@ -38,7 +184,56 @@ export async function GET(request: NextRequest) {
     const tokenData = await GoogleOAuthService.exchangeCodeForTokens(code)
 
     if (!tokenData.access_token) {
-      throw new Error("No access token received")
+      const errorHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Google Connection Failed</title>
+          <style>
+            body { 
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              display: flex; 
+              align-items: center; 
+              justify-content: center; 
+              height: 100vh; 
+              margin: 0;
+              background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+              color: white;
+            }
+            .container { 
+              text-align: center; 
+              padding: 2rem;
+              background: rgba(255,255,255,0.1);
+              border-radius: 12px;
+              backdrop-filter: blur(10px);
+            }
+            .error-icon { font-size: 3rem; margin-bottom: 1rem; }
+            h1 { margin: 0 0 0.5rem 0; font-size: 1.5rem; }
+            p { margin: 0.5rem 0; opacity: 0.9; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="error-icon">❌</div>
+            <h1>Google Connection Failed</h1>
+            <p>No access token received</p>
+            <p>This window will close automatically...</p>
+          </div>
+          <script>
+            if (window.opener) {
+              window.opener.postMessage({
+                type: 'oauth-error',
+                provider: 'google',
+                error: 'No access token received'
+              }, window.location.origin);
+            }
+            setTimeout(() => window.close(), 2000);
+          </script>
+        </body>
+        </html>
+      `
+
+      return new Response(errorHtml, { headers: { "Content-Type": "text/html" } })
     }
 
     // Get user info from Google
@@ -50,12 +245,110 @@ export async function GET(request: NextRequest) {
     // Save integration to database
     const supabase = createAdminSupabaseClient()
     if (!supabase) {
-      throw new Error("Failed to create Supabase client")
+      const errorHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Google Connection Failed</title>
+          <style>
+            body { 
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              display: flex; 
+              align-items: center; 
+              justify-content: center; 
+              height: 100vh; 
+              margin: 0;
+              background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+              color: white;
+            }
+            .container { 
+              text-align: center; 
+              padding: 2rem;
+              background: rgba(255,255,255,0.1);
+              border-radius: 12px;
+              backdrop-filter: blur(10px);
+            }
+            .error-icon { font-size: 3rem; margin-bottom: 1rem; }
+            h1 { margin: 0 0 0.5rem 0; font-size: 1.5rem; }
+            p { margin: 0.5rem 0; opacity: 0.9; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="error-icon">❌</div>
+            <h1>Google Connection Failed</h1>
+            <p>Failed to create Supabase client</p>
+            <p>This window will close automatically...</p>
+          </div>
+          <script>
+            if (window.opener) {
+              window.opener.postMessage({
+                type: 'oauth-error',
+                provider: 'google',
+                error: 'Failed to create Supabase client'
+              }, window.location.origin);
+            }
+            setTimeout(() => window.close(), 2000);
+          </script>
+        </body>
+        </html>
+      `
+
+      return new Response(errorHtml, { headers: { "Content-Type": "text/html" } })
     }
 
     // If no userId from state, this is an error
     if (!userId) {
-      throw new Error("No user ID found in OAuth state")
+      const errorHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Google Connection Failed</title>
+          <style>
+            body { 
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              display: flex; 
+              align-items: center; 
+              justify-content: center; 
+              height: 100vh; 
+              margin: 0;
+              background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+              color: white;
+            }
+            .container { 
+              text-align: center; 
+              padding: 2rem;
+              background: rgba(255,255,255,0.1);
+              border-radius: 12px;
+              backdrop-filter: blur(10px);
+            }
+            .error-icon { font-size: 3rem; margin-bottom: 1rem; }
+            h1 { margin: 0 0 0.5rem 0; font-size: 1.5rem; }
+            p { margin: 0.5rem 0; opacity: 0.9; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="error-icon">❌</div>
+            <h1>Google Connection Failed</h1>
+            <p>No user ID found in OAuth state</p>
+            <p>This window will close automatically...</p>
+          </div>
+          <script>
+            if (window.opener) {
+              window.opener.postMessage({
+                type: 'oauth-error',
+                provider: 'google',
+                error: 'No user ID found in OAuth state'
+              }, window.location.origin);
+            }
+            setTimeout(() => window.close(), 2000);
+          </script>
+        </body>
+        </html>
+      `
+
+      return new Response(errorHtml, { headers: { "Content-Type": "text/html" } })
     }
 
     const integrationData = {
@@ -77,12 +370,113 @@ export async function GET(request: NextRequest) {
 
     await upsertIntegration(supabase, integrationData)
 
-    // Redirect back to integrations page with success
-    return NextResponse.redirect(`https://chainreact.app/integrations?success=true&provider=google`)
+    // Success! Return HTML that closes the popup
+    const successHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Google Connected Successfully</title>
+        <style>
+          body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            height: 100vh; 
+            margin: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+          }
+          .container { 
+            text-align: center; 
+            padding: 2rem;
+            background: rgba(255,255,255,0.1);
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+          }
+          .success-icon { font-size: 3rem; margin-bottom: 1rem; }
+          h1 { margin: 0 0 0.5rem 0; font-size: 1.5rem; }
+          p { margin: 0.5rem 0; opacity: 0.9; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="success-icon">✅</div>
+          <h1>Google Connected Successfully!</h1>
+          <p>Your Google account has been connected.</p>
+          <p>This window will close automatically...</p>
+        </div>
+        <script>
+          // Send success message to parent window
+          if (window.opener) {
+            window.opener.postMessage({
+              type: 'oauth-success',
+              provider: 'google'
+            }, window.location.origin);
+          }
+          
+          // Close the popup
+          setTimeout(() => {
+            window.close();
+          }, 1500);
+        </script>
+      </body>
+      </html>
+    `
+
+    return new Response(successHtml, { headers: { "Content-Type": "text/html" } })
   } catch (error: any) {
     console.error("Google OAuth callback error:", error)
-    return NextResponse.redirect(
-      `https://chainreact.app/integrations?error=true&message=${encodeURIComponent(error.message || "Integration failed")}&provider=google`,
-    )
+
+    const errorHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Google Connection Failed</title>
+        <style>
+          body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            height: 100vh; 
+            margin: 0;
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+            color: white;
+          }
+          .container { 
+            text-align: center; 
+            padding: 2rem;
+            background: rgba(255,255,255,0.1);
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+          }
+          .error-icon { font-size: 3rem; margin-bottom: 1rem; }
+          h1 { margin: 0 0 0.5rem 0; font-size: 1.5rem; }
+          p { margin: 0.5rem 0; opacity: 0.9; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="error-icon">❌</div>
+          <h1>Google Connection Failed</h1>
+          <p>${error.message || "Integration failed"}</p>
+          <p>This window will close automatically...</p>
+        </div>
+        <script>
+          if (window.opener) {
+            window.opener.postMessage({
+              type: 'oauth-error',
+              provider: 'google',
+              error: '${(error.message || "Integration failed").replace(/'/g, "\\'")}'
+            }, window.location.origin);
+          }
+          setTimeout(() => window.close(), 2000);
+        </script>
+      </body>
+      </html>
+    `
+
+    return new Response(errorHtml, { headers: { "Content-Type": "text/html" } })
   }
 }
