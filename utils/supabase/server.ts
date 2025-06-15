@@ -2,61 +2,52 @@ import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 import type { Database } from "@/types/supabase"
 
-export const createClient = () => {
-  return createServerComponentClient<Database>({ cookies })
+export function createClient() {
+  const cookieStore = cookies()
+  return createServerComponentClient<Database>({ cookies: () => cookieStore })
 }
 
-// Add this export after the createClient function
-export const createServerClient = () => {
-  return createServerComponentClient<Database>({ cookies })
+// Add the missing createServerClient export
+export function createServerClient() {
+  const cookieStore = cookies()
+  return createServerComponentClient<Database>({ cookies: () => cookieStore })
 }
 
-// Secure function to get authenticated user
-export const getUser = async () => {
+export async function getSession() {
   const supabase = createClient()
-
-  try {
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser()
-
-    if (error) {
-      console.error("Error getting user:", error)
-      return null
-    }
-
-    return user
-  } catch (error) {
-    console.error("Failed to get user:", error)
-    return null
-  }
-}
-
-// Function to get session (use sparingly, prefer getUser for authentication)
-export const getSession = async () => {
-  const supabase = createClient()
-
   try {
     const {
       data: { session },
-      error,
     } = await supabase.auth.getSession()
-
-    if (error) {
-      console.error("Error getting session:", error)
-      return null
-    }
-
     return session
   } catch (error) {
-    console.error("Failed to get session:", error)
+    console.error("Error getting session:", error)
     return null
   }
 }
 
-// Helper function to check if user is authenticated
-export const isAuthenticated = async (): Promise<boolean> => {
+export async function getUser() {
+  const supabase = createClient()
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    return user
+  } catch (error) {
+    console.error("Error getting user:", error)
+    return null
+  }
+}
+
+export async function getUserId() {
   const user = await getUser()
-  return !!user
+  return user?.id
+}
+
+export async function requireAuth() {
+  const session = await getSession()
+  if (!session) {
+    throw new Error("Unauthorized")
+  }
+  return session
 }

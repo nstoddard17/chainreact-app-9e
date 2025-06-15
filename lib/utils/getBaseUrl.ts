@@ -1,23 +1,24 @@
-export function getBaseUrl(): string {
-  // In browser, use current origin
+/**
+ * Get the base URL for the current environment
+ * This ensures consistent URL generation across environments
+ */
+export function getBaseUrl(req?: Request): string {
+  // First priority: Use environment variable if set
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    return process.env.NEXT_PUBLIC_APP_URL.trim().replace(/\/$/, "")
+  }
+
+  // Second priority: Use request origin if available (for API routes)
+  if (req) {
+    const url = new URL(req.url)
+    return `${url.protocol}//${url.host}`
+  }
+
+  // Third priority: Use window.location in browser
   if (typeof window !== "undefined") {
     return window.location.origin
   }
 
-  // In server-side rendering, use environment variables
-  if (process.env.NEXT_PUBLIC_APP_URL) {
-    return process.env.NEXT_PUBLIC_APP_URL
-  }
-
-  if (process.env.NEXT_PUBLIC_SITE_URL) {
-    return process.env.NEXT_PUBLIC_SITE_URL
-  }
-
-  // Fallback for development
-  if (process.env.NODE_ENV === "development") {
-    return "http://localhost:3000"
-  }
-
-  // Production fallback
+  // Fallback for production (should be set in env vars)
   return "https://chainreact.app"
 }
