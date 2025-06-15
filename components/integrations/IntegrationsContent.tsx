@@ -27,7 +27,7 @@ function IntegrationsContent() {
   const {
     integrations = [],
     providers = [],
-    isLoading,
+    loading: isLoading,
     error,
     debugInfo,
     initializeProviders,
@@ -35,11 +35,13 @@ function IntegrationsContent() {
     refreshAllTokens,
     clearError,
     getConnectedProviders,
+    getIntegrationStatus,
+    getIntegrationByProvider,
   } = useIntegrationStore()
 
   const searchParams = useSearchParams()
   const { toast } = useToast()
-  const { user, getCurrentUserId } = useAuthStore()
+  const { user } = useAuthStore()
 
   // Initialize providers on mount
   useEffect(() => {
@@ -54,13 +56,12 @@ function IntegrationsContent() {
       setLoadError(null)
       console.log("📊 Loading integrations data...")
 
-      // Set a timeout to prevent infinite loading
       const timeoutId = setTimeout(() => {
         setLoadError("Loading integrations timed out. Please refresh the page.")
         setLocalLoading(false)
       }, 15000)
 
-      await fetchIntegrations(true) // Force refresh
+      await fetchIntegrations(true)
       clearTimeout(timeoutId)
       console.log("✅ Data loading completed")
     } catch (err: any) {
@@ -79,7 +80,7 @@ function IntegrationsContent() {
     }
   }, [user, providers.length, loadData])
 
-  // Enhanced OAuth callback handling with redirect support
+  // Enhanced OAuth callback handling
   useEffect(() => {
     if (oauthProcessed) return
 
@@ -95,11 +96,9 @@ function IntegrationsContent() {
       if (success === "true") {
         const refreshIntegrationsList = async () => {
           try {
-            // Multiple refresh attempts to ensure data consistency
             console.log("🔄 Refreshing integrations after OAuth success...")
             await fetchIntegrations(true)
 
-            // Schedule additional refreshes to ensure UI updates
             setTimeout(() => fetchIntegrations(true), 1000)
             setTimeout(() => fetchIntegrations(true), 2000)
             setTimeout(() => fetchIntegrations(true), 3000)
@@ -125,7 +124,6 @@ function IntegrationsContent() {
         })
       }
 
-      // Clean up URL parameters after processing
       setTimeout(() => {
         const cleanUrl = window.location.pathname
         window.history.replaceState({}, document.title, cleanUrl)
@@ -133,40 +131,18 @@ function IntegrationsContent() {
     }
   }, [searchParams, toast, fetchIntegrations, oauthProcessed])
 
-  // Enhanced token refresh with better error handling
+  // Enhanced token refresh
   const handleRefreshTokens = useCallback(async () => {
     try {
       setTokenRefreshing(true)
 
-      const userId = getCurrentUserId()
-      if (!userId) {
-        throw new Error("User not authenticated")
-      }
-
-      const response = await Promise.race([
-        fetch("/api/integrations/refresh-all-tokens", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId }),
-        }),
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Request timed out")), 10000)),
-      ])
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to refresh tokens")
-      }
+      const data = await refreshAllTokens()
 
       toast({
         title: "Tokens Refreshed",
         description: `${data.stats?.successful || 0} refreshed, ${data.stats?.skipped || 0} already valid, ${data.stats?.failed || 0} failed`,
         duration: 5000,
       })
-
-      if (data.stats?.successful > 0) {
-        await fetchIntegrations(true)
-      }
     } catch (err: any) {
       console.error("Failed to refresh tokens:", err)
       toast({
@@ -178,20 +154,21 @@ function IntegrationsContent() {
     } finally {
       setTokenRefreshing(false)
     }
-  }, [getCurrentUserId, fetchIntegrations, toast])
+  }, [refreshAllTokens, toast])
 
   // Merge providers with integration status
   const providersWithStatus = providers.map((provider) => {
-    const connectedIntegration = integrations.find((i) => i.provider === provider.id && i.status === "connected")
-    const disconnectedIntegration = integrations.find((i) => i.provider === provider.id && i.status === "disconnected")
-    const anyIntegration = integrations.find((i) => i.provider === provider.id)
+    const integration = getIntegrationByProvider(provider.id)
+    const status = getIntegrationStatus(provider.id)
 
     return {
       ...provider,
-      connected: !!connectedIntegration,
-      wasConnected: !!disconnectedIntegration,
-      integration: connectedIntegration || disconnectedIntegration || anyIntegration || null,
-      isAvailable: true,
+      connected: status === "connected",
+      wasConnected: integration && status === "disconnected",
+      integration,
+      status,
+      isConnected: status === "connected",
+      isAvailable: provider.isAvailable,
     }
   })
 
@@ -334,7 +311,6 @@ function IntegrationsContent() {
               </TabsList>
 
               <TabsContent value="integrations" className="space-y-8 mt-8">
-                {/* Integrations in Alphabetical Order */}
                 <div className="space-y-6">
                   <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
                     <div className="flex items-center justify-between mb-6">
