@@ -14,12 +14,12 @@ export const isSupabaseConfigured = () => {
     const errorMessage = `Missing required Supabase environment variables: ${missingVars.join(", ")}`
 
     if (process.env.NODE_ENV === "development") {
-      console.warn(errorMessage)
-      return false
+      throw new Error(errorMessage)
     } else {
       console.error(errorMessage)
-      return false
     }
+
+    return false
   }
 
   return true
@@ -27,17 +27,25 @@ export const isSupabaseConfigured = () => {
 
 // Browser client for client-side operations with persistence
 export const createBrowserSupabaseClient = () => {
-  if (!isSupabaseConfigured()) {
-    console.warn("Supabase not configured, returning null client")
-    return null
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    const missingVars = []
+    if (!supabaseUrl) missingVars.push("NEXT_PUBLIC_SUPABASE_URL")
+    if (!supabaseAnonKey) missingVars.push("NEXT_PUBLIC_SUPABASE_ANON_KEY")
+
+    const errorMessage = `Missing required Supabase environment variables: ${missingVars.join(", ")}`
+
+    if (process.env.NODE_ENV === "development") {
+      throw new Error(errorMessage)
+    } else {
+      console.error(errorMessage)
+      return null
+    }
   }
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-
   return createClientComponentClient<Database>({
-    supabaseUrl,
-    supabaseKey: supabaseAnonKey,
     options: {
       auth: {
         persistSession: true,
@@ -51,7 +59,7 @@ export const createBrowserSupabaseClient = () => {
 
 // Global singleton for browser usage
 declare global {
-  var __supabase_browser_client__: ReturnType<typeof createClientComponentClient<Database>> | undefined | null
+  var __supabase_browser_client__: ReturnType<typeof createClientComponentClient<Database>> | undefined
 }
 
 export const getSupabaseClient = () => {
@@ -62,12 +70,12 @@ export const getSupabaseClient = () => {
   }
 
   // Browser-side: use global singleton
-  if (globalThis.__supabase_browser_client__ === undefined) {
+  if (!globalThis.__supabase_browser_client__) {
     try {
       globalThis.__supabase_browser_client__ = createBrowserSupabaseClient()
     } catch (error) {
       console.error("Failed to create browser Supabase client:", error)
-      globalThis.__supabase_browser_client__ = null
+      return null
     }
   }
   return globalThis.__supabase_browser_client__

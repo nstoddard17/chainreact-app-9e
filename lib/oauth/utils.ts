@@ -1,16 +1,28 @@
 import { createClient } from "@supabase/supabase-js"
+import type { NextRequest } from "next/server"
+import type { Database } from "@/types/supabase"
+import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 
-// Create admin Supabase client with service role key
-export function createAdminSupabaseClient() {
+/**
+ * Create admin client only for server-side operations
+ */
+export const createAdminSupabaseClient = () => {
+  if (typeof window !== "undefined") {
+    console.warn("Warning: Attempted to create admin Supabase client on the client side")
+    return null
+  }
+
   const supabaseUrl = process.env.SUPABASE_URL
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
   if (!supabaseUrl || !supabaseServiceKey) {
-    console.error("Missing Supabase configuration")
-    return null
+    const missingVars = []
+    if (!supabaseUrl) missingVars.push("SUPABASE_URL")
+    if (!supabaseServiceKey) missingVars.push("SUPABASE_SERVICE_ROLE_KEY")
+    throw new Error(`Missing required Supabase admin environment variables: ${missingVars.join(", ")}`)
   }
 
-  return createClient(supabaseUrl, supabaseServiceKey, {
+  return createClient<Database>(supabaseUrl, supabaseServiceKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
@@ -18,211 +30,347 @@ export function createAdminSupabaseClient() {
   })
 }
 
-// Parse OAuth state parameter
-export function parseOAuthState(state: string) {
+/**
+ * Get hardcoded redirect URI for OAuth providers
+ */
+export function getOAuthRedirectUri(provider: string, req?: Request): string {
+  const baseUrl = getBaseUrl(req)
+  return `${baseUrl}/api/integrations/${provider}/callback`
+}
+
+/**
+ * Upsert integration data safely
+ */
+export async function upsertIntegration(
+  supabase: any,
+  integrationData: {
+    user_id: string
+    provider: string
+    provider_user_id?: string
+    status: string
+    scopes?: string[]
+    access_token?: string
+    refresh_token?: string
+    expires_at?: string | null
+    metadata: any
+  },
+): Promise<any> {
   try {
-    return JSON.parse(atob(state))
+    const now = new Date().toISOString()
+
+    const mainIntegrationData = {
+      user_id: integrationData.user_id,
+      provider: integrationData.provider,
+      provider_user_id: integrationData.provider_user_id,
+      status: integrationData.status,
+      scopes: integrationData.scopes,
+      access_token: integrationData.access_token,
+      refresh_token: integrationData.refresh_token,
+      expires_at: integrationData.expires_at,
+      metadata: integrationData.metadata,
+      updated_at: now,
+    }
+
+    // Check if integration exists
+    const { data: existingIntegration, error: findError } = await supabase
+      .from("integrations")
+      .select("id")
+      .eq("user_id", integrationData.user_id)
+      .eq("provider", integrationData.provider)
+      .maybeSingle()
+
+    if (findError) {
+      console.error("Error checking for existing integration:", findError)
+    }
+
+    let result
+    if (existingIntegration) {
+      result = await supabase
+        .from("integrations")
+        .update(mainIntegrationData)
+        .eq("id", existingIntegration.id)
+        .select()
+        .single()
+    } else {
+      result = await supabase
+        .from("integrations")
+        .insert({
+          ...mainIntegrationData,
+          created_at: now,
+        })
+        .select()
+        .single()
+    }
+
+    if (result.error) {
+      console.error("Error upserting integration:", result.error)
+      throw result.error
+    }
+
+    return result.data
   } catch (error) {
-    console.error("Failed to parse OAuth state:", error)
-    throw new Error("Invalid OAuth state parameter")
+    console.error("Error in upsertIntegration:", error)
+    throw error
   }
 }
 
-// Generate OAuth redirect URI
-export function getOAuthRedirectUri(provider: string): string {
-  return `https://chainreact.app/api/integrations/${provider}/callback`
+export function getAbsoluteBaseUrl(request: NextRequest): string {
+  // Check for environment variable first
+  if (process.env.NEXT_PUBLIC_SITE_URL) {
+    return process.env.NEXT_PUBLIC_SITE_URL
+  }
+
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    return process.env.NEXT_PUBLIC_APP_URL
+  }
+
+  // Fallback to request headers
+  const protocol = request.headers.get("x-forwarded-proto") || "http"
+  const host = request.headers.get("host") || "localhost:3000"
+
+  return `${protocol}://${host}`
 }
 
-// Get absolute base URL
-export function getAbsoluteBaseUrl(request?: Request): string {
-  return "https://chainreact.app"
+export function validateEnvironmentVariables(provider: string): { isValid: boolean; missing: string[] } {
+  const missing: string[] = []
+
+  switch (provider.toLowerCase()) {
+    case "slack":
+      if (!process.env.NEXT_PUBLIC_SLACK_CLIENT_ID) missing.push("NEXT_PUBLIC_SLACK_CLIENT_ID")
+      if (!process.env.SLACK_CLIENT_SECRET) missing.push("SLACK_CLIENT_SECRET")
+      break
+    case "discord":
+      if (!process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID) missing.push("NEXT_PUBLIC_DISCORD_CLIENT_ID")
+      if (!process.env.DISCORD_CLIENT_SECRET) missing.push("DISCORD_CLIENT_SECRET")
+      break
+    case "github":
+      if (!process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID) missing.push("NEXT_PUBLIC_GITHUB_CLIENT_ID")
+      if (!process.env.GITHUB_CLIENT_SECRET) missing.push("GITHUB_CLIENT_SECRET")
+      break
+    case "google":
+    case "gmail":
+    case "google-drive":
+    case "google-sheets":
+    case "google-docs":
+    case "google-calendar":
+    case "youtube":
+      if (!process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) missing.push("NEXT_PUBLIC_GOOGLE_CLIENT_ID")
+      if (!process.env.GOOGLE_CLIENT_SECRET) missing.push("GOOGLE_CLIENT_SECRET")
+      break
+    case "notion":
+      if (!process.env.NEXT_PUBLIC_NOTION_CLIENT_ID) missing.push("NEXT_PUBLIC_NOTION_CLIENT_ID")
+      if (!process.env.NOTION_CLIENT_SECRET) missing.push("NOTION_CLIENT_SECRET")
+      break
+    case "twitter":
+      if (!process.env.NEXT_PUBLIC_TWITTER_CLIENT_ID) missing.push("NEXT_PUBLIC_TWITTER_CLIENT_ID")
+      if (!process.env.TWITTER_CLIENT_SECRET) missing.push("TWITTER_CLIENT_SECRET")
+      break
+    case "linkedin":
+      if (!process.env.NEXT_PUBLIC_LINKEDIN_CLIENT_ID) missing.push("NEXT_PUBLIC_LINKEDIN_CLIENT_ID")
+      if (!process.env.LINKEDIN_CLIENT_SECRET) missing.push("LINKEDIN_CLIENT_SECRET")
+      break
+    case "dropbox":
+      if (!process.env.NEXT_PUBLIC_DROPBOX_CLIENT_ID) missing.push("NEXT_PUBLIC_DROPBOX_CLIENT_ID")
+      if (!process.env.DROPBOX_CLIENT_SECRET) missing.push("DROPBOX_CLIENT_SECRET")
+      break
+    case "trello":
+      if (!process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID) missing.push("NEXT_PUBLIC_TRELLO_CLIENT_ID")
+      if (!process.env.TRELLO_CLIENT_SECRET) missing.push("TRELLO_CLIENT_SECRET")
+      break
+  }
+
+  return {
+    isValid: missing.length === 0,
+    missing,
+  }
 }
 
-// Validate user session
-export async function validateSession(request: Request): Promise<string | null> {
+/**
+ * Generate OAuth state with consistent structure
+ */
+export function generateOAuthState(
+  provider: string,
+  userId: string,
+  options: {
+    reconnect?: boolean
+    integrationId?: string
+  } = {},
+): string {
+  const state = {
+    provider,
+    userId,
+    timestamp: Date.now(),
+    reconnect: options.reconnect || false,
+    integrationId: options.integrationId,
+  }
+
+  return Buffer.from(JSON.stringify(state)).toString("base64")
+}
+
+export function generateRandomState(): string {
+  return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
+}
+
+export function createOAuthState(
+  provider: string,
+  userId: string,
+  options: {
+    reconnect?: boolean
+    integrationId?: string
+  } = {},
+): string {
+  const state = {
+    provider,
+    userId,
+    reconnect: options.reconnect || false,
+    integrationId: options.integrationId,
+    timestamp: Date.now(),
+    nonce: generateRandomState(),
+  }
+
+  return btoa(JSON.stringify(state))
+}
+
+export function parseOAuthState(stateString: string) {
   try {
-    const authHeader = request.headers.get("authorization")
-    if (!authHeader?.startsWith("Bearer ")) {
+    const decoded = atob(stateString)
+    const state = JSON.parse(decoded)
+
+    // Validate state structure
+    if (!state.provider || !state.userId || !state.timestamp) {
+      throw new Error("Invalid state structure")
+    }
+
+    // Check if state is not too old (10 minutes)
+    const maxAge = 10 * 60 * 1000 // 10 minutes in milliseconds
+    if (Date.now() - state.timestamp > maxAge) {
+      throw new Error("State has expired")
+    }
+
+    return state
+  } catch (error) {
+    throw new Error("Invalid or expired state parameter")
+  }
+}
+
+export function buildOAuthUrl(config: {
+  authUrl: string
+  clientId: string
+  redirectUri: string
+  scopes: string[]
+  state: string
+  additionalParams?: Record<string, string>
+}): string {
+  const params = new URLSearchParams({
+    client_id: config.clientId,
+    redirect_uri: config.redirectUri,
+    response_type: "code",
+    scope: config.scopes.join(" "),
+    state: config.state,
+    ...config.additionalParams,
+  })
+
+  return `${config.authUrl}?${params.toString()}`
+}
+
+/**
+ * Validate user session from request
+ */
+export async function validateSession(request: NextRequest): Promise<string | null> {
+  try {
+    const supabaseUrl = process.env.SUPABASE_URL
+    const supabaseAnonKey = process.env.SUPABASE_ANON_KEY
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      const missingVars = []
+      if (!supabaseUrl) missingVars.push("SUPABASE_URL")
+      if (!supabaseAnonKey) missingVars.push("SUPABASE_ANON_KEY")
+
+      console.error(`Missing required Supabase environment variables for session validation: ${missingVars.join(", ")}`)
       return null
     }
 
-    const token = authHeader.substring(7)
-    const supabase = createAdminSupabaseClient()
-    if (!supabase) {
-      return null
-    }
+    // Try to get session from cookie
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      cookies: {
+        get(name: string) {
+          return request.cookies.get(name)?.value
+        },
+      },
+    })
 
     const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser(token)
-    if (error || !user) {
-      return null
+      data: { session },
+    } = await supabase.auth.getSession()
+
+    if (session?.user?.id) {
+      return session.user.id
     }
 
-    return user.id
+    // Try to get from authorization header
+    const authHeader = request.headers.get("authorization")
+    if (authHeader?.startsWith("Bearer ")) {
+      const token = authHeader.substring(7)
+      const { data } = await supabase.auth.getUser(token)
+      if (data?.user?.id) {
+        return data.user.id
+      }
+    }
+
+    return null
   } catch (error) {
-    console.error("Session validation error:", error)
+    console.error("Error validating session:", error)
     return null
   }
 }
 
-// Upsert integration data
-export async function upsertIntegration(supabase: any, integrationData: any) {
-  const { data, error } = await supabase
-    .from("integrations")
-    .upsert(integrationData, {
-      onConflict: "user_id,provider",
-      ignoreDuplicates: false,
-    })
-    .select()
-    .single()
-
-  if (error) {
-    console.error("Failed to upsert integration:", error)
-    throw new Error(`Failed to save integration: ${error.message}`)
-  }
-
-  return data
-}
-
-// Validate scopes
-export function validateScopes(requiredScopes: string[], grantedScopes: string[]) {
+/**
+ * Validate required scopes against granted scopes
+ */
+export function validateScopes(
+  requiredScopes: string[],
+  grantedScopes: string[],
+): {
+  valid: boolean
+  missingScopes: string[]
+} {
   const missingScopes = requiredScopes.filter((scope) => !grantedScopes.includes(scope))
-
   return {
     valid: missingScopes.length === 0,
     missingScopes,
-    grantedScopes,
   }
 }
 
-// Get required scopes for a provider
+/**
+ * Get required scopes for each provider
+ */
 export function getRequiredScopes(provider: string): string[] {
-  const scopeMap: Record<string, string[]> = {
-    google: [
-      "https://www.googleapis.com/auth/userinfo.email",
-      "https://www.googleapis.com/auth/userinfo.profile",
-      "https://www.googleapis.com/auth/calendar",
-      "https://www.googleapis.com/auth/drive.file",
-      "https://www.googleapis.com/auth/spreadsheets",
-      "https://www.googleapis.com/auth/documents",
-      "https://www.googleapis.com/auth/gmail.send",
-      "https://www.googleapis.com/auth/youtube.readonly",
-    ],
-    gmail: [
-      "https://www.googleapis.com/auth/userinfo.email",
-      "https://www.googleapis.com/auth/userinfo.profile",
-      "https://www.googleapis.com/auth/gmail.send",
-      "https://www.googleapis.com/auth/gmail.modify",
-      "https://www.googleapis.com/auth/gmail.readonly",
-    ],
-    "google-drive": [
-      "https://www.googleapis.com/auth/userinfo.email",
-      "https://www.googleapis.com/auth/userinfo.profile",
-      "https://www.googleapis.com/auth/drive",
-      "https://www.googleapis.com/auth/drive.file",
-    ],
-    "google-calendar": [
-      "https://www.googleapis.com/auth/userinfo.email",
-      "https://www.googleapis.com/auth/userinfo.profile",
-      "https://www.googleapis.com/auth/calendar",
-      "https://www.googleapis.com/auth/calendar.events",
-    ],
-    "google-sheets": [
-      "https://www.googleapis.com/auth/userinfo.email",
-      "https://www.googleapis.com/auth/userinfo.profile",
-      "https://www.googleapis.com/auth/spreadsheets",
-    ],
-    "google-docs": [
-      "https://www.googleapis.com/auth/userinfo.email",
-      "https://www.googleapis.com/auth/userinfo.profile",
-      "https://www.googleapis.com/auth/documents",
-      "https://www.googleapis.com/auth/drive.file",
-    ],
-    youtube: [
-      "https://www.googleapis.com/auth/userinfo.email",
-      "https://www.googleapis.com/auth/userinfo.profile",
-      "https://www.googleapis.com/auth/youtube.readonly",
-      "https://www.googleapis.com/auth/youtube.upload",
-    ],
-    slack: [
-      "channels:read",
-      "chat:write",
-      "users:read",
-      "team:read",
-      "files:write",
-      "channels:history",
-      "groups:history",
-      "im:history",
-      "mpim:history",
-    ],
-    discord: ["identify", "guilds", "guilds.join", "messages.read"],
-    github: ["repo", "user", "workflow"],
-    twitter: ["tweet.read", "tweet.write", "users.read", "follows.read", "follows.write"],
-    linkedin: ["r_liteprofile", "r_emailaddress", "w_member_social"],
-    facebook: ["email", "public_profile", "pages_manage_posts", "pages_read_engagement"],
-    instagram: ["instagram_basic", "instagram_content_publish"],
-    dropbox: ["files.metadata.write", "files.content.write", "files.content.read"],
-    teams: [
-      "openid",
-      "profile",
-      "email",
-      "offline_access",
-      "https://graph.microsoft.com/User.Read",
-      "https://graph.microsoft.com/Chat.ReadWrite",
-      "https://graph.microsoft.com/ChannelMessage.Send",
-      "https://graph.microsoft.com/Team.ReadBasic.All",
-    ],
-    onedrive: [
-      "openid",
-      "profile",
-      "email",
-      "offline_access",
-      "https://graph.microsoft.com/User.Read",
-      "https://graph.microsoft.com/Files.ReadWrite.All",
-      "https://graph.microsoft.com/Sites.ReadWrite.All",
-    ],
-    hubspot: ["contacts", "content", "reports", "social", "automation"],
-    notion: ["read", "update", "insert"],
-    trello: ["read", "write", "account"],
-    airtable: ["data.records:read", "data.records:write", "schema.bases:read"],
-    shopify: ["read_products", "write_products", "read_orders", "write_orders"],
-    stripe: ["read_write"],
-    paypal: ["openid", "profile", "email"],
-    tiktok: ["user.info.basic", "video.list", "video.upload"],
-    mailchimp: ["read", "write"],
-    gitlab: ["read_user", "read_repository", "write_repository"],
-    docker: ["repo:read", "repo:write"],
+  switch (provider.toLowerCase()) {
+    case "slack":
+      return ["chat:write", "channels:read", "users:read"]
+    case "discord":
+      return ["identify", "guilds"]
+    case "google":
+      return ["https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"]
+    case "github":
+      return ["repo", "user"]
+    case "trello":
+      return ["read", "write"]
+    case "notion":
+      return ["read_content", "insert_content"]
+    case "airtable":
+      return ["data.records:read", "data.records:write"]
+    case "dropbox":
+      return ["files.content.read", "files.content.write"]
+    case "hubspot":
+      return ["crm.objects.contacts.read", "crm.objects.deals.read"]
+    case "linkedin":
+      return ["r_liteprofile", "w_member_social"]
+    case "facebook":
+      return ["pages_manage_posts", "pages_read_engagement"]
+    case "teams":
+      return ["User.Read", "Chat.ReadWrite"]
+    default:
+      return []
   }
-
-  return scopeMap[provider] || []
-}
-
-// Generate OAuth state parameter
-export function generateOAuthState(data: any): string {
-  return btoa(
-    JSON.stringify({
-      ...data,
-      timestamp: Date.now(),
-    }),
-  )
-}
-
-// Validate OAuth callback parameters
-export function validateOAuthCallback(code: string, state: string) {
-  if (!code) {
-    throw new Error("Missing authorization code")
-  }
-
-  if (!state) {
-    throw new Error("Missing state parameter")
-  }
-
-  return parseOAuthState(state)
-}
-
-// Create server-side Supabase client
-export function createServerSupabaseClient() {
-  return createAdminSupabaseClient()
 }
