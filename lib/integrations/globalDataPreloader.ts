@@ -1,18 +1,4 @@
-import { createClient } from "@supabase/supabase-js"
-import type { Database } from "@/types/supabase"
-
-// Create a client-side Supabase client for the preloader
-function createSupabaseClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-  if (!supabaseUrl || !supabaseAnonKey) {
-    console.error("Missing Supabase environment variables for preloader")
-    return null
-  }
-
-  return createClient<Database>(supabaseUrl, supabaseAnonKey)
-}
+import { supabase } from "@/lib/supabase"
 
 interface PreloadConfig {
   provider: string
@@ -257,12 +243,6 @@ class GlobalDataPreloader {
 
   async validateUserAccess(): Promise<boolean> {
     try {
-      const supabase = createSupabaseClient()
-      if (!supabase) {
-        console.error("Failed to create Supabase client for user validation")
-        return false
-      }
-
       const { data: user } = await supabase.auth.getUser()
       return !!user.user
     } catch (error) {

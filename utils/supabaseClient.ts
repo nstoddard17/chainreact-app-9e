@@ -1,11 +1,18 @@
-import { createClient } from "@supabase/supabase-js"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import type { Database } from "@/types/supabase"
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+// Create a singleton Supabase client for client-side usage
+let supabaseClient: ReturnType<typeof createClientComponentClient<Database>> | null = null
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error("Missing Supabase environment variables")
+export function createClient() {
+  if (!supabaseClient) {
+    supabaseClient = createClientComponentClient<Database>()
+  }
+  return supabaseClient
 }
 
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey)
+// Export the client instance
+export const supabase = createClient()
+
+// Re-export for compatibility
+export default supabase
