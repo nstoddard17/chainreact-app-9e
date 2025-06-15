@@ -1,454 +1,418 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
-import { createClient } from "@supabase/supabase-js"
-import { toast } from "@/hooks/use-toast"
+import { detectAvailableIntegrations, type IntegrationConfig } from "@/lib/integrations/availableIntegrations"
 
-// Types
-interface Integration {
+export interface Integration {
   id: string
   user_id: string
   provider: string
   provider_user_id?: string
-  status: "connected" | "disconnected" | "error"
+  status: "connected" | "disconnected" | "error" | "pending"
   access_token?: string
   refresh_token?: string
-  expires_at?: string
+  expires_at?: string | null
   scopes?: string[]
-  metadata?: any
+  metadata?: Record<string, any>
   created_at: string
   updated_at: string
   last_sync?: string
   error_message?: string
 }
 
-interface Provider {
-  id: string
-  name: string
-  description: string
-  category: string
-  icon: string
-  color: string
-  isAvailable: boolean
-  capabilities?: string[]
+interface DynamicData {
+  [provider: string]: {
+    [dataType: string]: Array<{
+      id: string
+      name: string
+      value: string
+      metadata?: Record<string, any>
+    }>
+  }
 }
 
 interface IntegrationStore {
+  // State
   integrations: Integration[]
-  providers: Provider[]
+  providers: IntegrationConfig[]
+  dynamicData: DynamicData
   isLoading: boolean
   error: string | null
+  lastFetch: number | null
   debugInfo: any
+
+  // Loading states for specific operations
+  loadingStates: Record<string, boolean>
 
   // Actions
   initializeProviders: () => void
-  fetchIntegrations: (forceRefresh?: boolean) => Promise<void>
+  fetchIntegrations: (force?: boolean) => Promise<void>
   connectIntegration: (providerId: string) => Promise<void>
   disconnectIntegration: (integrationId: string) => Promise<void>
+  refreshIntegration: (integrationId: string) => Promise<void>
   refreshAllTokens: () => Promise<void>
-  clearError: () => void
 
-  // Utilities
-  getIntegrationByProvider: (providerId: string) => Integration | null
+  // Dynamic data methods
+  getDynamicData: (provider: string, dataType: string) => any[]
+  fetchDynamicData: (provider: string, dataType: string) => Promise<void>
+  isResourceLoading: (provider: string, dataType: string) => boolean
+
+  // Utility methods
   getIntegrationStatus: (providerId: string) => string
   getConnectedProviders: () => string[]
-}
-
-// Create Supabase client for client-side operations
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-
-const supabase = createClient(supabaseUrl, supabaseAnonKey)
-
-// Helper function to get authenticated user
-const getAuthenticatedUser = async () => {
-  try {
-    const {
-      data: { session },
-      error,
-    } = await supabase.auth.getSession()
-
-    if (error) {
-      console.error("Session error:", error)
-      throw new Error(`Authentication error: ${error.message}`)
-    }
-
-    if (!session?.user?.id) {
-      console.error("No valid session found")
-      throw new Error("Please log in to continue")
-    }
-
-    console.log("✅ User authenticated:", session.user.id)
-    return session
-  } catch (error) {
-    console.error("❌ Authentication failed:", error)
-    throw error
-  }
-}
-
-// Helper function to make authenticated API calls
-const makeAuthenticatedRequest = async (url: string, options: RequestInit = {}) => {
-  try {
-    const session = await getAuthenticatedUser()
-
-    const headers = {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${session.access_token}`,
-      ...options.headers,
-    }
-
-    console.log(`🔄 Making authenticated request to ${url}`)
-
-    const response = await fetch(url, {
-      ...options,
-      headers,
-    })
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      console.error(`❌ API request failed:`, {
-        url,
-        status: response.status,
-        statusText: response.statusText,
-        error: errorData,
-      })
-
-      if (response.status === 401) {
-        throw new Error("Your session has expired. Please log in again.")
-      }
-
-      throw new Error(errorData.error || `Request failed: ${response.statusText}`)
-    }
-
-    const data = await response.json()
-    console.log(`✅ API request successful:`, { url, dataCount: data.data?.length || 0 })
-    return data
-  } catch (error) {
-    console.error(`❌ Request to ${url} failed:`, error)
-    throw error
-  }
+  getIntegrationByProvider: (providerId: string) => Integration | null
+  clearError: () => void
+  setLoading: (key: string, loading: boolean) => void
+  setDebugInfo: (info: any) => void
 }
 
 export const useIntegrationStore = create<IntegrationStore>()(
   persist(
     (set, get) => ({
+      // Initial state
       integrations: [],
       providers: [],
+      dynamicData: {},
       isLoading: false,
       error: null,
-      debugInfo: {},
+      lastFetch: null,
+      loadingStates: {},
+      debugInfo: null,
 
+      // Initialize providers based on environment variables
       initializeProviders: () => {
-        console.log("🚀 Initializing providers...")
-
-        // Available providers based on environment variables
-        const availableProviders: Provider[] = [
-          {
-            id: "google",
-            name: "Google",
-            description: "Connect your Google account for Gmail, Drive, Calendar, and more",
-            category: "Productivity",
-            icon: "🔍",
-            color: "#4285f4",
-            isAvailable: !!process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
-            capabilities: ["email", "calendar", "drive", "sheets", "docs"],
-          },
-          {
-            id: "slack",
-            name: "Slack",
-            description: "Send messages and manage channels in your Slack workspace",
-            category: "Communication",
-            icon: "💬",
-            color: "#4a154b",
-            isAvailable: !!process.env.NEXT_PUBLIC_SLACK_CLIENT_ID,
-            capabilities: ["messaging", "channels", "files"],
-          },
-          {
-            id: "github",
-            name: "GitHub",
-            description: "Manage repositories, issues, and pull requests",
-            category: "Development",
-            icon: "🐙",
-            color: "#333",
-            isAvailable: !!process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID,
-            capabilities: ["repositories", "issues", "pull_requests"],
-          },
-          {
-            id: "discord",
-            name: "Discord",
-            description: "Send messages and manage Discord servers",
-            category: "Communication",
-            icon: "🎮",
-            color: "#5865f2",
-            isAvailable: !!process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID,
-            capabilities: ["messaging", "servers", "voice"],
-          },
-          {
-            id: "notion",
-            name: "Notion",
-            description: "Create and manage pages, databases, and content",
-            category: "Productivity",
-            icon: "📝",
-            color: "#000",
-            isAvailable: !!process.env.NEXT_PUBLIC_NOTION_CLIENT_ID,
-            capabilities: ["pages", "databases", "blocks"],
-          },
-          {
-            id: "trello",
-            name: "Trello",
-            description: "Manage boards, lists, and cards",
-            category: "Project Management",
-            icon: "📋",
-            color: "#0079bf",
-            isAvailable: !!process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID,
-            capabilities: ["boards", "lists", "cards"],
-          },
-          {
-            id: "airtable",
-            name: "Airtable",
-            description: "Manage databases and records",
-            category: "Database",
-            icon: "🗃️",
-            color: "#18bfff",
-            isAvailable: !!process.env.NEXT_PUBLIC_AIRTABLE_CLIENT_ID,
-            capabilities: ["bases", "tables", "records"],
-          },
-          {
-            id: "hubspot",
-            name: "HubSpot",
-            description: "Manage contacts, deals, and CRM data",
-            category: "CRM",
-            icon: "🎯",
-            color: "#ff7a59",
-            isAvailable: !!process.env.NEXT_PUBLIC_HUBSPOT_CLIENT_ID,
-            capabilities: ["contacts", "deals", "companies"],
-          },
-        ].filter((provider) => provider.isAvailable)
-
-        console.log(
-          `✅ Initialized ${availableProviders.length} providers:`,
-          availableProviders.map((p) => p.name),
-        )
-
-        set({
-          providers: availableProviders,
-          debugInfo: {
-            ...get().debugInfo,
-            providersInitialized: new Date().toISOString(),
-            availableProviders: availableProviders.length,
-          },
+        const availableProviders = detectAvailableIntegrations()
+        console.log("🔧 Detected integrations:", {
+          total: availableProviders.length,
+          available: availableProviders.filter((p) => p.isAvailable).length,
+          unavailable: availableProviders.filter((p) => !p.isAvailable).length,
         })
+
+        set({ providers: availableProviders })
       },
 
-      fetchIntegrations: async (forceRefresh = false) => {
-        const { isLoading } = get()
+      // Fetch integrations with enhanced debugging
+      fetchIntegrations: async (force = false) => {
+        const { setLoading, lastFetch } = get()
 
-        if (isLoading && !forceRefresh) {
-          console.log("⏳ Already loading integrations, skipping...")
+        // Skip if recently fetched and not forced
+        if (!force && lastFetch && Date.now() - lastFetch < 30000) {
+          console.log("⏭️ Skipping fetch - recently fetched")
           return
         }
 
+        setLoading("fetchIntegrations", true)
+
         try {
-          set({ isLoading: true, error: null })
-          console.log("📊 Fetching integrations...")
+          console.log("🔄 Fetching integrations from API...")
 
-          // Verify authentication first
-          const session = await getAuthenticatedUser()
-
-          const data = await makeAuthenticatedRequest("/api/integrations")
-
-          const integrations = data.data || []
-          console.log(`✅ Fetched ${integrations.length} integrations:`, integrations)
-
-          set({
-            integrations,
-            isLoading: false,
-            debugInfo: {
-              ...get().debugInfo,
-              lastFetch: new Date().toISOString(),
-              integrationCount: integrations.length,
-              connectedCount: integrations.filter((i: Integration) => i.status === "connected").length,
-              userId: session.user.id,
+          const response = await fetch("/api/integrations", {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
             },
+            credentials: "include", // Important for session cookies
           })
+
+          console.log("📡 API Response status:", response.status)
+
+          if (!response.ok) {
+            const errorText = await response.text()
+            console.error("❌ API Error:", errorText)
+            throw new Error(`API Error: ${response.status} - ${errorText}`)
+          }
+
+          const data = await response.json()
+          console.log("📦 Raw API Response:", data)
+
+          if (data.success && Array.isArray(data.data)) {
+            const integrations = data.data
+            console.log("✅ Integrations fetched successfully:", {
+              count: integrations.length,
+              integrations: integrations.map((i) => ({
+                id: i.id,
+                provider: i.provider,
+                status: i.status,
+                created_at: i.created_at,
+              })),
+            })
+
+            set({
+              integrations,
+              error: null,
+              lastFetch: Date.now(),
+              debugInfo: {
+                lastFetch: new Date().toISOString(),
+                count: integrations.length,
+                providers: integrations.map((i) => i.provider),
+                statuses: integrations.reduce(
+                  (acc, i) => {
+                    acc[i.provider] = i.status
+                    return acc
+                  },
+                  {} as Record<string, string>,
+                ),
+              },
+            })
+          } else {
+            console.error("❌ Invalid API response format:", data)
+            throw new Error(data.error || "Invalid response format from API")
+          }
         } catch (error: any) {
           console.error("❌ Failed to fetch integrations:", error)
-
-          let errorMessage = "Failed to load integrations"
-
-          if (error.message.includes("session has expired") || error.message.includes("log in")) {
-            errorMessage = "Your session has expired. Please refresh the page and log in again."
-          } else if (error.message.includes("Authentication")) {
-            errorMessage = "Authentication failed. Please log in to continue."
-          } else {
-            errorMessage = error.message || "Failed to load integrations. Please try again."
-          }
-
           set({
-            error: errorMessage,
-            isLoading: false,
+            error: error.message || "Failed to fetch integrations",
             debugInfo: {
-              ...get().debugInfo,
-              lastError: {
-                message: error.message,
-                timestamp: new Date().toISOString(),
-              },
+              error: error.message,
+              timestamp: new Date().toISOString(),
             },
           })
-
-          toast({
-            title: "Error Loading Integrations",
-            description: errorMessage,
-            variant: "destructive",
-            duration: 7000,
-          })
+        } finally {
+          setLoading("fetchIntegrations", false)
         }
       },
 
+      // Connect integration
       connectIntegration: async (providerId: string) => {
+        const { setLoading, providers } = get()
+        const provider = providers.find((p) => p.id === providerId)
+
+        if (!provider) {
+          throw new Error(`Provider ${providerId} not found`)
+        }
+
+        if (!provider.isAvailable) {
+          throw new Error(`${provider.name} integration is not configured. Missing environment variables.`)
+        }
+
+        setLoading(`connect-${providerId}`, true)
+
         try {
-          console.log(`🔗 Connecting integration: ${providerId}`)
-
-          // Verify authentication first
-          const session = await getAuthenticatedUser()
-
-          set({ isLoading: true, error: null })
+          console.log(`🔗 Connecting to ${providerId}...`)
 
           // Generate OAuth URL
-          const data = await makeAuthenticatedRequest("/api/integrations/oauth/generate-url", {
+          const response = await fetch("/api/integrations/oauth/generate-url", {
             method: "POST",
-            body: JSON.stringify({ provider: providerId }),
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              provider: providerId,
+            }),
           })
 
-          if (!data.success || !data.authUrl) {
-            throw new Error(data.error || "Failed to generate authorization URL")
+          if (!response.ok) {
+            const errorData = await response.json()
+            throw new Error(errorData.error || "Failed to generate OAuth URL")
           }
 
-          console.log(`✅ Generated OAuth URL for ${providerId}`)
+          const data = await response.json()
 
-          // Store the provider we're connecting for callback handling
-          sessionStorage.setItem("connecting_provider", providerId)
+          if (data.success && data.authUrl) {
+            // Open OAuth URL in new window
+            const popup = window.open(data.authUrl, "_blank", "width=600,height=700,scrollbars=yes,resizable=yes")
 
-          // Redirect to OAuth provider
-          window.location.href = data.authUrl
+            if (!popup) {
+              throw new Error("Popup blocked. Please allow popups for this site to connect integrations.")
+            }
+
+            console.log(`✅ OAuth URL opened for ${providerId}`)
+          } else {
+            throw new Error(data.error || "Failed to generate OAuth URL")
+          }
         } catch (error: any) {
           console.error(`❌ Failed to connect ${providerId}:`, error)
-
-          let errorMessage = `Failed to connect ${providerId}`
-
-          if (error.message.includes("session has expired") || error.message.includes("log in")) {
-            errorMessage = "Your session has expired. Please refresh the page and log in again."
-          } else if (error.message.includes("Authentication")) {
-            errorMessage = "Authentication failed. Please log in to continue."
-          } else {
-            errorMessage = error.message || `Failed to connect ${providerId}. Please try again.`
-          }
-
-          set({
-            error: errorMessage,
-            isLoading: false,
-          })
-
-          toast({
-            title: "Connection Failed",
-            description: errorMessage,
-            variant: "destructive",
-            duration: 7000,
-          })
+          set({ error: error.message })
+          throw error
+        } finally {
+          setLoading(`connect-${providerId}`, false)
         }
       },
 
+      // Disconnect integration
       disconnectIntegration: async (integrationId: string) => {
+        const { setLoading } = get()
+        setLoading(`disconnect-${integrationId}`, true)
+
         try {
-          console.log(`🔌 Disconnecting integration: ${integrationId}`)
-
-          // Verify authentication first
-          await getAuthenticatedUser()
-
-          set({ isLoading: true, error: null })
-
-          await makeAuthenticatedRequest(`/api/integrations/${integrationId}`, {
+          const response = await fetch(`/api/integrations/${integrationId}`, {
             method: "DELETE",
           })
 
-          console.log(`✅ Disconnected integration: ${integrationId}`)
+          const data = await response.json()
 
-          // Refresh integrations list
-          await get().fetchIntegrations(true)
+          if (!response.ok || !data.success) {
+            throw new Error(data.error || "Failed to disconnect integration")
+          }
 
-          toast({
-            title: "Integration Disconnected",
-            description: "The integration has been successfully disconnected.",
-            duration: 5000,
-          })
+          // Update local state
+          set((state) => ({
+            integrations: state.integrations.map((i) =>
+              i.id === integrationId ? { ...i, status: "disconnected" as const } : i,
+            ),
+          }))
         } catch (error: any) {
-          console.error(`❌ Failed to disconnect integration:`, error)
-
-          const errorMessage = error.message || "Failed to disconnect integration. Please try again."
-
-          set({
-            error: errorMessage,
-            isLoading: false,
-          })
-
-          toast({
-            title: "Disconnection Failed",
-            description: errorMessage,
-            variant: "destructive",
-            duration: 7000,
-          })
+          console.error("Failed to disconnect integration:", error)
+          set({ error: error.message })
+          throw error
+        } finally {
+          setLoading(`disconnect-${integrationId}`, false)
         }
       },
 
-      refreshAllTokens: async () => {
+      // Refresh integration
+      refreshIntegration: async (integrationId: string) => {
+        const { setLoading } = get()
+        setLoading(`refresh-${integrationId}`, true)
+
         try {
-          console.log("🔄 Refreshing all tokens...")
-
-          // Verify authentication first
-          const session = await getAuthenticatedUser()
-
-          const data = await makeAuthenticatedRequest("/api/integrations/refresh-all-tokens", {
+          const response = await fetch(`/api/integrations/${integrationId}/refresh`, {
             method: "POST",
-            body: JSON.stringify({ userId: session.user.id }),
           })
 
-          console.log("✅ Token refresh completed:", data.stats)
+          const data = await response.json()
 
-          // Refresh integrations list
+          if (!response.ok || !data.success) {
+            throw new Error(data.error || "Failed to refresh integration")
+          }
+
+          // Update the integration in the store
+          set((state) => ({
+            integrations: state.integrations.map((i) =>
+              i.id === integrationId ? { ...i, last_sync: new Date().toISOString(), status: "connected" } : i,
+            ),
+          }))
+        } catch (error: any) {
+          console.error("Failed to refresh integration:", error)
+          set({ error: error.message })
+          throw error
+        } finally {
+          setLoading(`refresh-${integrationId}`, false)
+        }
+      },
+
+      // Refresh all tokens
+      refreshAllTokens: async () => {
+        const { setLoading } = get()
+        setLoading("refreshAllTokens", true)
+
+        try {
+          const response = await fetch("/api/integrations/refresh-all-tokens", {
+            method: "POST",
+          })
+
+          const data = await response.json()
+
+          if (!response.ok || !data.success) {
+            throw new Error(data.error || "Failed to refresh tokens")
+          }
+
+          // Refresh integrations list after token refresh
           await get().fetchIntegrations(true)
-
           return data
         } catch (error: any) {
-          console.error("❌ Failed to refresh tokens:", error)
+          console.error("Failed to refresh all tokens:", error)
+          set({ error: error.message })
           throw error
+        } finally {
+          setLoading("refreshAllTokens", false)
         }
       },
 
-      clearError: () => {
-        set({ error: null })
+      // Get dynamic data
+      getDynamicData: (provider: string, dataType: string) => {
+        const { dynamicData } = get()
+        return dynamicData[provider]?.[dataType] || []
       },
 
-      // Utility functions
-      getIntegrationByProvider: (providerId: string) => {
-        const { integrations } = get()
-        return integrations.find((i) => i.provider === providerId) || null
+      // Fetch dynamic data
+      fetchDynamicData: async (provider: string, dataType: string) => {
+        const { setLoading } = get()
+        const key = `${provider}-${dataType}`
+        setLoading(key, true)
+
+        try {
+          const response = await fetch("/api/integrations/fetch-user-data", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              provider,
+              dataType,
+            }),
+          })
+
+          const data = await response.json()
+
+          if (response.ok && data.success && data.data) {
+            set((state) => ({
+              dynamicData: {
+                ...state.dynamicData,
+                [provider]: {
+                  ...state.dynamicData[provider],
+                  [dataType]: data.data,
+                },
+              },
+            }))
+          }
+        } catch (error: any) {
+          console.warn(`Failed to fetch ${provider} ${dataType}:`, error)
+        } finally {
+          setLoading(key, false)
+        }
       },
 
+      // Check if resource is loading
+      isResourceLoading: (provider: string, dataType: string) => {
+        const { loadingStates } = get()
+        return loadingStates[`${provider}-${dataType}`] || false
+      },
+
+      // Get integration status by provider ID
       getIntegrationStatus: (providerId: string) => {
-        const integration = get().getIntegrationByProvider(providerId)
-        return integration?.status || "disconnected"
+        const { integrations } = get()
+        const integration = integrations.find((i) => i.provider === providerId)
+        const status = integration?.status || "disconnected"
+        console.log(`🔍 Status for ${providerId}:`, status, integration)
+        return status
       },
 
+      // Get connected providers
       getConnectedProviders: () => {
         const { integrations } = get()
-        return integrations.filter((i) => i.status === "connected").map((i) => i.provider)
+        const connected = integrations.filter((i) => i.status === "connected").map((i) => i.provider)
+        console.log("🔗 Connected providers:", connected)
+        return connected
       },
+
+      // Get integration by provider
+      getIntegrationByProvider: (providerId: string) => {
+        const { integrations } = get()
+        const integration = integrations.find((i) => i.provider === providerId)
+        console.log(`🔍 Integration for ${providerId}:`, integration)
+        return integration || null
+      },
+
+      // Utility methods
+      clearError: () => set({ error: null }),
+
+      setLoading: (key: string, loading: boolean) => {
+        set((state) => ({
+          loadingStates: {
+            ...state.loadingStates,
+            [key]: loading,
+          },
+        }))
+      },
+
+      setDebugInfo: (info: any) => set({ debugInfo: info }),
     }),
     {
       name: "integration-store",
       partialize: (state) => ({
-        // Only persist non-sensitive data
-        providers: state.providers,
-        debugInfo: state.debugInfo,
+        integrations: state.integrations,
+        dynamicData: state.dynamicData,
+        lastFetch: state.lastFetch,
       }),
     },
   ),
