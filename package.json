@@ -81,7 +81,6 @@
     "mysql2": "latest",
     "next": "15.2.4",
     "next-themes": "latest",
-    "node:buffer": "latest",
     "openai": "latest",
     "pg": "latest",
     "postgres": "latest",

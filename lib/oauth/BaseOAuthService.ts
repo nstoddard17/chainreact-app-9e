@@ -1,6 +1,5 @@
 import { createAdminSupabaseClient, upsertIntegration, validateScopes, getRequiredScopes } from "./utils"
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
-import { Buffer } from "node:buffer"
 
 export interface OAuthResult {
   success: boolean
@@ -14,115 +13,7 @@ export class BaseOAuthService {
    */
   static getRedirectUri(provider: string): string {
     const baseUrl = getBaseUrl()
-    // Ensure baseUrl doesn't end with a slash
-    const cleanBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl
-    return `${cleanBaseUrl}/api/integrations/${provider}/callback`
-  }
-
-  /**
-   * Generate PKCE code verifier
-   */
-  protected static generateCodeVerifier(): string {
-    const array = new Uint8Array(32)
-    if (typeof crypto !== "undefined" && crypto.getRandomValues) {
-      crypto.getRandomValues(array)
-    } else {
-      // Fallback for server-side
-      for (let i = 0; i < array.length; i++) {
-        array[i] = Math.floor(Math.random() * 256)
-      }
-    }
-    return btoa(String.fromCharCode.apply(null, Array.from(array)))
-      .replace(/\+/g, "-")
-      .replace(/\//g, "_")
-      .replace(/=/g, "")
-  }
-
-  /**
-   * Generate PKCE code challenge
-   */
-  protected static async generateCodeChallenge(verifier: string): Promise<string> {
-    if (typeof crypto !== "undefined" && crypto.subtle) {
-      const encoder = new TextEncoder()
-      const data = encoder.encode(verifier)
-      const digest = await crypto.subtle.digest("SHA-256", data)
-      return btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(digest))))
-        .replace(/\+/g, "-")
-        .replace(/\//g, "_")
-        .replace(/=/g, "")
-    } else {
-      // Fallback - use plain verifier (not recommended for production)
-      return verifier
-    }
-  }
-
-  /**
-   * Generate authorization URL with PKCE
-   */
-  static async generateAuthUrl(
-    provider: string,
-    baseUrl: string,
-    reconnect = false,
-    integrationId?: string,
-    userId?: string,
-  ): Promise<string> {
-    const clientId = process.env[`NEXT_PUBLIC_${provider.toUpperCase()}_CLIENT_ID`]
-    if (!clientId) {
-      throw new Error(`Missing ${provider} OAuth configuration`)
-    }
-
-    // Ensure baseUrl doesn't end with a slash
-    const cleanBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl
-    const redirectUri = `${cleanBaseUrl}/api/integrations/${provider}/callback`
-
-    console.log(`Generating ${provider} auth URL:`, {
-      baseUrl: cleanBaseUrl,
-      redirectUri,
-      hasUserId: !!userId
-    })
-
-    // Generate PKCE parameters
-    const codeVerifier = this.generateCodeVerifier()
-    const codeChallenge = await this.generateCodeChallenge(codeVerifier)
-
-    // Get required scopes
-    const scopes = this.getRequiredScopes()
-
-    // Store the code verifier in state
-    const stateData = {
-      provider,
-      reconnect,
-      integrationId,
-      userId,
-      requireFullScopes: true,
-      timestamp: Date.now(),
-      codeVerifier, // Store verifier in state for later use
-    }
-
-    // Ensure the state is properly encoded
-    const state = btoa(JSON.stringify(stateData))
-
-    const params = new URLSearchParams({
-      response_type: "code",
-      client_id: clientId,
-      redirect_uri: redirectUri,
-      scope: scopes.join(" "),
-      state,
-      code_challenge: codeChallenge,
-      code_challenge_method: "S256",
-    })
-
-    const authUrl = `${this.getAuthorizationEndpoint(provider)}?${params.toString()}`
-    console.log(`Generated ${provider} auth URL:`, authUrl)
-    return authUrl
-  }
-
-  /**
-   * Get authorization endpoint for provider
-   * To be implemented by provider-specific services
-   */
-  protected static getAuthorizationEndpoint(provider: string): string {
-    throw new Error("Not implemented")
+    return `${baseUrl}/api/integrations/${provider}/callback`
   }
 
   /**
@@ -134,7 +25,6 @@ export class BaseOAuthService {
     redirectUri: string,
     clientId: string,
     clientSecret: string,
-    codeVerifier?: string,
   ): Promise<any> {
     throw new Error("Not implemented")
   }
@@ -169,22 +59,6 @@ export class BaseOAuthService {
    */
   static async handleCallback(provider: string, code: string, state: string, userId: string): Promise<OAuthResult> {
     try {
-      // Parse state
-      let stateData
-      try {
-        stateData = JSON.parse(atob(state))
-      } catch (error) {
-        console.error("Failed to parse state:", error)
-        throw new Error("Invalid state format")
-      }
-
-      const { codeVerifier } = stateData
-
-      if (!codeVerifier) {
-        console.error("Missing code verifier in state:", stateData)
-        throw new Error("Missing code verifier in state")
-      }
-
       // Get client credentials
       const clientId = process.env[`NEXT_PUBLIC_${provider.toUpperCase()}_CLIENT_ID`]
       const clientSecret = process.env[`${provider.toUpperCase()}_CLIENT_SECRET`]
@@ -197,16 +71,8 @@ export class BaseOAuthService {
       const redirectUri = this.getRedirectUri(provider)
       const baseUrl = getBaseUrl()
 
-      console.log(`Processing ${provider} callback:`, {
-        hasCode: !!code,
-        hasState: !!state,
-        hasCodeVerifier: !!codeVerifier,
-        baseUrl,
-        redirectUri
-      })
-
       // Exchange code for token
-      const tokenResponse = await this.exchangeCodeForToken(code, redirectUri, clientId, clientSecret, codeVerifier)
+      const tokenResponse = await this.exchangeCodeForToken(code, redirectUri, clientId, clientSecret)
 
       // Parse scopes from token response
       const grantedScopes = this.parseScopes(tokenResponse)
@@ -219,13 +85,13 @@ export class BaseOAuthService {
         console.error(`${provider} scope validation failed:`, {
           required: requiredScopes,
           granted: grantedScopes,
-          missing: scopeValidation.missing,
+          missing: scopeValidation.missingScopes,
         })
 
         return {
           success: false,
           redirectUrl: `${baseUrl}/integrations?error=insufficient_scopes&provider=${provider}&message=${encodeURIComponent(
-            `Missing required permissions: ${scopeValidation.missing.join(", ")}. Please reconnect and accept all permissions.`,
+            `Missing required permissions: ${scopeValidation.missingScopes.join(", ")}. Please reconnect and accept all permissions.`,
           )}`,
           error: "Insufficient scopes",
         }

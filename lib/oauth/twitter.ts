@@ -1,5 +1,3 @@
-import { Buffer } from "node:buffer"
-
 interface TwitterOAuthResult {
   success: boolean
   redirectUrl: string
@@ -56,44 +54,25 @@ export class TwitterOAuthService {
     userId?: string,
   ): Promise<string> {
     const { clientId } = this.getClientCredentials()
-    
-    // Ensure baseUrl doesn't end with a slash
-    const cleanBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl
-    const redirectUri = `${cleanBaseUrl}/api/integrations/twitter/callback`
-
-    console.log("Generating Twitter auth URL:", {
-      baseUrl: cleanBaseUrl,
-      redirectUri,
-      hasUserId: !!userId
-    })
+    const redirectUri = `${baseUrl}/api/integrations/twitter/callback`
 
     // Generate PKCE parameters
     const codeVerifier = this.generateCodeVerifier()
     const codeChallenge = await this.generateCodeChallenge(codeVerifier)
 
-    // Updated scopes based on Twitter's current requirements
-    const scopes = [
-      "tweet.read",
-      "tweet.write",
-      "users.read",
-      "offline.access",
-      "like.read",
-      "like.write"
-    ]
+    const scopes = ["tweet.read", "tweet.write", "users.read", "offline.access"]
 
-    // Store the code verifier in a more secure way
-    const stateData = {
-      provider: "twitter",
-      reconnect,
-      integrationId,
-      userId,
-      requireFullScopes: true,
-      timestamp: Date.now(),
-      codeVerifier, // Store verifier in state for later use
-    }
-
-    // Ensure the state is properly encoded
-    const state = btoa(JSON.stringify(stateData))
+    const state = btoa(
+      JSON.stringify({
+        provider: "twitter",
+        reconnect,
+        integrationId,
+        userId,
+        requireFullScopes: true,
+        timestamp: Date.now(),
+        codeVerifier, // Store verifier in state for later use
+      }),
+    )
 
     const params = new URLSearchParams({
       response_type: "code",
@@ -105,9 +84,7 @@ export class TwitterOAuthService {
       code_challenge_method: "S256",
     })
 
-    const authUrl = `https://twitter.com/i/oauth2/authorize?${params.toString()}`
-    console.log("Generated Twitter auth URL:", authUrl)
-    return authUrl
+    return `https://twitter.com/i/oauth2/authorize?${params.toString()}`
   }
 
   static async handleCallback(
@@ -117,15 +94,7 @@ export class TwitterOAuthService {
     supabase: any,
   ): Promise<TwitterOAuthResult> {
     try {
-      // Properly decode and parse the state
-      let stateData
-      try {
-        stateData = JSON.parse(atob(state))
-      } catch (error) {
-        console.error("Failed to parse state:", error)
-        throw new Error("Invalid state format")
-      }
-
+      const stateData = JSON.parse(atob(state))
       const { provider, reconnect, integrationId, requireFullScopes, codeVerifier, userId } = stateData
 
       if (provider !== "twitter") {
@@ -133,7 +102,6 @@ export class TwitterOAuthService {
       }
 
       if (!codeVerifier) {
-        console.error("Missing code verifier in state:", stateData)
         throw new Error("Missing code verifier in state")
       }
 

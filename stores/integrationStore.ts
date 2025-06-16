@@ -233,6 +233,8 @@ export const useIntegrationStore = create<IntegrationStore>((set, get) => ({
 
             if (!closedByMessage) {
               console.log(`❌ Popup closed manually for ${providerId}`)
+              // Remove localStorage key when popup closed manually
+              localStorage.removeItem("integration_connecting")
               setLoading(`connect-${providerId}`, false)
               get().fetchIntegrations(true)
             }
@@ -243,21 +245,29 @@ export const useIntegrationStore = create<IntegrationStore>((set, get) => ({
           if (event.origin !== window.location.origin) return
           if (event.data?.provider !== providerId) return
 
-          console.log(`Received message from ${providerId} popup:`, event.data)
-
           closedByMessage = true
           clearInterval(checkClosed)
           window.removeEventListener("message", messageHandler)
 
-          if (event.data.type === `${providerId}-integration-success`) {
-            console.log(`✅ ${providerId} integration successful`)
-            get().fetchIntegrations(true)
-          } else if (event.data.type === `${providerId}-integration-error`) {
-            console.error(`❌ ${providerId} integration failed:`, event.data.error)
-            set({ error: event.data.error || `Failed to connect to ${provider.name}` })
-          }
+          // Remove localStorage key for both success and error
+          localStorage.removeItem("integration_connecting")
 
-          setLoading(`connect-${providerId}`, false)
+          popup.close()
+
+          if (event.data?.type === "oauth-success") {
+            console.log(`✅ OAuth success for ${providerId}`)
+            setLoading(`connect-${providerId}`, false)
+            const refresh = get().fetchIntegrations
+            // Refresh multiple times to ensure backend state is updated
+            refresh(true)
+            setTimeout(() => refresh(true), 1000)
+            setTimeout(() => refresh(true), 2000)
+            setTimeout(() => refresh(true), 3000)
+          } else if (event.data?.type === "oauth-error") {
+            console.error(`❌ OAuth error for ${providerId}:`, event.data.error)
+            setLoading(`connect-${providerId}`, false)
+            set({ error: event.data.error || `Failed to connect ${providerId}` })
+          }
         }
 
         window.addEventListener("message", messageHandler)
@@ -267,17 +277,21 @@ export const useIntegrationStore = create<IntegrationStore>((set, get) => ({
           if (!popup.closed) {
             clearInterval(checkClosed)
             popup.close()
-            window.removeEventListener("message", messageHandler)
-            setLoading(`connect-${providerId}`, false)
           }
+          window.removeEventListener("message", messageHandler)
+          // Remove localStorage key on timeout cleanup
+          localStorage.removeItem("integration_connecting")
+          setLoading(`connect-${providerId}`, false)
         }, 300000) // 5 minutes
       } else {
-        throw new Error("Failed to generate OAuth URL")
+        throw new Error(data.error || "Failed to generate OAuth URL")
       }
     } catch (error: any) {
-      console.error(`Failed to connect to ${providerId}:`, error)
+      console.error(`❌ Failed to connect ${providerId}:`, error)
       set({ error: error.message })
-      setLoading(`connect-${providerId}`, false)
+      throw error
+    } finally {
+      // No-op here — handled dynamically when popup closes
     }
   },
 
