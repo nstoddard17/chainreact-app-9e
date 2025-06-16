@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/hooks/use-toast"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import RedirectLoadingOverlay from "./RedirectLoadingOverlay"
 
 function IntegrationsContent() {
   const [searchTerm, setSearchTerm] = useState("")
@@ -23,6 +24,7 @@ function IntegrationsContent() {
   const [tokenRefreshing, setTokenRefreshing] = useState(false)
   const [showDebug, setShowDebug] = useState(false)
   const router = useRouter()
+  const [redirectingProvider, setRedirectingProvider] = useState<string | null>(null)
 
   const {
     integrations = [],
@@ -375,6 +377,7 @@ function IntegrationsContent() {
           </div>
         </div>
       </div>
+      <RedirectLoadingOverlay provider={redirectingProvider} isVisible={!!redirectingProvider} />
     </AppLayout>
   )
 }
