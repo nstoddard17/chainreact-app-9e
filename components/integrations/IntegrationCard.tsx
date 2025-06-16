@@ -48,17 +48,16 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
   const isConnected = integrationStatus === "connected"
   const wasConnected = integration && integration.status === "disconnected"
 
-  // Debug logging
+  // Replace the debug logging useEffect with this:
   useEffect(() => {
-    console.log(`🔍 IntegrationCard for ${provider.name}:`, {
-      providerId: provider.id,
-      integrationStatus,
-      integration,
-      isConnected,
-      wasConnected,
-      debugInfo,
-    })
-  }, [provider.id, provider.name, integrationStatus, integration, isConnected, wasConnected, debugInfo])
+    if (process.env.NODE_ENV === "development") {
+      console.log(`🔍 IntegrationCard for ${provider.name}:`, {
+        providerId: provider.id,
+        integrationStatus,
+        isConnected,
+      })
+    }
+  }, [provider.id, provider.name, integrationStatus, isConnected])
 
   const handleConnect = useCallback(async () => {
     try {
