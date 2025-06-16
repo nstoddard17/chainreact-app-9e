@@ -233,6 +233,8 @@ export const useIntegrationStore = create<IntegrationStore>((set, get) => ({
 
             if (!closedByMessage) {
               console.log(`❌ Popup closed manually for ${providerId}`)
+              // Remove localStorage key when popup closed manually
+              localStorage.removeItem("integration_connecting")
               setLoading(`connect-${providerId}`, false)
               get().fetchIntegrations(true)
             }
@@ -246,6 +248,9 @@ export const useIntegrationStore = create<IntegrationStore>((set, get) => ({
           closedByMessage = true
           clearInterval(checkClosed)
           window.removeEventListener("message", messageHandler)
+
+          // Remove localStorage key for both success and error
+          localStorage.removeItem("integration_connecting")
 
           popup.close()
 
@@ -269,6 +274,8 @@ export const useIntegrationStore = create<IntegrationStore>((set, get) => ({
             popup.close()
           }
           window.removeEventListener("message", messageHandler)
+          // Remove localStorage key on timeout cleanup
+          localStorage.removeItem("integration_connecting")
           setLoading(`connect-${providerId}`, false)
         }, 300000) // 5 minutes
       } else {
