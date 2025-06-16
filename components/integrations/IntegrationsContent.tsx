@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
-import { useIntegrationStore } from "@/stores/integration-store"
+import { useIntegrationStore } from "@/stores/integrationStore"
 import { useAuthStore } from "@/stores/authStore"
 import ScopeValidationAlert from "./ScopeValidationAlert"
 import AppLayout from "@/components/layout/AppLayout"
@@ -27,7 +27,7 @@ function IntegrationsContent() {
   const {
     integrations = [],
     providers = [],
-    loading: isLoading,
+    isLoading,
     error,
     debugInfo,
     initializeProviders,
@@ -35,44 +35,11 @@ function IntegrationsContent() {
     refreshAllTokens,
     clearError,
     getConnectedProviders,
-    checkPendingConnection,
   } = useIntegrationStore()
 
   const searchParams = useSearchParams()
   const { toast } = useToast()
   const { user, getCurrentUserId } = useAuthStore()
-
-  // Test function to verify store is working
-  const testConnection = useCallback(async () => {
-    console.log("🧪 Testing connection flow...")
-    try {
-      const response = await fetch("/api/integrations/auth/generate-url", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          provider: "slack",
-        }),
-      })
-
-      const data = await response.json()
-      console.log("🧪 Test response:", data)
-
-      toast({
-        title: "Test Result",
-        description: data.success ? "API is working!" : `Error: ${data.error}`,
-        variant: data.success ? "default" : "destructive",
-      })
-    } catch (error: any) {
-      console.error("🧪 Test failed:", error)
-      toast({
-        title: "Test Failed",
-        description: error.message,
-        variant: "destructive",
-      })
-    }
-  }, [toast])
 
   // Initialize providers on mount
   useEffect(() => {
@@ -89,11 +56,6 @@ function IntegrationsContent() {
           await fetchIntegrations(true)
         }
 
-        // Check for pending connections
-        if (checkPendingConnection) {
-          checkPendingConnection()
-        }
-
         setLocalLoading(false)
       } catch (error: any) {
         console.error("❌ Initialization failed:", error)
@@ -103,7 +65,7 @@ function IntegrationsContent() {
     }
 
     initializeData()
-  }, [user, initializeProviders, fetchIntegrations, checkPendingConnection])
+  }, [user, initializeProviders, fetchIntegrations])
 
   // Enhanced OAuth callback handling with redirect support
   useEffect(() => {
@@ -299,9 +261,6 @@ function IntegrationsContent() {
                   <Button variant="outline" size="sm" onClick={loadData}>
                     Retry
                   </Button>
-                  <Button variant="outline" size="sm" onClick={testConnection}>
-                    Test API
-                  </Button>
                 </div>
               </AlertDescription>
             </Alert>
@@ -326,9 +285,6 @@ function IntegrationsContent() {
                 <div className="flex gap-2 mt-3">
                   <Button variant="outline" size="sm" className="bg-white" onClick={loadData}>
                     Retry
-                  </Button>
-                  <Button variant="outline" size="sm" className="bg-white" onClick={testConnection}>
-                    Test API
                   </Button>
                   {error && (
                     <Button variant="ghost" size="sm" onClick={clearError}>
@@ -386,11 +342,6 @@ function IntegrationsContent() {
                 <Bug className="h-4 w-4" />
                 <AlertTitle>Debug Information</AlertTitle>
                 <AlertDescription>
-                  <div className="flex gap-2 mb-2">
-                    <Button variant="outline" size="sm" onClick={testConnection}>
-                      Test API
-                    </Button>
-                  </div>
                   <pre className="text-xs mt-2 overflow-auto">
                     {JSON.stringify(
                       {
