@@ -57,13 +57,30 @@ export async function GET(request: NextRequest) {
         process.env.SUPABASE_SERVICE_ROLE_KEY!
       )
 
-      // Parse state to get userId
-      const stateData = JSON.parse(atob(state))
-      const { userId } = stateData
+      // Parse state to get userId and redirectUri
+      let stateData
+      try {
+        stateData = JSON.parse(atob(state))
+      } catch (error) {
+        console.error("Failed to parse state:", error)
+        throw new Error("Invalid state format")
+      }
+
+      const { userId, redirectUri } = stateData
 
       if (!userId) {
         throw new Error("Missing userId in state")
       }
+
+      if (!redirectUri) {
+        throw new Error("Missing redirect URI in state")
+      }
+
+      console.log("Processing GitLab callback:", {
+        hasCode: !!code,
+        redirectUri,
+        hasUserId: !!userId
+      })
 
       // Process the OAuth callback
       const result = await GitLabOAuthService.handleCallback("gitlab", code, state, userId)
