@@ -1,186 +1,159 @@
+import { BaseOAuthService, OAuthResult } from "./BaseOAuthService"
+import { createClient } from "@supabase/supabase-js"
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 
-interface LinkedInOAuthResult {
-  success: boolean
-  redirectUrl: string
-  error?: string
-}
-
-export class LinkedInOAuthService {
-  private static getClientCredentials() {
-    const clientId = process.env.NEXT_PUBLIC_LINKEDIN_CLIENT_ID
-    const clientSecret = process.env.LINKEDIN_CLIENT_SECRET
-
-    if (!clientId || !clientSecret) {
-      throw new Error("Missing LinkedIn OAuth configuration")
-    }
-
-    return { clientId, clientSecret }
+export class LinkedInOAuthService extends BaseOAuthService {
+  protected static getAuthorizationEndpoint(provider: string): string {
+    return "https://www.linkedin.com/oauth/v2/authorization"
   }
 
-  static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string, userId?: string): string {
-    const { clientId } = this.getClientCredentials()
-    const redirectUri = `${getBaseUrl()}/api/integrations/linkedin/callback`
+  static getRequiredScopes(): string[] {
+    return [
+      "r_liteprofile",
+      "r_emailaddress",
+      "w_member_social",
+      "rw_organization_admin"
+    ]
+  }
 
-    // Use the correct LinkedIn v2 scopes
-    const scopes = ["openid", "profile", "email", "w_member_social"]
-
-    const state = btoa(
-      JSON.stringify({
-        provider: "linkedin",
-        userId,
-        reconnect,
-        integrationId,
-        requireFullScopes: true,
-        timestamp: Date.now(),
+  static async exchangeCodeForToken(
+    code: string,
+    redirectUri: string,
+    clientId: string,
+    clientSecret: string,
+    codeVerifier?: string,
+  ): Promise<any> {
+    const response = await fetch("https://www.linkedin.com/oauth/v2/accessToken", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        grant_type: "authorization_code",
+        code,
+        redirect_uri: redirectUri,
+        client_id: clientId,
+        client_secret: clientSecret,
+        ...(codeVerifier && { code_verifier: codeVerifier }),
       }),
-    )
-
-    const params = new URLSearchParams({
-      response_type: "code",
-      client_id: clientId,
-      redirect_uri: redirectUri,
-      scope: scopes.join(" "),
-      state,
     })
 
-    return `https://www.linkedin.com/oauth/v2/authorization?${params.toString()}`
+    if (!response.ok) {
+      const errorData = await response.text()
+      throw new Error(`Token exchange failed: ${errorData}`)
+    }
+
+    return response.json()
   }
 
-  static getRedirectUri(): string {
-    return `${getBaseUrl()}/api/integrations/linkedin/callback`
+  static async validateTokenAndGetUserInfo(accessToken: string): Promise<any> {
+    const response = await fetch("https://api.linkedin.com/v2/me", {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    })
+
+    if (!response.ok) {
+      const errorData = await response.text()
+      throw new Error(`Failed to get user info: ${errorData}`)
+    }
+
+    return response.json()
   }
 
+  static parseScopes(tokenResponse: any): string[] {
+    return tokenResponse.scope ? tokenResponse.scope.split(" ") : []
+  }
+
+  // Override the base class method to handle LinkedIn-specific auth URL generation
+  static async generateAuthUrl(
+    provider: string,
+    baseUrl: string,
+    reconnect = false,
+    integrationId?: string,
+    userId?: string,
+  ): Promise<string> {
+    const authUrl = await super.generateAuthUrl(provider, baseUrl, reconnect, integrationId, userId)
+    
+    // Add LinkedIn-specific parameters
+    const url = new URL(authUrl)
+    url.searchParams.append("response_type", "code")
+    url.searchParams.append("scope", this.getRequiredScopes().join(" "))
+
+    return url.toString()
+  }
+
+  // Override the base class method to handle LinkedIn-specific callback
   static async handleCallback(
+    provider: string,
     code: string,
     state: string,
-    baseUrl: string,
-    supabase: any,
     userId: string,
-  ): Promise<LinkedInOAuthResult> {
+  ): Promise<OAuthResult> {
     try {
-      const stateData = JSON.parse(atob(state))
-      const { provider, reconnect, integrationId, requireFullScopes } = stateData
+      // Create Supabase client
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      )
+
+      // Parse state
+      let stateData
+      try {
+        stateData = JSON.parse(atob(state))
+      } catch (error) {
+        console.error("Failed to parse state:", error)
+        throw new Error("Invalid state format")
+      }
+
+      const { reconnect, integrationId, requireFullScopes } = stateData
 
       if (provider !== "linkedin") {
         throw new Error("Invalid provider in state")
       }
 
-      const { clientId, clientSecret } = this.getClientCredentials()
+      // Get client credentials
+      const clientId = process.env.NEXT_PUBLIC_LINKEDIN_CLIENT_ID
+      const clientSecret = process.env.LINKEDIN_CLIENT_SECRET
 
-      const tokenResponse = await fetch("https://www.linkedin.com/oauth/v2/accessToken", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: new URLSearchParams({
-          grant_type: "authorization_code",
-          code,
-          redirect_uri: `${getBaseUrl()}/api/integrations/linkedin/callback`,
-          client_id: clientId,
-          client_secret: clientSecret,
-        }),
-      })
-
-      if (!tokenResponse.ok) {
-        const errorData = await tokenResponse.json()
-        let errorMessage = `Token exchange failed: ${tokenResponse.status} - ${tokenResponse.statusText}`
-
-        if (errorData && errorData.error_description) {
-          errorMessage += ` - ${errorData.error}: ${errorData.error_description}`
-        } else if (errorData && errorData.message) {
-          errorMessage += ` - ${errorData.message}`
-        }
-
-        throw new Error(errorMessage)
+      if (!clientId || !clientSecret) {
+        throw new Error("Missing LinkedIn OAuth configuration")
       }
 
-      const tokenData = await tokenResponse.json()
-      const { access_token, expires_in } = tokenData
+      // Exchange code for token
+      const tokenResponse = await this.exchangeCodeForToken(
+        code,
+        this.getRedirectUri(provider),
+        clientId,
+        clientSecret,
+        stateData.codeVerifier
+      )
 
-      // Validate scopes if required
-      if (requireFullScopes) {
-        const grantedScopes: string[] = []
+      const { access_token } = tokenResponse
 
-        try {
-          // Test profile and email access with userinfo endpoint
-          const userinfoResponse = await fetch("https://api.linkedin.com/v2/userinfo", {
-            headers: { Authorization: `Bearer ${access_token}` },
-          })
-
-          if (userinfoResponse.ok) {
-            const userinfo = await userinfoResponse.json()
-            if (userinfo.sub) grantedScopes.push("openid")
-            if (userinfo.name || userinfo.given_name) grantedScopes.push("profile")
-            if (userinfo.email) grantedScopes.push("email")
-          }
-
-          // Test posting capability
-          const profileResponse = await fetch("https://api.linkedin.com/v2/people/~", {
-            headers: { Authorization: `Bearer ${access_token}` },
-          })
-
-          if (profileResponse.ok || profileResponse.status === 403) {
-            // 403 means we have the scope but specific permission denied
-            grantedScopes.push("w_member_social")
-          }
-
-          const requiredScopes = ["openid", "profile", "email"]
-          const missingScopes = requiredScopes.filter((s) => !grantedScopes.includes(s))
-
-          if (missingScopes.length > 0) {
-            console.error("LinkedIn scope validation failed:", { grantedScopes, missingScopes })
-            return {
-              success: false,
-              redirectUrl: `${getBaseUrl()}/integrations?error=insufficient_scopes&provider=linkedin&message=${encodeURIComponent(
-                `Your connection is missing required permissions: ${missingScopes.join(", ")}. Please reconnect and accept all scopes.`,
-              )}`,
-              error: "Insufficient scopes",
-            }
-          }
-          console.log("LinkedIn scopes validated successfully:", grantedScopes)
-        } catch (scopeError) {
-          console.error("LinkedIn scope validation error:", scopeError)
-          // Continue without failing if scope validation has issues
-        }
+      if (!access_token) {
+        throw new Error("No access token received from LinkedIn")
       }
 
-      const userResponse = await fetch("https://api.linkedin.com/v2/userinfo", {
-        headers: {
-          Authorization: `Bearer ${access_token}`,
-        },
-      })
+      // Get user info
+      const userData = await this.validateTokenAndGetUserInfo(access_token)
 
-      if (!userResponse.ok) {
-        const errorData = await userResponse.json()
-        let errorMessage = `Failed to get user info: ${userResponse.status} - ${userResponse.statusText}`
-
-        if (errorData && errorData.message) {
-          errorMessage += ` - ${errorData.message}`
-        }
-
-        throw new Error(errorMessage)
-      }
-
-      const userData = await userResponse.json()
-
+      // Prepare integration data
       const integrationData = {
         user_id: userId,
         provider: "linkedin",
-        provider_user_id: userData.sub,
+        provider_user_id: userData.id,
         access_token,
-        expires_at: expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null,
         status: "connected" as const,
-        scopes: ["openid", "profile", "email", "w_member_social"],
+        scopes: this.parseScopes(tokenResponse),
         metadata: {
-          first_name: userData.given_name,
-          last_name: userData.family_name,
-          email: userData.email,
+          name: `${userData.localizedFirstName} ${userData.localizedLastName}`,
           connected_at: new Date().toISOString(),
           scopes_validated: requireFullScopes,
         },
       }
 
+      // Update or insert integration
       if (reconnect && integrationId) {
         const { error } = await supabase
           .from("integrations")
@@ -198,9 +171,10 @@ export class LinkedInOAuthService {
 
       return {
         success: true,
-        redirectUrl: `${getBaseUrl()}/integrations?success=linkedin_connected&provider=linkedin&scopes_validated=${requireFullScopes}`,
+        redirectUrl: `${getBaseUrl()}/integrations?success=linkedin_connected&provider=linkedin`,
       }
     } catch (error: any) {
+      console.error("LinkedIn OAuth callback error:", error)
       return {
         success: false,
         redirectUrl: `${getBaseUrl()}/integrations?error=callback_failed&provider=linkedin&message=${encodeURIComponent(error.message)}`,

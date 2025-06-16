@@ -2,21 +2,31 @@ import { BaseOAuthService, OAuthResult } from "./BaseOAuthService"
 import { createClient } from "@supabase/supabase-js"
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 
-export class FacebookOAuthService extends BaseOAuthService {
+export class RedditOAuthService extends BaseOAuthService {
   protected static getAuthorizationEndpoint(provider: string): string {
-    return "https://www.facebook.com/v18.0/dialog/oauth"
+    return "https://www.reddit.com/api/v1/authorize"
   }
 
   static getRequiredScopes(): string[] {
     return [
-      "email",
-      "public_profile",
-      "pages_show_list",
-      "pages_read_engagement",
-      "pages_manage_posts",
-      "pages_manage_metadata",
-      "instagram_basic",
-      "instagram_content_publish"
+      "identity",
+      "read",
+      "submit",
+      "edit",
+      "history",
+      "modconfig",
+      "modflair",
+      "modlog",
+      "modposts",
+      "modwiki",
+      "mysubreddits",
+      "privatemessages",
+      "report",
+      "save",
+      "subscribe",
+      "vote",
+      "wikiedit",
+      "wikiread"
     ]
   }
 
@@ -27,16 +37,17 @@ export class FacebookOAuthService extends BaseOAuthService {
     clientSecret: string,
     codeVerifier?: string,
   ): Promise<any> {
-    const response = await fetch("https://graph.facebook.com/v18.0/oauth/access_token", {
-      method: "GET",
+    const response = await fetch("https://www.reddit.com/api/v1/access_token", {
+      method: "POST",
       headers: {
-        "Content-Type": "application/json",
+        "Content-Type": "application/x-www-form-urlencoded",
+        Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`,
       },
-      body: JSON.stringify({
-        client_id: clientId,
-        client_secret: clientSecret,
-        redirect_uri: redirectUri,
+      body: new URLSearchParams({
+        grant_type: "authorization_code",
         code,
+        redirect_uri: redirectUri,
+        ...(codeVerifier && { code_verifier: codeVerifier }),
       }),
     })
 
@@ -49,9 +60,11 @@ export class FacebookOAuthService extends BaseOAuthService {
   }
 
   static async validateTokenAndGetUserInfo(accessToken: string): Promise<any> {
-    const response = await fetch(
-      `https://graph.facebook.com/v18.0/me?fields=id,name,email,picture&access_token=${accessToken}`,
-    )
+    const response = await fetch("https://oauth.reddit.com/api/v1/me", {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    })
 
     if (!response.ok) {
       const errorData = await response.text()
@@ -62,10 +75,10 @@ export class FacebookOAuthService extends BaseOAuthService {
   }
 
   static parseScopes(tokenResponse: any): string[] {
-    return tokenResponse.scopes ? tokenResponse.scopes.split(",") : []
+    return tokenResponse.scope ? tokenResponse.scope.split(" ") : []
   }
 
-  // Override the base class method to handle Facebook-specific auth URL generation
+  // Override the base class method to handle Reddit-specific auth URL generation
   static async generateAuthUrl(
     provider: string,
     baseUrl: string,
@@ -75,15 +88,16 @@ export class FacebookOAuthService extends BaseOAuthService {
   ): Promise<string> {
     const authUrl = await super.generateAuthUrl(provider, baseUrl, reconnect, integrationId, userId)
     
-    // Add Facebook-specific parameters
+    // Add Reddit-specific parameters
     const url = new URL(authUrl)
     url.searchParams.append("response_type", "code")
-    url.searchParams.append("display", "popup")
+    url.searchParams.append("duration", "permanent")
+    url.searchParams.append("scope", this.getRequiredScopes().join(" "))
 
     return url.toString()
   }
 
-  // Override the base class method to handle Facebook-specific callback
+  // Override the base class method to handle Reddit-specific callback
   static async handleCallback(
     provider: string,
     code: string,
@@ -108,16 +122,16 @@ export class FacebookOAuthService extends BaseOAuthService {
 
       const { reconnect, integrationId, requireFullScopes } = stateData
 
-      if (provider !== "facebook") {
+      if (provider !== "reddit") {
         throw new Error("Invalid provider in state")
       }
 
       // Get client credentials
-      const clientId = process.env.NEXT_PUBLIC_FACEBOOK_CLIENT_ID
-      const clientSecret = process.env.FACEBOOK_CLIENT_SECRET
+      const clientId = process.env.NEXT_PUBLIC_REDDIT_CLIENT_ID
+      const clientSecret = process.env.REDDIT_CLIENT_SECRET
 
       if (!clientId || !clientSecret) {
-        throw new Error("Missing Facebook OAuth configuration")
+        throw new Error("Missing Reddit OAuth configuration")
       }
 
       // Exchange code for token
@@ -129,10 +143,10 @@ export class FacebookOAuthService extends BaseOAuthService {
         stateData.codeVerifier
       )
 
-      const { access_token } = tokenResponse
+      const { access_token, refresh_token } = tokenResponse
 
       if (!access_token) {
-        throw new Error("No access token received from Facebook")
+        throw new Error("No access token received from Reddit")
       }
 
       // Get user info
@@ -141,15 +155,18 @@ export class FacebookOAuthService extends BaseOAuthService {
       // Prepare integration data
       const integrationData = {
         user_id: userId,
-        provider: "facebook",
+        provider: "reddit",
         provider_user_id: userData.id,
         access_token,
+        refresh_token,
         status: "connected" as const,
         scopes: this.parseScopes(tokenResponse),
         metadata: {
-          email: userData.email,
-          name: userData.name,
-          picture: userData.picture?.data?.url,
+          username: userData.name,
+          karma: userData.total_karma,
+          is_gold: userData.is_gold,
+          is_mod: userData.is_mod,
+          has_verified_email: userData.has_verified_email,
           connected_at: new Date().toISOString(),
           scopes_validated: requireFullScopes,
         },
@@ -173,15 +190,15 @@ export class FacebookOAuthService extends BaseOAuthService {
 
       return {
         success: true,
-        redirectUrl: `${getBaseUrl()}/integrations?success=facebook_connected&provider=facebook`,
+        redirectUrl: `${getBaseUrl()}/integrations?success=reddit_connected&provider=reddit`,
       }
     } catch (error: any) {
-      console.error("Facebook OAuth callback error:", error)
+      console.error("Reddit OAuth callback error:", error)
       return {
         success: false,
-        redirectUrl: `${getBaseUrl()}/integrations?error=callback_failed&provider=facebook&message=${encodeURIComponent(error.message)}`,
+        redirectUrl: `${getBaseUrl()}/integrations?error=callback_failed&provider=reddit&message=${encodeURIComponent(error.message)}`,
         error: error.message,
       }
     }
   }
-}
+} 

@@ -2,21 +2,18 @@ import { BaseOAuthService, OAuthResult } from "./BaseOAuthService"
 import { createClient } from "@supabase/supabase-js"
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 
-export class FacebookOAuthService extends BaseOAuthService {
+export class PinterestOAuthService extends BaseOAuthService {
   protected static getAuthorizationEndpoint(provider: string): string {
-    return "https://www.facebook.com/v18.0/dialog/oauth"
+    return "https://www.pinterest.com/oauth"
   }
 
   static getRequiredScopes(): string[] {
     return [
-      "email",
-      "public_profile",
-      "pages_show_list",
-      "pages_read_engagement",
-      "pages_manage_posts",
-      "pages_manage_metadata",
-      "instagram_basic",
-      "instagram_content_publish"
+      "boards:read",
+      "boards:write",
+      "pins:read",
+      "pins:write",
+      "user_accounts:read"
     ]
   }
 
@@ -27,16 +24,18 @@ export class FacebookOAuthService extends BaseOAuthService {
     clientSecret: string,
     codeVerifier?: string,
   ): Promise<any> {
-    const response = await fetch("https://graph.facebook.com/v18.0/oauth/access_token", {
-      method: "GET",
+    const response = await fetch("https://api.pinterest.com/v5/oauth/token", {
+      method: "POST",
       headers: {
-        "Content-Type": "application/json",
+        "Content-Type": "application/x-www-form-urlencoded",
       },
-      body: JSON.stringify({
+      body: new URLSearchParams({
+        grant_type: "authorization_code",
         client_id: clientId,
         client_secret: clientSecret,
-        redirect_uri: redirectUri,
         code,
+        redirect_uri: redirectUri,
+        ...(codeVerifier && { code_verifier: codeVerifier }),
       }),
     })
 
@@ -49,9 +48,11 @@ export class FacebookOAuthService extends BaseOAuthService {
   }
 
   static async validateTokenAndGetUserInfo(accessToken: string): Promise<any> {
-    const response = await fetch(
-      `https://graph.facebook.com/v18.0/me?fields=id,name,email,picture&access_token=${accessToken}`,
-    )
+    const response = await fetch("https://api.pinterest.com/v5/user_account", {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    })
 
     if (!response.ok) {
       const errorData = await response.text()
@@ -65,7 +66,7 @@ export class FacebookOAuthService extends BaseOAuthService {
     return tokenResponse.scopes ? tokenResponse.scopes.split(",") : []
   }
 
-  // Override the base class method to handle Facebook-specific auth URL generation
+  // Override the base class method to handle Pinterest-specific auth URL generation
   static async generateAuthUrl(
     provider: string,
     baseUrl: string,
@@ -75,15 +76,15 @@ export class FacebookOAuthService extends BaseOAuthService {
   ): Promise<string> {
     const authUrl = await super.generateAuthUrl(provider, baseUrl, reconnect, integrationId, userId)
     
-    // Add Facebook-specific parameters
+    // Add Pinterest-specific parameters
     const url = new URL(authUrl)
     url.searchParams.append("response_type", "code")
-    url.searchParams.append("display", "popup")
+    url.searchParams.append("scope", this.getRequiredScopes().join(","))
 
     return url.toString()
   }
 
-  // Override the base class method to handle Facebook-specific callback
+  // Override the base class method to handle Pinterest-specific callback
   static async handleCallback(
     provider: string,
     code: string,
@@ -108,16 +109,16 @@ export class FacebookOAuthService extends BaseOAuthService {
 
       const { reconnect, integrationId, requireFullScopes } = stateData
 
-      if (provider !== "facebook") {
+      if (provider !== "pinterest") {
         throw new Error("Invalid provider in state")
       }
 
       // Get client credentials
-      const clientId = process.env.NEXT_PUBLIC_FACEBOOK_CLIENT_ID
-      const clientSecret = process.env.FACEBOOK_CLIENT_SECRET
+      const clientId = process.env.NEXT_PUBLIC_PINTEREST_CLIENT_ID
+      const clientSecret = process.env.PINTEREST_CLIENT_SECRET
 
       if (!clientId || !clientSecret) {
-        throw new Error("Missing Facebook OAuth configuration")
+        throw new Error("Missing Pinterest OAuth configuration")
       }
 
       // Exchange code for token
@@ -132,7 +133,7 @@ export class FacebookOAuthService extends BaseOAuthService {
       const { access_token } = tokenResponse
 
       if (!access_token) {
-        throw new Error("No access token received from Facebook")
+        throw new Error("No access token received from Pinterest")
       }
 
       // Get user info
@@ -141,15 +142,16 @@ export class FacebookOAuthService extends BaseOAuthService {
       // Prepare integration data
       const integrationData = {
         user_id: userId,
-        provider: "facebook",
-        provider_user_id: userData.id,
+        provider: "pinterest",
+        provider_user_id: userData.username,
         access_token,
         status: "connected" as const,
         scopes: this.parseScopes(tokenResponse),
         metadata: {
-          email: userData.email,
-          name: userData.name,
-          picture: userData.picture?.data?.url,
+          username: userData.username,
+          full_name: userData.full_name,
+          about: userData.about,
+          website_url: userData.website_url,
           connected_at: new Date().toISOString(),
           scopes_validated: requireFullScopes,
         },
@@ -173,15 +175,15 @@ export class FacebookOAuthService extends BaseOAuthService {
 
       return {
         success: true,
-        redirectUrl: `${getBaseUrl()}/integrations?success=facebook_connected&provider=facebook`,
+        redirectUrl: `${getBaseUrl()}/integrations?success=pinterest_connected&provider=pinterest`,
       }
     } catch (error: any) {
-      console.error("Facebook OAuth callback error:", error)
+      console.error("Pinterest OAuth callback error:", error)
       return {
         success: false,
-        redirectUrl: `${getBaseUrl()}/integrations?error=callback_failed&provider=facebook&message=${encodeURIComponent(error.message)}`,
+        redirectUrl: `${getBaseUrl()}/integrations?error=callback_failed&provider=pinterest&message=${encodeURIComponent(error.message)}`,
         error: error.message,
       }
     }
   }
-}
+} 
