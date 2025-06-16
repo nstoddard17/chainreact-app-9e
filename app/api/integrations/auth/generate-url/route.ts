@@ -1,8 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
-import { TwitterOAuthService } from "@/lib/oauth/twitter"
-import { GitLabOAuthService } from "@/lib/oauth/gitlab"
 
 export async function POST(request: NextRequest) {
   try {
@@ -65,12 +63,7 @@ export async function POST(request: NextRequest) {
         break
 
       case "twitter":
-        authUrl = await TwitterOAuthService.generateAuthUrl(
-          process.env.NEXT_PUBLIC_SITE_URL || "https://chainreact.app",
-          reconnect,
-          integrationId,
-          user.id
-        )
+        authUrl = generateTwitterAuthUrl(state)
         break
 
       case "linkedin":
@@ -130,13 +123,7 @@ export async function POST(request: NextRequest) {
         break
 
       case "gitlab":
-        authUrl = await GitLabOAuthService.generateAuthUrl(
-          provider,
-          process.env.NEXT_PUBLIC_SITE_URL || "https://chainreact.app",
-          reconnect,
-          integrationId,
-          user.id
-        )
+        authUrl = generateGitLabAuthUrl(state)
         break
 
       case "docker":
@@ -257,6 +244,23 @@ function generateNotionAuthUrl(state: string): string {
   })
 
   return `https://api.notion.com/v1/oauth/authorize?${params.toString()}`
+}
+
+function generateTwitterAuthUrl(state: string): string {
+  const clientId = process.env.NEXT_PUBLIC_TWITTER_CLIENT_ID
+  if (!clientId) throw new Error("Twitter client ID not configured")
+
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: "https://chainreact.app/api/integrations/twitter/callback",
+    response_type: "code",
+    scope: "tweet.read tweet.write users.read",
+    state,
+    code_challenge_method: "S256",
+    code_challenge: "challenge", // In production, generate proper PKCE challenge
+  })
+
+  return `https://twitter.com/i/oauth2/authorize?${params.toString()}`
 }
 
 function generateLinkedInAuthUrl(state: string): string {
@@ -465,6 +469,21 @@ function generateOneDriveAuthUrl(state: string): string {
   })
 
   return `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`
+}
+
+function generateGitLabAuthUrl(state: string): string {
+  const clientId = process.env.NEXT_PUBLIC_GITLAB_CLIENT_ID
+  if (!clientId) throw new Error("GitLab client ID not configured")
+
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: "https://chainreact.app/api/integrations/gitlab/callback",
+    response_type: "code",
+    scope: "api read_user",
+    state,
+  })
+
+  return `https://gitlab.com/oauth/authorize?${params.toString()}`
 }
 
 function generateDockerAuthUrl(state: string): string {
