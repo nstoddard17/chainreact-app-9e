@@ -82,7 +82,9 @@ function IntegrationsContent() {
       setOauthProcessed(true)
       console.log("🔄 Processing OAuth callback:", { success, error, provider, message })
 
-      if (success === "true") {
+      const isSuccess = success === "true" || (!!success && success.endsWith("_connected"))
+
+      if (isSuccess) {
         const refreshIntegrationsList = async () => {
           try {
             // Multiple refresh attempts to ensure data consistency
