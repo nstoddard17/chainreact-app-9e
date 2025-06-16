@@ -70,9 +70,24 @@ export class TwitterOAuthService {
         userId,
         requireFullScopes: true,
         timestamp: Date.now(),
-        codeVerifier, // Store verifier in state for later use
       }),
     )
+
+    // Store code verifier in server-side cookie if we have access to cookies
+    if (typeof window === "undefined" && userId) {
+      try {
+        const { cookies } = await import("next/headers")
+        const cookieStore = cookies()
+        cookieStore.set(`twitter_code_verifier_${userId}`, codeVerifier, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "lax",
+          maxAge: 1800, // 30 minutes
+        })
+      } catch (error) {
+        console.warn("Could not store code verifier in cookie:", error)
+      }
+    }
 
     const params = new URLSearchParams({
       response_type: "code",

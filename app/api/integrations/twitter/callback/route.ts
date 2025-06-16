@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { TwitterOAuthService } from "@/lib/oauth/twitter"
 import { createClient } from "@supabase/supabase-js"
+import { cookies } from "next/headers"
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
@@ -72,11 +73,30 @@ export async function GET(request: NextRequest) {
   try {
     // Parse state to get user info
     const stateData = JSON.parse(atob(state))
-    const { userId } = stateData
+    const { userId, provider } = stateData
 
     if (!userId) {
       throw new Error("Missing user ID in state")
     }
+
+    if (provider !== "twitter") {
+      throw new Error("Invalid provider in state")
+    }
+
+    // Get code verifier from cookies
+    const cookieStore = cookies()
+    const codeVerifier = cookieStore.get(`twitter_code_verifier_${userId}`)?.value
+
+    if (!codeVerifier) {
+      throw new Error("Missing code verifier - please try connecting again")
+    }
+
+    // Clear the code verifier cookie
+    cookieStore.set(`twitter_code_verifier_${userId}`, "", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 0,
+    })
 
     // Create Supabase client
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
@@ -84,8 +104,16 @@ export async function GET(request: NextRequest) {
     // Get base URL
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || `${request.nextUrl.protocol}//${request.nextUrl.host}`
 
+    // Create modified state with code verifier
+    const modifiedState = btoa(
+      JSON.stringify({
+        ...stateData,
+        codeVerifier,
+      }),
+    )
+
     // Process the OAuth callback
-    const result = await TwitterOAuthService.handleCallback(code, state, baseUrl, supabase, userId)
+    const result = await TwitterOAuthService.handleCallback(code, modifiedState, baseUrl, supabase, userId)
 
     if (result.success) {
       // Success HTML
