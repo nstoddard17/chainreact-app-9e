@@ -46,14 +46,14 @@ export async function GET(request: NextRequest) {
     <h1>Twitter Authentication Successful!</h1>
     <p>You can now close this window.</p>
     <script>
-      // Send the code and state to the opener window
-      window.opener.postMessage({
-        type: 'twitter',
-        payload: {
-          code: '${code}',
-          state: '${state}',
-        },
-      }, '*');
+      // Notify the opener window that authentication completed
+      if (window.opener && !window.opener.closed) {
+        window.opener.postMessage({
+          type: 'oauth-success',
+          provider: 'twitter',
+          payload: { code: '${code}', state: '${state}' }
+        }, window.location.origin);
+      }
 
       // Close the popup after sending the message
       window.addEventListener('load', function() {
