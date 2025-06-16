@@ -49,7 +49,7 @@
     "@upstash/redis": "^1.28.0",
     "@vercel/postgres": "^0.7.0",
     "@xata.io/client": "^0.30.0",
-    "@xyflow/react": "^11.0.0",
+    "@xyflow/react": "^12.7.0",
     "ai": "^2.2.0",
     "better-sqlite3": "^9.4.0",
     "bun-types": "^1.0.0",
