@@ -1,191 +1,77 @@
-import { createAdminSupabaseClient, upsertIntegration, parseOAuthState } from "./utils"
-import { getOAuthProvider } from "./index"
+import type { NextApiRequest, NextApiResponse } from "next"
+import { getAccessToken, getGithubUser } from "../../utils/github"
+import { createUser, getUserByGithubId } from "../../utils/user"
+import { setCookie } from "../../utils/cookie"
 
-export interface CallbackResult {
-  success: boolean
-  error?: string
-  message?: string
-  provider?: string
-}
+const callbackHandler = async (req: NextApiRequest, res: NextApiResponse) => {
+  const { code } = req.query
 
-export async function handleOAuthCallback(provider: string, code: string, state: string): Promise<CallbackResult> {
+  if (!code) {
+    return res.status(400).send("Missing code")
+  }
+
   try {
-    console.log(`🔄 Processing OAuth callback for ${provider}`)
+    const accessToken = await getAccessToken(code as string)
+    const githubUser = await getGithubUser(accessToken)
 
-    // Parse and validate state
-    let stateData
-    try {
-      stateData = parseOAuthState(state)
-    } catch (error: any) {
-      console.error("Invalid state parameter:", error)
-      return {
-        success: false,
-        error: "Invalid or expired authorization request. Please try connecting again.",
-        provider,
+    if (!githubUser) {
+      return res.status(500).send("Failed to fetch user from GitHub")
+    }
+
+    let user = await getUserByGithubId(githubUser.id)
+
+    if (!user) {
+      user = await createUser({
+        githubId: githubUser.id,
+        username: githubUser.login,
+        avatarUrl: githubUser.avatar_url,
+      })
+
+      if (!user) {
+        return res.status(500).send("Failed to create user")
       }
     }
 
-    const userId = stateData.userId
-    if (!userId) {
-      return {
-        success: false,
-        error: "User information not found in authorization request.",
-        provider,
-      }
+    const tokenPayload = {
+      userId: user.id,
+      username: user.username,
     }
 
-    // Get OAuth provider handler
-    let oauthProvider
-    try {
-      oauthProvider = getOAuthProvider(provider)
-    } catch (error: any) {
-      console.error(`No OAuth provider found for ${provider}:`, error)
-      return {
-        success: false,
-        error: `${provider} integration is not supported or configured.`,
-        provider,
-      }
+    const jwtSecret = process.env.JWT_SECRET
+    if (!jwtSecret) {
+      throw new Error("JWT_SECRET is not defined in environment variables.")
     }
 
-    // Exchange code for tokens
-    let tokenData
-    try {
-      console.log(`🔑 Exchanging code for tokens with ${provider}`)
-      tokenData = await oauthProvider.exchangeCodeForToken(code)
-
-      if (!tokenData.access_token) {
-        throw new Error("No access token received from provider")
-      }
-    } catch (error: any) {
-      console.error(`Token exchange failed for ${provider}:`, error)
-
-      let errorMessage = `Failed to complete authorization with ${provider}.`
-      if (error.message?.includes("invalid_grant")) {
-        errorMessage = "Authorization code expired. Please try connecting again."
-      } else if (error.message?.includes("invalid_client")) {
-        errorMessage = `${provider} integration is not properly configured.`
-      }
-
-      return {
-        success: false,
-        error: errorMessage,
-        provider,
-      }
-    }
-
-    // Get user info from provider
-    let userInfo
-    try {
-      console.log(`👤 Fetching user info from ${provider}`)
-      userInfo = await oauthProvider.getUserInfo(tokenData.access_token)
-
-      if (!userInfo || (!userInfo.id && !userInfo.user_id && !userInfo.sub && !userInfo.login)) {
-        throw new Error("No user ID received from provider")
-      }
-    } catch (error: any) {
-      console.error(`Failed to get user info from ${provider}:`, error)
-      return {
-        success: false,
-        error: `Failed to retrieve user information from ${provider}. Please try again.`,
-        provider,
-      }
-    }
-
-    // Prepare integration data
-    const integrationData = {
-      user_id: userId,
-      provider,
-      provider_user_id: userInfo.id || userInfo.user_id || userInfo.sub || userInfo.login,
-      status: "connected" as const,
-      scopes: tokenData.scope ? tokenData.scope.split(/[, ]/).filter(Boolean) : [],
-      access_token: tokenData.access_token,
-      refresh_token: tokenData.refresh_token || null,
-      expires_at: tokenData.expires_in ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString() : null,
-      metadata: {
-        ...userInfo,
-        connected_at: new Date().toISOString(),
-        token_type: tokenData.token_type || "Bearer",
-        reconnected: stateData.reconnect || false,
-      },
-    }
-
-    // Save to database
-    try {
-      console.log(`💾 Saving integration data for ${provider}`)
-      const supabase = createAdminSupabaseClient()
-      if (!supabase) {
-        throw new Error("Database connection failed")
-      }
-
-      await upsertIntegration(supabase, integrationData)
-
-      // Log successful connection
-      await supabase
-        .from("token_audit_log")
-        .insert({
-          user_id: userId,
-          provider,
-          action: stateData.reconnect ? "reconnected" : "connected",
-          status: "success",
-          details: {
-            scopes: integrationData.scopes,
-            provider_user_id: integrationData.provider_user_id,
-            token_expires_at: integrationData.expires_at,
-          },
+    const jwt = await new Promise<string>((resolve, reject) => {
+      import("jsonwebtoken")
+        .then((jsonwebtoken) => {
+          jsonwebtoken.sign(tokenPayload, jwtSecret, { expiresIn: "7d" }, (err, token) => {
+            if (err) {
+              reject(err)
+            } else if (token) {
+              resolve(token)
+            } else {
+              reject(new Error("Token is undefined"))
+            }
+          })
         })
-        .catch((logError) => {
-          console.warn("Failed to log successful connection:", logError)
+        .catch((err) => {
+          reject(err)
         })
+    })
 
-      console.log(`✅ Successfully connected ${provider} for user ${userId}`)
+    setCookie(res, "auth_token", jwt, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+    })
 
-      return {
-        success: true,
-        message: `${provider} connected successfully`,
-        provider,
-      }
-    } catch (error: any) {
-      console.error(`Database error for ${provider}:`, error)
-      return {
-        success: false,
-        error: `Failed to save ${provider} connection. Please try again.`,
-        provider,
-      }
-    }
-  } catch (error: any) {
-    console.error(`Unexpected error in OAuth callback for ${provider}:`, error)
-
-    // Log failed connection attempt
-    try {
-      const stateData = parseOAuthState(state)
-      if (stateData.userId) {
-        const supabase = createAdminSupabaseClient()
-        if (supabase) {
-          await supabase
-            .from("token_audit_log")
-            .insert({
-              user_id: stateData.userId,
-              provider,
-              action: "connection_failed",
-              status: "error",
-              details: {
-                error: error.message,
-                timestamp: new Date().toISOString(),
-              },
-            })
-            .catch((logError) => {
-              console.warn("Failed to log connection failure:", logError)
-            })
-        }
-      }
-    } catch (logError) {
-      console.warn("Failed to log error:", logError)
-    }
-
-    return {
-      success: false,
-      error: `An unexpected error occurred while connecting ${provider}. Please try again.`,
-      provider,
-    }
+    res.redirect("/")
+  } catch (error) {
+    console.error("OAuth callback error:", error)
+    res.status(500).send("OAuth failed")
   }
 }
+
+export default callbackHandler

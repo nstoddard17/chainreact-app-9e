@@ -75,6 +75,7 @@
     "gel": "latest",
     "immer": "latest",
     "input-otp": "latest",
+    "jsonwebtoken": "latest",
     "knex": "latest",
     "kysely": "latest",
     "lucide-react": "^0.454.0",
