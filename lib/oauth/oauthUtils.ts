@@ -1,4 +1,3 @@
-import crypto from "crypto"
 import { cookies } from "next/headers"
 import { createAdminSupabaseClient, parseOAuthState, upsertIntegration } from "./utils"
 
@@ -16,7 +15,7 @@ export function generateCodeVerifier(): string {
 export async function generateCodeChallenge(codeVerifier: string): Promise<string> {
   const encoder = new TextEncoder()
   const data = encoder.encode(codeVerifier)
-  const digest = await crypto.subtle.digest("SHA-256", data)
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", data)
   const buffer = Buffer.from(digest)
   const codeChallenge = buffer.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "")
 

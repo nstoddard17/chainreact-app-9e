@@ -1,42 +1,79 @@
-import crypto from "crypto"
-
 export class EncryptionService {
   private algorithm = "aes-256-gcm"
   private keyLength = 32 // 256 bits
 
   async generateKey(): Promise<string> {
-    return crypto.randomBytes(this.keyLength).toString("hex")
+    const randomBytes = new Uint8Array(this.keyLength)
+    globalThis.crypto.getRandomValues(randomBytes)
+    return Array.from(randomBytes, (byte) => byte.toString(16).padStart(2, "0")).join("")
   }
 
   async encrypt(data: string, key: string): Promise<{ encrypted: string; iv: string; tag: string }> {
-    const iv = crypto.randomBytes(16)
-    const cipher = crypto.createCipher(this.algorithm, Buffer.from(key, "hex"))
+    const keyBuffer = new Uint8Array(key.match(/.{1,2}/g)!.map((byte) => Number.parseInt(byte, 16)))
+    const iv = new Uint8Array(16)
+    globalThis.crypto.getRandomValues(iv)
 
-    let encrypted = cipher.update(data, "utf8", "hex")
-    encrypted += cipher.final("hex")
+    const cryptoKey = await globalThis.crypto.subtle.importKey("raw", keyBuffer, { name: "AES-GCM" }, false, [
+      "encrypt",
+    ])
 
-    const tag = (cipher as any).getAuthTag()
+    const encodedData = new TextEncoder().encode(data)
+    const encrypted = await globalThis.crypto.subtle.encrypt({ name: "AES-GCM", iv }, cryptoKey, encodedData)
 
     return {
-      encrypted,
-      iv: iv.toString("hex"),
-      tag: tag.toString("hex"),
+      encrypted: Array.from(new Uint8Array(encrypted), (byte) => byte.toString(16).padStart(2, "0")).join(""),
+      iv: Array.from(iv, (byte) => byte.toString(16).padStart(2, "0")).join(""),
+      tag: "", // GCM mode includes authentication tag in the encrypted data
     }
   }
 
   async decrypt(encryptedData: string, key: string, iv: string, tag: string): Promise<string> {
-    const decipher = crypto.createDecipher(this.algorithm, Buffer.from(key, "hex"))
-    ;(decipher as any).setAuthTag(Buffer.from(tag, "hex"))
+    const keyBuffer = new Uint8Array(key.match(/.{1,2}/g)!.map((byte) => Number.parseInt(byte, 16)))
+    const ivBuffer = new Uint8Array(iv.match(/.{1,2}/g)!.map((byte) => Number.parseInt(byte, 16)))
+    const encryptedBuffer = new Uint8Array(encryptedData.match(/.{1,2}/g)!.map((byte) => Number.parseInt(byte, 16)))
 
-    let decrypted = decipher.update(encryptedData, "hex", "utf8")
-    decrypted += decipher.final("utf8")
+    const cryptoKey = await globalThis.crypto.subtle.importKey("raw", keyBuffer, { name: "AES-GCM" }, false, [
+      "decrypt",
+    ])
 
-    return decrypted
+    const decrypted = await globalThis.crypto.subtle.decrypt(
+      { name: "AES-GCM", iv: ivBuffer },
+      cryptoKey,
+      encryptedBuffer,
+    )
+
+    return new TextDecoder().decode(decrypted)
   }
 
   async hashPassword(password: string, salt?: string): Promise<{ hash: string; salt: string }> {
-    const actualSalt = salt || crypto.randomBytes(16).toString("hex")
-    const hash = crypto.pbkdf2Sync(password, actualSalt, 10000, 64, "sha512").toString("hex")
+    const actualSalt =
+      salt ||
+      Array.from(new Uint8Array(16), () =>
+        Math.floor(Math.random() * 256)
+          .toString(16)
+          .padStart(2, "0"),
+      ).join("")
+
+    const encoder = new TextEncoder()
+    const data = encoder.encode(password + actualSalt)
+
+    // Use PBKDF2 with Web Crypto API
+    const keyMaterial = await globalThis.crypto.subtle.importKey("raw", encoder.encode(password), "PBKDF2", false, [
+      "deriveBits",
+    ])
+
+    const hashBuffer = await globalThis.crypto.subtle.deriveBits(
+      {
+        name: "PBKDF2",
+        salt: encoder.encode(actualSalt),
+        iterations: 10000,
+        hash: "SHA-512",
+      },
+      keyMaterial,
+      512, // 64 bytes * 8 bits
+    )
+
+    const hash = Array.from(new Uint8Array(hashBuffer), (byte) => byte.toString(16).padStart(2, "0")).join("")
 
     return { hash, salt: actualSalt }
   }
@@ -66,9 +103,10 @@ export class EncryptionService {
   private async getOrganizationKey(organizationId: string): Promise<string> {
     // In production, this would retrieve from secure key management service
     // For now, generate a deterministic key based on org ID
-    return crypto
-      .createHash("sha256")
-      .update(organizationId + process.env.ENCRYPTION_MASTER_KEY!)
-      .digest("hex")
+    const encoder = new TextEncoder()
+    const data = encoder.encode(organizationId + process.env.ENCRYPTION_MASTER_KEY!)
+    const hashBuffer = await globalThis.crypto.subtle.digest("SHA-256", data)
+
+    return Array.from(new Uint8Array(hashBuffer), (byte) => byte.toString(16).padStart(2, "0")).join("")
   }
 }
