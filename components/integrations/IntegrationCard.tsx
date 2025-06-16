@@ -63,6 +63,8 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
   const handleConnect = useCallback(async () => {
     try {
       setIsConnecting(true)
+      // Persist connecting state in case the user navigates away
+      localStorage.setItem("integration_connecting", provider.id)
 
       // Show immediate feedback
       toast({
@@ -89,6 +91,7 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
         duration: 8000,
       })
       setIsConnecting(false)
+      localStorage.removeItem("integration_connecting")
     }
   }, [provider, connectIntegration, toast])
 
@@ -203,6 +206,23 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
       setIsConnecting(true)
     }
   }, [provider.id])
+
+    // Listen for OAuth success/error messages from the popup
+  useEffect(() => {
+    const handleOauthMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return
+      if (event.data?.provider !== provider.id) return
+
+      if (event.data?.type === "oauth-success" || event.data?.type === "oauth-error") {
+        localStorage.removeItem("integration_connecting")
+        setIsConnecting(false)
+      }
+    }
+
+    window.addEventListener("message", handleOauthMessage)
+    return () => window.removeEventListener("message", handleOauthMessage)
+  }, [provider.id])
+
 
   const getStatusBadge = () => {
     if (isConnected) {
