@@ -228,6 +228,14 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
         localStorage.removeItem("integration_connecting")
         localStorage.removeItem("integration_connecting_time")
         setIsConnecting(false)
+        if (event.data?.type === "oauth-success") {
+          const refresh = fetchIntegrations
+          // Ensure the integration list updates with eventual consistency
+          refresh(true)
+          setTimeout(() => refresh(true), 1000)
+          setTimeout(() => refresh(true), 2000)
+          setTimeout(() => refresh(true), 3000)
+        }
       }
     },
     [provider.id, setIsConnecting],
