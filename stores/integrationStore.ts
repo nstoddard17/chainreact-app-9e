@@ -257,7 +257,12 @@ export const useIntegrationStore = create<IntegrationStore>((set, get) => ({
           if (event.data?.type === "oauth-success") {
             console.log(`✅ OAuth success for ${providerId}`)
             setLoading(`connect-${providerId}`, false)
-            get().fetchIntegrations(true)
+            const refresh = get().fetchIntegrations
+            // Refresh multiple times to ensure backend state is updated
+            refresh(true)
+            setTimeout(() => refresh(true), 1000)
+            setTimeout(() => refresh(true), 2000)
+            setTimeout(() => refresh(true), 3000)
           } else if (event.data?.type === "oauth-error") {
             console.error(`❌ OAuth error for ${providerId}:`, event.data.error)
             setLoading(`connect-${providerId}`, false)
