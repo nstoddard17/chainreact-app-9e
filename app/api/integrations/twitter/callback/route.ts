@@ -10,7 +10,11 @@ export async function GET(request: NextRequest) {
 
   // Handle OAuth errors
   if (error) {
-    console.error("Twitter OAuth error:", error)
+    console.error("Twitter OAuth error:", {
+      error,
+      url: request.url,
+      headers: Object.fromEntries(request.headers.entries())
+    })
     const htmlContent = `
 <!DOCTYPE html>
 <html>
@@ -38,7 +42,7 @@ export async function GET(request: NextRequest) {
 <body>
   <div class="container">
     <h1>Twitter Authentication Failed</h1>
-    <p>There was an error during authentication.</p>
+    <p>There was an error during authentication: ${error}</p>
     <script>
       if (window.opener && !window.opener.closed) {
         window.opener.postMessage({
@@ -60,12 +64,18 @@ export async function GET(request: NextRequest) {
 
   // Basic error handling
   if (!code) {
-    console.error("Twitter callback: Missing code")
+    console.error("Twitter callback: Missing code", {
+      url: request.url,
+      searchParams: Object.fromEntries(searchParams.entries())
+    })
     return new NextResponse("Missing code", { status: 400 })
   }
 
   if (!state) {
-    console.error("Twitter callback: Missing state")
+    console.error("Twitter callback: Missing state", {
+      url: request.url,
+      searchParams: Object.fromEntries(searchParams.entries())
+    })
     return new NextResponse("Missing state", { status: 400 })
   }
 
@@ -73,13 +83,23 @@ export async function GET(request: NextRequest) {
     // Create Supabase client
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
-    // Get base URL
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || `${request.nextUrl.protocol}//${request.nextUrl.host}`
+    // Get base URL - ensure it's properly formatted for Vercel
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 
+      `${request.nextUrl.protocol}//${request.nextUrl.host}`
+
+    console.log("Processing Twitter callback:", {
+      hasCode: !!code,
+      hasState: !!state,
+      baseUrl,
+      url: request.url,
+      headers: Object.fromEntries(request.headers.entries())
+    })
 
     // Process the OAuth callback
     const result = await TwitterOAuthService.handleCallback(code, state, baseUrl, supabase)
 
     if (result.success) {
+      console.log("Twitter OAuth successful, redirecting to:", result.redirectUrl)
       // Success HTML
       const htmlContent = `
 <!DOCTYPE html>
