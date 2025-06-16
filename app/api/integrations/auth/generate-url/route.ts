@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 import { TwitterOAuthService } from "@/lib/oauth/twitter"
+import { GitLabOAuthService } from "@/lib/oauth/gitlab"
 
 export async function POST(request: NextRequest) {
   try {
@@ -129,7 +130,13 @@ export async function POST(request: NextRequest) {
         break
 
       case "gitlab":
-        authUrl = generateGitLabAuthUrl(state)
+        authUrl = await GitLabOAuthService.generateAuthUrl(
+          provider,
+          process.env.NEXT_PUBLIC_SITE_URL || "https://chainreact.app",
+          reconnect,
+          integrationId,
+          user.id
+        )
         break
 
       case "docker":
@@ -458,21 +465,6 @@ function generateOneDriveAuthUrl(state: string): string {
   })
 
   return `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`
-}
-
-function generateGitLabAuthUrl(state: string): string {
-  const clientId = process.env.NEXT_PUBLIC_GITLAB_CLIENT_ID
-  if (!clientId) throw new Error("GitLab client ID not configured")
-
-  const params = new URLSearchParams({
-    client_id: clientId,
-    redirect_uri: "https://chainreact.app/api/integrations/gitlab/callback",
-    response_type: "code",
-    scope: "api read_user",
-    state,
-  })
-
-  return `https://gitlab.com/oauth/authorize?${params.toString()}`
 }
 
 function generateDockerAuthUrl(state: string): string {
