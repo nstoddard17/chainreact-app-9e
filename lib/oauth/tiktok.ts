@@ -1,4 +1,4 @@
-import { BaseOAuthService, OAuthResult } from "./BaseOAuthService"
+import { BaseOAuthService, type OAuthResult } from "./BaseOAuthService"
 import { createClient } from "@supabase/supabase-js"
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 
@@ -8,13 +8,7 @@ export class TikTokOAuthService extends BaseOAuthService {
   }
 
   static getRequiredScopes(): string[] {
-    return [
-      "user.info.basic",
-      "user.info.profile",
-      "user.info.stats",
-      "video.publish",
-      "video.list"
-    ]
+    return ["user.info.basic", "user.info.profile", "user.info.stats", "video.publish", "video.list"]
   }
 
   static async exchangeCodeForToken(
@@ -75,29 +69,20 @@ export class TikTokOAuthService extends BaseOAuthService {
     userId?: string,
   ): Promise<string> {
     const authUrl = await super.generateAuthUrl(provider, baseUrl, reconnect, integrationId, userId)
-    
-    // Add TikTok-specific parameters
+
+    // Add TikTok-specific parameters (client_key will be added server-side)
     const url = new URL(authUrl)
     url.searchParams.append("response_type", "code")
     url.searchParams.append("scope", this.getRequiredScopes().join(" "))
-    url.searchParams.append("client_key", process.env.NEXT_PUBLIC_TIKTOK_CLIENT_KEY!)
 
     return url.toString()
   }
 
   // Override the base class method to handle TikTok-specific callback
-  static async handleCallback(
-    provider: string,
-    code: string,
-    state: string,
-    userId: string,
-  ): Promise<OAuthResult> {
+  static async handleCallback(provider: string, code: string, state: string, userId: string): Promise<OAuthResult> {
     try {
       // Create Supabase client
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
-      )
+      const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
       // Parse state
       let stateData
@@ -114,8 +99,8 @@ export class TikTokOAuthService extends BaseOAuthService {
         throw new Error("Invalid provider in state")
       }
 
-      // Get client credentials
-      const clientKey = process.env.NEXT_PUBLIC_TIKTOK_CLIENT_KEY
+      // Get client credentials (server-side only)
+      const clientKey = process.env.TIKTOK_CLIENT_KEY
       const clientSecret = process.env.TIKTOK_CLIENT_SECRET
 
       if (!clientKey || !clientSecret) {
@@ -128,7 +113,7 @@ export class TikTokOAuthService extends BaseOAuthService {
         this.getRedirectUri(provider),
         clientKey,
         clientSecret,
-        stateData.codeVerifier
+        stateData.codeVerifier,
       )
 
       const { access_token } = tokenResponse

@@ -186,4 +186,4 @@ export class PinterestOAuthService extends BaseOAuthService {
       }
     }
   }
-} 
+}
