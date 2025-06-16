@@ -86,7 +86,9 @@ export const useIntegrationStore = create<IntegrationStore>((set, get) => ({
       const data = await response.json()
 
       // Ensure we have valid data structure
-      const providers = Array.isArray(data) ? data : data.providers || []
+      const providers = Array.isArray(data)
+        ? data
+        : data.data?.integrations || data.integrations || data.providers || []
 
       set({
         providers,
