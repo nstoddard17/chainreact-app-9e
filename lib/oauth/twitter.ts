@@ -62,17 +62,23 @@ export class TwitterOAuthService {
 
     const scopes = ["tweet.read", "tweet.write", "users.read", "offline.access"]
 
-    const state = btoa(
-      JSON.stringify({
-        provider: "twitter",
-        reconnect,
-        integrationId,
-        userId,
-        requireFullScopes: true,
-        timestamp: Date.now(),
-        codeVerifier, // Store verifier in state for later use
-      }),
-    )
+    const stateData = {
+      provider: "twitter",
+      reconnect,
+      integrationId,
+      userId,
+      requireFullScopes: true,
+      timestamp: Date.now(),
+      codeVerifier, // Store verifier in state for later use
+    }
+
+    console.log("Twitter: Creating state with code verifier:", {
+      hasCodeVerifier: !!codeVerifier,
+      codeVerifierLength: codeVerifier.length,
+      userId,
+    })
+
+    const state = btoa(JSON.stringify(stateData))
 
     const params = new URLSearchParams({
       response_type: "code",
@@ -94,7 +100,20 @@ export class TwitterOAuthService {
     supabase: any,
   ): Promise<TwitterOAuthResult> {
     try {
+      console.log("Twitter: Handling callback with state:", {
+        hasCode: !!code,
+        hasState: !!state,
+        stateLength: state.length,
+      })
+
       const stateData = JSON.parse(atob(state))
+      console.log("Twitter: Parsed state data:", {
+        provider: stateData.provider,
+        hasCodeVerifier: !!stateData.codeVerifier,
+        hasUserId: !!stateData.userId,
+        codeVerifierLength: stateData.codeVerifier?.length,
+      })
+
       const { provider, reconnect, integrationId, requireFullScopes, codeVerifier, userId } = stateData
 
       if (provider !== "twitter") {
@@ -102,6 +121,7 @@ export class TwitterOAuthService {
       }
 
       if (!codeVerifier) {
+        console.error("Twitter: Missing code verifier in parsed state:", stateData)
         throw new Error("Missing code verifier in state")
       }
 
@@ -117,6 +137,7 @@ export class TwitterOAuthService {
         redirectUri,
         hasCode: !!code,
         hasCodeVerifier: !!codeVerifier,
+        codeVerifierLength: codeVerifier.length,
       })
 
       // Exchange code for token with proper PKCE
