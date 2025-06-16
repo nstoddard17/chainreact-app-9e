@@ -56,13 +56,30 @@ export class TwitterOAuthService {
     userId?: string,
   ): Promise<string> {
     const { clientId } = this.getClientCredentials()
-    const redirectUri = `${baseUrl}/api/integrations/twitter/callback`
+    
+    // Ensure baseUrl doesn't end with a slash
+    const cleanBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl
+    const redirectUri = `${cleanBaseUrl}/api/integrations/twitter/callback`
+
+    console.log("Generating Twitter auth URL:", {
+      baseUrl: cleanBaseUrl,
+      redirectUri,
+      hasUserId: !!userId
+    })
 
     // Generate PKCE parameters
     const codeVerifier = this.generateCodeVerifier()
     const codeChallenge = await this.generateCodeChallenge(codeVerifier)
 
-    const scopes = ["tweet.read", "tweet.write", "users.read", "offline.access"]
+    // Updated scopes based on Twitter's current requirements
+    const scopes = [
+      "tweet.read",
+      "tweet.write",
+      "users.read",
+      "offline.access",
+      "like.read",
+      "like.write"
+    ]
 
     // Store the code verifier in a more secure way
     const stateData = {
@@ -88,7 +105,9 @@ export class TwitterOAuthService {
       code_challenge_method: "S256",
     })
 
-    return `https://twitter.com/i/oauth2/authorize?${params.toString()}`
+    const authUrl = `https://twitter.com/i/oauth2/authorize?${params.toString()}`
+    console.log("Generated Twitter auth URL:", authUrl)
+    return authUrl
   }
 
   static async handleCallback(
