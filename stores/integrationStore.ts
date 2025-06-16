@@ -233,8 +233,6 @@ export const useIntegrationStore = create<IntegrationStore>((set, get) => ({
 
             if (!closedByMessage) {
               console.log(`❌ Popup closed manually for ${providerId}`)
-              // Remove localStorage key when popup closed manually
-              localStorage.removeItem("integration_connecting")
               setLoading(`connect-${providerId}`, false)
               get().fetchIntegrations(true)
             }
@@ -244,6 +242,8 @@ export const useIntegrationStore = create<IntegrationStore>((set, get) => ({
         const messageHandler = (event: MessageEvent) => {
           if (event.origin !== window.location.origin) return
           if (event.data?.provider !== providerId) return
+
+          console.log(`Received message from ${providerId} popup:`, event.data)
 
           closedByMessage = true
           clearInterval(checkClosed)
@@ -261,6 +261,16 @@ export const useIntegrationStore = create<IntegrationStore>((set, get) => ({
         }
 
         window.addEventListener("message", messageHandler)
+
+        // Final cleanup after 5 minutes in case of nothing happening
+        setTimeout(() => {
+          if (!popup.closed) {
+            clearInterval(checkClosed)
+            popup.close()
+            window.removeEventListener("message", messageHandler)
+            setLoading(`connect-${providerId}`, false)
+          }
+        }, 300000) // 5 minutes
       } else {
         throw new Error("Failed to generate OAuth URL")
       }
