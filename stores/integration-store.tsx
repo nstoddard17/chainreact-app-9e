@@ -240,7 +240,7 @@ export const useIntegrationStore = create<IntegrationStore>((set, get) => ({
         const popup = window.open(
           data.authUrl,
           "oauth_popup",
-          "width=600,height=700,scrollbars=yes,resizable=yes,location=yes",
+          "width=600,height=700,scrollbars=yes,resizable=yes,location=yes,menubar=no,toolbar=no,status=no",
         )
 
         if (!popup || popup.closed) {
@@ -255,6 +255,7 @@ export const useIntegrationStore = create<IntegrationStore>((set, get) => ({
         // Enhanced popup monitoring
         let checkCount = 0
         const maxChecks = 600 // 5 minutes at 500ms intervals
+        let messageReceived = false
 
         const checkClosed = setInterval(() => {
           checkCount++
@@ -264,30 +265,22 @@ export const useIntegrationStore = create<IntegrationStore>((set, get) => ({
               clearInterval(checkClosed)
               console.log(`Popup closed for ${providerId}`)
 
-              // Check if we got a success callback
-              setTimeout(() => {
-                const stillConnecting = localStorage.getItem("connecting_provider")
-                if (stillConnecting === providerId) {
-                  console.log("No success callback received, cleaning up")
-                  localStorage.removeItem("connecting_provider")
-                  localStorage.removeItem("connecting_timestamp")
-                  setLoading(`connect-${providerId}`, false)
-                  // Refresh to check if connection actually succeeded
-                  get().fetchIntegrations(true)
-                }
-              }, 2000)
+              // Only clean up if no message was received
+              if (!messageReceived) {
+                setTimeout(() => {
+                  const stillConnecting = localStorage.getItem("connecting_provider")
+                  if (stillConnecting === providerId) {
+                    console.log("No success callback received, cleaning up")
+                    localStorage.removeItem("connecting_provider")
+                    localStorage.removeItem("connecting_timestamp")
+                    setLoading(`connect-${providerId}`, false)
+                    // Refresh to check if connection actually succeeded
+                    get().fetchIntegrations(true)
+                  }
+                }, 2000)
+              }
 
               return
-            }
-
-            // Try to detect URL changes in popup (may fail due to CORS)
-            try {
-              const popupUrl = popup.location.href
-              if (popupUrl.includes("success=true") || popupUrl.includes("error=")) {
-                popup.close()
-              }
-            } catch (e) {
-              // Expected - cross-origin restrictions
             }
           } catch (error) {
             console.error("Error checking popup:", error)
@@ -297,41 +290,84 @@ export const useIntegrationStore = create<IntegrationStore>((set, get) => ({
           if (checkCount >= maxChecks) {
             clearInterval(checkClosed)
             popup.close()
-            localStorage.removeItem("connecting_provider")
-            localStorage.removeItem("connecting_timestamp")
-            setLoading(`connect-${providerId}`, false)
-            set({ error: "Connection timed out. Please try again." })
+            if (!messageReceived) {
+              localStorage.removeItem("connecting_provider")
+              localStorage.removeItem("connecting_timestamp")
+              setLoading(`connect-${providerId}`, false)
+              set({ error: "Connection timed out. Please try again." })
+            }
           }
         }, 500)
 
-        // Listen for success/error messages
+        // Listen for success/error messages with improved handling
         const messageHandler = (event: MessageEvent) => {
-          console.log("Received message:", event.data)
+          console.log("Received message:", event.data, "from origin:", event.origin)
 
-          if (event.origin !== window.location.origin) return
+          // Accept messages from our own origin or any origin (for OAuth callbacks)
+          const appUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || window.location.origin
+          const expectedOrigin = new URL(appUrl).origin
+
+          if (event.origin !== expectedOrigin && event.origin !== window.location.origin) {
+            console.log("Message from unexpected origin, ignoring")
+            return
+          }
 
           if (event.data?.type === "oauth-success" && event.data?.provider === providerId) {
             console.log(`✅ OAuth success for ${providerId}`)
+            messageReceived = true
             clearInterval(checkClosed)
-            popup.close()
+
+            try {
+              popup.close()
+            } catch (e) {
+              console.log("Popup already closed")
+            }
+
             localStorage.removeItem("connecting_provider")
             localStorage.removeItem("connecting_timestamp")
             setLoading(`connect-${providerId}`, false)
+
+            // Refresh integrations to show the new connection
             get().fetchIntegrations(true)
+
             window.removeEventListener("message", messageHandler)
           } else if (event.data?.type === "oauth-error" && event.data?.provider === providerId) {
             console.error(`❌ OAuth error for ${providerId}:`, event.data.error)
+            messageReceived = true
             clearInterval(checkClosed)
-            popup.close()
+
+            try {
+              popup.close()
+            } catch (e) {
+              console.log("Popup already closed")
+            }
+
             localStorage.removeItem("connecting_provider")
             localStorage.removeItem("connecting_timestamp")
             setLoading(`connect-${providerId}`, false)
             set({ error: event.data.error || `Failed to connect ${providerId}` })
+
             window.removeEventListener("message", messageHandler)
           }
         }
 
         window.addEventListener("message", messageHandler)
+
+        // Cleanup after timeout
+        setTimeout(() => {
+          if (!messageReceived) {
+            window.removeEventListener("message", messageHandler)
+            clearInterval(checkClosed)
+            try {
+              popup.close()
+            } catch (e) {
+              console.log("Popup cleanup failed")
+            }
+            localStorage.removeItem("connecting_provider")
+            localStorage.removeItem("connecting_timestamp")
+            setLoading(`connect-${providerId}`, false)
+          }
+        }, 300000) // 5 minutes
       } else {
         throw new Error(data.error || "Failed to generate OAuth URL")
       }
