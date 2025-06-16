@@ -43,6 +43,7 @@ export async function GET(request: NextRequest) {
             type: 'gitlab-integration-error',
             error: '${error}',
             error_description: '${error_description}',
+            provider: 'gitlab'
           }, window.location.origin);
           setTimeout(() => window.close(), 1000);
         </script>
@@ -113,6 +114,7 @@ export async function GET(request: NextRequest) {
           <script>
             window.opener.postMessage({
               type: 'gitlab-integration-${result.success ? 'success' : 'error'}',
+              provider: 'gitlab',
               ${result.success ? `code: '${code}'` : `error: '${result.error}'`}
             }, window.location.origin);
             setTimeout(() => window.close(), 1000);
@@ -149,7 +151,8 @@ export async function GET(request: NextRequest) {
           <script>
             window.opener.postMessage({
               type: 'gitlab-integration-error',
-              error: '${error.message}'
+              error: '${error.message}',
+              provider: 'gitlab'
             }, window.location.origin);
             setTimeout(() => window.close(), 1000);
           </script>
@@ -187,7 +190,8 @@ export async function GET(request: NextRequest) {
           window.opener.postMessage({
             type: 'gitlab-integration-error',
             error: 'unknown',
-            error_description: 'Unknown error during GitLab integration.'
+            error_description: 'Unknown error during GitLab integration.',
+            provider: 'gitlab'
           }, window.location.origin);
           setTimeout(() => window.close(), 1000);
         </script>

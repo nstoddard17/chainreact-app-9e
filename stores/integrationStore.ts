@@ -249,49 +249,25 @@ export const useIntegrationStore = create<IntegrationStore>((set, get) => ({
           clearInterval(checkClosed)
           window.removeEventListener("message", messageHandler)
 
-          // Remove localStorage key for both success and error
-          localStorage.removeItem("integration_connecting")
-
-          popup.close()
-
-          if (event.data?.type === "oauth-success") {
-            console.log(`✅ OAuth success for ${providerId}`)
-            setLoading(`connect-${providerId}`, false)
-            const refresh = get().fetchIntegrations
-            // Refresh multiple times to ensure backend state is updated
-            refresh(true)
-            setTimeout(() => refresh(true), 1000)
-            setTimeout(() => refresh(true), 2000)
-            setTimeout(() => refresh(true), 3000)
-          } else if (event.data?.type === "oauth-error") {
-            console.error(`❌ OAuth error for ${providerId}:`, event.data.error)
-            setLoading(`connect-${providerId}`, false)
-            set({ error: event.data.error || `Failed to connect ${providerId}` })
+          if (event.data.type === `${providerId}-integration-success`) {
+            console.log(`✅ ${providerId} integration successful`)
+            get().fetchIntegrations(true)
+          } else if (event.data.type === `${providerId}-integration-error`) {
+            console.error(`❌ ${providerId} integration failed:`, event.data.error)
+            set({ error: event.data.error || `Failed to connect to ${provider.name}` })
           }
+
+          setLoading(`connect-${providerId}`, false)
         }
 
         window.addEventListener("message", messageHandler)
-
-        // Final cleanup after 5 minutes in case of nothing happening
-        setTimeout(() => {
-          if (!popup.closed) {
-            clearInterval(checkClosed)
-            popup.close()
-          }
-          window.removeEventListener("message", messageHandler)
-          // Remove localStorage key on timeout cleanup
-          localStorage.removeItem("integration_connecting")
-          setLoading(`connect-${providerId}`, false)
-        }, 300000) // 5 minutes
       } else {
-        throw new Error(data.error || "Failed to generate OAuth URL")
+        throw new Error("Failed to generate OAuth URL")
       }
     } catch (error: any) {
-      console.error(`❌ Failed to connect ${providerId}:`, error)
+      console.error(`Failed to connect to ${providerId}:`, error)
       set({ error: error.message })
-      throw error
-    } finally {
-      // No-op here — handled dynamically when popup closes
+      setLoading(`connect-${providerId}`, false)
     }
   },
 
