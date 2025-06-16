@@ -70,24 +70,9 @@ export class TwitterOAuthService {
         userId,
         requireFullScopes: true,
         timestamp: Date.now(),
+        codeVerifier, // Store verifier in state for later use
       }),
     )
-
-    // Store code verifier in server-side cookie if we have access to cookies
-    if (typeof window === "undefined" && userId) {
-      try {
-        const { cookies } = await import("next/headers")
-        const cookieStore = cookies()
-        cookieStore.set(`twitter_code_verifier_${userId}`, codeVerifier, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === "production",
-          sameSite: "lax",
-          maxAge: 1800, // 30 minutes
-        })
-      } catch (error) {
-        console.warn("Could not store code verifier in cookie:", error)
-      }
-    }
 
     const params = new URLSearchParams({
       response_type: "code",
@@ -107,11 +92,10 @@ export class TwitterOAuthService {
     state: string,
     baseUrl: string,
     supabase: any,
-    userId: string,
   ): Promise<TwitterOAuthResult> {
     try {
       const stateData = JSON.parse(atob(state))
-      const { provider, reconnect, integrationId, requireFullScopes, codeVerifier } = stateData
+      const { provider, reconnect, integrationId, requireFullScopes, codeVerifier, userId } = stateData
 
       if (provider !== "twitter") {
         throw new Error("Invalid provider in state")
@@ -119,6 +103,10 @@ export class TwitterOAuthService {
 
       if (!codeVerifier) {
         throw new Error("Missing code verifier in state")
+      }
+
+      if (!userId) {
+        throw new Error("Missing user ID in state")
       }
 
       const { clientId, clientSecret } = this.getClientCredentials()
