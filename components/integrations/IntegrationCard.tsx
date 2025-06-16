@@ -64,6 +64,7 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
       setIsConnecting(true)
       // Persist connecting state in case the user navigates away
       localStorage.setItem("integration_connecting", provider.id)
+      localStorage.setItem("integration_connecting_time", Date.now().toString())
 
       // Show immediate feedback
       toast({
@@ -91,6 +92,7 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
       })
       setIsConnecting(false)
       localStorage.removeItem("integration_connecting")
+      localStorage.removeItem("integration_connecting_time")
     }
   }, [provider, connectIntegration, toast])
 
@@ -202,7 +204,18 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
   useEffect(() => {
     const connectingProvider = localStorage.getItem("integration_connecting")
     if (connectingProvider === provider.id) {
-      setIsConnecting(true)
+      // Check if this is a fresh page load vs an actual connection attempt
+      const pageLoadTime = Date.now()
+      const connectionStartTime = localStorage.getItem("integration_connecting_time")
+
+      if (!connectionStartTime || pageLoadTime - Number.parseInt(connectionStartTime) > 30000) {
+        // If no timestamp or more than 30 seconds old, clear it
+        localStorage.removeItem("integration_connecting")
+        localStorage.removeItem("integration_connecting_time")
+        setIsConnecting(false)
+      } else {
+        setIsConnecting(true)
+      }
     }
   }, [provider.id])
 
@@ -213,6 +226,7 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
 
       if (event.data?.type === "oauth-success" || event.data?.type === "oauth-error") {
         localStorage.removeItem("integration_connecting")
+        localStorage.removeItem("integration_connecting_time")
         setIsConnecting(false)
       }
     },
