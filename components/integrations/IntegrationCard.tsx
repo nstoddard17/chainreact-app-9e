@@ -207,9 +207,8 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
     }
   }, [provider.id])
 
-    // Listen for OAuth success/error messages from the popup
-  useEffect(() => {
-    const handleOauthMessage = (event: MessageEvent) => {
+  const handleOauthMessage = useCallback(
+    (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return
       if (event.data?.provider !== provider.id) return
 
@@ -217,12 +216,15 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
         localStorage.removeItem("integration_connecting")
         setIsConnecting(false)
       }
-    }
+    },
+    [provider.id, setIsConnecting],
+  )
 
+  // Listen for OAuth success/error messages from the popup
+  useEffect(() => {
     window.addEventListener("message", handleOauthMessage)
     return () => window.removeEventListener("message", handleOauthMessage)
-  }, [provider.id])
-
+  }, [handleOauthMessage])
 
   const getStatusBadge = () => {
     if (isConnected) {
