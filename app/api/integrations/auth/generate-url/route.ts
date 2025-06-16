@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
+import { TwitterOAuthService } from "@/lib/oauth/twitter"
 
 export async function POST(request: NextRequest) {
   try {
@@ -63,7 +64,12 @@ export async function POST(request: NextRequest) {
         break
 
       case "twitter":
-        authUrl = generateTwitterAuthUrl(state)
+        authUrl = await TwitterOAuthService.generateAuthUrl(
+          process.env.NEXT_PUBLIC_SITE_URL || "https://chainreact.app",
+          reconnect,
+          integrationId,
+          user.id
+        )
         break
 
       case "linkedin":
@@ -244,23 +250,6 @@ function generateNotionAuthUrl(state: string): string {
   })
 
   return `https://api.notion.com/v1/oauth/authorize?${params.toString()}`
-}
-
-function generateTwitterAuthUrl(state: string): string {
-  const clientId = process.env.NEXT_PUBLIC_TWITTER_CLIENT_ID
-  if (!clientId) throw new Error("Twitter client ID not configured")
-
-  const params = new URLSearchParams({
-    client_id: clientId,
-    redirect_uri: "https://chainreact.app/api/integrations/twitter/callback",
-    response_type: "code",
-    scope: "tweet.read tweet.write users.read",
-    state,
-    code_challenge_method: "S256",
-    code_challenge: "challenge", // In production, generate proper PKCE challenge
-  })
-
-  return `https://twitter.com/i/oauth2/authorize?${params.toString()}`
 }
 
 function generateLinkedInAuthUrl(state: string): string {
