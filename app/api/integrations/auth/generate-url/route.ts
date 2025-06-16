@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
           process.env.NEXT_PUBLIC_SITE_URL || "https://chainreact.app",
           reconnect,
           integrationId,
-          user.id
+          user.id,
         )
         break
 
@@ -86,7 +86,19 @@ export async function POST(request: NextRequest) {
         break
 
       case "tiktok":
-        authUrl = generateTikTokAuthUrl(state)
+        // Use server-side environment variable for TikTok
+        const tiktokClientId = process.env.TIKTOK_CLIENT_KEY
+        if (!tiktokClientId) throw new Error("TikTok client ID not configured")
+
+        const tiktokParams = new URLSearchParams({
+          client_key: tiktokClientId,
+          redirect_uri: "https://chainreact.app/api/integrations/tiktok/callback",
+          response_type: "code",
+          scope: "user.info.basic video.list",
+          state,
+        })
+
+        authUrl = `https://www.tiktok.com/auth/authorize/?${tiktokParams.toString()}`
         break
 
       case "trello":
@@ -135,7 +147,7 @@ export async function POST(request: NextRequest) {
           process.env.NEXT_PUBLIC_SITE_URL || "https://chainreact.app",
           reconnect,
           integrationId,
-          user.id
+          user.id,
         )
         break
 
@@ -302,21 +314,6 @@ function generateInstagramAuthUrl(state: string): string {
   })
 
   return `https://api.instagram.com/oauth/authorize?${params.toString()}`
-}
-
-function generateTikTokAuthUrl(state: string): string {
-  const clientId = process.env.NEXT_PUBLIC_TIKTOK_CLIENT_ID
-  if (!clientId) throw new Error("TikTok client ID not configured")
-
-  const params = new URLSearchParams({
-    client_key: clientId,
-    redirect_uri: "https://chainreact.app/api/integrations/tiktok/callback",
-    response_type: "code",
-    scope: "user.info.basic video.list",
-    state,
-  })
-
-  return `https://www.tiktok.com/auth/authorize/?${params.toString()}`
 }
 
 function generateTrelloAuthUrl(state: string): string {

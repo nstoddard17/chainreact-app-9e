@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
         <p>Description: ${error_description}</p>
         <script>
           window.opener.postMessage({
-            type: 'gitlab-integration-error',
+            type: 'oauth-error',
             error: '${error}',
             error_description: '${error_description}',
             provider: 'gitlab'
@@ -113,7 +113,7 @@ export async function GET(request: NextRequest) {
           <p>${result.success ? 'You can now close this window.' : result.error || 'An error occurred.'}</p>
           <script>
             window.opener.postMessage({
-              type: 'gitlab-integration-${result.success ? 'success' : 'error'}',
+              type: '${result.success ? 'oauth-success' : 'oauth-error'}',
               provider: 'gitlab',
               ${result.success ? `code: '${code}'` : `error: '${result.error}'`}
             }, window.location.origin);
@@ -150,7 +150,7 @@ export async function GET(request: NextRequest) {
           <p>Error: ${error.message}</p>
           <script>
             window.opener.postMessage({
-              type: 'gitlab-integration-error',
+              type: 'oauth-error',
               error: '${error.message}',
               provider: 'gitlab'
             }, window.location.origin);
@@ -188,7 +188,7 @@ export async function GET(request: NextRequest) {
         <p>Something went wrong. Please try again.</p>
         <script>
           window.opener.postMessage({
-            type: 'gitlab-integration-error',
+            type: 'oauth-error',
             error: 'unknown',
             error_description: 'Unknown error during GitLab integration.',
             provider: 'gitlab'
