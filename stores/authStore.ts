@@ -42,8 +42,8 @@ export const useAuthStore = create<AuthState>()(
 
       initialize: async () => {
         const state = get()
-        if (state.initialized) {
-          console.log("Auth already initialized")
+        if (state.initialized || state.loading) {
+          console.log("Auth already initialized or initializing")
           return
         }
 
@@ -74,16 +74,19 @@ export const useAuthStore = create<AuthState>()(
 
             set({ user, loading: false, initialized: true })
 
-            // Start background data preloading
+            // Start background data preloading (only once)
             console.log("🚀 Starting background data preload...")
             setTimeout(async () => {
               try {
                 const { useIntegrationStore } = await import("./integrationStore")
                 const integrationStore = useIntegrationStore.getState()
 
-                await integrationStore.fetchIntegrations(true)
-                await integrationStore.initializeGlobalPreload()
-                console.log("✅ Background preload completed")
+                // Only start if not already started
+                if (!integrationStore.preloadStarted && !integrationStore.globalPreloadingData) {
+                  await integrationStore.fetchIntegrations(true)
+                  await integrationStore.initializeGlobalPreload()
+                  console.log("✅ Background preload completed")
+                }
               } catch (error) {
                 console.error("❌ Background preload failed:", error)
               }
