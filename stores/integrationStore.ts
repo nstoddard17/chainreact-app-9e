@@ -80,46 +80,27 @@ export const useIntegrationStore = create<IntegrationStore>((set, get) => ({
       clearTimeout(timeoutId)
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: Failed to fetch available integrations`)
+        throw new Error("Failed to fetch available integrations")
       }
 
       const data = await response.json()
 
-      // Handle the response structure from the API
-      const providers = data.providers || []
+      // Ensure we have valid data structure
+      const providers = Array.isArray(data) ? data : data.providers || []
 
       set({
         providers,
         loading: false,
       })
 
-      console.log(
-        "✅ Providers initialized:",
-        providers.length,
-        providers.map((p) => p.name),
-      )
+      console.log("✅ Providers initialized:", providers.length)
     } catch (error: any) {
       console.error("Failed to initialize providers:", error)
-
-      // Fallback: Load integrations directly if API fails
-      try {
-        const { detectAvailableIntegrations } = await import("@/lib/integrations/availableIntegrations")
-        const fallbackProviders = detectAvailableIntegrations()
-
-        set({
-          providers: fallbackProviders,
-          loading: false,
-          error: null,
-        })
-
-        console.log("✅ Fallback providers loaded:", fallbackProviders.length)
-      } catch (fallbackError) {
-        set({
-          error: error.name === "AbortError" ? "Request timed out" : error.message,
-          loading: false,
-          providers: [], // Set empty array as fallback
-        })
-      }
+      set({
+        error: error.name === "AbortError" ? "Request timed out" : error.message,
+        loading: false,
+        providers: [], // Set empty array as fallback
+      })
     }
   },
 
