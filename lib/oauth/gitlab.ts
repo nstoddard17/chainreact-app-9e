@@ -11,6 +11,17 @@ export class GitLabOAuthService extends BaseOAuthService {
     return ["read_user", "read_api", "read_repository", "write_repository"]
   }
 
+  private static getClientCredentials() {
+    const clientId = process.env.NEXT_PUBLIC_GITLAB_CLIENT_ID
+    const clientSecret = process.env.GITLAB_CLIENT_SECRET
+
+    if (!clientId || !clientSecret) {
+      throw new Error("Missing GitLab OAuth configuration")
+    }
+
+    return { clientId, clientSecret }
+  }
+
   static async exchangeCodeForToken(
     code: string,
     redirectUri: string,
@@ -18,6 +29,12 @@ export class GitLabOAuthService extends BaseOAuthService {
     clientSecret: string,
     codeVerifier?: string,
   ): Promise<any> {
+    console.log("Exchanging GitLab code for token:", {
+      redirectUri,
+      hasCode: !!code,
+      hasCodeVerifier: !!codeVerifier,
+    })
+
     const response = await fetch("https://gitlab.com/oauth/token", {
       method: "POST",
       headers: {
@@ -36,6 +53,11 @@ export class GitLabOAuthService extends BaseOAuthService {
 
     if (!response.ok) {
       const errorText = await response.text()
+      console.error("GitLab token exchange failed:", {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorText,
+      })
       throw new Error(`Token exchange failed: ${errorText}`)
     }
 
@@ -62,6 +84,58 @@ export class GitLabOAuthService extends BaseOAuthService {
     return tokenResponse.scope ? tokenResponse.scope.split(" ") : this.getRequiredScopes()
   }
 
+  static async generateAuthUrl(
+    provider: string,
+    baseUrl: string,
+    reconnect = false,
+    integrationId?: string,
+    userId?: string,
+  ): Promise<string> {
+    try {
+      const { clientId } = this.getClientCredentials()
+      
+      // Ensure baseUrl doesn't end with a slash
+      const cleanBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl
+      const redirectUri = `${cleanBaseUrl}/api/integrations/gitlab/callback`
+
+      console.log("Generating GitLab auth URL:", {
+        baseUrl: cleanBaseUrl,
+        redirectUri,
+        hasUserId: !!userId
+      })
+
+      // GitLab OAuth scopes
+      const scopes = this.getRequiredScopes()
+
+      const state = btoa(
+        JSON.stringify({
+          provider: "gitlab",
+          userId,
+          reconnect,
+          integrationId,
+          timestamp: Date.now(),
+          redirectUri, // Store the redirect URI in state
+        }),
+      )
+
+      const params = new URLSearchParams({
+        client_id: clientId,
+        redirect_uri: redirectUri,
+        response_type: "code",
+        scope: scopes.join(" "),
+        state,
+      })
+
+      const authUrl = `https://gitlab.com/oauth/authorize?${params.toString()}`
+      console.log("GitLab Auth URL generated:", authUrl)
+
+      return authUrl
+    } catch (error: any) {
+      console.error("Error generating GitLab auth URL:", error)
+      throw error
+    }
+  }
+
   // Override the base class method to handle GitLab-specific callback
   static async handleCallback(
     provider: string,
@@ -85,27 +159,31 @@ export class GitLabOAuthService extends BaseOAuthService {
         throw new Error("Invalid state format")
       }
 
-      const { reconnect, integrationId, requireFullScopes } = stateData
+      const { reconnect, integrationId, requireFullScopes, redirectUri } = stateData
 
       if (provider !== "gitlab") {
         throw new Error("Invalid provider in state")
       }
 
-      // Get client credentials
-      const clientId = process.env.NEXT_PUBLIC_GITLAB_CLIENT_ID
-      const clientSecret = process.env.GITLAB_CLIENT_SECRET
-
-      if (!clientId || !clientSecret) {
-        throw new Error("Missing GitLab OAuth configuration")
+      if (!redirectUri) {
+        throw new Error("Missing redirect URI in state")
       }
+
+      // Get client credentials
+      const { clientId, clientSecret } = this.getClientCredentials()
+
+      console.log("Processing GitLab callback:", {
+        hasCode: !!code,
+        redirectUri,
+        hasUserId: !!userId
+      })
 
       // Exchange code for token
       const tokenResponse = await this.exchangeCodeForToken(
         code,
-        this.getRedirectUri(provider),
+        redirectUri,
         clientId,
-        clientSecret,
-        stateData.codeVerifier
+        clientSecret
       )
 
       const { access_token, refresh_token, expires_in } = tokenResponse
@@ -165,42 +243,6 @@ export class GitLabOAuthService extends BaseOAuthService {
         redirectUrl: `${getBaseUrl()}/integrations?error=callback_failed&provider=gitlab&message=${encodeURIComponent(error.message)}`,
         error: error.message,
       }
-    }
-  }
-
-  static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string, userId?: string): string {
-    try {
-      const { clientId } = this.getClientCredentials()
-      const redirectUri = `${baseUrl}/api/integrations/gitlab/callback`
-
-      // GitLab OAuth scopes
-      const scopes = ["read_user", "read_api", "read_repository", "write_repository"]
-
-      const state = btoa(
-        JSON.stringify({
-          provider: "gitlab",
-          userId,
-          reconnect,
-          integrationId,
-          timestamp: Date.now(),
-        }),
-      )
-
-      const params = new URLSearchParams({
-        client_id: clientId,
-        redirect_uri: redirectUri,
-        response_type: "code",
-        scope: scopes.join(" "),
-        state,
-      })
-
-      const authUrl = `https://gitlab.com/oauth/authorize?${params.toString()}`
-      console.log("GitLab Auth URL generated:", authUrl)
-
-      return authUrl
-    } catch (error: any) {
-      console.error("Error generating GitLab auth URL:", error)
-      throw new Error(`Failed to generate GitLab auth URL: ${error.message}`)
     }
   }
 
