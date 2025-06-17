@@ -62,6 +62,11 @@ export class TwitterOAuthService {
     const codeVerifier = this.generateCodeVerifier()
     const codeChallenge = await this.generateCodeChallenge(codeVerifier)
 
+    console.log("Generated PKCE parameters:", {
+      codeVerifierLength: codeVerifier.length,
+      codeChallengeLength: codeChallenge.length,
+    })
+
     const scopes = ["tweet.read", "tweet.write", "users.read", "offline.access"]
 
     // Create state object with all required data
@@ -75,12 +80,16 @@ export class TwitterOAuthService {
       codeVerifier, // Store verifier in state for later use
     }
 
-    console.log("Generating Twitter auth URL with state:", {
+    console.log("Generating Twitter auth URL with state data:", {
       ...stateData,
       codeVerifier: "***", // Log state data but mask sensitive info
     })
 
     const state = btoa(JSON.stringify(stateData))
+    console.log("Encoded state:", {
+      stateLength: state.length,
+      statePreview: state.substring(0, 10) + "...",
+    })
 
     const params = new URLSearchParams({
       response_type: "code",
@@ -92,7 +101,14 @@ export class TwitterOAuthService {
       code_challenge_method: "S256",
     })
 
-    return `https://twitter.com/i/oauth2/authorize?${params.toString()}`
+    const authUrl = `https://twitter.com/i/oauth2/authorize?${params.toString()}`
+    console.log("Generated auth URL:", {
+      urlLength: authUrl.length,
+      hasState: authUrl.includes("state="),
+      hasCodeChallenge: authUrl.includes("code_challenge="),
+    })
+
+    return authUrl
   }
 
   static async handleCallback(
@@ -102,17 +118,26 @@ export class TwitterOAuthService {
     supabase: any,
   ): Promise<TwitterOAuthResult> {
     try {
-      console.log("Handling Twitter callback with state:", {
+      console.log("Handling Twitter callback:", {
+        hasCode: !!code,
         stateLength: state.length,
         statePreview: state.substring(0, 10) + "...",
       })
 
       let stateData
       try {
-        stateData = JSON.parse(atob(state))
-        console.log("Successfully parsed state data:", {
-          ...stateData,
-          codeVerifier: stateData.codeVerifier ? "***" : undefined,
+        const decodedState = atob(state)
+        console.log("Decoded state:", {
+          decodedLength: decodedState.length,
+          decodedPreview: decodedState.substring(0, 50) + "...",
+        })
+
+        stateData = JSON.parse(decodedState)
+        console.log("Parsed state data:", {
+          provider: stateData.provider,
+          hasUserId: !!stateData.userId,
+          hasCodeVerifier: !!stateData.codeVerifier,
+          timestamp: stateData.timestamp,
         })
       } catch (e) {
         console.error("Failed to parse state:", {
@@ -132,8 +157,12 @@ export class TwitterOAuthService {
 
       if (!codeVerifier) {
         console.error("Missing code verifier in state:", {
-          ...stateData,
-          codeVerifier: undefined,
+          stateKeys: Object.keys(stateData),
+          hasCodeVerifier: 'codeVerifier' in stateData,
+          stateData: {
+            ...stateData,
+            codeVerifier: undefined,
+          },
         })
         throw new Error("Missing code verifier in state")
       }
