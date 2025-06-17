@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
+import crypto from "crypto"
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,30 +23,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Provider is required" }, { status: 400 })
     }
 
-    // Generate state with user info
-    const state = btoa(
-      JSON.stringify({
-        provider,
-        userId: user.id,
-        reconnect,
-        integrationId,
-        timestamp: Date.now(),
-      }),
-    )
+    // Initial state generation
+    const stateObject = {
+      provider,
+      userId: user.id,
+      reconnect,
+      integrationId,
+      timestamp: Date.now(),
+    }
 
     let authUrl: string
+    let finalState = btoa(JSON.stringify(stateObject))
 
     switch (provider.toLowerCase()) {
       case "slack":
-        authUrl = generateSlackAuthUrl(state)
+        authUrl = generateSlackAuthUrl(finalState)
         break
 
       case "discord":
-        authUrl = generateDiscordAuthUrl(state)
+        authUrl = generateDiscordAuthUrl(finalState)
         break
 
       case "github":
-        authUrl = generateGitHubAuthUrl(state)
+        authUrl = generateGitHubAuthUrl(finalState)
         break
 
       case "google":
@@ -55,79 +55,79 @@ export async function POST(request: NextRequest) {
       case "google-docs":
       case "google-calendar":
       case "youtube":
-        authUrl = generateGoogleAuthUrl(provider, state)
+        authUrl = generateGoogleAuthUrl(provider, finalState)
         break
 
       case "notion":
-        authUrl = generateNotionAuthUrl(state)
+        authUrl = generateNotionAuthUrl(finalState)
         break
 
       case "twitter":
-        authUrl = generateTwitterAuthUrl(state)
+        authUrl = await generateTwitterAuthUrl(stateObject)
         break
 
       case "linkedin":
-        authUrl = generateLinkedInAuthUrl(state)
+        authUrl = generateLinkedInAuthUrl(finalState)
         break
 
       case "facebook":
-        authUrl = generateFacebookAuthUrl(state)
+        authUrl = generateFacebookAuthUrl(finalState)
         break
 
       case "instagram":
-        authUrl = generateInstagramAuthUrl(state)
+        authUrl = generateInstagramAuthUrl(finalState)
         break
 
       case "tiktok":
-        authUrl = generateTikTokAuthUrl(state)
+        authUrl = generateTikTokAuthUrl(finalState)
         break
 
       case "trello":
-        authUrl = generateTrelloAuthUrl(state)
+        authUrl = generateTrelloAuthUrl(finalState)
         break
 
       case "dropbox":
-        authUrl = generateDropboxAuthUrl(state)
+        authUrl = generateDropboxAuthUrl(finalState)
         break
 
       case "hubspot":
-        authUrl = generateHubSpotAuthUrl(state)
+        authUrl = generateHubSpotAuthUrl(finalState)
         break
 
       case "airtable":
-        authUrl = generateAirtableAuthUrl(state)
+        authUrl = generateAirtableAuthUrl(finalState)
         break
 
       case "mailchimp":
-        authUrl = generateMailchimpAuthUrl(state)
+        authUrl = generateMailchimpAuthUrl(finalState)
         break
 
       case "shopify":
-        authUrl = generateShopifyAuthUrl(state)
+        authUrl = generateShopifyAuthUrl(finalState)
         break
 
       case "stripe":
-        authUrl = generateStripeAuthUrl(state)
+        authUrl = generateStripeAuthUrl(finalState)
         break
 
       case "paypal":
-        authUrl = generatePayPalAuthUrl(state)
+        authUrl = generatePayPalAuthUrl(finalState)
         break
 
       case "teams":
-        authUrl = generateTeamsAuthUrl(state)
+        authUrl = generateTeamsAuthUrl(finalState)
         break
 
       case "onedrive":
-        authUrl = generateOneDriveAuthUrl(state)
+        authUrl = generateOneDriveAuthUrl(finalState)
         break
 
       case "gitlab":
-        authUrl = generateGitLabAuthUrl(state)
+        authUrl = generateGitLabAuthUrl(finalState)
         break
 
       case "docker":
-        authUrl = generateDockerAuthUrl(state)
+        authUrl = generateDockerAuthUrl(finalState)
         break
 
       default:
@@ -141,7 +141,10 @@ export async function POST(request: NextRequest) {
     })
   } catch (error: any) {
     console.error("OAuth URL generation error:", error)
-    return NextResponse.json({ error: "Failed to generate OAuth URL", details: error.message }, { status: 500 })
+    return NextResponse.json(
+      { error: "Failed to generate OAuth URL", details: error.message },
+      { status: 500 },
+    )
   }
 }
 
@@ -246,18 +249,34 @@ function generateNotionAuthUrl(state: string): string {
   return `https://api.notion.com/v1/oauth/authorize?${params.toString()}`
 }
 
-function generateTwitterAuthUrl(state: string): string {
+async function generateTwitterAuthUrl(stateObject: any): Promise<string> {
   const clientId = process.env.NEXT_PUBLIC_TWITTER_CLIENT_ID
   if (!clientId) throw new Error("Twitter client ID not configured")
 
+  // Generate a random string for the code verifier
+  const codeVerifier = crypto.randomBytes(32).toString("hex")
+
+  // Create a code challenge from the verifier
+  const codeChallenge = crypto
+    .createHash("sha256")
+    .update(codeVerifier)
+    .digest("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=/g, "")
+
+  // Add the code verifier to the state
+  const stateWithVerifier = { ...stateObject, codeVerifier }
+  const finalState = btoa(JSON.stringify(stateWithVerifier))
+
   const params = new URLSearchParams({
-    client_id: clientId,
-    redirect_uri: "https://chainreact.app/api/integrations/twitter/callback",
     response_type: "code",
-    scope: "tweet.read tweet.write users.read",
-    state,
+    client_id: clientId,
+    redirect_uri: `https://chainreact.app/api/integrations/twitter/callback`,
+    scope: "tweet.read users.read offline.access",
+    state: finalState,
+    code_challenge: codeChallenge,
     code_challenge_method: "S256",
-    code_challenge: "challenge", // In production, generate proper PKCE challenge
   })
 
   return `https://twitter.com/i/oauth2/authorize?${params.toString()}`
