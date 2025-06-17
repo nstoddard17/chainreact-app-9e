@@ -5,28 +5,97 @@ import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 // Create a Supabase client with admin privileges
 const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
+function createPopupResponse(
+  type: "success" | "error",
+  provider: string,
+  message: string,
+  baseUrl: string,
+) {
+  const title = type === "success" ? `${provider} Connection Successful` : `${provider} Connection Failed`
+  const header = type === "success" ? `${provider} Connected!` : `Error Connecting ${provider}`
+  const status = type === "success" ? 200 : 500
+  const script = `
+    <script>
+      if (window.opener) {
+        window.opener.postMessage({
+          type: 'oauth-${type}',
+          provider: '${provider}',
+          message: '${message}'
+        }, '${baseUrl}');
+      }
+      setTimeout(() => window.close(), 1000);
+    </script>
+  `
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>${title}</title>
+        <style>
+          body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            height: 100vh; 
+            margin: 0;
+            background: ${type === "success" ? "linear-gradient(135deg, #24c6dc 0%, #514a9d 100%)" : "linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%)"};
+            color: white;
+          }
+          .container { 
+            text-align: center; 
+            padding: 2rem;
+            background: rgba(255,255,255,0.1);
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+          }
+          .icon { font-size: 3rem; margin-bottom: 1rem; }
+          h1 { margin: 0 0 0.5rem 0; font-size: 1.5rem; }
+          p { margin: 0.5rem 0; opacity: 0.9; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="icon">${type === "success" ? "✅" : "❌"}</div>
+          <h1>${header}</h1>
+          <p>${message}</p>
+          <p>This window will close automatically...</p>
+        </div>
+        ${script}
+      </body>
+    </html>
+  `
+  return new Response(html, { status, headers: { "Content-Type": "text/html" } })
+}
+
 export async function GET(request: NextRequest) {
   console.log("YouTube OAuth callback received")
+  const baseUrl = getBaseUrl()
 
   try {
     const searchParams = request.nextUrl.searchParams
     const code = searchParams.get("code")
     const state = searchParams.get("state")
     const error = searchParams.get("error")
-    const baseUrl = getBaseUrl(request)
 
     if (error) {
-      // Handle error display in the popup
-      return new Response(`<h1>Error: ${error}</h1><p>${searchParams.get("error_description") || "An unknown error occurred."}</p><script>setTimeout(window.close, 3000)</script>`, { status: 400, headers: { 'Content-Type': 'text/html' } })
+      const errorDescription =
+        searchParams.get("error_description") || "An unknown error occurred."
+      return createPopupResponse("error", "youtube", `${error}: ${errorDescription}`, baseUrl)
     }
-    
+
     if (!code || !state) {
-        return new Response(`<h1>Error: Missing code or state</h1><script>setTimeout(window.close, 3000)</script>`, { status: 400, headers: { 'Content-Type': 'text/html' } })
+      return createPopupResponse(
+        "error",
+        "youtube",
+        "Missing code or state.",
+        baseUrl,
+      )
     }
 
     const { userId } = JSON.parse(atob(state))
     if (!userId) {
-      return new Response(`<h1>Error: Missing userId in state</h1><script>setTimeout(window.close, 3000)</script>`, { status: 400, headers: { 'Content-Type': 'text/html' } })
+      return createPopupResponse("error", "youtube", "Missing userId in state.", baseUrl)
     }
 
     // Exchange authorization code for tokens
@@ -43,23 +112,34 @@ export async function GET(request: NextRequest) {
     })
 
     if (!tokenResponse.ok) {
-        const errorText = await tokenResponse.text()
-        return new Response(`<h1>Error exchanging token</h1><p>${errorText}</p><script>setTimeout(window.close, 5000)</script>`, { status: 400, headers: { 'Content-Type': 'text/html' } })
+      const errorText = await tokenResponse.text()
+      return createPopupResponse("error", "youtube", `Error exchanging token: ${errorText}`, baseUrl)
     }
 
     const tokens = await tokenResponse.json()
 
     // Get user info from Google
-    const userInfoResponse = await fetch("https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true", {
-      headers: { Authorization: `Bearer ${tokens.access_token}` },
-    })
+    const userInfoResponse = await fetch(
+      "https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true",
+      {
+        headers: { Authorization: `Bearer ${tokens.access_token}` },
+      },
+    )
 
     if (!userInfoResponse.ok) {
-        const errorText = await userInfoResponse.text()
-        return new Response(`<h1>Error fetching channel info</h1><p>${errorText}</p><script>setTimeout(window.close, 5000)</script>`, { status: 400, headers: { 'Content-Type': 'text/html' } })
+      const errorText = await userInfoResponse.text()
+      return createPopupResponse(
+        "error",
+        "youtube",
+        `Error fetching channel info: ${errorText}`,
+        baseUrl,
+      )
     }
 
     const userInfo = await userInfoResponse.json()
+    if (!userInfo.items || userInfo.items.length === 0) {
+      return createPopupResponse("error", "youtube", "No YouTube channel found for this account.", baseUrl)
+    }
     const channel = userInfo.items[0]
 
     const integrationData = {
@@ -83,17 +163,17 @@ export async function GET(request: NextRequest) {
       .upsert(integrationData, { onConflict: "user_id, provider" })
 
     if (dbError) {
-      return new Response(`<h1>Database Error</h1><p>${dbError.message}</p><script>setTimeout(window.close, 5000)</script>`, { status: 500, headers: { 'Content-Type': 'text/html' } })
+      return createPopupResponse("error", "youtube", `Database Error: ${dbError.message}`, baseUrl)
     }
 
-    // Return a success page that closes itself
-    return new Response("<h1>YouTube Connected!</h1><p>You can close this window now.</p><script>if(window.opener){window.opener.postMessage({type:'oauth-success',provider:'youtube'},'*');}setTimeout(window.close, 1000);</script>", {
-      status: 200,
-      headers: { "Content-Type": "text/html" },
-    })
-
+    return createPopupResponse(
+      "success",
+      "youtube",
+      "YouTube account connected successfully.",
+      baseUrl,
+    )
   } catch (error: any) {
     console.error("YouTube callback error:", error)
-    return new Response(`<h1>An unexpected error occurred</h1><p>${error.message}</p><script>setTimeout(window.close, 5000)</script>`, { status: 500, headers: { 'Content-Type': 'text/html' } })
+    return createPopupResponse("error", "youtube", error.message, baseUrl)
   }
 }

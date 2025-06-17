@@ -4,35 +4,93 @@ import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 
 export const maxDuration = 30
 
+function createPopupResponse(
+  type: "success" | "error",
+  provider: string,
+  message: string,
+  baseUrl: string,
+) {
+  const title = type === "success" ? `${provider} Connection Successful` : `${provider} Connection Failed`
+  const header = type === "success" ? `${provider} Connected!` : `Error Connecting ${provider}`
+  const status = type === "success" ? 200 : 500
+  const script = `
+    <script>
+      if (window.opener) {
+        window.opener.postMessage({
+          type: 'oauth-${type}',
+          provider: '${provider}',
+          message: '${message}'
+        }, '${baseUrl}');
+      }
+      setTimeout(() => window.close(), 1000);
+    </script>
+  `
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>${title}</title>
+        <style>
+          body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            height: 100vh; 
+            margin: 0;
+            background: ${type === "success" ? "linear-gradient(135deg, #24c6dc 0%, #514a9d 100%)" : "linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%)"};
+            color: white;
+          }
+          .container { 
+            text-align: center; 
+            padding: 2rem;
+            background: rgba(255,255,255,0.1);
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+          }
+          .icon { font-size: 3rem; margin-bottom: 1rem; }
+          h1 { margin: 0 0 0.5rem 0; font-size: 1.5rem; }
+          p { margin: 0.5rem 0; opacity: 0.9; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="icon">${type === "success" ? "✅" : "❌"}</div>
+          <h1>${header}</h1>
+          <p>${message}</p>
+          <p>This window will close automatically...</p>
+        </div>
+        ${script}
+      </body>
+    </html>
+  `
+  return new Response(html, { status, headers: { "Content-Type": "text/html" } })
+}
+
 export async function GET(request: NextRequest) {
   const url = new URL(request.url)
   const code = url.searchParams.get("code")
   const state = url.searchParams.get("state")
   const error = url.searchParams.get("error")
-
-  const redirectUrl = new URL("/integrations", getBaseUrl())
+  const baseUrl = getBaseUrl()
 
   if (error) {
     console.error(`Error with Gmail OAuth: ${error}`)
-    redirectUrl.searchParams.set("error", "Failed to connect Gmail account.")
-    return NextResponse.redirect(redirectUrl)
+    return createPopupResponse("error", "gmail", `OAuth Error: ${error}`, baseUrl)
   }
 
   if (!code) {
-    redirectUrl.searchParams.set("error", "No code provided for Gmail OAuth.")
-    return NextResponse.redirect(redirectUrl)
+    return createPopupResponse("error", "gmail", "No code provided for Gmail OAuth.", baseUrl)
   }
 
   if (!state) {
-    redirectUrl.searchParams.set("error", "No state provided for Gmail OAuth.")
-    return NextResponse.redirect(redirectUrl)
+    return createPopupResponse("error", "gmail", "No state provided for Gmail OAuth.", baseUrl)
   }
 
   try {
     const { userId } = JSON.parse(atob(state))
     if (!userId) {
-      redirectUrl.searchParams.set("error", "Missing userId in Gmail state.")
-      return NextResponse.redirect(redirectUrl)
+      return createPopupResponse("error", "gmail", "Missing userId in Gmail state.", baseUrl)
     }
 
     const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
@@ -40,8 +98,12 @@ export async function GET(request: NextRequest) {
 
     if (!clientId || !clientSecret) {
       console.error("Missing Google Client ID or Client Secret environment variables.")
-      redirectUrl.searchParams.set("error", "Server configuration error for Gmail OAuth.")
-      return NextResponse.redirect(redirectUrl)
+      return createPopupResponse(
+        "error",
+        "gmail",
+        "Server configuration error for Gmail OAuth.",
+        baseUrl,
+      )
     }
 
     let tokens
@@ -55,7 +117,7 @@ export async function GET(request: NextRequest) {
           code,
           client_id: clientId,
           client_secret: clientSecret,
-          redirect_uri: `${getBaseUrl()}/api/integrations/gmail/callback`,
+          redirect_uri: `${baseUrl}/api/integrations/gmail/callback`,
           grant_type: "authorization_code",
         }),
       })
@@ -68,18 +130,16 @@ export async function GET(request: NextRequest) {
         } catch (e) {
           errorData = { error: "unknown_error", error_description: errorText }
         }
+        const errorMessage = `Google Auth Error: ${
+          errorData.error_description || errorData.error || "Unknown error"
+        }`
         console.error("Failed to exchange Gmail code for token:", JSON.stringify(errorData, null, 2))
-        redirectUrl.searchParams.set(
-          "error",
-          `Google Auth Error: ${errorData.error_description || errorData.error || "Unknown error"}`,
-        )
-        return NextResponse.redirect(redirectUrl)
+        return createPopupResponse("error", "gmail", errorMessage, baseUrl)
       }
       tokens = await response.json()
     } catch (fetchError: any) {
       console.error("Error fetching Google token:", fetchError)
-      redirectUrl.searchParams.set("error", `Token fetch failed: ${fetchError.message}`)
-      return NextResponse.redirect(redirectUrl)
+      return createPopupResponse("error", "gmail", `Token fetch failed: ${fetchError.message}`, baseUrl)
     }
 
     const accessToken = tokens.access_token
@@ -94,8 +154,7 @@ export async function GET(request: NextRequest) {
 
     if (!userInfoResponse.ok) {
       console.error("Failed to fetch Gmail user info")
-      redirectUrl.searchParams.set("error", "Failed to fetch Gmail user info.")
-      return NextResponse.redirect(redirectUrl)
+      return createPopupResponse("error", "gmail", "Failed to fetch Gmail user info.", baseUrl)
     }
 
     const userInfo = await userInfoResponse.json()
@@ -123,15 +182,23 @@ export async function GET(request: NextRequest) {
 
     if (dbError) {
       console.error("Error saving Gmail integration to DB:", dbError)
-      redirectUrl.searchParams.set("error", "Failed to save Gmail integration.")
-      return NextResponse.redirect(redirectUrl)
+      return createPopupResponse(
+        "error",
+        "gmail",
+        `Database Error: ${dbError.message}`,
+        baseUrl,
+      )
     }
 
-    redirectUrl.searchParams.set("success", "Gmail account connected successfully.")
-    return NextResponse.redirect(redirectUrl)
+    return createPopupResponse(
+      "success",
+      "gmail",
+      "Gmail account connected successfully.",
+      baseUrl,
+    )
   } catch (error) {
     console.error("Error during Gmail OAuth callback:", error)
-    redirectUrl.searchParams.set("error", "An unexpected error occurred.")
-    return NextResponse.redirect(redirectUrl)
+    const message = error instanceof Error ? error.message : "An unexpected error occurred"
+    return createPopupResponse("error", "gmail", message, baseUrl)
   }
 }
