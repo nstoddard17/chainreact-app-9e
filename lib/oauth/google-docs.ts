@@ -9,38 +9,40 @@ import {
 import { createClient } from "@supabase/supabase-js"
 
 export class GoogleDocsOAuthService {
-  static readonly clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
-  static readonly clientSecret = process.env.GOOGLE_CLIENT_SECRET
-  static readonly apiUrl = "https://www.googleapis.com/drive/v3"
+  private static clientId: string | undefined = process.env.GOOGLE_CLIENT_ID
+  private static clientSecret: string | undefined = process.env.GOOGLE_CLIENT_SECRET
+
+  static getClientCredentials() {
+    if (!this.clientId || !this.clientSecret) {
+      throw new Error("Missing Google client credentials")
+    }
+    return { clientId: this.clientId, clientSecret: this.clientSecret }
+  }
+
+  static getRedirectUri(origin: string): string {
+    return getOAuthRedirectUri(origin, "google")
+  }
 
   static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string, userId?: string): string {
     const { clientId } = this.getClientCredentials()
     const redirectUri = this.getRedirectUri(baseUrl)
     const state = btoa(
       JSON.stringify({
-  static generateAuthUrl(userId: string, origin: string): string {
-    if (!this.clientId) {
-      throw new Error("Missing Google client ID")
-    }
-
-    const state = generateOAuthState(userId, "google_docs")
-    const redirectUri = this.getRedirectUri(origin)
-
+        provider: "google-docs",
+        userId,
+        reconnect,
+        integrationId,
+        timestamp: Date.now(),
+      }),
+    )
     const params = new URLSearchParams({
-      response_type: "code",
-      client_id: this.clientId,
+      client_id: clientId,
       redirect_uri: redirectUri,
-      state,
+      response_type: "code",
       scope: OAuthScopes.GOOGLE_DOCS.join(" "),
-      access_type: "offline",
-      prompt: "consent",
+      state,
     })
-
     return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`
-  }
-
-  static getRedirectUri(origin: string): string {
-    return getOAuthRedirectUri(origin, "google")
   }
 
   static async handleCallback(
