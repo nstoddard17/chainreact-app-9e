@@ -118,7 +118,6 @@ export class GoogleCalendarOAuthService {
         .select("id")
         .eq("user_id", userId)
         .eq("provider", "google")
-        .eq("service", "calendar")
         .maybeSingle()
 
       if (queryError) {
@@ -138,7 +137,6 @@ export class GoogleCalendarOAuthService {
           email: userData.email,
           name: userData.name,
           picture: userData.picture,
-          provider: "google",
           service: "calendar"
         },
         status: "connected",

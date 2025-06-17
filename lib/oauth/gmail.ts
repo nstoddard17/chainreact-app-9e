@@ -107,13 +107,17 @@ export class GmailOAuthService {
       const user = await userResponse.json()
 
       // Check for existing integration
-      const { data: existingIntegration } = await supabase
+      const { data: existingIntegration, error: queryError } = await supabase
         .from("integrations")
         .select("id")
         .eq("user_id", userId)
         .eq("provider", "google")
-        .eq("service", "gmail")
         .maybeSingle()
+
+      if (queryError) {
+        console.error("Error querying existing integration:", queryError)
+        throw new Error(`Failed to query existing integration: ${queryError.message}`)
+      }
 
       const integrationData = {
         user_id: userId,
@@ -127,7 +131,6 @@ export class GmailOAuthService {
           email: user.emailAddress,
           name: user.displayName,
           picture: user.photoLink,
-          provider: "google",
           service: "gmail"
         },
         status: "connected",
