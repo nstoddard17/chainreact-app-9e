@@ -1,6 +1,15 @@
 import { create } from "zustand"
 import { apiClient } from "@/lib/apiClient"
 
+interface Execution {
+  id: string
+  status: "pending" | "running" | "success" | "error"
+  started_at: string
+  completed_at?: string
+  execution_time_ms?: number
+  error_message?: string
+}
+
 interface AnalyticsState {
   metrics: {
     workflowsRun: number
@@ -13,10 +22,12 @@ interface AnalyticsState {
     workflows: number
     executions: number
   }[]
+  executions: Execution[]
   loading: boolean
   error: string | null
   fetchMetrics: () => Promise<void>
   fetchChartData: () => Promise<void>
+  fetchExecutions: () => Promise<void>
 }
 
 export const useAnalyticsStore = create<AnalyticsState>((set) => ({
@@ -27,6 +38,7 @@ export const useAnalyticsStore = create<AnalyticsState>((set) => ({
     aiCommands: 0,
   },
   chartData: [],
+  executions: [],
   loading: false,
   error: null,
   fetchMetrics: async () => {
@@ -105,6 +117,25 @@ export const useAnalyticsStore = create<AnalyticsState>((set) => ({
         loading: false,
         error: "Failed to load chart data",
       })
+    }
+  },
+  fetchExecutions: async () => {
+    set({ loading: true, error: null })
+    try {
+      const { data, error } = await apiClient.get<Execution[]>(
+        "/api/analytics/executions",
+      )
+
+      if (error) {
+        console.warn("Failed to fetch executions, using defaults:", error)
+        set({ executions: [], loading: false })
+        return
+      }
+
+      set({ executions: data || [], loading: false })
+    } catch (error) {
+      console.error("Error fetching executions:", error)
+      set({ executions: [], loading: false, error: "Failed to load executions" })
     }
   },
 }))

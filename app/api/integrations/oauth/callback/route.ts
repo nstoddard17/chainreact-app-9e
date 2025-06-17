@@ -12,10 +12,6 @@ export async function GET(request: NextRequest) {
 
     console.log("OAuth callback received:", { provider, code: !!code, state: !!state, error })
 
-    // Get the app URL for proper origin
-    const appUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || "https://chainreact.app"
-    const origin = new URL(appUrl).origin
-
     // Handle OAuth errors from provider
     if (error) {
       console.error(`OAuth error for ${provider}:`, error, errorDescription)
@@ -58,6 +54,11 @@ export async function GET(request: NextRequest) {
               opacity: 0.9;
               font-size: 0.9rem;
             }
+            .debug { 
+              font-size: 0.8rem; 
+              opacity: 0.7; 
+              margin-top: 1rem;
+            }
           </style>
         </head>
         <body>
@@ -66,45 +67,37 @@ export async function GET(request: NextRequest) {
             <h1>Connection Failed</h1>
             <p>${errorMessage}</p>
             <p>Closing window...</p>
+            <div class="debug">Debug: Sending error message to parent</div>
           </div>
           <script>
             console.log('OAuth error page loaded');
             console.log('Window opener exists:', !!window.opener);
-            console.log('Sending error message to origin:', '${origin}');
+            console.log('Sending error message...');
             
-            // Send error message to parent window with correct origin
+            // Send error message to parent window
             if (window.opener && !window.opener.closed) {
               try {
                 window.opener.postMessage({
                   type: 'oauth-error',
                   provider: '${provider || "unknown"}',
                   error: '${errorMessage.replace(/'/g, "\\'")}'
-                }, '${origin}');
+                }, '*');
                 console.log('Error message sent successfully');
               } catch (e) {
                 console.error('Failed to send message:', e);
-                // Fallback with wildcard
-                try {
-                  window.opener.postMessage({
-                    type: 'oauth-error',
-                    provider: '${provider || "unknown"}',
-                    error: '${errorMessage.replace(/'/g, "\\'")}'
-                  }, '*');
-                } catch (e2) {
-                  console.error('Fallback message also failed:', e2);
-                }
               }
             } else {
               console.log('No opener window available');
             }
             
-            // Close window after delay
+            // Try multiple methods to close the window
             setTimeout(() => {
               console.log('Attempting to close window...');
               try {
                 window.close();
               } catch (e) {
                 console.error('Failed to close window:', e);
+                // Fallback: try to navigate away
                 window.location.href = 'about:blank';
               }
             }, 2000);
@@ -177,18 +170,9 @@ export async function GET(request: NextRequest) {
                   type: 'oauth-error',
                   provider: '${provider || "unknown"}',
                   error: 'Missing required parameters'
-                }, '${origin}');
+                }, '*');
               } catch (e) {
                 console.error('Failed to send message:', e);
-                try {
-                  window.opener.postMessage({
-                    type: 'oauth-error',
-                    provider: '${provider || "unknown"}',
-                    error: 'Missing required parameters'
-                  }, '*');
-                } catch (e2) {
-                  console.error('Fallback message also failed:', e2);
-                }
               }
             }
             
@@ -278,17 +262,9 @@ export async function GET(request: NextRequest) {
                   type: 'oauth-error',
                   provider: 'unknown',
                   error: 'Unable to identify provider'
-                }, '${origin}');
+                }, '*');
               } catch (e) {
-                try {
-                  window.opener.postMessage({
-                    type: 'oauth-error',
-                    provider: 'unknown',
-                    error: 'Unable to identify provider'
-                  }, '*');
-                } catch (e2) {
-                  console.error('All message attempts failed:', e2);
-                }
+                console.error('Failed to send message:', e);
               }
             }
             
@@ -351,6 +327,11 @@ export async function GET(request: NextRequest) {
                 margin: 0; 
                 opacity: 0.9;
               }
+              .debug { 
+                font-size: 0.8rem; 
+                opacity: 0.7; 
+                margin-top: 1rem;
+              }
             </style>
           </head>
           <body>
@@ -359,42 +340,30 @@ export async function GET(request: NextRequest) {
               <h1>Connection Successful!</h1>
               <p>Your ${actualProvider} integration has been connected.</p>
               <p>Closing window...</p>
+              <div class="debug">Debug: Sending success message to parent</div>
             </div>
             <script>
               console.log('OAuth success page loaded');
               console.log('Window opener exists:', !!window.opener);
               console.log('Window opener closed:', window.opener ? window.opener.closed : 'N/A');
-              console.log('Sending success message to origin:', '${origin}');
               
-              // Send success message to parent window with correct origin
+              // Send success message to parent window immediately
               if (window.opener && !window.opener.closed) {
                 try {
                   console.log('Sending success message...');
                   window.opener.postMessage({
                     type: 'oauth-success',
-                    provider: '${actualProvider}',
-                    timestamp: Date.now()
-                  }, '${origin}');
+                    provider: '${actualProvider}'
+                  }, '*');
                   console.log('Success message sent successfully');
                 } catch (e) {
                   console.error('Failed to send success message:', e);
-                  // Fallback with wildcard origin
-                  try {
-                    window.opener.postMessage({
-                      type: 'oauth-success',
-                      provider: '${actualProvider}',
-                      timestamp: Date.now()
-                    }, '*');
-                    console.log('Fallback success message sent');
-                  } catch (e2) {
-                    console.error('Fallback success message also failed:', e2);
-                  }
                 }
               } else {
                 console.log('No opener window available or opener is closed');
               }
               
-              // Close window after delay
+              // Try multiple methods to close the window
               setTimeout(() => {
                 console.log('Attempting to close window...');
                 try {
@@ -484,18 +453,9 @@ export async function GET(request: NextRequest) {
                     type: 'oauth-error',
                     provider: '${actualProvider}',
                     error: '${errorMessage.replace(/'/g, "\\'")}'
-                  }, '${origin}');
+                  }, '*');
                 } catch (e) {
                   console.error('Failed to send error message:', e);
-                  try {
-                    window.opener.postMessage({
-                      type: 'oauth-error',
-                      provider: '${actualProvider}',
-                      error: '${errorMessage.replace(/'/g, "\\'")}'
-                    }, '*');
-                  } catch (e2) {
-                    console.error('Fallback error message also failed:', e2);
-                  }
                 }
               }
               
@@ -571,17 +531,9 @@ export async function GET(request: NextRequest) {
                   type: 'oauth-error',
                   provider: '${actualProvider}',
                   error: '${(error.message || "An unexpected error occurred").replace(/'/g, "\\'")}'
-                }, '${origin}');
+                }, '*');
               } catch (e) {
-                try {
-                  window.opener.postMessage({
-                    type: 'oauth-error',
-                    provider: '${actualProvider}',
-                    error: '${(error.message || "An unexpected error occurred").replace(/'/g, "\\'")}'
-                  }, '*');
-                } catch (e2) {
-                  console.error('All message attempts failed:', e2);
-                }
+                console.error('Failed to send error message:', e);
               }
             }
             
@@ -603,9 +555,6 @@ export async function GET(request: NextRequest) {
     }
   } catch (error: any) {
     console.error("OAuth callback error:", error)
-
-    const appUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || "https://chainreact.app"
-    const origin = new URL(appUrl).origin
 
     const errorHtml = `
       <!DOCTYPE html>
@@ -660,17 +609,9 @@ export async function GET(request: NextRequest) {
                 type: 'oauth-error',
                 provider: 'unknown',
                 error: 'OAuth callback failed'
-              }, '${origin}');
+              }, '*');
             } catch (e) {
-              try {
-                window.opener.postMessage({
-                  type: 'oauth-error',
-                  provider: 'unknown',
-                  error: 'OAuth callback failed'
-                }, '*');
-              } catch (e2) {
-                console.error('All message attempts failed:', e2);
-              }
+              console.error('Failed to send error message:', e);
             }
           }
           

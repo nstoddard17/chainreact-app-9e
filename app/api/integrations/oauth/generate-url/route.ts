@@ -5,6 +5,7 @@ import { cookies } from "next/headers"
 // OAuth service imports
 import { GoogleOAuthService } from "@/lib/oauth/google"
 import { SlackOAuthService } from "@/lib/oauth/slack"
+import { TwitterOAuthService } from "@/lib/oauth/twitter"
 
 export async function POST(request: NextRequest) {
   try {
@@ -79,7 +80,12 @@ export async function POST(request: NextRequest) {
           break
 
         case "twitter":
-          authUrl = generateTwitterAuthUrl(userId)
+          authUrl = await TwitterOAuthService.generateAuthUrl(
+            "https://chainreact.app",
+            false,
+            undefined,
+            userId,
+          )
           break
 
         case "linkedin":
@@ -224,24 +230,6 @@ function generateDiscordAuthUrl(userId: string): string {
   })
 
   return `https://discord.com/api/oauth2/authorize?${params.toString()}`
-}
-
-function generateTwitterAuthUrl(userId: string): string {
-  const clientId = process.env.NEXT_PUBLIC_TWITTER_CLIENT_ID
-  if (!clientId) throw new Error("Twitter client ID not configured")
-
-  const state = btoa(JSON.stringify({ provider: "twitter", userId, timestamp: Date.now() }))
-  const params = new URLSearchParams({
-    client_id: clientId,
-    redirect_uri: "https://chainreact.app/api/integrations/twitter/callback",
-    response_type: "code",
-    scope: "tweet.read tweet.write users.read",
-    state,
-    code_challenge_method: "S256",
-    code_challenge: "challenge", // In production, generate proper PKCE challenge
-  })
-
-  return `https://twitter.com/i/oauth2/authorize?${params.toString()}`
 }
 
 function generateLinkedInAuthUrl(userId: string): string {
