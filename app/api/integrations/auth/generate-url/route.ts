@@ -395,12 +395,24 @@ function generateAirtableAuthUrl(state: string): string {
   const clientId = process.env.NEXT_PUBLIC_AIRTABLE_CLIENT_ID
   if (!clientId) throw new Error("Airtable client ID not configured")
 
+  // PKCE
+  const codeVerifier = crypto.randomBytes(32).toString("hex")
+  const codeChallenge = crypto.createHash("sha256").update(codeVerifier).digest("base64url")
+
+  // Storing the code_verifier in the state temporarily.
+  // This is not ideal for production. A database or a secure server-side session would be better.
+  const stateWithPKCE = JSON.parse(atob(state))
+  stateWithPKCE.code_verifier = codeVerifier
+  const finalState = btoa(JSON.stringify(stateWithPKCE))
+
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: "https://chainreact.app/api/integrations/airtable/callback",
     response_type: "code",
-    scope: "data.records:read data.records:write schema.bases:read schema.bases:write",
-    state,
+    scope: "data.records:read data.records:write schema.bases:read",
+    state: finalState,
+    code_challenge: codeChallenge,
+    code_challenge_method: "S256",
   })
 
   return `https://airtable.com/oauth2/v1/authorize?${params.toString()}`
