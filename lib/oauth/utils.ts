@@ -73,6 +73,13 @@ export const OAuthScopes = {
     "https://www.googleapis.com/auth/userinfo.profile",
     "https://www.googleapis.com/auth/spreadsheets",
   ] as const,
+  GMAIL: [
+    "https://www.googleapis.com/auth/userinfo.email",
+    "https://www.googleapis.com/auth/userinfo.profile",
+    "https://www.googleapis.com/auth/gmail.send",
+    "https://www.googleapis.com/auth/gmail.modify",
+    "https://www.googleapis.com/auth/gmail.readonly",
+  ] as const,
   MICROSOFT: ["user.read", "offline_access"] as const,
   DROPBOX: ["account_info.read", "files.content.read", "files.content.write"] as const,
   ONEDRIVE: ["files.readwrite", "offline_access", "user.read"] as const,
