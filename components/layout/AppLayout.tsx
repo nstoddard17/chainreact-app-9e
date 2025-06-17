@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useAuthStore } from "@/stores/authStore"
 import Sidebar from "./Sidebar"
 import TopBar from "./TopBar"
@@ -15,6 +15,7 @@ interface AppLayoutProps {
 export default function AppLayout({ children }: AppLayoutProps) {
   const { initialize, user } = useAuthStore()
   const { globalPreloadingData } = useIntegrationStore()
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
   useEffect(() => {
     initialize()
@@ -30,9 +31,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
   return (
     <div className="min-h-screen bg-slate-50 flex">
-      <Sidebar />
-      <div className="flex-1 flex flex-col ml-64">
-        <TopBar />
+      <Sidebar isMobileMenuOpen={isMobileMenuOpen} onMobileMenuChange={setIsMobileMenuOpen} />
+      <div className="flex-1 flex flex-col lg:ml-64">
+        <TopBar onMobileMenuChange={setIsMobileMenuOpen} />
         {globalPreloadingData && (
           <div className="bg-blue-50 border-b border-blue-200 px-6 py-2">
             <div className="flex items-center gap-2 text-sm text-blue-700">

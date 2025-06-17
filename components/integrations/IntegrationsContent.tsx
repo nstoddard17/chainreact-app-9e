@@ -170,7 +170,7 @@ function IntegrationsContent() {
   )
 
   const StatusSidebar = () => (
-    <aside className="w-full lg:pl-8 mt-8 lg:mt-0">
+    <aside className="hidden lg:block w-full lg:pl-8 mt-8 lg:mt-0">
       <Card className="shadow-sm rounded-lg border-gray-200">
         <CardHeader>
           <CardTitle className="text-lg">Status</CardTitle>
