@@ -1,18 +1,8 @@
-<svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
-	 viewBox="0 0 250 250" style="enable-background:new 0 0 250 250;" xml:space="preserve">
-<style type="text/css">
-	.st0{fill-rule:evenodd;clip-rule:evenodd;fill:#FFD000;}
-	.st1{fill-rule:evenodd;clip-rule:evenodd;}
-</style>
-<g id="Page-1">
-	<g id="beehiiv-logo-with-text" transform="translate(1.000000, 0.000000)">
-		<g id="Logo">
-			<path id="Combined-Shape" class="st0" d="M124,250C55.5,250,0,194.5,0,126C0,57.5,55.5,2,124,2s124,55.5,124,124
-				S192.5,250,124,250z M106.8,75.3c-3.1-1.8-7-0.7-8.8,2.4l-31.5,54.5c-1.8,3.1-0.7,7,2.4,8.8c3.1,1.8,7,0.7,8.8-2.4l31.5-54.5
-				C111.1,81.1,109.9,77.1,106.8,75.3L106.8,75.3z M175.7,117.7l-54.5,31.5c-3.1,1.8-7,0.7-8.8-2.4c-1.8-3.1-0.7-7,2.4-8.8
-				l54.5-31.5c3.1-1.8,7-0.7,8.8,2.4C180,111.9,178.9,115.9,175.7,117.7L175.7,117.7z M175.7,75.3c-3.1-1.8-7,0.7-8.8,2.4
-				l-54.5,94.4c-1.8,3.1-0.7,7,2.4,8.8c3.1,1.8,7,0.7,8.8-2.4l54.5-94.4C180,81.1,178.9,77.1,175.7,75.3L175.7,75.3z"/>
-		</g>
-	</g>
-</g>
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="64px" height="64px" viewBox="0 0 64 64" version="1.1" xmlns="http://www.w3.org/2000/svg">
+    <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <rect fill="#FFD600" x="0" y="0" width="64" height="64" rx="12"/>
+        <circle fill="#000000" cx="32" cy="32" r="16"/>
+        <rect fill="#FFD600" x="28" y="24" width="8" height="16" rx="4"/>
+    </g>
 </svg> 

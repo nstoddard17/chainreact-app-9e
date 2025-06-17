@@ -171,7 +171,7 @@ function IntegrationsContent() {
 
   const StatusSidebar = () => (
     <aside className="w-full lg:pl-8 mt-8 lg:mt-0">
-      <Card className="sticky top-8 shadow-sm rounded-lg border-gray-200">
+      <Card className="shadow-sm rounded-lg border-gray-200">
         <CardHeader>
           <CardTitle className="text-lg">Status</CardTitle>
         </CardHeader>
@@ -220,8 +220,8 @@ function IntegrationsContent() {
   return (
     <AppLayout>
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="lg:flex lg:gap-8 relative">
-          <main className="flex-1">
+        <div className="lg:flex lg:gap-8">
+          <main className="flex-1 min-h-screen">
             <PageHeader />
             <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
               <TabsList>
@@ -233,7 +233,7 @@ function IntegrationsContent() {
             </Tabs>
             <IntegrationGrid />
           </main>
-          <div className="lg:w-80 lg:shrink-0">
+          <div className="lg:w-80 lg:shrink-0 lg:sticky lg:top-8 lg:self-start lg:h-[calc(100vh-4rem)]">
             <StatusSidebar />
           </div>
         </div>

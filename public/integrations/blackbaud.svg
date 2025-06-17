@@ -1,4 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
-  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/>
-  <path d="M12 12m-5 0a5 5 0 1 0 10 0a5 5 0 1 0-10 0"/>
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="64px" height="64px" viewBox="0 0 64 64" version="1.1" xmlns="http://www.w3.org/2000/svg">
+    <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <rect fill="#6CC24A" x="0" y="0" width="64" height="64" rx="12"/>
+        <ellipse fill="#FFFFFF" cx="32" cy="32" rx="16" ry="8"/>
+        <ellipse fill="#6CC24A" cx="32" cy="32" rx="8" ry="4"/>
+    </g>
 </svg> 

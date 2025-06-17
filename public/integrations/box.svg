@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg width="64px" height="64px" viewBox="0 0 64 64" version="1.1" xmlns="http://www.w3.org/2000/svg">
     <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
-        <rect fill="#03787C" x="0" y="0" width="64" height="64" rx="12"/>
-        <rect fill="#FFFFFF" x="20" y="20" width="24" height="24" rx="4"/>
-        <rect fill="#03787C" x="28" y="28" width="8" height="8" rx="2"/>
+        <rect fill="#0061D5" x="0" y="0" width="64" height="64" rx="12"/>
+        <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-size="28" font-family="Arial, sans-serif" fill="#FFFFFF">b</text>
     </g>
 </svg> 

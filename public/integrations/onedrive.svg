@@ -1,1 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" fill="#e5e7eb"/><text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" fill="#6b7280" font-size="32" font-family="Arial, sans-serif">O</text></svg>
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="64px" height="64px" viewBox="0 0 64 64" version="1.1" xmlns="http://www.w3.org/2000/svg">
+    <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <rect fill="#094AB2" x="0" y="0" width="64" height="64" rx="12"/>
+        <ellipse fill="#FFFFFF" cx="32" cy="40" rx="16" ry="8"/>
+        <ellipse fill="#094AB2" cx="32" cy="40" rx="10" ry="4"/>
+    </g>
+</svg>
