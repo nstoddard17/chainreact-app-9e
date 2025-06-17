@@ -10,6 +10,9 @@ body {
   .text-balance {
     text-wrap: balance;
   }
+  .tabs-trigger[data-state="active"] {
+    @apply font-semibold border-b-2 border-primary text-primary;
+  }
 }
 
 @layer base {
