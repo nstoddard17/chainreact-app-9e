@@ -14,8 +14,17 @@ import {
   Users,
   Code,
   GraduationCap,
+  ChevronDown,
+  X,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+
+interface SidebarProps {
+  isMobileMenuOpen: boolean
+  onMobileMenuChange: (isOpen: boolean) => void
+}
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -30,23 +39,71 @@ const navigation = [
   { name: "Settings", href: "/settings", icon: Settings },
 ]
 
-export default function Sidebar() {
+export default function Sidebar({ isMobileMenuOpen, onMobileMenuChange }: SidebarProps) {
   const pathname = usePathname()
 
   return (
-    <div className="fixed inset-y-0 left-0 w-64 bg-white border-r border-slate-200 flex flex-col">
+    <div
+      className={cn(
+        "fixed inset-y-0 left-0 w-64 bg-white border-r border-slate-200 flex flex-col transition-transform duration-200 ease-in-out z-50",
+        isMobileMenuOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+      )}
+    >
       {/* Logo */}
-      <div className="p-6 border-b border-slate-200">
-        <div className="flex items-center space-x-2">
+      <div className="p-6 border-b border-slate-200 flex items-center justify-between">
+        <Link href="/" className="flex items-center space-x-2">
           <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
             <Zap className="w-5 h-5 text-white" />
           </div>
           <span className="text-xl font-bold text-slate-900">ChainReact</span>
-        </div>
+        </Link>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="lg:hidden"
+          onClick={() => onMobileMenuChange(false)}
+        >
+          <X className="h-5 w-5" />
+        </Button>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+      {/* Mobile Toggle */}
+      <div className="lg:hidden p-4 border-b border-slate-200">
+        <Collapsible>
+          <CollapsibleTrigger asChild>
+            <Button variant="ghost" className="w-full justify-between">
+              <span>Menu</span>
+              <ChevronDown className="w-4 h-4 transition-transform" />
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <nav className="p-2 space-y-2">
+              {navigation.map((item) => {
+                const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
+                return (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    onClick={() => onMobileMenuChange(false)}
+                    className={cn(
+                      "flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200",
+                      isActive
+                        ? "bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg"
+                        : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
+                    )}
+                  >
+                    <item.icon className="w-5 h-5" />
+                    <span className="font-medium">{item.name}</span>
+                  </Link>
+                )
+              })}
+            </nav>
+          </CollapsibleContent>
+        </Collapsible>
+      </div>
+
+      {/* Desktop Navigation */}
+      <nav className="hidden lg:flex flex-1 p-4 space-y-2 overflow-y-auto">
         {navigation.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
           return (
