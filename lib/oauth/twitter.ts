@@ -1,4 +1,5 @@
 /// <reference types="node" />
+import { generateOAuthState } from "./utils"
 
 interface TwitterOAuthResult {
   success: boolean
@@ -75,8 +76,8 @@ export class TwitterOAuthService {
       codeVerifier, // Store verifier in state
     }
 
-    // Encode state data
-    const state = btoa(JSON.stringify(stateData))
+    // Use the utility function to generate state
+    const state = generateOAuthState(stateData)
 
     const params = new URLSearchParams({
       response_type: "code",
@@ -102,6 +103,7 @@ export class TwitterOAuthService {
       let stateData
       try {
         stateData = JSON.parse(atob(state))
+        console.log("Parsed state data:", { ...stateData, codeVerifier: stateData.codeVerifier ? "***" : undefined })
       } catch (error) {
         console.error("Failed to parse state:", error)
         throw new Error("Invalid state parameter")
@@ -114,7 +116,7 @@ export class TwitterOAuthService {
       }
 
       if (!codeVerifier) {
-        console.error("Missing code verifier in state:", stateData)
+        console.error("Missing code verifier in state:", { ...stateData, codeVerifier: undefined })
         throw new Error("Missing code verifier in state")
       }
 
