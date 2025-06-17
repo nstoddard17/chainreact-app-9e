@@ -22,7 +22,17 @@ export async function GET(request: NextRequest) {
       return new Response("Unauthorized", { status: 401 })
     }
 
-    await GoogleDriveOAuthService.handleCallback(code, state, user.id)
+    const result = await GoogleDriveOAuthService.handleCallback(
+      code,
+      state,
+      supabase,
+      user.id,
+      request.headers.get("origin") || request.nextUrl.origin
+    )
+
+    if (!result.success) {
+      return new Response(result.error || "Failed to handle callback", { status: 500 })
+    }
 
     // Redirect to success page
     return Response.redirect(new URL("/integrations?success=true", request.url))
