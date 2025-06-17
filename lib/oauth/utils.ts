@@ -147,21 +147,18 @@ export interface OAuthState {
 }
 
 // Generate OAuth state
-export function generateOAuthState(userId: string, provider: string): string {
+export function generateOAuthState(userId: string, provider: string, additionalState?: Record<string, any>): string {
   const state = {
     userId,
     provider,
     timestamp: Date.now(),
+    ...additionalState
   }
   return Buffer.from(JSON.stringify(state)).toString("base64")
 }
 
 // Parse OAuth state
-export function parseOAuthState(state: string): {
-  userId: string
-  provider: string
-  timestamp: number
-} {
+export function parseOAuthState(state: string): OAuthState {
   try {
     const decoded = Buffer.from(state, "base64").toString()
     const parsed = JSON.parse(decoded)
@@ -173,7 +170,7 @@ export function parseOAuthState(state: string): {
 
 // Validate OAuth state
 export function validateOAuthState(
-  state: { userId: string; provider: string; timestamp: number },
+  state: OAuthState,
   expectedProvider: string
 ): void {
   if (!state.userId || !state.provider || !state.timestamp) {
