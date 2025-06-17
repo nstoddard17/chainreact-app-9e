@@ -231,12 +231,17 @@ export const useIntegrationStore = create<IntegrationStore>((set, get) => ({
             clearInterval(checkClosed)
             window.removeEventListener("message", messageHandler)
 
-            if (!closedByMessage) {
+              if (!closedByMessage) {
               console.log(`❌ Popup closed manually for ${providerId}`)
-              // Remove localStorage key when popup closed manually
-              localStorage.removeItem("integration_connecting")
-              setLoading(`connect-${providerId}`, false)
-              get().fetchIntegrations(true)
+              // Simulate oauth-error
+              window.dispatchEvent(new MessageEvent("message", {
+                data: {
+                  type: "oauth-error",
+                  provider: providerId,
+                  error: "Popup closed before completing authorization.",
+                },
+                origin: window.location.origin,
+              }))
             }
           }
         }, 500)
