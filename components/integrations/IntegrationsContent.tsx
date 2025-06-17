@@ -157,7 +157,7 @@ function IntegrationsContent() {
   )
 
   const IntegrationGrid = () => (
-    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
       {loading && filteredProviders.length === 0 ? (
         <p>Loading...</p>
       ) : (
@@ -219,16 +219,16 @@ function IntegrationsContent() {
 
   return (
     <AppLayout>
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
         <div className="lg:flex lg:gap-8">
           <main className="flex-1">
             <PageHeader />
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
-              <TabsList>
-                <TabsTrigger value="all">All</TabsTrigger>
-                <TabsTrigger value="connected">Connected</TabsTrigger>
-                <TabsTrigger value="expiring">Expiring Soon</TabsTrigger>
-                <TabsTrigger value="disconnected">Disconnected</TabsTrigger>
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-4 sm:mb-6">
+              <TabsList className="w-full sm:w-auto">
+                <TabsTrigger value="all" className="flex-1 sm:flex-none">All</TabsTrigger>
+                <TabsTrigger value="connected" className="flex-1 sm:flex-none">Connected</TabsTrigger>
+                <TabsTrigger value="expiring" className="flex-1 sm:flex-none">Expiring Soon</TabsTrigger>
+                <TabsTrigger value="disconnected" className="flex-1 sm:flex-none">Disconnected</TabsTrigger>
               </TabsList>
             </Tabs>
             <IntegrationGrid />
