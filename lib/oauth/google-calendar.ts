@@ -35,9 +35,15 @@ export class GoogleCalendarOAuthService {
     }
 
     const redirectUri = this.getRedirectUri(origin)
+    console.log("Google Calendar Auth URL Debug:", {
+      origin,
+      redirectUri,
+      userId,
+    })
+
     const state = JSON.stringify({
       provider: "google",
-      service: "google-calendar",
+      service: "calendar",
       userId,
     })
 
@@ -62,7 +68,8 @@ export class GoogleCalendarOAuthService {
     origin: string
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      if (!this.clientId || !this.clientSecret) {
+      const { clientId, clientSecret } = this.getClientCredentials()
+      if (!clientId || !clientSecret) {
         throw new Error("Missing Google client credentials")
       }
 
@@ -77,8 +84,8 @@ export class GoogleCalendarOAuthService {
           "Content-Type": "application/x-www-form-urlencoded",
         },
         body: new URLSearchParams({
-          client_id: this.clientId,
-          client_secret: this.clientSecret,
+          client_id: clientId,
+          client_secret: clientSecret,
           code,
           grant_type: "authorization_code",
           redirect_uri: this.getRedirectUri(origin),
@@ -93,50 +100,45 @@ export class GoogleCalendarOAuthService {
       const tokenData = await tokenResponse.json()
       const { access_token, refresh_token, expires_in } = tokenData
 
-      // Get calendar list
-      const calendarResponse = await fetch(`${this.apiUrl}/users/me/calendarList`, {
-        headers: {
-          Authorization: `Bearer ${access_token}`,
+      // Get user info
+      const userResponse = await fetch(
+        "https://www.googleapis.com/oauth2/v2/userinfo",
+        {
+          headers: {
+            Authorization: `Bearer ${access_token}`,
+          },
         },
-      })
+      )
 
-      if (!calendarResponse.ok) {
-        throw new Error("Failed to get calendar list")
+      if (!userResponse.ok) {
+        throw new Error("Failed to get user info")
       }
 
-      const calendarData = await calendarResponse.json()
-      const primaryCalendar = calendarData.items?.find((cal: any) => cal.primary)
+      const user = await userResponse.json()
 
-      if (!primaryCalendar) {
-        throw new Error("No primary calendar found")
-      }
-
-      const now = new Date().toISOString()
-
-      // Check if integration exists
+      // Check for existing integration
       const { data: existingIntegration } = await supabase
         .from("integrations")
         .select("id")
         .eq("user_id", userId)
         .eq("provider", "google")
+        .eq("service", "calendar")
         .maybeSingle()
 
       const integrationData = {
         user_id: userId,
         provider: "google",
-        provider_user_id: primaryCalendar.id,
+        service: "calendar",
+        provider_user_id: user.email,
         access_token,
         refresh_token,
-        expires_at: expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null,
-        status: "connected",
-        scopes: tokenData.scope ? tokenData.scope.split(" ") : [],
+        token_type: "Bearer",
+        expires_at: new Date(Date.now() + 3600 * 1000).toISOString(),
         metadata: {
-          calendar_id: primaryCalendar.id,
-          calendar_name: primaryCalendar.summary,
-          timezone: primaryCalendar.timeZone,
-          connected_at: now,
+          email: user.email,
+          display_name: user.name,
+          photo_url: user.picture,
         },
-        updated_at: now,
       }
 
       if (existingIntegration) {
@@ -151,7 +153,7 @@ export class GoogleCalendarOAuthService {
       } else {
         const { error } = await supabase.from("integrations").insert({
           ...integrationData,
-          created_at: now,
+          created_at: new Date().toISOString(),
         })
 
         if (error) {
@@ -167,9 +169,11 @@ export class GoogleCalendarOAuthService {
   }
 
   static async refreshToken(
-    refreshToken: string
-  ): Promise<{ access_token: string; refresh_token: string; expires_in: number }> {
-    if (!this.clientId || !this.clientSecret) {
+    refreshToken: string,
+    userId: string
+  ): Promise<{ access_token: string; expires_in: number }> {
+    const { clientId, clientSecret } = this.getClientCredentials()
+    if (!clientId || !clientSecret) {
       throw new Error("Missing Google client credentials")
     }
 
@@ -179,8 +183,8 @@ export class GoogleCalendarOAuthService {
         "Content-Type": "application/x-www-form-urlencoded",
       },
       body: new URLSearchParams({
-        client_id: this.clientId,
-        client_secret: this.clientSecret,
+        client_id: clientId,
+        client_secret: clientSecret,
         refresh_token: refreshToken,
         grant_type: "refresh_token",
       }),
@@ -190,6 +194,24 @@ export class GoogleCalendarOAuthService {
       throw new Error("Failed to refresh token")
     }
 
-    return response.json()
+    const { access_token, expires_in } = await response.json()
+
+    // Update the access token in the database
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+
+    await supabase
+      .from("integrations")
+      .update({
+        access_token,
+        expires_at: new Date(Date.now() + expires_in * 1000).toISOString(),
+      })
+      .eq("user_id", userId)
+      .eq("provider", "google")
+      .eq("service", "calendar")
+
+    return { access_token, expires_in }
   }
 }
