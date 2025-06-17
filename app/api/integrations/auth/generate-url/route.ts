@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
         break
 
       case "airtable":
-        authUrl = generateAirtableAuthUrl(finalState)
+        authUrl = await generateAirtableAuthUrl(stateObject)
         break
 
       case "mailchimp":
@@ -312,11 +312,11 @@ function generateLinkedInAuthUrl(state: string): string {
   if (!clientId) throw new Error("LinkedIn client ID not configured")
 
   const params = new URLSearchParams({
-    client_id: clientId,
-    redirect_uri: "https://chainreact.app/api/integrations/linkedin/callback",
     response_type: "code",
-    scope: "profile email openid",
+    client_id: clientId,
+    redirect_uri: `https://chainreact.app/api/integrations/linkedin/callback`,
     state,
+    scope: "profile email openid",
   })
 
   return `https://www.linkedin.com/oauth/v2/authorization?${params.toString()}`
@@ -416,27 +416,28 @@ function generateHubSpotAuthUrl(state: string): string {
   return `https://app.hubspot.com/oauth/authorize?${params.toString()}`
 }
 
-function generateAirtableAuthUrl(state: string): string {
+async function generateAirtableAuthUrl(stateObject: any): Promise<string> {
   const clientId = process.env.NEXT_PUBLIC_AIRTABLE_CLIENT_ID
   if (!clientId) throw new Error("Airtable client ID not configured")
 
-  // PKCE
-  const codeVerifier = crypto.randomBytes(32).toString("hex")
-  const codeChallenge = crypto.createHash("sha256").update(codeVerifier).digest("base64url")
+  const code_verifier = crypto.randomBytes(32).toString("hex")
+  const code_challenge = crypto.createHash("sha256").update(code_verifier).digest("base64url")
 
-  // Storing the code_verifier in the state temporarily.
-  // This is not ideal for production. A database or a secure server-side session would be better.
-  const stateWithPKCE = JSON.parse(atob(state))
-  stateWithPKCE.code_verifier = codeVerifier
-  const finalState = btoa(JSON.stringify(stateWithPKCE))
+  const supabase = createServerComponentClient({ cookies })
+  const { error } = await supabase
+    .from("pkce_flow")
+    .insert({ state: btoa(JSON.stringify(stateObject)), code_verifier: code_verifier })
+  if (error) {
+    throw new Error(`Failed to store PKCE code verifier: ${error.message}`)
+  }
 
   const params = new URLSearchParams({
     client_id: clientId,
-    redirect_uri: "https://chainreact.app/api/integrations/airtable/callback",
+    redirect_uri: `https://chainreact.app/api/integrations/airtable/callback`,
     response_type: "code",
     scope: "data.records:read data.records:write schema.bases:read",
-    state: finalState,
-    code_challenge: codeChallenge,
+    state: btoa(JSON.stringify(stateObject)),
+    code_challenge,
     code_challenge_method: "S256",
   })
 

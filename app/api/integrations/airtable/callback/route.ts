@@ -40,14 +40,23 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const stateData = JSON.parse(atob(state))
-    const { userId, code_verifier } = stateData
+    // Fetch the code_verifier from the database
+    const { data: pkceData, error: pkceError } = await supabase
+      .from("pkce_flow")
+      .select("code_verifier, state")
+      .eq("state", state)
+      .single()
+
+    if (pkceError || !pkceData) {
+      throw new Error(`Failed to retrieve PKCE data: ${pkceError?.message || 'Not found'}`)
+    }
+
+    const { code_verifier } = pkceData
+    const stateData = JSON.parse(atob(pkceData.state))
+    const { userId } = stateData
 
     if (!userId) {
       throw new Error("User ID not found in state")
-    }
-    if (!code_verifier) {
-      throw new Error("Code verifier not found in state")
     }
 
     const clientId = process.env.NEXT_PUBLIC_AIRTABLE_CLIENT_ID
@@ -113,6 +122,12 @@ export async function GET(request: NextRequest) {
 
     if (upsertError) {
       throw new Error(`Failed to save Airtable integration: ${upsertError.message}`)
+    }
+
+    // Delete the PKCE record from the database
+    const { error: deleteError } = await supabase.from("pkce_flow").delete().eq("state", state)
+    if (deleteError) {
+      console.warn(`Failed to delete PKCE data for state: ${state}`, deleteError)
     }
 
     return createPopupResponse(
