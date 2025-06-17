@@ -9,8 +9,8 @@ import {
 import { createClient } from "@supabase/supabase-js"
 
 export class GoogleCalendarOAuthService {
-  static readonly clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
-  static readonly clientSecret = process.env.GOOGLE_CLIENT_SECRET
+  private static clientId: string | undefined = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
+  private static clientSecret: string | undefined = process.env.GOOGLE_CLIENT_SECRET
   static readonly apiUrl = "https://www.googleapis.com/calendar/v3"
 
   static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string, userId?: string): string {
