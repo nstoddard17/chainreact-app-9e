@@ -1,1 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" fill="#e5e7eb"/><text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" fill="#6b7280" font-size="32" font-family="Arial, sans-serif">I</text></svg>
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="64px" height="64px" viewBox="0 0 64 64" version="1.1" xmlns="http://www.w3.org/2000/svg">
+    <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <rect fill="#E4405F" x="0" y="0" width="64" height="64" rx="12"/>
+        <path d="M32,20 C25.4,20 20,25.4 20,32 C20,38.6 25.4,44 32,44 C38.6,44 44,38.6 44,32 C44,25.4 38.6,20 32,20 Z M32,40 C27.6,40 24,36.4 24,32 C24,27.6 27.6,24 32,24 C36.4,24 40,27.6 40,32 C40,36.4 36.4,40 32,40 Z M44,20 C45.1,20 46,19.1 46,18 C46,16.9 45.1,16 44,16 C42.9,16 42,16.9 42,18 C42,19.1 42.9,20 44,20 Z" fill="#FFFFFF"/>
+    </g>
+</svg>

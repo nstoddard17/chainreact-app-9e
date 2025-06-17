@@ -1,1 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" fill="#e5e7eb"/><text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" fill="#6b7280" font-size="32" font-family="Arial, sans-serif">N</text></svg>
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="64px" height="64px" viewBox="0 0 64 64" version="1.1" xmlns="http://www.w3.org/2000/svg">
+    <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <rect fill="#000000" x="0" y="0" width="64" height="64" rx="12"/>
+        <path d="M20,16 L44,16 L44,48 L20,48 L20,16 Z M24,20 L24,44 L40,44 L40,20 L24,20 Z M28,24 L28,28 L36,28 L36,24 L28,24 Z M28,32 L28,36 L36,36 L36,32 L28,32 Z" fill="#FFFFFF"/>
+    </g>
+</svg>
