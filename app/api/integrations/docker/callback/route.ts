@@ -91,9 +91,11 @@ export async function GET(request: NextRequest) {
       {
         user_id: userId,
         provider: "docker",
-        provider_account_id: providerAccountId,
+        provider_user_id: providerAccountId,
         access_token: accessToken,
         refresh_token: refreshToken,
+        expires_at: tokens.expires_in ? new Date(Date.now() + tokens.expires_in * 1000).toISOString() : null,
+        scopes: tokens.scope ? tokens.scope.split(" ") : null,
         status: "connected",
         updated_at: new Date().toISOString(),
       },

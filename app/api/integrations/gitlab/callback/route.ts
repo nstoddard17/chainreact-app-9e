@@ -83,10 +83,11 @@ export async function GET(request: NextRequest) {
       {
         user_id: userId,
         provider: "gitlab",
-        provider_account_id: providerAccountId.toString(),
+        provider_user_id: providerAccountId.toString(),
         access_token: accessToken,
         refresh_token: refreshToken,
         expires_at: expiresAt,
+        scopes: tokens.scope ? tokens.scope.split(" ") : null,
         status: "connected",
         updated_at: new Date().toISOString(),
       },

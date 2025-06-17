@@ -390,11 +390,11 @@ export async function GET(request: NextRequest) {
     const integrationData = {
       user_id: userId,
       provider: "google-docs",
+      status: "connected",
       access_token: tokens.access_token,
       refresh_token: tokens.refresh_token,
       expires_at: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
-      token_type: tokens.token_type,
-      scope: tokens.scope,
+      scopes: tokens.scope.split(" "),
       metadata: {
         email: userInfo.email,
         name: userInfo.name,
