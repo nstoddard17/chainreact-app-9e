@@ -73,10 +73,15 @@ export async function GET(request: NextRequest) {
       code_verifier: codeVerifier,
     })
 
+    const clientId = process.env.NEXT_PUBLIC_TWITTER_CLIENT_ID!
+    const clientSecret = process.env.TWITTER_CLIENT_SECRET!
+    const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString("base64")
+
     const response = await fetch(tokenUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
+        Authorization: `Basic ${basicAuth}`,
       },
       body: body,
     })
