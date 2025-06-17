@@ -92,10 +92,11 @@ export class TwitterOAuthService {
     state: string,
     baseUrl: string,
     supabase: any,
+    userId: string,
   ): Promise<TwitterOAuthResult> {
     try {
       const stateData = JSON.parse(atob(state))
-      const { provider, reconnect, integrationId, requireFullScopes, codeVerifier, userId } = stateData
+      const { provider, reconnect, integrationId, requireFullScopes, codeVerifier } = stateData
 
       if (provider !== "twitter") {
         throw new Error("Invalid provider in state")
@@ -103,10 +104,6 @@ export class TwitterOAuthService {
 
       if (!codeVerifier) {
         throw new Error("Missing code verifier in state")
-      }
-
-      if (!userId) {
-        throw new Error("Missing user ID in state")
       }
 
       const { clientId, clientSecret } = this.getClientCredentials()

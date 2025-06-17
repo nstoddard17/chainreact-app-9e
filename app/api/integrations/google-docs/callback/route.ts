@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
           <h1>Google Docs Integration Failed</h1>
           <p>An error occurred during the Google Docs integration process: ${error}</p>
           <script>
-            window.opener.postMessage({ type: 'google-docs-integration-error', error: '${error}' }, window.location.origin);
+            window.opener.postMessage({ type: 'oauth-error', error: '${error}' }, window.location.origin);
             window.close();
           </script>
         </body>
@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
           <h1>Google Docs Integration Failed</h1>
           <p>Missing parameters in the Google Docs integration callback.</p>
           <script>
-            window.opener.postMessage({ type: 'google-docs-integration-error', error: 'missing_params' }, window.location.origin);
+            window.opener.postMessage({ type: 'oauth-error', error: 'missing_params' }, window.location.origin);
             window.close();
           </script>
         </body>
@@ -99,7 +99,7 @@ export async function GET(request: NextRequest) {
             <h1>Google Docs Integration Failed</h1>
             <p>Failed to parse the state parameter.</p>
             <script>
-              window.opener.postMessage({ type: 'google-docs-integration-error', error: 'invalid_state' }, window.location.origin);
+              window.opener.postMessage({ type: 'oauth-error', error: 'invalid_state' }, window.location.origin);
               window.close();
             </script>
           </body>
@@ -129,7 +129,7 @@ export async function GET(request: NextRequest) {
             <h1>Google Docs Integration Failed</h1>
             <p>User ID is missing from the state parameter.</p>
             <script>
-              window.opener.postMessage({ type: 'google-docs-integration-error', error: 'missing_user_id' }, window.location.origin);
+              window.opener.postMessage({ type: 'oauth-error', error: 'missing_user_id' }, window.location.origin);
               window.close();
             </script>
           </body>
@@ -160,7 +160,7 @@ export async function GET(request: NextRequest) {
             <h1>Google Docs Integration Failed</h1>
             <p>Missing Google client credentials.</p>
             <script>
-              window.opener.postMessage({ type: 'google-docs-integration-error', error: 'missing_client_credentials' }, window.location.origin);
+              window.opener.postMessage({ type: 'oauth-error', error: 'missing_client_credentials' }, window.location.origin);
               window.close();
             </script>
           </body>
@@ -204,7 +204,7 @@ export async function GET(request: NextRequest) {
             <h1>Google Docs Integration Failed</h1>
             <p>Failed to exchange code for token.</p>
             <script>
-              window.opener.postMessage({ type: 'google-docs-integration-error', error: 'token_exchange_failed', message: '${errorText}' }, window.location.origin);
+              window.opener.postMessage({ type: 'oauth-error', error: 'token_exchange_failed', message: '${errorText}' }, window.location.origin);
               window.close();
             </script>
           </body>
@@ -242,7 +242,7 @@ export async function GET(request: NextRequest) {
             <h1>Google Docs Integration Failed</h1>
             <p>Failed to retrieve user information from Google.</p>
             <script>
-              window.opener.postMessage({ type: 'google-docs-integration-error', error: 'user_info_failed' }, window.location.origin);
+              window.opener.postMessage({ type: 'oauth-error', error: 'user_info_failed' }, window.location.origin);
               window.close();
             </script>
           </body>
@@ -304,7 +304,7 @@ export async function GET(request: NextRequest) {
               <h1>Google Docs Integration Failed</h1>
               <p>Failed to update the Google Docs integration in the database.</p>
               <script>
-                window.opener.postMessage({ type: 'google-docs-integration-error', error: 'database_update_failed' }, window.location.origin);
+                window.opener.postMessage({ type: 'oauth-error', error: 'database_update_failed' }, window.location.origin);
                 window.close();
               </script>
             </body>
@@ -337,7 +337,7 @@ export async function GET(request: NextRequest) {
               <h1>Google Docs Integration Failed</h1>
               <p>Failed to insert the Google Docs integration into the database.</p>
               <script>
-                window.opener.postMessage({ type: 'google-docs-integration-error', error: 'database_insert_failed' }, window.location.origin);
+                window.opener.postMessage({ type: 'oauth-error', error: 'database_insert_failed' }, window.location.origin);
                 window.close();
               </script>
             </body>
@@ -367,8 +367,18 @@ export async function GET(request: NextRequest) {
           <h1>Google Docs Integration Successful</h1>
           <p>Google Docs integration was successful!</p>
           <script>
-            window.opener.postMessage({ type: 'google-docs-integration-success' }, window.location.origin);
-            window.close();
+            // Send success message to parent window
+            if (window.opener) {
+              window.opener.postMessage({
+                type: 'oauth-success',
+                provider: 'google-docs'
+              }, window.location.origin);
+            }
+            
+            // Close the popup
+            setTimeout(() => {
+              window.close();
+            }, 1500);
           </script>
         </body>
       </html>
@@ -393,7 +403,7 @@ export async function GET(request: NextRequest) {
           <h1>Google Docs Integration Failed</h1>
           <p>An unexpected error occurred during the Google Docs integration process.</p>
           <script>
-            window.opener.postMessage({ type: 'google-docs-integration-error', error: 'callback_failed', message: '${error.message}' }, window.location.origin);
+            window.opener.postMessage({ type: 'oauth-error', error: 'callback_failed', message: '${error.message}' }, window.location.origin);
             window.close();
           </script>
         </body>
