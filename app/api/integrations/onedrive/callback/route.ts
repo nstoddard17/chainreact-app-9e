@@ -1,248 +1,242 @@
-import { type NextRequest } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
-import { OneDriveOAuthService } from "@/lib/oauth/onedrive"
-import { parseOAuthState, validateOAuthState } from "@/lib/oauth/utils"
+import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 
-const onedriveClientId = process.env.NEXT_PUBLIC_ONEDRIVE_CLIENT_ID
-const onedriveClientSecret = process.env.ONEDRIVE_CLIENT_SECRET
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-if (!onedriveClientId || !onedriveClientSecret || !supabaseUrl || !supabaseServiceRoleKey) {
-  throw new Error("Missing required environment variables")
+if (!supabaseUrl || !supabaseServiceRoleKey) {
+  throw new Error("Missing Supabase URL or service role key")
 }
 
 const supabase = createClient(supabaseUrl, supabaseServiceRoleKey)
 
 export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url)
+  const code = searchParams.get("code")
+  const state = searchParams.get("state")
+  const error = searchParams.get("error")
+  const errorDescription = searchParams.get("error_description")
+
+  const baseUrl = getBaseUrl()
+
+  if (error) {
+    console.error(`OneDrive OAuth error: ${error} - ${errorDescription}`)
+    const errorHtml = `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>OneDrive Connection Failed</title>
+            <style>
+              body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; text-align: center; }
+              .container { max-width: 500px; padding: 20px; border: 1px solid #ccc; border-radius: 8px; }
+              h1 { color: #dc3545; }
+              p { color: #666; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <h1>OneDrive Connection Failed</h1>
+              <p>${errorDescription || "An unknown error occurred."}</p>
+              <p>Please try again or contact support if the problem persists.</p>
+              <script>
+                if (window.opener) {
+                  window.opener.postMessage({
+                    type: 'oauth-error',
+                    provider: 'onedrive',
+                    error: '${error}',
+                    errorDescription: '${errorDescription || "An unknown error occurred."}'
+                  }, '${baseUrl}');
+                  setTimeout(() => window.close(), 1000);
+                }
+              </script>
+            </div>
+          </body>
+        </html>
+      `
+    return new Response(errorHtml, {
+      headers: { "Content-Type": "text/html" },
+      status: 400,
+    })
+  }
+
+  if (!code || !state) {
+    console.error("Missing code or state in OneDrive callback")
+    const errorHtml = `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>OneDrive Connection Failed</title>
+             <style>
+              body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; text-align: center; }
+              .container { max-width: 500px; padding: 20px; border: 1px solid #ccc; border-radius: 8px; }
+              h1 { color: #dc3545; }
+              p { color: #666; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <h1>OneDrive Connection Failed</h1>
+              <p>Authorization code or state parameter is missing.</p>
+              <p>Please try again or contact support if the problem persists.</p>
+               <script>
+                if (window.opener) {
+                  window.opener.postMessage({
+                    type: 'oauth-error',
+                    provider: 'onedrive',
+                    error: 'Missing code or state'
+                  }, '${baseUrl}');
+                  setTimeout(() => window.close(), 1000);
+                }
+              </script>
+            </div>
+          </body>
+        </html>
+      `
+    return new Response(errorHtml, {
+      headers: { "Content-Type": "text/html" },
+      status: 400,
+    })
+  }
+
   try {
-    const searchParams = request.nextUrl.searchParams
-    const code = searchParams.get("code")
-    const state = searchParams.get("state")
-    const error = searchParams.get("error")
-    const errorDescription = searchParams.get("error_description")
+    const stateData = JSON.parse(atob(state))
+    const { userId } = stateData
 
-    if (error) {
-      return new Response(
-        `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>OneDrive OAuth Error</title>
-            <style>
-              body {
-                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                min-height: 100vh;
-                margin: 0;
-                background-color: #f5f5f5;
-              }
-              .container {
-                background: white;
-                padding: 2rem;
-                border-radius: 8px;
-                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-                text-align: center;
-                max-width: 400px;
-              }
-              h1 { color: #e74c3c; }
-              p { color: #666; }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <h1>Authentication Error</h1>
-              <p>${errorDescription || error}</p>
-            </div>
-          </body>
-        </html>
-        `,
-        {
-          headers: { "Content-Type": "text/html" },
-        }
-      )
-    }
-
-    if (!code || !state) {
-      return new Response(
-        `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>OneDrive OAuth Error</title>
-            <style>
-              body {
-                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                min-height: 100vh;
-                margin: 0;
-                background-color: #f5f5f5;
-              }
-              .container {
-                background: white;
-                padding: 2rem;
-                border-radius: 8px;
-                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-                text-align: center;
-                max-width: 400px;
-              }
-              h1 { color: #e74c3c; }
-              p { color: #666; }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <h1>Invalid Request</h1>
-              <p>Missing required parameters</p>
-            </div>
-          </body>
-        </html>
-        `,
-        {
-          headers: { "Content-Type": "text/html" },
-        }
-      )
-    }
-
-    // Parse and validate state
-    const stateData = parseOAuthState(state)
-    validateOAuthState(stateData, "onedrive")
-
-    const userId = stateData.userId
     if (!userId) {
-      throw new Error("Missing user ID in state")
+      console.error("Missing userId in OneDrive state")
+      // Handle error: show an error page and inform the user
+      return new Response("User ID is missing from state", { status: 400 })
     }
 
-    const result = await OneDriveOAuthService.handleCallback(code, state, supabase, userId)
+    const clientId = process.env.NEXT_PUBLIC_ONEDRIVE_CLIENT_ID
+    const clientSecret = process.env.ONEDRIVE_CLIENT_SECRET
 
-    if (!result.success) {
-      return new Response(
-        `
+    if (!clientId || !clientSecret) {
+      throw new Error("OneDrive client ID or secret not configured")
+    }
+
+    const tokenResponse = await fetch("https://login.microsoftonline.com/common/oauth2/v2.0/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        client_id: clientId,
+        client_secret: clientSecret,
+        code,
+        grant_type: "authorization_code",
+        redirect_uri: `${baseUrl}/api/integrations/onedrive/callback`,
+      }),
+    })
+
+    if (!tokenResponse.ok) {
+      const errorData = await tokenResponse.json()
+      throw new Error(`OneDrive token exchange failed: ${errorData.error_description}`)
+    }
+
+    const tokenData = await tokenResponse.json()
+
+    // Get user info
+    const userResponse = await fetch("https://graph.microsoft.com/v1.0/me", {
+      headers: {
+        Authorization: `Bearer ${tokenData.access_token}`,
+      },
+    })
+
+    if (!userResponse.ok) {
+      throw new Error("Failed to get OneDrive user info")
+    }
+
+    const userData = await userResponse.json()
+
+    const integrationData = {
+      user_id: userId,
+      provider: "onedrive",
+      provider_user_id: userData.id,
+      access_token: tokenData.access_token,
+      refresh_token: tokenData.refresh_token,
+      expires_at: tokenData.expires_in ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString() : null,
+      scopes: tokenData.scope.split(" "),
+      status: "connected",
+      updated_at: new Date().toISOString(),
+    }
+
+    const { error: upsertError } = await supabase.from("integrations").upsert(integrationData, {
+      onConflict: "user_id, provider",
+    })
+
+    if (upsertError) {
+      throw new Error(`Failed to save OneDrive integration: ${upsertError.message}`)
+    }
+
+    const successHtml = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>OneDrive Connection Successful</title>
+           <style>
+              body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; text-align: center; }
+              .container { max-width: 500px; padding: 20px; border: 1px solid #ccc; border-radius: 8px; }
+              h1 { color: #28a745; }
+              p { color: #666; }
+            </style>
+        </head>
+        <body>
+          <div class="container">
+            <h1>OneDrive Connection Successful</h1>
+            <p>You can now close this window.</p>
+          </div>
+          <script>
+            if (window.opener) {
+              window.opener.postMessage({ type: 'oauth-success', provider: 'onedrive' }, '${baseUrl}');
+              setTimeout(() => window.close(), 1000);
+            }
+          </script>
+        </body>
+      </html>
+    `
+
+    return new Response(successHtml, {
+      headers: { "Content-Type": "text/html" },
+    })
+  } catch (e: any) {
+    console.error("OneDrive callback error:", e)
+    const errorHtml = `
         <!DOCTYPE html>
         <html>
           <head>
-            <title>OneDrive OAuth Error</title>
+            <title>OneDrive Connection Failed</title>
             <style>
-              body {
-                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                min-height: 100vh;
-                margin: 0;
-                background-color: #f5f5f5;
-              }
-              .container {
-                background: white;
-                padding: 2rem;
-                border-radius: 8px;
-                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-                text-align: center;
-                max-width: 400px;
-              }
-              h1 { color: #e74c3c; }
+              body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; text-align: center; }
+              .container { max-width: 500px; padding: 20px; border: 1px solid #ccc; border-radius: 8px; }
+              h1 { color: #dc3545; }
               p { color: #666; }
             </style>
           </head>
           <body>
             <div class="container">
-              <h1>Connection Failed</h1>
-              <p>${result.error || "Failed to connect OneDrive"}</p>
+               <h1>OneDrive Connection Failed</h1>
+              <p>${e.message || "An unexpected error occurred."}</p>
+               <p>Please try again or contact support if the problem persists.</p>
+              <script>
+                if (window.opener) {
+                  window.opener.postMessage({
+                    type: 'oauth-error',
+                    provider: 'onedrive',
+                    error: 'Callback processing failed',
+                    errorDescription: '${e.message || "An unexpected error occurred."}'
+                  }, '${baseUrl}');
+                  setTimeout(() => window.close(), 1000);
+                }
+              </script>
             </div>
           </body>
         </html>
-        `,
-        {
-          headers: { "Content-Type": "text/html" },
-        }
-      )
-    }
-
-    return new Response(
       `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>OneDrive Connected</title>
-          <style>
-            body {
-              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-              display: flex;
-              justify-content: center;
-              align-items: center;
-              min-height: 100vh;
-              margin: 0;
-              background-color: #f5f5f5;
-            }
-            .container {
-              background: white;
-              padding: 2rem;
-              border-radius: 8px;
-              box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-              text-align: center;
-              max-width: 400px;
-            }
-            h1 { color: #2ecc71; }
-            p { color: #666; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <h1>Successfully Connected!</h1>
-            <p>You can now close this window and return to the app.</p>
-          </div>
-        </body>
-      </html>
-      `,
-      {
-        headers: { "Content-Type": "text/html" },
-      }
-    )
-  } catch (error: any) {
-    console.error("OneDrive callback error:", error)
-    return new Response(
-      `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>OneDrive OAuth Error</title>
-          <style>
-            body {
-              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-              display: flex;
-              justify-content: center;
-              align-items: center;
-              min-height: 100vh;
-              margin: 0;
-              background-color: #f5f5f5;
-            }
-            .container {
-              background: white;
-              padding: 2rem;
-              border-radius: 8px;
-              box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-              text-align: center;
-              max-width: 400px;
-            }
-            h1 { color: #e74c3c; }
-            p { color: #666; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <h1>Error</h1>
-            <p>${error.message || "An unexpected error occurred"}</p>
-          </div>
-        </body>
-      </html>
-      `,
-      {
-        headers: { "Content-Type": "text/html" },
-      }
-    )
+    return new Response(errorHtml, {
+      headers: { "Content-Type": "text/html" },
+      status: 500,
+    })
   }
 }
