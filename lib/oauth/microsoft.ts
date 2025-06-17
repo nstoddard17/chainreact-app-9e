@@ -19,7 +19,7 @@ export class MicrosoftOAuthService {
     }
 
     const state = generateOAuthState(userId, "microsoft")
-    const redirectUri = getOAuthRedirectUri("microsoft")
+    const redirectUri = this.getRedirectUri()
 
     const params = new URLSearchParams({
       client_id: this.clientId,
@@ -33,7 +33,8 @@ export class MicrosoftOAuthService {
   }
 
   static getRedirectUri(baseUrl?: string): string {
-    return getOAuthRedirectUri("microsoft", baseUrl)
+    const origin = baseUrl || getBaseUrl()
+    return getOAuthRedirectUri(origin, "microsoft")
   }
 
   static async handleCallback(

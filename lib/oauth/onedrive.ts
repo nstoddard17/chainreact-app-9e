@@ -19,7 +19,7 @@ export class OneDriveOAuthService {
     }
 
     const state = generateOAuthState("onedrive", userId)
-    const redirectUri = getOAuthRedirectUri("onedrive", baseUrl)
+    const redirectUri = this.getRedirectUri(baseUrl)
 
     const params = new URLSearchParams({
       client_id: this.clientId,
@@ -34,7 +34,8 @@ export class OneDriveOAuthService {
   }
 
   static getRedirectUri(baseUrl?: string): string {
-    return getOAuthRedirectUri("onedrive", baseUrl)
+    const origin = baseUrl || getBaseUrl()
+    return getOAuthRedirectUri(origin, "onedrive")
   }
 
   static async handleCallback(

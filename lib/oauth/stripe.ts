@@ -1,4 +1,6 @@
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
+import { getOAuthRedirectUri } from "./utils"
+
 export class StripeOAuthService {
   private static getClientCredentials() {
     const clientId = process.env.NEXT_PUBLIC_STRIPE_CLIENT_ID
@@ -37,7 +39,7 @@ export class StripeOAuthService {
   }
 
   static getRedirectUri(): string {
-    return `${getBaseUrl()}/api/integrations/stripe/callback`
+    return getOAuthRedirectUri(getBaseUrl(), "stripe")
   }
 
   static async handleCallback(

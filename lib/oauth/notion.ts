@@ -266,7 +266,7 @@ export class NotionOAuthService {
   }
 
   static getRedirectUri(): string {
-    return `${getBaseUrl()}/api/integrations/notion/callback`
+    return getOAuthRedirectUri(getBaseUrl(), "notion")
   }
 
   static async handleCallback(code: string, state: string, supabase: any, userId: string): Promise<NotionOAuthResult> {

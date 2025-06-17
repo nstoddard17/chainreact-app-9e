@@ -14,14 +14,18 @@ export class GoogleSheetsOAuthService {
   static readonly apiUrl = "https://www.googleapis.com/sheets/v4"
 
   static getClientCredentials() {
-    return {
-      clientId: this.clientId,
-      clientSecret: this.clientSecret,
+    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET
+
+    if (!clientId || !clientSecret) {
+      throw new Error("Missing Google OAuth configuration")
     }
+
+    return { clientId, clientSecret }
   }
 
   static getRedirectUri(origin: string): string {
-    return getOAuthRedirectUri(origin, "google")
+    return getOAuthRedirectUri(origin, "google_sheets")
   }
 
   static generateAuthUrl(origin: string, userId: string): string {

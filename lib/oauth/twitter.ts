@@ -26,7 +26,7 @@ export class TwitterOAuthService {
     }
 
     const state = generateOAuthState("twitter", userId)
-    const redirectUri = getOAuthRedirectUri("twitter", baseUrl)
+    const redirectUri = this.getRedirectUri(baseUrl)
 
     const params = new URLSearchParams({
       response_type: "code",
@@ -42,7 +42,8 @@ export class TwitterOAuthService {
   }
 
   static getRedirectUri(baseUrl?: string): string {
-    return getOAuthRedirectUri("twitter", baseUrl)
+    const origin = baseUrl || getBaseUrl()
+    return getOAuthRedirectUri(origin, "twitter")
   }
 
   static async handleCallback(
