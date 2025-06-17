@@ -1,198 +1,87 @@
-import type { NextRequest } from "next/server"
-import { createClient } from "@supabase/supabase-js"
-import { getBaseUrl } from "@/lib/utils/getBaseUrl"
-
-// Create a Supabase client with admin privileges
-const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
-
-function createPopupResponse(
-  type: "success" | "error",
-  provider: string,
-  message: string,
-  baseUrl: string,
-) {
-  const title = type === "success" ? `${provider} Connection Successful` : `${provider} Connection Failed`
-  const header = type === "success" ? `${provider} Connected!` : `Error Connecting ${provider}`
-  const status = type === "success" ? 200 : 500
-  const script = `
-    <script>
-      if (window.opener) {
-        window.opener.postMessage({
-          type: 'oauth-${type}',
-          provider: '${provider}',
-          message: '${message}'
-        }, '${baseUrl}');
-      }
-      setTimeout(() => window.close(), 1000);
-    </script>
-  `
-  const html = `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <title>${title}</title>
-        <style>
-          body { 
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            height: 100vh; 
-            margin: 0;
-            background: ${type === "success" ? "linear-gradient(135deg, #24c6dc 0%, #514a9d 100%)" : "linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%)"};
-            color: white;
-          }
-          .container { 
-            text-align: center; 
-            padding: 2rem;
-            background: rgba(255,255,255,0.1);
-            border-radius: 12px;
-            backdrop-filter: blur(10px);
-          }
-          .icon { font-size: 3rem; margin-bottom: 1rem; }
-          h1 { margin: 0 0 0.5rem 0; font-size: 1.5rem; }
-          p { margin: 0.5rem 0; opacity: 0.9; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="icon">${type === "success" ? "✅" : "❌"}</div>
-          <h1>${header}</h1>
-          <p>${message}</p>
-          <p>This window will close automatically...</p>
-        </div>
-        ${script}
-      </body>
-    </html>
-  `
-  return new Response(html, { status, headers: { "Content-Type": "text/html" } })
-}
+import { type NextRequest } from 'next/server'
+import supabaseAdmin from '@/lib/supabase/admin'
+import { createPopupResponse } from '@/lib/utils/createPopupResponse'
+import { getBaseUrl } from '@/lib/utils/getBaseUrl'
 
 export async function GET(request: NextRequest) {
-  console.log("Google Docs OAuth callback received")
+  const url = new URL(request.url)
+  const code = url.searchParams.get('code')
+  const state = url.searchParams.get('state')
+  const error = url.searchParams.get('error')
   const baseUrl = getBaseUrl()
+  const provider = 'google-docs'
+
+  if (error) {
+    console.error(`Error with Google Docs OAuth: ${error}`)
+    return createPopupResponse('error', provider, `OAuth Error: ${error}`, baseUrl)
+  }
+
+  if (!code || !state) {
+    return createPopupResponse('error', provider, 'No code or state provided for Google Docs OAuth.', baseUrl)
+  }
 
   try {
-    const searchParams = request.nextUrl.searchParams
-    const code = searchParams.get("code")
-    const state = searchParams.get("state")
-    const error = searchParams.get("error")
-
-    if (error) {
-      const errorDescription = searchParams.get("error_description") || "An unknown error occurred."
-      console.error("Google Docs OAuth error:", error, errorDescription)
-      return createPopupResponse("error", "google-docs", `${error}: ${errorDescription}`, baseUrl)
-    }
-
-    if (!code || !state) {
-      console.error("Missing code or state in Google Docs callback")
-      return createPopupResponse(
-        "error",
-        "google-docs",
-        "Authorization code or state is missing.",
-        baseUrl,
-      )
-    }
-
-    let stateData
-    try {
-      stateData = JSON.parse(atob(state))
-    } catch (e) {
-      console.error("Invalid state parameter in Google Docs callback:", e)
-      return createPopupResponse("error", "google-docs", "Invalid state parameter.", baseUrl)
-    }
-
-    const { userId } = stateData
+    const { userId, code_verifier } = JSON.parse(atob(state))
     if (!userId) {
-      console.error("Missing userId in Google Docs state")
-      return createPopupResponse("error", "google-docs", "User ID is missing from state.", baseUrl)
+      return createPopupResponse('error', provider, 'Missing userId in Google Docs state.', baseUrl)
     }
 
-    const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    const redirectUri = `${baseUrl}/api/integrations/google-docs/callback`
+    const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
       body: new URLSearchParams({
         code,
-        client_id: process.env.GOOGLE_CLIENT_ID!,
+        client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!,
         client_secret: process.env.GOOGLE_CLIENT_SECRET!,
-        redirect_uri: `${baseUrl}/api/integrations/google-docs/callback`,
-        grant_type: "authorization_code",
+        redirect_uri: redirectUri,
+        grant_type: 'authorization_code',
+        code_verifier: code_verifier || '',
       }),
     })
 
     if (!tokenResponse.ok) {
-      const errorText = await tokenResponse.text()
-      console.error("Google Docs token exchange failed:", errorText)
-      let errorDescription = "Could not get access token from Google."
-      try {
-        const errorJson = JSON.parse(errorText)
-        errorDescription = errorJson.error_description || errorJson.error || errorDescription
-      } catch (e) {
-        // Not a JSON response, use the raw text if it's not too long
-        if (errorText.length < 200) {
-          errorDescription = errorText
-        }
-      }
-      return createPopupResponse("error", "google-docs", `Token exchange failed: ${errorDescription}`, baseUrl)
-    }
-
-    const tokens = await tokenResponse.json()
-
-    const userInfoResponse = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
-      headers: { Authorization: `Bearer ${tokens.access_token}` },
-    })
-
-    if (!userInfoResponse.ok) {
-      console.error("Failed to get Google Docs user info")
+      const errorData = await tokenResponse.json()
+      console.error('Failed to exchange Google Docs code for token:', errorData)
       return createPopupResponse(
-        "error",
-        "google-docs",
-        "Could not fetch user information from Google.",
+        'error',
+        provider,
+        errorData.error_description || 'Failed to get Google Docs access token.',
         baseUrl,
       )
     }
 
-    const userInfo = await userInfoResponse.json()
+    const tokenData = await tokenResponse.json()
+
+    const expiresIn = tokenData.expires_in
+    const expiresAt = expiresIn ? new Date(new Date().getTime() + expiresIn * 1000) : null
 
     const integrationData = {
       user_id: userId,
-      provider: "google-docs",
-      status: "connected",
-      access_token: tokens.access_token,
-      refresh_token: tokens.refresh_token,
-      expires_at: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
-      scopes: tokens.scope.split(" "),
-      provider_user_id: userInfo.id,
-      metadata: {
-        email: userInfo.email,
-        name: userInfo.name,
-        picture: userInfo.picture,
-      },
+      provider: 'google-docs',
+      access_token: tokenData.access_token,
+      refresh_token: tokenData.refresh_token,
+      scopes: tokenData.scope.split(' '),
+      status: 'connected',
+      expiresAt: expiresAt ? expiresAt.toISOString() : null,
+      updated_at: new Date().toISOString(),
     }
 
-    const { error: upsertError } = await supabase
-      .from("integrations")
-      .upsert(integrationData, { onConflict: "user_id, provider" })
+    const { error: dbError } = await supabaseAdmin
+      .from('integrations')
+      .upsert(integrationData, { onConflict: 'user_id, provider' })
 
-    if (upsertError) {
-      console.error("Error saving Google Docs integration to DB:", upsertError)
-      return createPopupResponse(
-        "error",
-        "google-docs",
-        `Database error: ${upsertError.message}`,
-        baseUrl,
-      )
+    if (dbError) {
+      console.error('Error saving Google Docs integration to DB:', dbError)
+      return createPopupResponse('error', provider, `Database Error: ${dbError.message}`, baseUrl)
     }
 
-    return createPopupResponse(
-      "success",
-      "google-docs",
-      "Your Google Docs account has been successfully connected.",
-      baseUrl,
-    )
-  } catch (error: any) {
-    console.error("Google Docs callback error:", error)
-    const errorMessage = error.message || "An unexpected error occurred."
-    return createPopupResponse("error", "google-docs", errorMessage, baseUrl)
+    return createPopupResponse('success', provider, 'Google Docs account connected successfully.', baseUrl)
+  } catch (error) {
+    console.error('Error during Google Docs OAuth callback:', error)
+    const message = error instanceof Error ? error.message : 'An unexpected error occurred'
+    return createPopupResponse('error', provider, message, baseUrl)
   }
 }

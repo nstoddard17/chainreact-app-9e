@@ -1,243 +1,90 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { createClient } from "@supabase/supabase-js"
-import { getBaseUrl } from "@/lib/utils/getBaseUrl"
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-if (!supabaseUrl || !supabaseServiceRoleKey) {
-  throw new Error("Missing Supabase URL or service role key")
-}
-
-const supabase = createClient(supabaseUrl, supabaseServiceRoleKey)
+import { type NextRequest } from 'next/server'
+import supabaseAdmin from '@/lib/supabase/admin'
+import { createPopupResponse } from '@/lib/utils/createPopupResponse'
+import { getBaseUrl } from '@/lib/utils/getBaseUrl'
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url)
-  const code = searchParams.get("code")
-  const state = searchParams.get("state")
-  const error = searchParams.get("error")
-  const errorDescription = searchParams.get("error_description")
-
+  const url = new URL(request.url)
+  const code = url.searchParams.get('code')
+  const state = url.searchParams.get('state')
+  const error = url.searchParams.get('error')
+  const errorDescription = url.searchParams.get('error_description')
   const baseUrl = getBaseUrl()
+  const provider = 'teams'
 
   if (error) {
-    console.error(`Teams OAuth error: ${error} - ${errorDescription}`)
-    const errorHtml = `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>Teams Connection Failed</title>
-            <style>
-              body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; text-align: center; }
-              .container { max-width: 500px; padding: 20px; border: 1px solid #ccc; border-radius: 8px; }
-              h1 { color: #dc3545; }
-              p { color: #666; }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <h1>Teams Connection Failed</h1>
-              <p>${errorDescription || "An unknown error occurred."}</p>
-              <p>Please try again or contact support if the problem persists.</p>
-              <script>
-                if (window.opener) {
-                  window.opener.postMessage({
-                    type: 'oauth-error',
-                    provider: 'teams',
-                    error: '${error}',
-                    errorDescription: '${errorDescription || "An unknown error occurred."}'
-                  }, '${baseUrl}');
-                  setTimeout(() => window.close(), 1000);
-                }
-              </script>
-            </div>
-          </body>
-        </html>
-      `
-    return new Response(errorHtml, {
-      headers: { "Content-Type": "text/html" },
-      status: 400,
-    })
+    console.error(`Error with Teams OAuth: ${error} - ${errorDescription}`)
+    return createPopupResponse('error', provider, errorDescription || `OAuth Error: ${error}`, baseUrl)
   }
 
   if (!code || !state) {
-    console.error("Missing code or state in Teams callback")
-    const errorHtml = `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>Teams Connection Failed</title>
-             <style>
-              body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; text-align: center; }
-              .container { max-width: 500px; padding: 20px; border: 1px solid #ccc; border-radius: 8px; }
-              h1 { color: #dc3545; }
-              p { color: #666; }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <h1>Teams Connection Failed</h1>
-              <p>Authorization code or state parameter is missing.</p>
-              <p>Please try again or contact support if the problem persists.</p>
-               <script>
-                if (window.opener) {
-                  window.opener.postMessage({
-                    type: 'oauth-error',
-                    provider: 'teams',
-                    error: 'Missing code or state'
-                  }, '${baseUrl}');
-                  setTimeout(() => window.close(), 1000);
-                }
-              </script>
-            </div>
-          </body>
-        </html>
-      `
-    return new Response(errorHtml, {
-      headers: { "Content-Type": "text/html" },
-      status: 400,
-    })
+    return createPopupResponse('error', provider, 'No code or state provided for Teams OAuth.', baseUrl)
   }
 
   try {
-    const stateData = JSON.parse(atob(state))
-    const { userId } = stateData
-
+    const { userId } = JSON.parse(atob(state))
     if (!userId) {
-      console.error("Missing userId in Teams state")
-      // Handle error: show an error page and inform the user
-      return new Response("User ID is missing from state", { status: 400 })
+      return createPopupResponse('error', provider, 'Missing userId in Teams state.', baseUrl)
     }
 
-    const clientId = process.env.NEXT_PUBLIC_TEAMS_CLIENT_ID
-    const clientSecret = process.env.TEAMS_CLIENT_SECRET
+    const tenant = 'common'
+    const tokenUrl = `https://login.microsoftonline.com/${tenant}/oauth2/v2.0/token`
+    const redirectUri = `${baseUrl}/api/integrations/teams/callback`
 
-    if (!clientId || !clientSecret) {
-      throw new Error("Teams client ID or secret not configured")
-    }
-
-    const tokenResponse = await fetch("https://login.microsoftonline.com/common/oauth2/v2.0/token", {
-      method: "POST",
+    const tokenResponse = await fetch(tokenUrl, {
+      method: 'POST',
       headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
+        'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: new URLSearchParams({
-        client_id: clientId,
-        client_secret: clientSecret,
+        client_id: process.env.NEXT_PUBLIC_TEAMS_CLIENT_ID!,
+        client_secret: process.env.TEAMS_CLIENT_SECRET!,
         code,
-        grant_type: "authorization_code",
-        redirect_uri: `${baseUrl}/api/integrations/teams/callback`,
-        scope: "https://graph.microsoft.com/.default",
+        redirect_uri: redirectUri,
+        grant_type: 'authorization_code',
+        scope: 'offline_access User.Read', // Adjust scopes as needed
       }),
     })
 
     if (!tokenResponse.ok) {
       const errorData = await tokenResponse.json()
-      throw new Error(`Teams token exchange failed: ${errorData.error_description}`)
+      console.error('Failed to exchange Teams code for token:', errorData)
+      return createPopupResponse(
+        'error',
+        provider,
+        errorData.error_description || 'Failed to get Teams access token.',
+        baseUrl,
+      )
     }
 
     const tokenData = await tokenResponse.json()
-
-    // Get user info
-    const userResponse = await fetch("https://graph.microsoft.com/v1.0/me", {
-      headers: {
-        Authorization: `Bearer ${tokenData.access_token}`,
-      },
-    })
-
-    if (!userResponse.ok) {
-      throw new Error("Failed to get Teams user info")
-    }
-
-    const userData = await userResponse.json()
+    const expiresIn = tokenData.expires_in
+    const expiresAt = expiresIn ? new Date(new Date().getTime() + expiresIn * 1000) : null
 
     const integrationData = {
       user_id: userId,
-      provider: "teams",
-      provider_user_id: userData.id,
+      provider: provider,
       access_token: tokenData.access_token,
       refresh_token: tokenData.refresh_token,
-      expires_at: tokenData.expires_in ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString() : null,
-      scopes: tokenData.scope.split(" "),
-      status: "connected",
+      scopes: tokenData.scope.split(' '),
+      status: 'connected',
+      expiresAt: expiresAt ? expiresAt.toISOString() : null,
       updated_at: new Date().toISOString(),
     }
 
-    const { error: upsertError } = await supabase.from("integrations").upsert(integrationData, {
-      onConflict: "user_id, provider",
-    })
+    const { error: dbError } = await supabaseAdmin
+      .from('integrations')
+      .upsert(integrationData, { onConflict: 'user_id, provider' })
 
-    if (upsertError) {
-      throw new Error(`Failed to save Teams integration: ${upsertError.message}`)
+    if (dbError) {
+      console.error('Error saving Teams integration to DB:', dbError)
+      return createPopupResponse('error', provider, `Database Error: ${dbError.message}`, baseUrl)
     }
 
-    const successHtml = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Teams Connection Successful</title>
-           <style>
-              body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; text-align: center; }
-              .container { max-width: 500px; padding: 20px; border: 1px solid #ccc; border-radius: 8px; }
-              h1 { color: #28a745; }
-              p { color: #666; }
-            </style>
-        </head>
-        <body>
-          <div class="container">
-            <h1>Teams Connection Successful</h1>
-            <p>You can now close this window.</p>
-          </div>
-          <script>
-            if (window.opener) {
-              window.opener.postMessage({ type: 'oauth-success', provider: 'teams' }, '${baseUrl}');
-              setTimeout(() => window.close(), 1000);
-            }
-          </script>
-        </body>
-      </html>
-    `
-
-    return new Response(successHtml, {
-      headers: { "Content-Type": "text/html" },
-    })
-  } catch (e: any) {
-    console.error("Teams callback error:", e)
-    const errorHtml = `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>Teams Connection Failed</title>
-            <style>
-              body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; text-align: center; }
-              .container { max-width: 500px; padding: 20px; border: 1px solid #ccc; border-radius: 8px; }
-              h1 { color: #dc3545; }
-              p { color: #666; }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-               <h1>Teams Connection Failed</h1>
-              <p>${e.message || "An unexpected error occurred."}</p>
-               <p>Please try again or contact support if the problem persists.</p>
-              <script>
-                if (window.opener) {
-                  window.opener.postMessage({
-                    type: 'oauth-error',
-                    provider: 'teams',
-                    error: 'Callback processing failed',
-                    errorDescription: '${e.message || "An unexpected error occurred."}'
-                  }, '${baseUrl}');
-                  setTimeout(() => window.close(), 1000);
-                }
-              </script>
-            </div>
-          </body>
-        </html>
-      `
-    return new Response(errorHtml, {
-      headers: { "Content-Type": "text/html" },
-      status: 500,
-    })
+    return createPopupResponse('success', provider, 'Microsoft Teams account connected successfully.', baseUrl)
+  } catch (error) {
+    console.error('Error during Teams OAuth callback:', error)
+    const message = error instanceof Error ? error.message : 'An unexpected error occurred'
+    return createPopupResponse('error', provider, message, baseUrl)
   }
 }

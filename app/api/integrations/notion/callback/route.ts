@@ -139,13 +139,16 @@ export async function GET(request: NextRequest) {
 
     const tokenData = await tokenResponse.json()
 
+    const expiresIn = tokenData.expires_in
+    const expiresAt = expiresIn ? new Date(new Date().getTime() + expiresIn * 1000) : null
+
     const integrationData = {
       user_id: userId,
       provider: "notion",
       provider_user_id: tokenData.owner.user.id,
       access_token: tokenData.access_token,
       refresh_token: null, // Notion doesn't use refresh tokens
-      expires_at: null,
+      expiresAt: expiresAt ? expiresAt.toISOString() : null,
       scopes: [],
       status: "connected",
       updated_at: new Date().toISOString(),
@@ -154,6 +157,7 @@ export async function GET(request: NextRequest) {
         workspace_name: tokenData.workspace_name,
         workspace_icon: tokenData.workspace_icon,
         bot_id: tokenData.bot_id,
+        owner: tokenData.owner,
       },
     }
 

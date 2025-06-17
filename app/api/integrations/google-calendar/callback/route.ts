@@ -157,11 +157,14 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const tokens = await tokenResponse.json()
+    const tokenData = await tokenResponse.json()
+
+    const expiresIn = tokenData.expires_in
+    const expiresAt = expiresIn ? new Date(new Date().getTime() + expiresIn * 1000) : null
 
     // Get user info from Google
     const userInfoResponse = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
-      headers: { Authorization: `Bearer ${tokens.access_token}` },
+      headers: { Authorization: `Bearer ${tokenData.access_token}` },
     })
 
     if (!userInfoResponse.ok) {
@@ -180,16 +183,17 @@ export async function GET(request: NextRequest) {
       user_id: userId,
       provider: "google-calendar",
       status: "connected",
-      access_token: tokens.access_token,
-      refresh_token: tokens.refresh_token,
-      expires_at: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
-      scopes: tokens.scope.split(" "),
+      access_token: tokenData.access_token,
+      refresh_token: tokenData.refresh_token,
+      expiresAt: expiresAt ? expiresAt.toISOString() : null,
+      scopes: tokenData.scope.split(" "),
       provider_user_id: userInfo.id,
       metadata: {
         email: userInfo.email,
         name: userInfo.name,
         picture: userInfo.picture,
       },
+      updated_at: new Date().toISOString(),
     }
 
     const { error: upsertError } = await supabase

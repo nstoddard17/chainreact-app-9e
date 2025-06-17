@@ -3,15 +3,16 @@ import { getSupabaseClient } from "@/lib/supabase"
 
 export interface Integration {
   id: string
-  provider: string
-  status: "connected" | "disconnected" | "error" | "syncing"
-  created_at: string
-  updated_at: string
   user_id: string
+  provider: string
+  status: string
   access_token?: string
   refresh_token?: string
-  expires_at?: string
+  created_at: string
+  updated_at: string
+  expires_at?: string | null
   scopes?: string[]
+  metadata?: any
 }
 
 export interface Provider {

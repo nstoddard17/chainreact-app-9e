@@ -76,6 +76,9 @@ export async function GET(request: NextRequest) {
 
     const tokenData = await tokenResponse.json()
 
+    const expiresIn = tokenData.expires_in // Typically in seconds
+    const expiresAt = expiresIn ? new Date(new Date().getTime() + expiresIn * 1000) : null
+
     // ConvertKit doesn't have a user info endpoint in the same way as others,
     // the identity is tied to the authorizing account.
     // We'll use the user's ID from our system as the primary link.
@@ -87,10 +90,8 @@ export async function GET(request: NextRequest) {
       provider_user_id: null, // ConvertKit doesn't expose a user ID in the token response
       access_token: tokenData.access_token,
       refresh_token: tokenData.refresh_token,
-      expires_at: tokenData.expires_in
-        ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString()
-        : null,
-      scopes: tokenData.scope ? tokenData.scope.split(" ") : [],
+      expiresAt: expiresAt ? expiresAt.toISOString() : null,
+      scopes: [], // ConvertKit doesn't use scopes
       status: "connected",
       updated_at: new Date().toISOString(),
     }

@@ -116,46 +116,31 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const tokens = await response.json()
-    const accessToken = tokens.access_token
+    const tokenData = await response.json()
 
-    const metadataResponse = await fetch("https://login.mailchimp.com/oauth2/metadata", {
-      headers: {
-        Authorization: `OAuth ${accessToken}`,
-      },
-    })
+    // Mailchimp tokens don't expire in the traditional way, they are permanent until revoked.
+    // expires_in is not part of the standard response.
+    const expiresAt = null
 
-    if (!metadataResponse.ok) {
-      console.error("Failed to fetch Mailchimp user info")
-      return createPopupResponse(
-        "error",
-        "mailchimp",
-        "Failed to fetch Mailchimp user info.",
-        baseUrl,
-      )
+    const integrationData = {
+      user_id: userId,
+      provider: 'mailchimp',
+      access_token: tokenData.access_token,
+      refresh_token: null,
+      scopes: [], // Not applicable
+      status: 'connected',
+      expiresAt: null,
+      updated_at: new Date().toISOString(),
     }
-
-    const metadata = await metadataResponse.json()
-    const providerAccountId = metadata.user_id
 
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
     )
 
-    const { error: dbError } = await supabase.from("integrations").upsert(
-      {
-        user_id: userId,
-        provider: "mailchimp",
-        provider_user_id: providerAccountId.toString(),
-        access_token: accessToken,
-        expires_at: null,
-        scopes: null,
-        status: "connected",
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "user_id, provider" },
-    )
+    const { error: dbError } = await supabase.from("integrations").upsert(integrationData, {
+      onConflict: 'user_id, provider',
+    })
 
     if (dbError) {
       console.error("Error saving Mailchimp integration to DB:", dbError)

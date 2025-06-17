@@ -5,9 +5,9 @@ import Image from 'next/image'
 import { useIntegrationStore } from '@/stores/integrationStore'
 import type { Provider, Integration } from '@/stores/integrationStore'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Loader2, X } from 'lucide-react'
+import { Card, CardContent } from '@/components/ui/card'
+import { Loader2, X, Link as LinkIcon } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { GumroadGuide } from './guides/GumroadGuide'
 import { ManyChatGuide } from './guides/ManyChatGuide'
 import { BeehiivGuide } from './guides/BeehiivGuide'
@@ -30,6 +30,7 @@ export function ApiKeyIntegrationCard({ provider, integration }: ApiKeyIntegrati
   const isConnected = integration?.status === 'connected'
   const isLoadingConnect = loadingStates[`connect-${provider.id}`]
   const isLoadingDisconnect = integration ? loadingStates[`disconnect-${integration.provider}`] : false
+  const isLoading = isLoadingConnect || isLoadingDisconnect
 
   const handleDisconnect = () => {
     if (integration) {
@@ -37,44 +38,48 @@ export function ApiKeyIntegrationCard({ provider, integration }: ApiKeyIntegrati
     }
   }
 
-  const status = isConnected
-    ? { text: 'Connected', color: 'bg-green-100 text-green-800' }
-    : { text: 'Disconnected', color: 'bg-gray-200 text-gray-800' }
+  const statusText = isConnected ? 'Connected' : 'Disconnected'
+  const statusColor = 'text-gray-500'
 
   const GuideComponent = guideMap[provider.id as keyof typeof guideMap]
 
+  const renderButton = () => {
+    if (isConnected) {
+      return (
+        <Button
+          onClick={handleDisconnect}
+          disabled={isLoading}
+          variant="outline"
+          className="border-red-500 text-red-500 hover:bg-red-50 hover:text-red-600"
+        >
+          {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <X className="mr-2 h-4 w-4" />}
+          Disconnect
+        </Button>
+      )
+    }
+    return (
+      <Button onClick={() => setShowGuide(true)} disabled={isLoading} className="bg-black text-white hover:bg-gray-800">
+        {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LinkIcon className="mr-2 h-4 w-4" />}
+        Connect
+      </Button>
+    )
+  }
+
   return (
     <>
-      <Card className="flex flex-col justify-between p-4">
-        <CardHeader className="flex flex-row items-center justify-between p-2">
-          <div className="flex items-center gap-3">
-            {provider.logoUrl && <Image src={provider.logoUrl} alt={`${provider.name} logo`} width={32} height={32} />}
-            <CardTitle className="text-lg font-semibold">{provider.name}</CardTitle>
+      <Card>
+        <CardContent className="flex items-center justify-between p-4">
+          <div className="flex items-center gap-4">
+            {provider.logoUrl && <Image src={provider.logoUrl} alt={`${provider.name} logo`} width={40} height={40} className="rounded-md" />}
+            <div>
+              <p className="text-lg font-bold text-gray-900">{provider.name}</p>
+              <p className={cn('text-sm', statusColor)}>{statusText}</p>
+            </div>
           </div>
-          <Badge className={`px-2 py-1 text-xs font-medium rounded-full ${status.color}`}>{status.text}</Badge>
-        </CardHeader>
-        <CardContent className="p-2 flex-grow">
-          {/* This space can be used for a short, consistent description if needed */}
+          <div className="flex items-center gap-2">
+            {renderButton()}
+          </div>
         </CardContent>
-        <CardFooter className="p-2">
-          {isConnected ? (
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={handleDisconnect}
-              disabled={isLoadingDisconnect}
-              className="w-full"
-            >
-              {isLoadingDisconnect ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <X className="mr-2 h-4 w-4" />}
-              Disconnect
-            </Button>
-          ) : (
-            <Button onClick={() => setShowGuide(true)} disabled={isLoadingConnect} className="w-full">
-              {isLoadingConnect && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Connect
-            </Button>
-          )}
-        </CardFooter>
       </Card>
       {GuideComponent && (
         <GuideComponent

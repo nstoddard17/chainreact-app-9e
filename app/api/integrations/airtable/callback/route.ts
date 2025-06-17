@@ -88,6 +88,9 @@ export async function GET(request: NextRequest) {
 
     const tokenData = await tokenResponse.json()
 
+    const expiresIn = tokenData.expires_in // Typically in seconds
+    const expiresAt = expiresIn ? new Date(new Date().getTime() + expiresIn * 1000) : null
+
     // Get user info
     const userResponse = await fetch("https://api.airtable.com/v0/meta/whoami", {
       headers: {
@@ -108,9 +111,7 @@ export async function GET(request: NextRequest) {
       provider_user_id: userData.id,
       access_token: tokenData.access_token,
       refresh_token: tokenData.refresh_token,
-      expires_at: tokenData.expires_in
-        ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString()
-        : null,
+      expiresAt: expiresAt ? expiresAt.toISOString() : null,
       scopes: tokenData.scope.split(" "),
       status: "connected",
       updated_at: new Date().toISOString(),

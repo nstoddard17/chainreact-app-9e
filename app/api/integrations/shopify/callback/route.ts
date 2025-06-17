@@ -116,33 +116,40 @@ export async function GET(request: NextRequest) {
       return createPopupResponse("error", "shopify", "Failed to get Shopify access token.", baseUrl)
     }
 
-    const tokens = await response.json()
-    const accessToken = tokens.access_token
+    const tokenData = await response.json()
+
+    const expiresIn = tokenData.expires_in
+    const expiresAt = expiresIn ? new Date(new Date().getTime() + expiresIn * 1000) : null
 
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
     )
 
-    const { error: dbError } = await supabase.from("integrations").upsert(
-      {
-        user_id: userId,
-        provider: "shopify",
-        provider_user_id: shop,
-        access_token: accessToken,
-        scopes: tokens.scope ? tokens.scope.split(",") : null,
-        status: "connected",
-        updated_at: new Date().toISOString(),
+    const integrationData = {
+      user_id: userId,
+      provider: 'shopify',
+      access_token: tokenData.access_token,
+      refresh_token: null, // Shopify doesn't use standard refresh tokens
+      scopes: tokenData.scope.split(','),
+      status: 'connected',
+      expiresAt: expiresAt ? expiresAt.toISOString() : null,
+      updated_at: new Date().toISOString(),
+      metadata: {
+        shop: shop,
       },
-      { onConflict: "user_id, provider" },
-    )
+    }
 
-    if (dbError) {
-      console.error("Error saving Shopify integration to DB:", dbError)
+    const { error: upsertError } = await supabase.from('integrations').upsert(integrationData, {
+      onConflict: 'user_id, provider',
+    })
+
+    if (upsertError) {
+      console.error("Error saving Shopify integration to DB:", upsertError)
       return createPopupResponse(
         "error",
         "shopify",
-        `Database Error: ${dbError.message}`,
+        `Database Error: ${upsertError.message}`,
         baseUrl,
       )
     }
