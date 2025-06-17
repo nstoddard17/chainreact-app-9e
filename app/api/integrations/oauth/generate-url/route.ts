@@ -4,6 +4,11 @@ import { cookies } from "next/headers"
 
 // OAuth service imports
 import { GoogleOAuthService } from "@/lib/oauth/google"
+import { GoogleDriveOAuthService } from "@/lib/oauth/google-drive"
+import { GoogleCalendarOAuthService } from "@/lib/oauth/google-calendar"
+import { GoogleDocsOAuthService } from "@/lib/oauth/google-docs"
+import { GoogleSheetsOAuthService } from "@/lib/oauth/google-sheets"
+import { GmailOAuthService } from "@/lib/oauth/gmail"
 import { SlackOAuthService } from "@/lib/oauth/slack"
 import { TwitterOAuthService } from "@/lib/oauth/twitter"
 
@@ -56,13 +61,41 @@ export async function POST(request: NextRequest) {
 
     // Generate OAuth URL based on provider
     try {
+      console.log(`🔄 Starting OAuth URL generation for provider: ${provider}`)
+      console.log(`📝 Using base URL: https://chainreact.app`)
+      console.log(`👤 User ID: ${userId}`)
+
       switch (provider.toLowerCase()) {
         case "google":
-        case "gmail":
-        case "google-calendar":
+          authUrl = GoogleOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
+          console.log(`🔗 Generated Google OAuth URL: ${authUrl}`)
+          break
+
         case "google-drive":
-        case "google-sheets":
+          authUrl = GoogleDriveOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
+          console.log(`🔗 Generated Google Drive OAuth URL: ${authUrl}`)
+          break
+
+        case "google-calendar":
+          authUrl = GoogleCalendarOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
+          console.log(`🔗 Generated Google Calendar OAuth URL: ${authUrl}`)
+          break
+
         case "google-docs":
+          authUrl = GoogleDocsOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
+          console.log(`🔗 Generated Google Docs OAuth URL: ${authUrl}`)
+          break
+
+        case "google-sheets":
+          authUrl = GoogleSheetsOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
+          console.log(`🔗 Generated Google Sheets OAuth URL: ${authUrl}`)
+          break
+
+        case "gmail":
+          authUrl = GmailOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
+          console.log(`🔗 Generated Gmail OAuth URL: ${authUrl}`)
+          break
+
         case "youtube":
           authUrl = GoogleOAuthService.generateAuthUrl("https://chainreact.app", false, undefined, userId)
           break
