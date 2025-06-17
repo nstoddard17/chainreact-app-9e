@@ -1,151 +1,90 @@
-import { type NextRequest } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
-import { ShopifyOAuthService } from "@/lib/oauth/shopify"
-import { parseOAuthState, validateOAuthState } from "@/lib/oauth/utils"
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-if (!supabaseUrl || !supabaseServiceRoleKey) {
-  throw new Error("Missing required environment variables")
-}
-
-const supabase = createClient(supabaseUrl, supabaseServiceRoleKey)
+import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 
 export async function GET(request: NextRequest) {
+  const url = new URL(request.url)
+  const code = url.searchParams.get("code")
+  const state = url.searchParams.get("state")
+  const shop = url.searchParams.get("shop")
+  const error = url.searchParams.get("error")
+
+  const redirectUrl = new URL("/integrations", getBaseUrl())
+
+  if (error) {
+    console.error(`Error with Shopify OAuth: ${error}`)
+    redirectUrl.searchParams.set("error", "Failed to connect Shopify account.")
+    return NextResponse.redirect(redirectUrl)
+  }
+
+  if (!code || !shop) {
+    redirectUrl.searchParams.set("error", "Missing code or shop for Shopify OAuth.")
+    return NextResponse.redirect(redirectUrl)
+  }
+
+  if (!state) {
+    redirectUrl.searchParams.set("error", "No state provided for Shopify OAuth.")
+    return NextResponse.redirect(redirectUrl)
+  }
+
   try {
-    // Get URL parameters
-    const searchParams = request.nextUrl.searchParams
-    const code = searchParams.get("code")
-    const state = searchParams.get("state")
-    const shop = searchParams.get("shop")
-    const error = searchParams.get("error")
-    const errorDescription = searchParams.get("error_description")
-
-    // Handle OAuth errors
-    if (error) {
-      return new Response(
-        `
-        <html>
-          <body>
-            <h1>Authentication Error</h1>
-            <p>${errorDescription || error}</p>
-            <script>
-              window.location.href = "/integrations?error=oauth_error&provider=shopify&message=${encodeURIComponent(
-                errorDescription || error
-              )}"
-            </script>
-          </body>
-        </html>
-      `,
-        {
-          status: 400,
-          headers: {
-            "Content-Type": "text/html",
-          },
-        }
-      )
+    const { userId } = JSON.parse(atob(state))
+    if (!userId) {
+      redirectUrl.searchParams.set("error", "Missing userId in Shopify state.")
+      return NextResponse.redirect(redirectUrl)
     }
 
-    // Validate required parameters
-    if (!code || !state || !shop) {
-      return new Response(
-        `
-        <html>
-          <body>
-            <h1>Missing Parameters</h1>
-            <p>Required parameters are missing from the request.</p>
-            <script>
-              window.location.href = "/integrations?error=missing_params&provider=shopify"
-            </script>
-          </body>
-        </html>
-      `,
-        {
-          status: 400,
-          headers: {
-            "Content-Type": "text/html",
-          },
-        }
-      )
+    const tokenUrl = `https://${shop}/admin/oauth/access_token`
+    const response = await fetch(tokenUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        client_id: process.env.NEXT_PUBLIC_SHOPIFY_CLIENT_ID!,
+        client_secret: process.env.SHOPIFY_CLIENT_SECRET!,
+        code,
+      }),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      console.error("Failed to exchange Shopify code for token:", errorData)
+      redirectUrl.searchParams.set("error", "Failed to get Shopify access token.")
+      return NextResponse.redirect(redirectUrl)
     }
 
-    // Parse and validate state
-    const stateData = parseOAuthState(state)
-    validateOAuthState(stateData, "shopify")
+    const tokens = await response.json()
+    const accessToken = tokens.access_token
 
-    // Process the OAuth callback
-    const result = await ShopifyOAuthService.handleCallback(
-      code,
-      state,
-      shop,
-      supabase,
-      stateData.userId
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
     )
 
-    if (result.success) {
-      return new Response(
-        `
-        <html>
-          <body>
-            <h1>Success!</h1>
-            <p>Your Shopify account has been successfully connected.</p>
-            <script>
-              window.location.href = "${result.redirectUrl}"
-            </script>
-          </body>
-        </html>
-      `,
-        {
-          status: 200,
-          headers: {
-            "Content-Type": "text/html",
-          },
-        }
-      )
-    } else {
-      return new Response(
-        `
-        <html>
-          <body>
-            <h1>Error</h1>
-            <p>${result.error || "An unexpected error occurred"}</p>
-            <script>
-              window.location.href = "${result.redirectUrl}"
-            </script>
-          </body>
-        </html>
-      `,
-        {
-          status: 400,
-          headers: {
-            "Content-Type": "text/html",
-          },
-        }
-      )
-    }
-  } catch (error: any) {
-    console.error("Shopify callback error:", error)
-    return new Response(
-      `
-      <html>
-        <body>
-          <h1>Unexpected Error</h1>
-          <p>${error.message || "An unexpected error occurred"}</p>
-          <script>
-            window.location.href = "/integrations?error=unexpected&provider=shopify&message=${encodeURIComponent(
-              error.message || "An unexpected error occurred"
-            )}"
-          </script>
-        </body>
-      </html>
-    `,
+    const { error: dbError } = await supabase.from("integrations").upsert(
       {
-        status: 500,
-        headers: {
-          "Content-Type": "text/html",
-        },
-      }
+        user_id: userId,
+        provider: "shopify",
+        provider_account_id: shop,
+        access_token: accessToken,
+        status: "connected",
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id, provider" },
     )
+
+    if (dbError) {
+      console.error("Error saving Shopify integration to DB:", dbError)
+      redirectUrl.searchParams.set("error", "Failed to save Shopify integration.")
+      return NextResponse.redirect(redirectUrl)
+    }
+
+    redirectUrl.searchParams.set("success", "Shopify account connected successfully.")
+    return NextResponse.redirect(redirectUrl)
+  } catch (error) {
+    console.error("Error during Shopify OAuth callback:", error)
+    redirectUrl.searchParams.set("error", "An unexpected error occurred.")
+    return NextResponse.redirect(redirectUrl)
   }
 }
