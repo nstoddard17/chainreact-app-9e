@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createAdminSupabaseClient } from "@/lib/supabase/admin"
+import { getAdminSupabaseClient } from "@/lib/supabase/admin"
 import { refreshTokenIfNeeded } from "@/lib/integrations/tokenRefresher"
 import { SupabaseClient } from "@supabase/supabase-js"
 
@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const supabase = createAdminSupabaseClient()
+    const supabase = getAdminSupabaseClient()
     if (!supabase) {
       return NextResponse.json({ error: "Failed to create database client" }, { status: 500 })
     }
@@ -82,7 +82,7 @@ export async function GET(request: NextRequest) {
 
 async function backgroundRefreshTokens(jobId: string, startTime: number): Promise<void> {
   console.log(`🔥 [${jobId}] Entered backgroundRefreshTokens`)
-  const supabase = createAdminSupabaseClient()
+  const supabase = getAdminSupabaseClient()
   if (!supabase) {
     console.error(`❌ [${jobId}] Failed to create Supabase client for background job`)
     return

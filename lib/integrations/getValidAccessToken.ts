@@ -1,4 +1,4 @@
-import { createAdminSupabaseClient } from "@/lib/oauth/utils"
+import { getAdminSupabaseClient } from "@/lib/supabase/admin"
 import { refreshTokenIfNeeded } from "./tokenRefresher"
 
 interface TokenResult {
@@ -16,7 +16,7 @@ interface TokenResult {
  */
 export async function getValidAccessToken(userId: string, provider: string): Promise<TokenResult> {
   try {
-    const supabase = createAdminSupabaseClient()
+    const supabase = getAdminSupabaseClient()
     if (!supabase) {
       return {
         valid: false,

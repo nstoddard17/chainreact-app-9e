@@ -18,13 +18,14 @@ export async function GET(request: NextRequest) {
   const state = searchParams.get("state")
   const error = searchParams.get("error")
   const errorDescription = searchParams.get("error_description")
+
   const baseUrl = getBaseUrl()
 
   if (error) {
-    console.error(`Airtable OAuth error: ${error} - ${errorDescription}`)
+    console.error(`ConvertKit OAuth error: ${error} - ${errorDescription}`)
     return createPopupResponse(
       "error",
-      "airtable",
+      "convertkit",
       errorDescription || "An unknown error occurred.",
       baseUrl,
     )
@@ -33,7 +34,7 @@ export async function GET(request: NextRequest) {
   if (!code || !state) {
     return createPopupResponse(
       "error",
-      "airtable",
+      "convertkit",
       "Authorization code or state parameter is missing.",
       baseUrl,
     )
@@ -41,68 +42,55 @@ export async function GET(request: NextRequest) {
 
   try {
     const stateData = JSON.parse(atob(state))
-    const { userId, code_verifier } = stateData
+    const { userId } = stateData
 
     if (!userId) {
       throw new Error("User ID not found in state")
     }
-    if (!code_verifier) {
-      throw new Error("Code verifier not found in state")
+
+    const clientId = process.env.NEXT_PUBLIC_CONVERTKIT_CLIENT_ID
+    const clientSecret = process.env.CONVERTKIT_CLIENT_SECRET
+
+    if (!clientId || !clientSecret) {
+      throw new Error("ConvertKit client ID or secret not configured")
     }
 
-    const clientId = process.env.NEXT_PUBLIC_AIRTABLE_CLIENT_ID
-    if (!clientId) {
-      throw new Error("Airtable client ID not configured")
-    }
-
-    const tokenResponse = await fetch("https://airtable.com/oauth2/v1/token", {
+    const tokenResponse = await fetch("https://app.convertkit.com/oauth/token", {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
       },
       body: new URLSearchParams({
         client_id: clientId,
+        client_secret: clientSecret,
         code,
-        code_verifier,
         grant_type: "authorization_code",
-        redirect_uri: `${baseUrl}/api/integrations/airtable/callback`,
+        redirect_uri: `${baseUrl}/api/integrations/convertkit/callback`,
       }),
     })
 
     if (!tokenResponse.ok) {
       const errorData = await tokenResponse.json()
-      console.error("Airtable token exchange error:", errorData)
-      throw new Error(
-        `Airtable token exchange failed: ${errorData.error_description || errorData.error.message}`,
-      )
+      throw new Error(`ConvertKit token exchange failed: ${errorData.error_description}`)
     }
 
     const tokenData = await tokenResponse.json()
 
-    // Get user info
-    const userResponse = await fetch("https://api.airtable.com/v0/meta/whoami", {
-      headers: {
-        Authorization: `Bearer ${tokenData.access_token}`,
-      },
-    })
-
-    if (!userResponse.ok) {
-      const errorData = await userResponse.json()
-      console.error("Airtable whoami error:", errorData)
-      throw new Error("Failed to get Airtable user info")
-    }
-    const userData = await userResponse.json()
+    // ConvertKit doesn't have a user info endpoint in the same way as others,
+    // the identity is tied to the authorizing account.
+    // We'll use the user's ID from our system as the primary link.
+    // The provider user ID could be the account ID from ConvertKit if available, but isn't returned here.
 
     const integrationData = {
       user_id: userId,
-      provider: "airtable",
-      provider_user_id: userData.id,
+      provider: "convertkit",
+      provider_user_id: null, // ConvertKit doesn't expose a user ID in the token response
       access_token: tokenData.access_token,
       refresh_token: tokenData.refresh_token,
       expires_at: tokenData.expires_in
         ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString()
         : null,
-      scopes: tokenData.scope.split(" "),
+      scopes: tokenData.scope ? tokenData.scope.split(" ") : [],
       status: "connected",
       updated_at: new Date().toISOString(),
     }
@@ -112,17 +100,22 @@ export async function GET(request: NextRequest) {
     })
 
     if (upsertError) {
-      throw new Error(`Failed to save Airtable integration: ${upsertError.message}`)
+      throw new Error(`Failed to save ConvertKit integration: ${upsertError.message}`)
     }
 
     return createPopupResponse(
       "success",
-      "airtable",
-      "Airtable account connected successfully.",
+      "convertkit",
+      "ConvertKit account connected successfully.",
       baseUrl,
     )
   } catch (e: any) {
-    console.error("Airtable callback error:", e)
-    return createPopupResponse("error", "airtable", e.message || "An unexpected error occurred.", baseUrl)
+    console.error("ConvertKit callback error:", e)
+    return createPopupResponse(
+      "error",
+      "convertkit",
+      e.message || "An unexpected error occurred.",
+      baseUrl,
+    )
   }
-}
+} 

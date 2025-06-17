@@ -60,6 +60,7 @@
     "@vercel/postgres": "latest",
     "@xata.io/client": "latest",
     "@xyflow/react": "latest",
+    "aes256": "^1.1.0",
     "ai": "latest",
     "autoprefixer": "^10.4.20",
     "better-sqlite3": "latest",
@@ -103,7 +104,7 @@
     "zustand": "latest"
   },
   "devDependencies": {
-    "@types/node": "^22",
+    "@types/node": "^22.15.32",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "postcss": "^8.5",

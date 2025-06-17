@@ -1,4 +1,24 @@
-import crypto from "crypto"
+import aes256 from "aes256"
+
+const ALGORITHM = "aes-256-gcm"
+const IV_LENGTH = 16
+const SALT_LENGTH = 64
+const TAG_LENGTH = 16
+const KEY_LENGTH = 32
+
+const getKey = (salt: Buffer, secret: string): Buffer => {
+  return crypto.pbkdf2Sync(secret, salt, 100000, KEY_LENGTH, "sha512")
+}
+
+export const encrypt = (text: string, secret: string): string => {
+  const cipher = aes256.createCipher(secret)
+  return cipher.encrypt(text)
+}
+
+export const decrypt = (encryptedText: string, secret: string): string => {
+  const cipher = aes256.createCipher(secret)
+  return cipher.decrypt(encryptedText)
+}
 
 export class EncryptionService {
   private algorithm = "aes-256-gcm"

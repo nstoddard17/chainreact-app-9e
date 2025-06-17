@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createAdminSupabaseClient } from "@/lib/supabase/admin"
+import { getAdminSupabaseClient } from "@/lib/supabase/admin"
 import { refreshTokenIfNeeded } from "@/lib/integrations/tokenRefresher"
 
 export const dynamic = "force-dynamic"
@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
   try {
     console.log("🧪 Starting manual token refresh test...")
 
-    const supabase = createAdminSupabaseClient()
+    const supabase = getAdminSupabaseClient()
     if (!supabase) {
       return NextResponse.json({ error: "Failed to create Supabase client" }, { status: 500 })
     }

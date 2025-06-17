@@ -55,6 +55,7 @@ export async function POST(request: NextRequest) {
       case "google-docs":
       case "google-calendar":
       case "youtube":
+      case "youtube-studio":
         authUrl = generateGoogleAuthUrl(provider, finalState)
         break
 
@@ -128,6 +129,26 @@ export async function POST(request: NextRequest) {
 
       case "docker":
         authUrl = generateDockerAuthUrl(finalState)
+        break
+
+      case "convertkit":
+        authUrl = generateConvertKitAuthUrl(finalState)
+        break
+
+      case "microsoft-forms":
+        authUrl = generateMicrosoftAuthUrl(finalState)
+        break
+
+      case "canva":
+        authUrl = generateCanvaAuthUrl(finalState)
+        break
+
+      case "blackbaud":
+        authUrl = generateBlackbaudAuthUrl(finalState)
+        break
+
+      case "globalpayments":
+        authUrl = generateGlobalPaymentsAuthUrl(finalState)
         break
 
       default:
@@ -219,6 +240,10 @@ function generateGoogleAuthUrl(service: string, state: string): string {
       break
     case "youtube":
       scopes += " https://www.googleapis.com/auth/youtube"
+      break
+    case "youtube-studio":
+      scopes +=
+        " https://www.googleapis.com/auth/youtube.readonly https://www.googleapis.com/auth/yt-analytics.readonly https://www.googleapis.com/auth/youtube.force-ssl"
       break
   }
 
@@ -530,9 +555,83 @@ function generateDockerAuthUrl(state: string): string {
     client_id: clientId,
     redirect_uri: "https://chainreact.app/api/integrations/docker/callback",
     response_type: "code",
-    scope: "repo:admin",
+    scope: "openid",
     state,
   })
 
   return `https://hub.docker.com/oauth/authorize?${params.toString()}`
+}
+
+function generateConvertKitAuthUrl(state: string): string {
+  const clientId = process.env.NEXT_PUBLIC_CONVERTKIT_CLIENT_ID
+  if (!clientId) throw new Error("ConvertKit client ID not configured")
+
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: `https://chainreact.app/api/integrations/convertkit/callback`,
+    response_type: "code",
+    state,
+  })
+
+  return `https://app.convertkit.com/oauth/authorize?${params.toString()}`
+}
+
+function generateMicrosoftAuthUrl(state: string): string {
+  const clientId = process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID
+  if (!clientId) throw new Error("Microsoft client ID not configured")
+
+  const params = new URLSearchParams({
+    client_id: clientId,
+    response_type: "code",
+    redirect_uri: `https://chainreact.app/api/integrations/microsoft-forms/callback`,
+    response_mode: "query",
+    scope: "User.Read Forms.ReadWrite.All offline_access",
+    state,
+  })
+
+  return `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`
+}
+
+function generateCanvaAuthUrl(state: string): string {
+  const clientId = process.env.NEXT_PUBLIC_CANVA_CLIENT_ID
+  if (!clientId) throw new Error("Canva client ID not configured")
+
+  const params = new URLSearchParams({
+    client_id: clientId,
+    response_type: "code",
+    redirect_uri: `https://chainreact.app/api/integrations/canva/callback`,
+    scope: "asset:read asset:write design:read design:write",
+    state,
+  })
+
+  return `https://www.canva.com/api/oauth/authorize?${params.toString()}`
+}
+
+function generateBlackbaudAuthUrl(state: string): string {
+  const clientId = process.env.NEXT_PUBLIC_BLACKBAUD_CLIENT_ID
+  if (!clientId) throw new Error("Blackbaud client ID not configured")
+
+  const params = new URLSearchParams({
+    client_id: clientId,
+    response_type: "code",
+    redirect_uri: `https://chainreact.app/api/integrations/blackbaud/callback`,
+    state,
+  })
+
+  return `https://oauth2.sky.blackbaud.com/authorization?${params.toString()}`
+}
+
+function generateGlobalPaymentsAuthUrl(state: string): string {
+  const clientId = process.env.NEXT_PUBLIC_GLOBALPAYMENTS_CLIENT_ID
+  if (!clientId) throw new Error("GlobalPayments client ID not configured")
+
+  const params = new URLSearchParams({
+    client_id: clientId,
+    response_type: "code",
+    redirect_uri: `https://chainreact.app/api/integrations/globalpayments/callback`,
+    scope: "read_transactions write_transactions",
+    state,
+  })
+
+  return `https://api.globalpayments.com/oauth/authorize?${params.toString()}`
 }

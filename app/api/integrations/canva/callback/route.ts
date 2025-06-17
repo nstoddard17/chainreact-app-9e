@@ -18,22 +18,18 @@ export async function GET(request: NextRequest) {
   const state = searchParams.get("state")
   const error = searchParams.get("error")
   const errorDescription = searchParams.get("error_description")
+
   const baseUrl = getBaseUrl()
 
   if (error) {
-    console.error(`Airtable OAuth error: ${error} - ${errorDescription}`)
-    return createPopupResponse(
-      "error",
-      "airtable",
-      errorDescription || "An unknown error occurred.",
-      baseUrl,
-    )
+    console.error(`Canva OAuth error: ${error} - ${errorDescription}`)
+    return createPopupResponse("error", "canva", errorDescription || "An unknown error occurred.", baseUrl)
   }
 
   if (!code || !state) {
     return createPopupResponse(
       "error",
-      "airtable",
+      "canva",
       "Authorization code or state parameter is missing.",
       baseUrl,
     )
@@ -41,68 +37,54 @@ export async function GET(request: NextRequest) {
 
   try {
     const stateData = JSON.parse(atob(state))
-    const { userId, code_verifier } = stateData
+    const { userId } = stateData
 
     if (!userId) {
       throw new Error("User ID not found in state")
     }
-    if (!code_verifier) {
-      throw new Error("Code verifier not found in state")
+
+    const clientId = process.env.NEXT_PUBLIC_CANVA_CLIENT_ID
+    const clientSecret = process.env.CANVA_CLIENT_SECRET
+
+    if (!clientId || !clientSecret) {
+      throw new Error("Canva client ID or secret not configured")
     }
 
-    const clientId = process.env.NEXT_PUBLIC_AIRTABLE_CLIENT_ID
-    if (!clientId) {
-      throw new Error("Airtable client ID not configured")
-    }
-
-    const tokenResponse = await fetch("https://airtable.com/oauth2/v1/token", {
+    const tokenResponse = await fetch("https://www.canva.com/api/oauth/token", {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
       },
       body: new URLSearchParams({
         client_id: clientId,
+        client_secret: clientSecret,
         code,
-        code_verifier,
         grant_type: "authorization_code",
-        redirect_uri: `${baseUrl}/api/integrations/airtable/callback`,
+        redirect_uri: `${baseUrl}/api/integrations/canva/callback`,
       }),
     })
 
     if (!tokenResponse.ok) {
       const errorData = await tokenResponse.json()
-      console.error("Airtable token exchange error:", errorData)
-      throw new Error(
-        `Airtable token exchange failed: ${errorData.error_description || errorData.error.message}`,
-      )
+      throw new Error(`Canva token exchange failed: ${errorData.error_description || errorData.error}`)
     }
 
     const tokenData = await tokenResponse.json()
 
-    // Get user info
-    const userResponse = await fetch("https://api.airtable.com/v0/meta/whoami", {
-      headers: {
-        Authorization: `Bearer ${tokenData.access_token}`,
-      },
-    })
-
-    if (!userResponse.ok) {
-      const errorData = await userResponse.json()
-      console.error("Airtable whoami error:", errorData)
-      throw new Error("Failed to get Airtable user info")
-    }
-    const userData = await userResponse.json()
+    // Canva does not have a /me endpoint. The user is identified by the token.
+    // The "user" field in the token response is the unique ID for the user.
+    const providerUserId = tokenData.user
 
     const integrationData = {
       user_id: userId,
-      provider: "airtable",
-      provider_user_id: userData.id,
+      provider: "canva",
+      provider_user_id: providerUserId,
       access_token: tokenData.access_token,
       refresh_token: tokenData.refresh_token,
       expires_at: tokenData.expires_in
         ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString()
         : null,
-      scopes: tokenData.scope.split(" "),
+      scopes: tokenData.scope ? tokenData.scope.split(" ") : [],
       status: "connected",
       updated_at: new Date().toISOString(),
     }
@@ -112,17 +94,12 @@ export async function GET(request: NextRequest) {
     })
 
     if (upsertError) {
-      throw new Error(`Failed to save Airtable integration: ${upsertError.message}`)
+      throw new Error(`Failed to save Canva integration: ${upsertError.message}`)
     }
 
-    return createPopupResponse(
-      "success",
-      "airtable",
-      "Airtable account connected successfully.",
-      baseUrl,
-    )
+    return createPopupResponse("success", "canva", "Canva account connected successfully.", baseUrl)
   } catch (e: any) {
-    console.error("Airtable callback error:", e)
-    return createPopupResponse("error", "airtable", e.message || "An unexpected error occurred.", baseUrl)
+    console.error("Canva callback error:", e)
+    return createPopupResponse("error", "canva", e.message || "An unexpected error occurred.", baseUrl)
   }
-}
+} 

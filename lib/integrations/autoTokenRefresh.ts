@@ -1,5 +1,6 @@
-import { createAdminSupabaseClient } from "@/lib/oauth/utils"
+import { getAdminSupabaseClient } from "@/lib/supabase/admin"
 import { refreshTokenIfNeeded } from "./tokenRefresher"
+import { TokenAuditLogger } from "./TokenAuditLogger"
 
 interface Integration {
   id: string
@@ -19,7 +20,7 @@ export async function withAutoRefresh<T>(
   provider: string,
   apiCall: (accessToken: string) => Promise<T>,
 ): Promise<T> {
-  const supabase = createAdminSupabaseClient()
+  const supabase = getAdminSupabaseClient()
   if (!supabase) {
     throw new Error("Failed to create Supabase client")
   }
@@ -163,7 +164,7 @@ interface RefreshStats {
  * Enhanced background job to refresh tokens that are expiring soon
  */
 export async function refreshExpiringTokens(): Promise<RefreshStats> {
-  const supabase = createAdminSupabaseClient()
+  const supabase = getAdminSupabaseClient()
   if (!supabase) {
     throw new Error("Failed to create Supabase client for token refresh job")
   }
@@ -302,7 +303,7 @@ async function refreshTokenWithRetry(integration: any, maxRetries: number) {
 
       if (result.success) {
         // Update last refresh timestamp
-        const supabase = createAdminSupabaseClient()
+        const supabase = getAdminSupabaseClient()
         if (supabase) {
           await supabase
             .from("integrations")
@@ -328,7 +329,7 @@ async function refreshTokenWithRetry(integration: any, maxRetries: number) {
   }
 
   // All retries failed - update failure count
-  const supabase = createAdminSupabaseClient()
+  const supabase = getAdminSupabaseClient()
   if (supabase) {
     await supabase
       .from("integrations")
@@ -350,5 +351,89 @@ async function cleanupOldLogs(supabase: any) {
     await supabase.from("token_refresh_logs").delete().lt("executed_at", thirtyDaysAgo.toISOString())
   } catch (error) {
     console.warn("Failed to cleanup old logs:", error)
+  }
+}
+
+async function getIntegration(integrationId: string) {
+  try {
+    const supabase = getAdminSupabaseClient()
+    const { data: integration, error } = await supabase
+      .from("integrations")
+      .select("*")
+      .eq("id", integrationId)
+      .single()
+
+    if (error || !integration) {
+      throw new Error(`No integration found with id: ${integrationId}`)
+    }
+
+    return integration
+  } catch (error) {
+    console.error(`💥 Error fetching integration with id: ${integrationId}:`, error)
+    throw error
+  }
+}
+
+async function updateIntegration(
+  integrationId: string,
+  updates: {
+    access_token: string
+    refresh_token?: string
+    expires_at?: string
+    status?: string
+    updated_at: string
+  },
+) {
+  try {
+    const supabase = getAdminSupabaseClient()
+    await supabase.from("integrations").update(updates).eq("id", integrationId)
+  } catch (error) {
+    console.error(`💥 Error updating integration with id: ${integrationId}:`, error)
+    throw error
+  }
+}
+
+async function handleTokenRefreshResult(
+  integration: any,
+  result: {
+    success: boolean
+    newAccessToken?: string
+    newRefreshToken?: string
+    expiresIn?: number
+    errorMessage?: string
+    statusCode?: number
+  },
+) {
+  if (result.success) {
+    const supabase = getAdminSupabaseClient()
+    const { access_token, refresh_token, expires_at } = await getEncryptedTokens(
+      result.newAccessToken,
+      result.newRefreshToken,
+      result.expiresIn,
+    )
+
+    const updates: any = {
+      access_token,
+      refresh_token,
+      expires_at,
+      status: "connected",
+      updated_at: new Date().toISOString(),
+    }
+
+    await updateIntegration(integration.id, updates)
+
+    const logger = TokenAuditLogger.getInstance()
+    await logger.logTokenRefresh(integration.id, integration.provider, true)
+  } else {
+    const supabase = getAdminSupabaseClient()
+    const updates: any = {
+      status: "error",
+      updated_at: new Date().toISOString(),
+    }
+
+    await updateIntegration(integration.id, updates)
+
+    const logger = TokenAuditLogger.getInstance()
+    await logger.logTokenRefresh(integration.id, integration.provider, false)
   }
 }

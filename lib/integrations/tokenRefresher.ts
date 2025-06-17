@@ -1,4 +1,5 @@
-import { createAdminSupabaseClient } from "@/lib/supabase/admin"
+import { getAdminSupabaseClient } from "@/lib/supabase/admin"
+import { decrypt } from "@/lib/security/encryption"
 
 interface Integration {
   id: string
@@ -84,7 +85,7 @@ export async function refreshTokenIfNeeded(integration: Integration): Promise<Re
 
     if (result.success && result.newToken) {
       // Update the token in the database
-      const supabase = createAdminSupabaseClient()
+      const supabase = getAdminSupabaseClient()
       if (!supabase) {
         throw new Error("Failed to create database client")
       }
@@ -122,7 +123,7 @@ export async function refreshTokenIfNeeded(integration: Integration): Promise<Re
       }
     } else if (result.requiresReconnect) {
       // Mark integration as disconnected
-      const supabase = createAdminSupabaseClient()
+      const supabase = getAdminSupabaseClient()
       if (supabase) {
         await supabase
           .from("integrations")
@@ -151,7 +152,7 @@ export async function refreshTokenIfNeeded(integration: Integration): Promise<Re
     console.error(`Error refreshing token for ${integration.provider}:`, error)
 
     // Update failure count
-    const supabase = createAdminSupabaseClient()
+    const supabase = getAdminSupabaseClient()
     if (supabase) {
       await supabase
         .from("integrations")
@@ -719,5 +720,73 @@ async function refreshFacebookToken(refreshToken: string): Promise<RefreshResult
       success: false,
       message: `Facebook token refresh error: ${(error as Error).message}`,
     }
+  }
+}
+
+async function fetchAllUserIntegrations(userId: string) {
+  try {
+    const supabase = getAdminSupabaseClient()
+    const { data, error } = await supabase
+      .from("integrations")
+      .select("*")
+      .eq("user_id", userId)
+
+    if (error) {
+      console.error("Failed to fetch user integrations:", error)
+      return []
+    }
+
+    return data
+  } catch (error) {
+    console.error("Failed to fetch user integrations:", error)
+    return []
+  }
+}
+
+async function fetchIntegrationById(integrationId: string, userId: string) {
+  try {
+    const supabase = getAdminSupabaseClient()
+    const { data, error } = await supabase
+      .from("integrations")
+      .select("*")
+      .eq("id", integrationId)
+      .eq("user_id", userId)
+
+    if (error) {
+      console.error("Failed to fetch integration:", error)
+      return null
+    }
+
+    return data[0]
+  } catch (error) {
+    console.error("Failed to fetch integration:", error)
+    return null
+  }
+}
+
+async function updateIntegrationTokens(
+  integrationId: string,
+  newAccessToken: string,
+  newRefreshToken?: string,
+) {
+  const supabase = getAdminSupabaseClient()
+  const updates: {
+    access_token: string
+    refresh_token?: string
+  } = {
+    access_token: newAccessToken,
+  }
+
+  if (newRefreshToken) {
+    updates.refresh_token = newRefreshToken
+  }
+
+  const { error } = await supabase
+    .from("integrations")
+    .update(updates)
+    .eq("id", integrationId)
+
+  if (error) {
+    console.error("Failed to update integration tokens:", error)
   }
 }

@@ -1,4 +1,5 @@
-import { createAdminSupabaseClient } from "@/lib/supabase/admin"
+import { getAdminSupabaseClient } from "@/lib/supabase/admin"
+import { PostgrestError } from "@supabase/supabase-js"
 
 interface TokenHealth {
   provider: string
@@ -27,7 +28,7 @@ export async function getTokenHealthReport(): Promise<{
     failed: number
   }
 }> {
-  const supabase = createAdminSupabaseClient()
+  const supabase = getAdminSupabaseClient()
   if (!supabase) {
     throw new Error("Failed to create Supabase client")
   }
@@ -137,4 +138,37 @@ export async function getIntegrationsNeedingAttention(): Promise<{
     multipleFailures,
     recommendations,
   }
+}
+
+async function getTokenHealthForProvider(provider: string, accessToken: string) {
+  // ...
+}
+
+export async function checkTokenHealth(integrationIds?: string[]) {
+  console.log("Starting token health check...")
+  const supabase = getAdminSupabaseClient()
+
+  let query = supabase.from("integrations").select("id, provider, user_id, refresh_token, access_token")
+
+  if (integrationIds && integrationIds.length > 0) {
+    query = query.in("id", integrationIds)
+  }
+
+  const { data: integrations, error } = await query
+
+  if (error) {
+    console.error("Error fetching integrations:", error)
+    return { healthy: 0, unhealthy: 0, results: [] }
+  }
+
+  const results = await Promise.all(
+    integrations.map(async (integration) => {
+      // ...
+    }),
+  )
+
+  const healthy = results.filter((r) => r.status === "healthy").length
+  const unhealthy = results.length - healthy
+
+  return { healthy, unhealthy, results }
 }
