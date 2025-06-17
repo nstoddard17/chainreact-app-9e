@@ -1,36 +1,35 @@
 'use client'
 
 import { useState } from 'react'
+import Image from 'next/image'
 import { useIntegrationStore } from '@/stores/integrationStore'
 import type { Provider, Integration } from '@/stores/integrationStore'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
-import Image from 'next/image'
-import { AlertCircle } from 'lucide-react'
-import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Loader2, X } from 'lucide-react'
+import { GumroadGuide } from './guides/GumroadGuide'
+import { ManyChatGuide } from './guides/ManyChatGuide'
+import { BeehiivGuide } from './guides/BeehiivGuide'
 
 interface ApiKeyIntegrationCardProps {
   provider: Provider
   integration: Integration | null
 }
 
+const guideMap = {
+  gumroad: GumroadGuide,
+  manychat: ManyChatGuide,
+  beehiiv: BeehiivGuide,
+}
+
 export function ApiKeyIntegrationCard({ provider, integration }: ApiKeyIntegrationCardProps) {
-  const [apiKey, setApiKey] = useState('')
-  const { connectApiKeyIntegration, disconnectIntegration, loadingStates, error } = useIntegrationStore()
+  const [showGuide, setShowGuide] = useState(false)
+  const { connectApiKeyIntegration, disconnectIntegration, loadingStates } = useIntegrationStore()
 
   const isConnected = integration?.status === 'connected'
   const isLoadingConnect = loadingStates[`connect-${provider.id}`]
   const isLoadingDisconnect = integration ? loadingStates[`disconnect-${integration.provider}`] : false
-  const isLoading = isLoadingConnect || isLoadingDisconnect
-
-  const handleConnect = async () => {
-    if (apiKey) {
-      await connectApiKeyIntegration(provider.id, apiKey)
-      // Clear key from input after submission for security
-      setApiKey('')
-    }
-  }
 
   const handleDisconnect = () => {
     if (integration) {
@@ -38,53 +37,52 @@ export function ApiKeyIntegrationCard({ provider, integration }: ApiKeyIntegrati
     }
   }
 
-  const providerError = error && error.toLowerCase().includes(provider.name.toLowerCase()) ? error : null
+  const status = isConnected
+    ? { text: 'Connected', color: 'bg-green-100 text-green-800' }
+    : { text: 'Disconnected', color: 'bg-gray-200 text-gray-800' }
+
+  const GuideComponent = guideMap[provider.id as keyof typeof guideMap]
 
   return (
-    <Card className="flex flex-col justify-between">
-      <div>
-        <CardHeader>
-          <div className="flex items-start gap-4">
-            <Image src={provider.logoUrl!} alt={`${provider.name} logo`} width={40} height={40} className="rounded-md" />
-            <div className="flex-1">
-              <CardTitle>{provider.name}</CardTitle>
-              <CardDescription>{provider.description}</CardDescription>
-            </div>
+    <>
+      <Card className="flex flex-col justify-between p-4">
+        <CardHeader className="flex flex-row items-center justify-between p-2">
+          <div className="flex items-center gap-3">
+            {provider.logoUrl && <Image src={provider.logoUrl} alt={`${provider.name} logo`} width={32} height={32} />}
+            <CardTitle className="text-lg font-semibold">{provider.name}</CardTitle>
           </div>
+          <Badge className={`px-2 py-1 text-xs font-medium rounded-full ${status.color}`}>{status.text}</Badge>
         </CardHeader>
-        <CardContent>
-          {isConnected ? (
-            <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-md">
-              <p className="text-sm font-medium text-green-700">Connected</p>
-              <Button onClick={handleDisconnect} disabled={isLoading} variant="destructive" size="sm">
-                {isLoadingDisconnect ? 'Disconnecting...' : 'Disconnect'}
-              </Button>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              <Input
-                type="password"
-                placeholder="Enter your API Key"
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                disabled={isLoadingConnect}
-                className="font-mono"
-              />
-              <Button onClick={handleConnect} disabled={isLoadingConnect || !apiKey} className="w-full">
-                {isLoadingConnect ? 'Connecting...' : 'Connect'}
-              </Button>
-            </div>
-          )}
+        <CardContent className="p-2 flex-grow">
+          {/* This space can be used for a short, consistent description if needed */}
         </CardContent>
-      </div>
-      <CardFooter>
-        {providerError && (
-          <Alert variant="destructive" className="mt-2">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription className="text-xs">{providerError}</AlertDescription>
-          </Alert>
-        )}
-      </CardFooter>
-    </Card>
+        <CardFooter className="p-2">
+          {isConnected ? (
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleDisconnect}
+              disabled={isLoadingDisconnect}
+              className="w-full"
+            >
+              {isLoadingDisconnect ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <X className="mr-2 h-4 w-4" />}
+              Disconnect
+            </Button>
+          ) : (
+            <Button onClick={() => setShowGuide(true)} disabled={isLoadingConnect} className="w-full">
+              {isLoadingConnect && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Connect
+            </Button>
+          )}
+        </CardFooter>
+      </Card>
+      {GuideComponent && (
+        <GuideComponent
+          open={showGuide}
+          onOpenChange={setShowGuide}
+          onConnect={(apiKey) => connectApiKeyIntegration(provider.id, apiKey)}
+        />
+      )}
+    </>
   )
 } 
