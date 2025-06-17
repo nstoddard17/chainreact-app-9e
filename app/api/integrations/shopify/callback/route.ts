@@ -66,8 +66,9 @@ export async function GET(request: NextRequest) {
       {
         user_id: userId,
         provider: "shopify",
-        provider_account_id: shop,
+        provider_user_id: shop,
         access_token: accessToken,
+        scopes: tokens.scope ? tokens.scope.split(",") : null,
         status: "connected",
         updated_at: new Date().toISOString(),
       },

@@ -81,8 +81,10 @@ export async function GET(request: NextRequest) {
       {
         user_id: userId,
         provider: "mailchimp",
-        provider_account_id: providerAccountId.toString(),
+        provider_user_id: providerAccountId.toString(),
         access_token: accessToken,
+        expires_at: null,
+        scopes: null,
         status: "connected",
         updated_at: new Date().toISOString(),
       },

@@ -110,10 +110,11 @@ export async function GET(request: NextRequest) {
       {
         user_id: userId,
         provider: "gmail",
-        provider_account_id: providerAccountId,
+        provider_user_id: providerAccountId,
         access_token: accessToken,
         refresh_token: refreshToken,
         expires_at: expiresAt,
+        scopes: tokens.scope.split(" "),
         status: "connected",
         updated_at: new Date().toISOString(),
       },
