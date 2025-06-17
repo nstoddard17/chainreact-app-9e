@@ -332,7 +332,6 @@ export class NotionOAuthService {
         provider_user_id: bot_id || workspace_id,
         access_token,
         refresh_token: tokenData.refresh_token,
-        token_type: tokenData.token_type,
         expires_at: tokenData.expires_in
           ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString()
           : null,

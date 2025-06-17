@@ -121,9 +121,8 @@ export class GmailOAuthService {
         provider_user_id: user.emailAddress,
         access_token,
         refresh_token,
-        token_type: "Bearer",
-        expires_at: new Date(Date.now() + 3600 * 1000).toISOString(),
-        scopes: OAuthScopes.GMAIL.join(" "),
+        expires_at: new Date(Date.now() + expires_in * 1000).toISOString(),
+        scopes: OAuthScopes.GMAIL,
         metadata: {
           email: user.emailAddress,
           name: user.displayName,

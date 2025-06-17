@@ -107,7 +107,6 @@ export class TwitterOAuthService {
         provider_user_id: userData.id,
         access_token: tokenData.access_token,
         refresh_token: tokenData.refresh_token,
-        token_type: tokenData.token_type,
         expires_at: tokenData.expires_in
           ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString()
           : null,

@@ -84,7 +84,6 @@ export class StripeOAuthService {
         provider_user_id: stripe_user_id,
         access_token,
         refresh_token: tokenData.refresh_token,
-        token_type: tokenData.token_type,
         expires_at: tokenData.expires_in
           ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString()
           : null,
