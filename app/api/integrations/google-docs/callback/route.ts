@@ -107,16 +107,63 @@ export async function GET(request: NextRequest) {
     }
 
     // Parse and validate state
-    const stateData = parseOAuthState(state)
-    validateOAuthState(stateData, "google")
-
-    const userId = stateData.userId
-    if (!userId) {
-      throw new Error("Missing user ID in state")
+    let parsedState
+    try {
+      parsedState = parseOAuthState(state)
+    } catch (error: any) {
+      console.error("Invalid state parameter:", state, error)
+      return new Response(
+        `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Google Docs OAuth Error</title>
+            <style>
+              body {
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                min-height: 100vh;
+                margin: 0;
+                background-color: #f5f5f5;
+              }
+              .container {
+                background: white;
+                padding: 2rem;
+                border-radius: 8px;
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+                text-align: center;
+                max-width: 400px;
+              }
+              h1 { color: #e74c3c; }
+              p { color: #666; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <h1>Invalid State</h1>
+              <p>Invalid or expired state parameter</p>
+            </div>
+          </body>
+        </html>
+        `,
+        {
+          headers: { "Content-Type": "text/html" },
+        }
+      )
     }
 
+    validateOAuthState(parsedState, "google")
+
     const origin = request.headers.get("origin") || request.nextUrl.origin
-    const result = await GoogleDocsOAuthService.handleCallback(code, state, supabase, userId, origin)
+    const result = await GoogleDocsOAuthService.handleCallback(
+      code,
+      parsedState,
+      supabase,
+      parsedState.userId,
+      origin || "https://chainreact.app"
+    )
 
     if (!result.success) {
       return new Response(

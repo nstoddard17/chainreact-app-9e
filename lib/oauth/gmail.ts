@@ -1,5 +1,12 @@
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
-import { getOAuthRedirectUri, OAuthScopes, generateOAuthState, parseOAuthState, validateOAuthState } from "./utils"
+import {
+  OAuthScopes,
+  getOAuthRedirectUri,
+  generateOAuthState,
+  parseOAuthState,
+  validateOAuthState,
+  type OAuthState,
+} from "./utils"
 import { createClient } from "@supabase/supabase-js"
 
 export class GmailOAuthService {
@@ -52,7 +59,7 @@ export class GmailOAuthService {
 
   static async handleCallback(
     code: string,
-    state: string,
+    state: OAuthState,
     supabase: ReturnType<typeof createClient>,
     userId: string,
     origin: string
@@ -63,9 +70,8 @@ export class GmailOAuthService {
         throw new Error("Missing Google client credentials")
       }
 
-      // Parse and validate state
-      const stateData = parseOAuthState(state)
-      validateOAuthState(stateData, "google")
+      // Validate state
+      validateOAuthState(state, "google")
 
       // Exchange code for token
       const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {

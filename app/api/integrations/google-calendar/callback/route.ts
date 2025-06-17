@@ -207,7 +207,7 @@ export async function GET(request: NextRequest) {
       code,
       parsedState,
       supabase,
-      userId,
+      parsedState.userId,
       origin || "https://chainreact.app"
     )
 

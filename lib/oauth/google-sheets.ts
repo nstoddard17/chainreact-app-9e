@@ -5,6 +5,7 @@ import {
   generateOAuthState,
   parseOAuthState,
   validateOAuthState,
+  type OAuthState,
 } from "./utils"
 import { createClient } from "@supabase/supabase-js"
 
@@ -48,7 +49,7 @@ export class GoogleSheetsOAuthService {
 
   static async handleCallback(
     code: string,
-    state: string,
+    state: OAuthState,
     supabase: ReturnType<typeof createClient>,
     userId: string,
     origin: string
@@ -56,9 +57,8 @@ export class GoogleSheetsOAuthService {
     try {
       const { clientId, clientSecret } = this.getClientCredentials()
 
-      // Parse and validate state
-      const stateData = parseOAuthState(state)
-      validateOAuthState(stateData, "google")
+      // Validate state
+      validateOAuthState(state, "google")
 
       // Exchange code for token
       const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
