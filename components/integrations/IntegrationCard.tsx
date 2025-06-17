@@ -59,8 +59,14 @@ export function IntegrationCard({ provider, integration, status }: IntegrationCa
           action: 'disconnect'
         }
       case 'expiring':
+        const expiresAt = integration?.expires_at ? new Date(integration.expires_at) : null
+        const now = new Date()
+        const diffMs = expiresAt ? expiresAt.getTime() - now.getTime() : 0
+        const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
+        const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60))
+        const timeText = diffHours > 0 ? `${diffHours}h ${diffMinutes}m` : `${diffMinutes}m`
         return {
-          text: 'Expiring',
+          text: `Expiring in ${timeText}`,
           badgeClass: 'bg-yellow-100 text-yellow-800',
           action: 'disconnect'
         }

@@ -2,6 +2,6 @@
 <svg width="64px" height="64px" viewBox="0 0 64 64" version="1.1" xmlns="http://www.w3.org/2000/svg">
     <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
         <rect fill="#000000" x="0" y="0" width="64" height="64" rx="12"/>
-        <path d="M20,16 L44,16 L44,48 L20,48 L20,16 Z M24,20 L24,44 L40,44 L40,20 L24,20 Z M28,24 L28,28 L36,28 L36,24 L28,24 Z M28,32 L28,36 L36,36 L36,32 L28,32 Z" fill="#FFFFFF"/>
+        <path d="M16,16 L48,16 L48,48 L16,48 L16,16 Z M24,24 L40,24 L40,32 L24,32 L24,24 Z M24,36 L40,36 L40,40 L24,40 L24,36 Z" fill="#FFFFFF"/>
     </g>
 </svg>
