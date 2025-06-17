@@ -146,7 +146,8 @@ export class GoogleOAuthService {
   }
 
   static async refreshToken(
-    refreshToken: string
+    refreshToken: string,
+    origin: string
   ): Promise<{ access_token: string; refresh_token: string; expires_in: number }> {
     if (!this.clientId || !this.clientSecret) {
       throw new Error("Missing Google client credentials")
@@ -162,11 +163,13 @@ export class GoogleOAuthService {
         client_secret: this.clientSecret,
         refresh_token: refreshToken,
         grant_type: "refresh_token",
+        redirect_uri: this.getRedirectUri(origin),
       }),
     })
 
     if (!response.ok) {
-      throw new Error("Failed to refresh token")
+      const errorText = await response.text()
+      throw new Error(`Failed to refresh token: ${errorText}`)
     }
 
     return response.json()
