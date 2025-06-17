@@ -102,7 +102,7 @@ export class GitHubOAuthService {
       const integrationData = {
         user_id: userId,
         provider: "github",
-        provider_user_id: userData.id.toString(),
+        provider_user_id: userData.id,
         access_token,
         refresh_token,
         token_type: tokenData.token_type,
@@ -111,12 +111,16 @@ export class GitHubOAuthService {
         metadata: {
           email: userData.email,
           name: userData.name,
-          login: userData.login,
-          avatar_url: userData.avatar_url,
-          connected_at: now,
+          picture: userData.avatar_url,
           provider: "github"
         },
-        updated_at: now,
+        status: "connected",
+        is_active: true,
+        consecutive_failures: 0,
+        last_token_refresh: new Date().toISOString(),
+        last_refreshed_at: new Date().toISOString(),
+        last_used_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       }
 
       if (existingIntegration) {

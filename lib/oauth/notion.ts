@@ -336,26 +336,26 @@ export class NotionOAuthService {
         expires_at: tokenData.expires_in
           ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString()
           : null,
-        status: "connected" as const,
         scopes: tokenValidation.grantedScopes || ["read_user"],
-        granted_scopes: tokenValidation.grantedScopes || ["read_user"],
-        missing_scopes: scopeValidation.missing || [],
-        scope_validation_status: scopeValidation.valid ? "valid" : "partial",
         metadata: {
-          workspace_name,
-          workspace_id,
-          bot_id,
-          owner,
-          connected_at: new Date().toISOString(),
-          validated_scopes: tokenValidation.grantedScopes || [],
-          token_validation_error: tokenValidation.error,
-          scope_validation: scopeValidation,
           email: owner.email,
           name: owner.name,
           picture: owner.avatar_url,
+          provider: "notion",
+          workspace_id,
+          workspace_name: workspace_name,
+          workspace_icon: workspace_name,
+          bot_id,
+          token_validation_error: tokenValidation.error,
+          scope_validation: scopeValidation
         },
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        status: "connected",
+        is_active: true,
+        consecutive_failures: 0,
+        last_token_refresh: new Date().toISOString(),
+        last_refreshed_at: new Date().toISOString(),
+        last_used_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       }
 
       if (reconnect && integrationId) {

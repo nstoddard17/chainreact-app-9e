@@ -90,21 +90,28 @@ export class PayPalOAuthService {
       const integrationData = {
         user_id: userId,
         provider: "paypal",
-        provider_user_id: userData.user_id,
+        provider_user_id: userData.payer_id,
         access_token: tokenData.access_token,
         refresh_token: tokenData.refresh_token,
         token_type: tokenData.token_type,
         expires_at: tokenData.expires_in
           ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString()
           : null,
-        scopes: tokenData.scope,
+        scopes: tokenData.scope ? tokenData.scope.split(" ") : [],
         metadata: {
           email: userData.email,
           name: userData.name,
           picture: userData.picture,
-          provider: "paypal"
+          provider: "paypal",
+          payer_id: userData.payer_id
         },
-        updated_at: now,
+        status: "connected",
+        is_active: true,
+        consecutive_failures: 0,
+        last_token_refresh: new Date().toISOString(),
+        last_refreshed_at: new Date().toISOString(),
+        last_used_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       }
 
       if (existingIntegration) {

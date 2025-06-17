@@ -88,16 +88,22 @@ export class StripeOAuthService {
         expires_at: tokenData.expires_in
           ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString()
           : null,
-        scopes: tokenData.scope,
+        scopes: tokenData.scope ? tokenData.scope.split(" ") : [],
         metadata: {
-          stripe_user_id,
-          stripe_publishable_key,
-          connected_at: new Date().toISOString(),
           email: tokenData.email,
           name: tokenData.name,
           picture: tokenData.picture,
-          provider: "stripe"
+          provider: "stripe",
+          stripe_user_id,
+          stripe_publishable_key
         },
+        status: "connected",
+        is_active: true,
+        consecutive_failures: 0,
+        last_token_refresh: new Date().toISOString(),
+        last_refreshed_at: new Date().toISOString(),
+        last_used_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       }
 
       if (reconnect && integrationId) {

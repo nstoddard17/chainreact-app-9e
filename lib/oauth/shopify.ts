@@ -200,19 +200,24 @@ export class ShopifyOAuthService {
           : null,
         scopes: tokenValidation.grantedScopes,
         metadata: {
-          shop_name: shopData.shop.name,
-          shop_email: shopData.shop.email,
-          shop_domain: shopData.shop.domain,
-          shop_owner: shopData.shop.shop_owner,
-          connected_at: now,
-          scopes_validated: true,
-          granted_scopes: tokenValidation.grantedScopes,
-          required_scopes: this.getRequiredScopes(),
           email: shopData.shop.email,
           name: shopData.shop.name,
           picture: shopData.shop.picture,
+          provider: "shopify",
+          shop_id: shopData.shop.id,
+          shop_name: shopData.shop.name,
+          shop_domain: shopData.shop.domain,
+          shop_plan: shopData.shop.plan_name,
+          token_validation_error: tokenValidation.error,
+          scope_validation: scopeValidation
         },
-        updated_at: now,
+        status: "connected",
+        is_active: true,
+        consecutive_failures: 0,
+        last_token_refresh: new Date().toISOString(),
+        last_refreshed_at: new Date().toISOString(),
+        last_used_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       }
 
       if (existingIntegration) {
