@@ -262,7 +262,7 @@ importers:
         version: 5.1.7
       stripe:
         specifier: latest
-        version: 18.2.1(@types/node@22.0.0)
+        version: 18.2.1(@types/node@22.15.32)
       tailwind-merge:
         specifier: ^2.5.5
         version: 2.5.5
@@ -286,8 +286,8 @@ importers:
         version: 5.0.5(@types/react@19.0.0)(immer@10.1.1)(react@19.0.0)(use-sync-external-store@1.5.0(react@19.0.0))
     devDependencies:
       '@types/node':
-        specifier: ^22
-        version: 22.0.0
+        specifier: ^22.15.32
+        version: 22.15.32
       '@types/react':
         specifier: ^19
         version: 19.0.0
@@ -2422,9 +2422,6 @@ packages:
 
   '@types/istanbul-reports@3.0.4':
     resolution: {integrity: sha512-pk2B1NWalF9toCRu6gjBzR69syFjP4Od8WRAX+0mmf9lAjCRicLOWc+ZrxZHx/0XRjotgkF9t6iaMJ+aXcOdZQ==}
-
-  '@types/node@22.0.0':
-    resolution: {integrity: sha512-VT7KSYudcPOzP5Q0wfbowyNLaVR8QWUdw+088uFWwfvpY6uCWaXpqV6ieLAu9WBcnTa7H4Z5RLK8I5t2FuOcqw==}
 
   '@types/node@22.15.32':
     resolution: {integrity: sha512-3jigKqgSjsH6gYZv2nEsqdXfZqIFGAV36XYYjf9KGZ3PSG+IhLecqPnI310RvjutyMwifE2hhhNEklOUrvx/wA==}
@@ -5385,9 +5382,6 @@ packages:
   uncrypto@0.1.3:
     resolution: {integrity: sha512-Ql87qFHB3s/De2ClA9e0gsnS6zXG27SkTiSJwjCc9MebbfapQfuPzumMIUMi38ezPZVNFcHI9sUIepeQfw8J8Q==}
 
-  undici-types@6.11.1:
-    resolution: {integrity: sha512-mIDEX2ek50x0OlRgxryxsenE5XaQD4on5U2inY7RApK3SOJpofyw7uW2AyfMKkhAxXIceo2DeWGVGwyvng1GNQ==}
-
   undici-types@6.21.0:
     resolution: {integrity: sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ==}
 
@@ -8097,7 +8091,7 @@ snapshots:
 
   '@slack/logger@4.0.0':
     dependencies:
-      '@types/node': 22.0.0
+      '@types/node': 22.15.32
 
   '@slack/types@2.14.0': {}
 
@@ -8105,7 +8099,7 @@ snapshots:
     dependencies:
       '@slack/logger': 4.0.0
       '@slack/types': 2.14.0
-      '@types/node': 22.0.0
+      '@types/node': 22.15.32
       '@types/retry': 0.12.0
       axios: 1.10.0
       eventemitter3: 5.0.1
@@ -8478,7 +8472,7 @@ snapshots:
 
   '@types/better-sqlite3@7.6.13':
     dependencies:
-      '@types/node': 22.0.0
+      '@types/node': 22.15.32
 
   '@types/d3-array@3.2.1': {}
 
@@ -8537,23 +8531,19 @@ snapshots:
     dependencies:
       '@types/istanbul-lib-report': 3.0.3
 
-  '@types/node@22.0.0':
-    dependencies:
-      undici-types: 6.11.1
-
   '@types/node@22.15.32':
     dependencies:
       undici-types: 6.21.0
 
   '@types/pg@8.11.6':
     dependencies:
-      '@types/node': 22.0.0
+      '@types/node': 22.15.32
       pg-protocol: 1.10.0
       pg-types: 4.0.2
 
   '@types/pg@8.15.4':
     dependencies:
-      '@types/node': 22.0.0
+      '@types/node': 22.15.32
       pg-protocol: 1.10.0
       pg-types: 2.2.0
 
@@ -8572,13 +8562,13 @@ snapshots:
   '@types/sql.js@1.4.9':
     dependencies:
       '@types/emscripten': 1.40.1
-      '@types/node': 22.0.0
+      '@types/node': 22.15.32
 
   '@types/stack-utils@2.0.3': {}
 
   '@types/ws@8.18.1':
     dependencies:
-      '@types/node': 22.0.0
+      '@types/node': 22.15.32
 
   '@types/yargs-parser@21.0.3': {}
 
@@ -8965,7 +8955,7 @@ snapshots:
 
   bun-types@1.2.16:
     dependencies:
-      '@types/node': 22.0.0
+      '@types/node': 22.15.32
 
   busboy@1.6.0:
     dependencies:
@@ -11500,11 +11490,11 @@ snapshots:
 
   strip-json-comments@2.0.1: {}
 
-  stripe@18.2.1(@types/node@22.0.0):
+  stripe@18.2.1(@types/node@22.15.32):
     dependencies:
       qs: 6.14.0
     optionalDependencies:
-      '@types/node': 22.0.0
+      '@types/node': 22.15.32
 
   strnum@1.1.2: {}
 
@@ -11683,8 +11673,6 @@ snapshots:
   typescript@5.0.2: {}
 
   uncrypto@0.1.3: {}
-
-  undici-types@6.11.1: {}
 
   undici-types@6.21.0: {}
 
