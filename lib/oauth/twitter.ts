@@ -64,17 +64,23 @@ export class TwitterOAuthService {
 
     const scopes = ["tweet.read", "tweet.write", "users.read", "offline.access"]
 
-    const state = btoa(
-      JSON.stringify({
-        provider: "twitter",
-        userId,
-        reconnect,
-        integrationId,
-        requireFullScopes: true,
-        timestamp: Date.now(),
-        codeVerifier, // Store verifier in state for later use
-      }),
-    )
+    // Create state object with all required data
+    const stateData = {
+      provider: "twitter",
+      userId,
+      reconnect,
+      integrationId,
+      requireFullScopes: true,
+      timestamp: Date.now(),
+      codeVerifier, // Store verifier in state for later use
+    }
+
+    console.log("Generating Twitter auth URL with state:", {
+      ...stateData,
+      codeVerifier: "***", // Log state data but mask sensitive info
+    })
+
+    const state = btoa(JSON.stringify(stateData))
 
     const params = new URLSearchParams({
       response_type: "code",
@@ -96,19 +102,44 @@ export class TwitterOAuthService {
     supabase: any,
   ): Promise<TwitterOAuthResult> {
     try {
-      const stateData = JSON.parse(atob(state))
+      console.log("Handling Twitter callback with state:", {
+        stateLength: state.length,
+        statePreview: state.substring(0, 10) + "...",
+      })
+
+      let stateData
+      try {
+        stateData = JSON.parse(atob(state))
+        console.log("Successfully parsed state data:", {
+          ...stateData,
+          codeVerifier: stateData.codeVerifier ? "***" : undefined,
+        })
+      } catch (e) {
+        console.error("Failed to parse state:", {
+          error: e,
+          stateLength: state.length,
+          statePreview: state.substring(0, 10) + "...",
+        })
+        throw new Error("Invalid state format")
+      }
+
       const { provider, reconnect, integrationId, requireFullScopes, codeVerifier, userId } = stateData
 
       if (provider !== "twitter") {
+        console.error("Invalid provider in state:", { provider })
         throw new Error("Invalid provider in state")
       }
 
       if (!codeVerifier) {
-        console.error("Missing code verifier in state:", { ...stateData, codeVerifier: undefined })
+        console.error("Missing code verifier in state:", {
+          ...stateData,
+          codeVerifier: undefined,
+        })
         throw new Error("Missing code verifier in state")
       }
 
       if (!userId) {
+        console.error("Missing user ID in state:", { ...stateData, userId: undefined })
         throw new Error("Missing user ID in state")
       }
 
