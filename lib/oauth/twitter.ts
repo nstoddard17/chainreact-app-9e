@@ -1,3 +1,5 @@
+/// <reference types="node" />
+
 interface TwitterOAuthResult {
   success: boolean
   redirectUrl: string
@@ -62,17 +64,19 @@ export class TwitterOAuthService {
 
     const scopes = ["tweet.read", "tweet.write", "users.read", "offline.access"]
 
-    const state = btoa(
-      JSON.stringify({
-        provider: "twitter",
-        reconnect,
-        integrationId,
-        userId,
-        requireFullScopes: true,
-        timestamp: Date.now(),
-        codeVerifier, // Store verifier in state for later use
-      }),
-    )
+    // Create state object with all necessary data
+    const stateData = {
+      provider: "twitter",
+      reconnect,
+      integrationId,
+      userId,
+      requireFullScopes: true,
+      timestamp: Date.now(),
+      codeVerifier, // Store verifier in state
+    }
+
+    // Encode state data
+    const state = btoa(JSON.stringify(stateData))
 
     const params = new URLSearchParams({
       response_type: "code",
@@ -94,7 +98,15 @@ export class TwitterOAuthService {
     supabase: any,
   ): Promise<TwitterOAuthResult> {
     try {
-      const stateData = JSON.parse(atob(state))
+      // Parse and validate state
+      let stateData
+      try {
+        stateData = JSON.parse(atob(state))
+      } catch (error) {
+        console.error("Failed to parse state:", error)
+        throw new Error("Invalid state parameter")
+      }
+
       const { provider, reconnect, integrationId, requireFullScopes, codeVerifier, userId } = stateData
 
       if (provider !== "twitter") {
@@ -102,6 +114,7 @@ export class TwitterOAuthService {
       }
 
       if (!codeVerifier) {
+        console.error("Missing code verifier in state:", stateData)
         throw new Error("Missing code verifier in state")
       }
 
