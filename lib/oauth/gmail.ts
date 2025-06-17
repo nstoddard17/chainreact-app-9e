@@ -131,6 +131,13 @@ export class GmailOAuthService {
           provider: "google",
           service: "gmail"
         },
+        status: "connected",
+        is_active: true,
+        consecutive_failures: 0,
+        last_token_refresh: new Date().toISOString(),
+        last_refreshed_at: new Date().toISOString(),
+        last_used_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       }
 
       if (existingIntegration) {

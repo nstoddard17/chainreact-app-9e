@@ -55,4 +55,74 @@ export class TeamsOAuthService {
   static getRedirectUri(): string {
     return `${getBaseUrl()}/api/integrations/teams/callback`
   }
+
+  static async handleCallback(code: string, state: string): Promise<{ access_token: string; refresh_token: string; token_type: string; expires_in: number; scope: string; id_token: string; userData: any }> {
+    const { clientId, clientSecret } = this.getClientCredentials()
+    const redirectUri = this.getRedirectUri()
+
+    const response = await fetch(`https://login.microsoftonline.com/common/oauth2/v2.0/token`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        client_id: clientId,
+        client_secret: clientSecret,
+        code,
+        redirect_uri,
+        grant_type: 'authorization_code',
+      }),
+    })
+
+    const data = await response.json()
+
+    if (!data.access_token || !data.refresh_token || !data.token_type || !data.expires_in || !data.scope || !data.id_token) {
+      throw new Error("Missing required token data")
+    }
+
+    const userResponse = await fetch(`https://graph.microsoft.com/v1.0/me`, {
+      headers: {
+        Authorization: `Bearer ${data.access_token}`,
+      },
+    })
+
+    const userData = await userResponse.json()
+
+    const integrationData = {
+      user_id: state.split(",")[1],
+      provider: "microsoft",
+      provider_user_id: userData.id,
+      access_token: data.access_token,
+      refresh_token: data.refresh_token,
+      token_type: data.token_type,
+      expires_at: data.expires_in
+        ? new Date(Date.now() + data.expires_in * 1000).toISOString()
+        : null,
+      scopes: data.scope ? data.scope.split(" ") : [],
+      metadata: {
+        email: userData.email,
+        name: userData.displayName,
+        picture: userData.userPrincipalName,
+        provider: "microsoft",
+        service: "teams"
+      },
+      status: "connected",
+      is_active: true,
+      consecutive_failures: 0,
+      last_token_refresh: new Date().toISOString(),
+      last_refreshed_at: new Date().toISOString(),
+      last_used_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }
+
+    return {
+      access_token: data.access_token,
+      refresh_token: data.refresh_token,
+      token_type: data.token_type,
+      expires_in: data.expires_in,
+      scope: data.scope,
+      id_token: data.id_token,
+      userData: integrationData
+    }
+  }
 }

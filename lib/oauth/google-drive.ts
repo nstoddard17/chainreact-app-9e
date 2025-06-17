@@ -113,7 +113,7 @@ export class GoogleDriveOAuthService {
         refresh_token,
         token_type: "Bearer",
         expires_at: new Date(Date.now() + expires_in * 1000).toISOString(),
-        scopes: OAuthScopes.GOOGLE_DRIVE.join(" "),
+        scopes: OAuthScopes.GOOGLE_DRIVE,
         metadata: {
           email: userData.email,
           name: userData.name,
@@ -121,7 +121,13 @@ export class GoogleDriveOAuthService {
           provider: "google",
           service: "drive"
         },
-        updated_at: new Date().toISOString(),
+        status: "connected",
+        is_active: true,
+        consecutive_failures: 0,
+        last_token_refresh: new Date().toISOString(),
+        last_refreshed_at: new Date().toISOString(),
+        last_used_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       }
 
       if (existingIntegration) {
