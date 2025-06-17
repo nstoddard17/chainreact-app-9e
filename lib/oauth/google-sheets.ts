@@ -25,7 +25,7 @@ export class GoogleSheetsOAuthService {
   }
 
   static getRedirectUri(origin: string): string {
-    return getOAuthRedirectUri(origin, "google_sheets")
+    return getOAuthRedirectUri(origin, "google-sheets")
   }
 
   static generateAuthUrl(origin: string, userId: string): string {

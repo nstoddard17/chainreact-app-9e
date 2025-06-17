@@ -25,7 +25,7 @@ export class GoogleDocsOAuthService {
   }
 
   static getRedirectUri(origin: string): string {
-    return getOAuthRedirectUri(origin, "google_docs")
+    return getOAuthRedirectUri(origin, "google-docs")
   }
 
   static generateAuthUrl(origin: string, userId: string): string {

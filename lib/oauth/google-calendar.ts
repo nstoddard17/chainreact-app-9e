@@ -25,7 +25,7 @@ export class GoogleCalendarOAuthService {
   }
 
   static getRedirectUri(origin: string): string {
-    return getOAuthRedirectUri(origin, "google_calendar")
+    return getOAuthRedirectUri(origin, "google-calendar")
   }
 
   static generateAuthUrl(origin: string, userId: string): string {
