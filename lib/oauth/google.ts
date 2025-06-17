@@ -16,27 +16,19 @@ export class GoogleOAuthService {
   }
 
   static getRedirectUri(): string {
-    return "https://chainreact.app/api/integrations/google/callback"
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+    return `${baseUrl}/api/integrations/google/callback`
   }
 
   static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string, userId?: string): string {
     const { clientId } = this.getClientCredentials()
     const redirectUri = this.getRedirectUri()
 
-    // Enhanced scopes for better functionality
+    // Basic scopes that are more likely to be approved
     const scopes = [
       "https://www.googleapis.com/auth/userinfo.email",
       "https://www.googleapis.com/auth/userinfo.profile",
-      "https://www.googleapis.com/auth/calendar",
-      "https://www.googleapis.com/auth/calendar.events",
-      "https://www.googleapis.com/auth/drive",
-      "https://www.googleapis.com/auth/drive.file",
-      "https://www.googleapis.com/auth/spreadsheets",
-      "https://www.googleapis.com/auth/gmail.send",
-      "https://www.googleapis.com/auth/gmail.modify",
-      "https://www.googleapis.com/auth/documents",
-      "https://www.googleapis.com/auth/youtube.readonly",
-      "https://www.googleapis.com/auth/youtube.upload",
+      "openid",
     ]
 
     const state = userId ? generateOAuthState("google", userId, { reconnect, integrationId }) : ""
@@ -46,9 +38,9 @@ export class GoogleOAuthService {
       redirect_uri: redirectUri,
       response_type: "code",
       scope: scopes.join(" "),
-      access_type: "offline", // Critical for refresh tokens
-      prompt: "consent", // Always force consent to ensure refresh token
-      include_granted_scopes: "true", // Include previously granted scopes
+      access_type: "offline",
+      prompt: "consent",
+      include_granted_scopes: "true",
       ...(state && { state }),
     })
 
@@ -80,7 +72,6 @@ export class GoogleOAuthService {
 
     const tokenData = await response.json()
 
-    // Ensure we got a refresh token
     if (!tokenData.refresh_token) {
       console.warn("Google did not provide a refresh token. User may need to revoke and re-authorize.")
     }

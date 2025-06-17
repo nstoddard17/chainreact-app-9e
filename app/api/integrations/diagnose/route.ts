@@ -59,7 +59,7 @@ const COMPONENT_SCOPE_MAPPING = {
   //google_docs_read: { scopes: ["https://www.googleapis.com/auth/documents.readonly"], provider: "google-docs" },
 
   // Gmail components
-  gmail_send: { scopes: ["https://www.googleapis.com/auth/gmail.modify"], provider: "gmail" },
+  gmail_send: { scopes: ["https://www.googleapis.com/auth/gmail.send"], provider: "gmail" },
   gmail_modify: { scopes: ["https://www.googleapis.com/auth/gmail.modify"], provider: "gmail" },
 
   // Google Drive components
