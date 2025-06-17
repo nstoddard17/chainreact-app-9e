@@ -231,17 +231,19 @@ export const useIntegrationStore = create<IntegrationStore>((set, get) => ({
             clearInterval(checkClosed)
             window.removeEventListener("message", messageHandler)
 
-              if (!closedByMessage) {
+            if (!closedByMessage) {
               console.log(`❌ Popup closed manually for ${providerId}`)
               // Simulate oauth-error
-              window.dispatchEvent(new MessageEvent("message", {
-                data: {
-                  type: "oauth-error",
-                  provider: providerId,
-                  error: "Popup closed before completing authorization.",
-                },
-                origin: window.location.origin,
-              }))
+              window.dispatchEvent(
+                new MessageEvent("message", {
+                  data: {
+                    type: "oauth-error",
+                    provider: providerId,
+                    error: "Popup closed before completing authorization.",
+                  },
+                  origin: window.location.origin,
+                }),
+              )
             }
           }
         }, 500)
@@ -262,12 +264,17 @@ export const useIntegrationStore = create<IntegrationStore>((set, get) => ({
           if (event.data?.type === "oauth-success") {
             console.log(`✅ OAuth success for ${providerId}`)
             setLoading(`connect-${providerId}`, false)
-            const refresh = get().fetchIntegrations
-            // Refresh multiple times to ensure backend state is updated
-            refresh(true)
-            setTimeout(() => refresh(true), 1000)
-            setTimeout(() => refresh(true), 2000)
-            setTimeout(() => refresh(true), 3000)
+
+            const retryFetchUntilConnected = async (providerId: string, maxTries = 6) => {
+              for (let i = 0; i < maxTries; i++) {
+                await get().fetchIntegrations(true)
+                const integration = get().getIntegrationByProvider(providerId)
+                if (integration?.status === "connected") return
+                await new Promise((res) => setTimeout(res, (i + 1) * 1000)) // 1s, 2s, 3s, ...
+              }
+            }
+
+            retryFetchUntilConnected(providerId)
           } else if (event.data?.type === "oauth-error") {
             console.error(`❌ OAuth error for ${providerId}:`, event.data.error)
             setLoading(`connect-${providerId}`, false)

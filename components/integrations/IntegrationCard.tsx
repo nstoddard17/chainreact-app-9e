@@ -229,16 +229,20 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
         localStorage.removeItem("integration_connecting_time")
         setIsConnecting(false)
         if (event.data?.type === "oauth-success") {
-          const refresh = fetchIntegrations
-          // Ensure the integration list updates with eventual consistency
-          refresh(true)
-          setTimeout(() => refresh(true), 1000)
-          setTimeout(() => refresh(true), 2000)
-          setTimeout(() => refresh(true), 3000)
+          const retryFetchUntilConnected = async (providerId: string, maxTries = 6) => {
+            for (let i = 0; i < maxTries; i++) {
+              await fetchIntegrations(true)
+              const integration = getIntegrationByProvider(providerId)
+              if (integration?.status === "connected") return
+              await new Promise((res) => setTimeout(res, (i + 1) * 1000)) // 1s, 2s, 3s, ...
+            }
+          }
+
+          retryFetchUntilConnected(provider.id)
         }
       }
     },
-    [provider.id, setIsConnecting],
+    [provider.id, setIsConnecting, fetchIntegrations, getIntegrationByProvider, provider.id],
   )
 
   // Listen for OAuth success/error messages from the popup
@@ -276,7 +280,16 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
   const showRedirectOverlay = isConnecting && !isDisconnecting && !isRefreshing
 
   return (
-    <Card className="overflow-hidden border border-slate-200 transition-all hover:shadow-md group">
+    <Card className="overflow-hidden border border-slate-200 transition-all hover:shadow-md group relative">
+      {isConnecting && (
+        <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-10 flex items-center justify-center">
+          <div className="animate-pulse text-center">
+            <div className="w-8 h-8 bg-slate-300 rounded-full mx-auto mb-2 animate-spin"></div>
+            <div className="h-3 bg-slate-300 rounded w-32 mx-auto mb-1"></div>
+            <div className="h-2 bg-slate-200 rounded w-24 mx-auto"></div>
+          </div>
+        </div>
+      )}
       <CardContent className="p-0">
         <div className="p-6">
           <div className="flex items-center justify-between mb-4">
