@@ -4,8 +4,18 @@ import type { NextRequest } from "next/server"
 
 export async function middleware(request: NextRequest) {
   try {
-    const res = NextResponse.next()
+    const url = request.nextUrl
+    const hostname = request.headers.get("host") || ""
     const pathname = request.nextUrl.pathname
+
+    // Handle www to non-www redirect
+    if (hostname.startsWith("www.")) {
+      const newHostname = hostname.replace(/^www\./, "")
+      return NextResponse.redirect(
+        new URL(url.pathname + url.search, `https://${newHostname}`),
+        301
+      )
+    }
 
     // Skip middleware for static files and API routes
     if (
@@ -14,8 +24,10 @@ export async function middleware(request: NextRequest) {
       pathname.startsWith("/auth") ||
       pathname.includes(".")
     ) {
-      return res
+      return NextResponse.next()
     }
+
+    const res = NextResponse.next()
 
     // Create a Supabase client configured to use cookies
     const supabase = createMiddlewareClient({ req: request, res })
@@ -113,10 +125,11 @@ export const config = {
   matcher: [
     /*
      * Match all request paths except for the ones starting with:
+     * - api (API routes)
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      */
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!api|_next/static|_next/image|favicon.ico).*)",
   ],
 }
