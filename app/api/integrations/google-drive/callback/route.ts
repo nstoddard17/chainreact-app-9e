@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
           <h1>Google Drive Authentication Failed</h1>
           <p>An error occurred during the Google Drive authentication process.</p>
           <script>
-            window.opener.postMessage({ type: 'google-drive-auth-error', error: '${error}' }, window.location.origin);
+            window.opener.postMessage({ type: 'oauth-error', error: '${error}' }, window.location.origin);
             window.close();
           </script>
         </body>
@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
           <h1>Google Drive Authentication Failed</h1>
           <p>Missing parameters during the Google Drive authentication process.</p>
           <script>
-            window.opener.postMessage({ type: 'google-drive-auth-error', error: 'missing_params' }, window.location.origin);
+            window.opener.postMessage({ type: 'oauth-error', error: 'missing_params' }, window.location.origin);
             window.close();
           </script>
         </body>
@@ -93,7 +93,7 @@ export async function GET(request: NextRequest) {
             <h1>Google Drive Authentication Failed</h1>
             <p>Failed to parse the state parameter during the Google Drive authentication process.</p>
             <script>
-              window.opener.postMessage({ type: 'google-drive-auth-error', error: 'invalid_state' }, window.location.origin);
+              window.opener.postMessage({ type: 'oauth-error', error: 'invalid_state' }, window.location.origin);
               window.close();
             </script>
           </body>
@@ -121,7 +121,7 @@ export async function GET(request: NextRequest) {
             <h1>Google Drive Authentication Failed</h1>
             <p>No user ID found in the state parameter during the Google Drive authentication process.</p>
             <script>
-              window.opener.postMessage({ type: 'google-drive-auth-error', error: 'missing_user_id' }, window.location.origin);
+              window.opener.postMessage({ type: 'oauth-error', error: 'missing_user_id' }, window.location.origin);
               window.close();
             </script>
           </body>
@@ -150,7 +150,7 @@ export async function GET(request: NextRequest) {
             <h1>Google Drive Authentication Failed</h1>
             <p>Missing Google client ID or secret.</p>
             <script>
-              window.opener.postMessage({ type: 'google-drive-auth-error', error: 'missing_client_credentials' }, window.location.origin);
+              window.opener.postMessage({ type: 'oauth-error', error: 'missing_client_credentials' }, window.location.origin);
               window.close();
             </script>
           </body>
@@ -192,7 +192,7 @@ export async function GET(request: NextRequest) {
             <h1>Google Drive Authentication Failed</h1>
             <p>Token exchange with Google Drive failed.</p>
             <script>
-              window.opener.postMessage({ type: 'google-drive-auth-error', error: 'token_exchange_failed', message: '${errorText}' }, window.location.origin);
+              window.opener.postMessage({ type: 'oauth-error', error: 'token_exchange_failed', message: '${errorText}' }, window.location.origin);
               window.close();
             </script>
           </body>
@@ -228,7 +228,7 @@ export async function GET(request: NextRequest) {
             <h1>Google Drive Authentication Failed</h1>
             <p>Failed to retrieve user information from Google Drive.</p>
             <script>
-              window.opener.postMessage({ type: 'google-drive-auth-error', error: 'user_info_failed' }, window.location.origin);
+              window.opener.postMessage({ type: 'oauth-error', error: 'user_info_failed' }, window.location.origin);
               window.close();
             </script>
           </body>
@@ -288,7 +288,7 @@ export async function GET(request: NextRequest) {
               <h1>Google Drive Authentication Failed</h1>
               <p>Failed to update the Google Drive integration in the database.</p>
               <script>
-                window.opener.postMessage({ type: 'google-drive-auth-error', error: 'database_update_failed' }, window.location.origin);
+                window.opener.postMessage({ type: 'oauth-error', error: 'database_update_failed' }, window.location.origin);
                 window.close();
               </script>
             </body>
@@ -319,7 +319,7 @@ export async function GET(request: NextRequest) {
               <h1>Google Drive Authentication Failed</h1>
               <p>Failed to insert the Google Drive integration into the database.</p>
               <script>
-                window.opener.postMessage({ type: 'google-drive-auth-error', error: 'database_insert_failed' }, window.location.origin);
+                window.opener.postMessage({ type: 'oauth-error', error: 'database_insert_failed' }, window.location.origin);
                 window.close();
               </script>
             </body>
@@ -346,9 +346,19 @@ export async function GET(request: NextRequest) {
         <body>
           <h1>Google Drive Authentication Successful</h1>
           <p>Google Drive has been successfully connected.</p>
-          <script>
-            window.opener.postMessage({ type: 'google-drive-auth-success' }, window.location.origin);
-            window.close();
+         <script>
+            // Send success message to parent window
+            if (window.opener) {
+              window.opener.postMessage({
+                type: 'oauth-success',
+                provider: 'google-drive'
+              }, window.location.origin);
+            }
+            
+            // Close the popup
+            setTimeout(() => {
+              window.close();
+            }, 1500);
           </script>
         </body>
       </html>
@@ -371,7 +381,7 @@ export async function GET(request: NextRequest) {
           <h1>Google Drive Authentication Failed</h1>
           <p>An unexpected error occurred during the Google Drive authentication process.</p>
           <script>
-            window.opener.postMessage({ type: 'google-drive-auth-error', error: 'callback_failed', message: '${error.message}' }, window.location.origin);
+            window.opener.postMessage({ type: 'oauth-error', error: 'callback_failed', message: '${error.message}' }, window.location.origin);
             window.close();
           </script>
         </body>

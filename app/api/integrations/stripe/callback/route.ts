@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
       <body>
         <script>
           window.opener.postMessage({
-            type: 'stripe-callback',
+            type: 'oauth-success',
             provider: 'stripe',
             error: '${error}',
             error_description: '${error_description || ""}'
@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
       <body>
         <script>
           window.opener.postMessage({
-            type: 'stripe-callback',
+            type: 'oauth-error',
             provider: 'stripe',
             error: 'unknown_error',
             error_description: 'Unknown error occurred during Stripe integration.'

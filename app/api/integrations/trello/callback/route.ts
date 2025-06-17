@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
     if (code && state) {
       // Send message to the parent window
       window.opener.postMessage({
-        type: 'trello',
+        type: 'oauth-success',
         payload: {
           code: code,
           state: state

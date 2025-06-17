@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
           <h1>Google Sheets Authentication Failed</h1>
           <p>An error occurred during the Google Sheets authentication process.</p>
           <script>
-            window.opener.postMessage({ type: 'google-sheets-auth-error', error: '${error}' }, window.location.origin);
+            window.opener.postMessage({ type: 'oauth-error', error: '${error}' }, window.location.origin);
             window.close();
           </script>
         </body>
@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
           <h1>Google Sheets Authentication Failed</h1>
           <p>Missing parameters during the Google Sheets authentication process.</p>
           <script>
-            window.opener.postMessage({ type: 'google-sheets-auth-error', error: 'missing_params' }, window.location.origin);
+            window.opener.postMessage({ type: 'oauth-error', error: 'missing_params' }, window.location.origin);
             window.close();
           </script>
         </body>
@@ -99,7 +99,7 @@ export async function GET(request: NextRequest) {
             <h1>Google Sheets Authentication Failed</h1>
             <p>Invalid state during the Google Sheets authentication process.</p>
             <script>
-              window.opener.postMessage({ type: 'google-sheets-auth-error', error: 'invalid_state' }, window.location.origin);
+              window.opener.postMessage({ type: 'oauth-error', error: 'invalid_state' }, window.location.origin);
               window.close();
             </script>
           </body>
@@ -129,7 +129,7 @@ export async function GET(request: NextRequest) {
             <h1>Google Sheets Authentication Failed</h1>
             <p>Missing user ID during the Google Sheets authentication process.</p>
             <script>
-              window.opener.postMessage({ type: 'google-sheets-auth-error', error: 'missing_user_id' }, window.location.origin);
+              window.opener.postMessage({ type: 'oauth-error', error: 'missing_user_id' }, window.location.origin);
               window.close();
             </script>
           </body>
@@ -160,7 +160,7 @@ export async function GET(request: NextRequest) {
             <h1>Google Sheets Authentication Failed</h1>
             <p>Missing client credentials during the Google Sheets authentication process.</p>
             <script>
-              window.opener.postMessage({ type: 'google-sheets-auth-error', error: 'missing_client_credentials' }, window.location.origin);
+              window.opener.postMessage({ type: 'oauth-error', error: 'missing_client_credentials' }, window.location.origin);
               window.close();
             </script>
           </body>
@@ -204,7 +204,7 @@ export async function GET(request: NextRequest) {
             <h1>Google Sheets Authentication Failed</h1>
             <p>Token exchange failed during the Google Sheets authentication process.</p>
             <script>
-              window.opener.postMessage({ type: 'google-sheets-auth-error', error: 'token_exchange_failed', message: '${errorText}' }, window.location.origin);
+              window.opener.postMessage({ type: 'oauth-error', error: 'token_exchange_failed', message: '${errorText}' }, window.location.origin);
               window.close();
             </script>
           </body>
@@ -242,7 +242,7 @@ export async function GET(request: NextRequest) {
             <h1>Google Sheets Authentication Failed</h1>
             <p>Failed to get user info during the Google Sheets authentication process.</p>
             <script>
-              window.opener.postMessage({ type: 'google-sheets-auth-error', error: 'user_info_failed' }, window.location.origin);
+              window.opener.postMessage({ type: 'oauth-error', error: 'user_info_failed' }, window.location.origin);
               window.close();
             </script>
           </body>
@@ -304,7 +304,7 @@ export async function GET(request: NextRequest) {
               <h1>Google Sheets Authentication Failed</h1>
               <p>Database update failed during the Google Sheets authentication process.</p>
               <script>
-                window.opener.postMessage({ type: 'google-sheets-auth-error', error: 'database_update_failed' }, window.location.origin);
+                window.opener.postMessage({ type: 'oauth-error', error: 'database_update_failed' }, window.location.origin);
                 window.close();
               </script>
             </body>
@@ -337,7 +337,7 @@ export async function GET(request: NextRequest) {
               <h1>Google Sheets Authentication Failed</h1>
               <p>Database insert failed during the Google Sheets authentication process.</p>
               <script>
-                window.opener.postMessage({ type: 'google-sheets-auth-error', error: 'database_insert_failed' }, window.location.origin);
+                window.opener.postMessage({ type: 'oauth-error', error: 'database_insert_failed' }, window.location.origin);
                 window.close();
               </script>
             </body>
@@ -367,8 +367,18 @@ export async function GET(request: NextRequest) {
           <h1>Google Sheets Authentication Successful</h1>
           <p>Google Sheets has been successfully authenticated.</p>
           <script>
-            window.opener.postMessage({ type: 'google-sheets-auth-success' }, window.location.origin);
-            window.close();
+            // Send success message to parent window
+            if (window.opener) {
+              window.opener.postMessage({
+                type: 'oauth-success',
+                provider: 'google-sheets'
+              }, window.location.origin);
+            }
+            
+            // Close the popup
+            setTimeout(() => {
+              window.close();
+            }, 1500);
           </script>
         </body>
       </html>
@@ -393,7 +403,7 @@ export async function GET(request: NextRequest) {
           <h1>Google Sheets Authentication Failed</h1>
           <p>An unexpected error occurred during the Google Sheets authentication process.</p>
           <script>
-            window.opener.postMessage({ type: 'google-sheets-auth-error', error: 'callback_failed', message: '${error.message}' }, window.location.origin);
+            window.opener.postMessage({ type: 'oauth-error', error: 'callback_failed', message: '${error.message}' }, window.location.origin);
             window.close();
           </script>
         </body>

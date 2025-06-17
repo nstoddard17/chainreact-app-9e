@@ -18,15 +18,19 @@ export async function GET(request: NextRequest) {
       </head>
       <body>
         <script>
-          window.onload = function() {
-            window.opener.postMessage({
-              type: 'onedrive-auth-success',
-              code: '${code}',
-              state: '${state}'
-            }, window.location.origin);
-            window.close();
-          };
-        </script>
+            // Send success message to parent window
+            if (window.opener) {
+              window.opener.postMessage({
+                type: 'oauth-success',
+                provider: 'onedrive'
+              }, window.location.origin);
+            }
+            
+            // Close the popup
+            setTimeout(() => {
+              window.close();
+            }, 1500);
+          </script>
       </body>
       </html>
     `
@@ -44,7 +48,7 @@ export async function GET(request: NextRequest) {
         <script>
           window.onload = function() {
             window.opener.postMessage({
-              type: 'onedrive-auth-error',
+              type: 'oauth-error',
               error: '${errorMessage}',
               state: '${state}'
             }, window.location.origin);

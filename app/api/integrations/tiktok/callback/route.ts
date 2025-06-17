@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
         <p>You can now close this window.</p>
         <script>
           window.opener.postMessage({
-            type: 'tiktok',
+            type: 'oauth-success',
             payload: { code: '${code}' }
           }, window.location.origin);
           window.close();
@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
         <p>Description: ${error_description || "No description provided."}</p>
         <script>
           window.opener.postMessage({
-            type: 'tiktok',
+            type: 'oauth-error',
             payload: { error: '${error}', error_description: '${error_description}' }
           }, window.location.origin);
           window.close();
@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
         <p>No code or error received from TikTok.</p>
         <script>
           window.opener.postMessage({
-            type: 'tiktok',
+            type: 'oauth-error',
             payload: { error: 'No code or error received' }
           }, window.location.origin);
           window.close();

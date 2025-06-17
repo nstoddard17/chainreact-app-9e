@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
 
         if (event.data === 'handshake') {
           event.source.postMessage({
-            type: 'linkedin',
+            type: 'oauth-success',
             code: '${code}',
             state: '${state}',
           }, event.origin);
