@@ -25,7 +25,7 @@ export class GoogleDriveOAuthService {
   }
 
   static getRedirectUri(origin: string): string {
-    return getOAuthRedirectUri(origin, "google_drive")
+    return getOAuthRedirectUri(origin, "google-drive")
   }
 
   static generateAuthUrl(origin: string, userId: string): string {
