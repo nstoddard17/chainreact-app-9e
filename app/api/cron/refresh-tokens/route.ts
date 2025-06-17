@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createAdminSupabaseClient } from "@/lib/oauth/utils"
+import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 import { refreshTokenIfNeeded } from "@/lib/integrations/tokenRefresher"
+import { SupabaseClient } from "@supabase/supabase-js"
 
 export const dynamic = "force-dynamic"
 export const maxDuration = 60 // 60 seconds (maximum allowed)
@@ -263,30 +264,36 @@ async function backgroundRefreshTokens(jobId: string, startTime: number): Promis
   }
 }
 
-async function processIntegrationRefresh(integration: any, supabase: any, jobId: string) {
+async function processIntegrationRefresh(
+  integration: any,
+  supabase: SupabaseClient<any, "public", any>,
+  jobId: string,
+) {
+  const { provider, user_id, id } = integration
+  const logPrefix = `[${jobId}] [${provider}:${id}]`
   const THIRTY_MINUTES = 30 * 60
   const now = Math.floor(Date.now() / 1000)
-  console.log(`[${jobId}] ➡️ Processing ${integration.provider} (status: ${integration.status})`)
+  console.log(`${logPrefix} Processing ${provider} (status: ${integration.status})`)
   console.log(`   - expires_at: ${integration.expires_at}`)
   console.log(`   - refresh_token exists: ${!!integration.refresh_token}`)
   console.log(`   - consecutive_failures: ${integration.consecutive_failures || 0}`)
 
   // If integration is disconnected/expired, try to recover it
   if (["disconnected", "needs_reauthorization", "expired"].includes(integration.status)) {
-    console.log(`🔄 [${jobId}] Attempting to recover ${integration.status} integration: ${integration.provider}`)
+    console.log(`${logPrefix} Attempting to recover ${integration.status} integration: ${provider}`)
 
     if (!integration.refresh_token) {
-      console.log(`❌ [${jobId}] Cannot recover ${integration.provider}: no refresh token`)
+      console.log(`${logPrefix} Cannot recover ${provider}: no refresh token`)
       return { refreshed: false, success: false, message: "Cannot recover: no refresh token" }
     }
 
     // Try to refresh the token regardless of expiry for recovery attempts
-    console.log(`[${jobId}] Attempting recovery refresh for ${integration.provider}`)
+    console.log(`${logPrefix} Attempting recovery refresh for ${provider}`)
     const result = await refreshTokenWithRetry(integration, supabase, 3, true, jobId)
 
     // If successful, mark as connected again
     if (result.refreshed && result.success) {
-      console.log(`✅ [${jobId}] Successfully recovered ${integration.provider}`)
+      console.log(`${logPrefix} Successfully recovered ${provider}`)
       await supabase
         .from("integrations")
         .update({
@@ -314,20 +321,20 @@ async function processIntegrationRefresh(integration: any, supabase: any, jobId:
     isExpired = expiresIn <= 0
     needsAttention = isExpired || expiresIn < THIRTY_MINUTES
 
-    console.log(`   - expires in: ${expiresIn}s (${Math.floor(expiresIn / 60)}min)`)
-    console.log(`   - isExpired: ${isExpired}, needsAttention: ${needsAttention}`)
+    console.log(`${logPrefix}   - expires in: ${expiresIn}s (${Math.floor(expiresIn / 60)}min)`)
+    console.log(`${logPrefix}   - isExpired: ${isExpired}, needsAttention: ${needsAttention}`)
   } else {
     needsAttention = true
-    console.log(`⚠️ No expiry set for ${integration.provider} — needs attention`)
+    console.log(`${logPrefix} ⚠️ No expiry set for ${provider} — needs attention`)
   }
 
   if (!needsAttention) {
-    console.log(`[${jobId}] ⬅️ Skip ${integration.provider}: not due`)
+    console.log(`${logPrefix} ⬅️ Skip ${provider}: not due`)
     return { refreshed: false, success: true, message: "Token not due for refresh" }
   }
 
   if (!integration.refresh_token) {
-    console.log(`⚠️ ${integration.provider} missing refresh token — marking reauthorization`)
+    console.log(`${logPrefix} ⚠️ ${provider} missing refresh token — marking reauthorization`)
     await supabase
       .from("integrations")
       .update({ status: "needs_reauthorization", updated_at: new Date().toISOString() })
@@ -338,20 +345,20 @@ async function processIntegrationRefresh(integration: any, supabase: any, jobId:
         p_provider: integration.provider,
       })
     } catch (notifError) {
-      console.error(`❌ Notification for ${integration.provider} failed:`, notifError)
+      console.error(`${logPrefix} ❌ Notification for ${provider} failed:`, notifError)
     }
     return { refreshed: false, success: false, message: "Token needs reauthorization (no refresh token)" }
   }
 
-  console.log(`[${jobId}] Preparing to call refreshTokenWithRetry`)
+  console.log(`${logPrefix} Preparing to call refreshTokenWithRetry`)
   const result = await refreshTokenWithRetry(integration, supabase, 3, isExpired, jobId)
-  console.log(`[${jobId}] ⬅️ Completed refresh for ${integration.provider}`)
+  console.log(`${logPrefix} ⬅️ Completed refresh for ${provider}`)
   return result
 }
 
 async function refreshTokenWithRetry(
   integration: any,
-  supabase: any,
+  supabase: SupabaseClient<any, "public", any>,
   maxRetries: number,
   isExpired: boolean,
   jobId: string,
@@ -408,20 +415,25 @@ async function refreshTokenWithRetry(
   throw lastError
 }
 
-async function cleanupOldLogs(supabase: any) {
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
-  console.log(`🧹 Cleaning up logs older than ${thirtyDaysAgo}`)
-  const { error } = await supabase.from("token_refresh_logs").delete().lt("executed_at", thirtyDaysAgo)
+async function cleanupOldLogs(supabase: SupabaseClient<any, "public", any>) {
+  try {
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+    const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString()
+    console.log(`🧹 Cleaning up logs older than ${twentyFourHoursAgo}`)
+    const { error } = await supabase.from("token_refresh_logs").delete().lt("executed_at", twentyFourHoursAgo)
 
-  if (error) {
+    if (error) {
+      console.error("❌ Error cleaning up old logs:", error)
+    } else {
+      console.log("✅ Old logs cleanup complete")
+    }
+  } catch (error: any) {
     console.error("❌ Error cleaning up old logs:", error)
-  } else {
-    console.log("✅ Old logs cleanup complete")
   }
 }
 
 async function completeJob(
-  supabase: any,
+  supabase: SupabaseClient<any, "public", any>,
   jobId: string,
   startTime: number,
   stats: RefreshStats,

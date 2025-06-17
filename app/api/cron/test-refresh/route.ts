@@ -1,8 +1,18 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createAdminSupabaseClient } from "@/lib/oauth/utils"
+import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 import { refreshTokenIfNeeded } from "@/lib/integrations/tokenRefresher"
 
 export const dynamic = "force-dynamic"
+
+interface Integration {
+  provider: string
+  user_id: string
+  refresh_token: string | null
+  expires_at: string | null
+  status: string
+  last_token_refresh: string | null
+  access_token: string | null
+}
 
 // Test endpoint that doesn't require CRON_SECRET for easier manual testing
 // Access at: https://chainreact.app/api/cron/test-refresh

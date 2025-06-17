@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createAdminSupabaseClient } from "@/lib/oauth/utils"
+import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 
 export const dynamic = "force-dynamic"
 

@@ -1,7 +1,18 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createAdminSupabaseClient } from "@/lib/oauth/utils"
+import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 
 export const dynamic = "force-dynamic"
+
+interface Integration {
+  id: string
+  provider: string
+  status: string
+  refresh_token: string | null
+  expires_at: string | null
+  last_token_refresh: string | null
+  created_at: string
+  access_token: string | null
+}
 
 // Debug endpoint to analyze integration data
 // Access at: https://chainreact.app/api/cron/debug-integrations
@@ -42,7 +53,7 @@ export async function GET(request: NextRequest) {
     const now = Math.floor(Date.now() / 1000)
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
 
-    integrations?.forEach((integration) => {
+    integrations?.forEach((integration: Integration) => {
       // Count by status
       analysis.byStatus[integration.status] = (analysis.byStatus[integration.status] || 0) + 1
 
@@ -72,7 +83,7 @@ export async function GET(request: NextRequest) {
     })
 
     // Sample integrations for detailed view
-    const sampleIntegrations = integrations?.slice(0, 10).map((integration) => ({
+    const sampleIntegrations = integrations?.slice(0, 10).map((integration: Integration) => ({
       id: integration.id,
       provider: integration.provider,
       status: integration.status,
