@@ -48,17 +48,14 @@ export async function GET(request: NextRequest) {
       // Send message to the parent window
       window.opener.postMessage(
         {
-          type: 'airtable-auth-code',
-          payload: {
-            code: '${code}',
-            state: '${state}',
-          },
+          type: 'oauth-success',
+          provider: 'airtable'
         },
         window.location.origin
       );
 
       // Close this window after sending the message
-      window.setTimeout(window.close, 1000);
+      window.setTimeout(window.close, 1̀500);
     </script>
   </div>
 </body>

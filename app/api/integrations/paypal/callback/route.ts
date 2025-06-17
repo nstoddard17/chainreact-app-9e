@@ -19,12 +19,19 @@ export async function GET(request: NextRequest) {
         <h1>PayPal Authentication Successful!</h1>
         <p>You can now close this window.</p>
         <script>
-          window.opener.postMessage({
-            type: 'paypal',
-            payload: { code: '${code}' },
-          }, window.location.origin);
-          window.close();
-        </script>
+            // Send success message to parent window
+            if (window.opener) {
+              window.opener.postMessage({
+                type: 'oauth-success',
+                provider: 'paypal'
+              }, window.location.origin);
+            }
+            
+            // Close the popup
+            setTimeout(() => {
+              window.close();
+            }, 1500);
+          </script>
       </body>
       </html>
     `
@@ -41,7 +48,7 @@ export async function GET(request: NextRequest) {
         <p>Description: ${error_description}</p>
         <script>
           window.opener.postMessage({
-            type: 'paypal',
+            type: 'oauth-error',
             payload: { error: '${error}', error_description: '${error_description}' },
           }, window.location.origin);
           window.close();
@@ -61,7 +68,7 @@ export async function GET(request: NextRequest) {
         <p>Something went wrong. Please try again.</p>
         <script>
           window.opener.postMessage({
-            type: 'paypal',
+            type: 'oauth-error',
             payload: { error: 'Unknown error' },
           }, window.location.origin);
           window.close();

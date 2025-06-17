@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
         <p>Error: ${error}</p>
         <script>
           window.opener.postMessage({
-            type: 'teams-integration-error',
+            type: 'oauth-error',
             payload: { error: '${error}' },
           }, '*');
           window.close();
@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
         <p>Code: ${code}</p>
         <script>
           window.opener.postMessage({
-            type: 'teams-integration-success',
+            type: 'oauth-success',
             payload: { code: '${code}' },
           }, '*');
           window.close();
@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
         <p>No code or error received.</p>
         <script>
           window.opener.postMessage({
-            type: 'teams-integration-error',
+            type: 'oauth-error',
             payload: { error: 'No code or error received' },
           }, '*');
           window.close();

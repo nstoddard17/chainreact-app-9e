@@ -367,8 +367,18 @@ export async function GET(request: NextRequest) {
           <h1>Google Docs Integration Successful</h1>
           <p>Google Docs integration was successful!</p>
           <script>
-            window.opener.postMessage({ type: 'oauth-success' }, window.location.origin);
-            window.close();
+            // Send success message to parent window
+            if (window.opener) {
+              window.opener.postMessage({
+                type: 'oauth-success',
+                provider: 'google-docs'
+              }, window.location.origin);
+            }
+            
+            // Close the popup
+            setTimeout(() => {
+              window.close();
+            }, 1500);
           </script>
         </body>
       </html>

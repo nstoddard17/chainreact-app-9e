@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
         <p>Description: ${error_description}</p>
         <script>
           window.opener.postMessage({
-            type: 'gitlab-integration-error',
+            type: 'oauth-error',
             error: '${error}',
             error_description: '${error_description}',
           }, window.location.origin);
@@ -42,8 +42,8 @@ export async function GET(request: NextRequest) {
         <p>You can now close this window.</p>
         <script>
           window.opener.postMessage({
-            type: 'gitlab-integration-success',
-            code: '${code}'
+            type: 'oauth-success',
+            provider: 'gitlab'
           }, window.location.origin);
           window.close();
         </script>
@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
         <p>Something went wrong. Please try again.</p>
         <script>
           window.opener.postMessage({
-            type: 'gitlab-integration-error',
+            type: 'oauth-error',
             error: 'unknown',
             error_description: 'Unknown error during GitLab integration.'
           }, window.location.origin);

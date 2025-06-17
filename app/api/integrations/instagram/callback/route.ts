@@ -19,12 +19,19 @@ export async function GET(request: NextRequest) {
         <h1>Instagram Authentication Successful!</h1>
         <p>You can now close this window.</p>
         <script>
-          window.opener.postMessage({
-            type: 'instagram',
-            payload: { code: '${code}' }
-          }, window.location.origin);
-          window.close();
-        </script>
+            // Send success message to parent window
+            if (window.opener) {
+              window.opener.postMessage({
+                type: 'oauth-success',
+                provider: 'instagram'
+              }, window.location.origin);
+            }
+            
+            // Close the popup
+            setTimeout(() => {
+              window.close();
+            }, 1500);
+          </script>
       </body>
       </html>
     `
@@ -41,7 +48,7 @@ export async function GET(request: NextRequest) {
         <p>Description: ${error_description}</p>
         <script>
           window.opener.postMessage({
-            type: 'instagram',
+            type: 'oauth-error',
             payload: { error: '${error}', error_description: '${error_description}' }
           }, window.location.origin);
           window.close();
@@ -61,7 +68,7 @@ export async function GET(request: NextRequest) {
         <p>Unknown error occurred.</p>
         <script>
           window.opener.postMessage({
-            type: 'instagram',
+            type: 'oauth-error',
             payload: { error: 'unknown', error_description: 'Unknown error occurred' }
           }, window.location.origin);
           window.close();

@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
           const code = "${code}";
           const state = "${state}";
           window.opener.postMessage({
-            type: 'mailchimp',
+            type: 'oath-success',
             payload: {
               code: code,
               state: state,

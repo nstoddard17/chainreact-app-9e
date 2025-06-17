@@ -23,16 +23,20 @@ export async function GET(request: Request) {
 <body>
   <h1>YouTube Authentication Successful</h1>
   <p>You can now close this window.</p>
-  <script>
-    const code = "${code}";
-    const state = "${state}";
-
-    // Send the code and state to the parent window
-    window.opener.postMessage({ type: 'youtube-auth-code', payload: { code, state } }, '*');
-
-    // Close this window after sending the message
-    window.close();
-  </script>
+<script>
+            // Send success message to parent window
+            if (window.opener) {
+              window.opener.postMessage({
+                type: 'oauth-success',
+                provider: 'youtube'
+              }, window.location.origin);
+            }
+            
+            // Close the popup
+            setTimeout(() => {
+              window.close();
+            }, 1500);
+          </script>
 </body>
 </html>
 `
