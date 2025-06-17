@@ -290,7 +290,7 @@ function generateLinkedInAuthUrl(state: string): string {
     client_id: clientId,
     redirect_uri: "https://chainreact.app/api/integrations/linkedin/callback",
     response_type: "code",
-    scope: "r_liteprofile w_member_social",
+    scope: "profile email openid",
     state,
   })
 
