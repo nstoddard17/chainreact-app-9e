@@ -94,7 +94,6 @@ export class TeamsOAuthService {
       provider_user_id: userData.id,
       access_token: data.access_token,
       refresh_token: data.refresh_token,
-      token_type: data.token_type,
       expires_at: data.expires_in
         ? new Date(Date.now() + data.expires_in * 1000).toISOString()
         : null,

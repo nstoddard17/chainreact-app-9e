@@ -104,7 +104,6 @@ export class GitLabOAuthService {
         provider_user_id: userData.id,
         access_token,
         refresh_token,
-        token_type: tokenData.token_type,
         expires_at: expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null,
         scopes: tokenData.scope ? tokenData.scope.split(" ") : [],
         metadata: {

@@ -76,7 +76,6 @@ export class TrelloOAuthService {
 
     const access_token = tokenData.access_token
     const refresh_token = tokenData.refresh_token
-    const token_type = tokenData.token_type
     const expires_at = tokenData.expires_in
       ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString()
       : null
@@ -101,7 +100,6 @@ export class TrelloOAuthService {
       provider_user_id: userData.id,
       access_token,
       refresh_token,
-      token_type,
       expires_at,
       scopes,
       metadata,

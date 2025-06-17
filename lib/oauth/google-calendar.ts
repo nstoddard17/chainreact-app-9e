@@ -111,7 +111,6 @@ export class GoogleCalendarOAuthService {
         provider_user_id: userData.sub,
         access_token,
         refresh_token,
-        token_type: "Bearer",
         expires_at: new Date(Date.now() + expires_in * 1000).toISOString(),
         scopes: OAuthScopes.GOOGLE_CALENDAR,
         metadata: {
