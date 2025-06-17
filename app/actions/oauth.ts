@@ -22,7 +22,7 @@ export async function initiateOAuth(provider: string, reconnect = false, integra
     // Call the auth API route
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://chainreact.app"
 
-    const response = await fetch(`${baseUrl}/api/integrations/auth`, {
+    const response = await fetch(`${baseUrl}/api/integrations/auth/generate-url`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
