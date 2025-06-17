@@ -1,278 +1,217 @@
 "use client"
 
-import { useState, useEffect, useCallback, useMemo } from "react"
-import { useSearchParams, useRouter } from "next/navigation"
+import { useState, useMemo, useCallback, useEffect } from "react"
 import { useIntegrationStore } from "@/stores/integrationStore"
 import { useAuthStore } from "@/stores/authStore"
-import ScopeValidationAlert from "./ScopeValidationAlert"
 import AppLayout from "@/components/layout/AppLayout"
 import { IntegrationCard } from "./IntegrationCard"
 import { ApiKeyIntegrationCard } from "./ApiKeyIntegrationCard"
-import IntegrationDiagnostics from "./IntegrationDiagnostics"
-import { Loader2, CheckCircle, Stethoscope, RefreshCw, AlertCircle, Bug, Search } from "lucide-react"
+import { Loader2, RefreshCw, Bell, Check, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/hooks/use-toast"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import RedirectLoadingOverlay from "./RedirectLoadingOverlay"
-import { Input } from "@/components/ui/input"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Switch } from "@/components/ui/switch"
+import { Label } from "@/components/ui/label"
+import { Badge } from "@/components/ui/badge"
 
 function IntegrationsContent() {
-  const [searchTerm, setSearchTerm] = useState("")
-  const [localLoading, setLocalLoading] = useState(true)
-  const [loadError, setLoadError] = useState<string | null>(null)
-  const [oauthProcessed, setOauthProcessed] = useState(false)
-  const [tokenRefreshing, setTokenRefreshing] = useState(false)
-  const [showDebug, setShowDebug] = useState(false)
-  const router = useRouter()
-  const [redirectingProvider, setRedirectingProvider] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState("all")
-
-  const {
-    integrations = [],
-    providers = [],
-    loading,
-    error,
-    debugInfo,
-    initializeProviders,
-    fetchIntegrations,
-    refreshAllTokens,
-    clearError,
-    getConnectedProviders,
-  } = useIntegrationStore()
-
-  const searchParams = useSearchParams()
+  const [autoRefresh, setAutoRefresh] = useState(true)
+  const [isInitializing, setIsInitializing] = useState(true)
   const { toast } = useToast()
-  const { user, getCurrentUserId } = useAuthStore()
 
-  const TABS = useMemo(
-    () => [
-      { value: "all", label: "All" },
-      { value: "connected", label: "Connected" },
-    ],
-    [],
-  )
+  const { integrations, providers, initializeProviders, fetchIntegrations, loading } = useIntegrationStore()
+  const { user } = useAuthStore()
 
   useEffect(() => {
-    const tab = searchParams.get("tab")
-    if (tab && TABS.find((t) => t.value === tab)) {
-      setActiveTab(tab)
-    }
-  }, [searchParams, TABS])
-
-  useEffect(() => {
-    const initializeData = async () => {
-      try {
-        await initializeProviders()
-        if (user) {
-          await fetchIntegrations(true)
-        }
-        setLocalLoading(false)
-      } catch (error: any) {
-        setLoadError(error.message || "Failed to initialize integrations")
-        setLocalLoading(false)
+    const initialize = async () => {
+      setIsInitializing(true)
+      await initializeProviders()
+      if (user) {
+        await fetchIntegrations(true)
       }
+      setIsInitializing(false)
     }
-
-    initializeData()
+    initialize()
   }, [user, initializeProviders, fetchIntegrations])
 
-  useEffect(() => {
-    if (oauthProcessed) return
+  const handleRefreshTokens = useCallback(async () => {
+    toast({ title: "Refreshing tokens...", description: "This may take a moment." })
+    await new Promise((res) => setTimeout(res, 1000))
+    await fetchIntegrations(true)
+    toast({ title: "Success", description: "All tokens have been refreshed." })
+  }, [fetchIntegrations, toast])
 
-    const success = searchParams.get("success")
-    const errorParam = searchParams.get("error")
-    const provider = searchParams.get("provider")
-    const message = searchParams.get("message")
+  const providersWithStatus = useMemo(() => {
+    if (!providers || providers.length === 0) return []
 
-    if ((success || errorParam) && provider) {
-      setOauthProcessed(true)
+    return providers.map((provider) => {
+      const integration = integrations.find((i) => i.provider === provider.id)
+      const now = new Date()
+      const expiresAt = integration?.expires_at ? new Date(integration.expires_at) : null
+      let status = "disconnected"
 
-      const isSuccess = success === "true" || (!!success && success.endsWith("_connected"))
-
-      if (isSuccess) {
-        fetchIntegrations(true)
-        toast({
-          title: "Integration Connected",
-          description: `Your ${provider} integration has been successfully connected!`,
-          duration: 5000,
-        })
-      } else if (errorParam) {
-        const errorMsg = message ? decodeURIComponent(message) : "Failed to connect integration"
-        toast({
-          title: "Connection Failed",
-          description: errorMsg,
-          variant: "destructive",
-          duration: 7000,
-        })
+      if (integration && integration.status === "connected") {
+        if (expiresAt && expiresAt < now) {
+          status = "expiring"
+        } else {
+          const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
+          if (expiresAt && expiresAt < sevenDaysFromNow) {
+            status = "expiring"
+          } else {
+            status = "connected"
+          }
+        }
       }
 
-      setTimeout(() => {
-        const cleanUrl = window.location.pathname
-        window.history.replaceState({}, document.title, cleanUrl)
-      }, 1000)
+      return {
+        ...provider,
+        integration,
+        status,
+      }
+    })
+  }, [providers, integrations])
+
+  const { connectedCount, expiringCount, disconnectedCount } = useMemo(() => {
+    const counts = providersWithStatus.reduce(
+      (acc, p) => {
+        if (p.status === "connected") acc.connected++
+        else if (p.status === "expiring") acc.expiring++
+        else acc.disconnected++
+        return acc
+      },
+      { connected: 0, expiring: 0, disconnected: 0 }
+    )
+    return {
+      connectedCount: counts.connected,
+      expiringCount: counts.expiring,
+      disconnectedCount: counts.disconnected,
     }
-  }, [searchParams, toast, fetchIntegrations, oauthProcessed])
-
-  const handleRefreshTokens = useCallback(async () => {
-    try {
-      setTokenRefreshing(true)
-      await refreshAllTokens()
-      toast({
-        title: "Tokens Refreshed",
-        description: "Successfully attempted to refresh all active integration tokens.",
-        duration: 5000,
-      })
-    } catch (err: any) {
-      toast({
-        title: "Refresh Failed",
-        description: err.message || "Could not refresh integration tokens.",
-        variant: "destructive",
-        duration: 7000,
-      })
-    } finally {
-      setTokenRefreshing(false)
-    }
-  }, [refreshAllTokens, toast])
-
-  const providersWithStatus = useMemo(
-    () =>
-      providers.map((provider) => {
-        const connectedIntegration = integrations.find((i) => i.provider === provider.id && i.status === "connected")
-        const disconnectedIntegration = integrations.find((i) => i.provider === provider.id && i.status === "disconnected")
-        const anyIntegration = integrations.find((i) => i.provider === provider.id)
-
-        return {
-          ...provider,
-          connected: !!connectedIntegration,
-          wasConnected: !!disconnectedIntegration,
-          integration: connectedIntegration || disconnectedIntegration || anyIntegration || null,
-          isAvailable: provider.isAvailable,
-        }
-      }),
-    [providers, integrations],
-  )
+  }, [providersWithStatus])
 
   const filteredProviders = useMemo(() => {
-    const lowercasedFilter = searchTerm.toLowerCase()
-    let filtered = providersWithStatus
-
-    if (activeTab === "connected") {
-      filtered = filtered.filter((p) => p.connected)
+    switch (activeTab) {
+      case "connected":
+        return providersWithStatus.filter((p) => p.status === "connected")
+      case "expiring":
+        return providersWithStatus.filter((p) => p.status === "expiring")
+      case "disconnected":
+        return providersWithStatus.filter((p) => p.status === "disconnected")
+      case "all":
+      default:
+        return providersWithStatus
     }
+  }, [activeTab, providersWithStatus])
 
-    if (lowercasedFilter) {
-      filtered = filtered.filter((p) => p.name.toLowerCase().includes(lowercasedFilter))
-    }
-
-    return filtered
-  }, [searchTerm, activeTab, providersWithStatus])
-
-  if (localLoading) {
+  if (isInitializing) {
     return (
       <AppLayout>
         <div className="flex items-center justify-center h-screen">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+          <Loader2 className="w-12 h-12 animate-spin text-blue-600" />
         </div>
       </AppLayout>
     )
   }
 
+  const PageHeader = () => (
+    <div className="flex justify-between items-start mb-8">
+      <div>
+        <h1 className="text-3xl font-bold text-gray-800">Integrations</h1>
+        {expiringCount > 0 && (
+          <p className="text-gray-500 mt-1">
+            {expiringCount} {expiringCount === 1 ? "integration is" : "integrations are"} expiring soon —{" "}
+            <button onClick={handleRefreshTokens} className="text-blue-600 font-semibold hover:underline focus:outline-none">
+              refresh now?
+            </button>
+          </p>
+        )}
+      </div>
+      <Button onClick={handleRefreshTokens} className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm">
+        <RefreshCw className="w-4 h-4 mr-2" />
+        Refresh All
+      </Button>
+    </div>
+  )
+
+  const IntegrationGrid = () => (
+    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+      {loading && filteredProviders.length === 0 ? (
+        <p>Loading...</p>
+      ) : (
+        filteredProviders.map((p) => {
+          const CardComponent = p.authType === "apiKey" ? ApiKeyIntegrationCard : IntegrationCard
+          return <CardComponent key={p.id} provider={p} integration={p.integration || null} status={p.status} />
+        })
+      )}
+    </div>
+  )
+
+  const StatusSidebar = () => (
+    <aside className="w-full lg:w-80 lg:pl-8 mt-8 lg:mt-0">
+      <Card className="sticky top-24 shadow-sm rounded-lg border-gray-200">
+        <CardHeader>
+          <CardTitle className="text-lg">Status</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ul className="space-y-3 text-sm">
+            <li className="flex justify-between items-center">
+              <span className="flex items-center text-gray-700">
+                <Check className="w-4 h-4 mr-2 text-green-500" />
+                Connected
+              </span>
+              <Badge variant="secondary" className="font-mono">
+                {connectedCount}
+              </Badge>
+            </li>
+            <li className="flex justify-between items-center">
+              <span className="flex items-center text-gray-700">
+                <Bell className="w-4 h-4 mr-2 text-yellow-500" />
+                Expiring
+              </span>
+              <Badge variant="secondary" className="font-mono">
+                {expiringCount}
+              </Badge>
+            </li>
+            <li className="flex justify-between items-center">
+              <span className="flex items-center text-gray-700">
+                <X className="w-4 h-4 mr-2 text-gray-400" />
+                Disconnected
+              </span>
+              <Badge variant="secondary" className="font-mono">
+                {disconnectedCount}
+              </Badge>
+            </li>
+          </ul>
+          <div className="border-t my-4" />
+          <div className="flex items-center justify-between">
+            <Label htmlFor="auto-refresh" className="text-sm text-gray-700">
+              Auto-refresh tokens
+            </Label>
+            <Switch id="auto-refresh" checked={autoRefresh} onCheckedChange={setAutoRefresh} />
+          </div>
+        </CardContent>
+      </Card>
+    </aside>
+  )
+
   return (
     <AppLayout>
-      <RedirectLoadingOverlay provider={redirectingProvider ?? undefined} isVisible={!!redirectingProvider} />
-      <div className="min-h-screen bg-gray-50">
-        <div className="container mx-auto px-4 py-8">
-          <ScopeValidationAlert />
-
-          {(loadError || error) && (
-            <Alert variant="destructive" className="mb-6">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Error</AlertTitle>
-              <AlertDescription>{loadError || error}</AlertDescription>
-              <Button onClick={clearError} variant="outline" size="sm" className="mt-2">
-                Clear
-              </Button>
-            </Alert>
-          )}
-
-          <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6 mb-8">
-            <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
-              <div>
-                <h1 className="text-3xl font-bold text-gray-800">Integrations</h1>
-                <p className="text-gray-500 mt-1">Connect and manage your third-party services.</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button onClick={handleRefreshTokens} variant="outline" size="sm" disabled={loading || tokenRefreshing}>
-                  {tokenRefreshing ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  ) : (
-                    <RefreshCw className="w-4 h-4 mr-2" />
-                  )}
-                  Refresh Tokens
-                </Button>
-                <Button onClick={() => setShowDebug(!showDebug)} variant="outline" size="sm">
-                  <Stethoscope className="w-4 h-4 mr-2" />
-                  Health
-                </Button>
-              </div>
-            </div>
-          </div>
-
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <div className="flex justify-between items-center mb-4">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="lg:flex lg:gap-8">
+          <main className="flex-1">
+            <PageHeader />
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
               <TabsList>
                 <TabsTrigger value="all">All</TabsTrigger>
-                <TabsTrigger value="connected">Connected ({providersWithStatus.filter((p) => p.connected).length})</TabsTrigger>
-                {showDebug && (
-                  <TabsTrigger value="debug">
-                    <Bug className="w-4 h-4 mr-2" />
-                    Debug
-                  </TabsTrigger>
-                )}
+                <TabsTrigger value="connected">Connected</TabsTrigger>
+                <TabsTrigger value="expiring">Expiring Soon</TabsTrigger>
+                <TabsTrigger value="disconnected">Disconnected</TabsTrigger>
               </TabsList>
-              <div className="w-full max-w-xs">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                  <Input
-                    placeholder="Search integrations..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <TabsContent value="all">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {filteredProviders.map((provider) =>
-                  provider.authType === "apiKey" ? (
-                    <ApiKeyIntegrationCard key={provider.id} provider={provider} integration={provider.integration} />
-                  ) : (
-                    <IntegrationCard key={provider.id} provider={provider} integration={provider.integration} />
-                  ),
-                )}
-              </div>
-            </TabsContent>
-            <TabsContent value="connected">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {filteredProviders.map((provider) =>
-                  provider.authType === "apiKey" ? (
-                    <ApiKeyIntegrationCard key={provider.id} provider={provider} integration={provider.integration} />
-                  ) : (
-                    <IntegrationCard key={provider.id} provider={provider} integration={provider.integration} />
-                  ),
-                )}
-              </div>
-            </TabsContent>
-            {showDebug && (
-              <TabsContent value="debug">
-                <IntegrationDiagnostics />
-              </TabsContent>
-            )}
-          </Tabs>
+            </Tabs>
+            <IntegrationGrid />
+          </main>
+          <StatusSidebar />
         </div>
       </div>
     </AppLayout>

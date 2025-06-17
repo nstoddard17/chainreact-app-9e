@@ -1,24 +1,22 @@
 "use client"
 
-import { useState, useCallback, useEffect } from "react"
+import { useState } from "react"
 import Image from "next/image"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { CheckCircle, Loader2, RefreshCw, ExternalLink, AlertCircle, X, Link as LinkIcon } from "lucide-react"
+import { Loader2, RefreshCw, X, Link as LinkIcon } from "lucide-react"
 import { useIntegrationStore, type Integration, type Provider } from "@/stores/integrationStore"
-import { useToast } from "@/hooks/use-toast"
-import RedirectLoadingOverlay from "./RedirectLoadingOverlay"
 import { cn } from "@/lib/utils"
 
 interface IntegrationCardProps {
   provider: Provider
   integration: Integration | null
+  status: 'connected' | 'expiring' | 'disconnected'
 }
 
-export function IntegrationCard({ provider, integration }: IntegrationCardProps) {
+export function IntegrationCard({ provider, integration, status }: IntegrationCardProps) {
   const { connectIntegration, disconnectIntegration, loadingStates } = useIntegrationStore()
-  const { toast } = useToast()
 
   const handleConnect = () => {
     connectIntegration(provider.id)
@@ -30,59 +28,54 @@ export function IntegrationCard({ provider, integration }: IntegrationCardProps)
     }
   }
 
-  const handleReconnect = () => {
-    // Reconnect should essentially be the same as initial connect
+  const handleRefresh = () => {
+    // Refresh is functionally the same as connecting again
     connectIntegration(provider.id)
   }
 
-  const isLoadingConnect = loadingStates[`connect-${provider.id}`]
-  const isLoadingDisconnect = integration ? loadingStates[`disconnect-${integration.provider}`] : false
-  const isLoading = isLoadingConnect || isLoadingDisconnect
+  const isLoading = 
+    loadingStates[`connect-${provider.id}`] || 
+    (integration ? loadingStates[`disconnect-${integration.provider}`] : false)
 
-  const now = new Date()
-  const expiresAt = integration?.expires_at ? new Date(integration.expires_at) : null
-  
-  // Consider expired if the expiry date is in the past
-  const isExpired = expiresAt ? expiresAt < now : false;
-  
-  // Consider expiring soon if the expiry date is within the next 7 days
-  const sevenDaysFromNow = new Date(now.setDate(now.getDate() + 7));
-  const isExpiringSoon = expiresAt ? expiresAt < sevenDaysFromNow && expiresAt > now : false;
-
-  let statusText = 'Disconnected'
-  let statusColor = 'text-gray-500'
-  let statusAction = 'connect'
-
-  if (integration?.status === 'connected') {
-    if (isExpired) {
-      statusText = 'Expired'
-      statusColor = 'text-red-500'
-      statusAction = 'reconnect'
-    } else if (isExpiringSoon) {
-      statusText = 'Expiring Soon'
-      statusColor = 'text-yellow-600'
-      statusAction = 'reconnect'
-    } else {
-      statusText = 'Connected'
-      statusColor = 'text-gray-500'
-      statusAction = 'disconnect'
+  const getStatusUi = () => {
+    switch (status) {
+      case 'connected':
+        return {
+          text: 'Connected',
+          badgeClass: 'bg-green-100 text-green-800',
+          action: 'disconnect'
+        }
+      case 'expiring':
+        return {
+          text: 'Expiring',
+          badgeClass: 'bg-yellow-100 text-yellow-800',
+          action: 'refresh'
+        }
+      default: // disconnected
+        return {
+          text: 'Disconnected',
+          badgeClass: 'bg-gray-100 text-gray-800',
+          action: 'connect'
+        }
     }
   }
+
+  const { text: statusText, badgeClass, action: statusAction } = getStatusUi()
 
   const renderButton = () => {
     switch (statusAction) {
       case 'connect':
         return (
-          <Button onClick={handleConnect} disabled={isLoading} className="bg-black text-white hover:bg-gray-800">
+          <Button onClick={handleConnect} disabled={isLoading} size="sm" className="w-full">
             {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LinkIcon className="mr-2 h-4 w-4" />}
             Connect
           </Button>
         )
-      case 'reconnect':
+      case 'refresh':
         return (
-          <Button onClick={handleReconnect} disabled={isLoading} variant="outline">
+          <Button onClick={handleRefresh} disabled={isLoading} variant="outline" size="sm" className="w-full">
             {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
-            Reconnect
+            Refresh
           </Button>
         )
       case 'disconnect':
@@ -90,8 +83,9 @@ export function IntegrationCard({ provider, integration }: IntegrationCardProps)
           <Button
             onClick={handleDisconnect}
             disabled={isLoading}
-            variant="outline"
-            className="border-red-500 text-red-500 hover:bg-red-50 hover:text-red-600"
+            variant="destructive"
+            size="sm"
+            className="w-full"
           >
             {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <X className="mr-2 h-4 w-4" />}
             Disconnect
@@ -103,21 +97,19 @@ export function IntegrationCard({ provider, integration }: IntegrationCardProps)
   }
 
   return (
-    <Card className="flex flex-col justify-between p-4">
-      <CardHeader className="flex flex-row items-center justify-between p-2">
-        <div className="flex items-center gap-3">
-          {provider.logoUrl && <Image src={provider.logoUrl} alt={`${provider.name} logo`} width={32} height={32} />}
-          <CardTitle className="text-lg font-semibold">{provider.name}</CardTitle>
-        </div>
-        <Badge className={`px-2 py-1 text-xs font-medium rounded-full ${statusColor}`}>{statusText}</Badge>
-      </CardHeader>
-      <CardContent className="p-2">
-        {/* Description or other info can go here if needed in the future */}
+    <Card className="flex flex-col justify-between p-4 shadow-sm hover:shadow-md transition-shadow duration-200 rounded-lg border-gray-200">
+        <CardHeader className="flex-row items-start justify-between p-2">
+            <div className="flex items-center gap-4">
+              {provider.logoUrl && <Image src={provider.logoUrl} alt={`${provider.name} logo`} width={40} height={40} className="rounded-md" />}
+              <CardTitle className="text-lg font-semibold">{provider.name}</CardTitle>
+            </div>
+            <Badge className={cn("px-2.5 py-1 text-xs font-medium", badgeClass)}>{statusText}</Badge>
+        </CardHeader>
+      <CardContent className="p-2 min-h-[40px]">
+        <p className="text-sm text-gray-500 line-clamp-2">{provider.description}</p>
       </CardContent>
       <CardFooter className="p-2">
-        <div className="flex w-full items-center gap-2">
-          {renderButton()}
-        </div>
+        {renderButton()}
       </CardFooter>
     </Card>
   )
