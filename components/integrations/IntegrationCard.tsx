@@ -5,7 +5,7 @@ import Image from "next/image"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, RefreshCw, X, Link as LinkIcon } from "lucide-react"
+import { Loader2, RefreshCw, Link as LinkIcon, Link2Off } from "lucide-react"
 import { useIntegrationStore, type Integration, type Provider } from "@/stores/integrationStore"
 import { cn } from "@/lib/utils"
 
@@ -71,11 +71,11 @@ export function IntegrationCard({ provider, integration, status }: IntegrationCa
           <Button
             onClick={handleDisconnect}
             disabled={isLoading}
-            variant="destructive"
+            variant="outline"
             size="sm"
-            className="w-full"
+            className="w-full bg-white text-gray-700 hover:bg-gray-100"
           >
-            {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <X className="mr-2 h-4 w-4" />}
+            {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Link2Off className="mr-2 h-4 w-4" />}
             Disconnect
           </Button>
         )

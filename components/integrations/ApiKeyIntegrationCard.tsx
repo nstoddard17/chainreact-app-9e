@@ -7,7 +7,7 @@ import type { Provider, Integration } from '@/stores/integrationStore'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, X, Link as LinkIcon } from 'lucide-react'
+import { Loader2, Link as LinkIcon, Link2Off } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { GumroadGuide } from './guides/GumroadGuide'
 import { ManyChatGuide } from './guides/ManyChatGuide'
@@ -74,11 +74,11 @@ export function ApiKeyIntegrationCard({ provider, integration, status }: ApiKeyI
         <Button
           onClick={handleDisconnect}
           disabled={isLoading}
-          variant="destructive"
+          variant="outline"
           size="sm"
-          className="w-full"
+          className="w-full bg-white text-gray-700 hover:bg-gray-100"
         >
-          {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <X className="mr-2 h-4 w-4" />}
+          {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Link2Off className="mr-2 h-4 w-4" />}
           Disconnect
         </Button>
       )
