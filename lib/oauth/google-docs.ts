@@ -63,89 +63,109 @@ export class GoogleDocsOAuthService {
   static async handleCallback(
     code: string,
     state: string,
+    supabase: ReturnType<typeof createClient>,
     userId: string,
-  ): Promise<Response> {
-    const { clientId, clientSecret } = this.getClientCredentials()
-    if (!clientId || !clientSecret) {
-      throw new Error("Missing Google client credentials")
-    }
+    origin: string
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const { clientId, clientSecret } = this.getClientCredentials()
+      if (!clientId || !clientSecret) {
+        throw new Error("Missing Google client credentials")
+      }
 
-    // Parse and validate state
-    const stateData = parseOAuthState(state)
-    validateOAuthState(stateData, "google")
+      // Parse and validate state
+      const stateData = parseOAuthState(state)
+      validateOAuthState(stateData, "google")
 
-    // Exchange code for token
-    const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: new URLSearchParams({
-        client_id: clientId,
-        client_secret: clientSecret,
-        code,
-        grant_type: "authorization_code",
-        redirect_uri: this.getRedirectUri(getBaseUrl()),
-      }),
-    })
-
-    if (!tokenResponse.ok) {
-      throw new Error("Failed to exchange code for token")
-    }
-
-    const { access_token, refresh_token } = await tokenResponse.json()
-
-    // Get user info
-    const userResponse = await fetch(
-      "https://www.googleapis.com/oauth2/v2/userinfo",
-      {
+      // Exchange code for token
+      const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+        method: "POST",
         headers: {
-          Authorization: `Bearer ${access_token}`,
+          "Content-Type": "application/x-www-form-urlencoded",
         },
-      },
-    )
+        body: new URLSearchParams({
+          client_id: clientId,
+          client_secret: clientSecret,
+          code,
+          grant_type: "authorization_code",
+          redirect_uri: this.getRedirectUri(origin),
+        }),
+      })
 
-    if (!userResponse.ok) {
-      throw new Error("Failed to get user info")
-    }
+      if (!tokenResponse.ok) {
+        const errorText = await tokenResponse.text()
+        throw new Error(`Token exchange failed: ${errorText}`)
+      }
 
-    const user = await userResponse.json()
+      const tokenData = await tokenResponse.json()
+      const { access_token, refresh_token, expires_in } = tokenData
 
-    // Check for existing integration
-    const { data: existingIntegration } = await supabase
-      .from("integrations")
-      .select("id")
-      .eq("user_id", userId)
-      .eq("provider", "google")
-      .eq("service", "docs")
-      .maybeSingle()
+      // Get user info
+      const userResponse = await fetch(
+        "https://www.googleapis.com/oauth2/v2/userinfo",
+        {
+          headers: {
+            Authorization: `Bearer ${access_token}`,
+          },
+        },
+      )
 
-    const integrationData = {
-      user_id: userId,
-      provider: "google",
-      service: "docs",
-      provider_user_id: user.email,
-      access_token,
-      refresh_token,
-      token_type: "Bearer",
-      expires_at: new Date(Date.now() + 3600 * 1000).toISOString(),
-      metadata: {
-        email: user.email,
-        display_name: user.name,
-        photo_url: user.picture,
-      },
-    }
+      if (!userResponse.ok) {
+        throw new Error("Failed to get user info")
+      }
 
-    if (existingIntegration) {
-      await supabase
+      const user = await userResponse.json()
+
+      // Check for existing integration
+      const { data: existingIntegration } = await supabase
         .from("integrations")
-        .update(integrationData)
-        .eq("id", existingIntegration.id)
-    } else {
-      await supabase.from("integrations").insert(integrationData)
-    }
+        .select("id")
+        .eq("user_id", userId)
+        .eq("provider", "google")
+        .eq("service", "docs")
+        .maybeSingle()
 
-    return new Response(null, { status: 200 })
+      const integrationData = {
+        user_id: userId,
+        provider: "google",
+        service: "docs",
+        provider_user_id: user.email,
+        access_token,
+        refresh_token,
+        token_type: "Bearer",
+        expires_at: new Date(Date.now() + 3600 * 1000).toISOString(),
+        metadata: {
+          email: user.email,
+          display_name: user.name,
+          photo_url: user.picture,
+        },
+      }
+
+      if (existingIntegration) {
+        const { error } = await supabase
+          .from("integrations")
+          .update(integrationData)
+          .eq("id", existingIntegration.id)
+
+        if (error) {
+          throw new Error(`Failed to update integration: ${error.message}`)
+        }
+      } else {
+        const { error } = await supabase.from("integrations").insert({
+          ...integrationData,
+          created_at: new Date().toISOString(),
+        })
+
+        if (error) {
+          throw new Error(`Failed to insert integration: ${error.message}`)
+        }
+      }
+
+      return { success: true }
+    } catch (error: any) {
+      console.error("Google Docs OAuth error:", error)
+      return { success: false, error: error.message }
+    }
   }
 
   static async refreshToken(
