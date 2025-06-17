@@ -101,9 +101,6 @@ export function ApiKeyIntegrationCard({ provider, integration, status }: ApiKeyI
               </div>
               <Badge className={cn("px-2.5 py-1 text-xs font-medium", statusBadgeClass)}>{statusText}</Badge>
           </CardHeader>
-        <CardContent className="p-2 min-h-[40px]">
-            <p className="text-sm text-gray-500 line-clamp-2">{provider.description}</p>
-        </CardContent>
         <CardFooter className="p-2">
           {renderButton()}
         </CardFooter>

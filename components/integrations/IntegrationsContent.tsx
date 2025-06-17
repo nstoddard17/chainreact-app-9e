@@ -120,17 +120,10 @@ function IntegrationsContent() {
         <h1 className="text-3xl font-bold text-gray-800">Integrations</h1>
         {expiringCount > 0 && (
           <p className="text-gray-500 mt-1">
-            {expiringCount} {expiringCount === 1 ? "integration is" : "integrations are"} expiring soon —{" "}
-            <button onClick={handleRefreshTokens} className="text-blue-600 font-semibold hover:underline focus:outline-none">
-              refresh now?
-            </button>
+            {expiringCount} {expiringCount === 1 ? "integration is" : "integrations are"} expiring soon
           </p>
         )}
       </div>
-      <Button onClick={handleRefreshTokens} className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm">
-        <RefreshCw className="w-4 h-4 mr-2" />
-        Refresh All
-      </Button>
     </div>
   )
 

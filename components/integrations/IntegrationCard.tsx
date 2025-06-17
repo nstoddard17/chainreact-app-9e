@@ -28,11 +28,6 @@ export function IntegrationCard({ provider, integration, status }: IntegrationCa
     }
   }
 
-  const handleRefresh = () => {
-    // Refresh is functionally the same as connecting again
-    connectIntegration(provider.id)
-  }
-
   const isLoading = 
     loadingStates[`connect-${provider.id}`] || 
     (integration ? loadingStates[`disconnect-${integration.provider}`] : false)
@@ -49,7 +44,7 @@ export function IntegrationCard({ provider, integration, status }: IntegrationCa
         return {
           text: 'Expiring',
           badgeClass: 'bg-yellow-100 text-yellow-800',
-          action: 'refresh'
+          action: 'disconnect'
         }
       default: // disconnected
         return {
@@ -69,13 +64,6 @@ export function IntegrationCard({ provider, integration, status }: IntegrationCa
           <Button onClick={handleConnect} disabled={isLoading} size="sm" className="w-full">
             {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LinkIcon className="mr-2 h-4 w-4" />}
             Connect
-          </Button>
-        )
-      case 'refresh':
-        return (
-          <Button onClick={handleRefresh} disabled={isLoading} variant="outline" size="sm" className="w-full">
-            {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
-            Refresh
           </Button>
         )
       case 'disconnect':
@@ -105,9 +93,6 @@ export function IntegrationCard({ provider, integration, status }: IntegrationCa
             </div>
             <Badge className={cn("px-2.5 py-1 text-xs font-medium", badgeClass)}>{statusText}</Badge>
         </CardHeader>
-      <CardContent className="p-2 min-h-[40px]">
-        <p className="text-sm text-gray-500 line-clamp-2">{provider.description}</p>
-      </CardContent>
       <CardFooter className="p-2">
         {renderButton()}
       </CardFooter>
