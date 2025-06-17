@@ -11,7 +11,7 @@ import { createClient } from "@supabase/supabase-js"
 export class GoogleSheetsOAuthService {
   private static clientId: string | undefined = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
   private static clientSecret: string | undefined = process.env.GOOGLE_CLIENT_SECRET
-  static readonly apiUrl = "https://www.googleapis.com/sheets/v4"
+  static readonly apiUrl = "https://sheets.googleapis.com/v4"
 
   static getClientCredentials() {
     const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
@@ -35,9 +35,15 @@ export class GoogleSheetsOAuthService {
     }
 
     const redirectUri = this.getRedirectUri(origin)
+    console.log("Google Sheets Auth URL Debug:", {
+      origin,
+      redirectUri,
+      userId,
+    })
+
     const state = JSON.stringify({
       provider: "google",
-      service: "google-sheets",
+      service: "sheets",
       userId,
     })
 
@@ -91,7 +97,7 @@ export class GoogleSheetsOAuthService {
 
     // Get user info
     const userResponse = await fetch(
-      `${this.apiUrl}/spreadsheets?maxResults=1`,
+      "https://www.googleapis.com/oauth2/v2/userinfo",
       {
         headers: {
           Authorization: `Bearer ${access_token}`,
@@ -103,8 +109,7 @@ export class GoogleSheetsOAuthService {
       throw new Error("Failed to get user info")
     }
 
-    const { files } = await userResponse.json()
-    const user = files[0]?.owners?.[0]
+    const user = await userResponse.json()
 
     // Check for existing integration
     const { data: existingIntegration } = await supabase
@@ -112,20 +117,22 @@ export class GoogleSheetsOAuthService {
       .select("id")
       .eq("user_id", userId)
       .eq("provider", "google")
+      .eq("service", "sheets")
       .maybeSingle()
 
     const integrationData = {
       user_id: userId,
       provider: "google",
-      provider_user_id: user.emailAddress,
+      service: "sheets",
+      provider_user_id: user.email,
       access_token,
       refresh_token,
       token_type: "Bearer",
       expires_at: new Date(Date.now() + 3600 * 1000).toISOString(),
       metadata: {
-        email: user.emailAddress,
-        display_name: user.displayName,
-        photo_url: user.photoLink,
+        email: user.email,
+        display_name: user.name,
+        photo_url: user.picture,
       },
     }
 
@@ -178,6 +185,7 @@ export class GoogleSheetsOAuthService {
       })
       .eq("user_id", userId)
       .eq("provider", "google")
+      .eq("service", "sheets")
 
     return response.json()
   }
