@@ -9,7 +9,7 @@ import {
 import { createClient } from "@supabase/supabase-js"
 
 export class GoogleDocsOAuthService {
-  private static clientId: string | undefined = process.env.GOOGLE_CLIENT_ID
+  private static clientId: string | undefined = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
   private static clientSecret: string | undefined = process.env.GOOGLE_CLIENT_SECRET
 
   static getClientCredentials() {

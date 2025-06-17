@@ -1,6 +1,10 @@
-import { OAuthScopes, getOAuthRedirectUri } from "./utils"
+import { getBaseUrl } from "@/lib/utils/getBaseUrl"
+import { getOAuthRedirectUri, OAuthScopes } from "./utils"
 
 export class GmailOAuthService {
+  private static clientId: string | undefined = process.env.GOOGLE_CLIENT_ID
+  private static clientSecret: string | undefined = process.env.GOOGLE_CLIENT_SECRET
+
   static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string, userId?: string): string {
     const { clientId } = this.getClientCredentials()
     const redirectUri = this.getRedirectUri(baseUrl)
