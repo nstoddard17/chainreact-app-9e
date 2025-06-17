@@ -1,5 +1,16 @@
+import { type NextRequest } from "next/server"
+import { createClient } from "@supabase/supabase-js"
 import { GmailOAuthService } from "@/lib/oauth/gmail"
-import { createAdminSupabaseClient } from "@/lib/supabase/admin"
+import { parseOAuthState, validateOAuthState } from "@/lib/oauth/utils"
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+if (!supabaseUrl || !supabaseServiceRoleKey) {
+  throw new Error("Missing required environment variables")
+}
+
+const supabase = createClient(supabaseUrl, supabaseServiceRoleKey)
 
 export async function GET(request: Request) {
   try {
@@ -11,7 +22,6 @@ export async function GET(request: Request) {
       return new Response("Missing code or state", { status: 400 })
     }
 
-    const supabase = createAdminSupabaseClient()
     const { data: { user }, error: userError } = await supabase.auth.getUser()
 
     if (userError || !user) {
