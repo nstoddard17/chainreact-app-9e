@@ -394,7 +394,7 @@ export async function GET(request: NextRequest) {
       refresh_token: tokens.refresh_token,
       expires_at: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
       token_type: tokens.token_type,
-      scope: tokens.scope,
+      scopes: tokens.scope.split(" "),
       metadata: {
         email: userInfo.email,
         name: userInfo.name,
