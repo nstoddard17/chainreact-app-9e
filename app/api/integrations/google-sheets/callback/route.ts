@@ -5,248 +5,123 @@ import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 // Create a Supabase client with admin privileges
 const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
+function createPopupResponse(
+  type: "success" | "error",
+  provider: string,
+  message: string,
+  baseUrl: string,
+) {
+  const title = type === "success" ? `${provider} Connection Successful` : `${provider} Connection Failed`
+  const header = type === "success" ? `${provider} Connected!` : `Error Connecting ${provider}`
+  const status = type === "success" ? 200 : 500
+  const script = `
+    <script>
+      if (window.opener) {
+        window.opener.postMessage({
+          type: 'oauth-${type}',
+          provider: '${provider}',
+          message: '${message}'
+        }, '${baseUrl}');
+      }
+      setTimeout(() => window.close(), 1000);
+    </script>
+  `
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>${title}</title>
+        <style>
+          body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            height: 100vh; 
+            margin: 0;
+            background: ${type === "success" ? "linear-gradient(135deg, #24c6dc 0%, #514a9d 100%)" : "linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%)"};
+            color: white;
+          }
+          .container { 
+            text-align: center; 
+            padding: 2rem;
+            background: rgba(255,255,255,0.1);
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+          }
+          .icon { font-size: 3rem; margin-bottom: 1rem; }
+          h1 { margin: 0 0 0.5rem 0; font-size: 1.5rem; }
+          p { margin: 0.5rem 0; opacity: 0.9; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="icon">${type === "success" ? "✅" : "❌"}</div>
+          <h1>${header}</h1>
+          <p>${message}</p>
+          <p>This window will close automatically...</p>
+        </div>
+        ${script}
+      </body>
+    </html>
+  `
+  return new Response(html, { status, headers: { "Content-Type": "text/html" } })
+}
+
 export async function GET(request: NextRequest) {
   console.log("Google Sheets OAuth callback received")
+  const baseUrl = getBaseUrl()
 
   try {
     const searchParams = request.nextUrl.searchParams
     const code = searchParams.get("code")
     const state = searchParams.get("state")
     const error = searchParams.get("error")
-    const baseUrl = getBaseUrl(request)
-
-    console.log("Google Sheets callback params:", {
-      hasCode: !!code,
-      hasState: !!state,
-      error,
-    })
 
     if (error) {
-      console.error("Google Sheets OAuth error:", error)
-      const errorDescription = searchParams.get("error_description")
-
-      const errorHtml = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Google Sheets Connection Failed</title>
-          <style>
-            body { 
-              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-              display: flex; 
-              align-items: center; 
-              justify-content: center; 
-              height: 100vh; 
-              margin: 0;
-              background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
-              color: white;
-            }
-            .container { 
-              text-align: center; 
-              padding: 2rem;
-              background: rgba(255,255,255,0.1);
-              border-radius: 12px;
-              backdrop-filter: blur(10px);
-            }
-            .error-icon { font-size: 3rem; margin-bottom: 1rem; }
-            h1 { margin: 0 0 0.5rem 0; font-size: 1.5rem; }
-            p { margin: 0.5rem 0; opacity: 0.9; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="error-icon">❌</div>
-            <h1>Google Sheets Connection Failed</h1>
-            <p>${error}: ${errorDescription || ""}</p>
-            <p>This window will close automatically...</p>
-          </div>
-          <script>
-            if (window.opener) {
-              window.opener.postMessage({
-                type: 'oauth-error',
-                provider: 'google-sheets',
-                error: '${error}: ${errorDescription || ""}'
-              }, window.location.origin);
-            }
-            setTimeout(() => window.close(), 2000);
-          </script>
-        </body>
-        </html>
-      `
-
-      return new Response(errorHtml, { headers: { "Content-Type": "text/html" } })
+      const errorDescription =
+        searchParams.get("error_description") || "An unknown error occurred."
+      console.error("Google Sheets OAuth error:", error, errorDescription)
+      return createPopupResponse(
+        "error",
+        "google-sheets",
+        `${error}: ${errorDescription}`,
+        baseUrl,
+      )
     }
 
     if (!code || !state) {
       console.error("Missing code or state in Google Sheets callback")
-
-      const errorHtml = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Google Sheets Connection Failed</title>
-          <style>
-            body { 
-              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-              display: flex; 
-              align-items: center; 
-              justify-content: center; 
-              height: 100vh; 
-              margin: 0;
-              background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
-              color: white;
-            }
-            .container { 
-              text-align: center; 
-              padding: 2rem;
-              background: rgba(255,255,255,0.1);
-              border-radius: 12px;
-              backdrop-filter: blur(10px);
-            }
-            .error-icon { font-size: 3rem; margin-bottom: 1rem; }
-            h1 { margin: 0 0 0.5rem 0; font-size: 1.5rem; }
-            p { margin: 0.5rem 0; opacity: 0.9; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="error-icon">❌</div>
-            <h1>Google Sheets Connection Failed</h1>
-            <p>Authorization code or state is missing</p>
-            <p>This window will close automatically...</p>
-          </div>
-          <script>
-            if (window.opener) {
-              window.opener.postMessage({
-                type: 'oauth-error',
-                provider: 'google-sheets',
-                error: 'Authorization code or state is missing'
-              }, window.location.origin);
-            }
-            setTimeout(() => window.close(), 2000);
-          </script>
-        </body>
-        </html>
-      `
-
-      return new Response(errorHtml, { headers: { "Content-Type": "text/html" } })
+      return createPopupResponse(
+        "error",
+        "google-sheets",
+        "Authorization code or state is missing.",
+        baseUrl,
+      )
     }
 
-    // Parse state
     let stateData
     try {
       stateData = JSON.parse(atob(state))
-      console.log("Google Sheets parsed state:", stateData)
-    } catch (error) {
-      console.error("Invalid state parameter in Google Sheets callback:", error)
-
-      const errorHtml = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Google Sheets Connection Failed</title>
-          <style>
-            body { 
-              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-              display: flex; 
-              align-items: center; 
-              justify-content: center; 
-              height: 100vh; 
-              margin: 0;
-              background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
-              color: white;
-            }
-            .container { 
-              text-align: center; 
-              padding: 2rem;
-              background: rgba(255,255,255,0.1);
-              border-radius: 12px;
-              backdrop-filter: blur(10px);
-            }
-            .error-icon { font-size: 3rem; margin-bottom: 1rem; }
-            h1 { margin: 0 0 0.5rem 0; font-size: 1.5rem; }
-            p { margin: 0.5rem 0; opacity: 0.9; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="error-icon">❌</div>
-            <h1>Google Sheets Connection Failed</h1>
-            <p>Invalid state parameter</p>
-            <p>This window will close automatically...</p>
-          </div>
-          <script>
-            if (window.opener) {
-              window.opener.postMessage({
-                type: 'oauth-error',
-                provider: 'google-sheets',
-                error: 'Invalid state parameter'
-              }, window.location.origin);
-            }
-            setTimeout(() => window.close(), 2000);
-          </script>
-        </body>
-        </html>
-      `
-
-      return new Response(errorHtml, { headers: { "Content-Type": "text/html" } })
+    } catch (e) {
+      console.error("Invalid state parameter in Google Sheets callback:", e)
+      return createPopupResponse(
+        "error",
+        "google-sheets",
+        "Invalid state parameter.",
+        baseUrl,
+      )
     }
 
     const { userId } = stateData
-
     if (!userId) {
       console.error("Missing userId in Google Sheets state")
-
-      const errorHtml = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Google Sheets Connection Failed</title>
-          <style>
-            body { 
-              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-              display: flex; 
-              align-items: center; 
-              justify-content: center; 
-              height: 100vh; 
-              margin: 0;
-              background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
-              color: white;
-            }
-            .container { 
-              text-align: center; 
-              padding: 2rem;
-              background: rgba(255,255,255,0.1);
-              border-radius: 12px;
-              backdrop-filter: blur(10px);
-            }
-            .error-icon { font-size: 3rem; margin-bottom: 1rem; }
-            h1 { margin: 0 0 0.5rem 0; font-size: 1.5rem; }
-            p { margin: 0.5rem 0; opacity: 0.9; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="error-icon">❌</div>
-            <h1>Google Sheets Connection Failed</h1>
-            <p>User ID is missing from state</p>
-            <p>This window will close automatically...</p>
-          </div>
-          <script>
-            if (window.opener) {
-              window.opener.postMessage({
-                type: 'oauth-error',
-                provider: 'google-sheets',
-                error: 'User ID is missing from state'
-              }, window.location.origin);
-            }
-            setTimeout(() => window.close(), 2000);
-          </script>
-        </body>
-        </html>
-      `
-
-      return new Response(errorHtml, { headers: { "Content-Type": "text/html" } })
+      return createPopupResponse(
+        "error",
+        "google-sheets",
+        "User ID is missing from state.",
+        baseUrl,
+      )
     }
 
     // Exchange authorization code for tokens
@@ -263,65 +138,26 @@ export async function GET(request: NextRequest) {
     })
 
     if (!tokenResponse.ok) {
-      const errorData = await tokenResponse.json()
-      console.error("Google Sheets token exchange failed:", errorData)
-      const errorHtml = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Google Sheets Connection Failed</title>
-          <style>
-            body { 
-              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-              display: flex; 
-              align-items: center; 
-              justify-content: center; 
-              height: 100vh; 
-              margin: 0;
-              background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
-              color: white;
-            }
-            .container { 
-              text-align: center; 
-              padding: 2rem;
-              background: rgba(255,255,255,0.1);
-              border-radius: 12px;
-              backdrop-filter: blur(10px);
-            }
-            .error-icon { font-size: 3rem; margin-bottom: 1rem; }
-            h1 { margin: 0 0 0.5rem 0; font-size: 1.5rem; }
-            p { margin: 0.5rem 0; opacity: 0.9; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="error-icon">❌</div>
-            <h1>Google Sheets Connection Failed</h1>
-            <p>Token exchange failed: ${errorData.error_description || "Unknown error"}</p>
-            <p>This window will close automatically...</p>
-          </div>
-          <script>
-            if (window.opener) {
-              window.opener.postMessage({
-                type: 'oauth-error',
-                provider: 'google-sheets',
-                error: 'Token exchange failed: ${errorData.error_description || "Unknown error"}'
-              }, window.location.origin);
-            }
-            setTimeout(() => window.close(), 2000);
-          </script>
-        </body>
-        </html>
-      `
-      return new Response(errorHtml, { headers: { "Content-Type": "text/html" } })
+      const errorText = await tokenResponse.text()
+      console.error("Google Sheets token exchange failed:", errorText)
+      let errorDescription = "Could not get access token from Google."
+      try {
+        const errorJson = JSON.parse(errorText)
+        errorDescription = errorJson.error_description || errorJson.error || errorDescription
+      } catch (e) {
+        if (errorText.length < 200) {
+          errorDescription = errorText
+        }
+      }
+      return createPopupResponse(
+        "error",
+        "google-sheets",
+        `Token exchange failed: ${errorDescription}`,
+        baseUrl,
+      )
     }
 
     const tokens = await tokenResponse.json()
-    console.log("Google Sheets tokens received:", {
-      accessToken: !!tokens.access_token,
-      refreshToken: !!tokens.refresh_token,
-      expiresIn: tokens.expires_in,
-    })
 
     // Get user info from Google
     const userInfoResponse = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
@@ -330,62 +166,15 @@ export async function GET(request: NextRequest) {
 
     if (!userInfoResponse.ok) {
       console.error("Failed to get Google Sheets user info")
-      const errorHtml = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Google Sheets Connection Failed</title>
-          <style>
-            body { 
-              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-              display: flex; 
-              align-items: center; 
-              justify-content: center; 
-              height: 100vh; 
-              margin: 0;
-              background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
-              color: white;
-            }
-            .container { 
-              text-align: center; 
-              padding: 2rem;
-              background: rgba(255,255,255,0.1);
-              border-radius: 12px;
-              backdrop-filter: blur(10px);
-            }
-            .error-icon { font-size: 3rem; margin-bottom: 1rem; }
-            h1 { margin: 0 0 0.5rem 0; font-size: 1.5rem; }
-            p { margin: 0.5rem 0; opacity: 0.9; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="error-icon">❌</div>
-            <h1>Google Sheets Connection Failed</h1>
-            <p>Could not fetch user information from Google.</p>
-            <p>This window will close automatically...</p>
-          </div>
-          <script>
-            if (window.opener) {
-              window.opener.postMessage({
-                type: 'oauth-error',
-                provider: 'google-sheets',
-                error: 'Could not fetch user information from Google.'
-              }, window.location.origin);
-            }
-            setTimeout(() => window.close(), 2000);
-          </script>
-        </body>
-        </html>
-      `
-      return new Response(errorHtml, { headers: { "Content-Type": "text/html" } })
+      return createPopupResponse(
+        "error",
+        "google-sheets",
+        "Could not fetch user information from Google.",
+        baseUrl,
+      )
     }
 
     const userInfo = await userInfoResponse.json()
-    console.log("Google Sheets user info:", {
-      id: userInfo.id,
-      email: userInfo.email,
-    })
 
     const integrationData = {
       user_id: userId,
@@ -395,6 +184,7 @@ export async function GET(request: NextRequest) {
       refresh_token: tokens.refresh_token,
       expires_at: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
       scopes: tokens.scope.split(" "),
+      provider_user_id: userInfo.id,
       metadata: {
         email: userInfo.email,
         name: userInfo.name,
@@ -402,141 +192,29 @@ export async function GET(request: NextRequest) {
       },
     }
 
-    // Upsert integration into database
-    const { data: existingIntegration, error: selectError } = await supabase
+    const { error: upsertError } = await supabase
       .from("integrations")
-      .select("id")
-      .eq("user_id", userId)
-      .eq("provider", "google-sheets")
-      .single()
+      .upsert(integrationData, { onConflict: "user_id, provider" })
 
-    if (selectError && selectError.code !== "PGRST116") { // Ignore 'not found' error
-      throw selectError
-    }
-    
-    let dbResponse
-    if (existingIntegration) {
-      dbResponse = await supabase
-        .from("integrations")
-        .update(integrationData)
-        .eq("id", existingIntegration.id)
-        .select()
-        .single()
-      console.log("Updated existing Google Sheets integration:", existingIntegration.id)
-    } else {
-      const { data: newIntegration, error: insertError } = await supabase
-        .from("integrations")
-        .insert(integrationData)
-        .select()
-        .single()
-      
-      if (insertError) throw insertError
-      dbResponse = { data: newIntegration, error: insertError }
-      console.log("Created new Google Sheets integration:", newIntegration?.id)
+    if (upsertError) {
+      console.error("Error saving Google Sheets integration to DB:", upsertError)
+      return createPopupResponse(
+        "error",
+        "google-sheets",
+        `Database error: ${upsertError.message}`,
+        baseUrl,
+      )
     }
 
-    if (dbResponse.error) throw dbResponse.error
-
-    const successHtml = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Google Sheets Connected Successfully</title>
-        <style>
-          body { 
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            height: 100vh; 
-            margin: 0;
-            background: linear-gradient(135deg, #24c6dc 0%, #514a9d 100%);
-            color: white;
-          }
-          .container { 
-            text-align: center; 
-            padding: 2rem;
-            background: rgba(255,255,255,0.1);
-            border-radius: 12px;
-            backdrop-filter: blur(10px);
-          }
-          .success-icon { font-size: 3rem; margin-bottom: 1rem; }
-          h1 { margin: 0 0 0.5rem 0; font-size: 1.5rem; }
-          p { margin: 0.5rem 0; opacity: 0.9; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="success-icon">✅</div>
-          <h1>Google Sheets Connected Successfully!</h1>
-          <p>Your Google Sheets account has been connected.</p>
-          <p>This window will close automatically...</p>
-        </div>
-        <script>
-          if (window.opener) {
-            window.opener.postMessage({ type: 'oauth-success', provider: 'google-sheets' }, window.location.origin);
-          }
-          setTimeout(() => window.close(), 1000);
-        </script>
-      </body>
-      </html>
-    `
-    return new Response(successHtml, { headers: { "Content-Type": "text/html" } })
-
+    return createPopupResponse(
+      "success",
+      "google-sheets",
+      "Your Google Sheets account has been successfully connected.",
+      baseUrl,
+    )
   } catch (error: any) {
     console.error("Google Sheets callback error:", error)
     const errorMessage = error.message || "An unexpected error occurred."
-    const errorHtml = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Google Sheets Connection Failed</title>
-        <style>
-          body { 
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            height: 100vh; 
-            margin: 0;
-            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
-            color: white;
-          }
-          .container { 
-            text-align: center; 
-            padding: 2rem;
-            background: rgba(255,255,255,0.1);
-            border-radius: 12px;
-            backdrop-filter: blur(10px);
-          }
-          .error-icon { font-size: 3rem; margin-bottom: 1rem; }
-          h1 { margin: 0 0 0.5rem 0; font-size: 1.5rem; }
-          p { margin: 0.5rem 0; opacity: 0.9; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="error-icon">❌</div>
-          <h1>Google Sheets Connection Failed</h1>
-          <p>${errorMessage}</p>
-          <p>This window will close automatically...</p>
-        </div>
-        <script>
-          if (window.opener) {
-            window.opener.postMessage({
-              type: 'oauth-error',
-              provider: 'google-sheets',
-              error: '${errorMessage}'
-            }, window.location.origin);
-          }
-          setTimeout(() => window.close(), 2000);
-        </script>
-      </body>
-      </html>
-    `
-    return new Response(errorHtml, {
-      status: 500,
-      headers: { "Content-Type": "text/html" },
-    })
+    return createPopupResponse("error", "google-sheets", errorMessage, baseUrl)
   }
 }
