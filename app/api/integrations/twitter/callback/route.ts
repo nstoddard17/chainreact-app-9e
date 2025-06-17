@@ -64,20 +64,21 @@ export async function GET(request: NextRequest) {
       return createPopupResponse("error", "twitter", "Missing code_verifier in Twitter state.", baseUrl)
     }
 
-    const tokenUrl = new URL("https://api.twitter.com/2/oauth2/token")
-    tokenUrl.search = new URLSearchParams({
+    const tokenUrl = "https://api.twitter.com/2/oauth2/token"
+    const body = new URLSearchParams({
       code: code,
       grant_type: "authorization_code",
       client_id: process.env.NEXT_PUBLIC_TWITTER_CLIENT_ID!,
       redirect_uri: `${baseUrl}/api/integrations/twitter/callback`,
       code_verifier: codeVerifier,
-    }).toString()
+    })
 
-    const response = await fetch(tokenUrl.toString(), {
+    const response = await fetch(tokenUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
       },
+      body: body,
     })
 
     if (!response.ok) {

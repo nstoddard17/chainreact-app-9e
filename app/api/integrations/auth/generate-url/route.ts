@@ -324,7 +324,7 @@ function generateTikTokAuthUrl(state: string): string {
 }
 
 function generateTrelloAuthUrl(state: string): string {
-  const apiKey = process.env.NEXT_PUBLIC_TRELLO_API_KEY
+  const apiKey = process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID
   if (!apiKey) throw new Error("Trello API key not configured")
 
   const callbackUrl = new URL("https://chainreact.app/api/integrations/trello/callback")
