@@ -33,28 +33,47 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(redirectUrl)
     }
 
-    const response = await fetch("https://oauth2.googleapis.com/token", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: new URLSearchParams({
-        code,
-        client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!,
-        client_secret: process.env.GOOGLE_CLIENT_SECRET!,
-        redirect_uri: `${getBaseUrl()}/api/integrations/gmail/callback`,
-        grant_type: "authorization_code",
-      }),
-    })
+    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET
 
-    if (!response.ok) {
-      const errorData = await response.json()
-      console.error("Failed to exchange Gmail code for token:", errorData)
-      redirectUrl.searchParams.set("error", "Failed to get Gmail access token.")
+    if (!clientId || !clientSecret) {
+      console.error("Missing Google Client ID or Client Secret environment variables.")
+      redirectUrl.searchParams.set("error", "Server configuration error for Gmail OAuth.")
       return NextResponse.redirect(redirectUrl)
     }
 
-    const tokens = await response.json()
+    let tokens
+    try {
+      const response = await fetch("https://oauth2.googleapis.com/token", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({
+          code,
+          client_id: clientId,
+          client_secret: clientSecret,
+          redirect_uri: `${getBaseUrl()}/api/integrations/gmail/callback`,
+          grant_type: "authorization_code",
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        console.error("Failed to exchange Gmail code for token:", JSON.stringify(errorData, null, 2))
+        redirectUrl.searchParams.set(
+          "error",
+          `Failed to get Gmail access token: ${errorData.error_description || errorData.error}`,
+        )
+        return NextResponse.redirect(redirectUrl)
+      }
+      tokens = await response.json()
+    } catch (fetchError: any) {
+      console.error("Error fetching Google token:", fetchError)
+      redirectUrl.searchParams.set("error", `Token fetch failed: ${fetchError.message}`)
+      return NextResponse.redirect(redirectUrl)
+    }
+
     const accessToken = tokens.access_token
     const refreshToken = tokens.refresh_token
     const expiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString()
