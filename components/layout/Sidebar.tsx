@@ -14,12 +14,10 @@ import {
   Users,
   Code,
   GraduationCap,
-  ChevronDown,
   X,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 
 interface SidebarProps {
   isMobileMenuOpen: boolean
@@ -67,49 +65,15 @@ export default function Sidebar({ isMobileMenuOpen, onMobileMenuChange }: Sideba
         </Button>
       </div>
 
-      {/* Mobile Toggle */}
-      <div className="lg:hidden p-4 border-b border-slate-200">
-        <Collapsible>
-          <CollapsibleTrigger asChild>
-            <Button variant="ghost" className="w-full justify-between">
-              <span>Menu</span>
-              <ChevronDown className="w-4 h-4 transition-transform" />
-            </Button>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <nav className="p-2 space-y-2">
-              {navigation.map((item) => {
-                const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
-                return (
-                  <Link
-                    key={item.name}
-                    href={item.href}
-                    onClick={() => onMobileMenuChange(false)}
-                    className={cn(
-                      "flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200",
-                      isActive
-                        ? "bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg"
-                        : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
-                    )}
-                  >
-                    <item.icon className="w-5 h-5" />
-                    <span className="font-medium">{item.name}</span>
-                  </Link>
-                )
-              })}
-            </nav>
-          </CollapsibleContent>
-        </Collapsible>
-      </div>
-
-      {/* Desktop Navigation */}
-      <nav className="hidden lg:flex flex-1 p-4 space-y-2 overflow-y-auto">
+      {/* Navigation */}
+      <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
         {navigation.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
           return (
             <Link
               key={item.name}
               href={item.href}
+              onClick={() => onMobileMenuChange(false)}
               className={cn(
                 "flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200",
                 isActive
