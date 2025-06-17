@@ -154,10 +154,10 @@ export async function GET(request: NextRequest) {
       provider: "instagram",
       provider_user_id: userData.id,
       access_token: tokenData.access_token,
-      refresh_token: null, // Instagram long-lived tokens don't have refresh tokens
-      scopes: [], // Scopes are managed in the app settings
+      refresh_token: tokenData.refresh_token,
+      scopes: tokenData.scope.split(' '),
       status: "connected",
-      expiresAt: expiresAt ? expiresAt.toISOString() : null,
+      expires_at: expiresAt ? expiresAt.toISOString() : null,
       updated_at: new Date().toISOString(),
     }
 

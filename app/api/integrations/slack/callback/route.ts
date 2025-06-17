@@ -158,11 +158,10 @@ export async function GET(request: NextRequest) {
       user_id: userId,
       provider: 'slack',
       access_token: tokenData.access_token,
-      // Slack's newer OAuth tokens may not include a refresh token
-      refresh_token: tokenData.refresh_token || (existingIntegration ? undefined : null),
-      scopes: tokenData.scope.split(','),
+      refresh_token: tokenData.refresh_token,
+      scopes: tokenData.scope.split(' '),
       status: 'connected',
-      expiresAt: expiresAt ? expiresAt.toISOString() : null,
+      expires_at: expiresAt ? expiresAt.toISOString() : null,
       updated_at: new Date().toISOString(),
     };
 

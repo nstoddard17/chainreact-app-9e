@@ -147,10 +147,10 @@ export async function GET(request: NextRequest) {
       provider: "notion",
       provider_user_id: tokenData.owner.user.id,
       access_token: tokenData.access_token,
-      refresh_token: null, // Notion doesn't use refresh tokens
-      expiresAt: expiresAt ? expiresAt.toISOString() : null,
-      scopes: [],
+      refresh_token: tokenData.refresh_token,
+      scopes: tokenData.scope.split(' '),
       status: "connected",
+      expires_at: expiresAt ? expiresAt.toISOString() : null,
       updated_at: new Date().toISOString(),
       metadata: {
         workspace_id: tokenData.workspace_id,

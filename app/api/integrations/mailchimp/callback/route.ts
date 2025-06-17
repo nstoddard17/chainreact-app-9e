@@ -129,7 +129,7 @@ export async function GET(request: NextRequest) {
       refresh_token: null,
       scopes: [], // Not applicable
       status: 'connected',
-      expiresAt: null,
+      expires_at: null,
       updated_at: new Date().toISOString(),
     }
 

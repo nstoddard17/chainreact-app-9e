@@ -63,12 +63,12 @@ export async function GET(request: NextRequest) {
 
     const integrationData = {
       user_id: userId,
-      provider: provider,
+      provider: 'onedrive',
       access_token: tokenData.access_token,
       refresh_token: tokenData.refresh_token,
       scopes: tokenData.scope.split(' '),
       status: 'connected',
-      expiresAt: expiresAt ? expiresAt.toISOString() : null,
+      expires_at: expiresAt ? expiresAt.toISOString() : null,
       updated_at: new Date().toISOString(),
     }
 

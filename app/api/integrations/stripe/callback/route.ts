@@ -56,12 +56,12 @@ export async function GET(request: NextRequest) {
 
     const integrationData = {
       user_id: userId,
-      provider: provider,
+      provider: 'stripe',
       access_token: tokenData.access_token,
       refresh_token: tokenData.refresh_token,
       scopes: tokenData.scope.split(' '),
       status: 'connected',
-      expiresAt: null,
+      expires_at: null,
       updated_at: new Date().toISOString(),
       metadata: {
         stripe_publishable_key: tokenData.stripe_publishable_key,

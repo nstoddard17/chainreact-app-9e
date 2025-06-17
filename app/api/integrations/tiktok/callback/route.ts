@@ -146,7 +146,7 @@ export async function GET(request: NextRequest) {
       refresh_token: tokenData.data.refresh_token,
       scopes: tokenData.data.scope.split(','),
       status: 'connected',
-      expiresAt: expiresAt ? expiresAt.toISOString() : null,
+      expires_at: expiresAt ? expiresAt.toISOString() : null,
       updated_at: new Date().toISOString(),
       metadata: {
         open_id: tokenData.data.open_id,

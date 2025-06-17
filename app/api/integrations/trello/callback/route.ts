@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
       provider: "trello",
       access_token: accessToken,
       refresh_token: null, // Trello doesn't provide a refresh token in this flow
-      expiresAt: null, // Trello tokens don't expire unless manually revoked
+      expires_at: null, // Trello tokens don't expire unless manually revoked
       scopes: [], // Trello doesn't provide scopes in this flow
       status: "connected",
       updated_at: new Date().toISOString(),

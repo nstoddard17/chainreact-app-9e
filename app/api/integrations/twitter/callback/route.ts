@@ -72,9 +72,9 @@ export async function GET(request: NextRequest) {
       provider: 'twitter',
       access_token: tokens.access_token,
       refresh_token: tokens.refresh_token,
-      expiresAt: expiresAt ? expiresAt.toISOString() : null,
       scopes: tokens.scope.split(' '),
       status: 'connected',
+      expires_at: expiresAt ? expiresAt.toISOString() : null,
       updated_at: new Date().toISOString(),
     }
 
