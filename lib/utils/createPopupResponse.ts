@@ -1,4 +1,4 @@
-export function createPopupResponse(
+;export function createPopupResponse(
   type: "success" | "error",
   provider: string,
   message: string,
