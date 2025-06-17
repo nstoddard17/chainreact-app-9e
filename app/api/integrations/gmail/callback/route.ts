@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 
+export const maxDuration = 30
+
 export async function GET(request: NextRequest) {
   const url = new URL(request.url)
   const code = url.searchParams.get("code")
@@ -59,11 +61,17 @@ export async function GET(request: NextRequest) {
       })
 
       if (!response.ok) {
-        const errorData = await response.json()
+        const errorText = await response.text()
+        let errorData
+        try {
+          errorData = JSON.parse(errorText)
+        } catch (e) {
+          errorData = { error: "unknown_error", error_description: errorText }
+        }
         console.error("Failed to exchange Gmail code for token:", JSON.stringify(errorData, null, 2))
         redirectUrl.searchParams.set(
           "error",
-          `Failed to get Gmail access token: ${errorData.error_description || errorData.error}`,
+          `Google Auth Error: ${errorData.error_description || errorData.error || "Unknown error"}`,
         )
         return NextResponse.redirect(redirectUrl)
       }
