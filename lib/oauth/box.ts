@@ -8,33 +8,32 @@ import {
 } from "./utils"
 import { type SupabaseClient } from "@supabase/supabase-js"
 
-export class DiscordOAuthService {
-  private static readonly clientId = process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID
-  private static readonly clientSecret = process.env.DISCORD_CLIENT_SECRET
-  private static readonly apiUrl = "https://discord.com/api/v10"
+export class BoxOAuthService {
+  private static readonly clientId = process.env.NEXT_PUBLIC_BOX_CLIENT_ID
+  private static readonly clientSecret = process.env.BOX_CLIENT_SECRET
+  private static readonly apiUrl = "https://api.box.com/2.0"
 
   static async generateAuthUrl(userId: string, baseUrl?: string): Promise<string> {
     if (!this.clientId) {
-      throw new Error("NEXT_PUBLIC_DISCORD_CLIENT_ID must be defined")
+      throw new Error("NEXT_PUBLIC_BOX_CLIENT_ID must be defined")
     }
 
-    const state = generateOAuthState("discord", userId)
-    const redirectUri = getOAuthRedirectUri("discord", baseUrl)
+    const state = generateOAuthState("box", userId)
+    const redirectUri = getOAuthRedirectUri("box", baseUrl)
 
     const params = new URLSearchParams({
       response_type: "code",
       client_id: this.clientId,
       redirect_uri: redirectUri,
       state,
-      scope: OAuthScopes.DISCORD.join(" "),
-      prompt: "consent",
+      scope: OAuthScopes.BOX.join(" "),
     })
 
-    return `https://discord.com/api/oauth2/authorize?${params.toString()}`
+    return `https://account.box.com/api/oauth2/authorize?${params.toString()}`
   }
 
   static getRedirectUri(baseUrl?: string): string {
-    return getOAuthRedirectUri("discord", baseUrl)
+    return getOAuthRedirectUri("box", baseUrl)
   }
 
   static async handleCallback(
@@ -46,26 +45,26 @@ export class DiscordOAuthService {
   ): Promise<{ success: boolean; error?: string }> {
     try {
       if (!this.clientId || !this.clientSecret) {
-        throw new Error("NEXT_PUBLIC_DISCORD_CLIENT_ID and DISCORD_CLIENT_SECRET must be defined")
+        throw new Error("NEXT_PUBLIC_BOX_CLIENT_ID and BOX_CLIENT_SECRET must be defined")
       }
 
       // Parse and validate state
       const stateData = parseOAuthState(state)
-      validateOAuthState(stateData, "discord")
+      validateOAuthState(stateData, "box")
 
       const redirectUri = this.getRedirectUri(baseUrl)
 
       // Exchange code for token
-      const tokenResponse = await fetch("https://discord.com/api/oauth2/token", {
+      const tokenResponse = await fetch("https://api.box.com/oauth2/token", {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
         },
         body: new URLSearchParams({
-          client_id: this.clientId,
-          client_secret: this.clientSecret,
           grant_type: "authorization_code",
           code,
+          client_id: this.clientId,
+          client_secret: this.clientSecret,
           redirect_uri: redirectUri,
         }),
       })
@@ -78,7 +77,7 @@ export class DiscordOAuthService {
       const tokenData = await tokenResponse.json()
 
       // Get user info
-      const userResponse = await fetch(`${this.apiUrl}/users/@me`, {
+      const userResponse = await fetch(`${this.apiUrl}/users/me`, {
         headers: {
           Authorization: `Bearer ${tokenData.access_token}`,
         },
@@ -94,12 +93,12 @@ export class DiscordOAuthService {
       // Store integration data
       const { error: upsertError } = await supabase.from("integrations").upsert({
         user_id: userId,
-        provider: "discord",
+        provider: "box",
         provider_user_id: userData.id,
         access_token: tokenData.access_token,
         refresh_token: tokenData.refresh_token,
         token_expires_at: new Date(Date.now() + tokenData.expires_in * 1000).toISOString(),
-        scopes: OAuthScopes.DISCORD,
+        scopes: OAuthScopes.BOX,
         provider_user_data: userData,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -111,28 +110,32 @@ export class DiscordOAuthService {
 
       return { success: true }
     } catch (error: any) {
-      console.error("Discord OAuth callback error:", error)
+      console.error("Box OAuth callback error:", error)
       return { success: false, error: error.message }
     }
   }
 
   static async refreshToken(
-    refreshToken: string
+    refreshToken: string,
+    baseUrl?: string
   ): Promise<{ access_token: string; refresh_token: string; expires_in: number }> {
     if (!this.clientId || !this.clientSecret) {
-      throw new Error("NEXT_PUBLIC_DISCORD_CLIENT_ID and DISCORD_CLIENT_SECRET must be defined")
+      throw new Error("NEXT_PUBLIC_BOX_CLIENT_ID and BOX_CLIENT_SECRET must be defined")
     }
 
-    const response = await fetch("https://discord.com/api/oauth2/token", {
+    const redirectUri = this.getRedirectUri(baseUrl)
+
+    const response = await fetch("https://api.box.com/oauth2/token", {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
       },
       body: new URLSearchParams({
-        client_id: this.clientId,
-        client_secret: this.clientSecret,
         grant_type: "refresh_token",
         refresh_token: refreshToken,
+        client_id: this.clientId,
+        client_secret: this.clientSecret,
+        redirect_uri: redirectUri,
       }),
     })
 
@@ -143,4 +146,4 @@ export class DiscordOAuthService {
 
     return response.json()
   }
-}
+} 

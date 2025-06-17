@@ -1,63 +1,156 @@
-import { generateOAuthState } from "./utils"
+import { getBaseUrl } from "@/lib/utils/getBaseUrl"
+import {
+  getOAuthRedirectUri,
+  OAuthScopes,
+  generateOAuthState,
+  parseOAuthState,
+  validateOAuthState,
+} from "./utils"
+import { createClient } from "@supabase/supabase-js"
 
 export class GoogleOAuthService {
-  private static getClientCredentials() {
-    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
-    const clientSecret = process.env.GOOGLE_CLIENT_SECRET
+  static readonly clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
+  static readonly clientSecret = process.env.GOOGLE_CLIENT_SECRET
+  static readonly apiUrl = "https://www.googleapis.com/oauth2/v3"
 
-    if (!clientId) {
-      throw new Error("Missing NEXT_PUBLIC_GOOGLE_CLIENT_ID environment variable")
-    }
-    if (!clientSecret) {
-      throw new Error("Missing GOOGLE_CLIENT_SECRET environment variable")
+  static generateAuthUrl(userId: string, origin: string): string {
+    if (!this.clientId) {
+      throw new Error("Missing Google client ID")
     }
 
-    return { clientId, clientSecret }
-  }
-
-  static getRedirectUri(): string {
-    return "https://chainreact.app/api/integrations/google/callback"
-  }
-
-  static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string, userId?: string): string {
-    const { clientId } = this.getClientCredentials()
-    const redirectUri = this.getRedirectUri()
-
-    // Enhanced scopes for better functionality
-    const scopes = [
-      "https://www.googleapis.com/auth/userinfo.email",
-      "https://www.googleapis.com/auth/userinfo.profile",
-      "https://www.googleapis.com/auth/calendar",
-      "https://www.googleapis.com/auth/calendar.events",
-      "https://www.googleapis.com/auth/drive",
-      "https://www.googleapis.com/auth/drive.file",
-      "https://www.googleapis.com/auth/spreadsheets",
-      "https://www.googleapis.com/auth/gmail.send",
-      "https://www.googleapis.com/auth/gmail.modify",
-      "https://www.googleapis.com/auth/documents",
-      "https://www.googleapis.com/auth/youtube.readonly",
-      "https://www.googleapis.com/auth/youtube.upload",
-    ]
-
-    const state = userId ? generateOAuthState("google", userId, { reconnect, integrationId }) : ""
+    const state = generateOAuthState(userId, "google")
+    const redirectUri = this.getRedirectUri(origin)
 
     const params = new URLSearchParams({
-      client_id: clientId,
-      redirect_uri: redirectUri,
       response_type: "code",
-      scope: scopes.join(" "),
-      access_type: "offline", // Critical for refresh tokens
-      prompt: "consent", // Always force consent to ensure refresh token
-      include_granted_scopes: "true", // Include previously granted scopes
-      ...(state && { state }),
+      client_id: this.clientId,
+      redirect_uri: redirectUri,
+      state,
+      scope: OAuthScopes.GOOGLE.join(" "),
+      access_type: "offline",
+      prompt: "consent",
     })
 
     return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`
   }
 
-  static async exchangeCodeForTokens(code: string): Promise<any> {
-    const { clientId, clientSecret } = this.getClientCredentials()
-    const redirectUri = this.getRedirectUri()
+  static getRedirectUri(origin: string): string {
+    return getOAuthRedirectUri(origin, "google")
+  }
+
+  static async handleCallback(
+    code: string,
+    state: string,
+    supabase: ReturnType<typeof createClient>,
+    userId: string,
+    origin: string
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      if (!this.clientId || !this.clientSecret) {
+        throw new Error("Missing Google client credentials")
+      }
+
+      // Parse and validate state
+      const stateData = parseOAuthState(state)
+      validateOAuthState(stateData, "google")
+
+      // Exchange code for token
+      const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({
+          client_id: this.clientId,
+          client_secret: this.clientSecret,
+          code,
+          grant_type: "authorization_code",
+          redirect_uri: this.getRedirectUri(origin),
+        }),
+      })
+
+      if (!tokenResponse.ok) {
+        const errorText = await tokenResponse.text()
+        throw new Error(`Token exchange failed: ${errorText}`)
+      }
+
+      const tokenData = await tokenResponse.json()
+      const { access_token, refresh_token, expires_in } = tokenData
+
+      // Get user info from Google
+      const userResponse = await fetch(`${this.apiUrl}/userinfo`, {
+        headers: {
+          Authorization: `Bearer ${access_token}`,
+        },
+      })
+
+      if (!userResponse.ok) {
+        throw new Error("Failed to get user info from Google")
+      }
+
+      const userData = await userResponse.json()
+
+      const now = new Date().toISOString()
+
+      // Check if integration exists
+      const { data: existingIntegration } = await supabase
+        .from("integrations")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("provider", "google")
+        .maybeSingle()
+
+      const integrationData = {
+        user_id: userId,
+        provider: "google",
+        provider_user_id: userData.sub,
+        access_token,
+        refresh_token,
+        expires_at: expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null,
+        status: "connected",
+        scopes: tokenData.scope ? tokenData.scope.split(" ") : [],
+        metadata: {
+          email: userData.email,
+          name: userData.name,
+          picture: userData.picture,
+          connected_at: now,
+        },
+        updated_at: now,
+      }
+
+      if (existingIntegration) {
+        const { error } = await supabase
+          .from("integrations")
+          .update(integrationData)
+          .eq("id", existingIntegration.id)
+
+        if (error) {
+          throw new Error(`Failed to update integration: ${error.message}`)
+        }
+      } else {
+        const { error } = await supabase.from("integrations").insert({
+          ...integrationData,
+          created_at: now,
+        })
+
+        if (error) {
+          throw new Error(`Failed to insert integration: ${error.message}`)
+        }
+      }
+
+      return { success: true }
+    } catch (error: any) {
+      console.error("Google OAuth error:", error)
+      return { success: false, error: error.message }
+    }
+  }
+
+  static async refreshToken(
+    refreshToken: string
+  ): Promise<{ access_token: string; refresh_token: string; expires_in: number }> {
+    if (!this.clientId || !this.clientSecret) {
+      throw new Error("Missing Google client credentials")
+    }
 
     const response = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
@@ -65,38 +158,15 @@ export class GoogleOAuthService {
         "Content-Type": "application/x-www-form-urlencoded",
       },
       body: new URLSearchParams({
-        client_id: clientId,
-        client_secret: clientSecret,
-        code,
-        grant_type: "authorization_code",
-        redirect_uri: redirectUri,
+        client_id: this.clientId,
+        client_secret: this.clientSecret,
+        refresh_token: refreshToken,
+        grant_type: "refresh_token",
       }),
     })
 
     if (!response.ok) {
-      const error = await response.text()
-      throw new Error(`Google token exchange failed: ${error}`)
-    }
-
-    const tokenData = await response.json()
-
-    // Ensure we got a refresh token
-    if (!tokenData.refresh_token) {
-      console.warn("Google did not provide a refresh token. User may need to revoke and re-authorize.")
-    }
-
-    return tokenData
-  }
-
-  static async getUserInfo(accessToken: string): Promise<any> {
-    const response = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    })
-
-    if (!response.ok) {
-      throw new Error(`Failed to get Google user info: ${response.statusText}`)
+      throw new Error("Failed to refresh token")
     }
 
     return response.json()

@@ -1,63 +1,61 @@
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
-interface DropboxOAuthResult {
-  success: boolean
-  redirectUrl: string
-  error?: string
-}
+import {
+  getOAuthRedirectUri,
+  OAuthScopes,
+  generateOAuthState,
+  parseOAuthState,
+  validateOAuthState,
+} from "./utils"
+import { type SupabaseClient } from "@supabase/supabase-js"
 
 export class DropboxOAuthService {
-  private static getClientCredentials() {
-    const clientId = process.env.NEXT_PUBLIC_DROPBOX_CLIENT_ID
-    const clientSecret = process.env.DROPBOX_CLIENT_SECRET
+  private static readonly clientId = process.env.NEXT_PUBLIC_DROPBOX_CLIENT_ID
+  private static readonly clientSecret = process.env.DROPBOX_CLIENT_SECRET
+  private static readonly apiUrl = "https://api.dropboxapi.com/2"
 
-    if (!clientId || !clientSecret) {
-      throw new Error("Missing Dropbox OAuth configuration")
+  static async generateAuthUrl(userId: string, baseUrl?: string): Promise<string> {
+    if (!this.clientId) {
+      throw new Error("NEXT_PUBLIC_DROPBOX_CLIENT_ID must be defined")
     }
 
-    return { clientId, clientSecret }
-  }
-
-  static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string, userId?: string): string {
-    const { clientId } = this.getClientCredentials()
-    const redirectUri = `${getBaseUrl()}/api/integrations/dropbox/callback`
-
-    const state = btoa(
-      JSON.stringify({
-        provider: "dropbox",
-        userId,
-        reconnect,
-        integrationId,
-        timestamp: Date.now(),
-      }),
-    )
+    const state = generateOAuthState("dropbox", userId)
+    const redirectUri = getOAuthRedirectUri("dropbox", baseUrl)
 
     const params = new URLSearchParams({
-      client_id: clientId,
-      redirect_uri: redirectUri,
       response_type: "code",
-      token_access_type: "offline",
+      client_id: this.clientId,
+      redirect_uri: redirectUri,
       state,
+      token_access_type: "offline",
+      scope: OAuthScopes.DROPBOX.join(" "),
     })
 
     return `https://www.dropbox.com/oauth2/authorize?${params.toString()}`
   }
 
-  static getRedirectUri(): string {
-    return `${getBaseUrl()}/api/integrations/dropbox/callback`
+  static getRedirectUri(baseUrl?: string): string {
+    return getOAuthRedirectUri("dropbox", baseUrl)
   }
 
-  static async handleCallback(code: string, state: string, supabase: any, userId: string): Promise<DropboxOAuthResult> {
+  static async handleCallback(
+    code: string,
+    state: string,
+    supabase: SupabaseClient,
+    userId: string,
+    baseUrl?: string
+  ): Promise<{ success: boolean; error?: string }> {
     try {
-      const stateData = JSON.parse(atob(state))
-      const { provider, reconnect, integrationId } = stateData
-
-      if (provider !== "dropbox") {
-        throw new Error("Invalid provider in state")
+      if (!this.clientId || !this.clientSecret) {
+        throw new Error("NEXT_PUBLIC_DROPBOX_CLIENT_ID and DROPBOX_CLIENT_SECRET must be defined")
       }
 
-      const { clientId, clientSecret } = this.getClientCredentials()
-      const redirectUri = this.getRedirectUri()
+      // Parse and validate state
+      const stateData = parseOAuthState(state)
+      validateOAuthState(stateData, "dropbox")
 
+      const redirectUri = this.getRedirectUri(baseUrl)
+
+      // Exchange code for token
       const tokenResponse = await fetch("https://api.dropboxapi.com/oauth2/token", {
         method: "POST",
         headers: {
@@ -66,77 +64,85 @@ export class DropboxOAuthService {
         body: new URLSearchParams({
           code,
           grant_type: "authorization_code",
-          client_id: clientId,
-          client_secret: clientSecret,
+          client_id: this.clientId,
+          client_secret: this.clientSecret,
           redirect_uri: redirectUri,
         }),
       })
 
       if (!tokenResponse.ok) {
-        const errorData = await tokenResponse.text()
-        throw new Error(`Token exchange failed: ${errorData}`)
+        const error = await tokenResponse.text()
+        throw new Error(`Failed to exchange code for token: ${error}`)
       }
 
       const tokenData = await tokenResponse.json()
-      const { access_token, refresh_token, expires_in } = tokenData
 
-      const userResponse = await fetch("https://api.dropboxapi.com/2/users/get_current_account", {
+      // Get user info
+      const userResponse = await fetch(`${this.apiUrl}/users/get_current_account`, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${access_token}`,
+          Authorization: `Bearer ${tokenData.access_token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(null),
       })
 
       if (!userResponse.ok) {
-        const errorData = await userResponse.text()
-        throw new Error(`Failed to get user info: ${errorData}`)
+        const error = await userResponse.text()
+        throw new Error(`Failed to get user info: ${error}`)
       }
 
       const userData = await userResponse.json()
 
-      const integrationData = {
+      // Store integration data
+      const { error: upsertError } = await supabase.from("integrations").upsert({
         user_id: userId,
         provider: "dropbox",
         provider_user_id: userData.account_id,
-        access_token,
-        refresh_token,
-        expires_at: expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null,
-        status: "connected" as const,
-        scopes: ["files.content.read", "files.content.write"],
-        metadata: {
-          email: userData.email,
-          name: userData.name.display_name,
-          connected_at: new Date().toISOString(),
-        },
+        access_token: tokenData.access_token,
+        refresh_token: tokenData.refresh_token,
+        token_expires_at: new Date(Date.now() + tokenData.expires_in * 1000).toISOString(),
+        scopes: OAuthScopes.DROPBOX,
+        provider_user_data: userData,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+
+      if (upsertError) {
+        throw new Error(`Failed to store integration data: ${upsertError.message}`)
       }
 
-      if (reconnect && integrationId) {
-        const { error } = await supabase
-          .from("integrations")
-          .update({
-            ...integrationData,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", integrationId)
-
-        if (error) throw error
-      } else {
-        const { error } = await supabase.from("integrations").insert(integrationData)
-        if (error) throw error
-      }
-
-      return {
-        success: true,
-        redirectUrl: `${getBaseUrl()}/integrations?success=dropbox_connected`,
-      }
+      return { success: true }
     } catch (error: any) {
-      return {
-        success: false,
-        redirectUrl: `${getBaseUrl()}/integrations?error=callback_failed&provider=dropbox&message=${encodeURIComponent(error.message)}`,
-        error: error.message,
-      }
+      console.error("Dropbox OAuth callback error:", error)
+      return { success: false, error: error.message }
     }
+  }
+
+  static async refreshToken(
+    refreshToken: string
+  ): Promise<{ access_token: string; refresh_token: string; expires_in: number }> {
+    if (!this.clientId || !this.clientSecret) {
+      throw new Error("NEXT_PUBLIC_DROPBOX_CLIENT_ID and DROPBOX_CLIENT_SECRET must be defined")
+    }
+
+    const response = await fetch("https://api.dropboxapi.com/oauth2/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        refresh_token: refreshToken,
+        client_id: this.clientId,
+        client_secret: this.clientSecret,
+      }),
+    })
+
+    if (!response.ok) {
+      const error = await response.text()
+      throw new Error(`Failed to refresh token: ${error}`)
+    }
+
+    return response.json()
   }
 }

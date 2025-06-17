@@ -1,5 +1,13 @@
 /// <reference types="node" />
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
+import {
+  getOAuthRedirectUri,
+  OAuthScopes,
+  generateOAuthState,
+  parseOAuthState,
+  validateOAuthState,
+} from "./utils"
+import { type SupabaseClient } from "@supabase/supabase-js"
 
 interface TwitterOAuthResult {
   success: boolean
@@ -8,343 +16,162 @@ interface TwitterOAuthResult {
 }
 
 export class TwitterOAuthService {
-  private static getClientCredentials() {
-    const clientId = process.env.NEXT_PUBLIC_TWITTER_CLIENT_ID
-    const clientSecret = process.env.TWITTER_CLIENT_SECRET
+  private static readonly clientId = process.env.NEXT_PUBLIC_TWITTER_CLIENT_ID
+  private static readonly clientSecret = process.env.TWITTER_CLIENT_SECRET
+  private static readonly apiUrl = "https://api.twitter.com/2"
 
-    if (!clientId || !clientSecret) {
-      throw new Error("Missing Twitter OAuth configuration")
+  static async generateAuthUrl(userId: string, baseUrl?: string): Promise<string> {
+    if (!this.clientId) {
+      throw new Error("NEXT_PUBLIC_TWITTER_CLIENT_ID must be defined")
     }
 
-    return { clientId, clientSecret }
-  }
-
-  private static generateCodeVerifier(): string {
-    const array = new Uint8Array(32)
-    if (typeof crypto !== "undefined" && crypto.getRandomValues) {
-      crypto.getRandomValues(array)
-    } else {
-      // Fallback for server-side
-      for (let i = 0; i < array.length; i++) {
-        array[i] = Math.floor(Math.random() * 256)
-      }
-    }
-    return btoa(String.fromCharCode.apply(null, Array.from(array)))
-      .replace(/\+/g, "-")
-      .replace(/\//g, "_")
-      .replace(/=/g, "")
-  }
-
-  private static async generateCodeChallenge(verifier: string): Promise<string> {
-    if (typeof crypto !== "undefined" && crypto.subtle) {
-      const encoder = new TextEncoder()
-      const data = encoder.encode(verifier)
-      const digest = await crypto.subtle.digest("SHA-256", data)
-      return btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(digest))))
-        .replace(/\+/g, "-")
-        .replace(/\//g, "_")
-        .replace(/=/g, "")
-    } else {
-      // Fallback - use plain verifier (not recommended for production)
-      return verifier
-    }
-  }
-
-  static getRedirectUri(): string {
-    return `${getBaseUrl()}/api/integrations/twitter/callback`
-  }
-
-  static async generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string, userId?: string): Promise<string> {
-    const { clientId } = this.getClientCredentials()
-    const redirectUri = this.getRedirectUri()
-
-    // Generate PKCE parameters
-    const codeVerifier = this.generateCodeVerifier()
-    const codeChallenge = await this.generateCodeChallenge(codeVerifier)
-
-    console.log("Generated PKCE parameters:", {
-      codeVerifierLength: codeVerifier.length,
-      codeChallengeLength: codeChallenge.length,
-    })
-
-    const scopes = ["tweet.read", "tweet.write", "users.read", "offline.access"]
-
-    // Create state object with all required data
-    const stateData = {
-      provider: "twitter",
-      userId,
-      reconnect,
-      integrationId,
-      requireFullScopes: true,
-      timestamp: Date.now(),
-      codeVerifier, // Store verifier in state for later use
-    }
-
-    console.log("Generating Twitter auth URL with state data:", {
-      ...stateData,
-      codeVerifier: "***", // Log state data but mask sensitive info
-    })
-
-    const state = btoa(JSON.stringify(stateData))
-    console.log("Encoded state:", {
-      stateLength: state.length,
-      statePreview: state.substring(0, 10) + "...",
-    })
+    const state = generateOAuthState("twitter", userId)
+    const redirectUri = getOAuthRedirectUri("twitter", baseUrl)
 
     const params = new URLSearchParams({
       response_type: "code",
-      client_id: clientId,
+      client_id: this.clientId,
       redirect_uri: redirectUri,
-      scope: scopes.join(" "),
       state,
-      code_challenge: codeChallenge,
+      scope: OAuthScopes.TWITTER.join(" "),
       code_challenge_method: "S256",
+      code_challenge: await this.generateCodeChallenge(),
     })
 
-    const authUrl = `https://twitter.com/i/oauth2/authorize?${params.toString()}`
-    console.log("Generated auth URL:", {
-      urlLength: authUrl.length,
-      hasState: authUrl.includes("state="),
-      hasCodeChallenge: authUrl.includes("code_challenge="),
-    })
+    return `https://twitter.com/i/oauth2/authorize?${params.toString()}`
+  }
 
-    return authUrl
+  static getRedirectUri(baseUrl?: string): string {
+    return getOAuthRedirectUri("twitter", baseUrl)
   }
 
   static async handleCallback(
     code: string,
     state: string,
-    baseUrl: string,
-    supabase: any,
-  ): Promise<TwitterOAuthResult> {
+    supabase: SupabaseClient,
+    userId: string,
+    baseUrl?: string
+  ): Promise<{ success: boolean; error?: string }> {
     try {
-      console.log("Handling Twitter callback:", {
-        hasCode: !!code,
-        stateLength: state.length,
-        statePreview: state.substring(0, 10) + "...",
-      })
-
-      let stateData
-      try {
-        const decodedState = atob(state)
-        console.log("Decoded state:", {
-          decodedLength: decodedState.length,
-          decodedPreview: decodedState.substring(0, 50) + "...",
-        })
-
-        stateData = JSON.parse(decodedState)
-        console.log("Parsed state data:", {
-          provider: stateData.provider,
-          hasUserId: !!stateData.userId,
-          hasCodeVerifier: !!stateData.codeVerifier,
-          timestamp: stateData.timestamp,
-        })
-      } catch (e) {
-        console.error("Failed to parse state:", {
-          error: e,
-          stateLength: state.length,
-          statePreview: state.substring(0, 10) + "...",
-        })
-        throw new Error("Invalid state format")
+      if (!this.clientId || !this.clientSecret) {
+        throw new Error("NEXT_PUBLIC_TWITTER_CLIENT_ID and TWITTER_CLIENT_SECRET must be defined")
       }
 
-      const { provider, reconnect, integrationId, requireFullScopes, codeVerifier, userId } = stateData
+      // Parse and validate state
+      const stateData = parseOAuthState(state)
+      validateOAuthState(stateData, "twitter")
 
-      if (provider !== "twitter") {
-        console.error("Invalid provider in state:", { provider })
-        throw new Error("Invalid provider in state")
-      }
+      const redirectUri = this.getRedirectUri(baseUrl)
 
-      if (!codeVerifier) {
-        console.error("Missing code verifier in state:", {
-          stateKeys: Object.keys(stateData),
-          hasCodeVerifier: 'codeVerifier' in stateData,
-          stateData: {
-            ...stateData,
-            codeVerifier: undefined,
-          },
-        })
-        throw new Error("Missing code verifier in state")
-      }
-
-      if (!userId) {
-        console.error("Missing user ID in state:", { ...stateData, userId: undefined })
-        throw new Error("Missing user ID in state")
-      }
-
-      const { clientId, clientSecret } = this.getClientCredentials()
-      const redirectUri = this.getRedirectUri()
-
-      console.log("Exchanging Twitter code for token:", {
-        clientId,
-        redirectUri,
-        hasCode: !!code,
-        hasCodeVerifier: !!codeVerifier,
-      })
-
-      // Exchange code for token with proper PKCE
+      // Exchange code for token
       const tokenResponse = await fetch("https://api.twitter.com/2/oauth2/token", {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
-          Authorization: `Basic ${Buffer.from(clientId + ":" + clientSecret).toString("base64")}`,
+          Authorization: `Basic ${Buffer.from(`${this.clientId}:${this.clientSecret}`).toString("base64")}`,
         },
         body: new URLSearchParams({
-          code,
           grant_type: "authorization_code",
-          client_id: clientId,
+          code,
           redirect_uri: redirectUri,
-          code_verifier: codeVerifier,
+          code_verifier: await this.getCodeVerifier(),
         }),
       })
 
       if (!tokenResponse.ok) {
-        const errorText = await tokenResponse.text()
-        console.error("Twitter token exchange failed:", {
-          status: tokenResponse.status,
-          statusText: tokenResponse.statusText,
-          error: errorText,
-        })
-        throw new Error(`Token exchange failed: ${errorText}`)
+        const error = await tokenResponse.text()
+        throw new Error(`Failed to exchange code for token: ${error}`)
       }
 
       const tokenData = await tokenResponse.json()
-      const { access_token, refresh_token, expires_in, scope } = tokenData
-
-      console.log("Twitter token exchange successful:", {
-        hasAccessToken: !!access_token,
-        hasRefreshToken: !!refresh_token,
-        expiresIn: expires_in,
-        scope,
-      })
-
-      // Validate scopes if required
-      if (requireFullScopes) {
-        const grantedScopes = scope ? scope.split(" ") : []
-        const requiredScopes = ["tweet.read", "tweet.write", "users.read"]
-        const missingScopes = requiredScopes.filter((s) => !grantedScopes.includes(s))
-
-        if (missingScopes.length > 0) {
-          console.error("Twitter scope validation failed:", { grantedScopes, missingScopes })
-          return {
-            success: false,
-            redirectUrl: `${baseUrl}/integrations?error=insufficient_scopes&provider=twitter&message=${encodeURIComponent(
-              `Your Twitter connection is missing required permissions: ${missingScopes.join(", ")}. Please reconnect and accept all scopes.`,
-            )}`,
-            error: "Insufficient scopes",
-          }
-        }
-        console.log("Twitter scopes validated successfully:", grantedScopes)
-      }
 
       // Get user info
-      const userResponse = await fetch("https://api.twitter.com/2/users/me", {
+      const userResponse = await fetch(`${this.apiUrl}/users/me`, {
         headers: {
-          Authorization: `Bearer ${access_token}`,
+          Authorization: `Bearer ${tokenData.access_token}`,
         },
       })
 
       if (!userResponse.ok) {
-        const errorText = await userResponse.text()
-        console.error("Twitter user info failed:", errorText)
-        throw new Error(`Failed to get user info: ${errorText}`)
+        const error = await userResponse.text()
+        throw new Error(`Failed to get user info: ${error}`)
       }
 
       const userData = await userResponse.json()
-      const user = userData.data
 
-      if (!user || !user.id) {
-        throw new Error("Invalid user data received from Twitter")
-      }
-
-      console.log("Twitter user info retrieved:", {
-        userId: user.id,
-        username: user.username,
-        name: user.name,
-      })
-
-      const integrationData = {
+      // Store integration data
+      const { error: upsertError } = await supabase.from("integrations").upsert({
         user_id: userId,
         provider: "twitter",
-        provider_user_id: user.id,
-        access_token,
-        refresh_token,
-        expires_at: expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null,
-        status: "connected" as const,
-        scopes: scope ? scope.split(" ") : [],
-        metadata: {
-          username: user.username,
-          user_name: user.name,
-          connected_at: new Date().toISOString(),
-          scopes_validated: requireFullScopes,
-          user_id: user.id,
-        },
-      }
-
-      console.log("Saving Twitter integration data:", {
-        ...integrationData,
-        access_token: "***",
-        refresh_token: "***",
+        provider_user_id: userData.data.id,
+        access_token: tokenData.access_token,
+        refresh_token: tokenData.refresh_token,
+        token_expires_at: new Date(Date.now() + tokenData.expires_in * 1000).toISOString(),
+        scopes: OAuthScopes.TWITTER,
+        provider_user_data: userData.data,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       })
 
-      if (reconnect && integrationId) {
-        const { error } = await supabase
-          .from("integrations")
-          .update({
-            ...integrationData,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", integrationId)
-
-        if (error) {
-          console.error("Error updating Twitter integration:", error)
-          throw error
-        }
-      } else {
-        // Check if integration already exists
-        const { data: existingIntegration } = await supabase
-          .from("integrations")
-          .select("id")
-          .eq("user_id", userId)
-          .eq("provider", "twitter")
-          .maybeSingle()
-
-        if (existingIntegration) {
-          // Update existing integration
-          const { error } = await supabase
-            .from("integrations")
-            .update({
-              ...integrationData,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", existingIntegration.id)
-
-          if (error) {
-            console.error("Error updating existing Twitter integration:", error)
-            throw error
-          }
-        } else {
-          // Create new integration
-          const { error } = await supabase.from("integrations").insert(integrationData)
-
-          if (error) {
-            console.error("Error inserting Twitter integration:", error)
-            throw error
-          }
-        }
+      if (upsertError) {
+        throw new Error(`Failed to store integration data: ${upsertError.message}`)
       }
 
-      return {
-        success: true,
-        redirectUrl: `${baseUrl}/integrations?success=twitter_connected&provider=twitter&scopes_validated=${requireFullScopes}&t=${Date.now()}`,
-      }
+      return { success: true }
     } catch (error: any) {
       console.error("Twitter OAuth callback error:", error)
-      return {
-        success: false,
-        redirectUrl: `${baseUrl}/integrations?error=callback_failed&provider=twitter&message=${encodeURIComponent(error.message)}`,
-        error: error.message,
-      }
+      return { success: false, error: error.message }
     }
+  }
+
+  static async refreshToken(
+    refreshToken: string,
+    baseUrl?: string
+  ): Promise<{ access_token: string; refresh_token: string; expires_in: number }> {
+    if (!this.clientId || !this.clientSecret) {
+      throw new Error("NEXT_PUBLIC_TWITTER_CLIENT_ID and TWITTER_CLIENT_SECRET must be defined")
+    }
+
+    const redirectUri = this.getRedirectUri(baseUrl)
+
+    const response = await fetch("https://api.twitter.com/2/oauth2/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Authorization: `Basic ${Buffer.from(`${this.clientId}:${this.clientSecret}`).toString("base64")}`,
+      },
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        refresh_token: refreshToken,
+        redirect_uri: redirectUri,
+      }),
+    })
+
+    if (!response.ok) {
+      const error = await response.text()
+      throw new Error(`Failed to refresh token: ${error}`)
+    }
+
+    return response.json()
+  }
+
+  private static async generateCodeChallenge(): Promise<string> {
+    const verifier = await this.getCodeVerifier()
+    const encoder = new TextEncoder()
+    const data = encoder.encode(verifier)
+    const hash = await crypto.subtle.digest("SHA-256", data)
+    return btoa(String.fromCharCode(...new Uint8Array(hash)))
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "")
+  }
+
+  private static async getCodeVerifier(): Promise<string> {
+    const array = new Uint8Array(32)
+    crypto.getRandomValues(array)
+    return btoa(String.fromCharCode(...array))
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "")
   }
 }

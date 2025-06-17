@@ -1,155 +1,172 @@
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
-
-interface DockerOAuthResult {
-  success: boolean
-  redirectUrl: string
-  error?: string
-}
+import {
+  getOAuthRedirectUri,
+  OAuthScopes,
+  generateOAuthState,
+  parseOAuthState,
+  validateOAuthState,
+} from "./utils"
+import { createClient } from "@supabase/supabase-js"
 
 export class DockerOAuthService {
-  private static getClientCredentials() {
-    const clientId = process.env.NEXT_PUBLIC_DOCKER_CLIENT_ID
-    const clientSecret = process.env.DOCKER_CLIENT_SECRET
+  static readonly clientId = process.env.NEXT_PUBLIC_DOCKER_CLIENT_ID
+  static readonly clientSecret = process.env.DOCKER_CLIENT_SECRET
+  static readonly apiUrl = "https://hub.docker.com/v2"
 
-    if (!clientId || !clientSecret) {
-      throw new Error("Missing Docker OAuth configuration")
+  static generateAuthUrl(userId: string, origin: string): string {
+    if (!this.clientId) {
+      throw new Error("Missing Docker client ID")
     }
 
-    return { clientId, clientSecret }
-  }
-
-  static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string): string {
-    const clientId = process.env.NEXT_PUBLIC_DOCKER_CLIENT_ID
-    if (!clientId) {
-      throw new Error("Missing NEXT_PUBLIC_DOCKER_CLIENT_ID environment variable")
-    }
-
-    const redirectUri = `${getBaseUrl()}/api/integrations/docker/callback`
-
-    const scopes = ["repo:admin", "repo:write", "repo:read"]
-
-    const state = btoa(
-      JSON.stringify({
-        provider: "docker",
-        reconnect,
-        integrationId,
-        timestamp: Date.now(),
-      }),
-    )
+    const state = generateOAuthState(userId, "docker")
+    const redirectUri = this.getRedirectUri(origin)
 
     const params = new URLSearchParams({
-      client_id: clientId,
-      redirect_uri: redirectUri,
       response_type: "code",
-      scope: scopes.join(" "),
+      client_id: this.clientId,
+      redirect_uri: redirectUri,
       state,
+      scope: OAuthScopes.DOCKER.join(" "),
     })
 
-    return `https://hub.docker.com/oauth/authorize?${params.toString()}`
+    return `https://hub.docker.com/v2/oauth/authorize?${params.toString()}`
   }
 
-  static getRedirectUri(baseUrl: string): string {
-    return `${getBaseUrl()}/api/integrations/docker/callback`
+  static getRedirectUri(origin: string): string {
+    return getOAuthRedirectUri(origin, "docker")
   }
 
-  static async handleCallback(code: string, state: string, baseUrl: string): Promise<DockerOAuthResult> {
+  static async handleCallback(
+    code: string,
+    state: string,
+    supabase: ReturnType<typeof createClient>,
+    userId: string,
+    origin: string
+  ): Promise<{ success: boolean; error?: string }> {
     try {
-      const stateData = JSON.parse(atob(state))
-      const { provider, reconnect, integrationId } = stateData
-
-      if (provider !== "docker") {
-        throw new Error("Invalid provider in state")
+      if (!this.clientId || !this.clientSecret) {
+        throw new Error("Missing Docker client credentials")
       }
 
-      const { clientId, clientSecret } = this.getClientCredentials()
+      // Parse and validate state
+      const stateData = parseOAuthState(state)
+      validateOAuthState(stateData, "docker")
 
-      const tokenResponse = await fetch("https://hub.docker.com/v2/oauth2/token/", {
+      // Exchange code for token
+      const tokenResponse = await fetch("https://hub.docker.com/v2/oauth/token", {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
         },
         body: new URLSearchParams({
-          grant_type: "authorization_code",
-          client_id: clientId,
-          client_secret: clientSecret,
-          redirect_uri: `${getBaseUrl()}/api/integrations/docker/callback`,
+          client_id: this.clientId,
+          client_secret: this.clientSecret,
           code,
+          grant_type: "authorization_code",
+          redirect_uri: this.getRedirectUri(origin),
         }),
       })
 
       if (!tokenResponse.ok) {
-        const errorData = await tokenResponse.text()
-        throw new Error(`Token exchange failed: ${errorData}`)
+        const errorText = await tokenResponse.text()
+        throw new Error(`Token exchange failed: ${errorText}`)
       }
 
       const tokenData = await tokenResponse.json()
       const { access_token, refresh_token, expires_in } = tokenData
 
-      const userResponse = await fetch("https://hub.docker.com/v2/user/", {
+      // Get user info from Docker
+      const userResponse = await fetch(`${this.apiUrl}/user`, {
         headers: {
           Authorization: `Bearer ${access_token}`,
         },
       })
 
       if (!userResponse.ok) {
-        const errorData = await userResponse.text()
-        throw new Error(`Failed to get user info: ${errorData}`)
+        throw new Error("Failed to get user info from Docker")
       }
 
       const userData = await userResponse.json()
 
-      const supabase = createServerComponentClient({ cookies })
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+      const now = new Date().toISOString()
 
-      if (sessionError || !sessionData?.session) {
-        throw new Error("No active user session found")
-      }
+      // Check if integration exists
+      const { data: existingIntegration } = await supabase
+        .from("integrations")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("provider", "docker")
+        .maybeSingle()
 
       const integrationData = {
-        user_id: sessionData.session.user.id,
+        user_id: userId,
         provider: "docker",
-        provider_user_id: userData.id.toString(),
+        provider_user_id: userData.id,
         access_token,
         refresh_token,
         expires_at: expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null,
-        status: "connected" as const,
-        scopes: ["repo:read", "repo:write"],
+        status: "connected",
+        scopes: tokenData.scope ? tokenData.scope.split(" ") : [],
         metadata: {
-          username: userData.username,
-          user_name: userData.full_name,
-          user_email: userData.email,
-          connected_at: new Date().toISOString(),
+          email: userData.email,
+          name: userData.name,
+          connected_at: now,
         },
+        updated_at: now,
       }
 
-      if (reconnect && integrationId) {
+      if (existingIntegration) {
         const { error } = await supabase
           .from("integrations")
-          .update({
-            ...integrationData,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", integrationId)
+          .update(integrationData)
+          .eq("id", existingIntegration.id)
 
-        if (error) throw error
+        if (error) {
+          throw new Error(`Failed to update integration: ${error.message}`)
+        }
       } else {
-        const { error } = await supabase.from("integrations").insert(integrationData)
-        if (error) throw error
+        const { error } = await supabase.from("integrations").insert({
+          ...integrationData,
+          created_at: now,
+        })
+
+        if (error) {
+          throw new Error(`Failed to insert integration: ${error.message}`)
+        }
       }
 
-      return {
-        success: true,
-        redirectUrl: `${baseUrl}/integrations?success=docker_connected`,
-      }
+      return { success: true }
     } catch (error: any) {
-      return {
-        success: false,
-        redirectUrl: `${baseUrl}/integrations?error=callback_failed&provider=docker&message=${encodeURIComponent(error.message)}`,
-        error: error.message,
-      }
+      console.error("Docker OAuth error:", error)
+      return { success: false, error: error.message }
     }
+  }
+
+  static async refreshToken(
+    refreshToken: string
+  ): Promise<{ access_token: string; expires_in: number }> {
+    if (!this.clientId || !this.clientSecret) {
+      throw new Error("Missing Docker client credentials")
+    }
+
+    const response = await fetch("https://hub.docker.com/v2/oauth/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        client_id: this.clientId,
+        client_secret: this.clientSecret,
+        refresh_token: refreshToken,
+        grant_type: "refresh_token",
+      }),
+    })
+
+    if (!response.ok) {
+      throw new Error("Failed to refresh token")
+    }
+
+    return response.json()
   }
 }
 

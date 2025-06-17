@@ -1,4 +1,7 @@
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
+import { getOAuthRedirectUri, generateOAuthState, parseOAuthState, validateOAuthState, OAuthScopes } from "./utils"
+import { createClient } from "@supabase/supabase-js"
+
 interface NotionOAuthResult {
   success: boolean
   redirectUrl: string
@@ -6,15 +9,16 @@ interface NotionOAuthResult {
 }
 
 export class NotionOAuthService {
-  private static getClientCredentials() {
-    const clientId = process.env.NEXT_PUBLIC_NOTION_CLIENT_ID
-    const clientSecret = process.env.NOTION_CLIENT_SECRET
+  static clientId = process.env.NEXT_PUBLIC_NOTION_CLIENT_ID
+  static clientSecret = process.env.NOTION_CLIENT_SECRET
+  static apiUrl = "https://api.notion.com/v1"
 
-    if (!clientId || !clientSecret) {
+  private static getClientCredentials() {
+    if (!this.clientId || !this.clientSecret) {
       throw new Error("Missing Notion OAuth configuration")
     }
 
-    return { clientId, clientSecret }
+    return { clientId: this.clientId, clientSecret: this.clientSecret }
   }
 
   // Define required scopes for Notion

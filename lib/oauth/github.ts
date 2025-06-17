@@ -1,106 +1,82 @@
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
-interface GitHubOAuthResult {
-  success: boolean
-  redirectUrl: string
-  error?: string
-}
+import {
+  getOAuthRedirectUri,
+  OAuthScopes,
+  generateOAuthState,
+  parseOAuthState,
+  validateOAuthState,
+} from "./utils"
+import { createClient } from "@supabase/supabase-js"
 
 export class GitHubOAuthService {
-  private static getClientCredentials() {
-    const clientId = process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID
-    const clientSecret = process.env.GITHUB_CLIENT_SECRET
+  static readonly clientId = process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID
+  static readonly clientSecret = process.env.GITHUB_CLIENT_SECRET
+  static readonly apiUrl = "https://api.github.com"
 
-    if (!clientId || !clientSecret) {
-      throw new Error("Missing GitHub OAuth configuration")
+  static generateAuthUrl(userId: string, origin: string): string {
+    if (!this.clientId) {
+      throw new Error("Missing GitHub client ID")
     }
 
-    return { clientId, clientSecret }
-  }
+    const state = generateOAuthState(userId, "github")
+    const redirectUri = this.getRedirectUri(origin)
 
-  static getRedirectUri(): string {
-    return `${getBaseUrl()}/api/integrations/github/callback`
-  }
-
-  static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string, userId?: string): string {
-    const { clientId } = this.getClientCredentials()
-    const redirectUri = this.getRedirectUri()
-
-    const scopes = ["user:email", "read:user", "repo", "workflow", "write:repo_hook", "read:org"]
-
-    const state = btoa(
-      JSON.stringify({
-        provider: "github",
-        userId,
-        reconnect,
-        integrationId,
-        requireFullScopes: true,
-        timestamp: Date.now(),
-      }),
-    )
-
-    // Create the OAuth URL with parameters that force consent
-    const oauthParams = new URLSearchParams({
-      client_id: clientId,
-      redirect_uri: redirectUri,
-      scope: scopes.join(" "),
-      state,
+    const params = new URLSearchParams({
       response_type: "code",
-      allow_signup: "true",
+      client_id: this.clientId,
+      redirect_uri: redirectUri,
+      state,
+      scope: OAuthScopes.GITHUB.join(" "),
     })
 
-    // Add cache-busting parameter to force fresh auth
-    oauthParams.append("t", Date.now().toString())
+    return `https://github.com/login/oauth/authorize?${params.toString()}`
+  }
 
-    // The key is to use GitHub's revoke endpoint first, then redirect to OAuth
-    const oauthUrl = `https://github.com/login/oauth/authorize?${oauthParams.toString()}`
-
-    // Create a URL that will revoke existing authorization and then redirect to OAuth
-    return `${getBaseUrl()}/api/integrations/github/revoke-and-auth?oauth_url=${encodeURIComponent(oauthUrl)}`
+  static getRedirectUri(origin: string): string {
+    return getOAuthRedirectUri(origin, "github")
   }
 
   static async handleCallback(
     code: string,
     state: string,
-    baseUrl: string,
-    supabase: any,
+    supabase: ReturnType<typeof createClient>,
     userId: string,
-  ): Promise<GitHubOAuthResult> {
+    origin: string
+  ): Promise<{ success: boolean; error?: string }> {
     try {
-      const stateData = JSON.parse(atob(state))
-      const { provider, reconnect, integrationId, requireFullScopes } = stateData
-
-      if (provider !== "github") {
-        throw new Error("Invalid provider in state")
+      if (!this.clientId || !this.clientSecret) {
+        throw new Error("Missing GitHub client credentials")
       }
 
-      const { clientId, clientSecret } = this.getClientCredentials()
+      // Parse and validate state
+      const stateData = parseOAuthState(state)
+      validateOAuthState(stateData, "github")
 
+      // Exchange code for token
       const tokenResponse = await fetch("https://github.com/login/oauth/access_token", {
         method: "POST",
         headers: {
+          "Content-Type": "application/json",
           Accept: "application/json",
-          "Content-Type": "application/x-www-form-urlencoded",
         },
-        body: new URLSearchParams({
-          client_id: clientId,
-          client_secret: clientSecret,
+        body: JSON.stringify({
+          client_id: this.clientId,
+          client_secret: this.clientSecret,
           code,
+          redirect_uri: this.getRedirectUri(origin),
         }),
       })
 
       if (!tokenResponse.ok) {
-        const errorData = await tokenResponse.text()
-        throw new Error(`Token exchange failed: ${errorData}`)
+        const errorText = await tokenResponse.text()
+        throw new Error(`Token exchange failed: ${errorText}`)
       }
 
       const tokenData = await tokenResponse.json()
-      const { access_token } = tokenData
+      const { access_token, refresh_token, expires_in } = tokenData
 
-      if (!access_token) {
-        throw new Error("No access token received from GitHub")
-      }
-
-      const userResponse = await fetch("https://api.github.com/user", {
+      // Get user info from GitHub
+      const userResponse = await fetch(`${this.apiUrl}/user`, {
         headers: {
           Authorization: `Bearer ${access_token}`,
           Accept: "application/vnd.github.v3+json",
@@ -108,56 +84,92 @@ export class GitHubOAuthService {
       })
 
       if (!userResponse.ok) {
-        const errorData = await userResponse.text()
-        throw new Error(`Failed to get user info: ${errorData}`)
+        throw new Error("Failed to get user info from GitHub")
       }
 
       const userData = await userResponse.json()
-      const scopesHeader = userResponse.headers.get("X-OAuth-Scopes")
-      const grantedScopes = scopesHeader ? scopesHeader.split(", ").map((s) => s.trim()) : []
+
+      const now = new Date().toISOString()
+
+      // Check if integration exists
+      const { data: existingIntegration } = await supabase
+        .from("integrations")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("provider", "github")
+        .maybeSingle()
 
       const integrationData = {
         user_id: userId,
         provider: "github",
         provider_user_id: userData.id.toString(),
         access_token,
-        status: "connected" as const,
-        scopes: grantedScopes,
+        refresh_token,
+        expires_at: expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null,
+        status: "connected",
+        scopes: tokenData.scope ? tokenData.scope.split(" ") : [],
         metadata: {
-          username: userData.login,
-          user_name: userData.name,
-          user_email: userData.email,
+          email: userData.email,
+          name: userData.name,
+          login: userData.login,
           avatar_url: userData.avatar_url,
-          connected_at: new Date().toISOString(),
-          scopes_validated: requireFullScopes,
+          connected_at: now,
         },
+        updated_at: now,
       }
 
-      if (reconnect && integrationId) {
+      if (existingIntegration) {
         const { error } = await supabase
           .from("integrations")
-          .update({
-            ...integrationData,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", integrationId)
+          .update(integrationData)
+          .eq("id", existingIntegration.id)
 
-        if (error) throw error
+        if (error) {
+          throw new Error(`Failed to update integration: ${error.message}`)
+        }
       } else {
-        const { error } = await supabase.from("integrations").insert(integrationData)
-        if (error) throw error
+        const { error } = await supabase.from("integrations").insert({
+          ...integrationData,
+          created_at: now,
+        })
+
+        if (error) {
+          throw new Error(`Failed to insert integration: ${error.message}`)
+        }
       }
 
-      return {
-        success: true,
-        redirectUrl: `${getBaseUrl()}/integrations?success=github_connected&provider=github`,
-      }
+      return { success: true }
     } catch (error: any) {
-      return {
-        success: false,
-        redirectUrl: `${getBaseUrl()}/integrations?error=callback_failed&provider=github&message=${encodeURIComponent(error.message)}`,
-        error: error.message,
-      }
+      console.error("GitHub OAuth error:", error)
+      return { success: false, error: error.message }
     }
+  }
+
+  static async refreshToken(
+    refreshToken: string
+  ): Promise<{ access_token: string; refresh_token: string; expires_in: number }> {
+    if (!this.clientId || !this.clientSecret) {
+      throw new Error("Missing GitHub client credentials")
+    }
+
+    const response = await fetch("https://github.com/login/oauth/access_token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        client_id: this.clientId,
+        client_secret: this.clientSecret,
+        refresh_token,
+        grant_type: "refresh_token",
+      }),
+    })
+
+    if (!response.ok) {
+      throw new Error("Failed to refresh token")
+    }
+
+    return response.json()
   }
 }

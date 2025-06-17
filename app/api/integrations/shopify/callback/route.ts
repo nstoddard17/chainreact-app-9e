@@ -1,56 +1,153 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
+import { createClient } from "@supabase/supabase-js"
+import { ShopifyOAuthService } from "@/lib/oauth/shopify"
+import { parseOAuthState, validateOAuthState } from "@/lib/oauth/utils"
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url)
-  const code = searchParams.get("code")
-  const shop = searchParams.get("shop")
+  try {
+    // Validate environment variables
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      throw new Error("Missing required environment variables")
+    }
 
-  if (!code || !shop) {
-    return new NextResponse("Missing code or shop parameter", { status: 400 })
-  }
+    // Initialize Supabase client
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY
+    )
 
-  const htmlContent = `
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Shopify Integration</title>
-</head>
-<body>
-  <h1>Shopify Integration</h1>
-  <p>Successfully authenticated with Shopify. You can now close this window.</p>
-  <script>
-    (function() {
-      function receiveMessage(event) {
-        if (event.origin !== window.location.origin) {
-          return;
-        }
+    // Get URL parameters
+    const searchParams = request.nextUrl.searchParams
+    const code = searchParams.get("code")
+    const state = searchParams.get("state")
+    const shop = searchParams.get("shop")
+    const error = searchParams.get("error")
+    const errorDescription = searchParams.get("error_description")
 
-        if (event.data === 'close') {
-          window.close();
-        }
-      }
-
-      window.addEventListener("message", receiveMessage, false);
-
-      window.opener.postMessage(
+    // Handle OAuth errors
+    if (error) {
+      return new Response(
+        `
+        <html>
+          <body>
+            <h1>Authentication Error</h1>
+            <p>${errorDescription || error}</p>
+            <script>
+              window.location.href = "/integrations?error=oauth_error&provider=shopify&message=${encodeURIComponent(
+                errorDescription || error
+              )}"
+            </script>
+          </body>
+        </html>
+      `,
         {
-          type: 'shopify',
-          payload: {
-            code: '${code}',
-            shop: '${shop}'
-          }
-        },
-        window.location.origin
-      );
-    })()
-  </script>
-</body>
-</html>
-`
+          status: 400,
+          headers: {
+            "Content-Type": "text/html",
+          },
+        }
+      )
+    }
 
-  return new NextResponse(htmlContent, {
-    headers: {
-      "Content-Type": "text/html",
-    },
-  })
+    // Validate required parameters
+    if (!code || !state || !shop) {
+      return new Response(
+        `
+        <html>
+          <body>
+            <h1>Missing Parameters</h1>
+            <p>Required parameters are missing from the request.</p>
+            <script>
+              window.location.href = "/integrations?error=missing_params&provider=shopify"
+            </script>
+          </body>
+        </html>
+      `,
+        {
+          status: 400,
+          headers: {
+            "Content-Type": "text/html",
+          },
+        }
+      )
+    }
+
+    // Parse and validate state
+    const stateData = parseOAuthState(state)
+    validateOAuthState(stateData, "shopify")
+
+    // Process the OAuth callback
+    const result = await ShopifyOAuthService.handleCallback(
+      code,
+      state,
+      shop,
+      supabase,
+      stateData.userId
+    )
+
+    if (result.success) {
+      return new Response(
+        `
+        <html>
+          <body>
+            <h1>Success!</h1>
+            <p>Your Shopify account has been successfully connected.</p>
+            <script>
+              window.location.href = "${result.redirectUrl}"
+            </script>
+          </body>
+        </html>
+      `,
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "text/html",
+          },
+        }
+      )
+    } else {
+      return new Response(
+        `
+        <html>
+          <body>
+            <h1>Error</h1>
+            <p>${result.error || "An unexpected error occurred"}</p>
+            <script>
+              window.location.href = "${result.redirectUrl}"
+            </script>
+          </body>
+        </html>
+      `,
+        {
+          status: 400,
+          headers: {
+            "Content-Type": "text/html",
+          },
+        }
+      )
+    }
+  } catch (error: any) {
+    console.error("Shopify callback error:", error)
+    return new Response(
+      `
+      <html>
+        <body>
+          <h1>Unexpected Error</h1>
+          <p>${error.message || "An unexpected error occurred"}</p>
+          <script>
+            window.location.href = "/integrations?error=unexpected&provider=shopify&message=${encodeURIComponent(
+              error.message || "An unexpected error occurred"
+            )}"
+          </script>
+        </body>
+      </html>
+    `,
+      {
+        status: 500,
+        headers: {
+          "Content-Type": "text/html",
+        },
+      }
+    )
+  }
 }
