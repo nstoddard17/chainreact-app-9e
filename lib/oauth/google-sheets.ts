@@ -13,157 +13,136 @@ export class GoogleSheetsOAuthService {
   private static clientSecret: string | undefined = process.env.GOOGLE_CLIENT_SECRET
   static readonly apiUrl = "https://www.googleapis.com/sheets/v4"
 
-  static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string, userId?: string): string {
+  static getClientCredentials() {
+    return {
+      clientId: this.clientId,
+      clientSecret: this.clientSecret,
+    }
+  }
+
+  static getRedirectUri(origin: string): string {
+    return getOAuthRedirectUri(origin, "google")
+  }
+
+  static generateAuthUrl(origin: string, userId: string): string {
     const { clientId } = this.getClientCredentials()
-    const redirectUri = this.getRedirectUri(baseUrl)
-    const state = btoa(
-      JSON.stringify({
-        provider: "google_sheets",
-        userId,
-        reconnect,
-        integrationId,
-        timestamp: Date.now(),
-      }),
-    )
+    if (!clientId) {
+      throw new Error("Google Sheets client ID is not configured")
+    }
+
+    const redirectUri = this.getRedirectUri(origin)
+    const state = JSON.stringify({
+      provider: "google",
+      service: "google-sheets",
+      userId,
+    })
+
     const params = new URLSearchParams({
       client_id: clientId,
       redirect_uri: redirectUri,
       response_type: "code",
       scope: OAuthScopes.GOOGLE_SHEETS.join(" "),
+      access_type: "offline",
+      prompt: "consent",
       state,
     })
+
     return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`
-  }
-
-  static getRedirectUri(origin: string): string {
-    const redirectUri = getOAuthRedirectUri(origin, "google_sheets")
-    console.log("Google Sheets Redirect URI:", {
-      origin,
-      baseUrl: getBaseUrl(),
-      redirectUri,
-    })
-    return redirectUri
-  }
-
-  static getClientCredentials() {
-    if (!this.clientId || !this.clientSecret) {
-      throw new Error("Missing Google client credentials")
-    }
-    return { clientId: this.clientId, clientSecret: this.clientSecret }
   }
 
   static async handleCallback(
     code: string,
     state: string,
-    supabase: ReturnType<typeof createClient>,
     userId: string,
-    origin: string
-  ): Promise<{ success: boolean; error?: string }> {
-    try {
-      if (!this.clientId || !this.clientSecret) {
-        throw new Error("Missing Google client credentials")
-      }
+  ): Promise<Response> {
+    const { clientId, clientSecret } = this.getClientCredentials()
+    if (!clientId || !clientSecret) {
+      throw new Error("Missing Google client credentials")
+    }
 
-      // Parse and validate state
-      const stateData = parseOAuthState(state)
-      validateOAuthState(stateData, "google_sheets")
+    // Parse and validate state
+    const stateData = parseOAuthState(state)
+    validateOAuthState(stateData, "google")
 
-      // Exchange code for token
-      const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: new URLSearchParams({
-          client_id: this.clientId,
-          client_secret: this.clientSecret,
-          code,
-          grant_type: "authorization_code",
-          redirect_uri: this.getRedirectUri(origin),
-        }),
-      })
+    // Exchange code for token
+    const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        client_id: clientId,
+        client_secret: clientSecret,
+        code,
+        grant_type: "authorization_code",
+        redirect_uri: this.getRedirectUri(getBaseUrl()),
+      }),
+    })
 
-      if (!tokenResponse.ok) {
-        const errorText = await tokenResponse.text()
-        throw new Error(`Token exchange failed: ${errorText}`)
-      }
+    if (!tokenResponse.ok) {
+      throw new Error("Failed to exchange code for token")
+    }
 
-      const tokenData = await tokenResponse.json()
-      const { access_token, refresh_token, expires_in } = tokenData
+    const { access_token, refresh_token } = await tokenResponse.json()
 
-      // Get user info from Google
-      const userResponse = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+    // Get user info
+    const userResponse = await fetch(
+      `${this.apiUrl}/spreadsheets?maxResults=1`,
+      {
         headers: {
           Authorization: `Bearer ${access_token}`,
         },
-      })
+      },
+    )
 
-      if (!userResponse.ok) {
-        throw new Error("Failed to get user info from Google")
-      }
-
-      const userData = await userResponse.json()
-
-      const now = new Date().toISOString()
-
-      // Check if integration exists
-      const { data: existingIntegration } = await supabase
-        .from("integrations")
-        .select("id")
-        .eq("user_id", userId)
-        .eq("provider", "google_sheets")
-        .maybeSingle()
-
-      const integrationData = {
-        user_id: userId,
-        provider: "google_sheets",
-        provider_user_id: userData.id,
-        access_token,
-        refresh_token,
-        expires_at: expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null,
-        status: "connected",
-        scopes: tokenData.scope ? tokenData.scope.split(" ") : [],
-        metadata: {
-          email: userData.email,
-          name: userData.name,
-          picture: userData.picture,
-          verified_email: userData.verified_email,
-          connected_at: now,
-        },
-        updated_at: now,
-      }
-
-      if (existingIntegration) {
-        const { error } = await supabase
-          .from("integrations")
-          .update(integrationData)
-          .eq("id", existingIntegration.id)
-
-        if (error) {
-          throw new Error(`Failed to update integration: ${error.message}`)
-        }
-      } else {
-        const { error } = await supabase.from("integrations").insert({
-          ...integrationData,
-          created_at: now,
-        })
-
-        if (error) {
-          throw new Error(`Failed to insert integration: ${error.message}`)
-        }
-      }
-
-      return { success: true }
-    } catch (error: any) {
-      console.error("Google Sheets OAuth error:", error)
-      return { success: false, error: error.message }
+    if (!userResponse.ok) {
+      throw new Error("Failed to get user info")
     }
+
+    const { files } = await userResponse.json()
+    const user = files[0]?.owners?.[0]
+
+    // Check for existing integration
+    const { data: existingIntegration } = await supabase
+      .from("integrations")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("provider", "google")
+      .maybeSingle()
+
+    const integrationData = {
+      user_id: userId,
+      provider: "google",
+      provider_user_id: user.emailAddress,
+      access_token,
+      refresh_token,
+      token_type: "Bearer",
+      expires_at: new Date(Date.now() + 3600 * 1000).toISOString(),
+      metadata: {
+        email: user.emailAddress,
+        display_name: user.displayName,
+        photo_url: user.photoLink,
+      },
+    }
+
+    if (existingIntegration) {
+      await supabase
+        .from("integrations")
+        .update(integrationData)
+        .eq("id", existingIntegration.id)
+    } else {
+      await supabase.from("integrations").insert(integrationData)
+    }
+
+    return new Response(null, { status: 200 })
   }
 
   static async refreshToken(
-    refreshToken: string
-  ): Promise<{ access_token: string; refresh_token: string; expires_in: number }> {
-    if (!this.clientId || !this.clientSecret) {
+    refreshToken: string,
+    userId: string,
+  ): Promise<Response> {
+    const { clientId, clientSecret } = this.getClientCredentials()
+    if (!clientId || !clientSecret) {
       throw new Error("Missing Google client credentials")
     }
 
@@ -173,8 +152,8 @@ export class GoogleSheetsOAuthService {
         "Content-Type": "application/x-www-form-urlencoded",
       },
       body: new URLSearchParams({
-        client_id: this.clientId,
-        client_secret: this.clientSecret,
+        client_id: clientId,
+        client_secret: clientSecret,
         refresh_token: refreshToken,
         grant_type: "refresh_token",
       }),
@@ -183,6 +162,18 @@ export class GoogleSheetsOAuthService {
     if (!response.ok) {
       throw new Error("Failed to refresh token")
     }
+
+    const { access_token, expires_in } = await response.json()
+
+    // Update the access token in the database
+    await supabase
+      .from("integrations")
+      .update({
+        access_token,
+        expires_at: new Date(Date.now() + expires_in * 1000).toISOString(),
+      })
+      .eq("user_id", userId)
+      .eq("provider", "google")
 
     return response.json()
   }
