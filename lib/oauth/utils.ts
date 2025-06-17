@@ -23,19 +23,18 @@ export function createAdminSupabaseClient() {
 export function getOAuthRedirectUri(origin: string, provider: string): string {
   const baseUrl = getBaseUrl()
   const redirectUri = `${baseUrl}/api/integrations/${provider}/callback`
-  
-  console.log("🔍 OAuth Redirect URI Generation:", {
+  console.log("🔍 OAuth Redirect URI Debug:", {
     origin,
     provider,
     baseUrl,
     redirectUri,
-    environment: {
+    env: {
       NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
       VERCEL_URL: process.env.VERCEL_URL,
-      NODE_ENV: process.env.NODE_ENV
-    }
+      NODE_ENV: process.env.NODE_ENV,
+    },
+    fullUrl: new URL(redirectUri).toString(),
   })
-  
   return redirectUri
 }
 
