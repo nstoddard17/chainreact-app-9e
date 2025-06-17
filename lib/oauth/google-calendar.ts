@@ -31,7 +31,7 @@ export class GoogleCalendarOAuthService {
     const { clientId } = this.getClientCredentials()
     const redirectUri = this.getRedirectUri(origin)
 
-    const state = generateOAuthState(userId, "google")
+    const state = generateOAuthState(userId, "google", { origin })
 
     const params = new URLSearchParams({
       client_id: clientId,

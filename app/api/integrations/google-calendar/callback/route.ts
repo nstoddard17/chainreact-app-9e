@@ -14,6 +14,7 @@ const supabase = createClient(supabaseUrl, supabaseServiceRoleKey)
 
 export async function GET(request: NextRequest) {
   try {
+    // Get URL parameters
     const searchParams = request.nextUrl.searchParams
     const code = searchParams.get("code")
     const state = searchParams.get("state")
@@ -64,184 +65,37 @@ export async function GET(request: NextRequest) {
     }
 
     if (!code || !state) {
-      return new Response(
-        `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>Google Calendar OAuth Error</title>
-            <style>
-              body {
-                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                min-height: 100vh;
-                margin: 0;
-                background-color: #f5f5f5;
-              }
-              .container {
-                background: white;
-                padding: 2rem;
-                border-radius: 8px;
-                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-                text-align: center;
-                max-width: 400px;
-              }
-              h1 { color: #e74c3c; }
-              p { color: #666; }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <h1>Invalid Request</h1>
-              <p>Missing required parameters</p>
-            </div>
-          </body>
-        </html>
-        `,
-        {
-          headers: { "Content-Type": "text/html" },
-        }
-      )
+      return new Response("Missing required parameters", { status: 400 })
     }
 
     // Parse and validate state
-    const stateData = parseOAuthState(state)
-    validateOAuthState(stateData, "google")
-
-    const userId = stateData.userId
-    if (!userId) {
-      throw new Error("Missing user ID in state")
+    const parsedState = parseOAuthState(state)
+    if (!parsedState) {
+      return new Response("Invalid state parameter", { status: 400 })
     }
 
-    const origin = request.headers.get("origin") || request.nextUrl.origin
-    const result = await GoogleCalendarOAuthService.handleCallback(code, state, supabase, userId, origin)
+    const { provider, userId, origin } = parsedState
+    if (provider !== "google") {
+      return new Response("Invalid provider in state", { status: 400 })
+    }
+
+    // Handle the OAuth callback
+    const result = await GoogleCalendarOAuthService.handleCallback(
+      code,
+      state,
+      supabase,
+      userId,
+      origin || "https://chainreact.app"
+    )
 
     if (!result.success) {
-      return new Response(
-        `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>Google Calendar OAuth Error</title>
-            <style>
-              body {
-                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                min-height: 100vh;
-                margin: 0;
-                background-color: #f5f5f5;
-              }
-              .container {
-                background: white;
-                padding: 2rem;
-                border-radius: 8px;
-                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-                text-align: center;
-                max-width: 400px;
-              }
-              h1 { color: #e74c3c; }
-              p { color: #666; }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <h1>Connection Failed</h1>
-              <p>${result.error || "Failed to connect Google Calendar"}</p>
-            </div>
-          </body>
-        </html>
-        `,
-        {
-          headers: { "Content-Type": "text/html" },
-        }
-      )
+      throw new Error(result.error || "Failed to handle callback")
     }
 
-    return new Response(
-      `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Google Calendar Connected</title>
-          <style>
-            body {
-              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-              display: flex;
-              justify-content: center;
-              align-items: center;
-              min-height: 100vh;
-              margin: 0;
-              background-color: #f5f5f5;
-            }
-            .container {
-              background: white;
-              padding: 2rem;
-              border-radius: 8px;
-              box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-              text-align: center;
-              max-width: 400px;
-            }
-            h1 { color: #2ecc71; }
-            p { color: #666; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <h1>Successfully Connected!</h1>
-            <p>You can now close this window and return to the app.</p>
-          </div>
-        </body>
-      </html>
-      `,
-      {
-        headers: { "Content-Type": "text/html" },
-      }
-    )
+    // Redirect to success page
+    return Response.redirect(`${origin || "https://chainreact.app"}/integrations?success=true`)
   } catch (error: any) {
-    console.error("Google Calendar callback error:", error)
-    return new Response(
-      `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Google Calendar OAuth Error</title>
-          <style>
-            body {
-              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-              display: flex;
-              justify-content: center;
-              align-items: center;
-              min-height: 100vh;
-              margin: 0;
-              background-color: #f5f5f5;
-            }
-            .container {
-              background: white;
-              padding: 2rem;
-              border-radius: 8px;
-              box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-              text-align: center;
-              max-width: 400px;
-            }
-            h1 { color: #e74c3c; }
-            p { color: #666; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <h1>Connection Error</h1>
-            <p>${error.message || "An unexpected error occurred"}</p>
-          </div>
-        </body>
-      </html>
-      `,
-      {
-        headers: { "Content-Type": "text/html" },
-      }
-    )
+    console.error("Error in Google Calendar callback:", error)
+    return new Response("Failed to handle Google Calendar callback", { status: 500 })
   }
 }
