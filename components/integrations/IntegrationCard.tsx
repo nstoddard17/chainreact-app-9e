@@ -5,9 +5,26 @@ import Image from "next/image"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, RefreshCw, Link as LinkIcon, Link2Off } from "lucide-react"
+import { Loader2, Link as LinkIcon, Link2Off } from "lucide-react"
 import { useIntegrationStore, type Integration, type Provider } from "@/stores/integrationStore"
 import { cn } from "@/lib/utils"
+
+// Colors for the letter avatar
+const avatarColors = [
+  "bg-blue-500",
+  "bg-green-500",
+  "bg-purple-500",
+  "bg-pink-500",
+  "bg-indigo-500",
+  "bg-red-500",
+  "bg-yellow-500",
+  "bg-teal-500",
+]
+
+const getAvatarColor = (name: string) => {
+  const index = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
+  return avatarColors[index % avatarColors.length]
+}
 
 interface IntegrationCardProps {
   provider: Provider
@@ -17,6 +34,7 @@ interface IntegrationCardProps {
 
 export function IntegrationCard({ provider, integration, status }: IntegrationCardProps) {
   const { connectIntegration, disconnectIntegration, loadingStates } = useIntegrationStore()
+  const [imageError, setImageError] = useState(false)
 
   const handleConnect = () => {
     connectIntegration(provider.id)
@@ -84,11 +102,36 @@ export function IntegrationCard({ provider, integration, status }: IntegrationCa
     }
   }
 
+  const renderLogo = () => {
+    if (provider.logoUrl && !imageError) {
+      return (
+        <div className="relative w-10 h-10 rounded-md overflow-hidden bg-white border border-gray-200">
+          <Image
+            src={provider.logoUrl}
+            alt={`${provider.name} logo`}
+            fill
+            className="object-contain p-1"
+            onError={() => setImageError(true)}
+          />
+        </div>
+      )
+    }
+    
+    return (
+      <div className={cn(
+        "w-10 h-10 rounded-md flex items-center justify-center text-white font-semibold text-lg",
+        getAvatarColor(provider.name)
+      )}>
+        {provider.name.charAt(0).toUpperCase()}
+      </div>
+    )
+  }
+
   return (
     <Card className="flex flex-col justify-between p-4 shadow-sm hover:shadow-md transition-shadow duration-200 rounded-lg border-gray-200">
         <CardHeader className="flex-row items-start justify-between p-2">
             <div className="flex items-center gap-4">
-              {provider.logoUrl && <Image src={provider.logoUrl} alt={`${provider.name} logo`} width={40} height={40} className="rounded-md" />}
+              {renderLogo()}
               <CardTitle className="text-lg font-semibold">{provider.name}</CardTitle>
             </div>
             <Badge className={cn("px-2.5 py-1 text-xs font-medium", badgeClass)}>{statusText}</Badge>
