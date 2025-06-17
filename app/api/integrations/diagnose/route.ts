@@ -63,7 +63,7 @@ const COMPONENT_SCOPE_MAPPING = {
   gmail_modify: { scopes: ["https://www.googleapis.com/auth/gmail.modify"], provider: "gmail" },
 
   // Google Drive components
-  google_drive_upload: { scopes: ["https://www.googleapis.com/auth/drive.file"], provider: "google-drive" },
+  google_drive_upload: { scopes: ["https://www.googleapis.com/auth/drive"], provider: "google-drive" },
   //google_drive_read: { scopes: ["https://www.googleapis.com/auth/drive.readonly"], provider: "google-drive" },
 
   // YouTube components
