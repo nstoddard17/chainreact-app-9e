@@ -1,5 +1,6 @@
 import { createAdminSupabaseClient, upsertIntegration, validateScopes, getRequiredScopes } from "./utils"
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
+import { getOAuthRedirectUri } from "./utils"
 
 export interface OAuthResult {
   success: boolean
@@ -7,13 +8,11 @@ export interface OAuthResult {
   error?: string
 }
 
-export class BaseOAuthService {
-  /**
-   * Get hardcoded redirect URI for a provider
-   */
-  static getRedirectUri(provider: string): string {
-    const baseUrl = getBaseUrl()
-    return `${baseUrl}/api/integrations/${provider}/callback`
+export abstract class BaseOAuthService {
+  protected abstract getProviderName(): string
+
+  protected getRedirectUri(): string {
+    return getOAuthRedirectUri(getBaseUrl(), this.getProviderName())
   }
 
   /**
@@ -68,7 +67,7 @@ export class BaseOAuthService {
       }
 
       // Use redirect URI derived from base URL
-      const redirectUri = this.getRedirectUri(provider)
+      const redirectUri = this.getRedirectUri()
       const baseUrl = getBaseUrl()
 
       // Exchange code for token

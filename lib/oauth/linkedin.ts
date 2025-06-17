@@ -19,7 +19,7 @@ export class LinkedInOAuthService {
     }
 
     const state = generateOAuthState("linkedin", userId)
-    const redirectUri = getOAuthRedirectUri("linkedin", baseUrl)
+    const redirectUri = this.getRedirectUri(baseUrl)
 
     const params = new URLSearchParams({
       response_type: "code",
@@ -33,7 +33,8 @@ export class LinkedInOAuthService {
   }
 
   static getRedirectUri(baseUrl?: string): string {
-    return getOAuthRedirectUri("linkedin", baseUrl)
+    const origin = baseUrl || getBaseUrl()
+    return getOAuthRedirectUri(origin, "linkedin")
   }
 
   static async handleCallback(

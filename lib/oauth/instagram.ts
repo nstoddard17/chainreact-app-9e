@@ -59,7 +59,7 @@ export class InstagramOAuthService {
   }
 
   static getRedirectUri(): string {
-    return `${getBaseUrl()}/api/integrations/instagram/callback`
+    return getOAuthRedirectUri(getBaseUrl(), "instagram")
   }
 
   static async handleCallback(

@@ -70,7 +70,7 @@ export class TikTokOAuthService {
   }
 
   static getRedirectUri(baseUrl: string): string {
-    return `${getBaseUrl()}/api/integrations/tiktok/callback`
+    return getOAuthRedirectUri(baseUrl, "tiktok")
   }
 
   static async handleCallback(

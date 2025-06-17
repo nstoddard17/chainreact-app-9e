@@ -19,7 +19,7 @@ export class DropboxOAuthService {
     }
 
     const state = generateOAuthState("dropbox", userId)
-    const redirectUri = getOAuthRedirectUri("dropbox", baseUrl)
+    const redirectUri = this.getRedirectUri(baseUrl)
 
     const params = new URLSearchParams({
       response_type: "code",
@@ -34,7 +34,8 @@ export class DropboxOAuthService {
   }
 
   static getRedirectUri(baseUrl?: string): string {
-    return getOAuthRedirectUri("dropbox", baseUrl)
+    const origin = baseUrl || getBaseUrl()
+    return getOAuthRedirectUri(origin, "dropbox")
   }
 
   static async handleCallback(

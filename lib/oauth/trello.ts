@@ -1,4 +1,5 @@
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
+import { getOAuthRedirectUri } from "./utils"
 
 export class TrelloOAuthService {
   private static getClientCredentials() {
@@ -13,7 +14,7 @@ export class TrelloOAuthService {
   }
 
   static getRedirectUri(): string {
-    return `${getBaseUrl()}/integrations/trello-auth`
+    return getOAuthRedirectUri(getBaseUrl(), "trello")
   }
 
   static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string, userId?: string): string {
