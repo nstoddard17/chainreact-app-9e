@@ -1,43 +1,249 @@
+import { type NextRequest } from "next/server"
+import { createClient } from "@supabase/supabase-js"
 import { GoogleDocsOAuthService } from "@/lib/oauth/google-docs"
-import { createAdminSupabaseClient } from "@/lib/oauth/utils"
-import { NextRequest } from "next/server"
+import { parseOAuthState, validateOAuthState } from "@/lib/oauth/utils"
+
+const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
+const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+if (!googleClientId || !googleClientSecret || !supabaseUrl || !supabaseServiceRoleKey) {
+  throw new Error("Missing required environment variables")
+}
+
+const supabase = createClient(supabaseUrl, supabaseServiceRoleKey)
 
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams
     const code = searchParams.get("code")
     const state = searchParams.get("state")
+    const error = searchParams.get("error")
+    const errorDescription = searchParams.get("error_description")
+
+    if (error) {
+      return new Response(
+        `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Google Docs OAuth Error</title>
+            <style>
+              body {
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                min-height: 100vh;
+                margin: 0;
+                background-color: #f5f5f5;
+              }
+              .container {
+                background: white;
+                padding: 2rem;
+                border-radius: 8px;
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+                text-align: center;
+                max-width: 400px;
+              }
+              h1 { color: #e74c3c; }
+              p { color: #666; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <h1>Authentication Error</h1>
+              <p>${errorDescription || error}</p>
+            </div>
+          </body>
+        </html>
+        `,
+        {
+          headers: { "Content-Type": "text/html" },
+        }
+      )
+    }
 
     if (!code || !state) {
-      return new Response("Missing code or state", { status: 400 })
+      return new Response(
+        `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Google Docs OAuth Error</title>
+            <style>
+              body {
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                min-height: 100vh;
+                margin: 0;
+                background-color: #f5f5f5;
+              }
+              .container {
+                background: white;
+                padding: 2rem;
+                border-radius: 8px;
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+                text-align: center;
+                max-width: 400px;
+              }
+              h1 { color: #e74c3c; }
+              p { color: #666; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <h1>Invalid Request</h1>
+              <p>Missing required parameters</p>
+            </div>
+          </body>
+        </html>
+        `,
+        {
+          headers: { "Content-Type": "text/html" },
+        }
+      )
     }
 
-    const supabase = createAdminSupabaseClient()
-    if (!supabase) {
-      return new Response("Failed to create Supabase client", { status: 500 })
+    // Parse and validate state
+    const stateData = parseOAuthState(state)
+    validateOAuthState(stateData, "google")
+
+    const userId = stateData.userId
+    if (!userId) {
+      throw new Error("Missing user ID in state")
     }
 
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
-    if (userError || !user) {
-      return new Response("Unauthorized", { status: 401 })
-    }
-
-    const result = await GoogleDocsOAuthService.handleCallback(
-      code,
-      state,
-      supabase,
-      user.id,
-      request.headers.get("origin") || request.nextUrl.origin
-    )
+    const origin = request.headers.get("origin") || request.nextUrl.origin
+    const result = await GoogleDocsOAuthService.handleCallback(code, state, supabase, userId, origin)
 
     if (!result.success) {
-      return new Response(result.error || "Failed to handle callback", { status: 500 })
+      return new Response(
+        `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Google Docs OAuth Error</title>
+            <style>
+              body {
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                min-height: 100vh;
+                margin: 0;
+                background-color: #f5f5f5;
+              }
+              .container {
+                background: white;
+                padding: 2rem;
+                border-radius: 8px;
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+                text-align: center;
+                max-width: 400px;
+              }
+              h1 { color: #e74c3c; }
+              p { color: #666; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <h1>Connection Failed</h1>
+              <p>${result.error || "Failed to connect Google Docs"}</p>
+            </div>
+          </body>
+        </html>
+        `,
+        {
+          headers: { "Content-Type": "text/html" },
+        }
+      )
     }
 
-    // Redirect to success page
-    return Response.redirect(new URL("/integrations?success=true", request.url))
-  } catch (error) {
+    return new Response(
+      `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Google Docs Connected</title>
+          <style>
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              min-height: 100vh;
+              margin: 0;
+              background-color: #f5f5f5;
+            }
+            .container {
+              background: white;
+              padding: 2rem;
+              border-radius: 8px;
+              box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+              text-align: center;
+              max-width: 400px;
+            }
+            h1 { color: #2ecc71; }
+            p { color: #666; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <h1>Successfully Connected!</h1>
+            <p>You can now close this window and return to the app.</p>
+          </div>
+        </body>
+      </html>
+      `,
+      {
+        headers: { "Content-Type": "text/html" },
+      }
+    )
+  } catch (error: any) {
     console.error("Google Docs callback error:", error)
-    return new Response("Failed to handle callback", { status: 500 })
+    return new Response(
+      `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Google Docs OAuth Error</title>
+          <style>
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              min-height: 100vh;
+              margin: 0;
+              background-color: #f5f5f5;
+            }
+            .container {
+              background: white;
+              padding: 2rem;
+              border-radius: 8px;
+              box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+              text-align: center;
+              max-width: 400px;
+            }
+            h1 { color: #e74c3c; }
+            p { color: #666; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <h1>Connection Error</h1>
+            <p>${error.message || "An unexpected error occurred"}</p>
+          </div>
+        </body>
+      </html>
+      `,
+      {
+        headers: { "Content-Type": "text/html" },
+      }
+    )
   }
 }
