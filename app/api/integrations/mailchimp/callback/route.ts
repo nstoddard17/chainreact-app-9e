@@ -1,151 +1,105 @@
-import { NextRequest } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
-import { MailchimpOAuthService } from "@/lib/oauth/mailchimp"
-import { parseOAuthState, validateOAuthState } from "@/lib/oauth/utils"
+import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 
 export async function GET(request: NextRequest) {
+  const url = new URL(request.url)
+  const code = url.searchParams.get("code")
+  const state = url.searchParams.get("state")
+  const error = url.searchParams.get("error")
+
+  const redirectUrl = new URL("/integrations", getBaseUrl())
+
+  if (error) {
+    console.error(`Error with Mailchimp OAuth: ${error}`)
+    redirectUrl.searchParams.set("error", "Failed to connect Mailchimp account.")
+    return NextResponse.redirect(redirectUrl)
+  }
+
+  if (!code) {
+    redirectUrl.searchParams.set("error", "No code provided for Mailchimp OAuth.")
+    return NextResponse.redirect(redirectUrl)
+  }
+
+  if (!state) {
+    redirectUrl.searchParams.set("error", "No state provided for Mailchimp OAuth.")
+    return NextResponse.redirect(redirectUrl)
+  }
+
   try {
-    // Validate environment variables
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-      throw new Error("Missing required environment variables")
+    const { userId } = JSON.parse(atob(state))
+    if (!userId) {
+      redirectUrl.searchParams.set("error", "Missing userId in Mailchimp state.")
+      return NextResponse.redirect(redirectUrl)
     }
 
-    // Initialize Supabase client
+    const response = await fetch("https://login.mailchimp.com/oauth2/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        grant_type: "authorization_code",
+        code,
+        client_id: process.env.NEXT_PUBLIC_MAILCHIMP_CLIENT_ID!,
+        client_secret: process.env.MAILCHIMP_CLIENT_SECRET!,
+        redirect_uri: `${getBaseUrl()}/api/integrations/mailchimp/callback`,
+      }),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      console.error("Failed to exchange Mailchimp code for token:", errorData)
+      redirectUrl.searchParams.set("error", "Failed to get Mailchimp access token.")
+      return NextResponse.redirect(redirectUrl)
+    }
+
+    const tokens = await response.json()
+    const accessToken = tokens.access_token
+
+    const metadataResponse = await fetch("https://login.mailchimp.com/oauth2/metadata", {
+      headers: {
+        Authorization: `OAuth ${accessToken}`,
+      },
+    })
+
+    if (!metadataResponse.ok) {
+      console.error("Failed to fetch Mailchimp user info")
+      redirectUrl.searchParams.set("error", "Failed to fetch Mailchimp user info.")
+      return NextResponse.redirect(redirectUrl)
+    }
+
+    const metadata = await metadataResponse.json()
+    const providerAccountId = metadata.user_id
+
     const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_ROLE_KEY
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
     )
 
-    // Get URL parameters
-    const searchParams = request.nextUrl.searchParams
-    const code = searchParams.get("code")
-    const state = searchParams.get("state")
-    const error = searchParams.get("error")
-    const errorDescription = searchParams.get("error_description")
-
-    // Handle OAuth errors
-    if (error) {
-      return new Response(
-        `
-        <html>
-          <body>
-            <h1>Authentication Error</h1>
-            <p>${errorDescription || error}</p>
-            <script>
-              window.location.href = "/integrations?error=oauth_error&provider=mailchimp&message=${encodeURIComponent(
-                errorDescription || error
-              )}"
-            </script>
-          </body>
-        </html>
-      `,
-        {
-          status: 400,
-          headers: {
-            "Content-Type": "text/html",
-          },
-        }
-      )
-    }
-
-    // Validate required parameters
-    if (!code || !state) {
-      return new Response(
-        `
-        <html>
-          <body>
-            <h1>Missing Parameters</h1>
-            <p>Required parameters are missing from the request.</p>
-            <script>
-              window.location.href = "/integrations?error=missing_params&provider=mailchimp"
-            </script>
-          </body>
-        </html>
-      `,
-        {
-          status: 400,
-          headers: {
-            "Content-Type": "text/html",
-          },
-        }
-      )
-    }
-
-    // Parse and validate state
-    const stateData = parseOAuthState(state)
-    validateOAuthState(stateData, "mailchimp")
-
-    // Process the OAuth callback
-    const result = await MailchimpOAuthService.handleCallback(
-      code,
-      state,
-      supabase,
-      stateData.userId
-    )
-
-    if (result.success) {
-      return new Response(
-        `
-        <html>
-          <body>
-            <h1>Success!</h1>
-            <p>Your Mailchimp account has been successfully connected.</p>
-            <script>
-              window.location.href = "${result.redirectUrl}"
-            </script>
-          </body>
-        </html>
-      `,
-        {
-          status: 200,
-          headers: {
-            "Content-Type": "text/html",
-          },
-        }
-      )
-    } else {
-      return new Response(
-        `
-        <html>
-          <body>
-            <h1>Error</h1>
-            <p>${result.error || "An unexpected error occurred"}</p>
-            <script>
-              window.location.href = "${result.redirectUrl}"
-            </script>
-          </body>
-        </html>
-      `,
-        {
-          status: 400,
-          headers: {
-            "Content-Type": "text/html",
-          },
-        }
-      )
-    }
-  } catch (error: any) {
-    console.error("Mailchimp callback error:", error)
-    return new Response(
-      `
-      <html>
-        <body>
-          <h1>Unexpected Error</h1>
-          <p>${error.message || "An unexpected error occurred"}</p>
-          <script>
-            window.location.href = "/integrations?error=unexpected&provider=mailchimp&message=${encodeURIComponent(
-              error.message || "An unexpected error occurred"
-            )}"
-          </script>
-        </body>
-      </html>
-    `,
+    const { error: dbError } = await supabase.from("integrations").upsert(
       {
-        status: 500,
-        headers: {
-          "Content-Type": "text/html",
-        },
-      }
+        user_id: userId,
+        provider: "mailchimp",
+        provider_account_id: providerAccountId.toString(),
+        access_token: accessToken,
+        status: "connected",
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id, provider" },
     )
+
+    if (dbError) {
+      console.error("Error saving Mailchimp integration to DB:", dbError)
+      redirectUrl.searchParams.set("error", "Failed to save Mailchimp integration.")
+      return NextResponse.redirect(redirectUrl)
+    }
+
+    redirectUrl.searchParams.set("success", "Mailchimp account connected successfully.")
+    return NextResponse.redirect(redirectUrl)
+  } catch (error) {
+    console.error("Error during Mailchimp OAuth callback:", error)
+    redirectUrl.searchParams.set("error", "An unexpected error occurred.")
+    return NextResponse.redirect(redirectUrl)
   }
 }
