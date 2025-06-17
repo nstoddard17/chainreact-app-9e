@@ -18,7 +18,7 @@ export class GoogleDriveOAuthService {
     const redirectUri = this.getRedirectUri(baseUrl)
     const state = btoa(
       JSON.stringify({
-        provider: "google-drive",
+        provider: "google_drive",
         userId,
         reconnect,
         integrationId,
@@ -36,7 +36,13 @@ export class GoogleDriveOAuthService {
   }
 
   static getRedirectUri(origin: string): string {
-    return getOAuthRedirectUri(origin, "google")
+    const redirectUri = getOAuthRedirectUri(origin, "google_drive")
+    console.log("Google Drive Redirect URI:", {
+      origin,
+      baseUrl: getBaseUrl(),
+      redirectUri,
+    })
+    return redirectUri
   }
 
   static async handleCallback(

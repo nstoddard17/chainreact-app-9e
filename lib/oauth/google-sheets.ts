@@ -18,7 +18,7 @@ export class GoogleSheetsOAuthService {
     const redirectUri = this.getRedirectUri(baseUrl)
     const state = btoa(
       JSON.stringify({
-        provider: "google-sheets",
+        provider: "google_sheets",
         userId,
         reconnect,
         integrationId,
@@ -36,7 +36,13 @@ export class GoogleSheetsOAuthService {
   }
 
   static getRedirectUri(origin: string): string {
-    return getOAuthRedirectUri(origin, "google")
+    const redirectUri = getOAuthRedirectUri(origin, "google_sheets")
+    console.log("Google Sheets Redirect URI:", {
+      origin,
+      baseUrl: getBaseUrl(),
+      redirectUri,
+    })
+    return redirectUri
   }
 
   static getClientCredentials() {

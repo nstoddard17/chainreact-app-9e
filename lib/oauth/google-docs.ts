@@ -20,7 +20,13 @@ export class GoogleDocsOAuthService {
   }
 
   static getRedirectUri(origin: string): string {
-    return getOAuthRedirectUri(origin, "google")
+    const redirectUri = getOAuthRedirectUri(origin, "google_docs")
+    console.log("Google Docs Redirect URI:", {
+      origin,
+      baseUrl: getBaseUrl(),
+      redirectUri,
+    })
+    return redirectUri
   }
 
   static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string, userId?: string): string {
@@ -28,7 +34,7 @@ export class GoogleDocsOAuthService {
     const redirectUri = this.getRedirectUri(baseUrl)
     const state = btoa(
       JSON.stringify({
-        provider: "google-docs",
+        provider: "google_docs",
         userId,
         reconnect,
         integrationId,
