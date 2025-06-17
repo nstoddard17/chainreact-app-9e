@@ -6,7 +6,7 @@ import { useAuthStore } from "@/stores/authStore"
 import AppLayout from "@/components/layout/AppLayout"
 import { IntegrationCard } from "./IntegrationCard"
 import { ApiKeyIntegrationCard } from "./ApiKeyIntegrationCard"
-import { Loader2, RefreshCw, Bell, Check, X } from "lucide-react"
+import { Loader2, RefreshCw, Bell, Check, X, Search } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/hooks/use-toast"
@@ -14,11 +14,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
 
 function IntegrationsContent() {
   const [activeTab, setActiveTab] = useState("all")
   const [autoRefresh, setAutoRefresh] = useState(true)
   const [isInitializing, setIsInitializing] = useState(true)
+  const [searchQuery, setSearchQuery] = useState("")
   const { toast } = useToast()
 
   const { integrations, providers, initializeProviders, fetchIntegrations, loading } = useIntegrationStore()
@@ -56,8 +58,8 @@ function IntegrationsContent() {
         if (expiresAt && expiresAt < now) {
           status = "expiring"
         } else {
-          const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
-          if (expiresAt && expiresAt < sevenDaysFromNow) {
+          const fiveMinutesFromNow = new Date(now.getTime() + 5 * 60 * 1000)
+          if (expiresAt && expiresAt < fiveMinutesFromNow) {
             status = "expiring"
           } else {
             status = "connected"
@@ -91,18 +93,33 @@ function IntegrationsContent() {
   }, [providersWithStatus])
 
   const filteredProviders = useMemo(() => {
-    switch (activeTab) {
-      case "connected":
-        return providersWithStatus.filter((p) => p.status === "connected")
-      case "expiring":
-        return providersWithStatus.filter((p) => p.status === "expiring")
-      case "disconnected":
-        return providersWithStatus.filter((p) => p.status === "disconnected")
-      case "all":
-      default:
-        return providersWithStatus
+    let filtered = providersWithStatus
+
+    // Apply tab filtering
+    if (activeTab !== "all") {
+      filtered = filtered.filter((p) => p.status === activeTab)
     }
-  }, [activeTab, providersWithStatus])
+
+    // Apply search filtering
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase()
+      filtered = filtered.filter(
+        (p) =>
+          p.name.toLowerCase().includes(query) ||
+          p.description?.toLowerCase().includes(query)
+      )
+    }
+
+    // Sort: expiring first, then alphabetically
+    return filtered.sort((a, b) => {
+      // First sort by status (expiring first)
+      if (a.status === "expiring" && b.status !== "expiring") return -1
+      if (a.status !== "expiring" && b.status === "expiring") return 1
+      
+      // Then sort alphabetically by name
+      return a.name.localeCompare(b.name)
+    })
+  }, [providersWithStatus, activeTab, searchQuery])
 
   if (isInitializing) {
     return (
@@ -115,14 +132,26 @@ function IntegrationsContent() {
   }
 
   const PageHeader = () => (
-    <div className="flex justify-between items-start mb-8">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-800">Integrations</h1>
-        {expiringCount > 0 && (
-          <p className="text-gray-500 mt-1">
-            {expiringCount} {expiringCount === 1 ? "integration is" : "integrations are"} expiring soon
-          </p>
-        )}
+    <div className="space-y-4">
+      <div className="flex justify-between items-start">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-800">Integrations</h1>
+          {expiringCount > 0 && (
+            <p className="text-gray-500 mt-1">
+              {expiringCount} {expiringCount === 1 ? "integration is" : "integrations are"} expiring soon
+            </p>
+          )}
+        </div>
+      </div>
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <Input
+          type="text"
+          placeholder="Search integrations..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-10 w-full"
+        />
       </div>
     </div>
   )
@@ -142,7 +171,7 @@ function IntegrationsContent() {
 
   const StatusSidebar = () => (
     <aside className="w-full lg:w-80 lg:pl-8 mt-8 lg:mt-0">
-      <Card className="sticky top-24 shadow-sm rounded-lg border-gray-200">
+      <Card className="sticky top-8 shadow-sm rounded-lg border-gray-200">
         <CardHeader>
           <CardTitle className="text-lg">Status</CardTitle>
         </CardHeader>
