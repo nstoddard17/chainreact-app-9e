@@ -1,142 +1,106 @@
-import { type NextRequest } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
-import { GitHubOAuthService } from "@/lib/oauth/github"
-import { parseOAuthState, validateOAuthState } from "@/lib/oauth/utils"
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-if (!supabaseUrl || !supabaseServiceRoleKey) {
-  throw new Error("Missing required environment variables")
-}
-
-const supabase = createClient(supabaseUrl, supabaseServiceRoleKey)
+import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 
 export async function GET(request: NextRequest) {
+  const url = new URL(request.url)
+  const code = url.searchParams.get("code")
+  const state = url.searchParams.get("state")
+  const error = url.searchParams.get("error")
+
+  const redirectUrl = new URL("/integrations", getBaseUrl())
+
+  if (error) {
+    console.error(`Error with GitHub OAuth: ${error}`)
+    redirectUrl.searchParams.set("error", "Failed to connect GitHub account.")
+    return NextResponse.redirect(redirectUrl)
+  }
+
+  if (!code) {
+    redirectUrl.searchParams.set("error", "No code provided for GitHub OAuth.")
+    return NextResponse.redirect(redirectUrl)
+  }
+
+  if (!state) {
+    redirectUrl.searchParams.set("error", "No state provided for GitHub OAuth.")
+    return NextResponse.redirect(redirectUrl)
+  }
+
   try {
-    const searchParams = request.nextUrl.searchParams
-    const code = searchParams.get("code")
-    const state = searchParams.get("state")
-    const error = searchParams.get("error")
-    const errorDescription = searchParams.get("error_description")
-
-    // Handle OAuth errors
-    if (error) {
-      console.error("GitHub OAuth error:", error, errorDescription)
-      return new Response(
-        `
-        <html>
-          <body>
-            <h1>Authentication Failed</h1>
-            <p>Error: ${error}</p>
-            ${errorDescription ? `<p>Description: ${errorDescription}</p>` : ""}
-            <script>
-              window.close();
-            </script>
-          </body>
-        </html>
-      `,
-        {
-          headers: {
-            "Content-Type": "text/html",
-          },
-        }
-      )
+    const { userId } = JSON.parse(atob(state))
+    if (!userId) {
+      redirectUrl.searchParams.set("error", "Missing userId in GitHub state.")
+      return NextResponse.redirect(redirectUrl)
     }
 
-    // Validate required parameters
-    if (!code || !state) {
-      return new Response(
-        `
-        <html>
-          <body>
-            <h1>Authentication Failed</h1>
-            <p>Missing required parameters</p>
-            <script>
-              window.close();
-            </script>
-          </body>
-        </html>
-      `,
-        {
-          headers: {
-            "Content-Type": "text/html",
-          },
-        }
-      )
+    const response = await fetch("https://github.com/login/oauth/access_token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        client_id: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID!,
+        client_secret: process.env.GITHUB_CLIENT_SECRET!,
+        code,
+        redirect_uri: `${getBaseUrl()}/api/integrations/github/callback`,
+      }),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      console.error("Failed to exchange GitHub code for token:", errorData)
+      redirectUrl.searchParams.set("error", "Failed to get GitHub access token.")
+      return NextResponse.redirect(redirectUrl)
     }
 
-    // Parse and validate state
-    const stateData = parseOAuthState(state)
-    validateOAuthState(stateData, "github")
+    const tokens = await response.json()
+    const accessToken = tokens.access_token
 
-    // Process OAuth callback
-    const result = await GitHubOAuthService.handleCallback(
-      code,
-      state,
-      supabase,
-      stateData.userId,
-      request.nextUrl.origin
+    const userInfoResponse = await fetch("https://api.github.com/user", {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: "application/vnd.github.v3+json",
+      },
+    })
+
+    if (!userInfoResponse.ok) {
+      console.error("Failed to fetch GitHub user info")
+      redirectUrl.searchParams.set("error", "Failed to fetch GitHub user info.")
+      return NextResponse.redirect(redirectUrl)
+    }
+
+    const userInfo = await userInfoResponse.json()
+    const providerAccountId = userInfo.id
+
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
     )
 
-    if (result.success) {
-      return new Response(
-        `
-        <html>
-          <body>
-            <h1>Successfully Connected to GitHub</h1>
-            <p>You can close this window and return to the app.</p>
-            <script>
-              window.close();
-            </script>
-          </body>
-        </html>
-      `,
-        {
-          headers: {
-            "Content-Type": "text/html",
-          },
-        }
-      )
-    } else {
-      return new Response(
-        `
-        <html>
-          <body>
-            <h1>Authentication Failed</h1>
-            <p>Error: ${result.error}</p>
-            <script>
-              window.close();
-            </script>
-          </body>
-        </html>
-      `,
-        {
-          headers: {
-            "Content-Type": "text/html",
-          },
-        }
-      )
-    }
-  } catch (error: any) {
-    console.error("GitHub callback error:", error)
-    return new Response(
-      `
-      <html>
-        <body>
-          <h1>Authentication Failed</h1>
-          <p>Error: ${error.message}</p>
-          <script>
-            window.close();
-          </script>
-        </body>
-      </html>
-    `,
+    const { error: dbError } = await supabase.from("integrations").upsert(
       {
-        headers: {
-          "Content-Type": "text/html",
-        },
-      }
+        user_id: userId,
+        provider: "github",
+        provider_account_id: providerAccountId.toString(),
+        access_token: accessToken,
+        status: "connected",
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id, provider" },
     )
+
+    if (dbError) {
+      console.error("Error saving GitHub integration to DB:", dbError)
+      redirectUrl.searchParams.set("error", "Failed to save GitHub integration.")
+      return NextResponse.redirect(redirectUrl)
+    }
+
+    redirectUrl.searchParams.set("success", "GitHub account connected successfully.")
+    return NextResponse.redirect(redirectUrl)
+  } catch (error) {
+    console.error("Error during GitHub OAuth callback:", error)
+    redirectUrl.searchParams.set("error", "An unexpected error occurred.")
+    return NextResponse.redirect(redirectUrl)
   }
 }
