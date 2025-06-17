@@ -1,6 +1,15 @@
 import { db } from "@/lib/db"
-import { INTEGRATION_SCOPES, validateScopes, getAllScopes } from "./integrationScopes"
-import { getOAuthRedirectUri } from "@/lib/oauth/utils"
+import {
+  INTEGRATION_SCOPES,
+  validateScopes,
+  getAllScopes,
+  isKnownProvider,
+} from "./integrationScopes"
+
+function getOAuthRedirectUri(provider: string): string {
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"
+  return `${baseUrl}/api/integrations/${provider}/callback`
+}
 
 export interface ScopeValidationResult {
   provider: string
@@ -17,7 +26,12 @@ export async function validateIntegrationScopes(
   grantedScopes: string[],
 ): Promise<ScopeValidationResult> {
   // For Discord, use the updated required scopes
-  let validation
+  let validation: {
+    valid: boolean
+    missing: string[]
+    granted: string[]
+    status: "valid" | "invalid" | "partial"
+  }
   if (provider === "discord") {
     const requiredScopes = ["identify", "guilds", "guilds.join", "messages.read"]
     const missing = requiredScopes.filter((scope) => !grantedScopes.includes(scope))
@@ -25,7 +39,11 @@ export async function validateIntegrationScopes(
       valid: missing.length === 0,
       missing,
       granted: grantedScopes.filter((scope) => requiredScopes.includes(scope)),
-      status: missing.length === 0 ? "valid" : missing.length === requiredScopes.length ? "invalid" : "partial",
+      status: (missing.length === 0
+        ? "valid"
+        : missing.length === requiredScopes.length
+          ? "invalid"
+          : "partial"),
     }
   } else {
     validation = validateScopes(provider, grantedScopes)
@@ -96,6 +114,9 @@ export function generateReconnectionUrl(provider: string, state?: string): strin
     return `https://discord.com/api/oauth2/authorize?${discordParams.toString()}`
   }
 
+  if (!isKnownProvider(provider)) {
+    throw new Error(`Unsupported provider: ${provider}`)
+  }
   const config = INTEGRATION_SCOPES[provider]
   if (!config) {
     throw new Error(`Unsupported provider: ${provider}`)
@@ -230,50 +251,36 @@ export async function validateAndUpdateIntegrationScopes(
   status: "valid" | "invalid" | "partial"
   integration: any
 }> {
-  // Get the integration
-  const { data: integration, error } = await db.from("integrations").select("*").eq("id", integrationId).single()
+  const { data: integration, error } = await db
+    .from("integrations")
+    .select("*")
+    .eq("id", integrationId)
+    .single()
 
   if (error || !integration) {
-    throw new Error(`Integration not found: ${error?.message || "Unknown error"}`)
+    throw new Error(`Integration with ID ${integrationId} not found`)
   }
 
-  const provider = integration.provider
+  const validation = validateScopes(integration.provider, grantedScopes)
 
-  // Validate the scopes
-  let validationResult
-  if (provider === "discord") {
-    const requiredScopes = ["identify", "guilds", "guilds.join", "messages.read"]
-    const missing = requiredScopes.filter((scope) => !grantedScopes.includes(scope))
-    validationResult = {
-      valid: missing.length === 0,
-      missing,
-      granted: grantedScopes.filter((scope) => requiredScopes.includes(scope)),
-      status: missing.length === 0 ? "valid" : missing.length === requiredScopes.length ? "invalid" : "partial",
-    }
-  } else {
-    validationResult = validateScopes(provider, grantedScopes)
-  }
-
-  // Update the integration with validation results
+  // Update integration record
   await db
     .from("integrations")
     .update({
       granted_scopes: grantedScopes,
-      missing_scopes: validationResult.missing,
-      scope_validation_status: validationResult.status,
+      missing_scopes: validation.missing,
+      scope_validation_status: validation.status,
       last_scope_check: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })
     .eq("id", integrationId)
 
   return {
-    ...validationResult,
-    integration: {
-      ...integration,
-      granted_scopes: grantedScopes,
-      missing_scopes: validationResult.missing,
-      scope_validation_status: validationResult.status,
-    },
+    integration,
+    valid: validation.valid,
+    missing: validation.missing,
+    granted: validation.granted,
+    status: validation.status,
   }
 }
 
@@ -295,44 +302,18 @@ export async function validateAllIntegrations(userId: string): Promise<any[]> {
     throw new Error(`Failed to fetch integrations: ${error?.message || "Unknown error"}`)
   }
 
-  const results = []
-
-  // Validate each integration
-  for (const integration of integrations) {
-    const grantedScopes = integration.granted_scopes || []
-    const provider = integration.provider
-
-    let validationResult
-    if (provider === "discord") {
-      const requiredScopes = ["identify", "guilds", "guilds.join", "messages.read"]
-      const missing = requiredScopes.filter((scope) => !grantedScopes.includes(scope))
-      validationResult = {
-        valid: missing.length === 0,
-        missing,
-        granted: grantedScopes.filter((scope) => requiredScopes.includes(scope)),
-        status: missing.length === 0 ? "valid" : missing.length === requiredScopes.length ? "invalid" : "partial",
+  // Validate scopes for all integrations
+  const validationResults = await Promise.all(
+    integrations.map(async (integration: any) => {
+      const result = validateScopes(integration.provider, integration.granted_scopes || [])
+      return {
+        ...integration,
+        scopeValidation: result,
       }
-    } else {
-      validationResult = validateScopes(provider, grantedScopes)
-    }
+    }),
+  )
 
-    // Update the integration with validation results
-    await db
-      .from("integrations")
-      .update({
-        missing_scopes: validationResult.missing,
-        scope_validation_status: validationResult.status,
-        last_scope_check: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", integration.id)
+  // Further checks or updates can be done here...
 
-    results.push({
-      integrationId: integration.id,
-      provider,
-      ...validationResult,
-    })
-  }
-
-  return results
+  return validationResults
 }
