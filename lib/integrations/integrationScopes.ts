@@ -9,7 +9,7 @@ export const INTEGRATION_SCOPES = {
     optional: ["guilds.join", "messages.read"],
   },
   github: {
-    required: ["repo", "user"],
+    required: ["repo"],
     optional: ["read:org", "gist"],
   },
   google: {
