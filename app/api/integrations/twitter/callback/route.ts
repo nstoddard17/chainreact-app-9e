@@ -37,12 +37,14 @@ export async function GET(request: NextRequest) {
   const code = url.searchParams.get("code")
   const state = url.searchParams.get("state")
   const error = url.searchParams.get("error")
+  const errorDescription = url.searchParams.get("error_description")
 
   const baseUrl = getBaseUrl()
 
   if (error) {
-    console.error(`Error with Twitter OAuth: ${error}`)
-    return createPopupResponse("error", "twitter", `OAuth Error: ${error}`, baseUrl)
+    const message = errorDescription || error
+    console.error(`Error with Twitter OAuth: ${message}`)
+    return createPopupResponse("error", "twitter", `OAuth Error: ${message}`, baseUrl)
   }
 
   if (!code) {
@@ -79,9 +81,10 @@ export async function GET(request: NextRequest) {
     })
 
     if (!response.ok) {
-      const errorData = await response.json()
+      const errorData = await response.json().catch(() => ({ error: "Unknown error", error_description: "Failed to parse error response from Twitter." }))
+      const message = errorData.error_description || errorData.error || "Failed to get Twitter access token."
       console.error("Failed to exchange Twitter code for token:", errorData)
-      return createPopupResponse("error", "twitter", "Failed to get Twitter access token.", baseUrl)
+      return createPopupResponse("error", "twitter", message, baseUrl)
     }
 
     const tokens = await response.json()
@@ -96,8 +99,9 @@ export async function GET(request: NextRequest) {
     })
 
     if (!userInfoResponse.ok) {
-      console.error("Failed to fetch Twitter user info")
-      return createPopupResponse("error", "twitter", "Failed to fetch Twitter user info.", baseUrl)
+      const errorData = await userInfoResponse.json().catch(() => ({ message: "Failed to parse error from Twitter API" }))
+      console.error("Failed to fetch Twitter user info", errorData)
+      return createPopupResponse("error", "twitter", errorData.message || "Failed to fetch Twitter user info.", baseUrl)
     }
 
     const userInfo = await userInfoResponse.json()
@@ -125,7 +129,7 @@ export async function GET(request: NextRequest) {
 
     if (dbError) {
       console.error("Error saving Twitter integration to DB:", dbError)
-      return createPopupResponse("error", "twitter", "Failed to save Twitter integration.", baseUrl)
+      return createPopupResponse("error", "twitter", `Database Error: ${dbError.message}`, baseUrl)
     }
 
     return createPopupResponse("success", "twitter", "Twitter account connected successfully.", baseUrl)

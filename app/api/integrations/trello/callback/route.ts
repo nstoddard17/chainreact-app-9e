@@ -11,204 +11,183 @@ if (!supabaseUrl || !supabaseServiceRoleKey) {
 
 const supabase = createClient(supabaseUrl, supabaseServiceRoleKey)
 
+function createPopupResponse(
+  type: "success" | "error",
+  provider: string,
+  message: string,
+  baseUrl: string,
+) {
+  const title = type === "success" ? `${provider} Connection Successful` : `${provider} Connection Failed`
+  const header = type === "success" ? `${provider} Connected!` : `Error Connecting ${provider}`
+  const status = type === "success" ? 200 : 500
+  const script = `
+    <script>
+      // The Trello token is in the URL hash, so we need to parse it from there.
+      const hash = window.location.hash.substring(1);
+      const params = new URLSearchParams(hash);
+      const token = params.get('token');
+      const state = params.get('state');
+
+      if (window.opener) {
+        if (token) {
+            // Forward the token and state to the server-side callback
+            const serverCallbackUrl = new URL('${baseUrl}/api/integrations/trello/callback');
+            serverCallbackUrl.searchParams.set('token', token);
+            if (state) {
+              serverCallbackUrl.searchParams.set('state', state);
+            }
+            window.location.href = serverCallbackUrl.href;
+        } else {
+            window.opener.postMessage({
+                type: 'oauth-${type}',
+                provider: '${provider}',
+                message: '${message}'
+            }, '${baseUrl}');
+            setTimeout(() => window.close(), 1000);
+        }
+      } else {
+        // Fallback for when there's no opener
+         document.getElementById('message').innerText = 'Something went wrong. Please close this window and try again.';
+      }
+    </script>
+  `
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>${title}</title>
+        <style>
+          body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            height: 100vh; 
+            margin: 0;
+            background: ${type === "success" ? "linear-gradient(135deg, #24c6dc 0%, #514a9d 100%)" : "linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%)"};
+            color: white;
+          }
+          .container { 
+            text-align: center; 
+            padding: 2rem;
+            background: rgba(255,255,255,0.1);
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+          }
+          .icon { font-size: 3rem; margin-bottom: 1rem; }
+          h1 { margin: 0 0 0.5rem 0; font-size: 1.5rem; }
+          p { margin: 0.5rem 0; opacity: 0.9; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="icon">${type === "success" ? "✅" : "❌"}</div>
+          <h1 id="header">${header}</h1>
+          <p id="message">${message}</p>
+          <p>This window will close automatically...</p>
+        </div>
+        ${script}
+      </body>
+    </html>
+  `
+  return new Response(html, { status, headers: { "Content-Type": "text/html" } })
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const token = searchParams.get("token")
   const state = searchParams.get("state")
   const error = searchParams.get("error")
   const errorDescription = searchParams.get("error_description")
-
   const baseUrl = getBaseUrl()
 
   if (error) {
     console.error(`Trello OAuth error: ${error} - ${errorDescription}`)
-    const errorHtml = `
+    return createPopupResponse(
+      "error",
+      "trello",
+      errorDescription || "An unknown error occurred.",
+      baseUrl,
+    )
+  }
+
+  // This part of the code now runs after the client-side script has extracted the token and state
+  if (token && state) {
+    try {
+      const stateData = JSON.parse(atob(state))
+      const { userId } = stateData
+
+      if (!userId) {
+        throw new Error("Missing userId in Trello state")
+      }
+
+      // Trello gives the access token directly
+      const accessToken = token
+
+      // Get user info
+      const userResponse = await fetch(
+        `https://api.trello.com/1/members/me?key=${process.env.NEXT_PUBLIC_TRELLO_API_KEY}&token=${accessToken}`,
+      )
+
+      if (!userResponse.ok) {
+        throw new Error("Failed to get Trello user info")
+      }
+
+      const userData = await userResponse.json()
+
+      const integrationData = {
+        user_id: userId,
+        provider: "trello",
+        provider_user_id: userData.id,
+        access_token: accessToken,
+        refresh_token: null, // Trello doesn't provide a refresh token in this flow
+        expires_at: null, // Trello tokens don't expire unless manually revoked
+        scopes: [], // Trello doesn't provide scopes in this flow
+        status: "connected",
+        updated_at: new Date().toISOString(),
+      }
+
+      const { error: upsertError } = await supabase.from("integrations").upsert(integrationData, {
+        onConflict: "user_id, provider",
+      })
+
+      if (upsertError) {
+        throw new Error(`Failed to save Trello integration: ${upsertError.message}`)
+      }
+      
+      // We need to return a script that messages the parent and closes the window
+      const successHtml = `
         <!DOCTYPE html>
         <html>
-          <head>
-            <title>Trello Connection Failed</title>
-            <style>
-              body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; text-align: center; }
-              .container { max-width: 500px; padding: 20px; border: 1px solid #ccc; border-radius: 8px; }
-              h1 { color: #dc3545; }
-              p { color: #666; }
-            </style>
-          </head>
+          <head><title>Trello Connection Successful</title></head>
           <body>
-            <div class="container">
-              <h1>Trello Connection Failed</h1>
-              <p>${errorDescription || "An unknown error occurred."}</p>
-              <p>Please try again or contact support if the problem persists.</p>
-              <script>
-                if (window.opener) {
-                  window.opener.postMessage({
-                    type: 'oauth-error',
-                    provider: 'trello',
-                    error: '${error}',
-                    errorDescription: '${errorDescription || "An unknown error occurred."}'
-                  }, '${baseUrl}');
-                  setTimeout(() => window.close(), 1000);
-                }
-              </script>
-            </div>
+            <h1>Trello Connection Successful!</h1>
+            <p>You can close this window now.</p>
+            <script>
+              if (window.opener) {
+                window.opener.postMessage({ type: 'oauth-success', provider: 'trello' }, '${baseUrl}');
+                setTimeout(() => window.close(), 500);
+              }
+            </script>
           </body>
         </html>
       `
-    return new Response(errorHtml, {
-      headers: { "Content-Type": "text/html" },
-      status: 400,
-    })
+       return new Response(successHtml, {
+        headers: { "Content-Type": "text/html" },
+        status: 200,
+      })
+
+    } catch (e: any) {
+      console.error("Trello callback error:", e)
+      return createPopupResponse("error", "trello", e.message || "An unexpected error occurred.", baseUrl)
+    }
   }
 
-  if (!token || !state) {
-    console.error("Missing token or state in Trello callback")
-    const errorHtml = `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>Trello Connection Failed</title>
-             <style>
-              body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; text-align: center; }
-              .container { max-width: 500px; padding: 20px; border: 1px solid #ccc; border-radius: 8px; }
-              h1 { color: #dc3545; }
-              p { color: #666; }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <h1>Trello Connection Failed</h1>
-              <p>Authorization token or state parameter is missing.</p>
-              <p>Please try again or contact support if the problem persists.</p>
-               <script>
-                if (window.opener) {
-                  window.opener.postMessage({
-                    type: 'oauth-error',
-                    provider: 'trello',
-                    error: 'Missing token or state'
-                  }, '${baseUrl}');
-                  setTimeout(() => window.close(), 1000);
-                }
-              </script>
-            </div>
-          </body>
-        </html>
-      `
-    return new Response(errorHtml, {
-      headers: { "Content-Type": "text/html" },
-      status: 400,
-    })
-  }
-
-  try {
-    const stateData = JSON.parse(atob(state))
-    const { userId } = stateData
-
-    if (!userId) {
-      console.error("Missing userId in Trello state")
-      // Handle error: show an error page and inform the user
-      return new Response("User ID is missing from state", { status: 400 })
-    }
-
-    // Trello gives the access token directly, no code exchange needed.
-    const accessToken = token
-
-    // Get user info
-    const userResponse = await fetch(`https://api.trello.com/1/members/me?key=${process.env.NEXT_PUBLIC_TRELLO_API_KEY}&token=${accessToken}`)
-
-
-    if (!userResponse.ok) {
-      throw new Error("Failed to get Trello user info")
-    }
-
-    const userData = await userResponse.json()
-
-    const integrationData = {
-      user_id: userId,
-      provider: "trello",
-      provider_user_id: userData.id,
-      access_token: accessToken,
-      refresh_token: null, // Trello doesn't provide a refresh token in this flow
-      expires_at: null, // Trello tokens don't expire unless manually revoked
-      scopes: [], // Trello doesn't provide scopes in this flow
-      status: "connected",
-      updated_at: new Date().toISOString(),
-    }
-
-    const { error: upsertError } = await supabase.from("integrations").upsert(integrationData, {
-      onConflict: "user_id, provider",
-    })
-
-    if (upsertError) {
-      throw new Error(`Failed to save Trello integration: ${upsertError.message}`)
-    }
-
-    const successHtml = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Trello Connection Successful</title>
-           <style>
-              body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; text-align: center; }
-              .container { max-width: 500px; padding: 20px; border: 1px solid #ccc; border-radius: 8px; }
-              h1 { color: #28a745; }
-              p { color: #666; }
-            </style>
-        </head>
-        <body>
-          <div class="container">
-            <h1>Trello Connection Successful</h1>
-            <p>You can now close this window.</p>
-          </div>
-          <script>
-            if (window.opener) {
-              window.opener.postMessage({ type: 'oauth-success', provider: 'trello' }, '${baseUrl}');
-              setTimeout(() => window.close(), 1000);
-            }
-          </script>
-        </body>
-      </html>
-    `
-
-    return new Response(successHtml, {
-      headers: { "Content-Type": "text/html" },
-    })
-  } catch (e: any) {
-    console.error("Trello callback error:", e)
-    const errorHtml = `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>Trello Connection Failed</title>
-            <style>
-              body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; text-align: center; }
-              .container { max-width: 500px; padding: 20px; border: 1px solid #ccc; border-radius: 8px; }
-              h1 { color: #dc3545; }
-              p { color: #666; }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-               <h1>Trello Connection Failed</h1>
-              <p>${e.message || "An unexpected error occurred."}</p>
-               <p>Please try again or contact support if the problem persists.</p>
-              <script>
-                if (window.opener) {
-                  window.opener.postMessage({
-                    type: 'oauth-error',
-                    provider: 'trello',
-                    error: 'Callback processing failed',
-                    errorDescription: '${e.message || "An unexpected error occurred."}'
-                  }, '${baseUrl}');
-                  setTimeout(() => window.close(), 1000);
-                }
-              </script>
-            </div>
-          </body>
-        </html>
-      `
-    return new Response(errorHtml, {
-      headers: { "Content-Type": "text/html" },
-      status: 500,
-    })
-  }
+  // Initial response: a page with client-side JS to get the token from the hash
+  return createPopupResponse(
+    "success",
+    "trello",
+    "Connecting to Trello, please wait...",
+    baseUrl,
+  )
 }

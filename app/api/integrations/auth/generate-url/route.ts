@@ -314,26 +314,31 @@ function generateTikTokAuthUrl(state: string): string {
 
   const params = new URLSearchParams({
     client_key: clientId,
-    redirect_uri: "https://chainreact.app/api/integrations/tiktok/callback",
     response_type: "code",
-    scope: "user.info.basic video.list",
+    scope: "user.info.basic",
+    redirect_uri: "https://chainreact.app/api/integrations/tiktok/callback",
     state,
   })
 
-  return `https://www.tiktok.com/auth/authorize/?${params.toString()}`
+  return `https://www.tiktok.com/v2/auth/authorize?${params.toString()}`
 }
 
 function generateTrelloAuthUrl(state: string): string {
-  const clientId = process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID
-  if (!clientId) throw new Error("Trello client ID not configured")
+  const apiKey = process.env.NEXT_PUBLIC_TRELLO_API_KEY
+  if (!apiKey) throw new Error("Trello API key not configured")
+
+  const callbackUrl = new URL("https://chainreact.app/api/integrations/trello/callback")
+  // Trello's callback mechanism is a bit different. We pass the state in the hash.
+  // The callback page will have client-side script to handle it.
+  const returnUrl = `${callbackUrl.href}#state=${state}`
 
   const params = new URLSearchParams({
-    key: clientId,
-    return_url: "https://chainreact.app/api/integrations/trello/callback",
-    scope: "read,write,account",
-    expiration: "never",
+    key: apiKey,
     name: "ChainReact",
+    scope: "read,write",
+    expiration: "never",
     response_type: "token",
+    return_url: returnUrl,
   })
 
   return `https://trello.com/1/authorize?${params.toString()}`
