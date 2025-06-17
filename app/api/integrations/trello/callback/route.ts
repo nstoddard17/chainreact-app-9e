@@ -1,4 +1,4 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { type NextRequest } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 
@@ -22,31 +22,14 @@ function createPopupResponse(
   const status = type === "success" ? 200 : 500
   const script = `
     <script>
-      // The Trello token is in the URL hash, so we need to parse it from there.
-      const hash = window.location.hash.substring(1);
-      const params = new URLSearchParams(hash);
-      const token = params.get('token');
-      const state = params.get('state');
-
       if (window.opener) {
-        if (token) {
-            // Forward the token and state to the server-side callback
-            const serverCallbackUrl = new URL('${baseUrl}/api/integrations/trello/callback');
-            serverCallbackUrl.searchParams.set('token', token);
-            if (state) {
-              serverCallbackUrl.searchParams.set('state', state);
-            }
-            window.location.href = serverCallbackUrl.href;
-        } else {
-            window.opener.postMessage({
-                type: 'oauth-${type}',
-                provider: '${provider}',
-                message: '${message}'
-            }, '${baseUrl}');
-            setTimeout(() => window.close(), 1000);
-        }
+        window.opener.postMessage({
+            type: 'oauth-${type}',
+            provider: '${provider}',
+            message: '${message}'
+        }, '${baseUrl}');
+        setTimeout(() => window.close(), 500);
       } else {
-        // Fallback for when there's no opener
          document.getElementById('message').innerText = 'Something went wrong. Please close this window and try again.';
       }
     </script>
@@ -93,6 +76,43 @@ function createPopupResponse(
   return new Response(html, { status, headers: { "Content-Type": "text/html" } })
 }
 
+function createTrelloInitialPage(baseUrl: string) {
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>Connecting to Trello...</title>
+        <script>
+          // The Trello token is in the URL hash, so we need to parse it from there.
+          const hash = window.location.hash.substring(1);
+          const params = new URLSearchParams(hash);
+          const token = params.get('token');
+          const state = params.get('state');
+
+          if (token && state) {
+              // Forward the token and state to the server-side callback as query params
+              const serverCallbackUrl = new URL('${baseUrl}/api/integrations/trello/callback');
+              serverCallbackUrl.searchParams.set('token', token);
+              serverCallbackUrl.searchParams.set('state', state);
+              window.location.href = serverCallbackUrl.href;
+          } else if (window.opener) {
+              window.opener.postMessage({
+                  type: 'oauth-error',
+                  provider: 'trello',
+                  message: 'Trello authentication failed. Token not found.'
+              }, '${baseUrl}');
+              setTimeout(() => window.close(), 1000);
+          }
+        </script>
+      </head>
+      <body>
+        <p>Please wait, connecting to Trello...</p>
+      </body>
+    </html>
+  `
+  return new Response(html, { status: 200, headers: { "Content-Type": "text/html" } })
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const token = searchParams.get("token")
@@ -111,83 +131,60 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  // This part of the code now runs after the client-side script has extracted the token and state
-  if (token && state) {
-    try {
-      const stateData = JSON.parse(atob(state))
-      const { userId } = stateData
-
-      if (!userId) {
-        throw new Error("Missing userId in Trello state")
-      }
-
-      // Trello gives the access token directly
-      const accessToken = token
-
-      // Get user info
-      const userResponse = await fetch(
-        `https://api.trello.com/1/members/me?key=${process.env.NEXT_PUBLIC_TRELLO_API_KEY}&token=${accessToken}`,
-      )
-
-      if (!userResponse.ok) {
-        throw new Error("Failed to get Trello user info")
-      }
-
-      const userData = await userResponse.json()
-
-      const integrationData = {
-        user_id: userId,
-        provider: "trello",
-        provider_user_id: userData.id,
-        access_token: accessToken,
-        refresh_token: null, // Trello doesn't provide a refresh token in this flow
-        expires_at: null, // Trello tokens don't expire unless manually revoked
-        scopes: [], // Trello doesn't provide scopes in this flow
-        status: "connected",
-        updated_at: new Date().toISOString(),
-      }
-
-      const { error: upsertError } = await supabase.from("integrations").upsert(integrationData, {
-        onConflict: "user_id, provider",
-      })
-
-      if (upsertError) {
-        throw new Error(`Failed to save Trello integration: ${upsertError.message}`)
-      }
-      
-      // We need to return a script that messages the parent and closes the window
-      const successHtml = `
-        <!DOCTYPE html>
-        <html>
-          <head><title>Trello Connection Successful</title></head>
-          <body>
-            <h1>Trello Connection Successful!</h1>
-            <p>You can close this window now.</p>
-            <script>
-              if (window.opener) {
-                window.opener.postMessage({ type: 'oauth-success', provider: 'trello' }, '${baseUrl}');
-                setTimeout(() => window.close(), 500);
-              }
-            </script>
-          </body>
-        </html>
-      `
-       return new Response(successHtml, {
-        headers: { "Content-Type": "text/html" },
-        status: 200,
-      })
-
-    } catch (e: any) {
-      console.error("Trello callback error:", e)
-      return createPopupResponse("error", "trello", e.message || "An unexpected error occurred.", baseUrl)
-    }
+  // If token and state are missing, it's the initial call from Trello.
+  // We return a page with JS to extract them from the URL hash and redirect.
+  if (!token || !state) {
+    return createTrelloInitialPage(baseUrl)
   }
 
-  // Initial response: a page with client-side JS to get the token from the hash
-  return createPopupResponse(
-    "success",
-    "trello",
-    "Connecting to Trello, please wait...",
-    baseUrl,
-  )
+  // This part of the code now runs after the client-side script has extracted the token and state
+  try {
+    const stateData = JSON.parse(atob(state))
+    const { userId } = stateData
+
+    if (!userId) {
+      throw new Error("Missing userId in Trello state")
+    }
+
+    // Trello gives the access token directly
+    const accessToken = token
+
+    // Get user info
+    const userResponse = await fetch(
+      `https://api.trello.com/1/members/me?key=${process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID}&token=${accessToken}`,
+    )
+
+    if (!userResponse.ok) {
+      const errorBody = await userResponse.text()
+      console.error("Failed to get Trello user info:", errorBody)
+      throw new Error(`Failed to get Trello user info. Status: ${userResponse.status}`)
+    }
+
+    const userData = await userResponse.json()
+
+    const integrationData = {
+      user_id: userId,
+      provider: "trello",
+      provider_user_id: userData.id,
+      access_token: accessToken,
+      refresh_token: null, // Trello doesn't provide a refresh token in this flow
+      expires_at: null, // Trello tokens don't expire unless manually revoked
+      scopes: [], // Trello doesn't provide scopes in this flow
+      status: "connected",
+      updated_at: new Date().toISOString(),
+    }
+
+    const { error: upsertError } = await supabase.from("integrations").upsert(integrationData, {
+      onConflict: "user_id, provider",
+    })
+
+    if (upsertError) {
+      throw new Error(`Failed to save Trello integration: ${upsertError.message}`)
+    }
+
+    return createPopupResponse("success", "trello", "Successfully connected to Trello.", baseUrl)
+  } catch (e: any) {
+    console.error("Trello callback error:", e)
+    return createPopupResponse("error", "trello", e.message || "An unexpected error occurred.", baseUrl)
+  }
 }
