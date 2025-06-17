@@ -1,7 +1,7 @@
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 import {
-  getOAuthRedirectUri,
   OAuthScopes,
+  getOAuthRedirectUri,
   generateOAuthState,
   parseOAuthState,
   validateOAuthState,
@@ -13,29 +13,37 @@ export class GoogleSheetsOAuthService {
   static readonly clientSecret = process.env.GOOGLE_CLIENT_SECRET
   static readonly apiUrl = "https://www.googleapis.com/sheets/v4"
 
-  static generateAuthUrl(userId: string, origin: string): string {
-    if (!this.clientId) {
-      throw new Error("Missing Google client ID")
-    }
-
-    const state = generateOAuthState(userId, "google_sheets")
-    const redirectUri = this.getRedirectUri(origin)
-
+  static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string, userId?: string): string {
+    const { clientId } = this.getClientCredentials()
+    const redirectUri = this.getRedirectUri(baseUrl)
+    const state = btoa(
+      JSON.stringify({
+        provider: "google-sheets",
+        userId,
+        reconnect,
+        integrationId,
+        timestamp: Date.now(),
+      }),
+    )
     const params = new URLSearchParams({
-      response_type: "code",
-      client_id: this.clientId,
+      client_id: clientId,
       redirect_uri: redirectUri,
-      state,
+      response_type: "code",
       scope: OAuthScopes.GOOGLE_SHEETS.join(" "),
-      access_type: "offline",
-      prompt: "consent",
+      state,
     })
-
     return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`
   }
 
   static getRedirectUri(origin: string): string {
-    return getOAuthRedirectUri(origin, "google_sheets")
+    return getOAuthRedirectUri(origin, "google")
+  }
+
+  static getClientCredentials() {
+    if (!this.clientId || !this.clientSecret) {
+      throw new Error("Missing Google client credentials")
+    }
+    return { clientId: this.clientId, clientSecret: this.clientSecret }
   }
 
   static async handleCallback(

@@ -13,6 +13,11 @@ export class GoogleDocsOAuthService {
   static readonly clientSecret = process.env.GOOGLE_CLIENT_SECRET
   static readonly apiUrl = "https://www.googleapis.com/drive/v3"
 
+  static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string, userId?: string): string {
+    const { clientId } = this.getClientCredentials()
+    const redirectUri = this.getRedirectUri(baseUrl)
+    const state = btoa(
+      JSON.stringify({
   static generateAuthUrl(userId: string, origin: string): string {
     if (!this.clientId) {
       throw new Error("Missing Google client ID")
@@ -35,7 +40,7 @@ export class GoogleDocsOAuthService {
   }
 
   static getRedirectUri(origin: string): string {
-    return getOAuthRedirectUri(origin, "google_docs")
+    return getOAuthRedirectUri(origin, "google")
   }
 
   static async handleCallback(
