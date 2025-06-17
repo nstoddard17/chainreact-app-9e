@@ -5,29 +5,27 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { CheckCircle, Loader2, RefreshCw, ExternalLink, AlertCircle } from "lucide-react"
-import { useIntegrationStore } from "@/stores/integrationStore"
+import { useIntegrationStore, type Integration, type Provider } from "@/stores/integrationStore"
 import { useToast } from "@/hooks/use-toast"
 import RedirectLoadingOverlay from "./RedirectLoadingOverlay"
 
 interface IntegrationCardProps {
-  provider: {
-    id: string
-    name: string
-    description: string
-    logoUrl?: string
-    capabilities: string[]
-    connected?: boolean
-    wasConnected?: boolean
-    isAvailable: boolean
-    integration?: {
-      id: string
-      updated_at: string
-      status: string
-    }
-  }
+  provider: Provider
+  connected: boolean
+  wasConnected: boolean
+  isAvailable: boolean
+  integration: Integration | null
+  onConnecting: () => void
 }
 
-export default function IntegrationCard({ provider }: IntegrationCardProps) {
+export default function IntegrationCard({
+  provider,
+  connected,
+  wasConnected,
+  isAvailable,
+  integration,
+  onConnecting,
+}: IntegrationCardProps) {
   const [isConnecting, setIsConnecting] = useState(false)
   const [isDisconnecting, setIsDisconnecting] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -43,21 +41,17 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
   const { toast } = useToast()
 
   // Get real-time integration status
-  const integrationStatus = getIntegrationStatus(provider.id)
-  const integration = getIntegrationByProvider(provider.id)
-  const isConnected = integrationStatus === "connected"
-  const wasConnected = integration && integration.status === "disconnected"
+  const isConnected = connected
 
   // Replace the debug logging useEffect with this:
   useEffect(() => {
     if (process.env.NODE_ENV === "development") {
       console.log(`🔍 IntegrationCard for ${provider.name}:`, {
         providerId: provider.id,
-        integrationStatus,
         isConnected,
       })
     }
-  }, [provider.id, provider.name, integrationStatus, isConnected])
+  }, [provider.id, provider.name, isConnected])
 
   const handleConnect = useCallback(async () => {
     try {
@@ -341,7 +335,7 @@ export default function IntegrationCard({ provider }: IntegrationCardProps) {
           {/* Debug info in development */}
           {process.env.NODE_ENV === "development" && (
             <div className="text-xs text-slate-400 mb-2 font-mono">
-              Status: {integrationStatus} | ID: {integration?.id || "none"}
+              Status: {getIntegrationStatus(provider.id)} | ID: {integration?.id || "none"}
             </div>
           )}
         </div>

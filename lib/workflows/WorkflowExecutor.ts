@@ -1,5 +1,8 @@
 import { getValidAccessToken } from "@/lib/integrations/getValidAccessToken"
-import { createAdminSupabaseClient } from "@/lib/oauth/utils"
+import { getAdminSupabaseClient } from "@/lib/supabase/admin"
+import { TokenAuditLogger } from "../integrations/TokenAuditLogger"
+import { decrypt } from "@/lib/security/encryption"
+import { getSecret } from "@/lib/secrets"
 
 interface WorkflowContext {
   workflowId: string
@@ -24,6 +27,11 @@ export class WorkflowExecutor {
    */
   async executeWorkflow(context: WorkflowContext): Promise<WorkflowResult> {
     try {
+      const logger = new TokenAuditLogger()
+
+      const supabase = getAdminSupabaseClient()
+
+      // Log the start of the execution
       // Validate all required integrations first
       const integrationResults = await Promise.all(
         context.integrations.map((provider) => getValidAccessToken(context.userId, provider)),
@@ -90,7 +98,7 @@ export class WorkflowExecutor {
     status: "pending" | "running" | "completed" | "failed" | "paused",
     data?: Record<string, any>,
   ): Promise<string> {
-    const supabase = createAdminSupabaseClient()
+    const supabase = getAdminSupabaseClient()
     if (!supabase) {
       throw new Error("Failed to create database client")
     }
@@ -121,7 +129,7 @@ export class WorkflowExecutor {
     status: "pending" | "running" | "completed" | "failed" | "paused",
     data?: Record<string, any>,
   ): Promise<void> {
-    const supabase = createAdminSupabaseClient()
+    const supabase = getAdminSupabaseClient()
     if (!supabase) {
       throw new Error("Failed to create database client")
     }
@@ -144,5 +152,41 @@ export class WorkflowExecutor {
     if (error) {
       throw new Error(`Failed to update execution record: ${error.message}`)
     }
+  }
+
+  private async getIntegration(integrationId: string): Promise<any> {
+    const supabase = getAdminSupabaseClient()
+    const { data, error } = await supabase
+      .from("integrations")
+      .select()
+      .eq("id", integrationId)
+      .single()
+
+    if (error) {
+      throw new Error(`Failed to get integration: ${error.message}`)
+    }
+
+    return data
+  }
+
+  private async updateStepExecution(
+    stepExecutionId: string,
+    updates: Record<string, any>,
+  ): Promise<void> {
+    const supabase = getAdminSupabaseClient()
+    await supabase.from("step_executions").update(updates).eq("id", stepExecutionId)
+  }
+
+  private async getDecryptedAccessToken(integration: any): Promise<string> {
+    if (integration.access_token) {
+      try {
+        const supabase = getAdminSupabaseClient()
+        const secret = await getSecret("encryption_key")
+        return await decrypt(integration.access_token, secret)
+      } catch (error: any) {
+        throw new Error(`Failed to decrypt access token: ${error.message}`)
+      }
+    }
+    throw new Error("Access token not found in integration")
   }
 }

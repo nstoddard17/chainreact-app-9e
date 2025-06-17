@@ -18,22 +18,18 @@ export async function GET(request: NextRequest) {
   const state = searchParams.get("state")
   const error = searchParams.get("error")
   const errorDescription = searchParams.get("error_description")
+
   const baseUrl = getBaseUrl()
 
   if (error) {
-    console.error(`Airtable OAuth error: ${error} - ${errorDescription}`)
-    return createPopupResponse(
-      "error",
-      "airtable",
-      errorDescription || "An unknown error occurred.",
-      baseUrl,
-    )
+    console.error(`Blackbaud OAuth error: ${error} - ${errorDescription}`)
+    return createPopupResponse("error", "blackbaud", errorDescription || "An unknown error occurred.", baseUrl)
   }
 
   if (!code || !state) {
     return createPopupResponse(
       "error",
-      "airtable",
+      "blackbaud",
       "Authorization code or state parameter is missing.",
       baseUrl,
     )
@@ -41,68 +37,64 @@ export async function GET(request: NextRequest) {
 
   try {
     const stateData = JSON.parse(atob(state))
-    const { userId, code_verifier } = stateData
+    const { userId } = stateData
 
     if (!userId) {
       throw new Error("User ID not found in state")
     }
-    if (!code_verifier) {
-      throw new Error("Code verifier not found in state")
-    }
 
-    const clientId = process.env.NEXT_PUBLIC_AIRTABLE_CLIENT_ID
-    if (!clientId) {
-      throw new Error("Airtable client ID not configured")
-    }
+    const clientId = process.env.NEXT_PUBLIC_BLACKBAUD_CLIENT_ID
+    const clientSecret = process.env.BLACKBAUD_CLIENT_SECRET
 
-    const tokenResponse = await fetch("https://airtable.com/oauth2/v1/token", {
+    if (!clientId || !clientSecret) {
+      throw new Error("Blackbaud client ID or secret not configured")
+    }
+    
+    const authHeader = `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`
+
+    const tokenResponse = await fetch("https://oauth2.sky.blackbaud.com/token", {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
+        "Authorization": authHeader,
       },
       body: new URLSearchParams({
-        client_id: clientId,
         code,
-        code_verifier,
         grant_type: "authorization_code",
-        redirect_uri: `${baseUrl}/api/integrations/airtable/callback`,
+        redirect_uri: `${baseUrl}/api/integrations/blackbaud/callback`,
       }),
     })
 
     if (!tokenResponse.ok) {
       const errorData = await tokenResponse.json()
-      console.error("Airtable token exchange error:", errorData)
-      throw new Error(
-        `Airtable token exchange failed: ${errorData.error_description || errorData.error.message}`,
-      )
+      throw new Error(`Blackbaud token exchange failed: ${errorData.error_description || errorData.error}`)
     }
 
     const tokenData = await tokenResponse.json()
+    
+    const userResponse = await fetch("https://api.sky.blackbaud.com/constituent/v1/constituents/me", {
+        headers: {
+            "Authorization": `Bearer ${tokenData.access_token}`,
+            "Bb-Api-Subscription-Key": process.env.BLACKBAUD_SUBSCRIPTION_KEY!,
+        }
+    });
 
-    // Get user info
-    const userResponse = await fetch("https://api.airtable.com/v0/meta/whoami", {
-      headers: {
-        Authorization: `Bearer ${tokenData.access_token}`,
-      },
-    })
-
-    if (!userResponse.ok) {
-      const errorData = await userResponse.json()
-      console.error("Airtable whoami error:", errorData)
-      throw new Error("Failed to get Airtable user info")
+    if(!userResponse.ok) {
+        throw new Error("Failed to fetch Blackbaud user info");
     }
-    const userData = await userResponse.json()
+
+    const userData = await userResponse.json();
 
     const integrationData = {
       user_id: userId,
-      provider: "airtable",
+      provider: "blackbaud",
       provider_user_id: userData.id,
       access_token: tokenData.access_token,
       refresh_token: tokenData.refresh_token,
       expires_at: tokenData.expires_in
         ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString()
         : null,
-      scopes: tokenData.scope.split(" "),
+      scopes: tokenData.scope ? tokenData.scope.split(" ") : [],
       status: "connected",
       updated_at: new Date().toISOString(),
     }
@@ -112,17 +104,12 @@ export async function GET(request: NextRequest) {
     })
 
     if (upsertError) {
-      throw new Error(`Failed to save Airtable integration: ${upsertError.message}`)
+      throw new Error(`Failed to save Blackbaud integration: ${upsertError.message}`)
     }
 
-    return createPopupResponse(
-      "success",
-      "airtable",
-      "Airtable account connected successfully.",
-      baseUrl,
-    )
+    return createPopupResponse("success", "blackbaud", "Blackbaud account connected successfully.", baseUrl)
   } catch (e: any) {
-    console.error("Airtable callback error:", e)
-    return createPopupResponse("error", "airtable", e.message || "An unexpected error occurred.", baseUrl)
+    console.error("Blackbaud callback error:", e)
+    return createPopupResponse("error", "blackbaud", e.message || "An unexpected error occurred.", baseUrl)
   }
-}
+} 

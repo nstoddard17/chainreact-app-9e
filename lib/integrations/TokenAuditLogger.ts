@@ -1,4 +1,4 @@
-import { createAdminSupabaseClient } from "@/lib/oauth/utils"
+import { getAdminSupabaseClient } from "@/lib/supabase/admin"
 
 export class TokenAuditLogger {
   /**
@@ -12,7 +12,7 @@ export class TokenAuditLogger {
     details?: Record<string, any>,
   ): Promise<string | null> {
     try {
-      const supabase = createAdminSupabaseClient()
+      const supabase = getAdminSupabaseClient()
       if (!supabase) {
         console.error("Failed to create database client for audit logging")
         return null
@@ -43,7 +43,7 @@ export class TokenAuditLogger {
    */
   static async getRecentEvents(userId: string, limit = 50): Promise<any[]> {
     try {
-      const supabase = createAdminSupabaseClient()
+      const supabase = getAdminSupabaseClient()
       if (!supabase) {
         console.error("Failed to create database client for audit logging")
         return []
@@ -73,7 +73,7 @@ export class TokenAuditLogger {
    */
   static async getIntegrationEvents(integrationId: string, limit = 50): Promise<any[]> {
     try {
-      const supabase = createAdminSupabaseClient()
+      const supabase = getAdminSupabaseClient()
       if (!supabase) {
         console.error("Failed to create database client for audit logging")
         return []

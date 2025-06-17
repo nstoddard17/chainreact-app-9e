@@ -22,6 +22,7 @@ export interface Provider {
   capabilities: string[]
   isAvailable: boolean
   category?: string
+  authType?: "oauth" | "apiKey"
 }
 
 export interface IntegrationStore {
@@ -48,6 +49,7 @@ export interface IntegrationStore {
   getConnectedProviders: () => string[]
   initializeGlobalPreload: () => Promise<void>
   clearAllData: () => void
+  connectApiKeyIntegration: (providerId: string, apiKey: string) => Promise<void>
 }
 
 export const useIntegrationStore = create<IntegrationStore>((set, get) => ({
@@ -75,7 +77,6 @@ export const useIntegrationStore = create<IntegrationStore>((set, get) => ({
     try {
       set({ loading: true, error: null })
 
-      // Add timeout to prevent hanging
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 second timeout
 
@@ -91,10 +92,7 @@ export const useIntegrationStore = create<IntegrationStore>((set, get) => ({
 
       const data = await response.json()
 
-      // Ensure we have valid data structure
-      const providers = Array.isArray(data)
-        ? data
-        : data.data?.integrations || data.integrations || data.providers || []
+      const providers = Array.isArray(data) ? data : data.data?.integrations || data.integrations || data.providers || []
 
       set({
         providers,
@@ -107,7 +105,7 @@ export const useIntegrationStore = create<IntegrationStore>((set, get) => ({
       set({
         error: error.name === "AbortError" ? "Request timed out" : error.message,
         loading: false,
-        providers: [], // Set empty array as fallback
+        providers: [],
       })
     }
   },
@@ -135,9 +133,8 @@ export const useIntegrationStore = create<IntegrationStore>((set, get) => ({
         return
       }
 
-      // Add timeout to prevent hanging
       const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 15000) // 15 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 15000)
 
       const response = await fetch("/api/integrations", {
         headers: {
@@ -167,13 +164,13 @@ export const useIntegrationStore = create<IntegrationStore>((set, get) => ({
       set({
         error: error.name === "AbortError" ? "Request timed out - please try again" : error.message,
         loading: false,
-        integrations: [], // Set empty array as fallback
+        integrations: [],
       })
     }
   },
 
   connectIntegration: async (providerId: string) => {
-    const { setLoading, providers } = get()
+    const { setLoading, providers, setError } = get()
     const provider = providers.find((p) => p.id === providerId)
 
     if (!provider) {
@@ -185,6 +182,7 @@ export const useIntegrationStore = create<IntegrationStore>((set, get) => ({
     }
 
     setLoading(`connect-${providerId}`, true)
+    setError(null)
 
     try {
       console.log(`🔗 Connecting to ${providerId}...`)
@@ -226,6 +224,24 @@ export const useIntegrationStore = create<IntegrationStore>((set, get) => ({
 
         let closedByMessage = false
 
+        const messageHandler = (event: MessageEvent) => {
+          if (event.origin !== window.location.origin) return
+
+          if (event.data?.type === "oauth-success" && event.data?.provider === providerId) {
+            console.log(`✅ OAuth successful for ${providerId}`)
+            closedByMessage = true
+            popup.close()
+            get().fetchIntegrations(true)
+            window.removeEventListener("message", messageHandler)
+          } else if (event.data?.type === "oauth-error" && event.data?.provider === providerId) {
+            console.error(`❌ OAuth error for ${providerId}:`, event.data.error)
+            setError(`Connection failed: ${event.data.error || "Unknown error."}`)
+            closedByMessage = true
+            popup.close()
+            window.removeEventListener("message", messageHandler)
+          }
+        }
+
         const checkClosed = setInterval(() => {
           if (popup.closed) {
             clearInterval(checkClosed)
@@ -233,83 +249,27 @@ export const useIntegrationStore = create<IntegrationStore>((set, get) => ({
 
             if (!closedByMessage) {
               console.log(`❌ Popup closed manually for ${providerId}`)
-              // Simulate oauth-error
-              window.dispatchEvent(
-                new MessageEvent("message", {
-                  data: {
-                    type: "oauth-error",
-                    provider: providerId,
-                    error: "Popup closed before completing authorization.",
-                  },
-                  origin: window.location.origin,
-                }),
-              )
+              setError("Popup closed before completing authorization.")
             }
           }
         }, 500)
 
-        const messageHandler = (event: MessageEvent) => {
-          if (event.origin !== window.location.origin) return
-          if (event.data?.provider !== providerId) return
-
-          closedByMessage = true
-          clearInterval(checkClosed)
-          window.removeEventListener("message", messageHandler)
-
-          // Remove localStorage key for both success and error
-          localStorage.removeItem("integration_connecting")
-
-          popup.close()
-
-          if (event.data?.type === "oauth-success") {
-            console.log(`✅ OAuth success for ${providerId}`)
-            setLoading(`connect-${providerId}`, false)
-
-            const retryFetchUntilConnected = async (providerId: string, maxTries = 6) => {
-              for (let i = 0; i < maxTries; i++) {
-                await get().fetchIntegrations(true)
-                const integration = get().getIntegrationByProvider(providerId)
-                if (integration?.status === "connected") return
-                await new Promise((res) => setTimeout(res, (i + 1) * 1000)) // 1s, 2s, 3s, ...
-              }
-            }
-
-            retryFetchUntilConnected(providerId)
-          } else if (event.data?.type === "oauth-error") {
-            console.error(`❌ OAuth error for ${providerId}:`, event.data.error)
-            setLoading(`connect-${providerId}`, false)
-            set({ error: event.data.error || `Failed to connect ${providerId}` })
-          }
-        }
-
         window.addEventListener("message", messageHandler)
-
-        // Final cleanup after 5 minutes in case of nothing happening
-        setTimeout(() => {
-          if (!popup.closed) {
-            clearInterval(checkClosed)
-            popup.close()
-          }
-          window.removeEventListener("message", messageHandler)
-          // Remove localStorage key on timeout cleanup
-          localStorage.removeItem("integration_connecting")
-          setLoading(`connect-${providerId}`, false)
-        }, 300000) // 5 minutes
       } else {
-        throw new Error(data.error || "Failed to generate OAuth URL")
+        throw new Error(data.error || "Could not retrieve authorization URL.")
       }
     } catch (error: any) {
-      console.error(`❌ Failed to connect ${providerId}:`, error)
-      set({ error: error.message })
-      throw error
+      console.error(`Failed to connect ${providerId}:`, error)
+      setError(error.message)
     } finally {
-      // No-op here — handled dynamically when popup closes
+      setLoading(`connect-${providerId}`, false)
     }
   },
 
-  disconnectIntegration: async (integrationId: string) => {
-    const { setLoading } = get()
-    setLoading(`disconnect-${integrationId}`, true)
+  connectApiKeyIntegration: async (providerId: string, apiKey: string) => {
+    const { setLoading, fetchIntegrations, setError } = get()
+    setLoading(`connect-${providerId}`, true)
+    setError(null)
 
     try {
       const supabase = getSupabaseClient()
@@ -318,10 +278,57 @@ export const useIntegrationStore = create<IntegrationStore>((set, get) => ({
       const {
         data: { session },
       } = await supabase.auth.getSession()
-
       if (!session?.access_token) {
         throw new Error("No valid session found. Please log in again.")
       }
+
+      const response = await fetch("/api/integrations/token-management", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          provider: providerId,
+          apiKey: apiKey,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to save API key")
+      }
+
+      console.log(`✅ API key connected for ${providerId}`)
+      await fetchIntegrations(true)
+    } catch (error: any) {
+      console.error(`Failed to connect ${providerId}:`, error)
+      setError(error.message)
+    } finally {
+      setLoading(`connect-${providerId}`, false)
+    }
+  },
+
+  disconnectIntegration: async (integrationId: string) => {
+    const { setLoading, fetchIntegrations, integrations, setError } = get()
+    const integration = integrations.find((i) => i.id === integrationId)
+
+    if (integration) {
+      setLoading(`disconnect-${integration.provider}`, true)
+    } else {
+      // Fallback if integration not found in store
+      setLoading(`disconnect-${integrationId}`, true)
+    }
+    setError(null)
+
+    try {
+      const supabase = getSupabaseClient()
+      if (!supabase) throw new Error("Supabase client not available")
+
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+      if (!session) throw new Error("Not authenticated")
 
       const response = await fetch(`/api/integrations/${integrationId}`, {
         method: "DELETE",
@@ -335,55 +342,38 @@ export const useIntegrationStore = create<IntegrationStore>((set, get) => ({
         throw new Error(errorData.error || "Failed to disconnect integration")
       }
 
-      await get().fetchIntegrations(true)
+      console.log(`✅ Integration ${integrationId} disconnected`)
+      await fetchIntegrations(true)
     } catch (error: any) {
       console.error(`Failed to disconnect integration:`, error)
-      set({ error: error.message })
-      throw error
+      setError(error.message)
     } finally {
-      setLoading(`disconnect-${integrationId}`, false)
+      if (integration) {
+        setLoading(`disconnect-${integration.provider}`, false)
+      } else {
+        setLoading(`disconnect-${integrationId}`, false)
+      }
     }
   },
 
   refreshAllTokens: async () => {
+    const { setLoading, setError, fetchIntegrations } = get()
+    setLoading("refresh-all", true)
+    setError(null)
+
     try {
-      set({ loading: true, error: null })
-
-      const supabase = getSupabaseClient()
-      if (!supabase) throw new Error("Supabase client not available")
-
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-
-      if (!session?.access_token) {
-        throw new Error("No valid session found. Please log in again.")
-      }
-
-      const response = await fetch("/api/integrations/refresh-all-tokens", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ userId: session.user.id }),
-      })
-
+      const response = await fetch("/api/integrations/refresh-tokens", { method: "POST" })
       if (!response.ok) {
         const errorData = await response.json()
         throw new Error(errorData.error || "Failed to refresh tokens")
       }
-
-      const data = await response.json()
-      await get().fetchIntegrations(true)
-
-      return data
+      console.log("✅ All tokens refreshed successfully")
+      await fetchIntegrations(true)
     } catch (error: any) {
       console.error("Failed to refresh tokens:", error)
-      set({ error: error.message })
-      throw error
+      setError(error.message)
     } finally {
-      set({ loading: false })
+      setLoading("refresh-all", false)
     }
   },
 
@@ -404,36 +394,17 @@ export const useIntegrationStore = create<IntegrationStore>((set, get) => ({
   },
 
   initializeGlobalPreload: async () => {
-    const state = get()
-
-    if (state.globalPreloadingData || state.preloadStarted) {
-      console.log("✅ Global preload already started or completed")
-      return
-    }
+    const { initializeProviders, fetchIntegrations, preloadStarted } = get()
+    if (preloadStarted) return
+    set({ globalPreloadingData: true, preloadStarted: true })
 
     try {
-      set({ preloadStarted: true, globalPreloadingData: true })
-      console.log("🚀 Starting global data preload...")
-
-      const connectedProviders = state.getConnectedProviders()
-      if (connectedProviders.length === 0) {
-        console.log("⚠️ No connected providers found for preload")
-        set({ globalPreloadingData: false })
-        return
-      }
-
-      // Import and use the global data preloader
-      const { initializePreloadingForUser } = await import("@/lib/integrations/globalDataPreloader")
-
-      const results = await initializePreloadingForUser(connectedProviders, (progress) => {
-        console.log("📊 Preload progress:", progress)
-      })
-
-      console.log("✅ Global preload completed:", results)
-      set({ globalPreloadingData: false })
+      await Promise.all([initializeProviders(), fetchIntegrations()])
     } catch (error) {
-      console.error("❌ Global preload failed:", error)
-      set({ globalPreloadingData: false, preloadStarted: false })
+      console.error("Error during global preload:", error)
+      get().setError("Failed to load initial data.")
+    } finally {
+      set({ globalPreloadingData: false })
     }
   },
 

@@ -20,6 +20,7 @@ export interface IntegrationConfig {
   revokeUrl?: string
   color: string
   docsUrl?: string
+  authType?: "oauth" | "apiKey"
 }
 
 // Complete integration configurations with all metadata
@@ -37,6 +38,7 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     requiresClientSecret: "GOOGLE_CLIENT_SECRET",
     color: "#EA4335",
     docsUrl: "https://developers.google.com/gmail/api",
+    authType: "oauth",
   },
 
   "google-calendar": {
@@ -52,6 +54,7 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     requiresClientSecret: "GOOGLE_CLIENT_SECRET",
     color: "#4285F4",
     docsUrl: "https://developers.google.com/calendar/api",
+    authType: "oauth",
   },
 
   "google-drive": {
@@ -67,6 +70,7 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     requiresClientSecret: "GOOGLE_CLIENT_SECRET",
     color: "#4285F4",
     docsUrl: "https://developers.google.com/drive/api",
+    authType: "oauth",
   },
 
   "google-sheets": {
@@ -82,6 +86,7 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     requiresClientSecret: "GOOGLE_CLIENT_SECRET",
     color: "#34A853",
     docsUrl: "https://developers.google.com/sheets/api",
+    authType: "oauth",
   },
 
   "google-docs": {
@@ -97,6 +102,7 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     requiresClientSecret: "GOOGLE_CLIENT_SECRET",
     color: "#4285F4",
     docsUrl: "https://developers.google.com/docs/api",
+    authType: "oauth",
   },
 
   youtube: {
@@ -112,6 +118,7 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     requiresClientSecret: "YOUTUBE_CLIENT_SECRET",
     color: "#FF0000",
     docsUrl: "https://developers.google.com/youtube/v3",
+    authType: "oauth",
   },
 
   // Microsoft Services
@@ -128,6 +135,7 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     requiresClientSecret: "TEAMS_CLIENT_SECRET",
     color: "#6264A7",
     docsUrl: "https://docs.microsoft.com/en-us/graph/api/resources/teams-api-overview",
+    authType: "oauth",
   },
 
   onedrive: {
@@ -143,6 +151,7 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     requiresClientSecret: "ONEDRIVE_CLIENT_SECRET",
     color: "#0078D4",
     docsUrl: "https://docs.microsoft.com/en-us/onedrive/developer/",
+    authType: "oauth",
   },
 
   // Communication Platforms
@@ -159,6 +168,7 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     requiresClientSecret: "SLACK_CLIENT_SECRET",
     color: "#4A154B",
     docsUrl: "https://api.slack.com/",
+    authType: "oauth",
   },
 
   discord: {
@@ -174,6 +184,7 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     requiresClientSecret: "DISCORD_CLIENT_SECRET",
     color: "#5865F2",
     docsUrl: "https://discord.com/developers/docs",
+    authType: "oauth",
   },
 
   // Social Media
@@ -190,6 +201,7 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     requiresClientSecret: "TWITTER_CLIENT_SECRET",
     color: "#1DA1F2",
     docsUrl: "https://developer.twitter.com/en/docs",
+    authType: "oauth",
   },
 
   facebook: {
@@ -205,6 +217,7 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     requiresClientSecret: "FACEBOOK_CLIENT_SECRET",
     color: "#1877F2",
     docsUrl: "https://developers.facebook.com/docs",
+    authType: "oauth",
   },
 
   instagram: {
@@ -220,6 +233,7 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     requiresClientSecret: "INSTAGRAM_CLIENT_SECRET",
     color: "#E4405F",
     docsUrl: "https://developers.facebook.com/docs/instagram",
+    authType: "oauth",
   },
 
   tiktok: {
@@ -235,6 +249,7 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     requiresClientSecret: "TIKTOK_CLIENT_SECRET",
     color: "#000000",
     docsUrl: "https://developers.tiktok.com/",
+    authType: "oauth",
   },
 
   linkedin: {
@@ -244,12 +259,13 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     category: "social",
     logoUrl: "/integrations/linkedin.svg",
     capabilities: ["Post Updates", "Network", "Company Pages", "Analytics"],
-    scopes: ["r_liteprofile", "w_member_social"],
+    scopes: ["profile", "email", "openid"],
     isAvailable: false,
     requiresClientId: "NEXT_PUBLIC_LINKEDIN_CLIENT_ID",
     requiresClientSecret: "LINKEDIN_CLIENT_SECRET",
     color: "#0A66C2",
-    docsUrl: "https://docs.microsoft.com/en-us/linkedin/",
+    docsUrl: "https://developer.linkedin.com/docs",
+    authType: "oauth",
   },
 
   // Development & Productivity
@@ -260,12 +276,13 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     category: "development",
     logoUrl: "/integrations/github.svg",
     capabilities: ["Repository Management", "Issues", "Pull Requests", "Actions"],
-    scopes: ["repo", "user", "read:org"],
+    scopes: ["repo", "user"],
     isAvailable: false,
     requiresClientId: "NEXT_PUBLIC_GITHUB_CLIENT_ID",
     requiresClientSecret: "GITHUB_CLIENT_SECRET",
     color: "#181717",
     docsUrl: "https://docs.github.com/en/developers",
+    authType: "oauth",
   },
 
   gitlab: {
@@ -275,12 +292,13 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     category: "development",
     logoUrl: "/integrations/gitlab.svg",
     capabilities: ["Repository Management", "CI/CD", "Issue Tracking", "Merge Requests"],
-    scopes: ["read_user", "read_api", "read_repository"],
+    scopes: ["api", "read_user"],
     isAvailable: false,
     requiresClientId: "NEXT_PUBLIC_GITLAB_CLIENT_ID",
     requiresClientSecret: "GITLAB_CLIENT_SECRET",
     color: "#FC6D26",
     docsUrl: "https://docs.gitlab.com/ee/api/",
+    authType: "oauth",
   },
 
   docker: {
@@ -290,12 +308,13 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     category: "development",
     logoUrl: "/integrations/docker.svg",
     capabilities: ["Image Management", "Repository Access", "Webhooks", "Analytics"],
-    scopes: ["repo:read", "repo:write"],
+    scopes: [],
     isAvailable: false,
     requiresClientId: "NEXT_PUBLIC_DOCKER_CLIENT_ID",
     requiresClientSecret: "DOCKER_CLIENT_SECRET",
     color: "#2496ED",
-    docsUrl: "https://docs.docker.com/docker-hub/api/latest/",
+    docsUrl: "https://docs.docker.com/desktop/extensions-sdk/",
+    authType: "oauth",
   },
 
   notion: {
@@ -305,12 +324,13 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     category: "productivity",
     logoUrl: "/integrations/notion.svg",
     capabilities: ["Page Management", "Database Access", "Content Creation", "Collaboration"],
-    scopes: ["read_content", "insert_content", "update_content"],
+    scopes: [],
     isAvailable: false,
     requiresClientId: "NEXT_PUBLIC_NOTION_CLIENT_ID",
     requiresClientSecret: "NOTION_CLIENT_SECRET",
     color: "#000000",
     docsUrl: "https://developers.notion.com/",
+    authType: "oauth",
   },
 
   trello: {
@@ -320,12 +340,13 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     category: "productivity",
     logoUrl: "/integrations/trello.svg",
     capabilities: ["Board Management", "Card Creation", "List Organization", "Team Collaboration"],
-    scopes: ["read", "write", "account"],
+    scopes: ["read", "write"],
     isAvailable: false,
     requiresClientId: "NEXT_PUBLIC_TRELLO_CLIENT_ID",
-    requiresClientSecret: "TRELLO_CLIENT_SECRET",
+    requiresClientSecret: "",
     color: "#0079BF",
     docsUrl: "https://developer.atlassian.com/cloud/trello/",
+    authType: "oauth",
   },
 
   // Business & CRM
@@ -336,12 +357,13 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     category: "business",
     logoUrl: "/integrations/hubspot.svg",
     capabilities: ["Contact Management", "Deal Tracking", "Email Marketing", "Analytics"],
-    scopes: ["crm.objects.contacts.read", "crm.objects.deals.read"],
+    scopes: ["crm.objects.contacts.read", "crm.objects.contacts.write"],
     isAvailable: false,
     requiresClientId: "NEXT_PUBLIC_HUBSPOT_CLIENT_ID",
     requiresClientSecret: "HUBSPOT_CLIENT_SECRET",
     color: "#FF7A59",
-    docsUrl: "https://developers.hubspot.com/",
+    docsUrl: "https://developers.hubspot.com/docs/api/overview",
+    authType: "oauth",
   },
 
   airtable: {
@@ -351,12 +373,13 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     category: "productivity",
     logoUrl: "/integrations/airtable.svg",
     capabilities: ["Database Management", "Record Creation", "Field Updates", "Collaboration"],
-    scopes: ["data.records:read", "data.records:write", "schema.bases:read"],
+    scopes: ["data.records:read", "data.records:write"],
     isAvailable: false,
     requiresClientId: "NEXT_PUBLIC_AIRTABLE_CLIENT_ID",
     requiresClientSecret: "AIRTABLE_CLIENT_SECRET",
-    color: "#18BFFF",
+    color: "#FBCB35",
     docsUrl: "https://airtable.com/developers/web/api/introduction",
+    authType: "oauth",
   },
 
   mailchimp: {
@@ -366,12 +389,13 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     category: "business",
     logoUrl: "/integrations/mailchimp.svg",
     capabilities: ["Email Campaigns", "Audience Management", "Automation", "Analytics"],
-    scopes: ["basic_access"],
+    scopes: [],
     isAvailable: false,
     requiresClientId: "NEXT_PUBLIC_MAILCHIMP_CLIENT_ID",
     requiresClientSecret: "MAILCHIMP_CLIENT_SECRET",
     color: "#FFE01B",
     docsUrl: "https://mailchimp.com/developer/",
+    authType: "oauth",
   },
 
   // E-commerce & Payments
@@ -382,12 +406,13 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     category: "ecommerce",
     logoUrl: "/integrations/shopify.svg",
     capabilities: ["Product Management", "Order Processing", "Inventory", "Analytics"],
-    scopes: ["read_products", "write_products", "read_orders"],
+    scopes: ["read_products", "write_products", "read_orders", "write_orders"],
     isAvailable: false,
     requiresClientId: "NEXT_PUBLIC_SHOPIFY_CLIENT_ID",
     requiresClientSecret: "SHOPIFY_CLIENT_SECRET",
-    color: "#7AB55C",
-    docsUrl: "https://shopify.dev/",
+    color: "#78B144",
+    docsUrl: "https://shopify.dev/api",
+    authType: "oauth",
   },
 
   paypal: {
@@ -397,12 +422,13 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     category: "payments",
     logoUrl: "/integrations/paypal.svg",
     capabilities: ["Payment Processing", "Transaction History", "Invoicing", "Subscriptions"],
-    scopes: ["openid", "profile", "email"],
+    scopes: ["openid", "email"],
     isAvailable: false,
     requiresClientId: "NEXT_PUBLIC_PAYPAL_CLIENT_ID",
     requiresClientSecret: "PAYPAL_CLIENT_SECRET",
     color: "#003087",
-    docsUrl: "https://developer.paypal.com/",
+    docsUrl: "https://developer.paypal.com/home",
+    authType: "oauth",
   },
 
   stripe: {
@@ -418,6 +444,7 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     requiresClientSecret: "STRIPE_CLIENT_SECRET",
     color: "#635BFF",
     docsUrl: "https://stripe.com/docs/api",
+    authType: "oauth",
   },
 
   // Cloud Storage
@@ -428,13 +455,164 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     category: "storage",
     logoUrl: "/integrations/dropbox.svg",
     capabilities: ["File Storage", "File Sharing", "Synchronization", "Collaboration"],
-    scopes: ["files.content.read", "files.content.write", "sharing.read"],
+    scopes: ["files.content.read", "files.content.write"],
     isAvailable: false,
     requiresClientId: "NEXT_PUBLIC_DROPBOX_CLIENT_ID",
     requiresClientSecret: "DROPBOX_CLIENT_SECRET",
     color: "#0061FF",
-    docsUrl: "https://www.dropbox.com/developers",
+    docsUrl: "https://www.dropbox.com/developers/documentation",
+    authType: "oauth",
   },
+
+  // New Integrations Start Here
+
+  "youtube-studio": {
+    id: "youtube-studio",
+    name: "YouTube Studio",
+    description: "Manage your YouTube presence, view analytics, and engage with your audience.",
+    category: "social",
+    logoUrl: "/integrations/youtube-studio.svg",
+    capabilities: ["Content Management", "Audience Engagement", "Channel Analytics", "Monetization Tracking"],
+    scopes: [
+      "https://www.googleapis.com/auth/youtubepartner",
+      "https://www.googleapis.com/auth/youtube"],
+    isAvailable: false,
+    requiresClientId: "NEXT_PUBLIC_YOUTUBE_STUDIO_CLIENT_ID",
+    requiresClientSecret: "YOUTUBE_STUDIO_CLIENT_SECRET",
+    color: "#FF0000",
+    docsUrl: "https://developers.google.com/youtube/partner/docs",
+    authType: "oauth",
+  },
+
+  convertkit: {
+    id: "convertkit",
+    name: "ConvertKit",
+    description: "Email marketing and automation for creators.",
+    category: "marketing",
+    logoUrl: "/integrations/convertkit.svg",
+    capabilities: ["Manage Subscribers", "Send Broadcasts", "Automate Funnels", "View Reports"],
+    scopes: [],
+    isAvailable: false,
+    requiresClientId: "NEXT_PUBLIC_CONVERTKIT_CLIENT_ID",
+    requiresClientSecret: "CONVERTKIT_CLIENT_SECRET",
+    color: "#F97316",
+    docsUrl: "https://developers.convertkit.com/",
+    authType: "oauth",
+  },
+
+  "microsoft-forms": {
+    id: "microsoft-forms",
+    name: "Microsoft Forms",
+    description: "Create surveys, quizzes, and polls.",
+    category: "productivity",
+    logoUrl: "/integrations/microsoft-forms.svg",
+    capabilities: ["Create Forms", "Collect Responses", "Analyze Results", "Share Templates"],
+    scopes: ["user.read", "offline_access"],
+    isAvailable: false,
+    requiresClientId: "NEXT_PUBLIC_MICROSOFT_FORMS_CLIENT_ID",
+    requiresClientSecret: "MICROSOFT_FORMS_CLIENT_SECRET",
+    color: "#0078D4",
+    docsUrl: "https://docs.microsoft.com/en-us/graph/forms-concept-overview",
+    authType: "oauth",
+  },
+
+  canva: {
+    id: "canva",
+    name: "Canva",
+    description: "Design anything. Publish anywhere.",
+    category: "design",
+    logoUrl: "/integrations/canva.svg",
+    capabilities: ["Create Designs", "Access Templates", "Collaborate on Projects", "Export Assets"],
+    scopes: ["asset:read", "asset:write", "design:read", "design:write"],
+    isAvailable: false,
+    requiresClientId: "NEXT_PUBLIC_CANVA_CLIENT_ID",
+    requiresClientSecret: "CANVA_CLIENT_SECRET",
+    color: "#00C4CC",
+    docsUrl: "https://www.canva.com/developers/docs/",
+    authType: "oauth",
+  },
+
+  blackbaud: {
+    id: "blackbaud",
+    name: "Blackbaud Raiser's Edge NXT",
+    description: "Cloud-based fundraising and donor management software.",
+    category: "crm",
+    logoUrl: "/integrations/blackbaud.svg",
+    capabilities: ["Manage Constituents", "Process Donations", "Track Campaigns", "Generate Reports"],
+    scopes: [],
+    isAvailable: false,
+    requiresClientId: "NEXT_PUBLIC_BLACKBAUD_CLIENT_ID",
+    requiresClientSecret: "BLACKBAUD_CLIENT_SECRET",
+    color: "#000000",
+    docsUrl: "https://developer.blackbaud.com/skyapi/docs",
+    authType: "oauth",
+  },
+
+  globalpayments: {
+    id: "globalpayments",
+    name: "GlobalPayments",
+    description: "Payment technology and software solutions.",
+    category: "finance",
+    logoUrl: "/integrations/globalpayments.svg",
+    capabilities: ["Process Payments", "Manage Transactions", "Generate Invoices", "View Reports"],
+    scopes: ["read", "write"],
+    isAvailable: false,
+    requiresClientId: "NEXT_PUBLIC_GLOBALPAYMENTS_CLIENT_ID",
+    requiresClientSecret: "GLOBALPAYMENTS_CLIENT_SECRET",
+    color: "#007BC0",
+    docsUrl: "https://developer.globalpay.com/",
+    authType: "oauth",
+  },
+
+  gumroad: {
+    id: "gumroad",
+    name: "Gumroad",
+    description: "Sell digital products, memberships, and more.",
+    category: "e-commerce",
+    logoUrl: "/integrations/gumroad.svg",
+    capabilities: ["Manage Products", "Track Sales", "Customer Data"],
+    scopes: [],
+    isAvailable: false,
+    requiresClientId: "GUMROAD_API_KEY",
+    requiresClientSecret: "",
+    color: "#FF90E8",
+    docsUrl: "https://app.gumroad.com/api",
+    authType: "apiKey",
+  },
+
+  manychat: {
+    id: "manychat",
+    name: "ManyChat",
+    description: "Automate conversations on Instagram, Facebook Messenger, and SMS.",
+    category: "communication",
+    logoUrl: "/integrations/manychat.svg",
+    capabilities: ["Send Messages", "Manage Subscribers", "Run Automations"],
+    scopes: [],
+    isAvailable: false,
+    requiresClientId: "MANYCHAT_API_KEY",
+    requiresClientSecret: "",
+    color: "#007AFF",
+    docsUrl: "https://api.manychat.com/swagger",
+    authType: "apiKey",
+  },
+
+  beehiiv: {
+    id: "beehiiv",
+    name: "Beehiiv",
+    description: "The newsletter platform built for growth.",
+    category: "communication",
+    logoUrl: "/integrations/beehiiv.svg",
+    capabilities: ["Manage Publications", "Manage Posts", "Subscriber Data"],
+    scopes: [],
+    isAvailable: false,
+    requiresClientId: "BEEHIIV_API_KEY",
+    requiresClientSecret: "",
+    color: "#FFD000",
+    docsUrl: "https://developers.beehiiv.com/docs/getting-started",
+    authType: "apiKey",
+  },
+
+  // New Integrations End Here
 }
 
 /**
