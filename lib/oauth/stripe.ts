@@ -83,12 +83,20 @@ export class StripeOAuthService {
         provider: "stripe",
         provider_user_id: stripe_user_id,
         access_token,
-        status: "connected" as const,
-        scopes: ["read_write"],
+        refresh_token: tokenData.refresh_token,
+        token_type: tokenData.token_type,
+        expires_at: tokenData.expires_in
+          ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString()
+          : null,
+        scopes: tokenData.scope,
         metadata: {
           stripe_user_id,
           stripe_publishable_key,
           connected_at: new Date().toISOString(),
+          email: tokenData.email,
+          name: tokenData.name,
+          picture: tokenData.picture,
+          provider: "stripe"
         },
       }
 

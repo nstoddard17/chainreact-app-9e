@@ -331,6 +331,11 @@ export class NotionOAuthService {
         provider: "notion",
         provider_user_id: bot_id || workspace_id,
         access_token,
+        refresh_token: tokenData.refresh_token,
+        token_type: tokenData.token_type,
+        expires_at: tokenData.expires_in
+          ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString()
+          : null,
         status: "connected" as const,
         scopes: tokenValidation.grantedScopes || ["read_user"],
         granted_scopes: tokenValidation.grantedScopes || ["read_user"],
@@ -345,6 +350,9 @@ export class NotionOAuthService {
           validated_scopes: tokenValidation.grantedScopes || [],
           token_validation_error: tokenValidation.error,
           scope_validation: scopeValidation,
+          email: owner.email,
+          name: owner.name,
+          picture: owner.avatar_url,
         },
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),

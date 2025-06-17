@@ -193,9 +193,11 @@ export class ShopifyOAuthService {
         provider: "shopify",
         provider_user_id: shopData.shop.id,
         access_token: tokenData.access_token,
-        refresh_token: null,
-        expires_at: null,
-        status: "connected",
+        refresh_token: tokenData.refresh_token,
+        token_type: tokenData.token_type,
+        expires_at: tokenData.expires_in
+          ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString()
+          : null,
         scopes: tokenValidation.grantedScopes,
         metadata: {
           shop_name: shopData.shop.name,
@@ -206,6 +208,9 @@ export class ShopifyOAuthService {
           scopes_validated: true,
           granted_scopes: tokenValidation.grantedScopes,
           required_scopes: this.getRequiredScopes(),
+          email: shopData.shop.email,
+          name: shopData.shop.name,
+          picture: shopData.shop.picture,
         },
         updated_at: now,
       }

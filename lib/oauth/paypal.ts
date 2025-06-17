@@ -93,14 +93,16 @@ export class PayPalOAuthService {
         provider_user_id: userData.user_id,
         access_token: tokenData.access_token,
         refresh_token: tokenData.refresh_token,
-        expires_at: tokenData.expires_in ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString() : null,
-        status: "connected",
-        scopes: tokenData.scope ? tokenData.scope.split(" ") : [],
+        token_type: tokenData.token_type,
+        expires_at: tokenData.expires_in
+          ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString()
+          : null,
+        scopes: tokenData.scope,
         metadata: {
           email: userData.email,
           name: userData.name,
-          payer_id: userData.payer_id,
-          connected_at: now,
+          picture: userData.picture,
+          provider: "paypal"
         },
         updated_at: now,
       }
