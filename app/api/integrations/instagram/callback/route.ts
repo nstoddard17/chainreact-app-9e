@@ -137,6 +137,9 @@ export async function GET(request: NextRequest) {
 
     const tokenData = await tokenResponse.json()
 
+    const expiresIn = tokenData.expires_in
+    const expiresAt = expiresIn ? new Date(new Date().getTime() + expiresIn * 1000) : null
+
     // Get user info
     const userResponse = await fetch(`https://graph.instagram.com/me?fields=id,username&access_token=${tokenData.access_token}`)
 
@@ -151,10 +154,10 @@ export async function GET(request: NextRequest) {
       provider: "instagram",
       provider_user_id: userData.id,
       access_token: tokenData.access_token,
-      refresh_token: tokenData.refresh_token,
-      expires_at: tokenData.expires_in ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString() : null,
-      scopes: [], // Instagram doesn't return scopes in this flow
+      refresh_token: null, // Instagram long-lived tokens don't have refresh tokens
+      scopes: [], // Scopes are managed in the app settings
       status: "connected",
+      expiresAt: expiresAt ? expiresAt.toISOString() : null,
       updated_at: new Date().toISOString(),
     }
 

@@ -71,6 +71,9 @@ export async function GET(request: NextRequest) {
 
     const tokenData = await tokenResponse.json()
 
+    const expiresIn = tokenData.expires_in // Typically in seconds
+    const expiresAt = expiresIn ? new Date(new Date().getTime() + expiresIn * 1000) : null
+
     // Canva does not have a /me endpoint. The user is identified by the token.
     // The "user" field in the token response is the unique ID for the user.
     const providerUserId = tokenData.user
@@ -81,10 +84,8 @@ export async function GET(request: NextRequest) {
       provider_user_id: providerUserId,
       access_token: tokenData.access_token,
       refresh_token: tokenData.refresh_token,
-      expires_at: tokenData.expires_in
-        ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString()
-        : null,
-      scopes: tokenData.scope ? tokenData.scope.split(" ") : [],
+      expiresAt: expiresAt ? expiresAt.toISOString() : null,
+      scopes: [], // Canva doesn't return scopes in the token response
       status: "connected",
       updated_at: new Date().toISOString(),
     }

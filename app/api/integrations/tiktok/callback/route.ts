@@ -136,30 +136,26 @@ export async function GET(request: NextRequest) {
     }
 
     const tokenData = await tokenResponse.json()
-
-    // Get user info
-    const userResponse = await fetch(`https://open-api.tiktok.com/user/info/?access_token=${tokenData.access_token}&fields=open_id,union_id,avatar_url,display_name`,)
-
-    if (!userResponse.ok) {
-        throw new Error("Failed to get TikTok user info")
-    }
-
-    const userData = await userResponse.json()
+    const expiresIn = tokenData.data.expires_in
+    const expiresAt = expiresIn ? new Date(new Date().getTime() + expiresIn * 1000) : null
 
     const integrationData = {
       user_id: userId,
-      provider: "tiktok",
-      provider_user_id: userData.data.open_id,
-      access_token: tokenData.access_token,
-      refresh_token: tokenData.refresh_token,
-      expires_at: tokenData.expires_in ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString() : null,
-      scopes: tokenData.scope.split(" "),
-      status: "connected",
+      provider: 'tiktok',
+      access_token: tokenData.data.access_token,
+      refresh_token: tokenData.data.refresh_token,
+      scopes: tokenData.data.scope.split(','),
+      status: 'connected',
+      expiresAt: expiresAt ? expiresAt.toISOString() : null,
       updated_at: new Date().toISOString(),
+      metadata: {
+        open_id: tokenData.data.open_id,
+        refresh_expires_in: tokenData.data.refresh_expires_in,
+      },
     }
 
-    const { error: upsertError } = await supabase.from("integrations").upsert(integrationData, {
-      onConflict: "user_id, provider",
+    const { error: upsertError } = await supabase.from('integrations').upsert(integrationData, {
+      onConflict: 'user_id, provider',
     })
 
     if (upsertError) {

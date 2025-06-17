@@ -140,21 +140,35 @@ export async function GET(request: NextRequest) {
         throw new Error(`Slack token exchange failed: ${tokenData.error}`)
     }
 
-    const integrationData = {
-      user_id: userId,
-      provider: "slack",
-      provider_user_id: tokenData.authed_user.id,
-      access_token: tokenData.access_token,
-      refresh_token: null, // Slack's new OAuth flow doesn't use refresh tokens
-      expires_at: null, // Slack tokens don't expire in the same way
-      scopes: tokenData.scope.split(","),
-      status: "connected",
-      updated_at: new Date().toISOString(),
+    const expiresIn = tokenData.expires_in; // Typically in seconds
+    const expiresAt = expiresIn ? new Date(new Date().getTime() + expiresIn * 1000) : null;
+
+    const { data: existingIntegration, error: fetchError } = await supabase
+      .from('integrations')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('provider', 'slack')
+      .single();
+
+    if (fetchError && fetchError.code !== 'PGRST116') { // Ignore 'not found' error
+      throw new Error(`Failed to check for existing integration: ${fetchError.message}`);
     }
 
-    const { error: upsertError } = await supabase.from("integrations").upsert(integrationData, {
-      onConflict: "user_id, provider",
-    })
+    const integrationData = {
+      user_id: userId,
+      provider: 'slack',
+      access_token: tokenData.access_token,
+      // Slack's newer OAuth tokens may not include a refresh token
+      refresh_token: tokenData.refresh_token || (existingIntegration ? undefined : null),
+      scopes: tokenData.scope.split(','),
+      status: 'connected',
+      expiresAt: expiresAt ? expiresAt.toISOString() : null,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { error: upsertError } = await supabase.from('integrations').upsert(integrationData, {
+      onConflict: 'user_id, provider',
+    });
 
     if (upsertError) {
       throw new Error(`Failed to save Slack integration: ${upsertError.message}`)

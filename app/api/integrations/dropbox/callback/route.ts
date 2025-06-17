@@ -136,14 +136,17 @@ export async function GET(request: NextRequest) {
 
     const tokenData = await tokenResponse.json()
 
+    const expiresIn = tokenData.expires_in // Typically in seconds
+    const expiresAt = expiresIn ? new Date(new Date().getTime() + expiresIn * 1000) : null
+
     const integrationData = {
       user_id: userId,
       provider: "dropbox",
       provider_user_id: tokenData.account_id,
       access_token: tokenData.access_token,
       refresh_token: tokenData.refresh_token,
-      expires_at: tokenData.expires_in ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString() : null,
-      scopes: tokenData.scope.split(" "),
+      expiresAt: expiresAt ? expiresAt.toISOString() : null,
+      scopes: tokenData.scope ? tokenData.scope.split(' ') : [],
       status: "connected",
       updated_at: new Date().toISOString(),
     }
