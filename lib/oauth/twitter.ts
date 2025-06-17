@@ -1,5 +1,5 @@
 /// <reference types="node" />
-import { generateOAuthState } from "./utils"
+import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 
 interface TwitterOAuthResult {
   success: boolean
@@ -13,7 +13,7 @@ export class TwitterOAuthService {
     const clientSecret = process.env.TWITTER_CLIENT_SECRET
 
     if (!clientId || !clientSecret) {
-      throw new Error("Missing X (Twitter) OAuth configuration")
+      throw new Error("Missing Twitter OAuth configuration")
     }
 
     return { clientId, clientSecret }
@@ -50,14 +50,13 @@ export class TwitterOAuthService {
     }
   }
 
-  static async generateAuthUrl(
-    baseUrl: string,
-    reconnect = false,
-    integrationId?: string,
-    userId?: string,
-  ): Promise<string> {
+  static getRedirectUri(): string {
+    return `${getBaseUrl()}/api/integrations/twitter/callback`
+  }
+
+  static async generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string, userId?: string): Promise<string> {
     const { clientId } = this.getClientCredentials()
-    const redirectUri = `${baseUrl}/api/integrations/twitter/callback`
+    const redirectUri = this.getRedirectUri()
 
     // Generate PKCE parameters
     const codeVerifier = this.generateCodeVerifier()
@@ -65,19 +64,17 @@ export class TwitterOAuthService {
 
     const scopes = ["tweet.read", "tweet.write", "users.read", "offline.access"]
 
-    // Create state object with all necessary data
-    const stateData = {
-      provider: "twitter",
-      reconnect,
-      integrationId,
-      userId,
-      requireFullScopes: true,
-      timestamp: Date.now(),
-      codeVerifier, // Store verifier in state
-    }
-
-    // Use the utility function to generate state
-    const state = generateOAuthState(stateData)
+    const state = btoa(
+      JSON.stringify({
+        provider: "twitter",
+        userId,
+        reconnect,
+        integrationId,
+        requireFullScopes: true,
+        timestamp: Date.now(),
+        codeVerifier, // Store verifier in state for later use
+      }),
+    )
 
     const params = new URLSearchParams({
       response_type: "code",
@@ -99,16 +96,7 @@ export class TwitterOAuthService {
     supabase: any,
   ): Promise<TwitterOAuthResult> {
     try {
-      // Parse and validate state
-      let stateData
-      try {
-        stateData = JSON.parse(atob(state))
-        console.log("Parsed state data:", { ...stateData, codeVerifier: stateData.codeVerifier ? "***" : undefined })
-      } catch (error) {
-        console.error("Failed to parse state:", error)
-        throw new Error("Invalid state parameter")
-      }
-
+      const stateData = JSON.parse(atob(state))
       const { provider, reconnect, integrationId, requireFullScopes, codeVerifier, userId } = stateData
 
       if (provider !== "twitter") {
@@ -125,7 +113,7 @@ export class TwitterOAuthService {
       }
 
       const { clientId, clientSecret } = this.getClientCredentials()
-      const redirectUri = `${baseUrl}/api/integrations/twitter/callback`
+      const redirectUri = this.getRedirectUri()
 
       console.log("Exchanging Twitter code for token:", {
         clientId,
@@ -181,7 +169,7 @@ export class TwitterOAuthService {
           return {
             success: false,
             redirectUrl: `${baseUrl}/integrations?error=insufficient_scopes&provider=twitter&message=${encodeURIComponent(
-              `Your X connection is missing required permissions: ${missingScopes.join(", ")}. Please reconnect and accept all scopes.`,
+              `Your Twitter connection is missing required permissions: ${missingScopes.join(", ")}. Please reconnect and accept all scopes.`,
             )}`,
             error: "Insufficient scopes",
           }
@@ -277,10 +265,7 @@ export class TwitterOAuthService {
           }
         } else {
           // Create new integration
-          const { error } = await supabase.from("integrations").insert({
-            ...integrationData,
-            created_at: new Date().toISOString(),
-          })
+          const { error } = await supabase.from("integrations").insert(integrationData)
 
           if (error) {
             console.error("Error inserting Twitter integration:", error)
