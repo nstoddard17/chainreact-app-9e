@@ -13,36 +13,41 @@ export class GoogleCalendarOAuthService {
   private static clientSecret: string | undefined = process.env.GOOGLE_CLIENT_SECRET
   static readonly apiUrl = "https://www.googleapis.com/calendar/v3"
 
-  static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string, userId?: string): string {
+  static getClientCredentials() {
+    return {
+      clientId: this.clientId,
+      clientSecret: this.clientSecret,
+    }
+  }
+
+  static getRedirectUri(origin: string): string {
+    return getOAuthRedirectUri(origin, "google")
+  }
+
+  static generateAuthUrl(origin: string, userId: string): string {
     const { clientId } = this.getClientCredentials()
-    const redirectUri = this.getRedirectUri(baseUrl)
-    const state = btoa(
-      JSON.stringify({
-        provider: "google_calendar",
-        userId,
-        reconnect,
-        integrationId,
-        timestamp: Date.now(),
-      }),
-    )
+    if (!clientId) {
+      throw new Error("Google Calendar client ID is not configured")
+    }
+
+    const redirectUri = this.getRedirectUri(origin)
+    const state = JSON.stringify({
+      provider: "google",
+      service: "google-calendar",
+      userId,
+    })
+
     const params = new URLSearchParams({
       client_id: clientId,
       redirect_uri: redirectUri,
       response_type: "code",
       scope: OAuthScopes.GOOGLE_CALENDAR.join(" "),
+      access_type: "offline",
+      prompt: "consent",
       state,
     })
-    return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`
-  }
 
-  static getRedirectUri(origin: string): string {
-    const redirectUri = getOAuthRedirectUri(origin, "google_calendar")
-    console.log("Google Calendar Redirect URI:", {
-      origin,
-      baseUrl: getBaseUrl(),
-      redirectUri,
-    })
-    return redirectUri
+    return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`
   }
 
   static async handleCallback(
@@ -59,7 +64,7 @@ export class GoogleCalendarOAuthService {
 
       // Parse and validate state
       const stateData = parseOAuthState(state)
-      validateOAuthState(stateData, "google_calendar")
+      validateOAuthState(stateData, "google")
 
       // Exchange code for token
       const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
@@ -109,12 +114,12 @@ export class GoogleCalendarOAuthService {
         .from("integrations")
         .select("id")
         .eq("user_id", userId)
-        .eq("provider", "google_calendar")
+        .eq("provider", "google")
         .maybeSingle()
 
       const integrationData = {
         user_id: userId,
-        provider: "google_calendar",
+        provider: "google",
         provider_user_id: primaryCalendar.id,
         access_token,
         refresh_token,
@@ -182,12 +187,5 @@ export class GoogleCalendarOAuthService {
     }
 
     return response.json()
-  }
-
-  static getClientCredentials() {
-    if (!this.clientId || !this.clientSecret) {
-      throw new Error("Missing Google client credentials")
-    }
-    return { clientId: this.clientId, clientSecret: this.clientSecret }
   }
 }
