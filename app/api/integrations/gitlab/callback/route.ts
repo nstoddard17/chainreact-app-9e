@@ -1,142 +1,109 @@
-import { type NextRequest } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
-import { GitLabOAuthService } from "@/lib/oauth/gitlab"
-import { parseOAuthState, validateOAuthState } from "@/lib/oauth/utils"
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-if (!supabaseUrl || !supabaseServiceRoleKey) {
-  throw new Error("Missing required environment variables")
-}
-
-const supabase = createClient(supabaseUrl, supabaseServiceRoleKey)
+import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 
 export async function GET(request: NextRequest) {
+  const url = new URL(request.url)
+  const code = url.searchParams.get("code")
+  const state = url.searchParams.get("state")
+  const error = url.searchParams.get("error")
+
+  const redirectUrl = new URL("/integrations", getBaseUrl())
+
+  if (error) {
+    console.error(`Error with GitLab OAuth: ${error}`)
+    redirectUrl.searchParams.set("error", "Failed to connect GitLab account.")
+    return NextResponse.redirect(redirectUrl)
+  }
+
+  if (!code) {
+    redirectUrl.searchParams.set("error", "No code provided for GitLab OAuth.")
+    return NextResponse.redirect(redirectUrl)
+  }
+
+  if (!state) {
+    redirectUrl.searchParams.set("error", "No state provided for GitLab OAuth.")
+    return NextResponse.redirect(redirectUrl)
+  }
+
   try {
-    const searchParams = request.nextUrl.searchParams
-    const code = searchParams.get("code")
-    const state = searchParams.get("state")
-    const error = searchParams.get("error")
-    const errorDescription = searchParams.get("error_description")
-
-    // Handle OAuth errors
-    if (error) {
-      console.error("GitLab OAuth error:", error, errorDescription)
-      return new Response(
-        `
-        <html>
-          <body>
-            <h1>Authentication Failed</h1>
-            <p>Error: ${error}</p>
-            ${errorDescription ? `<p>Description: ${errorDescription}</p>` : ""}
-            <script>
-              window.close();
-            </script>
-          </body>
-        </html>
-      `,
-        {
-          headers: {
-            "Content-Type": "text/html",
-          },
-        }
-      )
+    const { userId } = JSON.parse(atob(state))
+    if (!userId) {
+      redirectUrl.searchParams.set("error", "Missing userId in GitLab state.")
+      return NextResponse.redirect(redirectUrl)
     }
 
-    // Validate required parameters
-    if (!code || !state) {
-      return new Response(
-        `
-        <html>
-          <body>
-            <h1>Authentication Failed</h1>
-            <p>Missing required parameters</p>
-            <script>
-              window.close();
-            </script>
-          </body>
-        </html>
-      `,
-        {
-          headers: {
-            "Content-Type": "text/html",
-          },
-        }
-      )
+    const response = await fetch("https://gitlab.com/oauth/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        client_id: process.env.NEXT_PUBLIC_GITLAB_CLIENT_ID!,
+        client_secret: process.env.GITLAB_CLIENT_SECRET!,
+        code,
+        grant_type: "authorization_code",
+        redirect_uri: `${getBaseUrl()}/api/integrations/gitlab/callback`,
+      }),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      console.error("Failed to exchange GitLab code for token:", errorData)
+      redirectUrl.searchParams.set("error", "Failed to get GitLab access token.")
+      return NextResponse.redirect(redirectUrl)
     }
 
-    // Parse and validate state
-    const stateData = parseOAuthState(state)
-    validateOAuthState(stateData, "gitlab")
+    const tokens = await response.json()
+    const accessToken = tokens.access_token
+    const refreshToken = tokens.refresh_token
+    const expiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString()
 
-    // Process OAuth callback
-    const result = await GitLabOAuthService.handleCallback(
-      code,
-      state,
-      supabase,
-      stateData.userId,
-      request.nextUrl.origin
+    const userInfoResponse = await fetch("https://gitlab.com/api/v4/user", {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    })
+
+    if (!userInfoResponse.ok) {
+      console.error("Failed to fetch GitLab user info")
+      redirectUrl.searchParams.set("error", "Failed to fetch GitLab user info.")
+      return NextResponse.redirect(redirectUrl)
+    }
+
+    const userInfo = await userInfoResponse.json()
+    const providerAccountId = userInfo.id
+
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
     )
 
-    if (result.success) {
-      return new Response(
-        `
-        <html>
-          <body>
-            <h1>Successfully Connected to GitLab</h1>
-            <p>You can close this window and return to the app.</p>
-            <script>
-              window.close();
-            </script>
-          </body>
-        </html>
-      `,
-        {
-          headers: {
-            "Content-Type": "text/html",
-          },
-        }
-      )
-    } else {
-      return new Response(
-        `
-        <html>
-          <body>
-            <h1>Authentication Failed</h1>
-            <p>Error: ${result.error}</p>
-            <script>
-              window.close();
-            </script>
-          </body>
-        </html>
-      `,
-        {
-          headers: {
-            "Content-Type": "text/html",
-          },
-        }
-      )
-    }
-  } catch (error: any) {
-    console.error("GitLab callback error:", error)
-    return new Response(
-      `
-      <html>
-        <body>
-          <h1>Authentication Failed</h1>
-          <p>Error: ${error.message}</p>
-          <script>
-            window.close();
-          </script>
-        </body>
-      </html>
-    `,
+    const { error: dbError } = await supabase.from("integrations").upsert(
       {
-        headers: {
-          "Content-Type": "text/html",
-        },
-      }
+        user_id: userId,
+        provider: "gitlab",
+        provider_account_id: providerAccountId.toString(),
+        access_token: accessToken,
+        refresh_token: refreshToken,
+        expires_at: expiresAt,
+        status: "connected",
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id, provider" },
     )
+
+    if (dbError) {
+      console.error("Error saving GitLab integration to DB:", dbError)
+      redirectUrl.searchParams.set("error", "Failed to save GitLab integration.")
+      return NextResponse.redirect(redirectUrl)
+    }
+
+    redirectUrl.searchParams.set("success", "GitLab account connected successfully.")
+    return NextResponse.redirect(redirectUrl)
+  } catch (error) {
+    console.error("Error during GitLab OAuth callback:", error)
+    redirectUrl.searchParams.set("error", "An unexpected error occurred.")
+    return NextResponse.redirect(redirectUrl)
   }
 }
