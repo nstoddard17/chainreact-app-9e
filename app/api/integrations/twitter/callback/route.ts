@@ -2,63 +2,86 @@ import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 
+function createPopupResponse(type: "success" | "error", provider: string, message: string, baseUrl: string) {
+  const title = type === "success" ? `${provider} Connection Successful` : `${provider} Connection Failed`
+  const header = type === "success" ? `${provider} Connected!` : `Error Connecting ${provider}`
+  const script = `
+    <script>
+      if (window.opener) {
+        window.opener.postMessage({
+          type: 'oauth-${type}',
+          provider: '${provider}',
+          message: '${message}'
+        }, '${baseUrl}');
+      }
+      setTimeout(() => window.close(), 1000);
+    </script>
+  `
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head><title>${title}</title></head>
+      <body>
+        <h1>${header}</h1>
+        <p>${message}</p>
+        <p>This window will now close.</p>
+        ${script}
+      </body>
+    </html>
+  `
+  return new Response(html, { headers: { "Content-Type": "text/html" } })
+}
+
 export async function GET(request: NextRequest) {
   const url = new URL(request.url)
   const code = url.searchParams.get("code")
   const state = url.searchParams.get("state")
   const error = url.searchParams.get("error")
 
-  const redirectUrl = new URL("/integrations", getBaseUrl())
+  const baseUrl = getBaseUrl()
 
   if (error) {
     console.error(`Error with Twitter OAuth: ${error}`)
-    redirectUrl.searchParams.set("error", "Failed to connect Twitter account.")
-    return NextResponse.redirect(redirectUrl)
+    return createPopupResponse("error", "twitter", `OAuth Error: ${error}`, baseUrl)
   }
 
   if (!code) {
-    redirectUrl.searchParams.set("error", "No code provided for Twitter OAuth.")
-    return NextResponse.redirect(redirectUrl)
+    return createPopupResponse("error", "twitter", "No code provided for Twitter OAuth.", baseUrl)
   }
 
   if (!state) {
-    redirectUrl.searchParams.set("error", "No state provided for Twitter OAuth.")
-    return NextResponse.redirect(redirectUrl)
+    return createPopupResponse("error", "twitter", "No state provided for Twitter OAuth.", baseUrl)
   }
 
   try {
     const { userId, codeVerifier } = JSON.parse(atob(state))
     if (!userId) {
-      redirectUrl.searchParams.set("error", "Missing userId in Twitter state.")
-      return NextResponse.redirect(redirectUrl)
+      return createPopupResponse("error", "twitter", "Missing userId in Twitter state.", baseUrl)
     }
     if (!codeVerifier) {
-      redirectUrl.searchParams.set("error", "Missing code_verifier in Twitter state.")
-      return NextResponse.redirect(redirectUrl)
+      return createPopupResponse("error", "twitter", "Missing code_verifier in Twitter state.", baseUrl)
     }
 
     const tokenUrl = new URL("https://api.twitter.com/2/oauth2/token")
-    const body = new URLSearchParams({
-      code,
+    tokenUrl.search = new URLSearchParams({
+      code: code,
       grant_type: "authorization_code",
       client_id: process.env.NEXT_PUBLIC_TWITTER_CLIENT_ID!,
-      redirect_uri: `${getBaseUrl()}/api/integrations/twitter/callback`,
+      redirect_uri: `${baseUrl}/api/integrations/twitter/callback`,
       code_verifier: codeVerifier,
-    })
+    }).toString()
 
-    const response = await fetch(tokenUrl, {
+    const response = await fetch(tokenUrl.toString(), {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
       },
-      body,
     })
 
     if (!response.ok) {
       const errorData = await response.json()
       console.error("Failed to exchange Twitter code for token:", errorData)
-      redirectUrl.searchParams.set("error", "Failed to get Twitter access token.")
-      return NextResponse.redirect(redirectUrl)
+      return createPopupResponse("error", "twitter", "Failed to get Twitter access token.", baseUrl)
     }
 
     const tokens = await response.json()
@@ -74,8 +97,7 @@ export async function GET(request: NextRequest) {
 
     if (!userInfoResponse.ok) {
       console.error("Failed to fetch Twitter user info")
-      redirectUrl.searchParams.set("error", "Failed to fetch Twitter user info.")
-      return NextResponse.redirect(redirectUrl)
+      return createPopupResponse("error", "twitter", "Failed to fetch Twitter user info.", baseUrl)
     }
 
     const userInfo = await userInfoResponse.json()
@@ -103,15 +125,13 @@ export async function GET(request: NextRequest) {
 
     if (dbError) {
       console.error("Error saving Twitter integration to DB:", dbError)
-      redirectUrl.searchParams.set("error", "Failed to save Twitter integration.")
-      return NextResponse.redirect(redirectUrl)
+      return createPopupResponse("error", "twitter", "Failed to save Twitter integration.", baseUrl)
     }
 
-    redirectUrl.searchParams.set("success", "Twitter account connected successfully.")
-    return NextResponse.redirect(redirectUrl)
+    return createPopupResponse("success", "twitter", "Twitter account connected successfully.", baseUrl)
   } catch (error) {
     console.error("Error during Twitter OAuth callback:", error)
-    redirectUrl.searchParams.set("error", "An unexpected error occurred.")
-    return NextResponse.redirect(redirectUrl)
+    const message = error instanceof Error ? error.message : "An unexpected error occurred."
+    return createPopupResponse("error", "twitter", message, baseUrl)
   }
 }
