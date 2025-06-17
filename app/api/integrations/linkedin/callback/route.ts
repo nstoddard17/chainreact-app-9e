@@ -1,6 +1,7 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { type NextRequest } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
+import { createPopupResponse } from "@/lib/utils/createPopupResponse"
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -22,81 +23,22 @@ export async function GET(request: NextRequest) {
 
   if (error) {
     console.error(`LinkedIn OAuth error: ${error} - ${errorDescription}`)
-    const errorHtml = `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>LinkedIn Connection Failed</title>
-            <style>
-              body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; text-align: center; }
-              .container { max-width: 500px; padding: 20px; border: 1px solid #ccc; border-radius: 8px; }
-              h1 { color: #dc3545; }
-              p { color: #666; }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <h1>LinkedIn Connection Failed</h1>
-              <p>${errorDescription || "An unknown error occurred."}</p>
-              <p>Please try again or contact support if the problem persists.</p>
-              <script>
-                if (window.opener) {
-                  window.opener.postMessage({
-                    type: 'oauth-error',
-                    provider: 'linkedin',
-                    error: '${error}',
-                    errorDescription: '${errorDescription || "An unknown error occurred."}'
-                  }, '${baseUrl}');
-                  setTimeout(() => window.close(), 1000);
-                }
-              </script>
-            </div>
-          </body>
-        </html>
-      `
-    return new Response(errorHtml, {
-      headers: { "Content-Type": "text/html" },
-      status: 400,
-    })
+    return createPopupResponse(
+      "error",
+      "linkedin",
+      errorDescription || "An unknown error occurred.",
+      baseUrl,
+    )
   }
 
   if (!code || !state) {
     console.error("Missing code or state in LinkedIn callback")
-    const errorHtml = `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>LinkedIn Connection Failed</title>
-             <style>
-              body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; text-align: center; }
-              .container { max-width: 500px; padding: 20px; border: 1px solid #ccc; border-radius: 8px; }
-              h1 { color: #dc3545; }
-              p { color: #666; }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <h1>LinkedIn Connection Failed</h1>
-              <p>Authorization code or state parameter is missing.</p>
-              <p>Please try again or contact support if the problem persists.</p>
-               <script>
-                if (window.opener) {
-                  window.opener.postMessage({
-                    type: 'oauth-error',
-                    provider: 'linkedin',
-                    error: 'Missing code or state'
-                  }, '${baseUrl}');
-                  setTimeout(() => window.close(), 1000);
-                }
-              </script>
-            </div>
-          </body>
-        </html>
-      `
-    return new Response(errorHtml, {
-      headers: { "Content-Type": "text/html" },
-      status: 400,
-    })
+    return createPopupResponse(
+      "error",
+      "linkedin",
+      "Authorization code or state parameter is missing.",
+      baseUrl,
+    )
   }
 
   try {
@@ -104,9 +46,7 @@ export async function GET(request: NextRequest) {
     const { userId } = stateData
 
     if (!userId) {
-      console.error("Missing userId in LinkedIn state")
-      // Handle error: show an error page and inform the user
-      return new Response("User ID is missing from state", { status: 400 })
+      throw new Error("User ID is missing from state")
     }
 
     const clientId = process.env.NEXT_PUBLIC_LINKEDIN_CLIENT_ID
@@ -132,7 +72,7 @@ export async function GET(request: NextRequest) {
 
     if (!tokenResponse.ok) {
       const errorData = await tokenResponse.json()
-      throw new Error(`LinkedIn token exchange failed: ${errorData.error_description}`)
+      throw new Error(`LinkedIn token exchange failed: ${errorData.error_description || "Unknown error"}`)
     }
 
     const tokenData = await tokenResponse.json()
@@ -156,8 +96,10 @@ export async function GET(request: NextRequest) {
       provider_user_id: userData.id,
       access_token: tokenData.access_token,
       refresh_token: tokenData.refresh_token,
-      expires_at: tokenData.expires_in ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString() : null,
-      scopes: tokenData.scope.split(" "),
+      expires_at: tokenData.expires_in
+        ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString()
+        : null,
+      scopes: tokenData.scope ? tokenData.scope.split(" ") : [],
       status: "connected",
       updated_at: new Date().toISOString(),
     }
@@ -167,76 +109,13 @@ export async function GET(request: NextRequest) {
     })
 
     if (upsertError) {
+      console.error("Supabase upsert error:", upsertError)
       throw new Error(`Failed to save LinkedIn integration: ${upsertError.message}`)
     }
 
-    const successHtml = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>LinkedIn Connection Successful</title>
-           <style>
-              body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; text-align: center; }
-              .container { max-width: 500px; padding: 20px; border: 1px solid #ccc; border-radius: 8px; }
-              h1 { color: #28a745; }
-              p { color: #666; }
-            </style>
-        </head>
-        <body>
-          <div class="container">
-            <h1>LinkedIn Connection Successful</h1>
-            <p>You can now close this window.</p>
-          </div>
-          <script>
-            if (window.opener) {
-              window.opener.postMessage({ type: 'oauth-success', provider: 'linkedin' }, '${baseUrl}');
-              setTimeout(() => window.close(), 1000);
-            }
-          </script>
-        </body>
-      </html>
-    `
-
-    return new Response(successHtml, {
-      headers: { "Content-Type": "text/html" },
-    })
+    return createPopupResponse("success", "linkedin", "Successfully connected to LinkedIn.", baseUrl)
   } catch (e: any) {
     console.error("LinkedIn callback error:", e)
-    const errorHtml = `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>LinkedIn Connection Failed</title>
-            <style>
-              body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; text-align: center; }
-              .container { max-width: 500px; padding: 20px; border: 1px solid #ccc; border-radius: 8px; }
-              h1 { color: #dc3545; }
-              p { color: #666; }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-               <h1>LinkedIn Connection Failed</h1>
-              <p>${e.message || "An unexpected error occurred."}</p>
-               <p>Please try again or contact support if the problem persists.</p>
-              <script>
-                if (window.opener) {
-                  window.opener.postMessage({
-                    type: 'oauth-error',
-                    provider: 'linkedin',
-                    error: 'Callback processing failed',
-                    errorDescription: '${e.message || "An unexpected error occurred."}'
-                  }, '${baseUrl}');
-                  setTimeout(() => window.close(), 1000);
-                }
-              </script>
-            </div>
-          </body>
-        </html>
-      `
-    return new Response(errorHtml, {
-      headers: { "Content-Type": "text/html" },
-      status: 500,
-    })
+    return createPopupResponse("error", "linkedin", e.message || "An unexpected error occurred.", baseUrl)
   }
 }
