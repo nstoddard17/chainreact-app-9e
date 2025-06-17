@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
-import { useIntegrationStore } from "@/stores/integration-store"
+import { useIntegrationStore } from "@/stores/integrationStore"
 import { useAuthStore } from "@/stores/authStore"
 import ScopeValidationAlert from "./ScopeValidationAlert"
 import AppLayout from "@/components/layout/AppLayout"
@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/hooks/use-toast"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import RedirectLoadingOverlay from "./RedirectLoadingOverlay"
 
 function IntegrationsContent() {
   const [searchTerm, setSearchTerm] = useState("")
@@ -23,11 +24,12 @@ function IntegrationsContent() {
   const [tokenRefreshing, setTokenRefreshing] = useState(false)
   const [showDebug, setShowDebug] = useState(false)
   const router = useRouter()
+  const [redirectingProvider, setRedirectingProvider] = useState<string | null>(null)
 
   const {
     integrations = [],
     providers = [],
-    loading: isLoading,
+    isLoading,
     error,
     debugInfo,
     initializeProviders,
@@ -35,44 +37,11 @@ function IntegrationsContent() {
     refreshAllTokens,
     clearError,
     getConnectedProviders,
-    checkPendingConnection,
   } = useIntegrationStore()
 
   const searchParams = useSearchParams()
   const { toast } = useToast()
   const { user, getCurrentUserId } = useAuthStore()
-
-  // Test function to verify store is working
-  const testConnection = useCallback(async () => {
-    console.log("🧪 Testing connection flow...")
-    try {
-      const response = await fetch("/api/integrations/auth/generate-url", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          provider: "slack",
-        }),
-      })
-
-      const data = await response.json()
-      console.log("🧪 Test response:", data)
-
-      toast({
-        title: "Test Result",
-        description: data.success ? "API is working!" : `Error: ${data.error}`,
-        variant: data.success ? "default" : "destructive",
-      })
-    } catch (error: any) {
-      console.error("🧪 Test failed:", error)
-      toast({
-        title: "Test Failed",
-        description: error.message,
-        variant: "destructive",
-      })
-    }
-  }, [toast])
 
   // Initialize providers on mount
   useEffect(() => {
@@ -89,11 +58,6 @@ function IntegrationsContent() {
           await fetchIntegrations(true)
         }
 
-        // Check for pending connections
-        if (checkPendingConnection) {
-          checkPendingConnection()
-        }
-
         setLocalLoading(false)
       } catch (error: any) {
         console.error("❌ Initialization failed:", error)
@@ -103,7 +67,7 @@ function IntegrationsContent() {
     }
 
     initializeData()
-  }, [user, initializeProviders, fetchIntegrations, checkPendingConnection])
+  }, [user, initializeProviders, fetchIntegrations])
 
   // Enhanced OAuth callback handling with redirect support
   useEffect(() => {
@@ -118,7 +82,9 @@ function IntegrationsContent() {
       setOauthProcessed(true)
       console.log("🔄 Processing OAuth callback:", { success, error, provider, message })
 
-      if (success === "true") {
+      const isSuccess = success === "true" || (!!success && success.endsWith("_connected"))
+
+      if (isSuccess) {
         const refreshIntegrationsList = async () => {
           try {
             // Multiple refresh attempts to ensure data consistency
@@ -221,16 +187,6 @@ function IntegrationsContent() {
     }
   })
 
-  console.log("🔍 Debug info:", {
-    localLoading,
-    isLoading,
-    providersLength: providers.length,
-    integrationsLength: integrations.length,
-    error,
-    loadError,
-    providersWithStatus: providersWithStatus.length,
-  })
-
   const connectedCount = integrations.filter((i) => i.status === "connected").length
   const connectedProviders = getConnectedProviders()
 
@@ -256,7 +212,7 @@ function IntegrationsContent() {
   }
 
   // Show loading state
-  if (localLoading && providers.length === 0) {
+  if (localLoading || (isLoading && providers.length === 0 && !error && !loadError)) {
     return (
       <AppLayout>
         <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
@@ -283,34 +239,6 @@ function IntegrationsContent() {
     )
   }
 
-  // Add a fallback message if no providers are found
-  if (!localLoading && providers.length === 0 && !error && !loadError) {
-    return (
-      <AppLayout>
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
-          <div className="container mx-auto px-4 py-8">
-            <Alert className="mb-6">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>No Integrations Found</AlertTitle>
-              <AlertDescription>
-                No integrations are currently available. This might be due to missing environment variables or
-                configuration issues.
-                <div className="flex gap-2 mt-3">
-                  <Button variant="outline" size="sm" onClick={loadData}>
-                    Retry
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={testConnection}>
-                    Test API
-                  </Button>
-                </div>
-              </AlertDescription>
-            </Alert>
-          </div>
-        </div>
-      </AppLayout>
-    )
-  }
-
   return (
     <AppLayout>
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
@@ -326,9 +254,6 @@ function IntegrationsContent() {
                 <div className="flex gap-2 mt-3">
                   <Button variant="outline" size="sm" className="bg-white" onClick={loadData}>
                     Retry
-                  </Button>
-                  <Button variant="outline" size="sm" className="bg-white" onClick={testConnection}>
-                    Test API
                   </Button>
                   {error && (
                     <Button variant="ghost" size="sm" onClick={clearError}>
@@ -386,11 +311,6 @@ function IntegrationsContent() {
                 <Bug className="h-4 w-4" />
                 <AlertTitle>Debug Information</AlertTitle>
                 <AlertDescription>
-                  <div className="flex gap-2 mb-2">
-                    <Button variant="outline" size="sm" onClick={testConnection}>
-                      Test API
-                    </Button>
-                  </div>
                   <pre className="text-xs mt-2 overflow-auto">
                     {JSON.stringify(
                       {
@@ -459,6 +379,7 @@ function IntegrationsContent() {
           </div>
         </div>
       </div>
+      <RedirectLoadingOverlay provider={redirectingProvider} isVisible={!!redirectingProvider} />
     </AppLayout>
   )
 }

@@ -1,28 +1,24 @@
 import { NextResponse } from "next/server"
-import { detectAvailableIntegrations } from "@/lib/integrations/availableIntegrations"
+import { detectAvailableIntegrations, getIntegrationStats } from "@/lib/integrations/availableIntegrations"
 
 export async function GET() {
   try {
-    console.log("🔍 Detecting available integrations...")
-
     const integrations = detectAvailableIntegrations()
-
-    console.log(
-      `✅ Found ${integrations.length} integrations:`,
-      integrations.map((i) => i.id),
-    )
+    const stats = getIntegrationStats()
 
     return NextResponse.json({
       success: true,
-      providers: integrations,
-      count: integrations.length,
+      data: {
+        integrations,
+        stats,
+      },
     })
-  } catch (error) {
-    console.error("❌ Error detecting integrations:", error)
+  } catch (error: any) {
+    console.error("Failed to get available integrations:", error)
     return NextResponse.json(
       {
-        error: "Failed to detect available integrations",
-        details: error instanceof Error ? error.message : "Unknown error",
+        success: false,
+        error: error.message || "Failed to get available integrations",
       },
       { status: 500 },
     )

@@ -31,6 +31,8 @@ export interface IntegrationStore {
   error: string | null
   loadingStates: Record<string, boolean>
   debugInfo: any
+  globalPreloadingData: boolean
+  preloadStarted: boolean
 
   // Actions
   setLoading: (key: string, loading: boolean) => void
@@ -44,6 +46,8 @@ export interface IntegrationStore {
   getIntegrationStatus: (providerId: string) => string
   getIntegrationByProvider: (providerId: string) => Integration | null
   getConnectedProviders: () => string[]
+  initializeGlobalPreload: () => Promise<void>
+  clearAllData: () => void
 }
 
 export const useIntegrationStore = create<IntegrationStore>((set, get) => ({
@@ -53,6 +57,8 @@ export const useIntegrationStore = create<IntegrationStore>((set, get) => ({
   error: null,
   loadingStates: {},
   debugInfo: {},
+  globalPreloadingData: false,
+  preloadStarted: false,
 
   setLoading: (key: string, loading: boolean) =>
     set((state) => ({
@@ -80,46 +86,29 @@ export const useIntegrationStore = create<IntegrationStore>((set, get) => ({
       clearTimeout(timeoutId)
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: Failed to fetch available integrations`)
+        throw new Error("Failed to fetch available integrations")
       }
 
       const data = await response.json()
 
-      // Handle the response structure from the API
-      const providers = data.providers || []
+      // Ensure we have valid data structure
+      const providers = Array.isArray(data)
+        ? data
+        : data.data?.integrations || data.integrations || data.providers || []
 
       set({
         providers,
         loading: false,
       })
 
-      console.log(
-        "✅ Providers initialized:",
-        providers.length,
-        providers.map((p) => p.name),
-      )
+      console.log("✅ Providers initialized:", providers.length)
     } catch (error: any) {
       console.error("Failed to initialize providers:", error)
-
-      // Fallback: Load integrations directly if API fails
-      try {
-        const { detectAvailableIntegrations } = await import("@/lib/integrations/availableIntegrations")
-        const fallbackProviders = detectAvailableIntegrations()
-
-        set({
-          providers: fallbackProviders,
-          loading: false,
-          error: null,
-        })
-
-        console.log("✅ Fallback providers loaded:", fallbackProviders.length)
-      } catch (fallbackError) {
-        set({
-          error: error.name === "AbortError" ? "Request timed out" : error.message,
-          loading: false,
-          providers: [], // Set empty array as fallback
-        })
-      }
+      set({
+        error: error.name === "AbortError" ? "Request timed out" : error.message,
+        loading: false,
+        providers: [], // Set empty array as fallback
+      })
     }
   },
 
@@ -242,10 +231,17 @@ export const useIntegrationStore = create<IntegrationStore>((set, get) => ({
             clearInterval(checkClosed)
             window.removeEventListener("message", messageHandler)
 
-            if (!closedByMessage) {
+              if (!closedByMessage) {
               console.log(`❌ Popup closed manually for ${providerId}`)
-              setLoading(`connect-${providerId}`, false)
-              get().fetchIntegrations(true)
+              // Simulate oauth-error
+              window.dispatchEvent(new MessageEvent("message", {
+                data: {
+                  type: "oauth-error",
+                  provider: providerId,
+                  error: "Popup closed before completing authorization.",
+                },
+                origin: window.location.origin,
+              }))
             }
           }
         }, 500)
@@ -258,12 +254,20 @@ export const useIntegrationStore = create<IntegrationStore>((set, get) => ({
           clearInterval(checkClosed)
           window.removeEventListener("message", messageHandler)
 
+          // Remove localStorage key for both success and error
+          localStorage.removeItem("integration_connecting")
+
           popup.close()
 
           if (event.data?.type === "oauth-success") {
             console.log(`✅ OAuth success for ${providerId}`)
             setLoading(`connect-${providerId}`, false)
-            get().fetchIntegrations(true)
+            const refresh = get().fetchIntegrations
+            // Refresh multiple times to ensure backend state is updated
+            refresh(true)
+            setTimeout(() => refresh(true), 1000)
+            setTimeout(() => refresh(true), 2000)
+            setTimeout(() => refresh(true), 3000)
           } else if (event.data?.type === "oauth-error") {
             console.error(`❌ OAuth error for ${providerId}:`, event.data.error)
             setLoading(`connect-${providerId}`, false)
@@ -280,6 +284,8 @@ export const useIntegrationStore = create<IntegrationStore>((set, get) => ({
             popup.close()
           }
           window.removeEventListener("message", messageHandler)
+          // Remove localStorage key on timeout cleanup
+          localStorage.removeItem("integration_connecting")
           setLoading(`connect-${providerId}`, false)
         }, 300000) // 5 minutes
       } else {
@@ -388,5 +394,52 @@ export const useIntegrationStore = create<IntegrationStore>((set, get) => ({
   getConnectedProviders: () => {
     const { integrations } = get()
     return integrations.filter((i) => i.status === "connected").map((i) => i.provider)
+  },
+
+  initializeGlobalPreload: async () => {
+    const state = get()
+
+    if (state.globalPreloadingData || state.preloadStarted) {
+      console.log("✅ Global preload already started or completed")
+      return
+    }
+
+    try {
+      set({ preloadStarted: true, globalPreloadingData: true })
+      console.log("🚀 Starting global data preload...")
+
+      const connectedProviders = state.getConnectedProviders()
+      if (connectedProviders.length === 0) {
+        console.log("⚠️ No connected providers found for preload")
+        set({ globalPreloadingData: false })
+        return
+      }
+
+      // Import and use the global data preloader
+      const { initializePreloadingForUser } = await import("@/lib/integrations/globalDataPreloader")
+
+      const results = await initializePreloadingForUser(connectedProviders, (progress) => {
+        console.log("📊 Preload progress:", progress)
+      })
+
+      console.log("✅ Global preload completed:", results)
+      set({ globalPreloadingData: false })
+    } catch (error) {
+      console.error("❌ Global preload failed:", error)
+      set({ globalPreloadingData: false, preloadStarted: false })
+    }
+  },
+
+  clearAllData: () => {
+    set({
+      integrations: [],
+      providers: [],
+      loading: false,
+      error: null,
+      loadingStates: {},
+      debugInfo: {},
+      globalPreloadingData: false,
+      preloadStarted: false,
+    })
   },
 }))
