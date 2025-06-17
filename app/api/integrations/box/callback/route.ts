@@ -1,14 +1,14 @@
 import { type NextRequest } from "next/server"
 import { createClient } from "@supabase/supabase-js"
-import { OneDriveOAuthService } from "@/lib/oauth/onedrive"
+import { BoxOAuthService } from "@/lib/oauth/box"
 import { parseOAuthState, validateOAuthState } from "@/lib/oauth/utils"
 
-const onedriveClientId = process.env.NEXT_PUBLIC_ONEDRIVE_CLIENT_ID
-const onedriveClientSecret = process.env.ONEDRIVE_CLIENT_SECRET
+const boxClientId = process.env.NEXT_PUBLIC_BOX_CLIENT_ID
+const boxClientSecret = process.env.BOX_CLIENT_SECRET
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-if (!onedriveClientId || !onedriveClientSecret || !supabaseUrl || !supabaseServiceRoleKey) {
+if (!boxClientId || !boxClientSecret || !supabaseUrl || !supabaseServiceRoleKey) {
   throw new Error("Missing required environment variables")
 }
 
@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
         <!DOCTYPE html>
         <html>
           <head>
-            <title>OneDrive OAuth Error</title>
+            <title>Box OAuth Error</title>
             <style>
               body {
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
         <!DOCTYPE html>
         <html>
           <head>
-            <title>OneDrive OAuth Error</title>
+            <title>Box OAuth Error</title>
             <style>
               body {
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -110,14 +110,14 @@ export async function GET(request: NextRequest) {
 
     // Parse and validate state
     const stateData = parseOAuthState(state)
-    validateOAuthState(stateData, "onedrive")
+    validateOAuthState(stateData, "box")
 
     const userId = stateData.userId
     if (!userId) {
       throw new Error("Missing user ID in state")
     }
 
-    const result = await OneDriveOAuthService.handleCallback(code, state, supabase, userId)
+    const result = await BoxOAuthService.handleCallback(code, state, supabase, userId)
 
     if (!result.success) {
       return new Response(
@@ -125,7 +125,7 @@ export async function GET(request: NextRequest) {
         <!DOCTYPE html>
         <html>
           <head>
-            <title>OneDrive OAuth Error</title>
+            <title>Box OAuth Error</title>
             <style>
               body {
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -151,7 +151,7 @@ export async function GET(request: NextRequest) {
           <body>
             <div class="container">
               <h1>Connection Failed</h1>
-              <p>${result.error || "Failed to connect OneDrive"}</p>
+              <p>${result.error || "Failed to connect Box"}</p>
             </div>
           </body>
         </html>
@@ -167,7 +167,7 @@ export async function GET(request: NextRequest) {
       <!DOCTYPE html>
       <html>
         <head>
-          <title>OneDrive Connected</title>
+          <title>Box Connected</title>
           <style>
             body {
               font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -203,13 +203,13 @@ export async function GET(request: NextRequest) {
       }
     )
   } catch (error: any) {
-    console.error("OneDrive callback error:", error)
+    console.error("Box callback error:", error)
     return new Response(
       `
       <!DOCTYPE html>
       <html>
         <head>
-          <title>OneDrive OAuth Error</title>
+          <title>Box OAuth Error</title>
           <style>
             body {
               font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -245,4 +245,4 @@ export async function GET(request: NextRequest) {
       }
     )
   }
-}
+} 

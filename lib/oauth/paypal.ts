@@ -1,231 +1,166 @@
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
-
-interface PayPalOAuthResult {
-  success: boolean
-  redirectUrl: string
-  error?: string
-}
+import { getOAuthRedirectUri, generateOAuthState, parseOAuthState, validateOAuthState, OAuthScopes } from "./utils"
+import { createClient } from "@supabase/supabase-js"
 
 export class PayPalOAuthService {
-  private static getClientCredentials() {
-    const clientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID
-    const clientSecret = process.env.PAYPAL_CLIENT_SECRET
+  static clientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID
+  static clientSecret = process.env.PAYPAL_CLIENT_SECRET
+  static apiUrl = "https://api.paypal.com"
 
-    if (!clientId || !clientSecret) {
-      throw new Error("Missing PayPal OAuth configuration")
+  static generateAuthUrl(userId: string): string {
+    if (!this.clientId) {
+      throw new Error("Missing PayPal client ID")
     }
 
-    return { clientId, clientSecret }
-  }
-
-  // Define required scopes for PayPal
-  static getRequiredScopes() {
-    return [
-      "https://uri.paypal.com/services/payments/payment",
-      "https://uri.paypal.com/services/payments/refund",
-      "https://uri.paypal.com/services/payments/orders/read",
-      "email",
-      "openid",
-      "profile",
-    ]
-  }
-
-  // Validate scopes against required scopes
-  static validateScopes(grantedScopes: string[]): { valid: boolean; missing: string[] } {
-    const requiredScopes = this.getRequiredScopes()
-    const missing = requiredScopes.filter((scope) => !grantedScopes.includes(scope))
-    return {
-      valid: missing.length === 0,
-      missing,
-    }
-  }
-
-  // Validate token by making an API call
-  static async validateToken(accessToken: string): Promise<boolean> {
-    try {
-      const response = await fetch("https://api.paypal.com/v1/identity/oauth2/userinfo?schema=paypalv1.1", {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      })
-      return response.ok
-    } catch (error) {
-      console.error("PayPal token validation error:", error)
-      return false
-    }
-  }
-
-  static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string): string {
-    const { clientId } = this.getClientCredentials()
-    const redirectUri = `${getBaseUrl()}/api/integrations/paypal/callback`
-
-    const scopes = [
-      "https://uri.paypal.com/services/payments/payment",
-      "https://uri.paypal.com/services/payments/refund",
-      "https://uri.paypal.com/services/payments/orders/read",
-      "email",
-      "openid",
-      "profile",
-    ]
-
-    const state = btoa(
-      JSON.stringify({
-        provider: "paypal",
-        reconnect,
-        integrationId,
-        timestamp: Date.now(),
-      }),
-    )
+    const state = generateOAuthState(userId, "paypal")
+    const redirectUri = getOAuthRedirectUri("paypal")
 
     const params = new URLSearchParams({
-      client_id: clientId,
-      redirect_uri: redirectUri,
-      scope: scopes.join(" "),
+      client_id: this.clientId,
       response_type: "code",
+      scope: OAuthScopes.PAYPAL.join(" "),
+      redirect_uri: redirectUri,
       state,
     })
 
     return `https://www.paypal.com/signin/authorize?${params.toString()}`
   }
 
-  static getRedirectUri(baseUrl: string): string {
-    return `${getBaseUrl()}/api/integrations/paypal/callback`
-  }
-
-  static async handleCallback(code: string, state: string, baseUrl: string): Promise<PayPalOAuthResult> {
+  static async handleCallback(
+    code: string,
+    state: string,
+    supabase: ReturnType<typeof createClient>,
+    userId: string
+  ): Promise<{ success: boolean; error?: string; redirectUrl?: string }> {
     try {
-      const stateData = JSON.parse(atob(state))
-      const { provider, reconnect, integrationId } = stateData
-
-      if (provider !== "paypal") {
-        throw new Error("Invalid provider in state")
+      if (!this.clientId || !this.clientSecret) {
+        throw new Error("Missing PayPal OAuth configuration")
       }
 
-      const { clientId, clientSecret } = this.getClientCredentials()
+      // Parse and validate state
+      const stateData = parseOAuthState(state)
+      validateOAuthState(stateData, "paypal")
 
-      // Clear any existing tokens before requesting new ones
-      if (reconnect && integrationId) {
-        const supabase = createServerComponentClient({ cookies })
-        const { error: clearError } = await supabase
-          .from("integrations")
-          .update({
-            access_token: null,
-            refresh_token: null,
-            status: "reconnecting",
-          })
-          .eq("id", integrationId)
+      const redirectUri = getOAuthRedirectUri("paypal")
 
-        if (clearError) {
-          console.error("Error clearing existing tokens:", clearError)
-        }
-      }
-
-      const tokenResponse = await fetch("https://api.paypal.com/v1/oauth2/token", {
+      // Exchange code for token
+      const tokenResponse = await fetch(`${this.apiUrl}/v1/oauth2/token`, {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
-          Authorization: "Basic " + Buffer.from(clientId + ":" + clientSecret).toString("base64"),
+          "Authorization": `Basic ${Buffer.from(`${this.clientId}:${this.clientSecret}`).toString("base64")}`,
         },
         body: new URLSearchParams({
           grant_type: "authorization_code",
           code,
-          redirect_uri: `${getBaseUrl()}/api/integrations/paypal/callback`,
+          redirect_uri: redirectUri,
         }),
       })
 
       if (!tokenResponse.ok) {
-        const errorData = await tokenResponse.text()
-        throw new Error(`Token exchange failed: ${errorData}`)
+        const error = await tokenResponse.text()
+        throw new Error(`Failed to exchange code for token: ${error}`)
       }
 
       const tokenData = await tokenResponse.json()
-      const { access_token, refresh_token, expires_in, scope } = tokenData
 
-      // Get granted scopes from the token data
-      const grantedScopes = scope ? scope.split(" ") : []
-
-      // Validate scopes
-      const scopeValidation = this.validateScopes(grantedScopes)
-
-      if (!scopeValidation.valid) {
-        return {
-          success: false,
-          redirectUrl: `${baseUrl}/integrations?error=insufficient_scopes&provider=paypal&missing=${scopeValidation.missing.join(",")}`,
-        }
-      }
-
-      // Validate token by making an API call
-      const isTokenValid = await this.validateToken(access_token)
-      if (!isTokenValid) {
-        return {
-          success: false,
-          redirectUrl: `${baseUrl}/integrations?error=invalid_token&provider=paypal`,
-        }
-      }
-
-      const userResponse = await fetch("https://api.paypal.com/v1/identity/oauth2/userinfo?schema=paypalv1.1", {
+      // Get user info
+      const userResponse = await fetch(`${this.apiUrl}/v1/identity/oauth2/userinfo?schema=paypalv1.1`, {
         headers: {
-          Authorization: `Bearer ${access_token}`,
+          Authorization: `Bearer ${tokenData.access_token}`,
         },
       })
 
       if (!userResponse.ok) {
-        const errorData = await userResponse.text()
-        throw new Error(`Failed to get user info: ${errorData}`)
+        const error = await userResponse.text()
+        throw new Error(`Failed to get user info: ${error}`)
       }
 
       const userData = await userResponse.json()
 
-      const supabase = createServerComponentClient({ cookies })
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+      // Check if integration exists
+      const { data: existingIntegration } = await supabase
+        .from("integrations")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("provider", "paypal")
+        .maybeSingle()
 
-      if (sessionError || !sessionData?.session) {
-        throw new Error("No active user session found")
-      }
-
+      const now = new Date().toISOString()
       const integrationData = {
-        user_id: sessionData.session.user.id,
+        user_id: userId,
         provider: "paypal",
         provider_user_id: userData.user_id,
-        access_token,
-        refresh_token,
-        expires_at: expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null,
-        status: "connected" as const,
-        scopes: grantedScopes,
+        access_token: tokenData.access_token,
+        refresh_token: tokenData.refresh_token,
+        expires_at: tokenData.expires_in ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString() : null,
+        status: "connected",
+        scopes: tokenData.scope ? tokenData.scope.split(" ") : [],
         metadata: {
-          user_name: userData.name,
-          user_email: userData.email,
-          connected_at: new Date().toISOString(),
+          email: userData.email,
+          name: userData.name,
+          payer_id: userData.payer_id,
+          connected_at: now,
         },
+        updated_at: now,
       }
 
-      if (reconnect && integrationId) {
+      if (existingIntegration) {
         const { error } = await supabase
           .from("integrations")
-          .update({
-            ...integrationData,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", integrationId)
+          .update(integrationData)
+          .eq("id", existingIntegration.id)
 
         if (error) throw error
       } else {
-        const { error } = await supabase.from("integrations").insert(integrationData)
+        const { error } = await supabase.from("integrations").insert({
+          ...integrationData,
+          created_at: now,
+        })
+
         if (error) throw error
       }
 
       return {
         success: true,
-        redirectUrl: `${baseUrl}/integrations?success=paypal_connected`,
+        redirectUrl: `${getBaseUrl()}/integrations?success=paypal_connected`,
       }
     } catch (error: any) {
+      console.error("PayPal OAuth callback error:", error)
       return {
         success: false,
-        redirectUrl: `${baseUrl}/integrations?error=callback_failed&provider=paypal&message=${encodeURIComponent(error.message)}`,
         error: error.message,
+        redirectUrl: `${getBaseUrl()}/integrations?error=callback_failed&provider=paypal&message=${encodeURIComponent(
+          error.message
+        )}`,
       }
     }
+  }
+
+  static async refreshToken(
+    refreshToken: string
+  ): Promise<{ access_token: string; refresh_token: string; expires_in: number }> {
+    if (!this.clientId || !this.clientSecret) {
+      throw new Error("Missing PayPal OAuth configuration")
+    }
+
+    const response = await fetch(`${this.apiUrl}/v1/oauth2/token`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Authorization": `Basic ${Buffer.from(`${this.clientId}:${this.clientSecret}`).toString("base64")}`,
+      },
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        refresh_token: refreshToken,
+      }),
+    })
+
+    if (!response.ok) {
+      const error = await response.text()
+      throw new Error(`Failed to refresh token: ${error}`)
+    }
+
+    return response.json()
   }
 }

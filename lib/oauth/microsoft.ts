@@ -8,54 +8,53 @@ import {
 } from "./utils"
 import { createClient } from "@supabase/supabase-js"
 
-export class GoogleDocsOAuthService {
-  static readonly clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
-  static readonly clientSecret = process.env.GOOGLE_CLIENT_SECRET
-  static readonly apiUrl = "https://www.googleapis.com/drive/v3"
+export class MicrosoftOAuthService {
+  static clientId = process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID
+  static clientSecret = process.env.MICROSOFT_CLIENT_SECRET
+  static apiUrl = "https://graph.microsoft.com/v1.0"
 
-  static generateAuthUrl(userId: string, origin: string): string {
+  static generateAuthUrl(userId: string): string {
     if (!this.clientId) {
-      throw new Error("Missing Google client ID")
+      throw new Error("Missing Microsoft client ID")
     }
 
-    const state = generateOAuthState(userId, "google_docs")
-    const redirectUri = this.getRedirectUri(origin)
+    const state = generateOAuthState(userId, "microsoft")
+    const redirectUri = getOAuthRedirectUri("microsoft")
 
     const params = new URLSearchParams({
-      response_type: "code",
       client_id: this.clientId,
       redirect_uri: redirectUri,
+      response_type: "code",
+      scope: OAuthScopes.MICROSOFT.join(" "),
       state,
-      scope: OAuthScopes.GOOGLE_DOCS.join(" "),
-      access_type: "offline",
-      prompt: "consent",
     })
 
-    return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`
+    return `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`
   }
 
-  static getRedirectUri(origin: string): string {
-    return getOAuthRedirectUri(origin, "google_docs")
+  static getRedirectUri(baseUrl?: string): string {
+    return getOAuthRedirectUri("microsoft", baseUrl)
   }
 
   static async handleCallback(
     code: string,
     state: string,
     supabase: ReturnType<typeof createClient>,
-    userId: string,
-    origin: string
-  ): Promise<{ success: boolean; error?: string }> {
+    userId: string
+  ): Promise<{ success: boolean; error?: string; redirectUrl?: string }> {
     try {
       if (!this.clientId || !this.clientSecret) {
-        throw new Error("Missing Google client credentials")
+        throw new Error("Missing Microsoft OAuth configuration")
       }
 
       // Parse and validate state
       const stateData = parseOAuthState(state)
-      validateOAuthState(stateData, "google_docs")
+      validateOAuthState(stateData, "microsoft")
+
+      const redirectUri = this.getRedirectUri()
 
       // Exchange code for token
-      const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+      const tokenResponse = await fetch("https://login.microsoftonline.com/common/oauth2/v2.0/token", {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
@@ -64,56 +63,53 @@ export class GoogleDocsOAuthService {
           client_id: this.clientId,
           client_secret: this.clientSecret,
           code,
+          redirect_uri: redirectUri,
           grant_type: "authorization_code",
-          redirect_uri: this.getRedirectUri(origin),
         }),
       })
 
       if (!tokenResponse.ok) {
-        const errorText = await tokenResponse.text()
-        throw new Error(`Token exchange failed: ${errorText}`)
+        const error = await tokenResponse.text()
+        throw new Error(`Failed to exchange code for token: ${error}`)
       }
 
       const tokenData = await tokenResponse.json()
-      const { access_token, refresh_token, expires_in } = tokenData
 
-      // Get user info from Google
-      const userResponse = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+      // Get user info
+      const userResponse = await fetch(`${this.apiUrl}/me`, {
         headers: {
-          Authorization: `Bearer ${access_token}`,
+          Authorization: `Bearer ${tokenData.access_token}`,
         },
       })
 
       if (!userResponse.ok) {
-        throw new Error("Failed to get user info from Google")
+        const error = await userResponse.text()
+        throw new Error(`Failed to get user info: ${error}`)
       }
 
       const userData = await userResponse.json()
-
-      const now = new Date().toISOString()
 
       // Check if integration exists
       const { data: existingIntegration } = await supabase
         .from("integrations")
         .select("id")
         .eq("user_id", userId)
-        .eq("provider", "google_docs")
+        .eq("provider", "microsoft")
         .maybeSingle()
 
+      const now = new Date().toISOString()
       const integrationData = {
         user_id: userId,
-        provider: "google_docs",
+        provider: "microsoft",
         provider_user_id: userData.id,
-        access_token,
-        refresh_token,
-        expires_at: expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null,
+        access_token: tokenData.access_token,
+        refresh_token: tokenData.refresh_token,
+        expires_at: tokenData.expires_in ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString() : null,
         status: "connected",
         scopes: tokenData.scope ? tokenData.scope.split(" ") : [],
         metadata: {
-          email: userData.email,
-          name: userData.name,
-          picture: userData.picture,
-          verified_email: userData.verified_email,
+          email: userData.mail || userData.userPrincipalName,
+          name: userData.displayName,
           connected_at: now,
         },
         updated_at: now,
@@ -125,24 +121,29 @@ export class GoogleDocsOAuthService {
           .update(integrationData)
           .eq("id", existingIntegration.id)
 
-        if (error) {
-          throw new Error(`Failed to update integration: ${error.message}`)
-        }
+        if (error) throw error
       } else {
         const { error } = await supabase.from("integrations").insert({
           ...integrationData,
           created_at: now,
         })
 
-        if (error) {
-          throw new Error(`Failed to insert integration: ${error.message}`)
-        }
+        if (error) throw error
       }
 
-      return { success: true }
+      return {
+        success: true,
+        redirectUrl: `${getBaseUrl()}/integrations?success=microsoft_connected`,
+      }
     } catch (error: any) {
-      console.error("Google Docs OAuth error:", error)
-      return { success: false, error: error.message }
+      console.error("Microsoft OAuth callback error:", error)
+      return {
+        success: false,
+        error: error.message,
+        redirectUrl: `${getBaseUrl()}/integrations?error=callback_failed&provider=microsoft&message=${encodeURIComponent(
+          error.message
+        )}`,
+      }
     }
   }
 
@@ -150,10 +151,10 @@ export class GoogleDocsOAuthService {
     refreshToken: string
   ): Promise<{ access_token: string; refresh_token: string; expires_in: number }> {
     if (!this.clientId || !this.clientSecret) {
-      throw new Error("Missing Google client credentials")
+      throw new Error("Missing Microsoft OAuth configuration")
     }
 
-    const response = await fetch("https://oauth2.googleapis.com/token", {
+    const response = await fetch("https://login.microsoftonline.com/common/oauth2/v2.0/token", {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
@@ -167,9 +168,10 @@ export class GoogleDocsOAuthService {
     })
 
     if (!response.ok) {
-      throw new Error("Failed to refresh token")
+      const error = await response.text()
+      throw new Error(`Failed to refresh token: ${error}`)
     }
 
     return response.json()
   }
-}
+} 

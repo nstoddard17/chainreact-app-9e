@@ -1,44 +1,42 @@
-import { type NextRequest } from "next/server"
+import { NextRequest } from "next/server"
 import { createClient } from "@supabase/supabase-js"
-import { AirtableOAuthService } from "@/lib/oauth/airtable"
+import { GoogleOAuthService } from "@/lib/oauth/google"
 import { parseOAuthState, validateOAuthState } from "@/lib/oauth/utils"
-
-// Validate environment variables
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-if (!supabaseUrl || !supabaseServiceKey) {
-  throw new Error("Missing Supabase environment variables")
-}
-
-// Create Supabase client
-const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
 export async function GET(request: NextRequest) {
   try {
+    // Validate environment variables
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+      throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL")
+    }
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY")
+    }
+
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY
+    )
+
     const searchParams = request.nextUrl.searchParams
+    const error = searchParams.get("error")
     const code = searchParams.get("code")
     const state = searchParams.get("state")
-    const error = searchParams.get("error")
-    const errorDescription = searchParams.get("error_description")
 
     // Handle OAuth errors
     if (error) {
-      console.error("Airtable OAuth error:", error, errorDescription)
       return new Response(
         `
         <html>
           <body>
             <h1>Authentication Failed</h1>
             <p>Error: ${error}</p>
-            <p>Description: ${errorDescription || "No description provided"}</p>
-            <script>
-              window.close();
-            </script>
+            <p>Please try again or contact support if the problem persists.</p>
           </body>
         </html>
-      `,
+        `,
         {
+          status: 400,
           headers: {
             "Content-Type": "text/html",
           },
@@ -53,14 +51,12 @@ export async function GET(request: NextRequest) {
         <html>
           <body>
             <h1>Authentication Failed</h1>
-            <p>Missing required parameters</p>
-            <script>
-              window.close();
-            </script>
+            <p>Missing required parameters. Please try again.</p>
           </body>
         </html>
-      `,
+        `,
         {
+          status: 400,
           headers: {
             "Content-Type": "text/html",
           },
@@ -70,15 +66,15 @@ export async function GET(request: NextRequest) {
 
     // Parse and validate state
     const stateData = parseOAuthState(state)
-    validateOAuthState(stateData, "airtable")
+    validateOAuthState(stateData, "google")
 
     // Process OAuth callback
-    const result = await AirtableOAuthService.handleCallback(
+    const result = await GoogleOAuthService.handleCallback(
       code,
       state,
       supabase,
       stateData.userId,
-      request.nextUrl.origin
+      request.headers.get("origin") || request.nextUrl.origin
     )
 
     if (!result.success) {
@@ -88,13 +84,12 @@ export async function GET(request: NextRequest) {
           <body>
             <h1>Authentication Failed</h1>
             <p>Error: ${result.error}</p>
-            <script>
-              window.close();
-            </script>
+            <p>Please try again or contact support if the problem persists.</p>
           </body>
         </html>
-      `,
+        `,
         {
+          status: 400,
           headers: {
             "Content-Type": "text/html",
           },
@@ -102,44 +97,41 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Return success response
     return new Response(
       `
       <html>
         <body>
-          <h1>Successfully Connected!</h1>
-          <p>You can close this window and return to the app.</p>
-          <script>
-            window.close();
-          </script>
+          <h1>Authentication Successful</h1>
+          <p>Your Google account has been successfully connected.</p>
+          <p>You can close this window and return to the application.</p>
         </body>
       </html>
-    `,
+      `,
       {
+        status: 200,
         headers: {
           "Content-Type": "text/html",
         },
       }
     )
   } catch (error: any) {
-    console.error("Airtable callback error:", error)
+    console.error("Google OAuth callback error:", error)
     return new Response(
       `
       <html>
         <body>
           <h1>Authentication Failed</h1>
-          <p>Error: ${error.message}</p>
-          <script>
-            window.close();
-          </script>
+          <p>An unexpected error occurred: ${error.message}</p>
+          <p>Please try again or contact support if the problem persists.</p>
         </body>
       </html>
-    `,
+      `,
       {
+        status: 500,
         headers: {
           "Content-Type": "text/html",
         },
       }
     )
   }
-}
+} 

@@ -1,6 +1,6 @@
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
+import { getOAuthRedirectUri, generateOAuthState, parseOAuthState, validateOAuthState, OAuthScopes } from "./utils"
+import { createClient } from "@supabase/supabase-js"
 
 interface TikTokOAuthResult {
   success: boolean
@@ -9,16 +9,9 @@ interface TikTokOAuthResult {
 }
 
 export class TikTokOAuthService {
-  private static getClientCredentials() {
-    const clientId = process.env.NEXT_PUBLIC_TIKTOK_CLIENT_ID
-    const clientSecret = process.env.TIKTOK_CLIENT_SECRET
-
-    if (!clientId || !clientSecret) {
-      throw new Error("Missing TikTok OAuth configuration")
-    }
-
-    return { clientId, clientSecret }
-  }
+  static clientId = process.env.NEXT_PUBLIC_TIKTOK_CLIENT_ID
+  static clientSecret = process.env.TIKTOK_CLIENT_SECRET
+  static apiUrl = "https://open.tiktokapis.com/v2"
 
   // Define required scopes for TikTok
   static getRequiredScopes() {
@@ -57,26 +50,19 @@ export class TikTokOAuthService {
     }
   }
 
-  static generateAuthUrl(baseUrl: string, reconnect = false, integrationId?: string): string {
-    const { clientId } = this.getClientCredentials()
-    const redirectUri = `${getBaseUrl()}/api/integrations/tiktok/callback`
+  static generateAuthUrl(userId: string): string {
+    if (!this.clientId) {
+      throw new Error("Missing TikTok client ID")
+    }
 
-    const scopes = ["user.info.basic", "video.upload", "video.list", "comment.list", "comment.create"]
-
-    const state = btoa(
-      JSON.stringify({
-        provider: "tiktok",
-        reconnect,
-        integrationId,
-        timestamp: Date.now(),
-      }),
-    )
+    const state = generateOAuthState(userId, "tiktok")
+    const redirectUri = getOAuthRedirectUri("tiktok")
 
     const params = new URLSearchParams({
-      client_key: clientId,
+      client_key: this.clientId,
       redirect_uri: redirectUri,
-      scope: scopes.join(","),
       response_type: "code",
+      scope: OAuthScopes.TIKTOK.join(" "),
       state,
     })
 
@@ -87,148 +73,143 @@ export class TikTokOAuthService {
     return `${getBaseUrl()}/api/integrations/tiktok/callback`
   }
 
-  static async handleCallback(code: string, state: string, baseUrl: string): Promise<TikTokOAuthResult> {
+  static async handleCallback(
+    code: string,
+    state: string,
+    supabase: ReturnType<typeof createClient>,
+    userId: string
+  ): Promise<{ success: boolean; error?: string; redirectUrl?: string }> {
     try {
-      const stateData = JSON.parse(atob(state))
-      const { provider, reconnect, integrationId } = stateData
-
-      if (provider !== "tiktok") {
-        throw new Error("Invalid provider in state")
+      if (!this.clientId || !this.clientSecret) {
+        throw new Error("Missing TikTok OAuth configuration")
       }
 
-      const { clientId, clientSecret } = this.getClientCredentials()
+      // Parse and validate state
+      const stateData = parseOAuthState(state)
+      validateOAuthState(stateData, "tiktok")
 
-      // Clear any existing tokens before requesting new ones
-      if (reconnect && integrationId) {
-        const supabase = createServerComponentClient({ cookies })
-        const { error: clearError } = await supabase
-          .from("integrations")
-          .update({
-            access_token: null,
-            refresh_token: null,
-            status: "reconnecting",
-          })
-          .eq("id", integrationId)
+      const redirectUri = getOAuthRedirectUri("tiktok")
 
-        if (clearError) {
-          console.error("Error clearing existing tokens:", clearError)
-        }
-      }
-
-      const tokenResponse = await fetch("https://open-api.tiktok.com/oauth/access_token/", {
+      // Exchange code for token
+      const tokenResponse = await fetch("https://open.tiktokapis.com/v2/oauth/token/", {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
         },
         body: new URLSearchParams({
-          client_key: clientId,
-          client_secret: clientSecret,
+          client_key: this.clientId,
+          client_secret: this.clientSecret,
           code,
+          redirect_uri: redirectUri,
           grant_type: "authorization_code",
-          redirect_uri: `${getBaseUrl()}/api/integrations/tiktok/callback`,
         }),
       })
 
       if (!tokenResponse.ok) {
-        const errorData = await tokenResponse.text()
-        throw new Error(`Token exchange failed: ${errorData}`)
+        const error = await tokenResponse.text()
+        throw new Error(`Failed to exchange code for token: ${error}`)
       }
 
       const tokenData = await tokenResponse.json()
-      const { access_token, expires_in, open_id, scope } = tokenData.data
 
-      // Get granted scopes from the token data
-      const grantedScopes = scope ? scope.split(",") : ["user.info.basic", "video.upload"]
-
-      // Validate scopes
-      const scopeValidation = this.validateScopes(grantedScopes)
-
-      if (!scopeValidation.valid) {
-        return {
-          success: false,
-          redirectUrl: `${baseUrl}/integrations?error=insufficient_scopes&provider=tiktok&missing=${scopeValidation.missing.join(",")}`,
-        }
-      }
-
-      // Validate token by making an API call
-      const isTokenValid = await this.validateToken(access_token, open_id)
-      if (!isTokenValid) {
-        return {
-          success: false,
-          redirectUrl: `${baseUrl}/integrations?error=invalid_token&provider=tiktok`,
-        }
-      }
-
-      const userResponse = await fetch("https://open-api.tiktok.com/user/info/", {
-        method: "POST",
+      // Get user info
+      const userResponse = await fetch(`${this.apiUrl}/user/info/`, {
         headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${access_token}`,
+          Authorization: `Bearer ${tokenData.access_token}`,
         },
-        body: JSON.stringify({
-          access_token,
-          open_id,
-          fields: ["open_id", "union_id", "avatar_url", "display_name"],
-        }),
       })
 
       if (!userResponse.ok) {
-        const errorData = await userResponse.text()
-        throw new Error(`Failed to get user info: ${errorData}`)
+        const error = await userResponse.text()
+        throw new Error(`Failed to get user info: ${error}`)
       }
 
       const userData = await userResponse.json()
-      const user = userData.data.user
 
-      const supabase = createServerComponentClient({ cookies })
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+      // Check if integration exists
+      const { data: existingIntegration } = await supabase
+        .from("integrations")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("provider", "tiktok")
+        .maybeSingle()
 
-      if (sessionError || !sessionData?.session) {
-        throw new Error("No active user session found")
-      }
-
+      const now = new Date().toISOString()
       const integrationData = {
-        user_id: sessionData.session.user.id,
+        user_id: userId,
         provider: "tiktok",
-        provider_user_id: user.open_id,
-        access_token,
-        expires_at: expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null,
-        status: "connected" as const,
-        scopes: grantedScopes,
+        provider_user_id: userData.data.user.open_id,
+        access_token: tokenData.access_token,
+        refresh_token: tokenData.refresh_token,
+        expires_at: tokenData.expires_in ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString() : null,
+        status: "connected",
+        scopes: tokenData.scope ? tokenData.scope.split(" ") : [],
         metadata: {
-          open_id: user.open_id,
-          union_id: user.union_id,
-          display_name: user.display_name,
-          avatar_url: user.avatar_url,
-          connected_at: new Date().toISOString(),
+          username: userData.data.user.username,
+          display_name: userData.data.user.display_name,
+          avatar_url: userData.data.user.avatar_url,
+          connected_at: now,
         },
+        updated_at: now,
       }
 
-      if (reconnect && integrationId) {
+      if (existingIntegration) {
         const { error } = await supabase
           .from("integrations")
-          .update({
-            ...integrationData,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", integrationId)
+          .update(integrationData)
+          .eq("id", existingIntegration.id)
 
         if (error) throw error
       } else {
-        const { error } = await supabase.from("integrations").insert(integrationData)
+        const { error } = await supabase.from("integrations").insert({
+          ...integrationData,
+          created_at: now,
+        })
+
         if (error) throw error
       }
 
       return {
         success: true,
-        redirectUrl: `${baseUrl}/integrations?success=tiktok_connected`,
+        redirectUrl: `${getBaseUrl()}/integrations?success=tiktok_connected`,
       }
     } catch (error: any) {
+      console.error("TikTok OAuth callback error:", error)
       return {
         success: false,
-        redirectUrl: `${baseUrl}/integrations?error=callback_failed&provider=tiktok&message=${encodeURIComponent(error.message)}`,
         error: error.message,
+        redirectUrl: `${getBaseUrl()}/integrations?error=callback_failed&provider=tiktok&message=${encodeURIComponent(
+          error.message
+        )}`,
       }
     }
+  }
+
+  static async refreshToken(
+    refreshToken: string
+  ): Promise<{ access_token: string; refresh_token: string; expires_in: number }> {
+    if (!this.clientId || !this.clientSecret) {
+      throw new Error("Missing TikTok OAuth configuration")
+    }
+
+    const response = await fetch("https://open.tiktokapis.com/v2/oauth/token/", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        client_key: this.clientId,
+        client_secret: this.clientSecret,
+        refresh_token: refreshToken,
+        grant_type: "refresh_token",
+      }),
+    })
+
+    if (!response.ok) {
+      const error = await response.text()
+      throw new Error(`Failed to refresh token: ${error}`)
+    }
+
+    return response.json()
   }
 }
