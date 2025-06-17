@@ -60,20 +60,21 @@ export const integrations = {
     id: "id",
     user_id: "user_id",
     provider: "provider",
-    provider_account_id: "provider_account_id",
+    provider_user_id: "provider_user_id",
     access_token: "access_token",
     refresh_token: "refresh_token",
     expires_at: "expires_at",
-    token_type: "token_type",
-    scope: "scope",
-    granted_scopes: "granted_scopes",
-    missing_scopes: "missing_scopes",
-    scope_validation_status: "scope_validation_status",
-    last_scope_check: "last_scope_check",
+    scopes: "scopes",
     metadata: "metadata",
-    is_active: "is_active",
+    status: "status",
     created_at: "created_at",
     updated_at: "updated_at",
+    last_refreshed_at: "last_refreshed_at",
+    last_used_at: "last_used_at",
+    is_active: "is_active",
+    last_token_refresh_status: "last_token_refresh_status",
+    consecutive_failures: "consecutive_failures",
+    last_failure_at: "last_failure_at",
   },
 }
 
@@ -116,18 +117,19 @@ export interface Integration {
   id: string
   user_id: string
   provider: string
-  provider_account_id: string
+  provider_user_id?: string
   access_token?: string
   refresh_token?: string
-  expires_at?: number
-  token_type?: string
-  scope?: string
-  granted_scopes?: string[]
-  missing_scopes?: string[]
-  scope_validation_status?: "valid" | "invalid" | "partial"
-  last_scope_check?: string
+  expires_at?: string
+  scopes?: string[]
   metadata?: Record<string, any>
-  is_active: boolean
+  status?: "connected" | "disconnected" | "error" | "syncing"
   created_at: string
   updated_at: string
+  last_refreshed_at?: string
+  last_used_at?: string
+  is_active?: boolean
+  last_token_refresh_status?: "success" | "failure"
+  consecutive_failures?: number
+  last_failure_at?: string
 }
