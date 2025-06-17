@@ -200,7 +200,7 @@ export const useIntegrationStore = create<IntegrationStore>((set, get) => ({
         throw new Error("No valid session found. Please log in again.")
       }
 
-      const response = await fetch("/api/integrations/oauth/generate-url", {
+      const response = await fetch("/api/integrations/auth/generate-url", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
