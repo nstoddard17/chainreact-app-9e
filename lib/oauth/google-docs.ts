@@ -97,13 +97,17 @@ export class GoogleDocsOAuthService {
       const userData = await userResponse.json()
 
       // Check for existing integration
-      const { data: existingIntegration } = await supabase
+      const { data: existingIntegration, error: queryError } = await supabase
         .from("integrations")
         .select("id")
         .eq("user_id", userId)
         .eq("provider", "google")
-        .eq("service", "docs")
         .maybeSingle()
+
+      if (queryError) {
+        console.error("Error querying existing integration:", queryError)
+        throw new Error(`Failed to query existing integration: ${queryError.message}`)
+      }
 
       const integrationData = {
         user_id: userId,
@@ -117,7 +121,6 @@ export class GoogleDocsOAuthService {
           email: userData.email,
           name: userData.name,
           picture: userData.picture,
-          provider: "google",
           service: "docs"
         },
         status: "connected",
