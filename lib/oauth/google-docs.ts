@@ -108,16 +108,18 @@ export class GoogleDocsOAuthService {
       const integrationData = {
         user_id: userId,
         provider: "google",
-        service: "docs",
         provider_user_id: userData.sub,
         access_token,
         refresh_token,
         token_type: "Bearer",
         expires_at: new Date(Date.now() + expires_in * 1000).toISOString(),
+        scopes: OAuthScopes.GOOGLE_DOCS.join(" "),
         metadata: {
           email: userData.email,
           name: userData.name,
           picture: userData.picture,
+          provider: "google",
+          service: "docs"
         },
         updated_at: new Date().toISOString(),
       }

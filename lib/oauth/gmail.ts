@@ -118,16 +118,18 @@ export class GmailOAuthService {
       const integrationData = {
         user_id: userId,
         provider: "google",
-        service: "gmail",
         provider_user_id: user.emailAddress,
         access_token,
         refresh_token,
         token_type: "Bearer",
         expires_at: new Date(Date.now() + 3600 * 1000).toISOString(),
+        scopes: OAuthScopes.GMAIL.join(" "),
         metadata: {
           email: user.emailAddress,
-          display_name: user.displayName,
-          photo_url: user.photoLink,
+          name: user.displayName,
+          picture: user.photoLink,
+          provider: "google",
+          service: "gmail"
         },
       }
 

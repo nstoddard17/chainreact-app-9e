@@ -101,18 +101,26 @@ export class TwitterOAuthService {
       const userData = await userResponse.json()
 
       // Store integration data
-      const { error: upsertError } = await supabase.from("integrations").upsert({
+      const integrationData = {
         user_id: userId,
         provider: "twitter",
         provider_user_id: userData.data.id,
         access_token: tokenData.access_token,
         refresh_token: tokenData.refresh_token,
-        token_expires_at: new Date(Date.now() + tokenData.expires_in * 1000).toISOString(),
+        token_type: tokenData.token_type,
+        expires_at: tokenData.expires_in
+          ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString()
+          : null,
         scopes: OAuthScopes.TWITTER,
-        provider_user_data: userData.data,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
+        metadata: {
+          email: userData.data.email,
+          name: userData.data.name,
+          picture: userData.data.profile_image_url,
+          provider: "twitter"
+        }
+      }
+
+      const { error: upsertError } = await supabase.from("integrations").upsert(integrationData)
 
       if (upsertError) {
         throw new Error(`Failed to store integration data: ${upsertError.message}`)
