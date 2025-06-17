@@ -9,16 +9,15 @@ import {
 import { createClient } from "@supabase/supabase-js"
 
 export class GoogleDriveOAuthService {
-  private static clientId: string | undefined = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
-  private static clientSecret: string | undefined = process.env.GOOGLE_CLIENT_SECRET
-  static readonly apiUrl = "https://www.googleapis.com/drive/v3"
-
-  static getClientCredentials() {
+  private static getClientCredentials() {
     const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET
 
-    if (!clientId || !clientSecret) {
-      throw new Error("Missing Google OAuth configuration")
+    if (!clientId) {
+      throw new Error("Missing NEXT_PUBLIC_GOOGLE_CLIENT_ID environment variable")
+    }
+    if (!clientSecret) {
+      throw new Error("Missing GOOGLE_CLIENT_SECRET environment variable")
     }
 
     return { clientId, clientSecret }
@@ -28,24 +27,11 @@ export class GoogleDriveOAuthService {
     return getOAuthRedirectUri(origin, "google-drive")
   }
 
-  static generateAuthUrl(origin: string, userId: string): string {
+  static generateAuthUrl(userId: string, origin: string): string {
     const { clientId } = this.getClientCredentials()
-    if (!clientId) {
-      throw new Error("Google Drive client ID is not configured")
-    }
-
     const redirectUri = this.getRedirectUri(origin)
-    console.log("Google Drive Auth URL Debug:", {
-      origin,
-      redirectUri,
-      userId,
-    })
 
-    const state = JSON.stringify({
-      provider: "google",
-      service: "drive",
-      userId,
-    })
+    const state = generateOAuthState(userId, "google")
 
     const params = new URLSearchParams({
       client_id: clientId,
@@ -69,9 +55,6 @@ export class GoogleDriveOAuthService {
   ): Promise<{ success: boolean; error?: string }> {
     try {
       const { clientId, clientSecret } = this.getClientCredentials()
-      if (!clientId || !clientSecret) {
-        throw new Error("Missing Google client credentials")
-      }
 
       // Parse and validate state
       const stateData = parseOAuthState(state)
@@ -101,20 +84,17 @@ export class GoogleDriveOAuthService {
       const { access_token, refresh_token, expires_in } = tokenData
 
       // Get user info
-      const userResponse = await fetch(
-        "https://www.googleapis.com/oauth2/v2/userinfo",
-        {
-          headers: {
-            Authorization: `Bearer ${access_token}`,
-          },
+      const userResponse = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+        headers: {
+          Authorization: `Bearer ${access_token}`,
         },
-      )
+      })
 
       if (!userResponse.ok) {
         throw new Error("Failed to get user info")
       }
 
-      const user = await userResponse.json()
+      const userData = await userResponse.json()
 
       // Check for existing integration
       const { data: existingIntegration } = await supabase
@@ -129,16 +109,17 @@ export class GoogleDriveOAuthService {
         user_id: userId,
         provider: "google",
         service: "drive",
-        provider_user_id: user.email,
+        provider_user_id: userData.sub,
         access_token,
         refresh_token,
         token_type: "Bearer",
-        expires_at: new Date(Date.now() + 3600 * 1000).toISOString(),
+        expires_at: new Date(Date.now() + expires_in * 1000).toISOString(),
         metadata: {
-          email: user.email,
-          display_name: user.name,
-          photo_url: user.picture,
+          email: userData.email,
+          name: userData.name,
+          picture: userData.picture,
         },
+        updated_at: new Date().toISOString(),
       }
 
       if (existingIntegration) {
@@ -170,12 +151,9 @@ export class GoogleDriveOAuthService {
 
   static async refreshToken(
     refreshToken: string,
-    userId: string,
-  ): Promise<Response> {
+    origin: string
+  ): Promise<{ access_token: string; refresh_token: string; expires_in: number }> {
     const { clientId, clientSecret } = this.getClientCredentials()
-    if (!clientId || !clientSecret) {
-      throw new Error("Missing Google client credentials")
-    }
 
     const response = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
@@ -191,21 +169,9 @@ export class GoogleDriveOAuthService {
     })
 
     if (!response.ok) {
-      throw new Error("Failed to refresh token")
+      const errorText = await response.text()
+      throw new Error(`Failed to refresh token: ${errorText}`)
     }
-
-    const { access_token, expires_in } = await response.json()
-
-    // Update the access token in the database
-    await supabase
-      .from("integrations")
-      .update({
-        access_token,
-        expires_at: new Date(Date.now() + expires_in * 1000).toISOString(),
-      })
-      .eq("user_id", userId)
-      .eq("provider", "google")
-      .eq("service", "drive")
 
     return response.json()
   }
