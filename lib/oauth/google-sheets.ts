@@ -101,15 +101,13 @@ export class GoogleSheetsOAuthService {
         .from("integrations")
         .select("id")
         .eq("user_id", userId)
-        .eq("provider", "google")
-        .eq("service", "sheets")
+        .eq("provider", "google-sheets")
         .maybeSingle()
 
       const integrationData = {
         user_id: userId,
-        provider: "google",
-        service: "sheets",
-        provider_user_id: userData.sub,
+        provider: "google-sheets",
+        provider_account_id: userData.sub,
         access_token,
         refresh_token,
         token_type: "Bearer",
