@@ -98,9 +98,14 @@ export async function refreshTokenIfNeeded(integration: Integration): Promise<Re
 
       // Set expiry based on provider type
       if (isGoogleOrMicrosoft) {
-        // Set expiry to 1 year from now for Google/Microsoft
-        const expiryTimestamp = Math.floor(Date.now() / 1000) + 365 * 24 * 60 * 60
-        updateData.expires_at = new Date(expiryTimestamp * 1000).toISOString()
+        // For Google/Microsoft, use the actual expiry time from the token refresh response
+        if (result.newExpiry) {
+          updateData.expires_at = new Date(result.newExpiry * 1000).toISOString()
+        } else {
+          // Default to 1 hour if no expiry provided
+          const expiryTimestamp = Math.floor(Date.now() / 1000) + 3600
+          updateData.expires_at = new Date(expiryTimestamp * 1000).toISOString()
+        }
       } else if (result.newExpiry) {
         updateData.expires_at = new Date(result.newExpiry * 1000).toISOString()
       }
@@ -247,6 +252,8 @@ async function refreshGoogleToken(refreshToken: string): Promise<RefreshResult> 
     const data = await response.json()
 
     if (!response.ok) {
+      console.error("Google token refresh failed:", data)
+      
       if (data.error === "invalid_grant") {
         return {
           refreshed: false,
@@ -263,15 +270,20 @@ async function refreshGoogleToken(refreshToken: string): Promise<RefreshResult> 
       }
     }
 
+    // Calculate expiry time (default to 1 hour if not provided)
+    const expiresIn = data.expires_in || 3600
+    const expiryTime = Math.floor(Date.now() / 1000) + expiresIn
+
     return {
       refreshed: true,
       success: true,
       message: "Successfully refreshed Google token",
       newToken: data.access_token,
-      newExpiry: Math.floor(Date.now() / 1000) + (data.expires_in || 3600),
-      newRefreshToken: data.refresh_token,
+      newExpiry: expiryTime,
+      newRefreshToken: data.refresh_token, // Google may return a new refresh token
     }
   } catch (error) {
+    console.error("Google token refresh error:", error)
     return {
       refreshed: false,
       success: false,
