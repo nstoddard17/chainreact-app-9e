@@ -25,7 +25,7 @@ export class TwitterOAuthService {
       throw new Error("NEXT_PUBLIC_TWITTER_CLIENT_ID must be defined")
     }
 
-    const state = generateOAuthState("twitter", userId)
+    const state = generateOAuthState(userId, "twitter")
     const redirectUri = this.getRedirectUri(baseUrl)
 
     const params = new URLSearchParams({
