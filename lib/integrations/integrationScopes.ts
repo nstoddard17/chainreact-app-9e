@@ -112,17 +112,28 @@ export const INTEGRATION_SCOPES = {
     required: [],
     optional: [],
   },
+} as const
+
+export type IntegrationProvider = keyof typeof INTEGRATION_SCOPES
+
+export function isKnownProvider(provider: string): provider is IntegrationProvider {
+  return provider in INTEGRATION_SCOPES
 }
 
 export function getRequiredScopes(provider: string): string[] {
-  return INTEGRATION_SCOPES[provider]?.required || []
+  if (!isKnownProvider(provider)) return []
+  const scopes = INTEGRATION_SCOPES[provider]
+  return scopes ? [...scopes.required] : []
 }
 
 export function getOptionalScopes(provider: string): string[] {
-  return INTEGRATION_SCOPES[provider]?.optional || []
+  if (!isKnownProvider(provider)) return []
+  const scopes = INTEGRATION_SCOPES[provider]
+  return scopes ? [...scopes.optional] : []
 }
 
 export function getAllScopes(provider: string): string[] {
+  if (!isKnownProvider(provider)) return []
   const config = INTEGRATION_SCOPES[provider]
   if (!config) return []
   return [...config.required, ...config.optional]
@@ -145,12 +156,17 @@ export function validateScopes(
     valid: missing.length === 0,
     missing,
     granted,
-    status: missing.length === 0 ? "valid" : missing.length === requiredScopes.length ? "invalid" : "partial",
+    status: (missing.length === 0
+      ? "valid"
+      : missing.length === requiredScopes.length
+        ? "invalid"
+        : "partial") as "valid" | "invalid" | "partial",
   }
 }
 
 export function isComponentAvailable(provider: string): boolean {
   // Check if the provider is supported and has proper configuration
+  if (!isKnownProvider(provider)) return false
   const config = INTEGRATION_SCOPES[provider]
   if (!config) return false
 
@@ -191,5 +207,6 @@ function getRequiredEnvVars(provider: string): string[] {
     docker: ["NEXT_PUBLIC_DOCKER_CLIENT_ID", "DOCKER_CLIENT_SECRET"],
   }
 
+  if (!isKnownProvider(provider)) return []
   return envVarMap[provider] || []
 }

@@ -1,248 +1,116 @@
-import { type NextRequest } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
-import { TwitterOAuthService } from "@/lib/oauth/twitter"
-import { parseOAuthState, validateOAuthState } from "@/lib/oauth/utils"
-
-const twitterClientId = process.env.NEXT_PUBLIC_TWITTER_CLIENT_ID
-const twitterClientSecret = process.env.TWITTER_CLIENT_SECRET
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-if (!twitterClientId || !twitterClientSecret || !supabaseUrl || !supabaseServiceRoleKey) {
-  throw new Error("Missing required environment variables")
-}
-
-const supabase = createClient(supabaseUrl, supabaseServiceRoleKey)
+import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 
 export async function GET(request: NextRequest) {
+  const url = new URL(request.url)
+  const code = url.searchParams.get("code")
+  const state = url.searchParams.get("state")
+  const error = url.searchParams.get("error")
+
+  const redirectUrl = new URL("/integrations", getBaseUrl())
+
+  if (error) {
+    console.error(`Error with Twitter OAuth: ${error}`)
+    redirectUrl.searchParams.set("error", "Failed to connect Twitter account.")
+    return NextResponse.redirect(redirectUrl)
+  }
+
+  if (!code) {
+    redirectUrl.searchParams.set("error", "No code provided for Twitter OAuth.")
+    return NextResponse.redirect(redirectUrl)
+  }
+
+  if (!state) {
+    redirectUrl.searchParams.set("error", "No state provided for Twitter OAuth.")
+    return NextResponse.redirect(redirectUrl)
+  }
+
   try {
-    const searchParams = request.nextUrl.searchParams
-    const code = searchParams.get("code")
-    const state = searchParams.get("state")
-    const error = searchParams.get("error")
-    const errorDescription = searchParams.get("error_description")
-
-    if (error) {
-      return new Response(
-        `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>Twitter OAuth Error</title>
-            <style>
-              body {
-                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                min-height: 100vh;
-                margin: 0;
-                background-color: #f5f5f5;
-              }
-              .container {
-                background: white;
-                padding: 2rem;
-                border-radius: 8px;
-                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-                text-align: center;
-                max-width: 400px;
-              }
-              h1 { color: #e74c3c; }
-              p { color: #666; }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <h1>Authentication Error</h1>
-              <p>${errorDescription || error}</p>
-            </div>
-          </body>
-        </html>
-        `,
-        {
-          headers: { "Content-Type": "text/html" },
-        }
-      )
-    }
-
-    if (!code || !state) {
-      return new Response(
-        `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>Twitter OAuth Error</title>
-            <style>
-              body {
-                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                min-height: 100vh;
-                margin: 0;
-                background-color: #f5f5f5;
-              }
-              .container {
-                background: white;
-                padding: 2rem;
-                border-radius: 8px;
-                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-                text-align: center;
-                max-width: 400px;
-              }
-              h1 { color: #e74c3c; }
-              p { color: #666; }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <h1>Invalid Request</h1>
-              <p>Missing required parameters</p>
-            </div>
-          </body>
-        </html>
-        `,
-        {
-          headers: { "Content-Type": "text/html" },
-        }
-      )
-    }
-
-    // Parse and validate state
-    const stateData = parseOAuthState(state)
-    validateOAuthState(stateData, "twitter")
-
-    const userId = stateData.userId
+    const { userId, codeVerifier } = JSON.parse(atob(state))
     if (!userId) {
-      throw new Error("Missing user ID in state")
+      redirectUrl.searchParams.set("error", "Missing userId in Twitter state.")
+      return NextResponse.redirect(redirectUrl)
+    }
+    if (!codeVerifier) {
+      redirectUrl.searchParams.set("error", "Missing code_verifier in Twitter state.")
+      return NextResponse.redirect(redirectUrl)
     }
 
-    const result = await TwitterOAuthService.handleCallback(code, state, supabase, userId)
+    const tokenUrl = new URL("https://api.twitter.com/2/oauth2/token")
+    const body = new URLSearchParams({
+      code,
+      grant_type: "authorization_code",
+      client_id: process.env.NEXT_PUBLIC_TWITTER_CLIENT_ID!,
+      redirect_uri: `${getBaseUrl()}/api/integrations/twitter/callback`,
+      code_verifier: codeVerifier,
+    })
 
-    if (!result.success) {
-      return new Response(
-        `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>Twitter OAuth Error</title>
-            <style>
-              body {
-                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                min-height: 100vh;
-                margin: 0;
-                background-color: #f5f5f5;
-              }
-              .container {
-                background: white;
-                padding: 2rem;
-                border-radius: 8px;
-                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-                text-align: center;
-                max-width: 400px;
-              }
-              h1 { color: #e74c3c; }
-              p { color: #666; }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <h1>Connection Failed</h1>
-              <p>${result.error || "Failed to connect Twitter"}</p>
-            </div>
-          </body>
-        </html>
-        `,
-        {
-          headers: { "Content-Type": "text/html" },
-        }
-      )
+    const response = await fetch(tokenUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body,
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      console.error("Failed to exchange Twitter code for token:", errorData)
+      redirectUrl.searchParams.set("error", "Failed to get Twitter access token.")
+      return NextResponse.redirect(redirectUrl)
     }
 
-    return new Response(
-      `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Twitter Connected</title>
-          <style>
-            body {
-              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-              display: flex;
-              justify-content: center;
-              align-items: center;
-              min-height: 100vh;
-              margin: 0;
-              background-color: #f5f5f5;
-            }
-            .container {
-              background: white;
-              padding: 2rem;
-              border-radius: 8px;
-              box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-              text-align: center;
-              max-width: 400px;
-            }
-            h1 { color: #2ecc71; }
-            p { color: #666; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <h1>Successfully Connected!</h1>
-            <p>You can now close this window and return to the app.</p>
-          </div>
-        </body>
-      </html>
-      `,
-      {
-        headers: { "Content-Type": "text/html" },
-      }
+    const tokens = await response.json()
+    const accessToken = tokens.access_token
+    const refreshToken = tokens.refresh_token
+    const expiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString()
+
+    const userInfoResponse = await fetch("https://api.twitter.com/2/users/me", {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    })
+
+    if (!userInfoResponse.ok) {
+      console.error("Failed to fetch Twitter user info")
+      redirectUrl.searchParams.set("error", "Failed to fetch Twitter user info.")
+      return NextResponse.redirect(redirectUrl)
+    }
+
+    const userInfo = await userInfoResponse.json()
+    const providerAccountId = userInfo.data.id
+
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
     )
-  } catch (error: any) {
-    console.error("Twitter callback error:", error)
-    return new Response(
-      `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Twitter OAuth Error</title>
-          <style>
-            body {
-              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-              display: flex;
-              justify-content: center;
-              align-items: center;
-              min-height: 100vh;
-              margin: 0;
-              background-color: #f5f5f5;
-            }
-            .container {
-              background: white;
-              padding: 2rem;
-              border-radius: 8px;
-              box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-              text-align: center;
-              max-width: 400px;
-            }
-            h1 { color: #e74c3c; }
-            p { color: #666; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <h1>Error</h1>
-            <p>${error.message || "An unexpected error occurred"}</p>
-          </div>
-        </body>
-      </html>
-      `,
+
+    const { error: dbError } = await supabase.from("integrations").upsert(
       {
-        headers: { "Content-Type": "text/html" },
-      }
+        user_id: userId,
+        provider: "twitter",
+        provider_account_id: providerAccountId,
+        access_token: accessToken,
+        refresh_token: refreshToken,
+        expires_at: expiresAt,
+        status: "connected",
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id, provider" },
     )
+
+    if (dbError) {
+      console.error("Error saving Twitter integration to DB:", dbError)
+      redirectUrl.searchParams.set("error", "Failed to save Twitter integration.")
+      return NextResponse.redirect(redirectUrl)
+    }
+
+    redirectUrl.searchParams.set("success", "Twitter account connected successfully.")
+    return NextResponse.redirect(redirectUrl)
+  } catch (error) {
+    console.error("Error during Twitter OAuth callback:", error)
+    redirectUrl.searchParams.set("error", "An unexpected error occurred.")
+    return NextResponse.redirect(redirectUrl)
   }
 }

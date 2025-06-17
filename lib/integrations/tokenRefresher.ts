@@ -1,4 +1,4 @@
-import { createAdminSupabaseClient } from "@/lib/oauth/utils"
+import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 
 interface Integration {
   id: string
