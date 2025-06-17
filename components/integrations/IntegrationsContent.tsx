@@ -6,7 +6,7 @@ import { useIntegrationStore } from "@/stores/integrationStore"
 import { useAuthStore } from "@/stores/authStore"
 import ScopeValidationAlert from "./ScopeValidationAlert"
 import AppLayout from "@/components/layout/AppLayout"
-import IntegrationCard from "./IntegrationCard"
+import { IntegrationCard } from "./IntegrationCard"
 import { ApiKeyIntegrationCard } from "./ApiKeyIntegrationCard"
 import IntegrationDiagnostics from "./IntegrationDiagnostics"
 import { Loader2, CheckCircle, Stethoscope, RefreshCw, AlertCircle, Bug, Search } from "lucide-react"
@@ -251,15 +251,7 @@ function IntegrationsContent() {
                   provider.authType === "apiKey" ? (
                     <ApiKeyIntegrationCard key={provider.id} provider={provider} integration={provider.integration} />
                   ) : (
-                    <IntegrationCard
-                      key={provider.id}
-                      provider={provider}
-                      connected={provider.connected}
-                      wasConnected={provider.wasConnected}
-                      integration={provider.integration}
-                      isAvailable={provider.isAvailable}
-                      onConnecting={() => setRedirectingProvider(provider.id)}
-                    />
+                    <IntegrationCard key={provider.id} provider={provider} integration={provider.integration} />
                   ),
                 )}
               </div>
@@ -270,15 +262,7 @@ function IntegrationsContent() {
                   provider.authType === "apiKey" ? (
                     <ApiKeyIntegrationCard key={provider.id} provider={provider} integration={provider.integration} />
                   ) : (
-                    <IntegrationCard
-                      key={provider.id}
-                      provider={provider}
-                      connected={provider.connected}
-                      wasConnected={provider.wasConnected}
-                      integration={provider.integration}
-                      isAvailable={provider.isAvailable}
-                      onConnecting={() => setRedirectingProvider(provider.id)}
-                    />
+                    <IntegrationCard key={provider.id} provider={provider} integration={provider.integration} />
                   ),
                 )}
               </div>
