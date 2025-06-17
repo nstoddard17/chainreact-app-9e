@@ -30,7 +30,13 @@ export class GmailOAuthService {
   }
 
   static getRedirectUri(origin: string): string {
-    return getOAuthRedirectUri(origin, "google")
+    const redirectUri = getOAuthRedirectUri(origin, "gmail")
+    console.log("Gmail Redirect URI:", {
+      origin,
+      baseUrl: getBaseUrl(),
+      redirectUri,
+    })
+    return redirectUri
   }
 
   static getClientCredentials() {

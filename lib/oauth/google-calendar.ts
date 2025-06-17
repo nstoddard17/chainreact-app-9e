@@ -18,7 +18,7 @@ export class GoogleCalendarOAuthService {
     const redirectUri = this.getRedirectUri(baseUrl)
     const state = btoa(
       JSON.stringify({
-        provider: "google-calendar",
+        provider: "google_calendar",
         userId,
         reconnect,
         integrationId,
@@ -36,7 +36,13 @@ export class GoogleCalendarOAuthService {
   }
 
   static getRedirectUri(origin: string): string {
-    return getOAuthRedirectUri(origin, "google")
+    const redirectUri = getOAuthRedirectUri(origin, "google_calendar")
+    console.log("Google Calendar Redirect URI:", {
+      origin,
+      baseUrl: getBaseUrl(),
+      redirectUri,
+    })
+    return redirectUri
   }
 
   static async handleCallback(
