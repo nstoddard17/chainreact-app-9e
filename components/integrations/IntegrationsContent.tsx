@@ -219,25 +219,80 @@ function IntegrationsContent() {
 
   return (
     <AppLayout>
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
-        <div className="lg:flex lg:gap-8">
-          <main className="flex-1">
-            <PageHeader />
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-4 sm:mb-6">
-              <TabsList className="w-full sm:w-auto">
-                <TabsTrigger value="all" className="flex-1 sm:flex-none">All</TabsTrigger>
-                <TabsTrigger value="connected" className="flex-1 sm:flex-none">Connected</TabsTrigger>
-                <TabsTrigger value="expiring" className="flex-1 sm:flex-none">Expiring Soon</TabsTrigger>
-                <TabsTrigger value="disconnected" className="flex-1 sm:flex-none">Disconnected</TabsTrigger>
-              </TabsList>
-            </Tabs>
-            <IntegrationGrid />
-          </main>
-          <div className="lg:w-80 lg:shrink-0">
-            <div className="lg:sticky lg:top-8">
-              <StatusSidebar />
+      <div className="w-full px-4 sm:px-6 lg:px-8">
+        <div className="flex flex-col lg:flex-row lg:gap-8">
+          <div className="flex-1 min-w-0">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+              <h1 className="text-2xl font-semibold text-slate-900">Integrations</h1>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
+                <div className="relative flex-1 sm:flex-none">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
+                  <Input
+                    type="text"
+                    placeholder="Search integrations..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9 w-full sm:w-64"
+                  />
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRefreshTokens}
+                  disabled={loading}
+                  className="whitespace-nowrap"
+                >
+                  {loading ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                  )}
+                  Refresh
+                </Button>
+              </div>
             </div>
+
+            <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+              <Card className="bg-white rounded-2xl shadow-lg border border-slate-200">
+                <CardContent className="p-0">
+                  <TabsList className="w-full justify-start rounded-none border-b border-slate-200 bg-transparent p-0 overflow-x-auto">
+                    <TabsTrigger
+                      value="all"
+                      className="rounded-none border-b-2 border-transparent px-4 py-3 data-[state=active]:border-blue-500 data-[state=active]:bg-transparent data-[state=active]:shadow-none whitespace-nowrap"
+                    >
+                      All
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="connected"
+                      className="rounded-none border-b-2 border-transparent px-4 py-3 data-[state=active]:border-blue-500 data-[state=active]:bg-transparent data-[state=active]:shadow-none whitespace-nowrap"
+                    >
+                      Connected
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="disconnected"
+                      className="rounded-none border-b-2 border-transparent px-4 py-3 data-[state=active]:border-blue-500 data-[state=active]:bg-transparent data-[state=active]:shadow-none whitespace-nowrap"
+                    >
+                      Disconnected
+                    </TabsTrigger>
+                  </TabsList>
+                </CardContent>
+              </Card>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredProviders.map((integration) => (
+                  <IntegrationCard
+                    key={integration.id}
+                    integration={integration}
+                    onRefresh={handleRefreshTokens}
+                    onDisconnect={handleRefreshTokens}
+                    onReconnect={handleRefreshTokens}
+                    onDelete={handleRefreshTokens}
+                  />
+                ))}
+              </div>
+            </Tabs>
           </div>
+          <StatusSidebar />
         </div>
       </div>
     </AppLayout>
