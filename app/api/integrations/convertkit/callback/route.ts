@@ -90,7 +90,7 @@ export async function GET(request: NextRequest) {
       provider_user_id: null, // ConvertKit doesn't expose a user ID in the token response
       access_token: tokenData.access_token,
       refresh_token: tokenData.refresh_token,
-      expiresAt: expiresAt ? expiresAt.toISOString() : null,
+      expires_at: expiresAt ? expiresAt.toISOString() : null,
       scopes: [], // ConvertKit doesn't use scopes
       status: "connected",
       updated_at: new Date().toISOString(),
