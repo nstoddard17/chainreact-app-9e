@@ -153,15 +153,27 @@ export function IntegrationCard({ provider, integration, status }: IntegrationCa
   }
 
   return (
-    <Card className="flex flex-col justify-between p-4 shadow-sm hover:shadow-md transition-shadow duration-200 rounded-lg border-gray-200">
-        <CardHeader className="flex-row items-start justify-between p-2">
-            <div className="flex items-center gap-4">
-              {renderLogo()}
-              <CardTitle className="text-lg font-semibold">{provider.name}</CardTitle>
-            </div>
-            <Badge className={cn("px-2.5 py-1 text-xs font-medium", badgeClass)}>{statusText}</Badge>
-        </CardHeader>
-      <CardFooter className="p-2">
+    <Card className="flex flex-col justify-between h-full transition-all duration-200 hover:shadow-md rounded-lg border-gray-200">
+      <CardHeader className="flex-row items-start justify-between p-4 pb-2">
+        <div className="flex items-center gap-3">
+          {renderLogo()}
+          <div>
+            <CardTitle className="text-base font-semibold text-gray-900">{provider.name}</CardTitle>
+            {provider.description && (
+              <p className="text-sm text-gray-500 mt-0.5 line-clamp-2">{provider.description}</p>
+            )}
+          </div>
+        </div>
+        <Badge 
+          className={cn(
+            "px-2.5 py-1 text-xs font-medium whitespace-nowrap",
+            badgeClass
+          )}
+        >
+          {statusText}
+        </Badge>
+      </CardHeader>
+      <CardFooter className="p-4 pt-2">
         {renderButton()}
       </CardFooter>
     </Card>
