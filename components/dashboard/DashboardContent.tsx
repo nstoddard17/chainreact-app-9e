@@ -3,6 +3,7 @@
 import { useEffect } from "react"
 import { useAnalyticsStore } from "@/stores/analyticsStore"
 import { useAuthStore } from "@/stores/authStore"
+import { useIntegrationStore } from '@/stores/integrationStore'
 import AppLayout from "@/components/layout/AppLayout"
 import MetricCard from "@/components/dashboard/MetricCard"
 import ActivityFeed from "@/components/dashboard/ActivityFeed"
@@ -12,6 +13,8 @@ import { Workflow, Clock, Puzzle, Zap } from "lucide-react"
 export default function DashboardContent() {
   const { metrics, chartData, fetchMetrics, fetchChartData } = useAnalyticsStore()
   const { user } = useAuthStore()
+  const { getConnectedProviders } = useIntegrationStore()
+  const connectedIntegrationsCount = getConnectedProviders().length
 
   useEffect(() => {
     fetchMetrics()
@@ -59,7 +62,7 @@ export default function DashboardContent() {
           />
           <MetricCard
             title="Integrations"
-            value={metrics?.integrations || 0}
+            value={connectedIntegrationsCount}
             icon={<Puzzle className="w-6 h-6" />}
             color="purple"
             change="+2"
