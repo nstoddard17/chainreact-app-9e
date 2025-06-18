@@ -2,6 +2,7 @@ import { type NextRequest } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 import { createPopupResponse } from "@/lib/utils/createPopupResponse"
+import { TokenAuditLogger } from "@/lib/integrations/TokenAuditLogger"
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -106,6 +107,19 @@ export async function GET(request: NextRequest) {
 
     if (upsertError) {
       throw new Error(`Failed to save Blackbaud integration: ${upsertError.message}`)
+    }
+
+    // Log the successful integration connection
+    try {
+      await TokenAuditLogger.logEvent(
+        integrationData.user_id, // Using user_id as integration_id for now
+        userId,
+        "blackbaud",
+        "connect",
+        { method: "oauth", provider_user_id: userData.id }
+      )
+    } catch (auditError) {
+      console.warn("Failed to log Blackbaud integration:", auditError)
     }
 
     return createPopupResponse("success", "blackbaud", "Blackbaud account connected successfully.", baseUrl)

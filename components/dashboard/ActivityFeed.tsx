@@ -2,18 +2,8 @@
 
 import { useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Play, Pause, Check, AlertCircle, Clock } from "lucide-react"
-import { useAnalyticsStore } from "@/stores/analyticsStore"
-import { useWorkflowStore } from "@/stores/workflowStore"
-
-type ActivityStatus = "completed" | "paused" | "failed" | "active"
-
-const statusIcons: Record<ActivityStatus, React.ReactElement> = {
-  completed: <Check className="w-4 h-4 text-green-500" />,
-  paused: <Pause className="w-4 h-4 text-yellow-500" />,
-  failed: <AlertCircle className="w-4 h-4 text-red-500" />,
-  active: <Play className="w-4 h-4 text-blue-500" />,
-}
+import { Play, Pause, Check, AlertCircle, Clock, Link, Link2Off, Plus, Trash2, Edit } from "lucide-react"
+import { useActivityStore } from "@/stores/activityStore"
 
 // Helper function to format time ago
 function formatTimeAgo(dateString: string): string {
@@ -35,45 +25,51 @@ function formatTimeAgo(dateString: string): string {
   }
 }
 
-// Helper function to map execution status to activity status
-function mapExecutionStatus(status: string): ActivityStatus {
+// Helper function to get icon for activity type
+function getActivityIcon(type: string, status: string) {
+  switch (type) {
+    case 'workflow_execution':
+      return status === 'success' ? <Check className="w-4 h-4 text-green-500" /> :
+             status === 'error' ? <AlertCircle className="w-4 h-4 text-red-500" /> :
+             status === 'running' ? <Play className="w-4 h-4 text-blue-500" /> :
+             <Pause className="w-4 h-4 text-yellow-500" />
+    case 'integration_connect':
+      return <Link className="w-4 h-4 text-green-500" />
+    case 'integration_disconnect':
+      return <Link2Off className="w-4 h-4 text-red-500" />
+    case 'workflow_create':
+      return <Plus className="w-4 h-4 text-blue-500" />
+    case 'workflow_delete':
+      return <Trash2 className="w-4 h-4 text-red-500" />
+    case 'workflow_update':
+      return <Edit className="w-4 h-4 text-purple-500" />
+    default:
+      return <Clock className="w-4 h-4 text-gray-500" />
+  }
+}
+
+// Helper function to get status color
+function getStatusColor(status: string) {
   switch (status) {
     case 'success':
-      return 'completed'
-    case 'running':
-      return 'active'
+      return 'bg-green-100 text-green-700'
     case 'error':
-      return 'failed'
+      return 'bg-red-100 text-red-700'
+    case 'running':
+      return 'bg-blue-100 text-blue-700'
     case 'pending':
-      return 'paused'
+      return 'bg-yellow-100 text-yellow-700'
     default:
-      return 'paused'
+      return 'bg-gray-100 text-gray-700'
   }
 }
 
 export default function ActivityFeed() {
-  const { executions, fetchExecutions, loading } = useAnalyticsStore()
-  const { workflows } = useWorkflowStore()
+  const { activities, fetchActivities, loading } = useActivityStore()
 
   useEffect(() => {
-    fetchExecutions()
-  }, [fetchExecutions])
-
-  // Create a map of workflow IDs to names for quick lookup
-  const workflowMap = new Map(workflows.map((w: any) => [w.id, w.name]))
-
-  // Transform executions to activities and sort by most recent
-  const activities = executions
-    .map((execution: any) => ({
-      id: execution.id,
-      type: "execution",
-      workflow: workflowMap.get(execution.id) || `Workflow ${execution.id.slice(0, 8)}`,
-      status: mapExecutionStatus(execution.status),
-      time: formatTimeAgo(execution.started_at),
-      execution
-    }))
-    .sort((a: any, b: any) => new Date(b.execution.started_at).getTime() - new Date(a.execution.started_at).getTime())
-    .slice(0, 5) // Show only the 5 most recent activities
+    fetchActivities()
+  }, [fetchActivities])
 
   return (
     <Card className="bg-white rounded-2xl shadow-lg border border-slate-200 h-full">
@@ -92,26 +88,21 @@ export default function ActivityFeed() {
           </div>
         ) : (
           <ul className="space-y-4">
-            {activities.map((activity) => (
+            {activities.slice(0, 5).map((activity) => (
               <li key={activity.id} className="flex items-start space-x-4">
-                <div className="mt-1 flex-shrink-0">{statusIcons[activity.status]}</div>
+                <div className="mt-1 flex-shrink-0">
+                  {getActivityIcon(activity.type, activity.status)}
+                </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-900 truncate">{activity.workflow}</p>
+                  <p className="text-sm font-medium text-slate-900 truncate">{activity.title}</p>
+                  <p className="text-xs text-slate-600 mt-1">{activity.description}</p>
                   <div className="flex items-center text-xs text-slate-500 mt-1">
                     <Clock className="w-3 h-3 mr-1.5" />
-                    <span>{activity.time}</span>
+                    <span>{formatTimeAgo(activity.timestamp)}</span>
                   </div>
                 </div>
                 <div
-                  className={`w-24 text-center px-2 py-1 rounded-full text-xs font-medium capitalize ${
-                    activity.status === "completed"
-                      ? "bg-green-100 text-green-700"
-                      : activity.status === "paused"
-                        ? "bg-yellow-100 text-yellow-700"
-                        : activity.status === "failed"
-                          ? "bg-red-100 text-red-700"
-                          : "bg-blue-100 text-blue-700"
-                  }`}
+                  className={`w-20 text-center px-2 py-1 rounded-full text-xs font-medium capitalize ${getStatusColor(activity.status)}`}
                 >
                   {activity.status}
                 </div>
