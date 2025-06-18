@@ -250,17 +250,21 @@ export const useIntegrationStore = create<IntegrationStore>()(
             const messageHandler = (event: MessageEvent) => {
               if (event.origin !== window.location.origin) return
 
-              if (event.data?.type === "oauth-success" && event.data?.provider === providerId) {
+              if (event.data && event.data.type === "oauth-success") {
+                console.log(`✅ OAuth successful for ${providerId}:`, event.data.message)
                 closedByMessage = true
-                console.log(`✅ OAuth successful for ${providerId}`)
-                fetchIntegrations(true)
-                popup?.close()
                 window.removeEventListener("message", messageHandler)
+                if (popup && !popup.closed) {
+                  popup.close()
+                }
                 setLoading(`connect-${providerId}`, false)
-              } else if (event.data?.type === "oauth-error" && event.data?.provider === providerId) {
+                setTimeout(() => {
+                  fetchIntegrations(true)
+                }, 500)
+              } else if (event.data && event.data.type === "oauth-error") {
+                console.error(`❌ OAuth error for ${providerId}:`, event.data.message)
+                setError(event.data.message)
                 closedByMessage = true
-                console.error(`OAuth failed for ${providerId}:`, event.data.error)
-                setError(`Connection to ${provider.name} failed: ${event.data.error}`)
                 popup?.close()
                 window.removeEventListener("message", messageHandler)
                 setLoading(`connect-${providerId}`, false)
