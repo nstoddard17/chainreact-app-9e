@@ -21,6 +21,7 @@ function IntegrationsContent() {
   const [autoRefresh, setAutoRefresh] = useState(true)
   const [isInitializing, setIsInitializing] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
+  const [openGuideForProviderId, setOpenGuideForProviderId] = useState<string | null>(null)
   const { toast } = useToast()
 
   const { integrations, providers, initializeProviders, fetchIntegrations, loading } = useIntegrationStore()
@@ -137,7 +138,27 @@ function IntegrationsContent() {
       ) : (
         filteredProviders.map((p) => {
           const CardComponent = p.authType === "apiKey" ? ApiKeyIntegrationCard : IntegrationCard
-          return <CardComponent key={p.id} provider={p} integration={p.integration || null} status={p.status as any} />
+          if (p.authType === "apiKey") {
+            return (
+              <ApiKeyIntegrationCard
+                key={p.id}
+                provider={p}
+                integration={p.integration || null}
+                status={p.status as any}
+                open={openGuideForProviderId === p.id}
+                onOpenChange={(open: boolean) => setOpenGuideForProviderId(open ? p.id : null)}
+              />
+            )
+          } else {
+            return (
+              <IntegrationCard
+                key={p.id}
+                provider={p}
+                integration={p.integration || null}
+                status={p.status as any}
+              />
+            )
+          }
         })
       )}
     </div>
