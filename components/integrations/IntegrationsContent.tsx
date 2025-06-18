@@ -27,6 +27,11 @@ function IntegrationsContent() {
   const { integrations, providers, initializeProviders, fetchIntegrations, loading } = useIntegrationStore()
   const { user } = useAuthStore()
 
+  // Debug: Log when openGuideForProviderId changes
+  useEffect(() => {
+    console.log("openGuideForProviderId:", openGuideForProviderId)
+  }, [openGuideForProviderId])
+
   useEffect(() => {
     const initialize = async () => {
       setIsInitializing(true)
@@ -122,47 +127,51 @@ function IntegrationsContent() {
     )
   }
   
-  const IntegrationGrid = () => (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {loading && filteredProviders.length === 0 ? (
-        <div className="col-span-full flex items-center justify-center py-12">
-          <div className="text-center">
-            <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-2" />
-            <p className="text-gray-600">Loading integrations...</p>
+  const IntegrationGrid = () => {
+    console.log("Rendering IntegrationGrid. openGuideForProviderId:", openGuideForProviderId)
+    console.log("filteredProviders:", filteredProviders.map(p => p.id))
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {loading && filteredProviders.length === 0 ? (
+          <div className="col-span-full flex items-center justify-center py-12">
+            <div className="text-center">
+              <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-2" />
+              <p className="text-gray-600">Loading integrations...</p>
+            </div>
           </div>
-        </div>
-      ) : filteredProviders.length === 0 ? (
-        <div className="col-span-full text-center py-12">
-          <p className="text-gray-600">No integrations found matching your criteria.</p>
-        </div>
-      ) : (
-        filteredProviders.map((p) => {
-          const CardComponent = p.authType === "apiKey" ? ApiKeyIntegrationCard : IntegrationCard
-          if (p.authType === "apiKey") {
-            return (
-              <ApiKeyIntegrationCard
-                key={p.id}
-                provider={p}
-                integration={p.integration || null}
-                status={p.status as any}
-                open={openGuideForProviderId === p.id}
-                onOpenChange={(open: boolean) => setOpenGuideForProviderId(open ? p.id : null)}
-              />
-            )
-          } else {
-            return (
-              <IntegrationCard
-                key={p.id}
-                provider={p}
-                integration={p.integration || null}
-                status={p.status as any}
-              />
-            )
-          }
-        })
-      )}
-    </div>
-  )
+        ) : filteredProviders.length === 0 ? (
+          <div className="col-span-full text-center py-12">
+            <p className="text-gray-600">No integrations found matching your criteria.</p>
+          </div>
+        ) : (
+          filteredProviders.map((p) => {
+            const CardComponent = p.authType === "apiKey" ? ApiKeyIntegrationCard : IntegrationCard
+            if (p.authType === "apiKey") {
+              return (
+                <ApiKeyIntegrationCard
+                  key={p.id}
+                  provider={p}
+                  integration={p.integration || null}
+                  status={p.status as any}
+                  open={openGuideForProviderId === p.id}
+                  onOpenChange={(open: boolean) => setOpenGuideForProviderId(open ? p.id : null)}
+                />
+              )
+            } else {
+              return (
+                <IntegrationCard
+                  key={p.id}
+                  provider={p}
+                  integration={p.integration || null}
+                  status={p.status as any}
+                />
+              )
+            }
+          })
+        )}
+      </div>
+    )
+  }
 
   // Extract the status summary content for reuse
   const StatusSummaryContent = ({ autoRefresh, setAutoRefresh, connected, expiring, expired, disconnected }: any) => (
