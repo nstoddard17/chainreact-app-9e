@@ -101,22 +101,34 @@ export function IntegrationCard({ provider, integration, status }: IntegrationCa
   const { text: statusText, badgeClass, action: statusAction } = getStatusUi()
 
   const renderLogo = () => {
-    if (provider.logoUrl) {
+    // Enhanced fallback avatar with better styling
+    const getAvatarColor = (name: string) => {
+      const colors = [
+        "bg-blue-500", "bg-green-500", "bg-purple-500", "bg-pink-500",
+        "bg-indigo-500", "bg-red-500", "bg-yellow-500", "bg-teal-500",
+        "bg-orange-500", "bg-cyan-500", "bg-emerald-500", "bg-violet-500"
+      ]
+      const index = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
+      return colors[index % colors.length]
+    }
+
+    if (provider.logoUrl && !imageError) {
       return (
         <Image
           src={provider.logoUrl}
           alt={provider.name}
-          width={40}
-          height={40}
+          width={48}
+          height={48}
           className="object-contain"
+          onError={() => setImageError(true)}
         />
       )
     }
-    // fallback avatar
+    
     return (
-      <span className={`flex items-center justify-center w-10 h-10 text-lg font-bold text-white bg-gray-400`}>
-        {provider.name[0]}
-      </span>
+      <div className={`flex items-center justify-center w-12 h-12 rounded-lg text-lg font-bold text-white ${getAvatarColor(provider.name)}`}>
+        {provider.name.substring(0, 2).toUpperCase()}
+      </div>
     )
   }
 
@@ -129,21 +141,21 @@ export function IntegrationCard({ provider, integration, status }: IntegrationCa
 
   return (
     <Card className="flex flex-col h-full transition-all duration-200 hover:shadow-lg rounded-xl border border-gray-200 bg-white overflow-hidden">
-      <CardHeader className="flex flex-row items-center justify-between p-4 pb-3 space-y-0">
-        <div className="flex items-center gap-3 min-w-0 flex-1">
+      <CardHeader className="flex flex-row items-center justify-between p-5 pb-4 space-y-0">
+        <div className="flex items-center gap-4 min-w-0 flex-1">
           {renderLogo()}
           <div className="min-w-0 flex-1">
             <h3 
-              className="text-sm sm:text-base font-semibold text-gray-900 leading-tight"
+              className="text-base sm:text-lg font-semibold text-gray-900 leading-tight"
               title={provider.name}
             >
-              {provider.name}
+              {provider.name === "Blackbaud Raiser's Edge NXT" ? "Blackbaud" : provider.name}
             </h3>
           </div>
         </div>
         <Badge 
           className={cn(
-            "px-2 py-1 text-xs font-medium whitespace-nowrap shrink-0 ml-2",
+            "px-3 py-1.5 text-xs font-medium whitespace-nowrap shrink-0 ml-3",
             badgeClass
           )}
         >
@@ -151,8 +163,8 @@ export function IntegrationCard({ provider, integration, status }: IntegrationCa
         </Badge>
       </CardHeader>
 
-      <CardContent className="px-4 pb-3 flex-1">
-        <div className="flex items-center gap-2 text-xs text-gray-500">
+      <CardContent className="px-5 pb-4 flex-1">
+        <div className="flex items-center gap-2 text-sm text-gray-500">
           {integration?.created_at && (
             <span>Connected {new Date(integration.created_at).toLocaleDateString()}</span>
           )}
@@ -170,7 +182,7 @@ export function IntegrationCard({ provider, integration, status }: IntegrationCa
                 </button>
               </TooltipTrigger>
               <TooltipContent className="max-w-xs text-sm">
-                <div className="font-semibold mb-1">{provider.name}</div>
+                <div className="font-semibold mb-1">{provider.name === "Blackbaud Raiser's Edge NXT" ? "Blackbaud" : provider.name}</div>
                 {integration?.created_at && (
                   <div className="text-xs text-gray-400">Connected: {new Date(integration.created_at).toLocaleString()}</div>
                 )}
@@ -180,10 +192,10 @@ export function IntegrationCard({ provider, integration, status }: IntegrationCa
         </div>
       </CardContent>
 
-      <CardFooter className="p-4 pt-0">
+      <CardFooter className="p-5 pt-0">
         <div className="w-full">
           {status === 'connected' ? (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <Button
                 onClick={handleDisconnect}
                 disabled={isLoading}
@@ -199,14 +211,14 @@ export function IntegrationCard({ provider, integration, status }: IntegrationCa
                 disabled={isLoading}
                 size="sm"
                 variant="ghost"
-                className="w-9 h-9 p-0 border border-gray-300 hover:bg-gray-50"
+                className="w-10 h-10 p-0 border border-gray-300 hover:bg-gray-50"
                 aria-label="Reconnect"
               >
-                <RefreshCw className="h-4 w-4 animate-spin" />
+                <RefreshCw className="h-4 w-4" />
               </Button>
             </div>
           ) : status === 'expired' ? (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <Button
                 onClick={handleReconnect}
                 disabled={isLoading}
@@ -221,7 +233,7 @@ export function IntegrationCard({ provider, integration, status }: IntegrationCa
                 disabled={isLoading}
                 size="sm"
                 variant="outline"
-                className="w-9 h-9 p-0 border border-gray-300 hover:bg-gray-50"
+                className="w-10 h-10 p-0 border border-gray-300 hover:bg-gray-50"
                 aria-label="Disconnect"
               >
                 <X className="h-4 w-4" />

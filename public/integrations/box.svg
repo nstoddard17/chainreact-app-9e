@@ -2,6 +2,20 @@
 <svg width="64px" height="64px" viewBox="0 0 64 64" version="1.1" xmlns="http://www.w3.org/2000/svg">
     <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
         <rect fill="#0061D5" x="0" y="0" width="64" height="64" rx="12"/>
-        <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-size="28" font-family="Arial, sans-serif" fill="#FFFFFF">b</text>
+        <g transform="translate(16, 16)">
+            <!-- Box logo cube -->
+            <g fill="#FFFFFF">
+                <!-- Front face -->
+                <polygon points="0,8 16,8 16,24 0,24"/>
+                <!-- Top face -->
+                <polygon points="0,8 8,0 24,0 16,8"/>
+                <!-- Right face -->
+                <polygon points="16,8 24,0 24,16 16,24"/>
+                <!-- Inner lines for 3D effect -->
+                <line x1="8" y1="4" x2="8" y2="12" stroke="#0061D5" stroke-width="1"/>
+                <line x1="4" y1="12" x2="12" y2="12" stroke="#0061D5" stroke-width="1"/>
+                <line x1="20" y1="4" x2="20" y2="12" stroke="#0061D5" stroke-width="1"/>
+            </g>
+        </g>
     </g>
 </svg> 
