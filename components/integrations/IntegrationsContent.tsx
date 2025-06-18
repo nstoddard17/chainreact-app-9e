@@ -6,7 +6,7 @@ import { useAuthStore } from "@/stores/authStore"
 import AppLayout from "@/components/layout/AppLayout"
 import { IntegrationCard } from "./IntegrationCard"
 import { ApiKeyIntegrationCard } from "./ApiKeyIntegrationCard"
-import { Loader2, RefreshCw, Bell, Check, X, Search } from "lucide-react"
+import { Loader2, RefreshCw, Bell, Check, X, Search, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/hooks/use-toast"
@@ -56,7 +56,7 @@ function IntegrationsContent() {
 
       if (integration && integration.status === "connected") {
         if (expiresAt && expiresAt < now) {
-          status = "expiring" // Token is expired
+          status = "expired"
         } else {
           // Check if expiring within 7 days
           const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
@@ -76,15 +76,16 @@ function IntegrationsContent() {
     })
   }, [providers, integrations])
 
-  const { connectedCount, expiringCount, disconnectedCount } = useMemo(() => {
+  const { connectedCount, expiringCount, disconnectedCount, expiredCount } = useMemo(() => {
     return providersWithStatus.reduce(
       (counts, p) => {
         if (p.status === "connected") counts.connected++
         else if (p.status === "expiring") counts.expiring++
+        else if (p.status === "expired") counts.expired++
         else counts.disconnected++
         return counts
       },
-      { connected: 0, expiring: 0, disconnected: 0 }
+      { connected: 0, expiring: 0, disconnected: 0, expired: 0 }
     )
   }, [providersWithStatus])
 
@@ -158,6 +159,15 @@ function IntegrationsContent() {
             </li>
             <li className="flex justify-between items-center">
               <span className="flex items-center text-gray-700">
+                <AlertCircle className="w-4 h-4 mr-2 text-red-500" />
+                Expired
+              </span>
+              <Badge variant="secondary" className="font-mono">
+                {expiredCount}
+              </Badge>
+            </li>
+            <li className="flex justify-between items-center">
+              <span className="flex items-center text-gray-700">
                 <X className="w-4 h-4 mr-2 text-gray-400" />
                 Disconnected
               </span>
@@ -209,6 +219,7 @@ function IntegrationsContent() {
                 <TabsTrigger value="all">All</TabsTrigger>
                 <TabsTrigger value="connected">Connected</TabsTrigger>
                 <TabsTrigger value="expiring">Expiring Soon</TabsTrigger>
+                <TabsTrigger value="expired">Expired</TabsTrigger>
                 <TabsTrigger value="disconnected">Disconnected</TabsTrigger>
               </TabsList>
             </Tabs>
