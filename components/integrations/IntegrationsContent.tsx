@@ -27,11 +27,6 @@ function IntegrationsContent() {
   const { integrations, providers, initializeProviders, fetchIntegrations, loading } = useIntegrationStore()
   const { user } = useAuthStore()
 
-  // Debug: Log when openGuideForProviderId changes
-  useEffect(() => {
-    console.log("openGuideForProviderId:", openGuideForProviderId)
-  }, [openGuideForProviderId])
-
   useEffect(() => {
     const initialize = async () => {
       setIsInitializing(true)
@@ -128,8 +123,6 @@ function IntegrationsContent() {
   }
   
   const IntegrationGrid = () => {
-    console.log("Rendering IntegrationGrid. openGuideForProviderId:", openGuideForProviderId)
-    console.log("filteredProviders:", filteredProviders.map(p => p.id))
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {loading && filteredProviders.length === 0 ? (
