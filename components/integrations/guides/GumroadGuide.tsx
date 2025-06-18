@@ -48,14 +48,6 @@ export function GumroadGuide({ open, onOpenChange, onConnect }: GumroadGuideProp
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
-          {/* Hidden dummy password field to trap browser autofill */}
-          <input
-            type="password"
-            name="fake-password-modal"
-            autoComplete="new-password"
-            style={{ display: 'none' }}
-            tabIndex={-1}
-          />
           <ol className="list-decimal list-inside space-y-2 text-sm">
             <li>
               Log in to your Gumroad account.
