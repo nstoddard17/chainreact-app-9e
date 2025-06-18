@@ -4,6 +4,7 @@ import { useEffect } from "react"
 import { useAnalyticsStore } from "@/stores/analyticsStore"
 import { useAuthStore } from "@/stores/authStore"
 import { useIntegrationStore } from '@/stores/integrationStore'
+import { useWorkflowStore } from '@/stores/workflowStore'
 import AppLayout from "@/components/layout/AppLayout"
 import MetricCard from "@/components/dashboard/MetricCard"
 import ActivityFeed from "@/components/dashboard/ActivityFeed"
@@ -11,15 +12,21 @@ import WorkflowChart from "@/components/dashboard/WorkflowChart"
 import { Workflow, Clock, Puzzle, Zap } from "lucide-react"
 
 export default function DashboardContent() {
-  const { metrics, chartData, fetchMetrics, fetchChartData } = useAnalyticsStore()
+  const { metrics, chartData, fetchMetrics, fetchChartData, fetchExecutions } = useAnalyticsStore()
   const { user } = useAuthStore()
   const { getConnectedProviders } = useIntegrationStore()
+  const { workflows, fetchWorkflows } = useWorkflowStore()
   const connectedIntegrationsCount = getConnectedProviders().length
+
+  // Count active workflows (workflows that are not drafts)
+  const activeWorkflowsCount = workflows.filter((workflow: any) => workflow.status !== 'draft').length
 
   useEffect(() => {
     fetchMetrics()
     fetchChartData()
-  }, [fetchMetrics, fetchChartData])
+    fetchWorkflows()
+    fetchExecutions()
+  }, [fetchMetrics, fetchChartData, fetchWorkflows, fetchExecutions])
 
   const getFirstName = () => {
     if (user?.name) {
@@ -47,11 +54,10 @@ export default function DashboardContent() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <MetricCard
-            title="Workflows Run"
-            value={metrics?.workflowsRun || 0}
+            title="Active Workflows"
+            value={activeWorkflowsCount}
             icon={<Workflow className="w-6 h-6" />}
             color="blue"
-            change="+12%"
           />
           <MetricCard 
             title="Hours Saved" 
