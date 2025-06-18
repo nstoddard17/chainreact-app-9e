@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/cron/refresh-tokens-simple",
-      "schedule": "*/30 * * * *"
+      "schedule": "*/20 * * * *"
     },
     {
       "path": "/api/cron/recover-expired",

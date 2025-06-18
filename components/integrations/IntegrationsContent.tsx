@@ -59,16 +59,22 @@ function IntegrationsContent() {
       let status: "connected" | "expired" | "expiring" | "disconnected" = "disconnected"
 
       if (integration && integration.status === "connected") {
-        if (expiresAt && expiresAt < now) {
-          status = "expired"
-        } else {
-          // Check if expiring within 30 minutes
-          const thirtyMinutesFromNow = new Date(now.getTime() + 30 * 60 * 1000)
-          if (expiresAt && expiresAt < thirtyMinutesFromNow) {
+        if (expiresAt) {
+          // Fix: Use UTC timestamps for comparison to avoid timezone issues
+          const expiryTimestamp = expiresAt.getTime()
+          const nowTimestamp = now.getTime()
+          const diffMs = expiryTimestamp - nowTimestamp
+          const tenMinutesMs = 10 * 60 * 1000
+
+          if (diffMs <= 0) {
+            status = "expired"
+          } else if (diffMs < tenMinutesMs) {
             status = "expiring"
           } else {
             status = "connected"
           }
+        } else {
+          status = "connected"
         }
       }
 
