@@ -32,6 +32,14 @@ export default function AppLayout({ children, title }: AppLayoutProps) {
 
   return (
     <div className="min-h-screen bg-slate-50 flex">
+      {/* Hidden dummy password field to trap browser autofill globally */}
+      <input
+        type="password"
+        name="fake-password-global"
+        autoComplete="new-password"
+        style={{ display: 'none' }}
+        tabIndex={-1}
+      />
       <Sidebar isMobileMenuOpen={isMobileMenuOpen} onMobileMenuChange={setIsMobileMenuOpen} />
       {isMobileMenuOpen && (
         <div
