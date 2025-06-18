@@ -81,6 +81,41 @@ export async function GET(request: NextRequest) {
 
     console.log(`✅ [${jobId}] Found ${integrations?.length || 0} connected integrations with refresh tokens`)
 
+    // Step 2.5: Fix expired status for any connected integrations that are actually expired
+    console.log(`🔧 [${jobId}] Step 2.5: Checking for expired integrations that need status update...`)
+    const now = new Date()
+    let statusFixedCount = 0
+    
+    for (const integration of integrations || []) {
+      if (integration.expires_at) {
+        const expiresAt = new Date(integration.expires_at)
+        
+        // If token is expired but status is still "connected"
+        if (expiresAt < now) {
+          console.log(`🔧 [${jobId}] Fixing status for ${integration.provider} - expired at ${expiresAt.toISOString()}`)
+          
+          const { error: updateError } = await supabase
+            .from("integrations")
+            .update({
+              status: "expired",
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", integration.id)
+
+          if (updateError) {
+            console.error(`❌ [${jobId}] Failed to update status for ${integration.provider}:`, updateError)
+          } else {
+            statusFixedCount++
+            console.log(`✅ [${jobId}] Fixed status for ${integration.provider}: connected → expired`)
+          }
+        }
+      }
+    }
+
+    if (statusFixedCount > 0) {
+      console.log(`🔧 [${jobId}] Fixed status for ${statusFixedCount} expired integrations`)
+    }
+
     if (!integrations || integrations.length === 0) {
       console.log(`ℹ️ [${jobId}] No integrations to process`)
       
