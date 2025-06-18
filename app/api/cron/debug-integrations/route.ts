@@ -88,7 +88,7 @@ export async function GET(request: NextRequest) {
       provider: integration.provider,
       status: integration.status,
       hasRefreshToken: !!integration.refresh_token,
-      expiresAt: integration.expires_at,
+      expires_at: integration.expires_at,
       expiresIn: integration.expires_at
         ? `${Math.floor((new Date(integration.expires_at).getTime() / 1000 - now) / 60)} minutes`
         : "No expiry",

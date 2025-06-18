@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
         provider: 'docker',
         access_token: accessToken,
         refresh_token: refreshToken,
-        expiresAt: expiresAt ? expiresAt.toISOString() : null,
+        expires_at: expiresAt ? expiresAt.toISOString() : null,
         scopes: tokens.scope ? tokens.scope.split(' ') : null,
         status: 'connected',
         updated_at: new Date().toISOString(),

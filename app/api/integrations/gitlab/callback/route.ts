@@ -62,9 +62,9 @@ export async function GET(request: NextRequest) {
       provider: 'gitlab',
       access_token: tokenData.access_token,
       refresh_token: tokenData.refresh_token,
+      expires_at: expiresAt ? expiresAt.toISOString() : null,
       scopes: tokenData.scope.split(' '),
       status: 'connected',
-      expiresAt: expiresAt ? expiresAt.toISOString() : null,
       updated_at: new Date().toISOString(),
     }
 

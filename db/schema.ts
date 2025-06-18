@@ -11,18 +11,6 @@ export const users = {
   },
 }
 
-export const trelloIntegrationTable = {
-  tableName: "trello_integrations",
-  columns: {
-    id: "id",
-    user_id: "user_id",
-    token: "token",
-    token_secret: "token_secret",
-    created_at: "created_at",
-    updated_at: "updated_at",
-  },
-}
-
 export const accounts = {
   tableName: "accounts",
   columns: {
@@ -63,6 +51,11 @@ export const integrations = {
     provider_user_id: "provider_user_id",
     access_token: "access_token",
     refresh_token: "refresh_token",
+    // OAuth 1.0a tokens
+    token: "token",
+    token_secret: "token_secret",
+    // API Key auth
+    api_key: "api_key",
     expires_at: "expires_at",
     scopes: "scopes",
     metadata: "metadata",
@@ -120,6 +113,9 @@ export interface Integration {
   provider_user_id?: string
   access_token?: string
   refresh_token?: string
+  token?: string // OAuth 1.0a
+  token_secret?: string // OAuth 1.0a
+  api_key?: string
   expires_at?: string
   scopes?: string[]
   metadata?: Record<string, any>
@@ -132,4 +128,4 @@ export interface Integration {
   last_token_refresh_status?: "success" | "failure"
   consecutive_failures?: number
   last_failure_at?: string
-}
+} 

@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
         provider: integration.provider,
         userId: integration.user_id,
         hasRefreshToken: !!integration.refresh_token,
-        expiresAt: integration.expires_at,
+        expires_at: integration.expires_at,
         status: integration.status,
         lastRefresh: integration.last_token_refresh,
         testStatus: "skipped",

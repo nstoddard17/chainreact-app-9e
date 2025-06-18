@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
       provider_user_id: providerUserId,
       access_token: tokenData.access_token,
       refresh_token: tokenData.refresh_token,
-      expiresAt: expiresAt ? expiresAt.toISOString() : null,
+      expires_at: expiresAt ? expiresAt.toISOString() : null,
       scopes: [], // Canva doesn't return scopes in the token response
       status: "connected",
       updated_at: new Date().toISOString(),

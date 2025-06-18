@@ -182,17 +182,12 @@ export async function GET(request: NextRequest) {
     const integrationData = {
       user_id: userId,
       provider: "google-calendar",
-      status: "connected",
+      provider_user_id: userInfo.id,
       access_token: tokenData.access_token,
       refresh_token: tokenData.refresh_token,
-      expiresAt: expiresAt ? expiresAt.toISOString() : null,
+      expires_at: expiresAt ? expiresAt.toISOString() : null,
       scopes: tokenData.scope.split(" "),
-      provider_user_id: userInfo.id,
-      metadata: {
-        email: userInfo.email,
-        name: userInfo.name,
-        picture: userInfo.picture,
-      },
+      status: "connected",
       updated_at: new Date().toISOString(),
     }
 
