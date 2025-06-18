@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized - no valid user" }, { status: 401 })
     }
 
-    console.log("🔍 Fetching integrations for authenticated user:", user.id)
+    console.log("🔍 Fetching integrations for authenticated user")
 
     // First, let's verify the user exists in the database
     const { data: userData, error: userCheckError } = await supabase
@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
     if (userCheckError) {
       console.error("Error checking user existence:", userCheckError)
     } else {
-      console.log("✅ User verified:", userData?.email)
+      console.log("✅ User verified")
     }
 
     // Fetch user's integrations with detailed logging
@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    console.log(`✅ Found ${integrations?.length || 0} integrations for user ${user.id}`)
+    console.log(`✅ Found ${integrations?.length || 0} integrations`)
     
     // Log each integration for debugging
     if (integrations && integrations.length > 0) {
@@ -90,7 +90,6 @@ export async function GET(request: NextRequest) {
       count: transformedIntegrations.length,
       user_id: user.id,
       debug: {
-        user_email: userData?.email,
         request_timestamp: new Date().toISOString(),
       }
     })

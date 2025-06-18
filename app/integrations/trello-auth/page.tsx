@@ -55,17 +55,14 @@ export default function TrelloAuthPage() {
           return
         }
 
-        console.log("Processing Trello token for user:", user.id)
-
-        // Send the token to our server-side callback handler
+        console.log("Processing Trello token")
         const response = await fetch("/api/integrations/trello/process-token", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`, // Include auth token
           },
           body: JSON.stringify({
-            token,
+            token: token,
             userId: user.id,
           }),
         })
