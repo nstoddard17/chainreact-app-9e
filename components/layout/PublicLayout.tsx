@@ -7,6 +7,7 @@ import Link from "next/link"
 import { useState } from "react"
 import { useAuth } from "@/hooks/use-auth"
 import { useAuthStore } from "@/stores/authStore"
+import { useRouter } from "next/navigation"
 
 interface PublicLayoutProps {
   children: React.ReactNode
@@ -16,6 +17,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const { isAuthenticated, user, isReady } = useAuth()
   const { signOut } = useAuthStore()
+  const router = useRouter()
 
   const handlePageNavigation = (path: string) => {
     setMobileMenuOpen(false)
@@ -29,8 +31,17 @@ export function PublicLayout({ children }: PublicLayoutProps) {
   }
 
   const handleSignOut = async () => {
-    await signOut()
-    setMobileMenuOpen(false)
+    try {
+      await signOut()
+      setMobileMenuOpen(false)
+      // Redirect to homepage after successful logout
+      router.push("/")
+    } catch (error) {
+      console.error("Logout error:", error)
+      setMobileMenuOpen(false)
+      // Still redirect even if there's an error
+      router.push("/")
+    }
   }
 
   if (!isReady) {

@@ -74,6 +74,17 @@ export const useAuthStore = create<AuthState>()(
 
             set({ user, loading: false, initialized: true })
 
+            // Set current user ID in integration store
+            setTimeout(async () => {
+              try {
+                const { useIntegrationStore } = await import("./integrationStore")
+                useIntegrationStore.getState().setCurrentUserId(session.user.id)
+                console.log("✅ Integration store updated with existing user ID:", session.user.id)
+              } catch (error) {
+                console.error("Error updating integration store user ID on init:", error)
+              }
+            }, 100)
+
             // Start background data preloading (only once)
             console.log("🚀 Starting background data preload...")
             setTimeout(async () => {
@@ -94,6 +105,19 @@ export const useAuthStore = create<AuthState>()(
           } else {
             console.log("❌ No valid session found")
             set({ user: null, loading: false, initialized: true })
+            
+            // Clear integration store when no user is found
+            setTimeout(async () => {
+              try {
+                const { useIntegrationStore } = await import("./integrationStore")
+                const integrationStore = useIntegrationStore.getState()
+                integrationStore.setCurrentUserId(null)
+                integrationStore.clearAllData()
+                console.log("✅ Integration store cleared - no user session")
+              } catch (error) {
+                console.error("Error clearing integration store on init:", error)
+              }
+            }, 100)
           }
 
           // Set up auth state listener (only once)
@@ -110,9 +134,33 @@ export const useAuthStore = create<AuthState>()(
                 }
 
                 set({ user, error: null })
+                
+                // Update integration store with new user ID
+                setTimeout(async () => {
+                  try {
+                    const { useIntegrationStore } = await import("./integrationStore")
+                    useIntegrationStore.getState().setCurrentUserId(session.user.id)
+                    console.log("✅ Integration store updated with new user ID:", session.user.id)
+                  } catch (error) {
+                    console.error("Error updating integration store user ID:", error)
+                  }
+                }, 100)
               } else if (event === "SIGNED_OUT") {
                 console.log("👋 User signed out")
                 set({ user: null, error: null })
+                
+                // Clear integration store when user signs out
+                setTimeout(async () => {
+                  try {
+                    const { useIntegrationStore } = await import("./integrationStore")
+                    const integrationStore = useIntegrationStore.getState()
+                    integrationStore.setCurrentUserId(null)
+                    integrationStore.clearAllData()
+                    console.log("✅ Integration store cleared on auth state change")
+                  } catch (error) {
+                    console.error("Error clearing integration store on sign out:", error)
+                  }
+                }, 100)
               }
             })
           }
@@ -130,11 +178,17 @@ export const useAuthStore = create<AuthState>()(
 
           set({ user: null, loading: false, error: null })
 
-          // Clear integration store
+          // Clear integration store properly
           setTimeout(async () => {
             try {
               const { useIntegrationStore } = await import("./integrationStore")
-              useIntegrationStore.getState().clearAllData()
+              const integrationStore = useIntegrationStore.getState()
+              
+              // Set current user to null first, then clear all data
+              integrationStore.setCurrentUserId(null)
+              integrationStore.clearAllData()
+              
+              console.log("✅ Integration store cleared on logout")
             } catch (error) {
               console.error("Error clearing integration data:", error)
             }
