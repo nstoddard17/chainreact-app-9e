@@ -17,111 +17,122 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 
 function IntegrationsContent() {
-  const { integrations, apiKeyIntegrations, refreshTokens, disconnectIntegration, reconnectIntegration, deleteIntegration } = useIntegrationStore()
-  const { toast } = useToast()
   const [activeTab, setActiveTab] = useState("all")
-  const [searchQuery, setSearchQuery] = useState("")
-  const [isRefreshing, setIsRefreshing] = useState(false)
   const [autoRefresh, setAutoRefresh] = useState(true)
+  const [isInitializing, setIsInitializing] = useState(true)
+  const [searchQuery, setSearchQuery] = useState("")
+  const { toast } = useToast()
 
-  const handleRefresh = useCallback(async () => {
-    try {
-      setIsRefreshing(true)
-      await refreshTokens()
-      toast({
-        title: "Success",
-        description: "Integration tokens refreshed successfully.",
-      })
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to refresh integration tokens.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsRefreshing(false)
+  const { integrations, providers, initializeProviders, fetchIntegrations, loading } = useIntegrationStore()
+  const { user } = useAuthStore()
+
+  useEffect(() => {
+    const initialize = async () => {
+      setIsInitializing(true)
+      // Ensure providers are initialized before fetching integrations
+      await initializeProviders()
+      if (user) {
+        await fetchIntegrations(true)
+      }
+      setIsInitializing(false)
     }
-  }, [refreshTokens, toast])
+    initialize()
+  }, [user, initializeProviders, fetchIntegrations])
 
-  const handleDisconnect = useCallback(async (integrationId: string) => {
-    try {
-      await disconnectIntegration(integrationId)
-      toast({
-        title: "Success",
-        description: "Integration disconnected successfully.",
-      })
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to disconnect integration.",
-        variant: "destructive",
-      })
-    }
-  }, [disconnectIntegration, toast])
+  const handleRefreshTokens = useCallback(async () => {
+    toast({ title: "Refreshing tokens...", description: "This may take a moment." })
+    await fetchIntegrations(true)
+    toast({ title: "Success", description: "All tokens have been refreshed." })
+  }, [fetchIntegrations, toast])
 
-  const handleReconnect = useCallback(async (integrationId: string) => {
-    try {
-      await reconnectIntegration(integrationId)
-      toast({
-        title: "Success",
-        description: "Integration reconnected successfully.",
-      })
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to reconnect integration.",
-        variant: "destructive",
-      })
-    }
-  }, [reconnectIntegration, toast])
+  const providersWithStatus = useMemo(() => {
+    if (!providers || providers.length === 0) return []
 
-  const handleDelete = useCallback(async (integrationId: string) => {
-    try {
-      await deleteIntegration(integrationId)
-      toast({
-        title: "Success",
-        description: "Integration deleted successfully.",
-      })
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to delete integration.",
-        variant: "destructive",
-      })
-    }
-  }, [deleteIntegration, toast])
+    return providers.map((provider) => {
+      const integration = integrations.find((i) => i.provider === provider.id)
+      const now = new Date()
+      const expiresAt = integration?.expires_at ? new Date(integration.expires_at) : null
+      let status = "disconnected"
 
-  const filteredIntegrations = useMemo(() => {
-    return integrations.filter((integration) => {
-      const matchesSearch = integration.name.toLowerCase().includes(searchQuery.toLowerCase())
-      const matchesTab = activeTab === "all" || integration.status === activeTab
-      return matchesSearch && matchesTab
+      if (integration && integration.status === "connected") {
+        if (expiresAt && expiresAt < now) {
+          status = "expiring" // Token is expired
+        } else {
+          // Check if expiring within 7 days
+          const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
+          if (expiresAt && expiresAt < sevenDaysFromNow) {
+            status = "expiring"
+          } else {
+            status = "connected"
+          }
+        }
+      }
+
+      return {
+        ...provider,
+        integration,
+        status,
+      }
     })
-  }, [integrations, searchQuery, activeTab])
+  }, [providers, integrations])
 
-  const filteredApiKeyIntegrations = useMemo(() => {
-    return apiKeyIntegrations.filter((integration) => {
-      const matchesSearch = integration.name.toLowerCase().includes(searchQuery.toLowerCase())
-      const matchesTab = activeTab === "all" || integration.status === activeTab
-      return matchesSearch && matchesTab
-    })
-  }, [apiKeyIntegrations, searchQuery, activeTab])
+  const { connectedCount, expiringCount, disconnectedCount } = useMemo(() => {
+    return providersWithStatus.reduce(
+      (counts, p) => {
+        if (p.status === "connected") counts.connected++
+        else if (p.status === "expiring") counts.expiring++
+        else counts.disconnected++
+        return counts
+      },
+      { connected: 0, expiring: 0, disconnected: 0 }
+    )
+  }, [providersWithStatus])
 
-  const connectedCount = useMemo(() => {
-    return integrations.filter((i) => i.status === "connected").length
-  }, [integrations])
+  const filteredProviders = useMemo(() => {
+    let filtered = providersWithStatus
 
-  const expiringCount = useMemo(() => {
-    return integrations.filter((i) => i.status === "expiring").length
-  }, [integrations])
+    if (activeTab !== "all") {
+      filtered = filtered.filter((p) => p.status === activeTab)
+    }
 
-  const disconnectedCount = useMemo(() => {
-    return integrations.filter((i) => i.status === "disconnected").length
-  }, [integrations])
+    if (searchQuery) {
+      const lowercasedQuery = searchQuery.toLowerCase()
+      filtered = filtered.filter(
+        (p) =>
+          p.name.toLowerCase().includes(lowercasedQuery) ||
+          p.description?.toLowerCase().includes(lowercasedQuery)
+      )
+    }
+
+    return filtered.sort((a, b) => a.name.localeCompare(b.name))
+  }, [activeTab, searchQuery, providersWithStatus])
+
+  if (isInitializing && !providers.length) {
+    return (
+      <AppLayout>
+        <div className="flex items-center justify-center h-screen">
+          <Loader2 className="w-12 h-12 animate-spin text-blue-600" />
+        </div>
+      </AppLayout>
+    )
+  }
+  
+  const IntegrationGrid = () => (
+    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+      {loading && filteredProviders.length === 0 ? (
+        <p>Loading integrations...</p>
+      ) : (
+        filteredProviders.map((p) => {
+          const CardComponent = p.authType === "apiKey" ? ApiKeyIntegrationCard : IntegrationCard
+          return <CardComponent key={p.id} provider={p} integration={p.integration || null} status={p.status} />
+        })
+      )}
+    </div>
+  )
 
   const StatusSidebar = () => (
-    <aside className="hidden lg:block w-full lg:pl-8 mt-8 lg:mt-0">
-      <Card className="shadow-sm rounded-lg border-gray-200">
+    <aside className="w-full lg:w-80 lg:pl-8 mt-8 lg:mt-0">
+      <Card className="sticky top-24 shadow-sm rounded-lg border-gray-200">
         <CardHeader>
           <CardTitle className="text-lg">Status</CardTitle>
         </CardHeader>
@@ -169,89 +180,40 @@ function IntegrationsContent() {
 
   return (
     <AppLayout>
-      <div className="w-full px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col lg:flex-row lg:gap-8">
-          <div className="flex-1 min-w-0">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-              <h1 className="text-2xl font-semibold text-slate-900">Integrations</h1>
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
-                <div className="relative flex-1 sm:flex-none">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
-                  <Input
-                    type="text"
-                    placeholder="Search integrations..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-9 w-full sm:w-64"
-                  />
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleRefresh}
-                  disabled={isRefreshing}
-                  className="whitespace-nowrap"
-                >
-                  {isRefreshing ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  ) : (
-                    <RefreshCw className="w-4 h-4 mr-2" />
-                  )}
-                  Refresh
-                </Button>
-              </div>
-            </div>
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex justify-between items-start mb-6">
+           <div>
+             <h1 className="text-3xl font-bold text-gray-800">Integrations</h1>
+             <p className="text-gray-500 mt-1">Manage your connections to third-party services.</p>
+           </div>
+           <Button onClick={handleRefreshTokens} disabled={loading} variant="outline">
+              {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+             Refresh All
+           </Button>
+        </div>
 
-            <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-              <Card className="bg-white rounded-2xl shadow-lg border border-slate-200">
-                <CardContent className="p-0">
-                  <TabsList className="w-full justify-start rounded-none border-b border-slate-200 bg-transparent p-0 overflow-x-auto">
-                    <TabsTrigger
-                      value="all"
-                      className="rounded-none border-b-2 border-transparent px-4 py-3 data-[state=active]:border-blue-500 data-[state=active]:bg-transparent data-[state=active]:shadow-none whitespace-nowrap"
-                    >
-                      All
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="connected"
-                      className="rounded-none border-b-2 border-transparent px-4 py-3 data-[state=active]:border-blue-500 data-[state=active]:bg-transparent data-[state=active]:shadow-none whitespace-nowrap"
-                    >
-                      Connected
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="disconnected"
-                      className="rounded-none border-b-2 border-transparent px-4 py-3 data-[state=active]:border-blue-500 data-[state=active]:bg-transparent data-[state=active]:shadow-none whitespace-nowrap"
-                    >
-                      Disconnected
-                    </TabsTrigger>
-                  </TabsList>
-                </CardContent>
-              </Card>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filteredIntegrations.map((integration) => (
-                  <IntegrationCard
-                    key={integration.id}
-                    integration={integration}
-                    onRefresh={handleRefresh}
-                    onDisconnect={handleDisconnect}
-                    onReconnect={handleReconnect}
-                    onDelete={handleDelete}
-                  />
-                ))}
-                {filteredApiKeyIntegrations.map((integration) => (
-                  <ApiKeyIntegrationCard
-                    key={integration.id}
-                    integration={integration}
-                    onRefresh={handleRefresh}
-                    onDisconnect={handleDisconnect}
-                    onReconnect={handleReconnect}
-                    onDelete={handleDelete}
-                  />
-                ))}
+        <div className="lg:flex lg:gap-8">
+          <main className="flex-1">
+             <div className="relative mb-6">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <Input
+                  placeholder="Search integrations..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 w-full"
+                />
               </div>
+
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
+              <TabsList>
+                <TabsTrigger value="all">All</TabsTrigger>
+                <TabsTrigger value="connected">Connected</TabsTrigger>
+                <TabsTrigger value="expiring">Expiring Soon</TabsTrigger>
+                <TabsTrigger value="disconnected">Disconnected</TabsTrigger>
+              </TabsList>
             </Tabs>
-          </div>
+            <IntegrationGrid />
+          </main>
           <StatusSidebar />
         </div>
       </div>
