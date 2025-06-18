@@ -65,7 +65,6 @@ export default function DashboardContent() {
             value={connectedIntegrationsCount}
             icon={<Puzzle className="w-6 h-6" />}
             color="purple"
-            change="+2"
           />
           <MetricCard 
             title="AI Commands" 

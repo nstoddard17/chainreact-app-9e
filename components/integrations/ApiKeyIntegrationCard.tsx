@@ -34,11 +34,12 @@ interface ApiKeyIntegrationCardProps {
   provider: Provider
   integration: Integration | null
   status: 'connected' | 'expiring' | 'disconnected'
+  open: boolean
+  onOpenChange: (open: boolean) => void
 }
 
-export function ApiKeyIntegrationCard({ provider, integration, status }: ApiKeyIntegrationCardProps) {
+export function ApiKeyIntegrationCard({ provider, integration, status, open, onOpenChange }: ApiKeyIntegrationCardProps) {
   const { connectApiKeyIntegration, disconnectIntegration, loadingStates } = useIntegrationStore()
-  const [showGuide, setShowGuide] = useState(false)
   const [imageError, setImageError] = useState(false)
 
   const handleDisconnect = () => {
@@ -177,7 +178,7 @@ export function ApiKeyIntegrationCard({ provider, integration, status }: ApiKeyI
                   Disconnect
                 </Button>
                 <Button
-                  onClick={() => setShowGuide(true)}
+                  onClick={() => onOpenChange(true)}
                   disabled={isLoading}
                   size="sm"
                   variant="ghost"
@@ -190,7 +191,7 @@ export function ApiKeyIntegrationCard({ provider, integration, status }: ApiKeyI
             ) : status === 'expiring' ? (
               <div className="flex items-center gap-3">
                 <Button
-                  onClick={() => setShowGuide(true)}
+                  onClick={() => onOpenChange(true)}
                   disabled={isLoading}
                   size="sm"
                   className="flex-1 bg-gray-900 text-white hover:bg-gray-800"
@@ -211,7 +212,7 @@ export function ApiKeyIntegrationCard({ provider, integration, status }: ApiKeyI
               </div>
             ) : (
               <Button
-                onClick={() => setShowGuide(true)}
+                onClick={() => onOpenChange(true)}
                 disabled={isLoading}
                 size="sm"
                 className="w-full bg-gray-900 text-white hover:bg-gray-800"
@@ -225,8 +226,8 @@ export function ApiKeyIntegrationCard({ provider, integration, status }: ApiKeyI
       </Card>
       {GuideComponent && (
         <GuideComponent
-          open={showGuide}
-          onOpenChange={setShowGuide}
+          open={open}
+          onOpenChange={onOpenChange}
           onConnect={async (apiKey: any) => {
             try {
               await connectApiKeyIntegration(provider.id, apiKey)
