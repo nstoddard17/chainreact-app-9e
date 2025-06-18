@@ -324,8 +324,10 @@ async function processIntegrationRefresh(
     console.log(`${logPrefix}   - expires in: ${expiresIn}s (${Math.floor(expiresIn / 60)}min)`)
     console.log(`${logPrefix}   - isExpired: ${isExpired}, needsAttention: ${needsAttention}`)
   } else {
-    needsAttention = true
-    console.log(`${logPrefix} ⚠️ No expiry set for ${provider} — needs attention`)
+    // No expiry set - this is normal for integrations that don't expire
+    // Only process if they have a refresh token (for proactive refresh)
+    needsAttention = !!integration.refresh_token
+    console.log(`${logPrefix} ⚠️ No expiry set for ${provider} — ${needsAttention ? 'has refresh token, will check' : 'no refresh token, skipping'}`)
   }
 
   if (!needsAttention) {

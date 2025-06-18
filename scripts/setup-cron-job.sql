@@ -93,4 +93,22 @@ FROM cron.job
 WHERE jobname = 'refresh-oauth-tokens';
 
 -- 11. Show current token health
-SELECT * FROM token_health_summary; 
+SELECT * FROM token_health_summary;
+
+-- Check total number of integrations
+SELECT 
+  provider,
+  status,
+  COUNT(*) as count
+FROM integrations 
+GROUP BY provider, status
+ORDER BY count DESC;
+
+-- Total count
+SELECT 
+  COUNT(*) as total_integrations,
+  COUNT(*) FILTER (WHERE status = 'connected') as connected,
+  COUNT(*) FILTER (WHERE status = 'expired') as expired,
+  COUNT(*) FILTER (WHERE status = 'needs_reauthorization') as needs_reauth,
+  COUNT(*) FILTER (WHERE status = 'disconnected') as disconnected
+FROM integrations; 
