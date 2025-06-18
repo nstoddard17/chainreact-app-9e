@@ -475,10 +475,11 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     capabilities: ["Content Management", "Audience Engagement", "Channel Analytics", "Monetization Tracking"],
     scopes: [
       "https://www.googleapis.com/auth/youtubepartner",
-      "https://www.googleapis.com/auth/youtube"],
+      "https://www.googleapis.com/auth/youtube"
+    ],
     isAvailable: false,
-    requiresClientId: "NEXT_PUBLIC_YOUTUBE_STUDIO_CLIENT_ID",
-    requiresClientSecret: "YOUTUBE_STUDIO_CLIENT_SECRET",
+    requiresClientId: "NEXT_PUBLIC_YOUTUBE_CLIENT_ID",
+    requiresClientSecret: "YOUTUBE_CLIENT_SECRET",
     color: "#FF0000",
     docsUrl: "https://developers.google.com/youtube/partner/docs",
     authType: "oauth",
