@@ -38,7 +38,7 @@ export default function WorkflowChart({ data = [] }: WorkflowChartProps) {
               data={chartData}
               margin={{
                 top: 5,
-                right: 10,
+                right: 30,
                 left: 0,
                 bottom: 5,
               }}
@@ -58,7 +58,7 @@ export default function WorkflowChart({ data = [] }: WorkflowChartProps) {
             </LineChart>
           </ResponsiveContainer>
         </div>
-        <div className="flex justify-center mt-4 space-x-6">
+        <div className="flex flex-col sm:flex-row justify-center mt-4 space-y-2 sm:space-y-0 sm:space-x-6">
           <div className="flex items-center">
             <div className="w-3 h-3 rounded-full bg-blue-500 mr-2"></div>
             <span className="text-sm text-slate-600">Executions</span>

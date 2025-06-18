@@ -31,7 +31,7 @@ export default function DashboardContent() {
   const firstName = getFirstName()
 
   return (
-    <AppLayout>
+    <AppLayout title="Dashboard">
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
