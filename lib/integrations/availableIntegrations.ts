@@ -517,22 +517,6 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     authType: "oauth",
   },
 
-  canva: {
-    id: "canva",
-    name: "Canva",
-    description: "Design anything. Publish anywhere.",
-    category: "design",
-    logoUrl: "/integrations/canva.svg",
-    capabilities: ["Create Designs", "Access Templates", "Collaborate on Projects", "Export Assets"],
-    scopes: ["asset:read", "asset:write", "design:read", "design:write"],
-    isAvailable: false,
-    requiresClientId: "NEXT_PUBLIC_CANVA_CLIENT_ID",
-    requiresClientSecret: "CANVA_CLIENT_SECRET",
-    color: "#00C4CC",
-    docsUrl: "https://www.canva.com/developers/docs/",
-    authType: "oauth",
-  },
-
   blackbaud: {
     id: "blackbaud",
     name: "Blackbaud Raiser's Edge NXT",
