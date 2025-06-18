@@ -52,7 +52,7 @@ function IntegrationsContent() {
       const integration = integrations.find((i) => i.provider === provider.id)
       const now = new Date()
       const expiresAt = integration?.expires_at ? new Date(integration.expires_at) : null
-      let status = "disconnected"
+      let status: "connected" | "expired" | "expiring" | "disconnected" = "disconnected"
 
       if (integration && integration.status === "connected") {
         if (expiresAt && expiresAt < now) {
@@ -76,7 +76,7 @@ function IntegrationsContent() {
     })
   }, [providers, integrations])
 
-  const { connectedCount, expiringCount, disconnectedCount, expiredCount } = useMemo(() => {
+  const { connected, expiring, disconnected, expired } = useMemo(() => {
     return providersWithStatus.reduce(
       (counts, p) => {
         if (p.status === "connected") counts.connected++
@@ -110,7 +110,7 @@ function IntegrationsContent() {
 
   if (isInitializing && !providers.length) {
     return (
-      <AppLayout>
+      <AppLayout title="Loading...">
         <div className="flex items-center justify-center h-screen">
           <Loader2 className="w-12 h-12 animate-spin text-blue-600" />
         </div>
@@ -125,7 +125,7 @@ function IntegrationsContent() {
       ) : (
         filteredProviders.map((p) => {
           const CardComponent = p.authType === "apiKey" ? ApiKeyIntegrationCard : IntegrationCard
-          return <CardComponent key={p.id} provider={p} integration={p.integration || null} status={p.status} />
+          return <CardComponent key={p.id} provider={p} integration={p.integration || null} status={p.status as any} />
         })
       )}
     </div>
@@ -145,7 +145,7 @@ function IntegrationsContent() {
                 Connected
               </span>
               <Badge variant="secondary" className="font-mono">
-                {connectedCount}
+                {connected}
               </Badge>
             </li>
             <li className="flex justify-between items-center">
@@ -154,7 +154,7 @@ function IntegrationsContent() {
                 Expiring
               </span>
               <Badge variant="secondary" className="font-mono">
-                {expiringCount}
+                {expiring}
               </Badge>
             </li>
             <li className="flex justify-between items-center">
@@ -163,7 +163,7 @@ function IntegrationsContent() {
                 Expired
               </span>
               <Badge variant="secondary" className="font-mono">
-                {expiredCount}
+                {expired}
               </Badge>
             </li>
             <li className="flex justify-between items-center">
@@ -172,7 +172,7 @@ function IntegrationsContent() {
                 Disconnected
               </span>
               <Badge variant="secondary" className="font-mono">
-                {disconnectedCount}
+                {disconnected}
               </Badge>
             </li>
           </ul>
@@ -189,7 +189,7 @@ function IntegrationsContent() {
   )
 
   return (
-    <AppLayout>
+    <AppLayout title="Integrations">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex justify-between items-start mb-6">
            <div>
