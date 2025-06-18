@@ -6,6 +6,7 @@ import { ThemeProvider } from "@/components/theme-provider"
 import SupabaseProvider from "@/components/providers/SupabaseProvider"
 import AuthInitializer from "@/components/auth/AuthInitializer"
 import { Toaster } from "@/components/ui/toaster"
+import { ReAuthNotification } from "@/components/integrations/ReAuthNotification"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -29,6 +30,7 @@ export default function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
           <SupabaseProvider>
             <AuthInitializer />
+            <ReAuthNotification />
             <Toaster />
             {children}
           </SupabaseProvider>
