@@ -41,19 +41,39 @@ export function ReAuthNotification({ className }: ReAuthNotificationProps) {
     }
 
     // Check if notification was dismissed
-    const now = Date.now()
-    if (dismissedUntil && now < dismissedUntil) {
+    const now = new Date()
+    if (dismissedUntil && now.getTime() < dismissedUntil) {
       setIsVisible(false)
       return
     }
 
-    // Only count integrations that need re-authorization (expired or needs_reauthorization status)
-    const reAuthIntegrations = integrations.filter(
-      integration => integration.status === 'needs_reauthorization' || 
-                     integration.status === 'expired'
-    )
+    // Use the same logic as the UI to determine expired integrations
+    const reAuthIntegrations = integrations.filter(integration => {
+      // Check database status first
+      if (integration.status === 'needs_reauthorization' || integration.status === 'expired') {
+        console.log(`🔴 Integration ${integration.provider} needs re-auth (status: ${integration.status})`)
+        return true
+      }
+      
+      // Check if connected integration has expired based on expires_at timestamp
+      if (integration.status === 'connected' && integration.expires_at) {
+        const expiresAt = new Date(integration.expires_at)
+        // Use the same approach as UI: UTC timestamps for comparison to avoid timezone issues
+        const expiryTimestamp = expiresAt.getTime()
+        const nowTimestamp = now.getTime()
+        
+        // If expired (past the expiry time)
+        if (expiryTimestamp <= nowTimestamp) {
+          console.log(`🔴 Integration ${integration.provider} needs re-auth (expired at ${expiresAt.toISOString()}, now: ${now.toISOString()})`)
+          return true
+        }
+      }
+      
+      return false
+    })
 
     const reAuthCount = reAuthIntegrations.length
+    console.log(`📊 Re-auth notification: ${reAuthCount} integrations need re-authorization`)
     setNeedsReAuthCount(reAuthCount)
     setIsVisible(reAuthCount > 0)
   }, [user, integrations, dismissedUntil])
