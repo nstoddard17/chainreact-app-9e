@@ -38,6 +38,7 @@ export interface IntegrationStore {
   preloadStarted: boolean
   apiKeyIntegrations: Integration[]
   currentUserId: string | null
+  lastRefreshTime: string | null
 
   // Actions
   setLoading: (key: string, loading: boolean) => void
@@ -70,6 +71,7 @@ interface IntegrationState {
   globalPreloadingData: boolean
   preloadStarted: boolean
   currentUserId: string | null
+  lastRefreshTime: string | null
 }
 
 // Get storage key based on current user
@@ -90,6 +92,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
       globalPreloadingData: false,
       preloadStarted: false,
       currentUserId: null,
+      lastRefreshTime: null,
 
       setCurrentUserId: (userId: string | null) => {
         const currentUserId = get().currentUserId
@@ -105,6 +108,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
             debugInfo: null,
             globalPreloadingData: false,
             preloadStarted: false,
+            lastRefreshTime: null,
           })
         }
       },
@@ -228,6 +232,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
             integrations: Array.isArray(data.data) ? data.data : data.integrations || [],
             loading: false,
             debugInfo: data.debug || {},
+            lastRefreshTime: new Date().toISOString(),
           })
 
           console.log(`✅ Integrations fetched:`, data.data?.length || 0)
@@ -538,6 +543,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
           globalPreloadingData: false,
           preloadStarted: false,
           apiKeyIntegrations: [],
+          lastRefreshTime: null,
         })
       },
 
