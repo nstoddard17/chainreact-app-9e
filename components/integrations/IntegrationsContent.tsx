@@ -17,9 +17,9 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 
 function IntegrationsContent() {
-  const [activeTab, setActiveTab] = useState("all")
+  const [activeTab, setActiveTab] = useState<"all" | "connected" | "expiring" | "expired" | "disconnected">("all")
   const [autoRefresh, setAutoRefresh] = useState(true)
-  const [isInitializing, setIsInitializing] = useState(true)
+  const [isInitializing, setIsInitializing] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [openGuideForProviderId, setOpenGuideForProviderId] = useState<string | null>(null)
   const { toast } = useToast()
@@ -54,6 +54,21 @@ function IntegrationsContent() {
 
     return () => clearInterval(interval)
   }, [autoRefresh, user, fetchIntegrations])
+
+  // Refresh when page becomes visible (user returns to tab)
+  useEffect(() => {
+    if (!user) return
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden && autoRefresh) {
+        console.log("🔄 Page became visible, refreshing integrations...")
+        fetchIntegrations(true)
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }, [user, autoRefresh, fetchIntegrations])
 
   const handleRefreshTokens = useCallback(async () => {
     toast({ title: "Refreshing tokens...", description: "This may take a moment." })
