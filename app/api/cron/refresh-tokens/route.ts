@@ -189,7 +189,6 @@ async function backgroundRefreshTokens(jobId: string, startTime: number): Promis
         .from("integrations")
         .select("*")
         .eq("status", "expired")
-        .not("refresh_token", "is", null)
         .gte("updated_at", sevenDaysAgo),
       10000,
       "Fetching expired integrations"
@@ -321,8 +320,15 @@ async function processIntegrationRefresh(
     console.log(`${logPrefix} Attempting to recover ${integration.status} integration: ${provider}`)
 
     if (!integration.refresh_token) {
-      console.log(`${logPrefix} Cannot recover ${provider}: no refresh token`)
-      return { refreshed: false, success: false, message: "Cannot recover: no refresh token" }
+      console.log(`${logPrefix} Cannot recover ${provider}: no refresh token - marking as needs_reauthorization`)
+      await supabase
+        .from("integrations")
+        .update({ 
+          status: "needs_reauthorization", 
+          updated_at: new Date().toISOString() 
+        })
+        .eq("id", integration.id)
+      return { refreshed: false, success: false, message: "Cannot recover: no refresh token - marked for reauthorization" }
     }
 
     // Try to refresh the token regardless of expiry for recovery attempts
