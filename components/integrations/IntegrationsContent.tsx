@@ -58,9 +58,9 @@ function IntegrationsContent() {
         if (expiresAt && expiresAt < now) {
           status = "expired"
         } else {
-          // Check if expiring within 7 days
-          const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
-          if (expiresAt && expiresAt < sevenDaysFromNow) {
+          // Check if expiring within 30 minutes
+          const thirtyMinutesFromNow = new Date(now.getTime() + 30 * 60 * 1000)
+          if (expiresAt && expiresAt < thirtyMinutesFromNow) {
             status = "expiring"
           } else {
             status = "connected"
