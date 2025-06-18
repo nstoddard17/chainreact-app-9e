@@ -5,9 +5,15 @@ import Image from "next/image"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, Link as LinkIcon, Link2Off, RefreshCw } from "lucide-react"
+import { Loader2, Link as LinkIcon, Link2Off, RefreshCw, Info } from "lucide-react"
 import { useIntegrationStore, type Integration, type Provider } from "@/stores/integrationStore"
 import { cn } from "@/lib/utils"
+import {
+  TooltipProvider,
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent
+} from '@/components/ui/tooltip'
 
 // Colors for the letter avatar
 const avatarColors = [
@@ -152,12 +158,48 @@ export function IntegrationCard({ provider, integration, status }: IntegrationCa
     )
   }
 
+  // Optional: Compose details for tooltip
+  const details = [
+    provider.name,
+    provider.description,
+    integration?.created_at ? `Last connected: ${new Date(integration.created_at).toLocaleString()}` : null,
+  ].filter(Boolean).join(' \n ')
+
   return (
     <Card className="flex flex-col justify-between h-full transition-all duration-200 hover:shadow-md rounded-xl border-gray-200 p-0 sm:p-0">
       <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-3 p-3 sm:p-4 pb-1 sm:pb-2">
-        <div className="flex flex-row sm:flex-row items-center gap-2 sm:gap-3 w-full">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-3 w-full">
           {renderLogo()}
-          <CardTitle className="text-base sm:text-lg font-semibold text-gray-900 truncate w-full">{provider.name}</CardTitle>
+          <div className="flex items-center w-full">
+            {/* Name and info icon */}
+            <div
+              className="flex-1 min-w-0"
+            >
+              <span
+                className="block text-base sm:text-lg font-semibold text-gray-900 max-w-[180px] sm:max-w-[200px] truncate sm:whitespace-nowrap sm:overflow-hidden sm:text-ellipsis line-clamp-2 sm:line-clamp-1"
+                title={provider.name}
+              >
+                {provider.name}
+              </span>
+            </div>
+            {/* Info icon with tooltip */}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button type="button" tabIndex={0} className="ml-1 text-gray-400 hover:text-gray-700 focus:outline-none">
+                    <Info className="w-4 h-4" aria-label="Integration details" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs whitespace-pre-line text-sm">
+                  <div className="font-semibold mb-1">{provider.name}</div>
+                  {provider.description && <div className="mb-1 text-gray-600">{provider.description}</div>}
+                  {integration?.created_at && (
+                    <div className="text-xs text-gray-400">Last connected: {new Date(integration.created_at).toLocaleString()}</div>
+                  )}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
         </div>
         <Badge 
           className={cn(
