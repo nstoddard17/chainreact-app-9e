@@ -48,6 +48,14 @@ export function ManyChatGuide({ open, onOpenChange, onConnect }: ManyChatGuidePr
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
+          {/* Hidden dummy email field to trap browser autofill */}
+          <input
+            type="email"
+            name="fake-email-modal"
+            autoComplete="username"
+            style={{ display: 'none' }}
+            tabIndex={-1}
+          />
           <ol className="list-decimal list-inside space-y-2 text-sm">
             <li>
               Log in to your ManyChat account.
