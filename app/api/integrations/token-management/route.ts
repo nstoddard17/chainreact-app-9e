@@ -27,6 +27,10 @@ export async function POST(request: NextRequest) {
 
     const { provider, apiKey } = await request.json()
 
+    // Debug: Log incoming request data
+    console.log("[API] Saving API key for provider:", provider, "user:", user.id)
+    console.log("[API] Request body:", { provider, apiKey })
+
     if (!provider || !apiKey) {
       return NextResponse.json({ error: "Provider and API key are required" }, { status: 400 })
     }
@@ -38,27 +42,31 @@ export async function POST(request: NextRequest) {
     const encryptedKey = encrypt(apiKey, ENCRYPTION_SECRET)
 
     const adminSupabase = getAdminSupabase()
+    const upsertData = {
+      user_id: user.id,
+      provider,
+      access_token: encryptedKey,
+      status: "connected",
+      token_type: "api_key",
+      updated_at: new Date().toISOString(),
+    }
+    // Debug: Log upsert data
+    console.log("[API] Upsert data:", upsertData)
+
     const { error } = await adminSupabase.from("integrations").upsert(
-      {
-        user_id: user.id,
-        provider,
-        access_token: encryptedKey,
-        status: "connected",
-        token_type: "api_key",
-        updated_at: new Date().toISOString(),
-      },
+      upsertData,
       { onConflict: "user_id, provider" },
     )
 
     if (error) {
       console.error("Failed to save API key:", error)
-      return NextResponse.json({ error: "Failed to save API key" }, { status: 500 })
+      return NextResponse.json({ error: error.message || JSON.stringify(error) || "Failed to save API key" }, { status: 500 })
     }
 
     return NextResponse.json({ success: true, message: `${provider} API key saved.` })
   } catch (error: any) {
     console.error("API Key Management Error (POST):", error)
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
+    return NextResponse.json({ error: error.message || JSON.stringify(error) || "Internal Server Error" }, { status: 500 })
   }
 }
 
