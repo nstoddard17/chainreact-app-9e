@@ -1,8 +1,15 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
 
+interface ChartData {
+  name: string;
+  executions: number;
+  completions?: number;
+  workflows?: number;
+}
+
 interface WorkflowChartProps {
-  data: any[]
+  data: ChartData[]
 }
 
 export default function WorkflowChart({ data = [] }: WorkflowChartProps) {

@@ -1,10 +1,10 @@
-import type { LucideIcon } from "lucide-react"
+import type { ReactNode } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 
 interface MetricCardProps {
   title: string
   value: number | string
-  icon: LucideIcon
+  icon: ReactNode
   color: "blue" | "green" | "purple" | "yellow"
   change?: string
 }
@@ -16,7 +16,7 @@ const colorClasses = {
   yellow: "from-yellow-500 to-yellow-600",
 }
 
-export default function MetricCard({ title, value, icon: Icon, color, change }: MetricCardProps) {
+export default function MetricCard({ title, value, icon, color, change }: MetricCardProps) {
   return (
     <Card className="bg-white rounded-2xl shadow-lg border border-slate-200 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
       <CardContent className="p-6">
@@ -27,9 +27,9 @@ export default function MetricCard({ title, value, icon: Icon, color, change }: 
             {change && <p className="text-sm text-green-600 mt-1">{change}</p>}
           </div>
           <div
-            className={`w-12 h-12 bg-gradient-to-br ${colorClasses[color]} rounded-xl flex items-center justify-center`}
+            className={`w-12 h-12 bg-gradient-to-br ${colorClasses[color]} rounded-xl flex items-center justify-center text-white`}
           >
-            <Icon className="w-6 h-6 text-white" />
+            {icon}
           </div>
         </div>
       </CardContent>
