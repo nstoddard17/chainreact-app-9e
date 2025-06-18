@@ -265,9 +265,9 @@ function IntegrationsContent() {
               </div>
             </div>
           </main>
-          {/* Desktop: Sticky status summary sidebar */}
-          <aside className="hidden lg:block lg:w-72 xl:w-80 lg:pl-6 xl:pl-8 mt-6 lg:mt-0">
-            <div className="lg:sticky lg:top-24">
+          {/* Non-mobile: Sticky status summary sidebar */}
+          <aside className="hidden md:block md:w-72 xl:w-80 md:pl-6 xl:pl-8 mt-6 md:mt-0">
+            <div className="md:sticky md:top-24">
               <StatusSummaryContent
                 autoRefresh={autoRefresh}
                 setAutoRefresh={setAutoRefresh}
