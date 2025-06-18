@@ -37,6 +37,7 @@ export interface IntegrationStore {
   globalPreloadingData: boolean
   preloadStarted: boolean
   apiKeyIntegrations: Integration[]
+  currentUserId: string | null
 
   // Actions
   setLoading: (key: string, loading: boolean) => void
@@ -55,6 +56,7 @@ export interface IntegrationStore {
   connectApiKeyIntegration: (providerId: string, apiKey: string) => Promise<void>
   reconnectIntegration: (integrationId: string) => Promise<void>
   deleteIntegration: (integrationId: string) => Promise<void>
+  setCurrentUserId: (userId: string | null) => void
 }
 
 interface IntegrationState {
@@ -67,6 +69,12 @@ interface IntegrationState {
   error: string | null
   globalPreloadingData: boolean
   preloadStarted: boolean
+  currentUserId: string | null
+}
+
+// Get storage key based on current user
+const getStorageKey = (userId: string | null) => {
+  return userId ? `integration-storage-${userId}` : "integration-storage-guest"
 }
 
 export const useIntegrationStore = create<IntegrationStore>()(
@@ -81,6 +89,25 @@ export const useIntegrationStore = create<IntegrationStore>()(
       error: null,
       globalPreloadingData: false,
       preloadStarted: false,
+      currentUserId: null,
+
+      setCurrentUserId: (userId: string | null) => {
+        const currentUserId = get().currentUserId
+        if (currentUserId !== userId) {
+          console.log(`🔄 User changed from ${currentUserId} to ${userId}, clearing integration data`)
+          set({
+            currentUserId: userId,
+            integrations: [],
+            apiKeyIntegrations: [],
+            loading: false,
+            error: null,
+            loadingStates: {},
+            debugInfo: null,
+            globalPreloadingData: false,
+            preloadStarted: false,
+          })
+        }
+      },
 
       setLoading: (key: string, loading: boolean) =>
         set((state) => ({
@@ -131,8 +158,19 @@ export const useIntegrationStore = create<IntegrationStore>()(
       },
 
       fetchIntegrations: async (force = false) => {
-        const { loading } = get()
+        const { loading, currentUserId } = get()
         if (loading && !force) return
+
+        // Check if we have a current user
+        if (!currentUserId) {
+          console.log("⚠️ No current user ID, skipping integration fetch")
+          set({
+            integrations: [],
+            loading: false,
+            error: "No authenticated user",
+          })
+          return
+        }
 
         set({ loading: true, error: null })
 
@@ -149,6 +187,18 @@ export const useIntegrationStore = create<IntegrationStore>()(
               integrations: [],
               loading: false,
               error: "Please log in to view integrations",
+            })
+            return
+          }
+
+          // Verify the user ID matches
+          const { data: { user } } = await supabase.auth.getUser()
+          if (user?.id !== currentUserId) {
+            console.log(`⚠️ User ID mismatch: store has ${currentUserId}, session has ${user?.id}`)
+            set({
+              integrations: [],
+              loading: false,
+              error: "User session mismatch",
             })
             return
           }
@@ -178,7 +228,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
             debugInfo: data.debug || {},
           })
 
-          console.log("✅ Integrations fetched:", data.data?.length || 0)
+          console.log(`✅ Integrations fetched for user ${currentUserId}:`, data.data?.length || 0)
         } catch (error: any) {
           console.error("Failed to fetch integrations:", error)
           set({
@@ -553,7 +603,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
       },
     }),
     {
-      name: "integration-storage",
+      name: getStorageKey(typeof window !== "undefined" ? JSON.parse(localStorage.getItem("auth-storage") || '{}').state?.user?.id || null : null),
     }
   )
 )
