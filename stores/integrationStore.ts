@@ -69,7 +69,7 @@ interface IntegrationState {
   preloadStarted: boolean
 }
 
-export const useIntegrationStore = create<IntegrationState>()(
+export const useIntegrationStore = create<IntegrationStore>()(
   persist(
     (set, get) => ({
       providers: [],
@@ -190,7 +190,7 @@ export const useIntegrationStore = create<IntegrationState>()(
       },
 
       connectIntegration: async (providerId: string) => {
-        const { setLoading, providers, setError } = get()
+        const { setLoading, providers, setError, fetchIntegrations } = get()
         const provider = providers.find((p) => p.id === providerId)
 
         if (!provider) {
@@ -238,7 +238,10 @@ export const useIntegrationStore = create<IntegrationState>()(
 
           if (data.success && data.authUrl) {
             const popup = window.open(data.authUrl, "_blank", "width=600,height=700,scrollbars=yes,resizable=yes")
-            if (!popup) throw new Error("Popup blocked. Please allow popups for this site.")
+            if (!popup) {
+              setLoading(`connect-${providerId}`, false)
+              throw new Error("Popup blocked. Please allow popups for this site.")
+            }
 
             console.log(`✅ OAuth popup opened for ${providerId}`)
 
@@ -248,40 +251,41 @@ export const useIntegrationStore = create<IntegrationState>()(
               if (event.origin !== window.location.origin) return
 
               if (event.data?.type === "oauth-success" && event.data?.provider === providerId) {
+                closedByMessage = true
                 console.log(`✅ OAuth successful for ${providerId}`)
-                closedByMessage = true
-                popup.close()
-                get().fetchIntegrations(true)
+                fetchIntegrations(true)
+                popup?.close()
                 window.removeEventListener("message", messageHandler)
+                setLoading(`connect-${providerId}`, false)
               } else if (event.data?.type === "oauth-error" && event.data?.provider === providerId) {
-                console.error(`❌ OAuth error for ${providerId}:`, event.data.error)
-                setError(`Connection failed: ${event.data.error || "Unknown error."}`)
                 closedByMessage = true
-                popup.close()
+                console.error(`OAuth failed for ${providerId}:`, event.data.error)
+                setError(`Connection to ${provider.name} failed: ${event.data.error}`)
+                popup?.close()
                 window.removeEventListener("message", messageHandler)
+                setLoading(`connect-${providerId}`, false)
               }
             }
 
-            const checkClosed = setInterval(() => {
-              if (popup.closed) {
-                clearInterval(checkClosed)
-                window.removeEventListener("message", messageHandler)
+            window.addEventListener("message", messageHandler)
 
+            const timer = setInterval(() => {
+              if (popup?.closed) {
+                clearInterval(timer)
+                window.removeEventListener("message", messageHandler)
                 if (!closedByMessage) {
                   console.log(`❌ Popup closed manually for ${providerId}`)
                   setError("Popup closed before completing authorization.")
+                  setLoading(`connect-${providerId}`, false)
                 }
               }
             }, 500)
-
-            window.addEventListener("message", messageHandler)
           } else {
-            throw new Error(data.error || "Could not retrieve authorization URL.")
+            throw new Error(data.error || "Failed to get auth URL")
           }
         } catch (error: any) {
-          console.error(`Failed to connect ${providerId}:`, error)
-          setError(error.message)
-        } finally {
+          console.error(`Error connecting to ${providerId}:`, error.message)
+          setError(`Failed to connect to ${providerId}: ${error.message}`)
           setLoading(`connect-${providerId}`, false)
         }
       },
@@ -332,23 +336,21 @@ export const useIntegrationStore = create<IntegrationState>()(
       disconnectIntegration: async (integrationId: string) => {
         const { setLoading, fetchIntegrations, integrations, setError } = get()
         const integration = integrations.find((i) => i.id === integrationId)
+        if (!integration) return
 
-        if (integration) {
-          setLoading(`disconnect-${integration.provider}`, true)
-        } else {
-          // Fallback if integration not found in store
-          setLoading(`disconnect-${integrationId}`, true)
-        }
+        setLoading(`disconnect-${integration.provider}`, true)
         setError(null)
-
         try {
+          console.log(`🗑️ Disconnecting integration: ${integration.provider}`)
+
           const supabase = getSupabaseClient()
           if (!supabase) throw new Error("Supabase client not available")
 
           const {
             data: { session },
           } = await supabase.auth.getSession()
-          if (!session) throw new Error("Not authenticated")
+
+          if (!session) throw new Error("No valid session")
 
           const response = await fetch(`/api/integrations/${integrationId}`, {
             method: "DELETE",
@@ -358,21 +360,16 @@ export const useIntegrationStore = create<IntegrationState>()(
           })
 
           if (!response.ok) {
-            const errorData = await response.json()
-            throw new Error(errorData.error || "Failed to disconnect integration")
+            throw new Error("Failed to disconnect integration")
           }
 
-          console.log(`✅ Integration ${integrationId} disconnected`)
-          await fetchIntegrations(true)
+          console.log(`✅ Disconnected ${integration.provider}`)
+          fetchIntegrations(true)
         } catch (error: any) {
-          console.error(`Failed to disconnect integration:`, error)
+          console.error("Error disconnecting integration:", error)
           setError(error.message)
         } finally {
-          if (integration) {
-            setLoading(`disconnect-${integration.provider}`, false)
-          } else {
-            setLoading(`disconnect-${integrationId}`, false)
-          }
+          setLoading(`disconnect-${integration.provider}`, false)
         }
       },
 
@@ -443,11 +440,35 @@ export const useIntegrationStore = create<IntegrationState>()(
       },
 
       reconnectIntegration: async (integrationId: string) => {
-        // Implementation needed
+        const { integrations, connectIntegration, setError } = get()
+        const integration = integrations.find((i) => i.id === integrationId)
+        if (!integration) return
+
+        try {
+          console.log(`🔄 Reconnecting integration: ${integration.provider}`)
+
+          await connectIntegration(integration.provider)
+        } catch (error: any) {
+          console.error(`Failed to reconnect ${integration.provider}:`, error)
+          setError(error.message)
+        }
       },
 
       deleteIntegration: async (integrationId: string) => {
-        // Implementation needed
+        const { setLoading, integrations, fetchIntegrations, setError } = get()
+        const integration = integrations.find((i) => i.id === integrationId)
+        if (!integration) return
+
+        setLoading(`delete-${integration.provider}`, true)
+        setError(null)
+
+        try {
+          // ... implementation for deleting integration
+        } catch (error: any) {
+          setError(error.message)
+        } finally {
+          setLoading(`delete-${integration.provider}`, false)
+        }
       },
     }),
     {
