@@ -161,17 +161,6 @@ export const useIntegrationStore = create<IntegrationStore>()(
         const { loading, currentUserId } = get()
         if (loading && !force) return
 
-        // Check if we have a current user
-        if (!currentUserId) {
-          console.log("⚠️ No current user ID, skipping integration fetch")
-          set({
-            integrations: [],
-            loading: false,
-            error: "No authenticated user",
-          })
-          return
-        }
-
         set({ loading: true, error: null })
 
         try {
@@ -191,9 +180,22 @@ export const useIntegrationStore = create<IntegrationStore>()(
             return
           }
 
-          // Verify the user ID matches
+          // Get user ID from session if currentUserId is not set
           const { data: { user } } = await supabase.auth.getUser()
-          if (user?.id !== currentUserId) {
+          if (!user?.id) {
+            set({
+              integrations: [],
+              loading: false,
+              error: "No authenticated user found",
+            })
+            return
+          }
+
+          // If currentUserId is not set, set it now
+          if (!currentUserId) {
+            console.log(`🔄 Setting current user ID to ${user.id} from session`)
+            set({ currentUserId: user.id })
+          } else if (user?.id !== currentUserId) {
             console.log(`⚠️ User ID mismatch: store has ${currentUserId}, session has ${user?.id}`)
             set({
               integrations: [],
@@ -228,7 +230,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
             debugInfo: data.debug || {},
           })
 
-          console.log(`✅ Integrations fetched for user ${currentUserId}:`, data.data?.length || 0)
+          console.log(`✅ Integrations fetched for user ${user.id}:`, data.data?.length || 0)
         } catch (error: any) {
           console.error("Failed to fetch integrations:", error)
           set({

@@ -49,6 +49,17 @@ function IntegrationsContent() {
     toast({ title: "Success", description: "All tokens have been refreshed." })
   }, [fetchIntegrations, toast])
 
+  const handleDebugRefresh = useCallback(async () => {
+    console.log("🔍 Debug refresh triggered")
+    console.log("Current user:", user)
+    console.log("Current integrations count:", integrations.length)
+    console.log("Current providers count:", providers.length)
+    
+    toast({ title: "Debug refresh...", description: "Check console for details." })
+    await fetchIntegrations(true)
+    toast({ title: "Debug complete", description: "Check console for results." })
+  }, [fetchIntegrations, toast, user, integrations.length, providers.length])
+
   const providersWithStatus = useMemo(() => {
     if (!providers || providers.length === 0) return []
 
@@ -233,24 +244,35 @@ function IntegrationsContent() {
             <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">Integrations</h1>
             <p className="text-sm sm:text-base text-gray-600 mt-1">Manage your connections to third-party services.</p>
           </div>
-          <Button 
-            onClick={handleRefreshTokens} 
-            disabled={loading} 
-            variant="outline"
-            className="w-full sm:w-auto text-sm sm:text-base"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Refreshing...
-              </>
-            ) : (
-              <>
-                <RefreshCw className="mr-2 h-4 w-4" />
-                Refresh All
-              </>
-            )}
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              onClick={handleDebugRefresh} 
+              disabled={loading} 
+              variant="outline"
+              size="sm"
+              className="text-xs"
+            >
+              Debug
+            </Button>
+            <Button 
+              onClick={handleRefreshTokens} 
+              disabled={loading} 
+              variant="outline"
+              className="w-full sm:w-auto text-sm sm:text-base"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Refreshing...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Refresh All
+                </>
+              )}
+            </Button>
+          </div>
         </div>
 
         <div className="lg:flex lg:gap-6 xl:gap-8">

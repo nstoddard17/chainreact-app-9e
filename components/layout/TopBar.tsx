@@ -3,6 +3,7 @@
 import { useAuthStore } from "@/stores/authStore"
 import { Button } from "@/components/ui/button"
 import { LogOut, User, Menu } from "lucide-react"
+import { useRouter } from "next/navigation"
 
 interface TopBarProps {
   onMobileMenuChange: (isOpen: boolean) => void
@@ -11,6 +12,19 @@ interface TopBarProps {
 
 export default function TopBar({ onMobileMenuChange, title }: TopBarProps) {
   const { user, signOut } = useAuthStore()
+  const router = useRouter()
+
+  const handleSignOut = async () => {
+    try {
+      await signOut()
+      // Redirect to homepage after successful logout
+      router.push("/")
+    } catch (error) {
+      console.error("Logout error:", error)
+      // Still redirect even if there's an error
+      router.push("/")
+    }
+  }
 
   return (
     <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shrink-0">
@@ -31,7 +45,7 @@ export default function TopBar({ onMobileMenuChange, title }: TopBarProps) {
           <User className="w-4 h-4" />
           <span>{user?.email}</span>
         </div>
-        <Button variant="outline" size="sm" onClick={signOut} className="flex items-center space-x-2">
+        <Button variant="outline" size="sm" onClick={handleSignOut} className="flex items-center space-x-2">
           <LogOut className="w-4 h-4" />
           <span className="hidden sm:inline">Sign Out</span>
         </Button>
