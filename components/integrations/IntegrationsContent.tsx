@@ -29,16 +29,19 @@ function IntegrationsContent() {
 
   useEffect(() => {
     const initialize = async () => {
-      setIsInitializing(true)
-      // Ensure providers are initialized before fetching integrations
-      await initializeProviders()
-      if (user) {
-        await fetchIntegrations(true)
+      // Only initialize if providers are empty and not already initializing
+      if (providers.length === 0 && !isInitializing) {
+        setIsInitializing(true)
+        // Ensure providers are initialized before fetching integrations
+        await initializeProviders()
+        if (user) {
+          await fetchIntegrations(true)
+        }
+        setIsInitializing(false)
       }
-      setIsInitializing(false)
     }
     initialize()
-  }, [user, initializeProviders, fetchIntegrations])
+  }, [user, initializeProviders, fetchIntegrations, providers.length, isInitializing])
 
   const handleRefreshTokens = useCallback(async () => {
     toast({ title: "Refreshing tokens...", description: "This may take a moment." })
