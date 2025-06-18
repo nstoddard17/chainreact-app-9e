@@ -12,7 +12,7 @@ import WorkflowChart from "@/components/dashboard/WorkflowChart"
 import { Workflow, Clock, Puzzle, Zap } from "lucide-react"
 
 export default function DashboardContent() {
-  const { metrics, chartData, fetchMetrics, fetchChartData, fetchExecutions } = useAnalyticsStore()
+  const { metrics, chartData, fetchMetrics, fetchChartData } = useAnalyticsStore()
   const { user } = useAuthStore()
   const { getConnectedProviders } = useIntegrationStore()
   const { workflows, fetchWorkflows } = useWorkflowStore()
@@ -25,8 +25,7 @@ export default function DashboardContent() {
     fetchMetrics()
     fetchChartData()
     fetchWorkflows()
-    fetchExecutions()
-  }, [fetchMetrics, fetchChartData, fetchWorkflows, fetchExecutions])
+  }, [fetchMetrics, fetchChartData, fetchWorkflows])
 
   const getFirstName = () => {
     if (user?.name) {

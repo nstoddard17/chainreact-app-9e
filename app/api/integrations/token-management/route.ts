@@ -3,6 +3,7 @@ import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 import { encrypt, decrypt } from "@/lib/security/encryption"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { TokenAuditLogger } from "@/lib/integrations/TokenAuditLogger"
 
 const getSupabase = () => createServerComponentClient({ cookies })
 const getAdminSupabase = () => createAdminClient()
@@ -60,6 +61,19 @@ export async function POST(request: NextRequest) {
     if (error) {
       console.error("Failed to save API key:", error)
       return NextResponse.json({ error: error.message || JSON.stringify(error) || "Failed to save API key" }, { status: 500 })
+    }
+
+    // Log the successful API key connection
+    try {
+      await TokenAuditLogger.logEvent(
+        "api_key_connection",
+        user.id,
+        provider,
+        "connect",
+        { method: "api_key" }
+      )
+    } catch (auditError) {
+      console.warn("Failed to log API key connection:", auditError)
     }
 
     return NextResponse.json({ success: true, message: `${provider} API key saved.` })

@@ -123,6 +123,24 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
         workflows: [data, ...state.workflows],
       }))
 
+      // Log workflow creation
+      try {
+        if (user) {
+          await supabase.from("audit_logs").insert({
+            user_id: user.id,
+            event_type: "workflow_created",
+            event_details: {
+              workflow_id: data.id,
+              workflow_name: data.name,
+              workflow_description: data.description
+            },
+            created_at: new Date().toISOString()
+          })
+        }
+      } catch (auditError) {
+        console.warn("Failed to log workflow creation:", auditError)
+      }
+
       return data
     } catch (error: any) {
       console.error("Error creating workflow:", error)
@@ -161,10 +179,34 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
 
       if (error) throw error
 
+      // Get workflow details before deletion for audit log
+      const workflowToDelete = get().workflows.find(w => w.id === id)
+      
       set((state) => ({
         workflows: state.workflows.filter((w) => w.id !== id),
         currentWorkflow: state.currentWorkflow?.id === id ? null : state.currentWorkflow,
       }))
+
+      // Log workflow deletion
+      if (workflowToDelete) {
+        try {
+          const { data: { user } } = await supabase.auth.getUser()
+          if (user) {
+            await supabase.from("audit_logs").insert({
+              user_id: user.id,
+              event_type: "workflow_deleted",
+              event_details: {
+                workflow_id: id,
+                workflow_name: workflowToDelete.name,
+                workflow_description: workflowToDelete.description
+              },
+              created_at: new Date().toISOString()
+            })
+          }
+        } catch (auditError) {
+          console.warn("Failed to log workflow deletion:", auditError)
+        }
+      }
     } catch (error: any) {
       console.error("Error deleting workflow:", error)
       throw error

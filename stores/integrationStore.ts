@@ -1,6 +1,7 @@
 import { create } from "zustand"
 import { getSupabaseClient } from "@/lib/supabase"
 import { persist } from "zustand/middleware"
+import { TokenAuditLogger } from "@/lib/integrations/TokenAuditLogger"
 
 export interface Integration {
   id: string
@@ -328,6 +329,19 @@ export const useIntegrationStore = create<IntegrationStore>()(
           }
 
           console.log(`✅ API key connected for ${providerId}`)
+          
+          // Log the integration connection
+          const { data: { user } } = await supabase.auth.getUser()
+          if (user) {
+            await TokenAuditLogger.logEvent(
+              "api_key_connection",
+              user.id,
+              providerId,
+              "connect",
+              { method: "api_key" }
+            )
+          }
+          
           await fetchIntegrations(true)
         } catch (error: any) {
           console.error(`Failed to connect ${providerId}:`, error)
@@ -368,6 +382,19 @@ export const useIntegrationStore = create<IntegrationStore>()(
           }
 
           console.log(`✅ Disconnected ${integration.provider}`)
+          
+          // Log the integration disconnection
+          const { data: { user } } = await supabase.auth.getUser()
+          if (user) {
+            await TokenAuditLogger.logEvent(
+              integrationId,
+              user.id,
+              integration.provider,
+              "disconnect",
+              { method: "oauth" }
+            )
+          }
+          
           fetchIntegrations(true)
         } catch (error: any) {
           console.error("Error disconnecting integration:", error)
@@ -452,6 +479,21 @@ export const useIntegrationStore = create<IntegrationStore>()(
           console.log(`🔄 Reconnecting integration: ${integration.provider}`)
 
           await connectIntegration(integration.provider)
+          
+          // Log the integration reconnection
+          const supabase = getSupabaseClient()
+          if (supabase) {
+            const { data: { user } } = await supabase.auth.getUser()
+            if (user) {
+              await TokenAuditLogger.logEvent(
+                integrationId,
+                user.id,
+                integration.provider,
+                "reconnect",
+                { method: "oauth" }
+              )
+            }
+          }
         } catch (error: any) {
           console.error(`Failed to reconnect ${integration.provider}:`, error)
           setError(error.message)
