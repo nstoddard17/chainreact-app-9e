@@ -94,7 +94,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
       setCurrentUserId: (userId: string | null) => {
         const currentUserId = get().currentUserId
         if (currentUserId !== userId) {
-          console.log(`🔄 User changed from ${currentUserId} to ${userId}, clearing integration data`)
+          console.log(`🔄 User changed, clearing integration data`)
           set({
             currentUserId: userId,
             integrations: [],
@@ -193,10 +193,10 @@ export const useIntegrationStore = create<IntegrationStore>()(
 
           // If currentUserId is not set, set it now
           if (!currentUserId) {
-            console.log(`🔄 Setting current user ID to ${user.id} from session`)
+            console.log(`🔄 Setting current user ID from session`)
             set({ currentUserId: user.id })
           } else if (user?.id !== currentUserId) {
-            console.log(`⚠️ User ID mismatch: store has ${currentUserId}, session has ${user?.id}`)
+            console.log(`⚠️ User ID mismatch, clearing data`)
             set({
               integrations: [],
               loading: false,
@@ -230,7 +230,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
             debugInfo: data.debug || {},
           })
 
-          console.log(`✅ Integrations fetched for user ${user.id}:`, data.data?.length || 0)
+          console.log(`✅ Integrations fetched:`, data.data?.length || 0)
         } catch (error: any) {
           console.error("Failed to fetch integrations:", error)
           set({

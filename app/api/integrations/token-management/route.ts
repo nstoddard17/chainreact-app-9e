@@ -29,8 +29,8 @@ export async function POST(request: NextRequest) {
     const { provider, apiKey } = await request.json()
 
     // Debug: Log incoming request data
-    console.log("[API] Saving API key for provider:", provider, "user:", user.id)
-    console.log("[API] Request body:", { provider, apiKey })
+    console.log("[API] Saving API key for provider:", provider)
+    console.log("[API] Request body:", { provider, apiKey: apiKey ? "[REDACTED]" : null })
 
     if (!provider || !apiKey) {
       return NextResponse.json({ error: "Provider and API key are required" }, { status: 400 })

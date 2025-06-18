@@ -40,8 +40,6 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json({
-      userId: user.id,
-      userEmail: user.email,
       totalIntegrations: integrations?.length || 0,
       integrations: integrations?.map((i) => ({
         id: i.id,

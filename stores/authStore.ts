@@ -64,7 +64,7 @@ export const useAuthStore = create<AuthState>()(
           }
 
           if (session?.user) {
-            console.log("✅ Found valid session for user:", session.user.email)
+            console.log("✅ Found valid session for user")
             const user: User = {
               id: session.user.id,
               email: session.user.email || "",
@@ -79,7 +79,7 @@ export const useAuthStore = create<AuthState>()(
               try {
                 const { useIntegrationStore } = await import("./integrationStore")
                 useIntegrationStore.getState().setCurrentUserId(session.user.id)
-                console.log("✅ Integration store updated with existing user ID:", session.user.id)
+                console.log("✅ Integration store updated with existing user ID")
               } catch (error) {
                 console.error("Error updating integration store user ID on init:", error)
               }
@@ -123,7 +123,7 @@ export const useAuthStore = create<AuthState>()(
           // Set up auth state listener (only once)
           if (!state.initialized) {
             supabase.auth.onAuthStateChange(async (event, session) => {
-              console.log("🔄 Auth state changed:", event, session?.user?.email)
+              console.log("🔄 Auth state changed:", event)
 
               if (event === "SIGNED_IN" && session?.user) {
                 const user: User = {
@@ -140,7 +140,7 @@ export const useAuthStore = create<AuthState>()(
                   try {
                     const { useIntegrationStore } = await import("./integrationStore")
                     useIntegrationStore.getState().setCurrentUserId(session.user.id)
-                    console.log("✅ Integration store updated with new user ID:", session.user.id)
+                    console.log("✅ Integration store updated with new user ID")
                   } catch (error) {
                     console.error("Error updating integration store user ID:", error)
                   }
@@ -317,7 +317,7 @@ export const useAuthStore = create<AuthState>()(
         user: state.user,
       }),
       onRehydrateStorage: () => (state) => {
-        console.log("🔄 Auth store rehydrated:", state?.user?.email || "no user")
+        console.log("🔄 Auth store rehydrated")
         state?.setHydrated()
 
         // Only initialize if not already initialized

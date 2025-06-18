@@ -18,38 +18,32 @@ const supabase = createClient(supabaseUrl, supabaseKey, {
 
 export const POST = async (request: NextRequest) => {
   try {
+    console.log("Processing Trello token")
     const { token, userId } = await request.json()
 
-    if (!token) {
-      return NextResponse.json({ error: "No token provided" }, { status: 400 })
+    if (!token || !userId) {
+      return NextResponse.json({ error: "Missing token or userId" }, { status: 400 })
     }
-
-    if (!userId) {
-      return NextResponse.json({ error: "No user ID provided" }, { status: 400 })
-    }
-
-    console.log("Processing Trello token for user:", userId)
 
     // Get user info from Trello
-    const meResponse = await fetch(
+    const trelloResponse = await fetch(
       `https://api.trello.com/1/members/me?key=${process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID}&token=${token}`,
     )
 
-    if (!meResponse.ok) {
-      const errorText = await meResponse.text()
+    if (!trelloResponse.ok) {
+      const errorText = await trelloResponse.text()
       console.error("Failed to fetch Trello user info:", errorText)
       return NextResponse.json({ error: "Failed to validate Trello token" }, { status: 400 })
     }
 
-    const meData = await meResponse.json()
-    const trelloUserId = meData.id
-    const trelloUsername = meData.username
+    const trelloUserData = await trelloResponse.json()
+    const trelloUserId = trelloUserData.id
+    const trelloUsername = trelloUserData.username
 
     if (!trelloUserId || !trelloUsername) {
+      console.error("Invalid Trello user data received")
       return NextResponse.json({ error: "Invalid Trello user data" }, { status: 400 })
     }
-
-    console.log("Trello user data:", { id: trelloUserId, username: trelloUsername })
 
     const now = new Date().toISOString()
 
@@ -75,33 +69,43 @@ export const POST = async (request: NextRequest) => {
       scopes: grantedScopes,
       metadata: {
         username: trelloUsername,
-        full_name: meData.fullName || null,
-        initials: meData.initials || null,
-        avatar_url: meData.avatarUrl || null,
-        url: meData.url || null,
+        full_name: trelloUserData.fullName || null,
+        initials: trelloUserData.initials || null,
+        avatar_url: trelloUserData.avatarUrl || null,
+        url: trelloUserData.url || null,
         connected_at: now,
-        raw_user_data: meData,
+        raw_user_data: trelloUserData,
       },
     }
 
     let integrationId: string | undefined
     if (existingIntegration) {
-      console.log("Updating existing Trello integration:", existingIntegration.id)
-      const { data, error } = await supabase
+      console.log("Updating existing Trello integration")
+      const { error: updateError } = await supabase
         .from("integrations")
         .update({
-          ...integrationData,
+          access_token: token,
+          provider_user_id: trelloUserId,
+          status: "connected",
           updated_at: now,
+          metadata: {
+            username: trelloUsername,
+            full_name: trelloUserData.fullName || null,
+            initials: trelloUserData.initials || null,
+            avatar_url: trelloUserData.avatarUrl || null,
+            url: trelloUserData.url || null,
+            connected_at: now,
+            raw_user_data: trelloUserData,
+          },
         })
         .eq("id", existingIntegration.id)
-        .select("id")
-        .single()
+        .eq("user_id", userId)
 
-      if (error) {
-        console.error("Error updating Trello integration:", error)
+      if (updateError) {
+        console.error("Error updating Trello integration:", updateError)
         return NextResponse.json({ error: "Failed to update integration" }, { status: 500 })
       }
-      integrationId = data.id
+      integrationId = existingIntegration.id
     } else {
       console.log("Creating new Trello integration")
       const { data, error } = await supabase
@@ -131,7 +135,7 @@ export const POST = async (request: NextRequest) => {
       }
     }
 
-    console.log("Trello integration processed successfully:", integrationId)
+    console.log("Trello integration processed successfully")
     return NextResponse.json({ success: true, integrationId })
   } catch (e: any) {
     console.error("Error processing Trello token:", e)
