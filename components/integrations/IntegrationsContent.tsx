@@ -269,8 +269,8 @@ function IntegrationsContent() {
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-9 sm:pl-10 w-full h-9 sm:h-11 text-sm sm:text-base"
                   autoComplete="off"
-                  name="integration-search",
-                  autoComplete="off"
+                  name="integration-search"
+                  autoCorrect="off"
                 />
               </div>
 
