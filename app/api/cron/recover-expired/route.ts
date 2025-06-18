@@ -54,14 +54,16 @@ export async function GET(request: NextRequest) {
     console.log(`🔍 [${jobId}] Step 1: Finding expired/disconnected integrations...`)
     
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+    const now = new Date().toISOString()
     
+    // Get integrations that are actually expired (by expires_at timestamp) OR have problematic status
     const { data: expiredIntegrations, error: fetchError } = await supabase
       .from("integrations")
       .select("*")
-      .in("status", ["expired", "disconnected", "needs_reauthorization"])
+      .or(`expires_at.lt.${now},status.eq.expired,status.eq.disconnected,status.eq.needs_reauthorization`)
       .not("refresh_token", "is", null)
       .gte("updated_at", sevenDaysAgo)
-      .limit(20) // Limit to 20 for safety
+      .limit(50) // Increased limit since we're now catching more legitimate cases
 
     if (fetchError) {
       console.error(`❌ [${jobId}] Error fetching expired integrations:`, fetchError)

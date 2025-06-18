@@ -151,16 +151,33 @@ export async function refreshTokenIfNeeded(integration: Integration): Promise<Re
   } catch (error) {
     console.error(`Error refreshing token for ${integration.provider}:`, error)
 
-    // Update failure count
+    // Update failure count and check if we should mark as expired
     const supabase = getAdminSupabaseClient()
     if (supabase) {
+      const updateData: any = {
+        consecutive_failures: (integration.consecutive_failures || 0) + 1,
+        last_failure_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }
+
+      // Check if the token is actually expired and update status accordingly
+      if (integration.expires_at) {
+        const expiresAtTimestamp =
+          typeof integration.expires_at === "string"
+            ? new Date(integration.expires_at).getTime() / 1000
+            : integration.expires_at
+        const now = Math.floor(Date.now() / 1000)
+        
+        if (expiresAtTimestamp < now) {
+          // Token is actually expired, update status
+          updateData.status = "expired"
+          console.log(`Marking ${integration.provider} as expired due to failed refresh`)
+        }
+      }
+
       await supabase
         .from("integrations")
-        .update({
-          consecutive_failures: (integration.consecutive_failures || 0) + 1,
-          last_failure_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
+        .update(updateData)
         .eq("id", integration.id)
     }
 
