@@ -56,7 +56,7 @@ export const useActivityStore = create<ActivityState>((set) => ({
         .from("audit_logs")
         .select("*")
         .eq("user_id", user.id)
-        .in("event_type", ["workflow_created", "workflow_deleted", "workflow_updated"])
+        .in("action", ["workflow_created", "workflow_deleted", "workflow_updated"])
         .order("created_at", { ascending: false })
         .limit(20)
 
@@ -113,11 +113,11 @@ export const useActivityStore = create<ActivityState>((set) => ({
           let title = "Workflow created"
           let description = "A new workflow was created"
 
-          if (event.event_type === "workflow_deleted") {
+          if (event.action === "workflow_deleted") {
             type = "workflow_delete"
             title = "Workflow deleted"
             description = "A workflow was deleted"
-          } else if (event.event_type === "workflow_updated") {
+          } else if (event.action === "workflow_updated") {
             type = "workflow_update"
             title = "Workflow updated"
             description = "A workflow was updated"

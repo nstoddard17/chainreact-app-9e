@@ -128,8 +128,10 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
         if (user) {
           await supabase.from("audit_logs").insert({
             user_id: user.id,
-            event_type: "workflow_created",
-            event_details: {
+            action: "workflow_created",
+            resource_type: "workflow",
+            resource_id: data.id,
+            details: {
               workflow_id: data.id,
               workflow_name: data.name,
               workflow_description: data.description
@@ -163,6 +165,28 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
         currentWorkflow:
           state.currentWorkflow?.id === id ? { ...state.currentWorkflow, ...data } : state.currentWorkflow,
       }))
+
+      // Log workflow update
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          await supabase.from("audit_logs").insert({
+            user_id: user.id,
+            action: "workflow_updated",
+            resource_type: "workflow",
+            resource_id: id,
+            details: {
+              workflow_id: id,
+              workflow_name: data.name,
+              workflow_description: data.description,
+              updated_fields: Object.keys(updates)
+            },
+            created_at: new Date().toISOString()
+          })
+        }
+      } catch (auditError) {
+        console.warn("Failed to log workflow update:", auditError)
+      }
     } catch (error: any) {
       console.error("Error updating workflow:", error)
       throw error
@@ -194,8 +218,10 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
           if (user) {
             await supabase.from("audit_logs").insert({
               user_id: user.id,
-              event_type: "workflow_deleted",
-              event_details: {
+              action: "workflow_deleted",
+              resource_type: "workflow",
+              resource_id: id,
+              details: {
                 workflow_id: id,
                 workflow_name: workflowToDelete.name,
                 workflow_description: workflowToDelete.description
