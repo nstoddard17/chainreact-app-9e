@@ -17,7 +17,7 @@ SELECT
   CASE 
     WHEN status = 'connected' AND expires_at IS NULL THEN 'connected'
     WHEN status = 'connected' AND expires_at <= NOW() THEN 'expired'
-    WHEN status = 'connected' AND expires_at <= NOW() + INTERVAL '30 minutes' THEN 'expiring'
+    WHEN status = 'connected' AND expires_at <= NOW() + INTERVAL '10 minutes' THEN 'expiring'
     WHEN status = 'connected' THEN 'connected'
     WHEN status = 'expired' THEN 'expired'
     WHEN status = 'disconnected' THEN 'disconnected'
@@ -39,7 +39,7 @@ ORDER BY
   CASE 
     WHEN status = 'connected' AND expires_at IS NULL THEN 3
     WHEN status = 'connected' AND expires_at <= NOW() THEN 0
-    WHEN status = 'connected' AND expires_at <= NOW() + INTERVAL '30 minutes' THEN 1
+    WHEN status = 'connected' AND expires_at <= NOW() + INTERVAL '10 minutes' THEN 1
     WHEN status = 'connected' THEN 2
     WHEN status = 'expired' THEN 0
     WHEN status = 'disconnected' THEN 4
@@ -59,7 +59,7 @@ FROM (
     CASE 
       WHEN status = 'connected' AND expires_at IS NULL THEN 'connected'
       WHEN status = 'connected' AND expires_at <= NOW() THEN 'expired'
-      WHEN status = 'connected' AND expires_at <= NOW() + INTERVAL '30 minutes' THEN 'expiring'
+      WHEN status = 'connected' AND expires_at <= NOW() + INTERVAL '10 minutes' THEN 'expiring'
       WHEN status = 'connected' THEN 'connected'
       WHEN status = 'expired' THEN 'expired'
       WHEN status = 'disconnected' THEN 'disconnected'

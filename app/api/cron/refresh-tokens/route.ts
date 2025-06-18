@@ -309,7 +309,7 @@ async function processIntegrationRefresh(
 ) {
   const { provider, user_id, id } = integration
   const logPrefix = `[${jobId}] [${provider}:${id}]`
-  const THIRTY_MINUTES = 30 * 60
+  const TEN_MINUTES = 10 * 60
   const now = Math.floor(Date.now() / 1000)
   console.log(`${logPrefix} Processing ${provider} (status: ${integration.status})`)
   console.log(`   - expires_at: ${integration.expires_at}`)
@@ -357,7 +357,7 @@ async function processIntegrationRefresh(
         : integration.expires_at
     const expiresIn = expiresAt - now
     isExpired = expiresIn <= 0
-    needsAttention = isExpired || expiresIn < THIRTY_MINUTES
+    needsAttention = isExpired || expiresIn < TEN_MINUTES
 
     console.log(`${logPrefix}   - expires in: ${expiresIn}s (${Math.floor(expiresIn / 60)}min)`)
     console.log(`${logPrefix}   - isExpired: ${isExpired}, needsAttention: ${needsAttention}`)
