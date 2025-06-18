@@ -49,11 +49,16 @@ function IntegrationsContent() {
 
     const interval = setInterval(() => {
       console.log("🔄 Auto-refreshing integrations...")
+      toast({ 
+        title: "Refreshing integrations", 
+        description: "Checking for updates...",
+        duration: 2000
+      })
       fetchIntegrations(true)
     }, 300000) // Refresh every 5 minutes when auto-refresh is enabled
 
     return () => clearInterval(interval)
-  }, [autoRefresh, user, fetchIntegrations])
+  }, [autoRefresh, user, fetchIntegrations, toast])
 
   // Refresh when page becomes visible (user returns to tab)
   useEffect(() => {
@@ -62,13 +67,18 @@ function IntegrationsContent() {
     const handleVisibilityChange = () => {
       if (!document.hidden && autoRefresh) {
         console.log("🔄 Page became visible, refreshing integrations...")
+        toast({ 
+          title: "Refreshing integrations", 
+          description: "Checking for updates...",
+          duration: 2000
+        })
         fetchIntegrations(true)
       }
     }
 
     document.addEventListener('visibilitychange', handleVisibilityChange)
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
-  }, [user, autoRefresh, fetchIntegrations])
+  }, [user, autoRefresh, fetchIntegrations, toast])
 
   const handleRefreshTokens = useCallback(async () => {
     toast({ title: "Refreshing tokens...", description: "This may take a moment." })
@@ -133,6 +143,8 @@ function IntegrationsContent() {
       { connected: 0, expiring: 0, disconnected: 0, expired: 0 }
     )
   }, [providersWithStatus])
+
+  const { lastRefreshTime } = useIntegrationStore()
 
   const filteredProviders = useMemo(() => {
     let filtered = providersWithStatus
@@ -256,11 +268,18 @@ function IntegrationsContent() {
           </li>
         </ul>
         <div className="border-t my-4 sm:my-6" />
-        <div className="flex items-center justify-between">
-          <Label htmlFor="auto-refresh" className="text-xs sm:text-sm font-medium text-gray-700">
-            Auto-refresh tokens
-          </Label>
-          <Switch id="auto-refresh" checked={autoRefresh} onCheckedChange={setAutoRefresh} />
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="auto-refresh" className="text-xs sm:text-sm font-medium text-gray-700">
+              Auto-refresh tokens
+            </Label>
+            <Switch id="auto-refresh" checked={autoRefresh} onCheckedChange={setAutoRefresh} />
+          </div>
+          {lastRefreshTime && (
+            <div className="text-xs text-gray-500">
+              Last updated: {new Date(lastRefreshTime).toLocaleTimeString()}
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
@@ -274,24 +293,51 @@ function IntegrationsContent() {
             <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">Integrations</h1>
             <p className="text-sm sm:text-base text-gray-600 mt-1">Manage your connections to third-party services.</p>
           </div>
-          <Button 
-            onClick={handleRefreshTokens} 
-            disabled={loading} 
-            variant="outline"
-            className="w-full sm:w-auto text-sm sm:text-base"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Refreshing...
-              </>
-            ) : (
-              <>
-                <RefreshCw className="mr-2 h-4 w-4" />
-                Refresh All
-              </>
-            )}
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              onClick={() => {
+                toast({ 
+                  title: "Refreshing integrations", 
+                  description: "Checking for updates...",
+                  duration: 2000
+                })
+                fetchIntegrations(true)
+              }} 
+              disabled={loading} 
+              variant="outline"
+              className="w-full sm:w-auto text-sm sm:text-base"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Refreshing...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Refresh
+                </>
+              )}
+            </Button>
+            <Button 
+              onClick={handleRefreshTokens} 
+              disabled={loading} 
+              variant="outline"
+              className="w-full sm:w-auto text-sm sm:text-base"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Refreshing...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Refresh All
+                </>
+              )}
+            </Button>
+          </div>
         </div>
 
         <div className="lg:flex lg:gap-6 xl:gap-8">
