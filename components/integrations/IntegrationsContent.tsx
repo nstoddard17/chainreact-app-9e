@@ -144,75 +144,77 @@ function IntegrationsContent() {
   )
 
   const StatusSidebar = () => (
-    <aside className="w-full lg:w-80 lg:pl-8 mt-8 lg:mt-0">
-      <Card className="sticky top-24 shadow-sm rounded-lg border-gray-200">
-        <CardHeader className="pb-4">
-          <CardTitle className="text-lg font-semibold">Integration Status</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ul className="space-y-4">
-            <li className="flex justify-between items-center">
-              <span className="flex items-center text-gray-700">
-                <Check className="w-4 h-4 mr-2 text-green-500" />
-                <span className="font-medium">Connected</span>
-              </span>
-              <Badge variant="secondary" className="font-mono bg-green-50 text-green-700">
-                {connected}
-              </Badge>
-            </li>
-            <li className="flex justify-between items-center">
-              <span className="flex items-center text-gray-700">
-                <Bell className="w-4 h-4 mr-2 text-yellow-500" />
-                <span className="font-medium">Expiring</span>
-              </span>
-              <Badge variant="secondary" className="font-mono bg-yellow-50 text-yellow-700">
-                {expiring}
-              </Badge>
-            </li>
-            <li className="flex justify-between items-center">
-              <span className="flex items-center text-gray-700">
-                <AlertCircle className="w-4 h-4 mr-2 text-red-500" />
-                <span className="font-medium">Expired</span>
-              </span>
-              <Badge variant="secondary" className="font-mono bg-red-50 text-red-700">
-                {expired}
-              </Badge>
-            </li>
-            <li className="flex justify-between items-center">
-              <span className="flex items-center text-gray-700">
-                <X className="w-4 h-4 mr-2 text-gray-400" />
-                <span className="font-medium">Disconnected</span>
-              </span>
-              <Badge variant="secondary" className="font-mono bg-gray-50 text-gray-700">
-                {disconnected}
-              </Badge>
-            </li>
-          </ul>
-          <div className="border-t my-6" />
-          <div className="flex items-center justify-between">
-            <Label htmlFor="auto-refresh" className="text-sm font-medium text-gray-700">
-              Auto-refresh tokens
-            </Label>
-            <Switch id="auto-refresh" checked={autoRefresh} onCheckedChange={setAutoRefresh} />
-          </div>
-        </CardContent>
-      </Card>
+    <aside className="w-full lg:w-72 xl:w-80 lg:pl-6 xl:pl-8 mt-6 lg:mt-0">
+      <div className="lg:sticky lg:top-4">
+        <Card className="shadow-sm rounded-lg border-gray-200">
+          <CardHeader className="pb-3 sm:pb-4">
+            <CardTitle className="text-base sm:text-lg font-semibold">Integration Status</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-3 sm:space-y-4">
+              <li className="flex justify-between items-center">
+                <span className="flex items-center text-gray-700">
+                  <Check className="w-4 h-4 mr-2 text-green-500" />
+                  <span className="text-sm sm:text-base font-medium">Connected</span>
+                </span>
+                <Badge variant="secondary" className="font-mono bg-green-50 text-green-700 text-xs sm:text-sm">
+                  {connected}
+                </Badge>
+              </li>
+              <li className="flex justify-between items-center">
+                <span className="flex items-center text-gray-700">
+                  <Bell className="w-4 h-4 mr-2 text-yellow-500" />
+                  <span className="text-sm sm:text-base font-medium">Expiring</span>
+                </span>
+                <Badge variant="secondary" className="font-mono bg-yellow-50 text-yellow-700 text-xs sm:text-sm">
+                  {expiring}
+                </Badge>
+              </li>
+              <li className="flex justify-between items-center">
+                <span className="flex items-center text-gray-700">
+                  <AlertCircle className="w-4 h-4 mr-2 text-red-500" />
+                  <span className="text-sm sm:text-base font-medium">Expired</span>
+                </span>
+                <Badge variant="secondary" className="font-mono bg-red-50 text-red-700 text-xs sm:text-sm">
+                  {expired}
+                </Badge>
+              </li>
+              <li className="flex justify-between items-center">
+                <span className="flex items-center text-gray-700">
+                  <X className="w-4 h-4 mr-2 text-gray-400" />
+                  <span className="text-sm sm:text-base font-medium">Disconnected</span>
+                </span>
+                <Badge variant="secondary" className="font-mono bg-gray-50 text-gray-700 text-xs sm:text-sm">
+                  {disconnected}
+                </Badge>
+              </li>
+            </ul>
+            <div className="border-t my-4 sm:my-6" />
+            <div className="flex items-center justify-between">
+              <Label htmlFor="auto-refresh" className="text-xs sm:text-sm font-medium text-gray-700">
+                Auto-refresh tokens
+              </Label>
+              <Switch id="auto-refresh" checked={autoRefresh} onCheckedChange={setAutoRefresh} />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </aside>
   )
 
   return (
     <AppLayout title="Integrations">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-8">
+      <div className="container mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 md:py-8">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 sm:gap-4 mb-6 sm:mb-8">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Integrations</h1>
-            <p className="text-gray-600 mt-1">Manage your connections to third-party services.</p>
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">Integrations</h1>
+            <p className="text-sm sm:text-base text-gray-600 mt-1">Manage your connections to third-party services.</p>
           </div>
           <Button 
             onClick={handleRefreshTokens} 
             disabled={loading} 
             variant="outline"
-            className="w-full sm:w-auto"
+            className="w-full sm:w-auto text-sm sm:text-base"
           >
             {loading ? (
               <>
@@ -228,26 +230,26 @@ function IntegrationsContent() {
           </Button>
         </div>
 
-        <div className="lg:flex lg:gap-8">
+        <div className="lg:flex lg:gap-6 xl:gap-8">
           <main className="flex-1">
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-gray-400" />
                 <Input
                   placeholder="Search integrations..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 w-full h-11"
+                  className="pl-9 sm:pl-10 w-full h-9 sm:h-11 text-sm sm:text-base"
                 />
               </div>
 
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="w-full sm:w-auto grid grid-cols-2 sm:flex sm:flex-row gap-2">
-                  <TabsTrigger value="all" className="flex-1 sm:flex-none">All</TabsTrigger>
-                  <TabsTrigger value="connected" className="flex-1 sm:flex-none">Connected</TabsTrigger>
-                  <TabsTrigger value="expiring" className="flex-1 sm:flex-none">Expiring Soon</TabsTrigger>
-                  <TabsTrigger value="expired" className="flex-1 sm:flex-none">Expired</TabsTrigger>
-                  <TabsTrigger value="disconnected" className="flex-1 sm:flex-none">Disconnected</TabsTrigger>
+                <TabsList className="w-full sm:w-auto grid grid-cols-2 sm:flex sm:flex-row gap-1 sm:gap-2 p-1">
+                  <TabsTrigger value="all" className="flex-1 sm:flex-none text-xs sm:text-sm">All</TabsTrigger>
+                  <TabsTrigger value="connected" className="flex-1 sm:flex-none text-xs sm:text-sm">Connected</TabsTrigger>
+                  <TabsTrigger value="expiring" className="flex-1 sm:flex-none text-xs sm:text-sm">Expiring Soon</TabsTrigger>
+                  <TabsTrigger value="expired" className="flex-1 sm:flex-none text-xs sm:text-sm">Expired</TabsTrigger>
+                  <TabsTrigger value="disconnected" className="flex-1 sm:flex-none text-xs sm:text-sm">Disconnected</TabsTrigger>
                 </TabsList>
               </Tabs>
 
