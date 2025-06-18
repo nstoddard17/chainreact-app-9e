@@ -7,9 +7,36 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Settings, User, CreditCard, Bell, Shield, Key } from "lucide-react"
 import ProfileSettings from "./ProfileSettings"
 import BillingContent from "@/components/billing/BillingContent"
+import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
+import { toast } from "@/hooks/use-toast"
 
 export default function SettingsContent() {
   const [activeTab, setActiveTab] = useState("profile")
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
+  async function handleFacebookDelete() {
+    setDeleting(true)
+    try {
+      const res = await fetch("/api/integrations/facebook/data-deletion", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userInitiated: true }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        toast({ title: "Request Submitted", description: data.message || "Your Facebook data deletion request has been received.", variant: "success" })
+      } else {
+        toast({ title: "Error", description: data.message || "Failed to submit deletion request.", variant: "destructive" })
+      }
+    } catch (err) {
+      toast({ title: "Error", description: "Failed to submit deletion request.", variant: "destructive" })
+    } finally {
+      setDeleting(false)
+      setShowDeleteDialog(false)
+    }
+  }
 
   return (
     <AppLayout>
@@ -82,14 +109,41 @@ export default function SettingsContent() {
           </TabsContent>
 
           <TabsContent value="security" className="mt-6">
-            <Card className="bg-white rounded-2xl shadow-lg border border-slate-200">
+            <Card className="bg-white rounded-2xl shadow-lg border border-slate-200 mb-6">
               <CardHeader>
                 <CardTitle className="text-xl font-semibold text-slate-900">Security Settings</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-slate-500">Manage your account security settings.</p>
+                <p className="text-slate-500 mb-4">Manage your account security settings.</p>
+                <div className="mt-8 border-t pt-6">
+                  <h2 className="text-lg font-semibold mb-2">Facebook Data Deletion</h2>
+                  <p className="text-slate-500 mb-4">
+                    If you connected your account with Facebook, you can request deletion of your data associated with our app. Click the button below to request deletion, or email us at <a href="mailto:support@chainreact.app" className="underline">support@chainreact.app</a> for manual requests.
+                  </p>
+                  <Button variant="destructive" onClick={() => setShowDeleteDialog(true)}>
+                    Request Facebook Data Deletion
+                  </Button>
+                </div>
               </CardContent>
             </Card>
+            <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Request Facebook Data Deletion</DialogTitle>
+                  <DialogDescription>
+                    Are you sure you want to request deletion of all data associated with your Facebook account? This action is irreversible. Your request will be processed and you will receive a confirmation email.
+                  </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setShowDeleteDialog(false)} disabled={deleting}>
+                    Cancel
+                  </Button>
+                  <Button variant="destructive" onClick={handleFacebookDelete} disabled={deleting}>
+                    {deleting ? "Requesting..." : "Confirm Request"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </TabsContent>
 
           <TabsContent value="api" className="mt-6">
