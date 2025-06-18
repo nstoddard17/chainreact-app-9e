@@ -188,8 +188,8 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
   },
 
   // Social Media
-  x: {
-    id: "x",
+  twitter: {
+    id: "twitter",
     name: "X",
     description: "Share updates and engage with your X audience",
     category: "social",
