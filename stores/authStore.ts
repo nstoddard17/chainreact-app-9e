@@ -96,24 +96,26 @@ export const useAuthStore = create<AuthState>()(
             set({ user: null, loading: false, initialized: true })
           }
 
-          // Set up auth state listener
-          supabase.auth.onAuthStateChange(async (event, session) => {
-            console.log("🔄 Auth state changed:", event, session?.user?.email)
+          // Set up auth state listener (only once)
+          if (!state.initialized) {
+            supabase.auth.onAuthStateChange(async (event, session) => {
+              console.log("🔄 Auth state changed:", event, session?.user?.email)
 
-            if (event === "SIGNED_IN" && session?.user) {
-              const user: User = {
-                id: session.user.id,
-                email: session.user.email || "",
-                name: session.user.user_metadata?.full_name || session.user.user_metadata?.name,
-                avatar: session.user.user_metadata?.avatar_url,
+              if (event === "SIGNED_IN" && session?.user) {
+                const user: User = {
+                  id: session.user.id,
+                  email: session.user.email || "",
+                  name: session.user.user_metadata?.full_name || session.user.user_metadata?.name,
+                  avatar: session.user.user_metadata?.avatar_url,
+                }
+
+                set({ user, error: null })
+              } else if (event === "SIGNED_OUT") {
+                console.log("👋 User signed out")
+                set({ user: null, error: null })
               }
-
-              set({ user, error: null })
-            } else if (event === "SIGNED_OUT") {
-              console.log("👋 User signed out")
-              set({ user: null, error: null })
-            }
-          })
+            })
+          }
         } catch (error: any) {
           console.error("💥 Auth initialization error:", error)
           set({ user: null, error: error.message, loading: false, initialized: true })
@@ -264,7 +266,8 @@ export const useAuthStore = create<AuthState>()(
         console.log("🔄 Auth store rehydrated:", state?.user?.email || "no user")
         state?.setHydrated()
 
-        if (state) {
+        // Only initialize if not already initialized
+        if (state && !state.initialized) {
           console.log("🔄 Triggering initialization after rehydration...")
           setTimeout(() => {
             state.initialize()
