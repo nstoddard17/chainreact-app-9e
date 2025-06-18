@@ -111,4 +111,4 @@ SELECT
   COUNT(*) FILTER (WHERE status = 'expired') as expired,
   COUNT(*) FILTER (WHERE status = 'needs_reauthorization') as needs_reauth,
   COUNT(*) FILTER (WHERE status = 'disconnected') as disconnected
-FROM integrations; 
+FROM integrations;

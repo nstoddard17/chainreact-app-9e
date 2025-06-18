@@ -4,7 +4,8 @@ import { refreshTokenIfNeeded } from "@/lib/integrations/tokenRefresher"
 import { SupabaseClient } from "@supabase/supabase-js"
 
 export const dynamic = "force-dynamic"
-export const maxDuration = 60 // 60 seconds (maximum allowed)
+// Remove the maxDuration limit to prevent timeout issues
+// export const maxDuration = 60 // 60 seconds (maximum allowed)
 
 interface RefreshStats {
   totalProcessed: number
@@ -376,7 +377,14 @@ async function refreshTokenWithRetry(
     try {
       let result
       try {
-        result = await refreshTokenIfNeeded(integration)
+        // Add timeout to prevent hanging
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Token refresh timeout')), 30000) // 30 second timeout
+        })
+        
+        const refreshPromise = refreshTokenIfNeeded(integration)
+        result = await Promise.race([refreshPromise, timeoutPromise])
+        
         console.log(`[${jobId}] 🔁 Received result from refreshTokenIfNeeded:`, result)
       } catch (err) {
         console.error(`[${jobId}] ❌ refreshTokenIfNeeded threw:`, err)
