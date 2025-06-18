@@ -23,6 +23,8 @@ export async function GET(request: NextRequest) {
   const startTime = Date.now()
 
   try {
+    // Check for Vercel cron job header
+    const cronHeader = request.headers.get("x-vercel-cron")
     const authHeader = request.headers.get("authorization")
     const url = new URL(request.url)
     const querySecret = url.searchParams.get("secret") || url.searchParams.get("cron_secret")
@@ -32,8 +34,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 500 })
     }
 
+    // Allow either Vercel cron header OR secret authentication
     const providedSecret = authHeader?.replace("Bearer ", "") || querySecret
-    if (!providedSecret || providedSecret !== expectedSecret) {
+    const isVercelCron = cronHeader === "1"
+    
+    if (!isVercelCron && (!providedSecret || providedSecret !== expectedSecret)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
