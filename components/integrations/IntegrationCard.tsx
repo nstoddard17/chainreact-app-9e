@@ -169,17 +169,34 @@ export function IntegrationCard({ provider, integration, status }: IntegrationCa
       <CardFooter className="p-3 sm:p-4 pt-0 w-full">
         <div className="w-full flex flex-col gap-2">
           {statusAction === 'connected' ? (
-            <>
-              <Button onClick={handleReconnect} disabled={isLoading} size="sm" className="w-full">
-                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
-                Reconnect
-              </Button>
-              <Button onClick={handleDisconnect} disabled={isLoading} size="sm" variant="outline" className="w-fit self-end px-4">
+            <div className="flex items-center gap-2 w-full">
+              <Button
+                onClick={handleDisconnect}
+                disabled={isLoading}
+                size="sm"
+                variant="outline"
+                className="w-full bg-white text-black border border-gray-300 hover:bg-gray-100"
+              >
                 Disconnect
               </Button>
-            </>
+              <Button
+                onClick={handleReconnect}
+                disabled={isLoading}
+                size="icon"
+                variant="ghost"
+                className="border border-gray-300 bg-white text-black hover:bg-gray-100 w-9 h-9 p-0 flex items-center justify-center"
+                aria-label="Reconnect"
+              >
+                {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              </Button>
+            </div>
           ) : (
-            <Button onClick={handleConnect} disabled={isLoading} size="sm" className="w-full">
+            <Button
+              onClick={handleConnect}
+              disabled={isLoading}
+              size="sm"
+              className="w-full bg-black text-white hover:bg-gray-900"
+            >
               {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LinkIcon className="mr-2 h-4 w-4" />}
               Connect
             </Button>
