@@ -88,6 +88,19 @@ export function ApiKeyIntegrationCard({ provider, integration, status }: ApiKeyI
       return colors[index % colors.length]
     }
 
+    // Use X logo for provider 'x' or 'twitter'
+    if ((provider.id === 'x' || provider.id === 'twitter') && !imageError) {
+      return (
+        <Image
+          src={'/integrations/x.svg'}
+          alt={'X'}
+          width={48}
+          height={48}
+          className="object-contain"
+          onError={() => setImageError(true)}
+        />
+      )
+    }
     if (provider.logoUrl && !imageError) {
       return (
         <Image
@@ -100,7 +113,6 @@ export function ApiKeyIntegrationCard({ provider, integration, status }: ApiKeyI
         />
       )
     }
-    
     return (
       <div className={`flex items-center justify-center w-12 h-12 rounded-lg text-lg font-bold text-white ${getAvatarColor(provider.name)}`}>
         {provider.name.substring(0, 2).toUpperCase()}
@@ -127,7 +139,7 @@ export function ApiKeyIntegrationCard({ provider, integration, status }: ApiKeyI
                 className="text-base sm:text-lg font-semibold text-gray-900 leading-tight"
                 title={provider.name}
               >
-                {provider.name === "Blackbaud Raiser's Edge NXT" ? "Blackbaud" : provider.name}
+                {provider.name === "Blackbaud Raiser's Edge NXT" ? "Blackbaud" : provider.id === 'x' || provider.id === 'twitter' ? 'X' : provider.name}
               </h3>
             </div>
           </div>
