@@ -145,7 +145,7 @@ function IntegrationsContent() {
 
   const StatusSidebar = () => (
     <aside className="w-full lg:w-72 xl:w-80 lg:pl-6 xl:pl-8 mt-6 lg:mt-0">
-      <div className="lg:sticky lg:top-4">
+      <div className="lg:sticky lg:top-20">
         <Card className="shadow-sm rounded-lg border-gray-200">
           <CardHeader className="pb-3 sm:pb-4">
             <CardTitle className="text-base sm:text-lg font-semibold">Integration Status</CardTitle>
@@ -231,7 +231,7 @@ function IntegrationsContent() {
         </div>
 
         <div className="lg:flex lg:gap-6 xl:gap-8">
-          <main className="flex-1">
+          <main className="flex-1 min-h-[calc(100vh-200px)]">
             <div className="space-y-4 sm:space-y-6">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-gray-400" />
