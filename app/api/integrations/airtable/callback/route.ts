@@ -64,13 +64,20 @@ export async function GET(request: NextRequest) {
       throw new Error("Airtable client ID not configured")
     }
 
+    const clientSecret = process.env.AIRTABLE_CLIENT_SECRET
+    if (!clientSecret) {
+      throw new Error("Airtable client secret not configured")
+    }
+
+    const authHeader = `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`
+
     const tokenResponse = await fetch("https://airtable.com/oauth2/v1/token", {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
+        "Authorization": authHeader,
       },
       body: new URLSearchParams({
-        client_id: clientId,
         code,
         code_verifier,
         grant_type: "authorization_code",
