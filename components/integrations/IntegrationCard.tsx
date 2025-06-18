@@ -5,7 +5,7 @@ import Image from "next/image"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, Link as LinkIcon, Link2Off } from "lucide-react"
+import { Loader2, Link as LinkIcon, Link2Off, RefreshCw } from "lucide-react"
 import { useIntegrationStore, type Integration, type Provider } from "@/stores/integrationStore"
 import { cn } from "@/lib/utils"
 
@@ -29,11 +29,11 @@ const getAvatarColor = (name: string) => {
 interface IntegrationCardProps {
   provider: Provider
   integration: Integration | null
-  status: 'connected' | 'expiring' | 'disconnected'
+  status: 'connected' | 'expiring' | 'disconnected' | 'expired'
 }
 
 export function IntegrationCard({ provider, integration, status }: IntegrationCardProps) {
-  const { connectIntegration, disconnectIntegration, loadingStates } = useIntegrationStore()
+  const { connectIntegration, disconnectIntegration, reconnectIntegration, loadingStates } = useIntegrationStore()
   const [imageError, setImageError] = useState(false)
 
   const handleConnect = () => {
@@ -43,6 +43,12 @@ export function IntegrationCard({ provider, integration, status }: IntegrationCa
   const handleDisconnect = () => {
     if (integration) {
       disconnectIntegration(integration.id)
+    }
+  }
+
+  const handleReconnect = () => {
+    if (integration) {
+      reconnectIntegration(integration.id)
     }
   }
 
@@ -58,6 +64,12 @@ export function IntegrationCard({ provider, integration, status }: IntegrationCa
           badgeClass: 'bg-green-100 text-green-800',
           action: 'disconnect'
         }
+      case 'expired':
+        return {
+          text: 'Expired',
+          badgeClass: 'bg-red-100 text-red-800',
+          action: 'reconnect'
+        }
       case 'expiring':
         const expiresAt = integration?.expires_at ? new Date(integration.expires_at) : null
         const now = new Date()
@@ -68,7 +80,7 @@ export function IntegrationCard({ provider, integration, status }: IntegrationCa
         return {
           text: `Expiring in ${timeText}`,
           badgeClass: 'bg-yellow-100 text-yellow-800',
-          action: 'disconnect'
+          action: 'reconnect'
         }
       default: // disconnected
         return {
@@ -101,6 +113,13 @@ export function IntegrationCard({ provider, integration, status }: IntegrationCa
           >
             {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Link2Off className="mr-2 h-4 w-4" />}
             Disconnect
+          </Button>
+        )
+      case 'reconnect':
+        return (
+          <Button onClick={handleReconnect} disabled={isLoading} size="sm" className="w-full">
+            {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+            Reconnect
           </Button>
         )
       default:
