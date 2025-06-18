@@ -143,63 +143,60 @@ function IntegrationsContent() {
     </div>
   )
 
-  const StatusSidebar = () => (
-    <aside className="w-full lg:w-72 xl:w-80 lg:pl-6 xl:pl-8 mt-6 lg:mt-0">
-      <div className="lg:sticky lg:top-20">
-        <Card className="shadow-sm rounded-lg border-gray-200">
-          <CardHeader className="pb-3 sm:pb-4">
-            <CardTitle className="text-base sm:text-lg font-semibold">Integration Status</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-3 sm:space-y-4">
-              <li className="flex justify-between items-center">
-                <span className="flex items-center text-gray-700">
-                  <Check className="w-4 h-4 mr-2 text-green-500" />
-                  <span className="text-sm sm:text-base font-medium">Connected</span>
-                </span>
-                <Badge variant="secondary" className="font-mono bg-green-50 text-green-700 text-xs sm:text-sm">
-                  {connected}
-                </Badge>
-              </li>
-              <li className="flex justify-between items-center">
-                <span className="flex items-center text-gray-700">
-                  <Bell className="w-4 h-4 mr-2 text-yellow-500" />
-                  <span className="text-sm sm:text-base font-medium">Expiring</span>
-                </span>
-                <Badge variant="secondary" className="font-mono bg-yellow-50 text-yellow-700 text-xs sm:text-sm">
-                  {expiring}
-                </Badge>
-              </li>
-              <li className="flex justify-between items-center">
-                <span className="flex items-center text-gray-700">
-                  <AlertCircle className="w-4 h-4 mr-2 text-red-500" />
-                  <span className="text-sm sm:text-base font-medium">Expired</span>
-                </span>
-                <Badge variant="secondary" className="font-mono bg-red-50 text-red-700 text-xs sm:text-sm">
-                  {expired}
-                </Badge>
-              </li>
-              <li className="flex justify-between items-center">
-                <span className="flex items-center text-gray-700">
-                  <X className="w-4 h-4 mr-2 text-gray-400" />
-                  <span className="text-sm sm:text-base font-medium">Disconnected</span>
-                </span>
-                <Badge variant="secondary" className="font-mono bg-gray-50 text-gray-700 text-xs sm:text-sm">
-                  {disconnected}
-                </Badge>
-              </li>
-            </ul>
-            <div className="border-t my-4 sm:my-6" />
-            <div className="flex items-center justify-between">
-              <Label htmlFor="auto-refresh" className="text-xs sm:text-sm font-medium text-gray-700">
-                Auto-refresh tokens
-              </Label>
-              <Switch id="auto-refresh" checked={autoRefresh} onCheckedChange={setAutoRefresh} />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    </aside>
+  // Extract the status summary content for reuse
+  const StatusSummaryContent = ({ autoRefresh, setAutoRefresh, connected, expiring, expired, disconnected }: any) => (
+    <Card className="shadow-sm rounded-lg border-gray-200">
+      <CardHeader className="pb-3 sm:pb-4">
+        <CardTitle className="text-base sm:text-lg font-semibold">Integration Status</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <ul className="space-y-3 sm:space-y-4">
+          <li className="flex justify-between items-center">
+            <span className="flex items-center text-gray-700">
+              <Check className="w-4 h-4 mr-2 text-green-500" />
+              <span className="text-sm sm:text-base font-medium">Connected</span>
+            </span>
+            <Badge variant="secondary" className="font-mono bg-green-50 text-green-700 text-xs sm:text-sm">
+              {connected}
+            </Badge>
+          </li>
+          <li className="flex justify-between items-center">
+            <span className="flex items-center text-gray-700">
+              <Bell className="w-4 h-4 mr-2 text-yellow-500" />
+              <span className="text-sm sm:text-base font-medium">Expiring</span>
+            </span>
+            <Badge variant="secondary" className="font-mono bg-yellow-50 text-yellow-700 text-xs sm:text-sm">
+              {expiring}
+            </Badge>
+          </li>
+          <li className="flex justify-between items-center">
+            <span className="flex items-center text-gray-700">
+              <AlertCircle className="w-4 h-4 mr-2 text-red-500" />
+              <span className="text-sm sm:text-base font-medium">Expired</span>
+            </span>
+            <Badge variant="secondary" className="font-mono bg-red-50 text-red-700 text-xs sm:text-sm">
+              {expired}
+            </Badge>
+          </li>
+          <li className="flex justify-between items-center">
+            <span className="flex items-center text-gray-700">
+              <X className="w-4 h-4 mr-2 text-gray-400" />
+              <span className="text-sm sm:text-base font-medium">Disconnected</span>
+            </span>
+            <Badge variant="secondary" className="font-mono bg-gray-50 text-gray-700 text-xs sm:text-sm">
+              {disconnected}
+            </Badge>
+          </li>
+        </ul>
+        <div className="border-t my-4 sm:my-6" />
+        <div className="flex items-center justify-between">
+          <Label htmlFor="auto-refresh" className="text-xs sm:text-sm font-medium text-gray-700">
+            Auto-refresh tokens
+          </Label>
+          <Switch id="auto-refresh" checked={autoRefresh} onCheckedChange={setAutoRefresh} />
+        </div>
+      </CardContent>
+    </Card>
   )
 
   return (
@@ -254,9 +251,33 @@ function IntegrationsContent() {
               </Tabs>
 
               <IntegrationGrid />
+
+              {/* Mobile: Status summary at the bottom */}
+              <div className="block lg:hidden mt-6">
+                <StatusSummaryContent
+                  autoRefresh={autoRefresh}
+                  setAutoRefresh={setAutoRefresh}
+                  connected={connected}
+                  expiring={expiring}
+                  expired={expired}
+                  disconnected={disconnected}
+                />
+              </div>
             </div>
           </main>
-          <StatusSidebar />
+          {/* Desktop: Sticky status summary sidebar */}
+          <aside className="hidden lg:block lg:w-72 xl:w-80 lg:pl-6 xl:pl-8 mt-6 lg:mt-0">
+            <div className="lg:sticky lg:top-24">
+              <StatusSummaryContent
+                autoRefresh={autoRefresh}
+                setAutoRefresh={setAutoRefresh}
+                connected={connected}
+                expiring={expiring}
+                expired={expired}
+                disconnected={disconnected}
+              />
+            </div>
+          </aside>
         </div>
       </div>
     </AppLayout>
