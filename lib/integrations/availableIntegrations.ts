@@ -301,22 +301,6 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     authType: "oauth",
   },
 
-  docker: {
-    id: "docker",
-    name: "Docker Hub",
-    description: "Container registry and image management",
-    category: "development",
-    logoUrl: "/integrations/docker.svg",
-    capabilities: ["Image Management", "Repository Access", "Webhooks", "Analytics"],
-    scopes: [],
-    isAvailable: false,
-    requiresClientId: "NEXT_PUBLIC_DOCKER_CLIENT_ID",
-    requiresClientSecret: "DOCKER_CLIENT_SECRET",
-    color: "#2496ED",
-    docsUrl: "https://docs.docker.com/desktop/extensions-sdk/",
-    authType: "oauth",
-  },
-
   notion: {
     id: "notion",
     name: "Notion",
