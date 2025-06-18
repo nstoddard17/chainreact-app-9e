@@ -8,7 +8,6 @@ import {
   Puzzle,
   BarChart3,
   Settings,
-  Zap,
   Building2,
   Shield,
   Users,
@@ -16,6 +15,7 @@ import {
   GraduationCap,
   X,
 } from "lucide-react"
+import Image from "next/image"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 
@@ -50,9 +50,7 @@ export default function Sidebar({ isMobileMenuOpen, onMobileMenuChange }: Sideba
       {/* Logo */}
       <div className="p-6 border-b border-slate-200 flex items-center justify-between">
         <Link href="/" className="flex items-center space-x-2">
-          <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-            <Zap className="w-5 h-5 text-white" />
-          </div>
+          <Image src="/logo_transparent.png" alt="ChainReact Logo" width={32} height={32} className="w-8 h-8" />
           <span className="text-xl font-bold text-slate-900">ChainReact</span>
         </Link>
         <Button
