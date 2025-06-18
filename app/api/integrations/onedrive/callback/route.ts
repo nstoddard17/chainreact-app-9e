@@ -6,9 +6,9 @@ import { getBaseUrl } from '@/lib/utils/getBaseUrl'
 export async function GET(request: NextRequest) {
   const url = new URL(request.url)
   const code = url.searchParams.get('code')
-  const state = url.search_params.get("state")
-  const error = url.search_params.get("error")
-  const errorDescription = url.search_params.get("error_description")
+  const state = url.searchParams.get("state")
+  const error = url.searchParams.get("error")
+  const errorDescription = url.searchParams.get("error_description")
   const baseUrl = getBaseUrl()
   const provider = 'onedrive'
 

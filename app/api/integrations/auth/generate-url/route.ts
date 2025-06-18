@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 import crypto from "crypto"
+import supabaseAdmin from "@/lib/supabase/admin"
 
 export async function POST(request: NextRequest) {
   try {
@@ -64,7 +65,7 @@ export async function POST(request: NextRequest) {
         break
 
       case "twitter":
-        authUrl = await generateTwitterAuthUrl(stateObject)
+        authUrl = await generateTwitterAuthUrl(stateObject, supabaseAdmin)
         break
 
       case "linkedin":
@@ -96,7 +97,7 @@ export async function POST(request: NextRequest) {
         break
 
       case "airtable":
-        authUrl = await generateAirtableAuthUrl(stateObject)
+        authUrl = await generateAirtableAuthUrl(stateObject, supabaseAdmin)
         break
 
       case "mailchimp":
@@ -274,32 +275,31 @@ function generateNotionAuthUrl(state: string): string {
   return `https://api.notion.com/v1/oauth/authorize?${params.toString()}`
 }
 
-async function generateTwitterAuthUrl(stateObject: any): Promise<string> {
+async function generateTwitterAuthUrl(stateObject: any, supabase: any): Promise<string> {
   const clientId = process.env.NEXT_PUBLIC_TWITTER_CLIENT_ID
   if (!clientId) throw new Error("Twitter client ID not configured")
 
-  // Generate a random string for the code verifier
+  // Generate PKCE challenge
   const codeVerifier = crypto.randomBytes(32).toString("hex")
+  const codeChallenge = crypto.createHash("sha256").update(codeVerifier).digest("base64url")
 
-  // Create a code challenge from the verifier
-  const codeChallenge = crypto
-    .createHash("sha256")
-    .update(codeVerifier)
-    .digest("base64")
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=/g, "")
+  const state = btoa(JSON.stringify(stateObject))
 
-  // Add the code verifier to the state
-  const stateWithVerifier = { ...stateObject, codeVerifier }
-  const finalState = btoa(JSON.stringify(stateWithVerifier))
+  // Store the code_verifier in the database
+  const { error } = await supabase
+    .from("pkce_flow")
+    .insert({ state, code_verifier: codeVerifier, provider: "twitter" })
+
+  if (error) {
+    throw new Error(`Failed to store PKCE code verifier: ${error.message}`)
+  }
 
   const params = new URLSearchParams({
     response_type: "code",
     client_id: clientId,
-    redirect_uri: `https://chainreact.app/api/integrations/twitter/callback`,
-    scope: "tweet.read users.read offline.access",
-    state: finalState,
+    redirect_uri: "https://chainreact.app/api/integrations/twitter/callback",
+    scope: "tweet.read users.read tweet.write offline.access",
+    state: state,
     code_challenge: codeChallenge,
     code_challenge_method: "S256",
   })
@@ -416,17 +416,21 @@ function generateHubSpotAuthUrl(state: string): string {
   return `https://app.hubspot.com/oauth/authorize?${params.toString()}`
 }
 
-async function generateAirtableAuthUrl(stateObject: any): Promise<string> {
+async function generateAirtableAuthUrl(stateObject: any, supabase: any): Promise<string> {
   const clientId = process.env.NEXT_PUBLIC_AIRTABLE_CLIENT_ID
   if (!clientId) throw new Error("Airtable client ID not configured")
 
-  const code_verifier = crypto.randomBytes(32).toString("hex")
-  const code_challenge = crypto.createHash("sha256").update(code_verifier).digest("base64url")
+  // Generate PKCE challenge
+  const codeVerifier = crypto.randomBytes(32).toString("hex")
+  const code_challenge = crypto.createHash("sha256").update(codeVerifier).digest("base64url")
 
-  const supabase = createServerComponentClient({ cookies })
+  const state = btoa(JSON.stringify(stateObject))
+
+  // Store the code_verifier
   const { error } = await supabase
     .from("pkce_flow")
-    .insert({ state: btoa(JSON.stringify(stateObject)), code_verifier: code_verifier })
+    .insert({ state, code_verifier: codeVerifier, provider: "airtable" })
+
   if (error) {
     throw new Error(`Failed to store PKCE code verifier: ${error.message}`)
   }
@@ -436,7 +440,7 @@ async function generateAirtableAuthUrl(stateObject: any): Promise<string> {
     redirect_uri: `https://chainreact.app/api/integrations/airtable/callback`,
     response_type: "code",
     scope: "data.records:read data.records:write schema.bases:read",
-    state: btoa(JSON.stringify(stateObject)),
+    state,
     code_challenge,
     code_challenge_method: "S256",
   })
