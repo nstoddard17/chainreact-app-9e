@@ -7,7 +7,7 @@ import type { Provider, Integration } from '@/stores/integrationStore'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, Link as LinkIcon, Link2Off, RefreshCw } from 'lucide-react'
+import { Loader2, Link as LinkIcon, Link2Off, RefreshCw, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { GumroadGuide } from './guides/GumroadGuide'
 import { ManyChatGuide } from './guides/ManyChatGuide'
@@ -116,16 +116,11 @@ export function ApiKeyIntegrationCard({ provider, integration, status }: ApiKeyI
             {renderLogo()}
             <div className="min-w-0 flex-1">
               <h3 
-                className="text-sm sm:text-base font-semibold text-gray-900 truncate"
+                className="text-sm sm:text-base font-semibold text-gray-900 leading-tight"
                 title={provider.name}
               >
                 {provider.name}
               </h3>
-              {provider.description && (
-                <p className="text-xs sm:text-sm text-gray-500 truncate mt-0.5">
-                  {provider.description}
-                </p>
-              )}
             </div>
           </div>
           <Badge 
@@ -150,7 +145,7 @@ export function ApiKeyIntegrationCard({ provider, integration, status }: ApiKeyI
 
         <CardFooter className="p-4 pt-0">
           <div className="w-full">
-            {statusAction === 'disconnect' ? (
+            {status === 'connected' ? (
               <div className="flex items-center gap-2">
                 <Button
                   onClick={handleDisconnect}
@@ -170,7 +165,29 @@ export function ApiKeyIntegrationCard({ provider, integration, status }: ApiKeyI
                   className="w-9 h-9 p-0 border border-gray-300 hover:bg-gray-50"
                   aria-label="Reconnect"
                 >
-                  {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                </Button>
+              </div>
+            ) : status === 'expiring' ? (
+              <div className="flex items-center gap-2">
+                <Button
+                  onClick={() => setShowGuide(true)}
+                  disabled={isLoading}
+                  size="sm"
+                  className="flex-1 bg-gray-900 text-white hover:bg-gray-800"
+                >
+                  {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                  Reconnect
+                </Button>
+                <Button
+                  onClick={handleDisconnect}
+                  disabled={isLoading}
+                  size="sm"
+                  variant="outline"
+                  className="w-9 h-9 p-0 border border-gray-300 hover:bg-gray-50"
+                  aria-label="Disconnect"
+                >
+                  <X className="h-4 w-4" />
                 </Button>
               </div>
             ) : (

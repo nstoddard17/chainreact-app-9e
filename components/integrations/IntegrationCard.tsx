@@ -5,7 +5,7 @@ import Image from "next/image"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, Link as LinkIcon, Link2Off, RefreshCw, Info } from "lucide-react"
+import { Loader2, Link as LinkIcon, Link2Off, RefreshCw, Info, X } from "lucide-react"
 import { useIntegrationStore, type Integration, type Provider } from "@/stores/integrationStore"
 import { cn } from "@/lib/utils"
 import {
@@ -41,6 +41,7 @@ interface IntegrationCardProps {
 export function IntegrationCard({ provider, integration, status }: IntegrationCardProps) {
   const { connectIntegration, disconnectIntegration, reconnectIntegration, loadingStates } = useIntegrationStore()
   const [imageError, setImageError] = useState(false)
+  const [showInfo, setShowInfo] = useState(false)
 
   const handleConnect = () => {
     connectIntegration(provider.id)
@@ -133,16 +134,11 @@ export function IntegrationCard({ provider, integration, status }: IntegrationCa
           {renderLogo()}
           <div className="min-w-0 flex-1">
             <h3 
-              className="text-sm sm:text-base font-semibold text-gray-900 truncate"
+              className="text-sm sm:text-base font-semibold text-gray-900 leading-tight"
               title={provider.name}
             >
               {provider.name}
             </h3>
-            {provider.description && (
-              <p className="text-xs sm:text-sm text-gray-500 truncate mt-0.5">
-                {provider.description}
-              </p>
-            )}
           </div>
         </div>
         <Badge 
@@ -161,17 +157,20 @@ export function IntegrationCard({ provider, integration, status }: IntegrationCa
             <span>Connected {new Date(integration.created_at).toLocaleDateString()}</span>
           )}
           {!integration && <span>Not connected</span>}
-          {/* Info icon with tooltip */}
+          {/* Info icon with click-based popover */}
           <TooltipProvider>
-            <Tooltip>
+            <Tooltip open={showInfo} onOpenChange={setShowInfo}>
               <TooltipTrigger asChild>
-                <button type="button" className="ml-auto text-gray-400 hover:text-gray-600 transition-colors">
+                <button 
+                  type="button" 
+                  className="ml-auto text-gray-400 hover:text-gray-600 transition-colors"
+                  onClick={() => setShowInfo(!showInfo)}
+                >
                   <Info className="w-4 h-4" aria-label="Integration details" />
                 </button>
               </TooltipTrigger>
               <TooltipContent className="max-w-xs text-sm">
                 <div className="font-semibold mb-1">{provider.name}</div>
-                {provider.description && <div className="mb-1 text-gray-600">{provider.description}</div>}
                 {integration?.created_at && (
                   <div className="text-xs text-gray-400">Connected: {new Date(integration.created_at).toLocaleString()}</div>
                 )}
@@ -183,7 +182,7 @@ export function IntegrationCard({ provider, integration, status }: IntegrationCa
 
       <CardFooter className="p-4 pt-0">
         <div className="w-full">
-          {statusAction === 'connected' ? (
+          {status === 'connected' ? (
             <div className="flex items-center gap-2">
               <Button
                 onClick={handleDisconnect}
@@ -203,7 +202,29 @@ export function IntegrationCard({ provider, integration, status }: IntegrationCa
                 className="w-9 h-9 p-0 border border-gray-300 hover:bg-gray-50"
                 aria-label="Reconnect"
               >
-                {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                <RefreshCw className="h-4 w-4 animate-spin" />
+              </Button>
+            </div>
+          ) : status === 'expired' ? (
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={handleReconnect}
+                disabled={isLoading}
+                size="sm"
+                className="flex-1 bg-gray-900 text-white hover:bg-gray-800"
+              >
+                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                Reconnect
+              </Button>
+              <Button
+                onClick={handleDisconnect}
+                disabled={isLoading}
+                size="sm"
+                variant="outline"
+                className="w-9 h-9 p-0 border border-gray-300 hover:bg-gray-50"
+                aria-label="Disconnect"
+              >
+                <X className="h-4 w-4" />
               </Button>
             </div>
           ) : (
