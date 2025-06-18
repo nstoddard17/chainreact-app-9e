@@ -154,26 +154,21 @@ export function IntegrationCard({ provider, integration, status }: IntegrationCa
 
   return (
     <Card className="flex flex-col justify-between h-full transition-all duration-200 hover:shadow-md rounded-lg border-gray-200">
-      <CardHeader className="flex-row items-start justify-between p-4 pb-2">
-        <div className="flex items-center gap-3">
+      <CardHeader className="flex-row items-center justify-between p-3 sm:p-4">
+        <div className="flex items-center gap-2 sm:gap-3">
           {renderLogo()}
-          <div>
-            <CardTitle className="text-base font-semibold text-gray-900">{provider.name}</CardTitle>
-            {provider.description && (
-              <p className="text-sm text-gray-500 mt-0.5 line-clamp-2">{provider.description}</p>
-            )}
-          </div>
+          <CardTitle className="text-sm sm:text-base font-semibold text-gray-900">{provider.name}</CardTitle>
         </div>
         <Badge 
           className={cn(
-            "px-2.5 py-1 text-xs font-medium whitespace-nowrap",
+            "px-2 py-0.5 sm:px-2.5 sm:py-1 text-xs font-medium whitespace-nowrap",
             badgeClass
           )}
         >
           {statusText}
         </Badge>
       </CardHeader>
-      <CardFooter className="p-4 pt-2">
+      <CardFooter className="p-3 sm:p-4 pt-0">
         {renderButton()}
       </CardFooter>
     </Card>
