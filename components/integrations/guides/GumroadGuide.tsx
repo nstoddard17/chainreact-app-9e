@@ -76,6 +76,9 @@ export function GumroadGuide({ open, onOpenChange, onConnect }: GumroadGuideProp
             onChange={(e) => setApiKey(e.target.value)}
             disabled={isLoading}
             className="font-mono"
+            autoComplete="off"
+            name="gumroad-api-key"
+            autoCorrect="off"
           />
           {error && <p className="text-xs text-red-500">{error}</p>}
         </div>

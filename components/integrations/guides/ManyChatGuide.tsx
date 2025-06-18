@@ -73,6 +73,9 @@ export function ManyChatGuide({ open, onOpenChange, onConnect }: ManyChatGuidePr
             onChange={(e) => setApiKey(e.target.value)}
             disabled={isLoading}
             className="font-mono"
+            autoComplete="off"
+            name="manychat-api-key"
+            autoCorrect="off"
           />
           {error && <p className="text-xs text-red-500">{error}</p>}
         </div>
