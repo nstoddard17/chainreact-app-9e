@@ -48,11 +48,11 @@ export function GumroadGuide({ open, onOpenChange, onConnect }: GumroadGuideProp
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
-          {/* Hidden dummy email field to trap browser autofill */}
+          {/* Hidden dummy password field to trap browser autofill */}
           <input
-            type="email"
-            name="fake-email-modal"
-            autoComplete="username"
+            type="password"
+            name="fake-password-modal"
+            autoComplete="new-password"
             style={{ display: 'none' }}
             tabIndex={-1}
           />
