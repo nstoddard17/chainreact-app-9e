@@ -1,10 +1,10 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
+import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createServerComponentClient({ cookies })
+    const supabase = createRouteHandlerClient({ cookies })
 
     // Use getUser() instead of getSession() for secure authentication
     const {
@@ -22,7 +22,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized - no valid user" }, { status: 401 })
     }
 
-    console.log("Fetching integrations for authenticated user:", user.id)
+    console.log("🔍 Fetching integrations for authenticated user:", user.id)
+
+    // First, let's verify the user exists in the database
+    const { data: userData, error: userCheckError } = await supabase
+      .from("auth.users")
+      .select("id, email")
+      .eq("id", user.id)
+      .single()
+
+    if (userCheckError) {
+      console.error("Error checking user existence:", userCheckError)
+    } else {
+      console.log("✅ User verified:", userData?.email)
+    }
 
     // Fetch user's integrations with detailed logging
     const { data: integrations, error } = await supabase
@@ -43,7 +56,15 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    console.log(`Found ${integrations?.length || 0} integrations for user ${user.id}:`, integrations)
+    console.log(`✅ Found ${integrations?.length || 0} integrations for user ${user.id}`)
+    
+    // Log each integration for debugging
+    if (integrations && integrations.length > 0) {
+      console.log("📋 Integrations found:")
+      integrations.forEach((integration, index) => {
+        console.log(`  ${index + 1}. ${integration.provider} (${integration.status}) - ID: ${integration.id}`)
+      })
+    }
 
     // Transform the data to ensure consistent format
     const transformedIntegrations = (integrations || []).map((integration) => ({
@@ -68,6 +89,10 @@ export async function GET(request: NextRequest) {
       data: transformedIntegrations,
       count: transformedIntegrations.length,
       user_id: user.id,
+      debug: {
+        user_email: userData?.email,
+        request_timestamp: new Date().toISOString(),
+      }
     })
   } catch (error) {
     console.error("API error in /api/integrations:", error)
