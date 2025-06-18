@@ -1,6 +1,5 @@
 import { create } from "zustand"
 import { getSupabaseClient } from "@/lib/supabase"
-import { TokenAuditLogger } from "@/lib/integrations/TokenAuditLogger"
 
 export interface Activity {
   id: string
@@ -44,10 +43,15 @@ export const useActivityStore = create<ActivityState>((set) => ({
       const executionsResponse = await fetch("/api/analytics/executions")
       const executions = executionsResponse.ok ? await executionsResponse.json() : []
 
-      // Fetch token audit logs
-      const tokenEvents = await TokenAuditLogger.getRecentEvents(user.id, 20)
+      // Fetch token audit logs using regular client
+      const { data: tokenEvents } = await supabase
+        .from("token_audit_logs")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(20)
 
-      // Fetch workflow audit logs (if they exist)
+      // Fetch workflow audit logs
       const { data: workflowEvents } = await supabase
         .from("audit_logs")
         .select("*")
@@ -74,31 +78,33 @@ export const useActivityStore = create<ActivityState>((set) => ({
       })
 
       // Add integration events
-      tokenEvents.forEach((event: any) => {
-        let type: Activity["type"] = "integration_connect"
-        let title = "Integration connected"
-        let description = `${event.provider} integration was connected`
+      if (tokenEvents) {
+        tokenEvents.forEach((event: any) => {
+          let type: Activity["type"] = "integration_connect"
+          let title = "Integration connected"
+          let description = `${event.provider} integration was connected`
 
-        if (event.event_type === "disconnect") {
-          type = "integration_disconnect"
-          title = "Integration disconnected"
-          description = `${event.provider} integration was disconnected`
-        } else if (event.event_type === "reconnect") {
-          title = "Integration reconnected"
-          description = `${event.provider} integration was reconnected`
-        }
+          if (event.event_type === "disconnect") {
+            type = "integration_disconnect"
+            title = "Integration disconnected"
+            description = `${event.provider} integration was disconnected`
+          } else if (event.event_type === "reconnect") {
+            title = "Integration reconnected"
+            description = `${event.provider} integration was reconnected`
+          }
 
-        allActivities.push({
-          id: event.id,
-          type,
-          title,
-          description,
-          status: "success",
-          timestamp: event.created_at,
-          metadata: { event },
-          source: "token_audit"
+          allActivities.push({
+            id: event.id,
+            type,
+            title,
+            description,
+            status: "success",
+            timestamp: event.created_at,
+            metadata: { event },
+            source: "token_audit"
+          })
         })
-      })
+      }
 
       // Add workflow events
       if (workflowEvents) {

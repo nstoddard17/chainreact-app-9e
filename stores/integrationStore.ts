@@ -1,7 +1,6 @@
 import { create } from "zustand"
 import { getSupabaseClient } from "@/lib/supabase"
 import { persist } from "zustand/middleware"
-import { TokenAuditLogger } from "@/lib/integrations/TokenAuditLogger"
 
 export interface Integration {
   id: string
@@ -330,16 +329,26 @@ export const useIntegrationStore = create<IntegrationStore>()(
 
           console.log(`✅ API key connected for ${providerId}`)
           
-          // Log the integration connection
-          const { data: { user } } = await supabase.auth.getUser()
-          if (user) {
-            await TokenAuditLogger.logEvent(
-              "api_key_connection",
-              user.id,
-              providerId,
-              "connect",
-              { method: "api_key" }
-            )
+          // Log the integration connection via API
+          try {
+            const { data: { user } } = await supabase.auth.getUser()
+            if (user) {
+              await fetch("/api/audit/log-integration-event", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${session.access_token}`,
+                },
+                body: JSON.stringify({
+                  integrationId: "api_key_connection",
+                  provider: providerId,
+                  eventType: "connect",
+                  details: { method: "api_key" }
+                })
+              })
+            }
+          } catch (auditError) {
+            console.warn("Failed to log API key connection:", auditError)
           }
           
           await fetchIntegrations(true)
@@ -383,16 +392,26 @@ export const useIntegrationStore = create<IntegrationStore>()(
 
           console.log(`✅ Disconnected ${integration.provider}`)
           
-          // Log the integration disconnection
-          const { data: { user } } = await supabase.auth.getUser()
-          if (user) {
-            await TokenAuditLogger.logEvent(
-              integrationId,
-              user.id,
-              integration.provider,
-              "disconnect",
-              { method: "oauth" }
-            )
+          // Log the integration disconnection via API
+          try {
+            const { data: { user } } = await supabase.auth.getUser()
+            if (user) {
+              await fetch("/api/audit/log-integration-event", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${session.access_token}`,
+                },
+                body: JSON.stringify({
+                  integrationId: integrationId,
+                  provider: integration.provider,
+                  eventType: "disconnect",
+                  details: { method: "oauth" }
+                })
+              })
+            }
+          } catch (auditError) {
+            console.warn("Failed to log integration disconnection:", auditError)
           }
           
           fetchIntegrations(true)
@@ -478,21 +497,37 @@ export const useIntegrationStore = create<IntegrationStore>()(
         try {
           console.log(`🔄 Reconnecting integration: ${integration.provider}`)
 
+          const supabase = getSupabaseClient()
+          if (!supabase) throw new Error("Supabase client not available")
+
+          const {
+            data: { session },
+          } = await supabase.auth.getSession()
+
+          if (!session) throw new Error("No valid session")
+
           await connectIntegration(integration.provider)
           
-          // Log the integration reconnection
-          const supabase = getSupabaseClient()
-          if (supabase) {
+          // Log the integration reconnection via API
+          try {
             const { data: { user } } = await supabase.auth.getUser()
             if (user) {
-              await TokenAuditLogger.logEvent(
-                integrationId,
-                user.id,
-                integration.provider,
-                "reconnect",
-                { method: "oauth" }
-              )
+              await fetch("/api/audit/log-integration-event", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${session.access_token}`,
+                },
+                body: JSON.stringify({
+                  integrationId: integrationId,
+                  provider: integration.provider,
+                  eventType: "reconnect",
+                  details: { method: "oauth" }
+                })
+              })
             }
+          } catch (auditError) {
+            console.warn("Failed to log integration reconnection:", auditError)
           }
         } catch (error: any) {
           console.error(`Failed to reconnect ${integration.provider}:`, error)
