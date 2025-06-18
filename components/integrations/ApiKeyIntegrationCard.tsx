@@ -227,7 +227,14 @@ export function ApiKeyIntegrationCard({ provider, integration, status }: ApiKeyI
         <GuideComponent
           open={showGuide}
           onOpenChange={setShowGuide}
-          onConnect={(apiKey: any) => connectApiKeyIntegration(provider.id, apiKey)}
+          onConnect={async (apiKey: any) => {
+            try {
+              await connectApiKeyIntegration(provider.id, apiKey)
+            } catch (e) {
+              // error is handled in the guide, do not close modal
+              throw e
+            }
+          }}
         />
       )}
     </>
