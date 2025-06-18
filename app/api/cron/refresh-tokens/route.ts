@@ -183,13 +183,6 @@ async function backgroundRefreshTokens(jobId: string, startTime: number): Promis
       (integration, index, self) => index === self.findIndex((i) => i.id === integration.id),
     )
 
-    const { error } = await supabase.from("integrations").select("*")
-
-    if (error) {
-      console.error(`❌ [${jobId}] Supabase fetch error:`, error)
-      throw new Error(`Error fetching integrations: ${error.message}`)
-    }
-
     if (!uniqueIntegrations?.length) {
       console.log(`ℹ️ [${jobId}] No integrations found that need token refresh`)
       await completeJob(supabase, jobId, startTime, stats, false)
