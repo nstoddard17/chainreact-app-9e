@@ -47,7 +47,6 @@ export async function POST(request: NextRequest) {
       provider,
       access_token: encryptedKey,
       status: "connected",
-      token_type: "api_key",
       updated_at: new Date().toISOString(),
     }
     // Debug: Log upsert data
