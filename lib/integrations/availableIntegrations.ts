@@ -448,6 +448,22 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
   },
 
   // Cloud Storage
+  box: {
+    id: "box",
+    name: "Box",
+    description: "Secure cloud storage and file collaboration platform",
+    category: "storage",
+    logoUrl: "/integrations/box.svg",
+    capabilities: ["File Storage", "File Sharing", "Collaboration", "Version Control"],
+    scopes: ["root_readwrite"],
+    isAvailable: false,
+    requiresClientId: "NEXT_PUBLIC_BOX_CLIENT_ID",
+    requiresClientSecret: "BOX_CLIENT_SECRET",
+    color: "#0061D5",
+    docsUrl: "https://developer.box.com/guides/",
+    authType: "oauth",
+  },
+
   dropbox: {
     id: "dropbox",
     name: "Dropbox",
