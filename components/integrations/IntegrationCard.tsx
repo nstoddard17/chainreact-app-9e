@@ -5,7 +5,7 @@ import Image from "next/image"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, Link as LinkIcon, Link2Off, RefreshCw, Info, X } from "lucide-react"
+import { Loader2, Link as LinkIcon, Link2Off, RefreshCw, Info, X, CheckCircle, Clock, XCircle } from "lucide-react"
 import { useIntegrationStore, type Integration, type Provider } from "@/stores/integrationStore"
 import { cn } from "@/lib/utils"
 import {
@@ -67,38 +67,32 @@ export function IntegrationCard({ provider, integration, status }: IntegrationCa
     switch (status) {
       case 'connected':
         return {
-          text: 'Connected',
+          icon: <CheckCircle className="w-3.5 h-3.5" />,
           badgeClass: 'bg-green-100 text-green-800',
           action: 'disconnect'
         }
       case 'expired':
         return {
-          text: 'Expired',
+          icon: <XCircle className="w-3.5 h-3.5" />,
           badgeClass: 'bg-red-100 text-red-800',
           action: 'reconnect'
         }
       case 'expiring':
-        const expiresAt = integration?.expires_at ? new Date(integration.expires_at) : null
-        const now = new Date()
-        const diffMs = expiresAt ? expiresAt.getTime() - now.getTime() : 0
-        const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
-        const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60))
-        const timeText = diffHours > 0 ? `${diffHours}h ${diffMinutes}m` : `${diffMinutes}m`
         return {
-          text: `Expiring in ${timeText}`,
+          icon: <Clock className="w-3.5 h-3.5" />,
           badgeClass: 'bg-yellow-100 text-yellow-800',
           action: 'reconnect'
         }
       default: // disconnected
         return {
-          text: 'Disconnected',
+          icon: <X className="w-3.5 h-3.5" />,
           badgeClass: 'bg-gray-100 text-gray-800',
           action: 'connect'
         }
     }
   }
 
-  const { text: statusText, badgeClass, action: statusAction } = getStatusUi()
+  const { icon: statusIcon, badgeClass, action: statusAction } = getStatusUi()
 
   const renderLogo = () => {
     // Enhanced fallback avatar with better styling
@@ -155,11 +149,11 @@ export function IntegrationCard({ provider, integration, status }: IntegrationCa
         </div>
         <Badge 
           className={cn(
-            "px-3 py-1.5 text-xs font-medium whitespace-nowrap shrink-0 ml-3",
+            "px-3 py-1.5 text-xs font-medium whitespace-nowrap shrink-0 ml-3 flex items-center gap-1",
             badgeClass
           )}
         >
-          {statusText}
+          {statusIcon}
         </Badge>
       </CardHeader>
 
