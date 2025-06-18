@@ -232,6 +232,60 @@ async function refreshTokenByProvider(integration: Integration): Promise<Refresh
     case "facebook":
       return refreshFacebookToken(refresh_token)
 
+    case "gitlab":
+      return refreshGitLabToken(refresh_token)
+
+    case "airtable":
+      return refreshAirtableToken(refresh_token)
+
+    case "discord":
+      return refreshDiscordToken(refresh_token)
+
+    case "instagram":
+      return refreshInstagramToken(refresh_token)
+
+    case "tiktok":
+      return refreshTikTokToken(refresh_token)
+
+    case "github":
+      return refreshGitHubToken(refresh_token)
+
+    case "notion":
+      return refreshNotionToken(refresh_token)
+
+    case "trello":
+      return refreshTrelloToken(refresh_token)
+
+    case "mailchimp":
+      return refreshMailchimpToken(refresh_token)
+
+    case "shopify":
+      return refreshShopifyToken(refresh_token)
+
+    case "paypal":
+      return refreshPayPalToken(refresh_token)
+
+    case "stripe":
+      return refreshStripeToken(refresh_token)
+
+    case "box":
+      return refreshBoxToken(refresh_token)
+
+    case "youtube-studio":
+      return refreshGoogleToken(refresh_token) // Uses same Google OAuth
+
+    case "convertkit":
+      return refreshConvertKitToken(refresh_token)
+
+    case "microsoft-forms":
+      return refreshMicrosoftToken(refresh_token, integration) // Uses same Microsoft OAuth
+
+    case "blackbaud":
+      return refreshBlackbaudToken(refresh_token)
+
+    case "globalpayments":
+      return refreshGlobalPaymentsToken(refresh_token)
+
     default:
       return {
         refreshed: false,
@@ -740,6 +794,121 @@ async function refreshFacebookToken(refreshToken: string): Promise<RefreshResult
   }
 }
 
+async function refreshGitLabToken(refreshToken: string): Promise<RefreshResult> {
+  try {
+    const clientId = process.env.NEXT_PUBLIC_GITLAB_CLIENT_ID
+    const clientSecret = process.env.GITLAB_CLIENT_SECRET
+
+    if (!clientId || !clientSecret) {
+      return {
+        refreshed: false,
+        success: false,
+        message: "Missing GitLab OAuth credentials",
+      }
+    }
+
+    const response = await fetch("https://gitlab.com/oauth/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        client_id: clientId,
+        client_secret: clientSecret,
+        refresh_token: refreshToken,
+        grant_type: "refresh_token",
+      }),
+    })
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      if (data.error === "invalid_grant") {
+        return {
+          refreshed: false,
+          success: false,
+          message: "GitLab token expired and requires re-authentication",
+          requiresReconnect: true,
+        }
+      }
+
+      return {
+        refreshed: false,
+        success: false,
+        message: `GitLab token refresh failed: ${data.error_description || data.error}`,
+      }
+    }
+
+    return {
+      refreshed: true,
+      success: true,
+      message: "Successfully refreshed GitLab token",
+      newToken: data.access_token,
+      newExpiry: Math.floor(Date.now() / 1000) + (data.expires_in || 7200), // GitLab tokens typically expire in 2 hours
+      newRefreshToken: data.refresh_token,
+    }
+  } catch (error) {
+    return {
+      refreshed: false,
+      success: false,
+      message: `GitLab token refresh error: ${(error as Error).message}`,
+    }
+  }
+}
+
+async function refreshAirtableToken(refreshToken: string): Promise<RefreshResult> {
+  try {
+    const clientId = process.env.NEXT_PUBLIC_AIRTABLE_CLIENT_ID
+    const clientSecret = process.env.AIRTABLE_CLIENT_SECRET
+
+    if (!clientId || !clientSecret) {
+      return {
+        refreshed: false,
+        success: false,
+        message: "Missing Airtable OAuth credentials",
+      }
+    }
+
+    const response = await fetch("https://airtable.com/oauth2/v1/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        refresh_token: refreshToken,
+        client_id: clientId,
+        client_secret: clientSecret,
+      }),
+    })
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      return {
+        refreshed: false,
+        success: false,
+        message: `Airtable token refresh failed: ${data.error || "Unknown error"}`,
+      }
+    }
+
+    return {
+      refreshed: true,
+      success: true,
+      message: "Successfully refreshed Airtable token",
+      newToken: data.access_token,
+      newExpiry: Math.floor(Date.now() / 1000) + (data.expires_in || 3600),
+      newRefreshToken: data.refresh_token,
+    }
+  } catch (error) {
+    return {
+      refreshed: false,
+      success: false,
+      message: `Airtable token refresh error: ${(error as Error).message}`,
+    }
+  }
+}
+
 async function fetchAllUserIntegrations(userId: string) {
   try {
     const supabase = getAdminSupabaseClient()
@@ -805,5 +974,754 @@ async function updateIntegrationTokens(
 
   if (error) {
     console.error("Failed to update integration tokens:", error)
+  }
+}
+
+async function refreshDiscordToken(refreshToken: string): Promise<RefreshResult> {
+  try {
+    const clientId = process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID
+    const clientSecret = process.env.DISCORD_CLIENT_SECRET
+
+    if (!clientId || !clientSecret) {
+      return {
+        refreshed: false,
+        success: false,
+        message: "Missing Discord OAuth credentials",
+      }
+    }
+
+    const response = await fetch("https://discord.com/api/oauth2/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        client_id: clientId,
+        client_secret: clientSecret,
+        grant_type: "refresh_token",
+        refresh_token: refreshToken,
+      }),
+    })
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      if (data.error === "invalid_grant") {
+        return {
+          refreshed: false,
+          success: false,
+          message: "Discord token expired and requires re-authentication",
+          requiresReconnect: true,
+        }
+      }
+
+      return {
+        refreshed: false,
+        success: false,
+        message: `Discord token refresh failed: ${data.error}`,
+      }
+    }
+
+    return {
+      refreshed: true,
+      success: true,
+      message: "Successfully refreshed Discord token",
+      newToken: data.access_token,
+      newExpiry: Math.floor(Date.now() / 1000) + (data.expires_in || 3600),
+      newRefreshToken: data.refresh_token,
+    }
+  } catch (error) {
+    return {
+      refreshed: false,
+      success: false,
+      message: `Discord token refresh error: ${(error as Error).message}`,
+    }
+  }
+}
+
+async function refreshInstagramToken(refreshToken: string): Promise<RefreshResult> {
+  try {
+    const clientId = process.env.NEXT_PUBLIC_INSTAGRAM_CLIENT_ID
+    const clientSecret = process.env.INSTAGRAM_CLIENT_SECRET
+
+    if (!clientId || !clientSecret) {
+      return {
+        refreshed: false,
+        success: false,
+        message: "Missing Instagram OAuth credentials",
+      }
+    }
+
+    const response = await fetch("https://graph.instagram.com/access_token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        grant_type: "ig_refresh_token",
+        access_token: refreshToken,
+      }),
+    })
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      return {
+        refreshed: false,
+        success: false,
+        message: `Instagram token refresh failed: ${data.error?.message || "Unknown error"}`,
+      }
+    }
+
+    return {
+      refreshed: true,
+      success: true,
+      message: "Successfully refreshed Instagram token",
+      newToken: data.access_token,
+      newExpiry: Math.floor(Date.now() / 1000) + (data.expires_in || 3600),
+      newRefreshToken: data.refresh_token,
+    }
+  } catch (error) {
+    return {
+      refreshed: false,
+      success: false,
+      message: `Instagram token refresh error: ${(error as Error).message}`,
+    }
+  }
+}
+
+async function refreshTikTokToken(refreshToken: string): Promise<RefreshResult> {
+  try {
+    const clientId = process.env.NEXT_PUBLIC_TIKTOK_CLIENT_ID
+    const clientSecret = process.env.TIKTOK_CLIENT_SECRET
+
+    if (!clientId || !clientSecret) {
+      return {
+        refreshed: false,
+        success: false,
+        message: "Missing TikTok OAuth credentials",
+      }
+    }
+
+    const response = await fetch("https://open.tiktokapis.com/v2/oauth/token/", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Cache-Control": "no-cache",
+      },
+      body: new URLSearchParams({
+        client_key: clientId,
+        client_secret: clientSecret,
+        grant_type: "refresh_token",
+        refresh_token: refreshToken,
+      }),
+    })
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      return {
+        refreshed: false,
+        success: false,
+        message: `TikTok token refresh failed: ${data.error?.message || "Unknown error"}`,
+      }
+    }
+
+    return {
+      refreshed: true,
+      success: true,
+      message: "Successfully refreshed TikTok token",
+      newToken: data.data.access_token,
+      newExpiry: Math.floor(Date.now() / 1000) + (data.data.expires_in || 3600),
+      newRefreshToken: data.data.refresh_token,
+    }
+  } catch (error) {
+    return {
+      refreshed: false,
+      success: false,
+      message: `TikTok token refresh error: ${(error as Error).message}`,
+    }
+  }
+}
+
+async function refreshGitHubToken(refreshToken: string): Promise<RefreshResult> {
+  try {
+    const clientId = process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID
+    const clientSecret = process.env.GITHUB_CLIENT_SECRET
+
+    if (!clientId || !clientSecret) {
+      return {
+        refreshed: false,
+        success: false,
+        message: "Missing GitHub OAuth credentials",
+      }
+    }
+
+    const response = await fetch("https://github.com/login/oauth/access_token", {
+      method: "POST",
+      headers: {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        client_id: clientId,
+        client_secret: clientSecret,
+        grant_type: "refresh_token",
+        refresh_token: refreshToken,
+      }),
+    })
+
+    const data = await response.json()
+
+    if (!response.ok || data.error) {
+      return {
+        refreshed: false,
+        success: false,
+        message: `GitHub token refresh failed: ${data.error || "Unknown error"}`,
+      }
+    }
+
+    return {
+      refreshed: true,
+      success: true,
+      message: "Successfully refreshed GitHub token",
+      newToken: data.access_token,
+      newExpiry: Math.floor(Date.now() / 1000) + (data.expires_in || 3600),
+      newRefreshToken: data.refresh_token,
+    }
+  } catch (error) {
+    return {
+      refreshed: false,
+      success: false,
+      message: `GitHub token refresh error: ${(error as Error).message}`,
+    }
+  }
+}
+
+async function refreshNotionToken(refreshToken: string): Promise<RefreshResult> {
+  try {
+    const clientId = process.env.NEXT_PUBLIC_NOTION_CLIENT_ID
+    const clientSecret = process.env.NOTION_CLIENT_SECRET
+
+    if (!clientId || !clientSecret) {
+      return {
+        refreshed: false,
+        success: false,
+        message: "Missing Notion OAuth credentials",
+      }
+    }
+
+    const response = await fetch("https://api.notion.com/v1/oauth/token", {
+      method: "POST",
+      headers: {
+        "Authorization": `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`,
+        "Content-Type": "application/json",
+        "Notion-Version": "2022-06-28",
+      },
+      body: JSON.stringify({
+        grant_type: "refresh_token",
+        refresh_token: refreshToken,
+      }),
+    })
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      return {
+        refreshed: false,
+        success: false,
+        message: `Notion token refresh failed: ${data.error || "Unknown error"}`,
+      }
+    }
+
+    return {
+      refreshed: true,
+      success: true,
+      message: "Successfully refreshed Notion token",
+      newToken: data.access_token,
+      newExpiry: Math.floor(Date.now() / 1000) + (data.expires_in || 3600),
+      newRefreshToken: data.refresh_token,
+    }
+  } catch (error) {
+    return {
+      refreshed: false,
+      success: false,
+      message: `Notion token refresh error: ${(error as Error).message}`,
+    }
+  }
+}
+
+async function refreshTrelloToken(refreshToken: string): Promise<RefreshResult> {
+  try {
+    const clientId = process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID
+    const clientSecret = process.env.TRELLO_CLIENT_SECRET
+
+    if (!clientId || !clientSecret) {
+      return {
+        refreshed: false,
+        success: false,
+        message: "Missing Trello OAuth credentials",
+      }
+    }
+
+    const response = await fetch("https://trello.com/1/oauth/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        client_id: clientId,
+        client_secret: clientSecret,
+        grant_type: "refresh_token",
+        refresh_token: refreshToken,
+      }),
+    })
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      return {
+        refreshed: false,
+        success: false,
+        message: `Trello token refresh failed: ${data.error || "Unknown error"}`,
+      }
+    }
+
+    return {
+      refreshed: true,
+      success: true,
+      message: "Successfully refreshed Trello token",
+      newToken: data.access_token,
+      newExpiry: Math.floor(Date.now() / 1000) + (data.expires_in || 3600),
+      newRefreshToken: data.refresh_token,
+    }
+  } catch (error) {
+    return {
+      refreshed: false,
+      success: false,
+      message: `Trello token refresh error: ${(error as Error).message}`,
+    }
+  }
+}
+
+async function refreshMailchimpToken(refreshToken: string): Promise<RefreshResult> {
+  try {
+    const clientId = process.env.NEXT_PUBLIC_MAILCHIMP_CLIENT_ID
+    const clientSecret = process.env.MAILCHIMP_CLIENT_SECRET
+
+    if (!clientId || !clientSecret) {
+      return {
+        refreshed: false,
+        success: false,
+        message: "Missing Mailchimp OAuth credentials",
+      }
+    }
+
+    const response = await fetch("https://login.mailchimp.com/oauth2/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        refresh_token: refreshToken,
+        client_id: clientId,
+        client_secret: clientSecret,
+      }),
+    })
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      return {
+        refreshed: false,
+        success: false,
+        message: `Mailchimp token refresh failed: ${data.error || "Unknown error"}`,
+      }
+    }
+
+    return {
+      refreshed: true,
+      success: true,
+      message: "Successfully refreshed Mailchimp token",
+      newToken: data.access_token,
+      newExpiry: Math.floor(Date.now() / 1000) + (data.expires_in || 3600),
+      newRefreshToken: data.refresh_token,
+    }
+  } catch (error) {
+    return {
+      refreshed: false,
+      success: false,
+      message: `Mailchimp token refresh error: ${(error as Error).message}`,
+    }
+  }
+}
+
+async function refreshShopifyToken(refreshToken: string): Promise<RefreshResult> {
+  try {
+    const clientId = process.env.NEXT_PUBLIC_SHOPIFY_CLIENT_ID
+    const clientSecret = process.env.SHOPIFY_CLIENT_SECRET
+
+    if (!clientId || !clientSecret) {
+      return {
+        refreshed: false,
+        success: false,
+        message: "Missing Shopify OAuth credentials",
+      }
+    }
+
+    const response = await fetch("https://shop.myshopify.com/admin/oauth/access_token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        client_id: clientId,
+        client_secret: clientSecret,
+        refresh_token: refreshToken,
+      }),
+    })
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      return {
+        refreshed: false,
+        success: false,
+        message: `Shopify token refresh failed: ${data.error || "Unknown error"}`,
+      }
+    }
+
+    return {
+      refreshed: true,
+      success: true,
+      message: "Successfully refreshed Shopify token",
+      newToken: data.access_token,
+      newExpiry: Math.floor(Date.now() / 1000) + (data.expires_in || 3600),
+      newRefreshToken: data.refresh_token,
+    }
+  } catch (error) {
+    return {
+      refreshed: false,
+      success: false,
+      message: `Shopify token refresh error: ${(error as Error).message}`,
+    }
+  }
+}
+
+async function refreshPayPalToken(refreshToken: string): Promise<RefreshResult> {
+  try {
+    const clientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID
+    const clientSecret = process.env.PAYPAL_CLIENT_SECRET
+
+    if (!clientId || !clientSecret) {
+      return {
+        refreshed: false,
+        success: false,
+        message: "Missing PayPal OAuth credentials",
+      }
+    }
+
+    const response = await fetch("https://api.paypal.com/v1/identity/openidconnect/tokenservice", {
+      method: "POST",
+      headers: {
+        "Authorization": `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        refresh_token: refreshToken,
+      }),
+    })
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      return {
+        refreshed: false,
+        success: false,
+        message: `PayPal token refresh failed: ${data.error || "Unknown error"}`,
+      }
+    }
+
+    return {
+      refreshed: true,
+      success: true,
+      message: "Successfully refreshed PayPal token",
+      newToken: data.access_token,
+      newExpiry: Math.floor(Date.now() / 1000) + (data.expires_in || 3600),
+      newRefreshToken: data.refresh_token,
+    }
+  } catch (error) {
+    return {
+      refreshed: false,
+      success: false,
+      message: `PayPal token refresh error: ${(error as Error).message}`,
+    }
+  }
+}
+
+async function refreshStripeToken(refreshToken: string): Promise<RefreshResult> {
+  try {
+    const clientId = process.env.NEXT_PUBLIC_STRIPE_CLIENT_ID
+    const clientSecret = process.env.STRIPE_CLIENT_SECRET
+
+    if (!clientId || !clientSecret) {
+      return {
+        refreshed: false,
+        success: false,
+        message: "Missing Stripe OAuth credentials",
+      }
+    }
+
+    const response = await fetch("https://connect.stripe.com/oauth/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        refresh_token: refreshToken,
+        client_id: clientId,
+        client_secret: clientSecret,
+      }),
+    })
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      return {
+        refreshed: false,
+        success: false,
+        message: `Stripe token refresh failed: ${data.error || "Unknown error"}`,
+      }
+    }
+
+    return {
+      refreshed: true,
+      success: true,
+      message: "Successfully refreshed Stripe token",
+      newToken: data.access_token,
+      newExpiry: Math.floor(Date.now() / 1000) + (data.expires_in || 3600),
+      newRefreshToken: data.refresh_token,
+    }
+  } catch (error) {
+    return {
+      refreshed: false,
+      success: false,
+      message: `Stripe token refresh error: ${(error as Error).message}`,
+    }
+  }
+}
+
+async function refreshBoxToken(refreshToken: string): Promise<RefreshResult> {
+  try {
+    const clientId = process.env.NEXT_PUBLIC_BOX_CLIENT_ID
+    const clientSecret = process.env.BOX_CLIENT_SECRET
+
+    if (!clientId || !clientSecret) {
+      return {
+        refreshed: false,
+        success: false,
+        message: "Missing Box OAuth credentials",
+      }
+    }
+
+    const response = await fetch("https://api.box.com/oauth2/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        refresh_token: refreshToken,
+        client_id: clientId,
+        client_secret: clientSecret,
+      }),
+    })
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      return {
+        refreshed: false,
+        success: false,
+        message: `Box token refresh failed: ${data.error || "Unknown error"}`,
+      }
+    }
+
+    return {
+      refreshed: true,
+      success: true,
+      message: "Successfully refreshed Box token",
+      newToken: data.access_token,
+      newExpiry: Math.floor(Date.now() / 1000) + (data.expires_in || 3600),
+      newRefreshToken: data.refresh_token,
+    }
+  } catch (error) {
+    return {
+      refreshed: false,
+      success: false,
+      message: `Box token refresh error: ${(error as Error).message}`,
+    }
+  }
+}
+
+async function refreshConvertKitToken(refreshToken: string): Promise<RefreshResult> {
+  try {
+    const clientId = process.env.NEXT_PUBLIC_CONVERTKIT_CLIENT_ID
+    const clientSecret = process.env.CONVERTKIT_CLIENT_SECRET
+
+    if (!clientId || !clientSecret) {
+      return {
+        refreshed: false,
+        success: false,
+        message: "Missing ConvertKit OAuth credentials",
+      }
+    }
+
+    const response = await fetch("https://app.convertkit.com/oauth/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        refresh_token: refreshToken,
+        client_id: clientId,
+        client_secret: clientSecret,
+      }),
+    })
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      return {
+        refreshed: false,
+        success: false,
+        message: `ConvertKit token refresh failed: ${data.error || "Unknown error"}`,
+      }
+    }
+
+    return {
+      refreshed: true,
+      success: true,
+      message: "Successfully refreshed ConvertKit token",
+      newToken: data.access_token,
+      newExpiry: Math.floor(Date.now() / 1000) + (data.expires_in || 3600),
+      newRefreshToken: data.refresh_token,
+    }
+  } catch (error) {
+    return {
+      refreshed: false,
+      success: false,
+      message: `ConvertKit token refresh error: ${(error as Error).message}`,
+    }
+  }
+}
+
+async function refreshBlackbaudToken(refreshToken: string): Promise<RefreshResult> {
+  try {
+    const clientId = process.env.NEXT_PUBLIC_BLACKBAUD_CLIENT_ID
+    const clientSecret = process.env.BLACKBAUD_CLIENT_SECRET
+
+    if (!clientId || !clientSecret) {
+      return {
+        refreshed: false,
+        success: false,
+        message: "Missing Blackbaud OAuth credentials",
+      }
+    }
+
+    const response = await fetch("https://oauth2.sky.blackbaud.com/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        refresh_token: refreshToken,
+        client_id: clientId,
+        client_secret: clientSecret,
+      }),
+    })
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      return {
+        refreshed: false,
+        success: false,
+        message: `Blackbaud token refresh failed: ${data.error || "Unknown error"}`,
+      }
+    }
+
+    return {
+      refreshed: true,
+      success: true,
+      message: "Successfully refreshed Blackbaud token",
+      newToken: data.access_token,
+      newExpiry: Math.floor(Date.now() / 1000) + (data.expires_in || 3600),
+      newRefreshToken: data.refresh_token,
+    }
+  } catch (error) {
+    return {
+      refreshed: false,
+      success: false,
+      message: `Blackbaud token refresh error: ${(error as Error).message}`,
+    }
+  }
+}
+
+async function refreshGlobalPaymentsToken(refreshToken: string): Promise<RefreshResult> {
+  try {
+    const clientId = process.env.NEXT_PUBLIC_GLOBALPAYMENTS_CLIENT_ID
+    const clientSecret = process.env.GLOBALPAYMENTS_CLIENT_SECRET
+
+    if (!clientId || !clientSecret) {
+      return {
+        refreshed: false,
+        success: false,
+        message: "Missing GlobalPayments OAuth credentials",
+      }
+    }
+
+    const response = await fetch("https://apis.globalpay.com/ucp/auth/oauth/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        refresh_token: refreshToken,
+        client_id: clientId,
+        client_secret: clientSecret,
+      }),
+    })
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      return {
+        refreshed: false,
+        success: false,
+        message: `GlobalPayments token refresh failed: ${data.error || "Unknown error"}`,
+      }
+    }
+
+    return {
+      refreshed: true,
+      success: true,
+      message: "Successfully refreshed GlobalPayments token",
+      newToken: data.access_token,
+      newExpiry: Math.floor(Date.now() / 1000) + (data.expires_in || 3600),
+      newRefreshToken: data.refresh_token,
+    }
+  } catch (error) {
+    return {
+      refreshed: false,
+      success: false,
+      message: `GlobalPayments token refresh error: ${(error as Error).message}`,
+    }
   }
 }
