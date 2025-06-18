@@ -188,19 +188,19 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
   },
 
   // Social Media
-  twitter: {
-    id: "twitter",
-    name: "Twitter",
-    description: "Share updates and engage with your Twitter audience",
+  x: {
+    id: "x",
+    name: "X",
+    description: "Share updates and engage with your X audience",
     category: "social",
-    logoUrl: "/integrations/twitter.svg",
+    logoUrl: "/integrations/x.svg",
     capabilities: ["Post Tweets", "Read Timeline", "Manage Followers", "Analytics"],
     scopes: ["tweet.read", "tweet.write", "users.read"],
     isAvailable: false,
     requiresClientId: "NEXT_PUBLIC_TWITTER_CLIENT_ID",
     requiresClientSecret: "TWITTER_CLIENT_SECRET",
-    color: "#1DA1F2",
-    docsUrl: "https://developer.twitter.com/en/docs",
+    color: "#000000",
+    docsUrl: "https://developer.x.com/en/docs",
     authType: "oauth",
   },
 
