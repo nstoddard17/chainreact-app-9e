@@ -19,6 +19,15 @@ interface RefreshStats {
   }>
 }
 
+// Helper function to add timeout to database queries
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number = 10000, operation: string): Promise<T> {
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    setTimeout(() => reject(new Error(`${operation} timeout after ${timeoutMs}ms`)), timeoutMs)
+  })
+  
+  return Promise.race([promise, timeoutPromise])
+}
+
 export async function GET(request: NextRequest) {
   const jobId = `refresh-job-${Date.now()}`
   const startTime = Date.now()
@@ -123,53 +132,75 @@ async function backgroundRefreshTokens(jobId: string, startTime: number): Promis
     // Calculate 7 days ago for recovery attempts
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
 
+    console.log(`🔍 [${jobId}] Step 1: Fetching connected integrations...`)
     // First, get all connected integrations
-    const { data: connectedIntegrations, error: connectedError } = await supabase
-      .from("integrations")
-      .select("*")
-      .eq("status", "connected")
+    const { data: connectedIntegrations, error: connectedError } = await withTimeout(
+      supabase.from("integrations").select("*").eq("status", "connected"),
+      10000,
+      "Fetching connected integrations"
+    )
 
     if (connectedError) {
       console.error(`❌ [${jobId}] Error fetching connected integrations:`, connectedError)
       throw new Error(`Error fetching connected integrations: ${connectedError.message}`)
     }
+    console.log(`✅ [${jobId}] Found ${connectedIntegrations?.length || 0} connected integrations`)
 
+    console.log(`🔍 [${jobId}] Step 2: Fetching disconnected integrations...`)
     // Then get recently disconnected integrations with refresh tokens
-    const { data: disconnectedIntegrations, error: disconnectedError } = await supabase
-      .from("integrations")
-      .select("*")
-      .eq("status", "disconnected")
-      .not("refresh_token", "is", null)
-      .gte("disconnected_at", sevenDaysAgo)
+    const { data: disconnectedIntegrations, error: disconnectedError } = await withTimeout(
+      supabase
+        .from("integrations")
+        .select("*")
+        .eq("status", "disconnected")
+        .not("refresh_token", "is", null)
+        .gte("disconnected_at", sevenDaysAgo),
+      10000,
+      "Fetching disconnected integrations"
+    )
 
     if (disconnectedError) {
       console.error(`❌ [${jobId}] Error fetching disconnected integrations:`, disconnectedError)
     }
+    console.log(`✅ [${jobId}] Found ${disconnectedIntegrations?.length || 0} disconnected integrations`)
 
+    console.log(`🔍 [${jobId}] Step 3: Fetching reauthorization integrations...`)
     // Get integrations needing reauthorization with refresh tokens
-    const { data: reAuthIntegrations, error: reAuthError } = await supabase
-      .from("integrations")
-      .select("*")
-      .eq("status", "needs_reauthorization")
-      .not("refresh_token", "is", null)
-      .gte("updated_at", sevenDaysAgo)
+    const { data: reAuthIntegrations, error: reAuthError } = await withTimeout(
+      supabase
+        .from("integrations")
+        .select("*")
+        .eq("status", "needs_reauthorization")
+        .not("refresh_token", "is", null)
+        .gte("updated_at", sevenDaysAgo),
+      10000,
+      "Fetching reauthorization integrations"
+    )
 
     if (reAuthError) {
       console.error(`❌ [${jobId}] Error fetching reauth integrations:`, reAuthError)
     }
+    console.log(`✅ [${jobId}] Found ${reAuthIntegrations?.length || 0} reauthorization integrations`)
 
+    console.log(`🔍 [${jobId}] Step 4: Fetching expired integrations...`)
     // Get expired integrations with refresh tokens
-    const { data: expiredIntegrations, error: expiredError } = await supabase
-      .from("integrations")
-      .select("*")
-      .eq("status", "expired")
-      .not("refresh_token", "is", null)
-      .gte("updated_at", sevenDaysAgo)
+    const { data: expiredIntegrations, error: expiredError } = await withTimeout(
+      supabase
+        .from("integrations")
+        .select("*")
+        .eq("status", "expired")
+        .not("refresh_token", "is", null)
+        .gte("updated_at", sevenDaysAgo),
+      10000,
+      "Fetching expired integrations"
+    )
 
     if (expiredError) {
       console.error(`❌ [${jobId}] Error fetching expired integrations:`, expiredError)
     }
+    console.log(`✅ [${jobId}] Found ${expiredIntegrations?.length || 0} expired integrations`)
 
+    console.log(`🔍 [${jobId}] Step 5: Combining and deduplicating integrations...`)
     // Combine all results
     const integrations = [
       ...(connectedIntegrations || []),
@@ -182,6 +213,14 @@ async function backgroundRefreshTokens(jobId: string, startTime: number): Promis
     const uniqueIntegrations = integrations.filter(
       (integration, index, self) => index === self.findIndex((i) => i.id === integration.id),
     )
+
+    console.log(`📊 [${jobId}] Integration summary:`)
+    console.log(`   - Total found: ${integrations.length}`)
+    console.log(`   - After deduplication: ${uniqueIntegrations.length}`)
+    console.log(`   - Connected: ${connectedIntegrations?.length || 0}`)
+    console.log(`   - Disconnected: ${disconnectedIntegrations?.length || 0}`)
+    console.log(`   - Needs Reauth: ${reAuthIntegrations?.length || 0}`)
+    console.log(`   - Expired: ${expiredIntegrations?.length || 0}`)
 
     if (!uniqueIntegrations?.length) {
       console.log(`ℹ️ [${jobId}] No integrations found that need token refresh`)
