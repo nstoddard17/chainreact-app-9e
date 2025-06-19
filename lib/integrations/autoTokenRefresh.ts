@@ -51,6 +51,24 @@ export async function withAutoRefresh<T>(
     "onedrive",
   ].includes(provider)
 
+  const needsRefreshToken = [
+    "slack",
+    "discord",
+    "github",
+    "gitlab",
+    "dropbox",
+    "box",
+    "hubspot",
+    "mailchimp",
+    "shopify",
+    "stripe",
+    "paypal",
+    "docker",
+    "convertkit",
+    "blackbaud",
+    "globalpayments",
+  ].includes(provider)
+
   // For Google/Microsoft, always refresh before API calls to ensure fresh tokens
   // For others, only refresh if expiring soon
   let needsRefresh = false

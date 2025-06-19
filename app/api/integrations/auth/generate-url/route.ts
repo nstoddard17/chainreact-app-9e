@@ -92,6 +92,10 @@ export async function POST(request: NextRequest) {
         authUrl = generateDropboxAuthUrl(finalState)
         break
 
+      case "box":
+        authUrl = generateBoxAuthUrl(finalState)
+        break
+
       case "hubspot":
         authUrl = generateHubSpotAuthUrl(finalState)
         break
@@ -400,6 +404,20 @@ function generateDropboxAuthUrl(state: string): string {
   })
 
   return `https://www.dropbox.com/oauth2/authorize?${params.toString()}`
+}
+
+function generateBoxAuthUrl(state: string): string {
+  const clientId = process.env.NEXT_PUBLIC_BOX_CLIENT_ID
+  if (!clientId) throw new Error("Box client ID not configured")
+
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: "https://chainreact.app/api/integrations/box/callback",
+    response_type: "code",
+    state,
+  })
+
+  return `https://app.box.com/api/oauth2/authorize?${params.toString()}`
 }
 
 function generateHubSpotAuthUrl(state: string): string {

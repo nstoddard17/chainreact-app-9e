@@ -56,6 +56,10 @@ export const INTEGRATION_SCOPES = {
     required: ["files.content.read", "files.content.write"],
     optional: ["sharing.read", "sharing.write"],
   },
+  box: {
+    required: ["root_readwrite", "manage_users", "manage_groups", "manage_webhooks", "enable_integrations"],
+    optional: [],
+  },
   twitter: {
     required: ["tweet.read", "users.read"],
     optional: ["tweet.write", "follows.read"],
@@ -191,6 +195,7 @@ function getRequiredEnvVars(provider: string): string[] {
     trello: ["NEXT_PUBLIC_TRELLO_CLIENT_ID", "TRELLO_CLIENT_SECRET"],
     airtable: ["NEXT_PUBLIC_AIRTABLE_CLIENT_ID", "AIRTABLE_CLIENT_SECRET"],
     dropbox: ["NEXT_PUBLIC_DROPBOX_CLIENT_ID", "DROPBOX_CLIENT_SECRET"],
+    box: ["NEXT_PUBLIC_BOX_CLIENT_ID", "BOX_CLIENT_SECRET"],
     twitter: ["NEXT_PUBLIC_TWITTER_CLIENT_ID", "TWITTER_CLIENT_SECRET"],
     linkedin: ["NEXT_PUBLIC_LINKEDIN_CLIENT_ID", "LINKEDIN_CLIENT_SECRET"],
     facebook: ["NEXT_PUBLIC_FACEBOOK_CLIENT_ID", "FACEBOOK_CLIENT_SECRET"],
