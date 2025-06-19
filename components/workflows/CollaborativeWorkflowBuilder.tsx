@@ -303,7 +303,7 @@ export default function CollaborativeWorkflowBuilder() {
             logo: config?.logoUrl || `/integrations/${node.providerId}.svg`,
             description: config?.description || `Integration for ${node.providerId}`,
             category: config?.category || "Other",
-            color: config?.color || "#FFFFFF",
+            color: config?.color || "#6B7280",
             triggers: [],
             actions: [],
           }
@@ -317,7 +317,9 @@ export default function CollaborativeWorkflowBuilder() {
       }
     })
 
-    return Object.values(integrationMap)
+    const integrations = Object.values(integrationMap)
+    console.log('Available integrations:', integrations.map(i => ({ name: i.name, logo: i.logo, triggers: i.triggers.length })))
+    return integrations
   }
 
   const availableIntegrations = getIntegrationsFromNodes()
@@ -538,16 +540,30 @@ export default function CollaborativeWorkflowBuilder() {
                   }}
                 >
                   <div className="flex flex-col items-center text-center space-y-3">
-                    <div className="w-12 h-12 flex items-center justify-center">
-                      <img 
-                        src={integration.logo} 
-                        alt={integration.name} 
-                        className="w-12 h-12 object-contain"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement
-                          target.src = `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><rect width="48" height="48" fill="${integration.color || '#6B7280'}" rx="8"/><text x="24" y="30" text-anchor="middle" fill="white" font-family="Arial" font-size="16" font-weight="bold">${integration.name.charAt(0).toUpperCase()}</text></svg>`
-                        }}
-                      />
+                    <div className="w-12 h-12 flex items-center justify-center relative">
+                      <div
+                        className="w-12 h-12 rounded-lg flex items-center justify-center text-white font-bold text-lg relative overflow-hidden"
+                        style={{ backgroundColor: integration.color || '#6B7280' }}
+                      >
+                        <img
+                          src={integration.logo + '?v=' + Date.now()}
+                          alt={integration.name}
+                          className="w-12 h-12 object-contain absolute inset-0"
+                          onLoad={(e) => {
+                            console.log(`✅ Successfully loaded icon for ${integration.name}`)
+                            const target = e.target as HTMLImageElement
+                            const parent = target.parentElement as HTMLDivElement
+                            if (parent) {
+                              parent.style.backgroundColor = 'transparent'
+                              parent.textContent = ''
+                            }
+                          }}
+                          onError={(e) => {
+                            console.log(`❌ Failed to load icon for ${integration.name}: ${integration.logo}`)
+                          }}
+                        />
+                        {integration.name.charAt(0).toUpperCase()}
+                      </div>
                     </div>
                     <div>
                       <h3 className="font-semibold text-slate-900 mb-1">{integration.name}</h3>
