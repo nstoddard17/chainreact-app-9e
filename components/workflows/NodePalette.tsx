@@ -103,23 +103,11 @@ export default function NodePalette() {
 
     filteredComponents.forEach((component) => {
       if (component.isTrigger) {
-        if (!groups.Triggers) groups.Triggers = []
         groups.Triggers.push(component)
       } else if (component.category === "Logic") {
-        if (!groups.Logic) groups.Logic = []
         groups.Logic.push(component)
       } else {
-        const categoryKey = component.category || "General"
-        if (!groups[categoryKey]) groups[categoryKey] = []
-        groups[categoryKey].push(component)
-      }
-    })
-
-    // Create a new "Actions" group and move all non-trigger/non-logic components there
-    Object.keys(groups).forEach((key) => {
-      if (key !== "Triggers" && key !== "Logic") {
-        groups.Actions.push(...groups[key])
-        delete groups[key]
+        groups.Actions.push(component)
       }
     })
 

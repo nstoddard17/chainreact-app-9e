@@ -27,19 +27,6 @@ export async function GET(request: NextRequest) {
 
     console.log("🔍 Fetching integrations for authenticated user")
 
-    // First, let's verify the user exists in the database
-    const { data: userData, error: userCheckError } = await supabase
-      .from("auth.users")
-      .select("id, email")
-      .eq("id", user.id)
-      .single()
-
-    if (userCheckError) {
-      console.error("Error checking user existence:", userCheckError)
-    } else {
-      console.log("✅ User verified")
-    }
-
     // Fetch user's integrations with detailed logging
     const { data: integrations, error } = await supabase
       .from("integrations")
