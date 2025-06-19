@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
     const { data: integrations, error } = await supabase
       .from("integrations")
       .select(
-        "id, user_id, provider, provider_user_id, status, access_token, refresh_token, expires_at, scopes, metadata, created_at, updated_at, last_sync, error_message, disconnected_at, disconnect_reason",
+        "id, user_id, provider, provider_user_id, status, access_token, refresh_token, expires_at, scopes, metadata, created_at, updated_at, disconnected_at, disconnect_reason",
       )
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
@@ -89,8 +89,6 @@ export async function GET(request: NextRequest) {
       metadata: integration.metadata,
       created_at: integration.created_at,
       updated_at: integration.updated_at,
-      last_sync: integration.last_sync,
-      error_message: integration.error_message,
       disconnected_at: integration.disconnected_at,
       disconnect_reason: integration.disconnect_reason,
     }))
