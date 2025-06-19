@@ -40,7 +40,9 @@ export async function GET(request: NextRequest) {
     // Fetch user's integrations with detailed logging
     const { data: integrations, error } = await supabase
       .from("integrations")
-      .select("*")
+      .select(
+        "id, user_id, provider, provider_user_id, status, access_token, refresh_token, expires_at, scopes, metadata, created_at, updated_at, last_sync, error_message, disconnected_at, disconnect_reason",
+      )
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
 
@@ -56,24 +58,28 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    console.log(`✅ Found ${integrations?.length || 0} integrations`)
+    console.log(`✅ Found ${integrations?.length || 0} integrations for user ${user.id}`)
     
     // Log each integration for debugging
     if (integrations && integrations.length > 0) {
       console.log("📋 Integrations found:")
       integrations.forEach((integration, index) => {
-        console.log(`  ${index + 1}. ${integration.provider} (${integration.status}) - ID: ${integration.id}`)
+        console.log(
+          `  ${index + 1}. ${integration.provider} (${integration.status}) - Expires at: ${
+            integration.expires_at || "N/A"
+          }`,
+        )
       })
     }
 
-    // Transform the data to ensure consistent format
+    // Transform the data to ensure consistent format and redact sensitive info
     const transformedIntegrations = (integrations || []).map((integration) => ({
       id: integration.id,
       user_id: integration.user_id,
       provider: integration.provider,
       provider_user_id: integration.provider_user_id,
       status: integration.status || "disconnected",
-      access_token: integration.access_token ? "[REDACTED]" : null, // Don't send actual tokens to client
+      access_token: integration.access_token ? "[REDACTED]" : null,
       refresh_token: integration.refresh_token ? "[REDACTED]" : null,
       expires_at: integration.expires_at,
       scopes: integration.scopes,
