@@ -508,8 +508,8 @@ function generatePayPalAuthUrl(state: string): string {
 }
 
 function generateTeamsAuthUrl(state: string): string {
-  const clientId = process.env.NEXT_PUBLIC_TEAMS_CLIENT_ID
-  if (!clientId) throw new Error("Teams client ID not configured")
+  const clientId = process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID
+  if (!clientId) throw new Error("Microsoft client ID not configured")
 
   const params = new URLSearchParams({
     client_id: clientId,
@@ -523,8 +523,8 @@ function generateTeamsAuthUrl(state: string): string {
 }
 
 function generateOneDriveAuthUrl(state: string): string {
-  const clientId = process.env.NEXT_PUBLIC_ONEDRIVE_CLIENT_ID
-  if (!clientId) throw new Error("OneDrive client ID not configured")
+  const clientId = process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID
+  if (!clientId) throw new Error("Microsoft client ID not configured")
 
   const params = new URLSearchParams({
     client_id: clientId,
