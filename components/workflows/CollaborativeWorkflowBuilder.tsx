@@ -47,9 +47,7 @@ import {
   Trash2,
   AlertCircle,
   ArrowLeft,
-  Plus,
-  Search,
-  ChevronRight
+  Plus
 } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import {
@@ -72,7 +70,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
 import { ALL_NODE_COMPONENTS, NodeComponent } from "@/lib/workflows/availableNodes"
 import { INTEGRATION_CONFIGS } from "@/lib/integrations/availableIntegrations"
@@ -123,9 +120,6 @@ export default function CollaborativeWorkflowBuilder() {
   
   // New states for the guided approach
   const [showTriggerDialog, setShowTriggerDialog] = useState(false)
-  const [showActionDialog, setShowActionDialog] = useState(false)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
 
   const reactFlowWrapper = useRef<HTMLDivElement>(null)
   const cursorUpdateTimer = useRef<NodeJS.Timeout | null>(null)
@@ -461,71 +455,7 @@ export default function CollaborativeWorkflowBuilder() {
 
         {/* Main Content */}
         <div className="flex-1 flex">
-          {/* Left Sidebar - Apps */}
-          <div className="w-80 bg-white border-r border-slate-200">
-            <div className="p-4">
-              <h2 className="text-lg font-semibold text-slate-900 mb-4">App</h2>
-              
-              {/* Popular Apps */}
-              <div className="flex items-center space-x-2 mb-4">
-                {triggerIntegrations.slice(0, 4).map((integration) => (
-                  <div
-                    key={integration.id}
-                    className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center"
-                  >
-                    <img 
-                      src={integration.logo} 
-                      alt={integration.name} 
-                      className="w-6 h-6"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = '/placeholder.svg'
-                      }}
-                    />
-                  </div>
-                ))}
-              </div>
-
-              {/* Search */}
-              <div className="relative mb-4">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                <Input
-                  placeholder="Search apps"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-
-              {/* App List */}
-              <ScrollArea className="h-[400px]">
-                <div className="space-y-2">
-                  {triggerIntegrations
-                    .filter(integration => 
-                      integration.name.toLowerCase().includes(searchTerm.toLowerCase())
-                    )
-                    .map((integration) => (
-                    <div
-                      key={integration.id}
-                      className="flex items-center space-x-3 p-2 rounded-lg hover:bg-slate-50 cursor-pointer"
-                      onClick={() => setShowTriggerDialog(true)}
-                    >
-                      <img 
-                        src={integration.logo} 
-                        alt={integration.name} 
-                        className="w-8 h-8"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = '/placeholder.svg'
-                        }}
-                      />
-                      <span className="font-medium text-slate-900">{integration.name}</span>
-                    </div>
-                  ))}
-                </div>
-              </ScrollArea>
-            </div>
-          </div>
-
-          {/* Center Panel - Canvas */}
+          {/* Main Panel - Canvas */}
           <div className="flex-1 relative">
             {nodes.length === 0 ? (
               // Empty State - Start Your Chain
