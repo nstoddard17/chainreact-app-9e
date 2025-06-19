@@ -367,9 +367,9 @@ async function refreshGoogleToken(refreshToken: string): Promise<RefreshResult> 
 
 async function refreshMicrosoftToken(refreshToken: string, integration: Integration): Promise<RefreshResult> {
   try {
-    // Use the same credentials as the OneDrive callback for consistency
-    const clientId = process.env.NEXT_PUBLIC_ONEDRIVE_CLIENT_ID || process.env.NEXT_PUBLIC_TEAMS_CLIENT_ID
-    const clientSecret = process.env.ONEDRIVE_CLIENT_SECRET || process.env.TEAMS_CLIENT_SECRET
+    // Use unified Microsoft OAuth app for all Microsoft services
+    const clientId = process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID
+    const clientSecret = process.env.MICROSOFT_CLIENT_SECRET
 
     if (!clientId || !clientSecret) {
       return {
