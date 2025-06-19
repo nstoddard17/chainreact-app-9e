@@ -515,21 +515,21 @@ export default function CollaborativeWorkflowBuilder() {
           )}
         </div>
 
-        {/* Trigger Selection Dialog */}
+                {/* Trigger Selection Dialog */}
         <Dialog open={showTriggerDialog} onOpenChange={setShowTriggerDialog}>
-          <DialogContent className="max-w-4xl max-h-[80vh]">
+          <DialogContent className="max-w-5xl max-h-[85vh]">
             <DialogHeader>
-              <DialogTitle>Choose a trigger</DialogTitle>
-              <DialogDescription>
+              <DialogTitle className="text-2xl">Choose a trigger</DialogTitle>
+              <DialogDescription className="text-base">
                 Select the app and event that will start your workflow
               </DialogDescription>
             </DialogHeader>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-96 overflow-y-auto">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 max-h-[60vh] overflow-y-auto p-2">
               {triggerIntegrations.map((integration) => (
                 <Card 
                   key={integration.id}
-                  className="p-4 hover:shadow-md transition-shadow cursor-pointer"
+                  className="p-4 hover:shadow-lg hover:scale-105 transition-all duration-200 cursor-pointer border-2 border-transparent hover:border-blue-200"
                   onClick={() => {
                     // For now, just select the first trigger
                     if (integration.triggers.length > 0) {
@@ -537,21 +537,24 @@ export default function CollaborativeWorkflowBuilder() {
                     }
                   }}
                 >
-                  <div className="flex items-center space-x-3 mb-3">
-                    <img 
-                      src={integration.logo} 
-                      alt={integration.name} 
-                      className="w-10 h-10"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = '/placeholder.svg'
-                      }}
-                    />
-                    <div>
-                      <h3 className="font-semibold">{integration.name}</h3>
-                      <p className="text-sm text-slate-600">{integration.triggers.length} triggers</p>
+                  <div className="flex flex-col items-center text-center space-y-3">
+                    <div className="w-12 h-12 flex items-center justify-center">
+                      <img 
+                        src={integration.logo} 
+                        alt={integration.name} 
+                        className="w-12 h-12 object-contain"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement
+                          target.src = `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><rect width="48" height="48" fill="${integration.color || '#6B7280'}" rx="8"/><text x="24" y="30" text-anchor="middle" fill="white" font-family="Arial" font-size="16" font-weight="bold">${integration.name.charAt(0).toUpperCase()}</text></svg>`
+                        }}
+                      />
                     </div>
+                    <div>
+                      <h3 className="font-semibold text-slate-900 mb-1">{integration.name}</h3>
+                      <p className="text-xs text-blue-600 font-medium">{integration.triggers.length} trigger{integration.triggers.length !== 1 ? 's' : ''}</p>
+                    </div>
+                    <p className="text-xs text-slate-500 line-clamp-2">{integration.description}</p>
                   </div>
-                  <p className="text-sm text-slate-500">{integration.description}</p>
                 </Card>
               ))}
             </div>
