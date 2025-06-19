@@ -77,7 +77,9 @@ export async function GET(request: NextRequest) {
       access_token: accessToken,
       refresh_token: null, // Trello doesn't provide a refresh token in this flow
       expires_at: null, // Trello tokens don't expire unless manually revoked
-      scopes: '{read,write,account}', // Hardcode the scopes requested in the auth URL
+      // These scopes correspond to the ones requested in the auth URL generation
+      // and are required to enable full Power-Up functionality.
+      scopes: '{read,write,account}',
       status: "connected",
       updated_at: new Date().toISOString(),
     }

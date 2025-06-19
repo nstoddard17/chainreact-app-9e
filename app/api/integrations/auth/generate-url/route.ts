@@ -374,21 +374,19 @@ function generateTikTokAuthUrl(state: string): string {
 }
 
 function generateTrelloAuthUrl(state: string): string {
-  const apiKey = process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID
+  const apiKey = process.env.NEXT_PUBLIC_TRELLO_API_KEY
   if (!apiKey) throw new Error("Trello API key not configured")
-
-  const callbackUrl = new URL("https://chainreact.app/api/integrations/trello/callback")
-  // Trello's callback mechanism is a bit different. We pass the state in the hash.
-  // The callback page will have client-side script to handle it.
-  const returnUrl = `${callbackUrl.href}#state=${state}`
 
   const params = new URLSearchParams({
     key: apiKey,
     name: "ChainReact",
-    scope: "read,write",
+    // These scopes are required to enable the full set of Power-Up capabilities.
+    scope: "read,write,account",
     expiration: "never",
     response_type: "token",
-    return_url: returnUrl,
+    return_url: "https://chainreact.app/api/integrations/trello/callback",
+    callback_method: "fragment",
+    state,
   })
 
   return `https://trello.com/1/authorize?${params.toString()}`
