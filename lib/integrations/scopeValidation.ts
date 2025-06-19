@@ -168,6 +168,16 @@ export function generateReconnectionUrl(provider: string, state?: string): strin
       })
       return `https://www.dropbox.com/oauth2/authorize?${dropboxParams.toString()}`
 
+    case "box":
+      const boxParams = new URLSearchParams({
+        client_id: process.env.NEXT_PUBLIC_BOX_CLIENT_ID!,
+        scope: allScopes.join(" "),
+        redirect_uri: redirectUri,
+        response_type: "code",
+        ...(state && { state }),
+      })
+      return `https://app.box.com/api/oauth2/authorize?${boxParams.toString()}`
+
     default:
       throw new Error(`Reconnection URL generation not implemented for provider: ${provider}`)
   }
