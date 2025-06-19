@@ -134,21 +134,27 @@ function IntegrationsContent() {
       const integration = integrations.find((i) => i.provider === provider.id)
       const now = new Date()
       const expiresAt = integration?.expires_at ? new Date(integration.expires_at) : null
-      let status: "connected" | "expired" | "expiring" | "disconnected" = "disconnected"
+      let status: "connected" | "expired" | "expiring" | "disconnected" | "needs_reauthorization" = "disconnected"
 
       if (integration) {
-        if (integration.status === "expired") {
+        if (integration.status === "needs_reauthorization") {
+          status = "needs_reauthorization"
+        } else if (integration.status === "expired") {
           status = "expired"
         } else if (integration.status === "connected") {
           if (expiresAt) {
-            // Fix: Use UTC timestamps for comparison to avoid timezone issues
             const expiryTimestamp = expiresAt.getTime()
             const nowTimestamp = now.getTime()
             const diffMs = expiryTimestamp - nowTimestamp
             const tenMinutesMs = 10 * 60 * 1000
 
             if (diffMs <= 0) {
-              status = "expired"
+              // Only needs reauth if no refresh token
+              if (!integration.refresh_token) {
+                status = "needs_reauthorization"
+              } else {
+                status = "expired"
+              }
             } else if (diffMs < tenMinutesMs) {
               status = "expiring"
             } else {
