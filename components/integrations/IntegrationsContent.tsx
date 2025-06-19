@@ -131,8 +131,8 @@ function IntegrationsContent() {
   }, [fetchIntegrations, toast])
 
   const providersWithStatus = useMemo(() => {
-    if (loading) {
-      return availableIntegrations.map((p) => ({ ...p, status: "disconnected" as const, statusText: "Loading..." }))
+    if (loading || !availableIntegrations) {
+      return availableIntegrations?.map((p) => ({ ...p, status: "disconnected" as const, statusText: "Loading..." })) || [];
     }
 
     return availableIntegrations.map((provider: IntegrationProvider) => {
