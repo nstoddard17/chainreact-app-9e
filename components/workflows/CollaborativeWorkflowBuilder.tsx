@@ -529,7 +529,7 @@ export default function CollaborativeWorkflowBuilder() {
               {triggerIntegrations.map((integration) => (
                 <Card 
                   key={integration.id}
-                  className="p-4 hover:shadow-lg hover:scale-105 transition-all duration-200 cursor-pointer border-2 border-transparent hover:border-blue-200"
+                  className="p-4 hover:shadow-lg hover:scale-105 transition-all duration-200 cursor-pointer flex flex-col items-center justify-center text-center space-y-2"
                   onClick={() => {
                     // For now, just select the first trigger
                     if (integration.triggers.length > 0) {
@@ -537,37 +537,18 @@ export default function CollaborativeWorkflowBuilder() {
                     }
                   }}
                 >
-                  <div className="flex flex-col items-center text-center space-y-3">
-                    <div className="w-12 h-12 flex items-center justify-center relative">
-                      <div
-                        className="w-12 h-12 rounded-lg flex items-center justify-center text-white font-bold text-lg relative overflow-hidden"
-                        style={{ backgroundColor: integration.color || '#6B7280' }}
-                      >
-                        <img
-                          src={integration.logo + '?v=' + Date.now()}
-                          alt={integration.name}
-                          className="w-12 h-12 object-contain absolute inset-0"
-                          onLoad={(e) => {
-                            const target = e.target as HTMLImageElement
-                            const parent = target.parentElement as HTMLDivElement
-                            if (parent) {
-                              parent.style.backgroundColor = 'transparent'
-                              parent.textContent = ''
-                            }
-                          }}
-                          onError={(e) => {
-                            // Keep the fallback letter visible
-                          }}
-                        />
-                        {integration.name.charAt(0).toUpperCase()}
-                      </div>
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-slate-900 mb-1">{integration.name}</h3>
-                      <p className="text-xs text-blue-600 font-medium">{integration.triggers.length} trigger{integration.triggers.length !== 1 ? 's' : ''}</p>
-                    </div>
-                    <p className="text-xs text-slate-500 line-clamp-2">{integration.description}</p>
+                  <div className="w-12 h-12 flex items-center justify-center mb-2">
+                    <img
+                      src={integration.logo}
+                      alt={`${integration.name} logo`}
+                      className="w-10 h-10 object-contain"
+                    />
                   </div>
+                  <div>
+                    <h3 className="font-semibold text-slate-900">{integration.name}</h3>
+                    <p className="text-xs text-blue-600 font-medium">{integration.triggers.length} trigger{integration.triggers.length !== 1 ? 's' : ''}</p>
+                  </div>
+                  <p className="text-xs text-slate-500 line-clamp-2 px-2">{integration.description}</p>
                 </Card>
               ))}
             </div>
