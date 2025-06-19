@@ -547,21 +547,13 @@ export default function CollaborativeWorkflowBuilder() {
                     className="w-12 h-12 flex items-center justify-center mb-2 rounded-lg"
                     style={{ backgroundColor: integration.color }}
                   >
-                    {integration.logo ? (
-                      <img
-                        src={integration.logo.src}
-                        alt={`${integration.name} logo`}
-                        className="w-8 h-8 object-contain"
-                      />
-                    ) : (
-                      <Users className="w-8 h-8 object-contain text-white" />
-                    )}
+                    {integration.logo && <integration.logo className="w-7 h-7 text-white" />}
                   </div>
-                  <div>
-                    <h3 className="font-semibold text-slate-900">{integration.name}</h3>
-                    <p className="text-xs text-blue-600 font-medium">{integration.triggers.length} trigger{integration.triggers.length !== 1 ? 's' : ''}</p>
-                  </div>
-                  <p className="text-xs text-slate-500 line-clamp-2 px-2">{integration.description}</p>
+                  <p className="font-semibold text-slate-800">{integration.name}</p>
+                  <p className="text-xs text-slate-500">
+                    {integration.triggers.length} trigger{integration.triggers.length !== 1 ? 's' : ''}
+                  </p>
+                  <p className="text-xs text-slate-400 mt-1 text-center px-2">{integration.description}</p>
                 </Card>
               ))}
             </div>
