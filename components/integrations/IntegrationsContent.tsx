@@ -1,11 +1,11 @@
 "use client"
 
-import { useState, useMemo, useCallback, useEffect } from "react"
+import React, { useState, useMemo, useCallback, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { useIntegrationStore } from "@/stores/integrationStore"
+import { useIntegrationStore, Integration } from "@/stores/integrationStore"
 import { useAuthStore } from "@/stores/authStore"
 import AppLayout from "@/components/layout/AppLayout"
-import { IntegrationCard } from "./IntegrationCard"
+import { IntegrationCard } from "@/components/integrations/IntegrationCard"
 import { ApiKeyIntegrationCard } from "./ApiKeyIntegrationCard"
 import { Loader2, RefreshCw, Bell, Check, X, Search, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -16,6 +16,9 @@ import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { availableIntegrations, IntegrationProvider } from "@/lib/integrations/availableIntegrations"
+import { Zap, CheckCircle2, AlertTriangle, XCircle } from "lucide-react"
 
 function IntegrationsContent() {
   const [activeTab, setActiveTab] = useState<"all" | "connected" | "expiring" | "expired" | "disconnected">("all")
@@ -25,8 +28,8 @@ function IntegrationsContent() {
   const [openGuideForProviderId, setOpenGuideForProviderId] = useState<string | null>(null)
   const { toast } = useToast()
 
-  const { integrations, providers, initializeProviders, fetchIntegrations, loading } = useIntegrationStore()
-  const { user } = useAuthStore()
+  const { integrations, providers, initializeProviders, fetchIntegrations, loading, needsReauthorization, clearStore } = useIntegrationStore()
+  const { user, session } = useAuthStore()
   const router = useRouter()
 
   // Initialize providers and fetch integrations
@@ -37,39 +40,39 @@ function IntegrationsContent() {
         setIsInitializing(true)
         // Ensure providers are initialized before fetching integrations
         await initializeProviders()
-        if (user) {
-          await fetchIntegrations(true)
+        if (session) {
+          await fetchIntegrations()
         }
         setIsInitializing(false)
       }
     }
     initialize()
-  }, [user, initializeProviders, fetchIntegrations, providers.length, isInitializing])
+  }, [session, initializeProviders, fetchIntegrations, providers.length, isInitializing])
 
   // Refresh integrations when component mounts and user is authenticated
   useEffect(() => {
-    if (user && providers.length > 0 && !isInitializing) {
+    if (session && providers.length > 0 && !isInitializing) {
       console.log("🔄 Component mounted, refreshing integrations...")
-      fetchIntegrations(true)
+      fetchIntegrations()
     }
-  }, [user, providers.length, isInitializing, fetchIntegrations])
+  }, [session, providers.length, isInitializing, fetchIntegrations])
 
   // Refresh when navigating to integrations page
   useEffect(() => {
-    if (!user || !autoRefresh) return
+    if (!session || !autoRefresh) return
 
     // Check if we're on the integrations page
     const isOnIntegrationsPage = typeof window !== 'undefined' && window.location.pathname === '/integrations'
     
     if (isOnIntegrationsPage && providers.length > 0) {
       console.log("🔄 On integrations page, refreshing integrations...")
-      fetchIntegrations(true)
+      fetchIntegrations()
     }
-  }, [user, autoRefresh, providers.length, fetchIntegrations])
+  }, [session, autoRefresh, providers.length, fetchIntegrations])
 
   // Auto-refresh effect
   useEffect(() => {
-    if (!autoRefresh || !user) return
+    if (!autoRefresh || !session) return
 
     const interval = setInterval(() => {
       console.log("🔄 Auto-refreshing integrations...")
@@ -78,15 +81,15 @@ function IntegrationsContent() {
         description: "Checking for updates...",
         duration: 2000
       })
-      fetchIntegrations(true)
+      fetchIntegrations()
     }, 300000) // Refresh every 5 minutes when auto-refresh is enabled
 
     return () => clearInterval(interval)
-  }, [autoRefresh, user, fetchIntegrations, toast])
+  }, [autoRefresh, session, fetchIntegrations, toast])
 
   // Refresh when page becomes visible (user returns to tab)
   useEffect(() => {
-    if (!user) return
+    if (!session) return
 
     const handleVisibilityChange = () => {
       if (!document.hidden && autoRefresh) {
@@ -96,7 +99,7 @@ function IntegrationsContent() {
           description: "Checking for updates...",
           duration: 2000
         })
-        fetchIntegrations(true)
+        fetchIntegrations()
       }
     }
 
@@ -108,7 +111,7 @@ function IntegrationsContent() {
           description: "Checking for updates...",
           duration: 2000
         })
-        fetchIntegrations(true)
+        fetchIntegrations()
       }
     }
 
@@ -119,60 +122,55 @@ function IntegrationsContent() {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       window.removeEventListener('focus', handleWindowFocus)
     }
-  }, [user, autoRefresh, fetchIntegrations, toast])
+  }, [session, autoRefresh, fetchIntegrations, toast])
 
   const handleRefreshTokens = useCallback(async () => {
     toast({ title: "Refreshing tokens...", description: "This may take a moment." })
-    await fetchIntegrations(true)
+    await fetchIntegrations()
     toast({ title: "Success", description: "All tokens have been refreshed." })
   }, [fetchIntegrations, toast])
 
   const providersWithStatus = useMemo(() => {
-    if (!providers || providers.length === 0) return []
+    if (loading) {
+      return availableIntegrations.map((p) => ({ ...p, status: "disconnected" as const, statusText: "Loading..." }))
+    }
 
-    return providers.map((provider) => {
-      const integration = integrations.find((i) => i.provider === provider.id)
+    return availableIntegrations.map((provider: IntegrationProvider) => {
+      const integration = integrations.find((i: Integration) => i.provider === provider.id)
+      // To prevent timezone issues, create a UTC-based "now" for comparison
       const now = new Date()
+      const now_utc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(),
+        now.getUTCHours(), now.getUTCMinutes(), now.getUTCSeconds()))
+
       const expiresAt = integration?.expires_at ? new Date(integration.expires_at) : null
       let status: "connected" | "expired" | "expiring" | "disconnected" | "needs_reauthorization" = "disconnected"
+      let statusText = "Not Connected"
 
       if (integration) {
-        // Check if integration was marked as disconnected by cron job
-        if (integration.disconnected_at) {
-          // If it has a refresh token, it can be recovered, otherwise needs reauth
-          if (integration.refresh_token) {
-            status = "expired" // Can be refreshed
-          } else {
-            status = "needs_reauthorization" // Needs re-auth
-          }
-        }
-        // Only show "needs_reauthorization" if database status is actually that
-        else if (integration.status === "needs_reauthorization") {
+        if (integration.status === "disconnected" && integration.disconnect_reason) {
           status = "needs_reauthorization"
-        } else if (integration.status === "expired") {
-          status = "expired"
+          statusText = integration.disconnect_reason
         } else if (integration.status === "connected") {
           if (expiresAt) {
             const expiryTimestamp = expiresAt.getTime()
-            const nowTimestamp = now.getTime()
+            const nowTimestamp = now_utc.getTime()
             const diffMs = expiryTimestamp - nowTimestamp
             const tenMinutesMs = 10 * 60 * 1000
 
             if (diffMs <= 0) {
-              // Only mark as expired, not needs_reauthorization
               status = "expired"
+              statusText = "Token is expired."
             } else if (diffMs < tenMinutesMs) {
               status = "expiring"
+              statusText = "Token is expiring soon."
             } else {
               status = "connected"
+              statusText = "Connected"
             }
           } else {
             status = "connected"
+            statusText = "Connected"
           }
-        } else if (integration.status === "disconnected") {
-          status = "disconnected"
-        } else {
-          status = "disconnected"
         }
       }
 
@@ -180,43 +178,47 @@ function IntegrationsContent() {
         ...provider,
         integration,
         status,
+        statusText,
       }
     })
-  }, [providers, integrations])
+  }, [integrations, loading])
 
-  const { connected, expiring, disconnected, expired } = useMemo(() => {
-    return providersWithStatus.reduce(
-      (counts, p) => {
-        if (p.status === "connected") counts.connected++
-        else if (p.status === "expiring") counts.expiring++
-        else if (p.status === "expired") counts.expired++
-        else counts.disconnected++
-        return counts
-      },
-      { connected: 0, expiring: 0, disconnected: 0, expired: 0 }
-    )
+  const providerCounts = useMemo(() => {
+    return providersWithStatus.reduce((counts, p) => {
+      const status = p.status
+      counts[status] = (counts[status] || 0) + 1
+      return counts
+    }, {} as Record<"connected" | "expired" | "expiring" | "disconnected" | "needs_reauthorization", number>)
   }, [providersWithStatus])
 
-  const { lastRefreshTime } = useIntegrationStore()
-
-  const filteredProviders = useMemo(() => {
-    let filtered = providersWithStatus
-
-    if (activeTab !== "all") {
-      filtered = filtered.filter((p) => p.status === activeTab)
+  const sortedProviders = useMemo(() => {
+    const statusOrder = {
+      "needs_reauthorization": 1,
+      "expired": 2,
+      "expiring": 3,
+      "connected": 4,
+      "disconnected": 5,
     }
 
-    if (searchQuery) {
-      const lowercasedQuery = searchQuery.toLowerCase()
-      filtered = filtered.filter(
-        (p) =>
-          p.name.toLowerCase().includes(lowercasedQuery) ||
-          p.description?.toLowerCase().includes(lowercasedQuery)
-      )
-    }
+    return [...providersWithStatus].sort((a, b) => {
+      const statusA = a.status
+      const statusB = b.status
+      return (statusOrder[statusA] || 99) - (statusOrder[statusB] || 99)
+    })
+  }, [providersWithStatus])
 
-    return filtered.sort((a, b) => a.name.localeCompare(b.name))
-  }, [activeTab, searchQuery, providersWithStatus])
+  const filteredProviders = sortedProviders.filter(p => {
+    const searchTermLower = searchQuery.toLowerCase()
+    const statusLower = activeTab.toLowerCase()
+
+    const nameMatch = p.name.toLowerCase().includes(searchTermLower)
+
+    if (statusLower !== 'all') {
+      const statusMatch = statusLower === p.status
+      return nameMatch && statusMatch
+    }
+    return nameMatch
+  })
 
   if (isInitializing && !providers.length) {
     return (
@@ -328,11 +330,6 @@ function IntegrationsContent() {
             </Label>
             <Switch id="auto-refresh" checked={autoRefresh} onCheckedChange={setAutoRefresh} />
           </div>
-          {lastRefreshTime && (
-            <div className="text-xs text-gray-500">
-              Last updated: {new Date(lastRefreshTime).toLocaleTimeString()}
-            </div>
-          )}
         </div>
       </CardContent>
     </Card>
@@ -410,10 +407,10 @@ function IntegrationsContent() {
                 <StatusSummaryContent
                   autoRefresh={autoRefresh}
                   setAutoRefresh={setAutoRefresh}
-                  connected={connected}
-                  expiring={expiring}
-                  expired={expired}
-                  disconnected={disconnected}
+                  connected={providerCounts.connected || 0}
+                  expiring={providerCounts.expiring || 0}
+                  expired={providerCounts.expired || 0}
+                  disconnected={providerCounts.disconnected || 0}
                 />
               </div>
             </div>
@@ -424,10 +421,10 @@ function IntegrationsContent() {
               <StatusSummaryContent
                 autoRefresh={autoRefresh}
                 setAutoRefresh={setAutoRefresh}
-                connected={connected}
-                expiring={expiring}
-                expired={expired}
-                disconnected={disconnected}
+                connected={providerCounts.connected || 0}
+                expiring={providerCounts.expiring || 0}
+                expired={providerCounts.expired || 0}
+                disconnected={providerCounts.disconnected || 0}
               />
             </div>
           </aside>
