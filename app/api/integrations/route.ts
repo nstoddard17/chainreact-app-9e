@@ -82,6 +82,8 @@ export async function GET(request: NextRequest) {
       updated_at: integration.updated_at,
       last_sync: integration.last_sync,
       error_message: integration.error_message,
+      disconnected_at: integration.disconnected_at,
+      disconnect_reason: integration.disconnect_reason,
     }))
 
     return NextResponse.json({

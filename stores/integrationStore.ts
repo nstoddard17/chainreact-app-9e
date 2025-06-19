@@ -14,6 +14,8 @@ export interface Integration {
   expires_at?: string | null
   scopes?: string[]
   metadata?: any
+  disconnected_at?: string | null
+  disconnect_reason?: string | null
 }
 
 export interface Provider {
