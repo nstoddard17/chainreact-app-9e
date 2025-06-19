@@ -41,6 +41,7 @@ export async function withAutoRefresh<T>(
   const isGoogleOrMicrosoft = [
     "google",
     "youtube",
+    "youtube-studio",
     "gmail",
     "google-calendar",
     "google-docs",
@@ -255,6 +256,7 @@ async function processIntegrationRefresh(integration: any) {
   const isGoogleOrMicrosoft = [
     "google",
     "youtube",
+    "youtube-studio",
     "gmail",
     "google-calendar",
     "google-docs",

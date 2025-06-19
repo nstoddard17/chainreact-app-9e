@@ -28,6 +28,7 @@ export async function refreshTokenIfNeeded(integration: Integration): Promise<Re
   const isGoogleOrMicrosoft = [
     "google",
     "youtube",
+    "youtube-studio",
     "gmail",
     "google-calendar",
     "google-docs",
@@ -278,8 +279,9 @@ async function refreshGoogleToken(refreshToken: string): Promise<RefreshResult> 
  */
 async function refreshMicrosoftToken(refreshToken: string, integration: Integration): Promise<RefreshResult> {
   try {
-    const clientId = process.env.NEXT_PUBLIC_TEAMS_CLIENT_ID || process.env.NEXT_PUBLIC_ONEDRIVE_CLIENT_ID
-    const clientSecret = process.env.TEAMS_CLIENT_SECRET || process.env.ONEDRIVE_CLIENT_SECRET
+    // Use the same credentials as the OneDrive callback for consistency
+    const clientId = process.env.NEXT_PUBLIC_ONEDRIVE_CLIENT_ID || process.env.NEXT_PUBLIC_TEAMS_CLIENT_ID
+    const clientSecret = process.env.ONEDRIVE_CLIENT_SECRET || process.env.TEAMS_CLIENT_SECRET
 
     if (!clientId || !clientSecret) {
       return {
