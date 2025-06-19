@@ -597,6 +597,22 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     authType: "apiKey",
   },
 
+  canva: {
+    id: "canva",
+    name: "Canva",
+    description: "Design platform for creating visual content",
+    category: "design",
+    logoUrl: "/integrations/canva.svg",
+    capabilities: ["Create Designs", "Manage Templates", "Export Content"],
+    scopes: ["design:read", "design:write"],
+    isAvailable: false,
+    requiresClientId: "NEXT_PUBLIC_CANVA_CLIENT_ID",
+    requiresClientSecret: "CANVA_CLIENT_SECRET",
+    color: "#00C4CC",
+    docsUrl: "https://www.canva.dev/docs/connect/",
+    authType: "oauth",
+  },
+
   // New Integrations End Here
 }
 
