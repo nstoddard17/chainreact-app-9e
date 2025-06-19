@@ -73,6 +73,7 @@ import {
 import { cn } from "@/lib/utils"
 import { ALL_NODE_COMPONENTS, NodeComponent } from "@/lib/workflows/availableNodes"
 import { INTEGRATION_CONFIGS } from "@/lib/integrations/availableIntegrations"
+import { integrationIcons } from "@/lib/integrations/integration-icons"
 
 const nodeTypes: NodeTypes = {
   custom: CustomNode,
@@ -287,7 +288,7 @@ export default function CollaborativeWorkflowBuilder() {
       {
         id: string
         name: string
-        logo: string
+        logo: React.ElementType
         description: string
         category: string
         color: string
@@ -302,7 +303,7 @@ export default function CollaborativeWorkflowBuilder() {
         integrationMap[integrationId] = {
           id: config.id,
           name: config.name,
-          logo: config.logoUrl,
+          logo: integrationIcons[config.id] || Users,
           description: config.description,
           category: config.category,
           color: config.color,
@@ -546,11 +547,7 @@ export default function CollaborativeWorkflowBuilder() {
                     className="w-12 h-12 flex items-center justify-center mb-2 rounded-lg"
                     style={{ backgroundColor: integration.color }}
                   >
-                    <img
-                      src={integration.logo}
-                      alt={`${integration.name} logo`}
-                      className="w-8 h-8 object-contain"
-                    />
+                    <integration.logo className="w-8 h-8 object-contain text-white" />
                   </div>
                   <div>
                     <h3 className="font-semibold text-slate-900">{integration.name}</h3>
