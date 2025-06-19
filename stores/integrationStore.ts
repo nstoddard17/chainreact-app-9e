@@ -214,11 +214,14 @@ export const useIntegrationStore = create<IntegrationStore>()(
           const controller = new AbortController()
           const timeoutId = setTimeout(() => controller.abort(), 15000)
 
-          const response = await fetch("/api/integrations", {
+          const cacheBustingUrl = `/api/integrations?timestamp=${Date.now()}`
+
+          const response = await fetch(cacheBustingUrl, {
             headers: {
               Authorization: `Bearer ${session.access_token}`,
             },
             signal: controller.signal,
+            cache: 'no-store',
           })
 
           clearTimeout(timeoutId)
