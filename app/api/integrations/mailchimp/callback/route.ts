@@ -127,7 +127,7 @@ export async function GET(request: NextRequest) {
       provider: 'mailchimp',
       access_token: tokenData.access_token,
       refresh_token: null,
-      scopes: [], // Not applicable
+      scopes: ['campaigns', 'audience', 'automation', 'root'],
       status: 'connected',
       expires_at: null,
       updated_at: new Date().toISOString(),
