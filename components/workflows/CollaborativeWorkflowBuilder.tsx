@@ -282,19 +282,33 @@ export default function CollaborativeWorkflowBuilder() {
 
   // Get available integrations grouped by category
   const getIntegrationsFromNodes = () => {
-    const integrationMap: Record<string, any> = {}
+    const integrationMap: Record<
+      string,
+      {
+        id: string
+        name: string
+        logo: string
+        description: string
+        category: string
+        color: string
+        triggers: NodeComponent[]
+        actions: NodeComponent[]
+      }
+    > = {}
 
     for (const integrationId in INTEGRATION_CONFIGS) {
       const config = INTEGRATION_CONFIGS[integrationId]
-      integrationMap[integrationId] = {
-        id: config.id,
-        name: config.name,
-        logo: config.logoUrl,
-        description: config.description,
-        category: config.category,
-        color: config.color,
-        triggers: [],
-        actions: [],
+      if (config) {
+        integrationMap[integrationId] = {
+          id: config.id,
+          name: config.name,
+          logo: config.logoUrl,
+          description: config.description,
+          category: config.category,
+          color: config.color,
+          triggers: [],
+          actions: [],
+        }
       }
     }
 
