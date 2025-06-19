@@ -871,26 +871,49 @@ async function refreshAirtableToken(refreshToken: string): Promise<RefreshResult
       }
     }
 
+    // Use Basic Authentication like in the callback
+    const authHeader = `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`
+
     const response = await fetch("https://airtable.com/oauth2/v1/token", {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
+        "Authorization": authHeader,
       },
       body: new URLSearchParams({
         grant_type: "refresh_token",
         refresh_token: refreshToken,
-        client_id: clientId,
-        client_secret: clientSecret,
       }),
     })
 
     const data = await response.json()
 
     if (!response.ok) {
+      console.error("Airtable token refresh error response:", data)
+      
+      // Handle specific error cases
+      if (data.error === "invalid_client") {
+        return {
+          refreshed: false,
+          success: false,
+          message: "Airtable OAuth client configuration error - check client ID and secret",
+          requiresReconnect: true,
+        }
+      }
+      
+      if (data.error === "invalid_grant") {
+        return {
+          refreshed: false,
+          success: false,
+          message: "Airtable token expired and requires re-authentication",
+          requiresReconnect: true,
+        }
+      }
+
       return {
         refreshed: false,
         success: false,
-        message: `Airtable token refresh failed: ${data.error || "Unknown error"}`,
+        message: `Airtable token refresh failed: ${data.error_description || data.error || "Unknown error"}`,
       }
     }
 
@@ -899,10 +922,11 @@ async function refreshAirtableToken(refreshToken: string): Promise<RefreshResult
       success: true,
       message: "Successfully refreshed Airtable token",
       newToken: data.access_token,
-      newExpiry: Math.floor(Date.now() / 1000) + (data.expires_in || 3600),
+      newExpiry: data.expires_in ? Math.floor(Date.now() / 1000) + data.expires_in : undefined,
       newRefreshToken: data.refresh_token,
     }
   } catch (error) {
+    console.error("Airtable token refresh exception:", error)
     return {
       refreshed: false,
       success: false,
