@@ -317,9 +317,7 @@ export default function CollaborativeWorkflowBuilder() {
       }
     })
 
-    const integrations = Object.values(integrationMap)
-    console.log('Available integrations:', integrations.map(i => ({ name: i.name, logo: i.logo, triggers: i.triggers.length })))
-    return integrations
+    return Object.values(integrationMap)
   }
 
   const availableIntegrations = getIntegrationsFromNodes()
@@ -550,7 +548,6 @@ export default function CollaborativeWorkflowBuilder() {
                           alt={integration.name}
                           className="w-12 h-12 object-contain absolute inset-0"
                           onLoad={(e) => {
-                            console.log(`✅ Successfully loaded icon for ${integration.name}`)
                             const target = e.target as HTMLImageElement
                             const parent = target.parentElement as HTMLDivElement
                             if (parent) {
@@ -559,7 +556,7 @@ export default function CollaborativeWorkflowBuilder() {
                             }
                           }}
                           onError={(e) => {
-                            console.log(`❌ Failed to load icon for ${integration.name}: ${integration.logo}`)
+                            // Keep the fallback letter visible
                           }}
                         />
                         {integration.name.charAt(0).toUpperCase()}

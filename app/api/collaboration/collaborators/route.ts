@@ -28,23 +28,13 @@ export async function GET(request: Request) {
 
     const userIds = sessions.map((s: { user_id: string }) => s.user_id)
 
-    // Fetch user details for the active sessions
-    const { data: users, error: usersError } = await supabaseAdmin
-      .from("users")
-      .select("id, raw_user_meta_data")
-      .in("id", userIds)
-
-    if (usersError) {
-      console.error("Error fetching users:", usersError)
-      throw usersError
-    }
-
-    // Format the response
-    const collaborators = users.map((user: any) => ({
-      id: user.id,
-      user_id: user.id,
-      user_name: user.raw_user_meta_data?.name || "Anonymous",
-      user_avatar: user.raw_user_meta_data?.avatar_url,
+    // For now, return simplified collaborator data without user details
+    // In a real implementation, you'd want to store user profiles in a separate table
+    const collaborators = userIds.map((userId: string) => ({
+      id: userId,
+      user_id: userId,
+      user_name: "Collaborator",
+      user_avatar: null,
       // You can add more fields here if needed, like cursor position, etc.
     }))
 
