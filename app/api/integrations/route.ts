@@ -103,6 +103,12 @@ export async function GET(request: NextRequest) {
       debug: {
         request_timestamp: new Date().toISOString(),
       }
+    }, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      }
     })
   } catch (error) {
     console.error("API error in /api/integrations:", error)
