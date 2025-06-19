@@ -67,7 +67,6 @@ export async function GET(request: NextRequest) {
     // Step 2: Get all integrations that need attention
     console.log(`📊 [${jobId}] Step 2: Getting integrations that need attention...`)
     
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
     const now = new Date().toISOString()
     
     // Get all integrations that need attention (connected, disconnected, expired, needs_reauthorization)
@@ -75,8 +74,7 @@ export async function GET(request: NextRequest) {
       .from("integrations")
       .select("*")
       .or(`status.eq.connected,status.eq.disconnected,status.eq.expired,status.eq.needs_reauthorization,expires_at.lt.${now}`)
-      .gte("updated_at", sevenDaysAgo)
-      .limit(20) // Increased limit since we're handling more types
+      .limit(50) // Increased limit to process more integrations per run
 
     if (fetchError) {
       console.error(`❌ [${jobId}] Error fetching integrations:`, fetchError)
@@ -92,10 +90,10 @@ export async function GET(request: NextRequest) {
     for (const integration of allIntegrations || []) {
       if (integration.expires_at) {
         const expiresAt = new Date(integration.expires_at)
-        const currentTime = new Date()
+        const now = new Date()
         
-        // If token is expired but status is still "connected"
-        if (expiresAt < currentTime && integration.status === "connected") {
+        // Use .getTime() for a reliable, timezone-proof comparison
+        if (expiresAt.getTime() <= now.getTime() && integration.status === "connected") {
           console.log(`🔧 [${jobId}] Fixing status for ${integration.provider} - expired at ${expiresAt.toISOString()}`)
           
           const { error: updateError } = await supabase
