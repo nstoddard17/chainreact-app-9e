@@ -5,7 +5,7 @@ import { refreshTokenIfNeeded } from "@/lib/integrations/tokenRefresher"
 export const dynamic = "force-dynamic"
 
 export async function GET(request: NextRequest) {
-  const jobId = `simple-refresh-${Date.now()}`
+  const jobId = `unified-refresh-${Date.now()}`
   const startTime = Date.now()
 
   try {
@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    console.log(`🚀 [${jobId}] Simple cron job started`)
+    console.log(`🚀 [${jobId}] Unified integration management job started`)
 
     const supabase = getAdminSupabaseClient()
     if (!supabase) {
@@ -64,34 +64,38 @@ export async function GET(request: NextRequest) {
 
     console.log(`✅ [${jobId}] Total integrations: ${totalCount}`)
 
-    // Get only connected integrations that might need refresh
-    console.log(`📊 [${jobId}] Step 2: Getting connected integrations...`)
+    // Step 2: Get all integrations that need attention
+    console.log(`📊 [${jobId}] Step 2: Getting integrations that need attention...`)
     
-    const { data: integrations, error: fetchError } = await supabase
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+    const now = new Date().toISOString()
+    
+    // Get all integrations that need attention (connected, disconnected, expired, needs_reauthorization)
+    const { data: allIntegrations, error: fetchError } = await supabase
       .from("integrations")
       .select("*")
-      .eq("status", "connected")
-      .not("refresh_token", "is", null)
-      .limit(10) // Limit to 10 for testing
+      .or(`status.eq.connected,status.eq.disconnected,status.eq.expired,status.eq.needs_reauthorization,expires_at.lt.${now}`)
+      .gte("updated_at", sevenDaysAgo)
+      .limit(20) // Increased limit since we're handling more types
 
     if (fetchError) {
       console.error(`❌ [${jobId}] Error fetching integrations:`, fetchError)
       throw new Error(`Error fetching integrations: ${fetchError.message}`)
     }
 
-    console.log(`✅ [${jobId}] Found ${integrations?.length || 0} connected integrations with refresh tokens`)
+    console.log(`✅ [${jobId}] Found ${allIntegrations?.length || 0} integrations that need attention`)
 
-    // Step 2.5: Fix expired status for any connected integrations that are actually expired
-    console.log(`🔧 [${jobId}] Step 2.5: Checking for expired integrations that need status update...`)
-    const now = new Date()
+    // Step 3: Fix expired status for any connected integrations that are actually expired
+    console.log(`🔧 [${jobId}] Step 3: Checking for expired integrations that need status update...`)
     let statusFixedCount = 0
     
-    for (const integration of integrations || []) {
+    for (const integration of allIntegrations || []) {
       if (integration.expires_at) {
         const expiresAt = new Date(integration.expires_at)
+        const currentTime = new Date()
         
         // If token is expired but status is still "connected"
-        if (expiresAt < now) {
+        if (expiresAt < currentTime && integration.status === "connected") {
           console.log(`🔧 [${jobId}] Fixing status for ${integration.provider} - expired at ${expiresAt.toISOString()}`)
           
           const { error: updateError } = await supabase
@@ -116,7 +120,7 @@ export async function GET(request: NextRequest) {
       console.log(`🔧 [${jobId}] Fixed status for ${statusFixedCount} expired integrations`)
     }
 
-    if (!integrations || integrations.length === 0) {
+    if (!allIntegrations || allIntegrations.length === 0) {
       console.log(`ℹ️ [${jobId}] No integrations to process`)
       
       const endTime = Date.now()
@@ -135,30 +139,67 @@ export async function GET(request: NextRequest) {
 
       return NextResponse.json({
         success: true,
-        message: "Simple token refresh job completed - no integrations to process",
+        message: "Unified integration management job completed - no integrations to process",
         jobId,
         duration: `${durationMs}ms`,
         timestamp: new Date().toISOString(),
       })
     }
 
-    // Process integrations one by one (no batching for simplicity)
-    console.log(`🔄 [${jobId}] Step 3: Processing ${integrations.length} integrations...`)
+    // Step 4: Process all integrations
+    console.log(`🔄 [${jobId}] Step 4: Processing ${allIntegrations.length} integrations...`)
     
     let successful = 0
     let failed = 0
     let skipped = 0
+    let recovered = 0
     const errors: Array<{ provider: string; userId: string; error: string }> = []
 
-    for (const integration of integrations) {
+    // Group integrations by status for better logging
+    const connectedCount = allIntegrations.filter(i => i.status === "connected").length
+    const disconnectedCount = allIntegrations.filter(i => i.status === "disconnected").length
+    const expiredCount = allIntegrations.filter(i => i.status === "expired").length
+    const needsReauthCount = allIntegrations.filter(i => i.status === "needs_reauthorization").length
+
+    console.log(`📊 [${jobId}] Integration breakdown:`)
+    console.log(`   - Connected: ${connectedCount}`)
+    console.log(`   - Disconnected: ${disconnectedCount}`)
+    console.log(`   - Expired: ${expiredCount}`)
+    console.log(`   - Needs Reauth: ${needsReauthCount}`)
+
+    for (const integration of allIntegrations) {
       try {
-        console.log(`🔍 [${jobId}] Processing ${integration.provider} for user ${integration.user_id}`)
+        console.log(`🔍 [${jobId}] Processing ${integration.provider} for user ${integration.user_id} (status: ${integration.status})`)
         
         const result = await refreshTokenIfNeeded(integration)
         
         if (result.refreshed) {
           successful++
-          console.log(`✅ [${jobId}] Refreshed ${integration.provider}`)
+          
+          // If this was a disconnected/expired integration that got refreshed, mark it as recovered
+          if (["disconnected", "expired", "needs_reauthorization"].includes(integration.status)) {
+            console.log(`🔄 [${jobId}] Attempting to recover ${integration.provider}...`)
+            
+            // Try to mark as connected again
+            const { error: updateError } = await supabase
+              .from("integrations")
+              .update({
+                status: "connected",
+                disconnected_at: null,
+                disconnect_reason: null,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", integration.id)
+
+            if (updateError) {
+              console.error(`❌ [${jobId}] Failed to update status for recovered ${integration.provider}:`, updateError)
+            } else {
+              recovered++
+              console.log(`✅ [${jobId}] Successfully recovered ${integration.provider}`)
+            }
+          } else {
+            console.log(`✅ [${jobId}] Refreshed ${integration.provider}`)
+          }
         } else if (result.success) {
           skipped++
           console.log(`⏭️ [${jobId}] Skipped ${integration.provider}: ${result.message}`)
@@ -185,16 +226,18 @@ export async function GET(request: NextRequest) {
     const endTime = Date.now()
     const durationMs = endTime - startTime
 
-    console.log(`🏁 [${jobId}] Simple job completed in ${durationMs}ms`)
-    console.log(`   - Successful: ${successful}`)
+    console.log(`🏁 [${jobId}] Unified job completed in ${durationMs}ms`)
+    console.log(`   - Successful refreshes: ${successful}`)
+    console.log(`   - Recovered integrations: ${recovered}`)
     console.log(`   - Failed: ${failed}`)
     console.log(`   - Skipped: ${skipped}`)
+    console.log(`   - Status fixes: ${statusFixedCount}`)
 
     // Update the job log
     await supabase.from("token_refresh_logs").update({
       status: "completed",
       duration_ms: durationMs,
-      total_processed: integrations.length,
+      total_processed: allIntegrations.length,
       successful_refreshes: successful,
       failed_refreshes: failed,
       skipped_refreshes: skipped,
@@ -205,21 +248,29 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: "Simple token refresh job completed",
+      message: "Unified integration management job completed",
       jobId,
       duration: `${durationMs}ms`,
       stats: {
-        total: integrations.length,
+        total: allIntegrations.length,
         successful,
+        recovered,
         failed,
         skipped,
-        errors: errors.length
+        status_fixes: statusFixedCount,
+        errors: errors.length,
+        breakdown: {
+          connected: connectedCount,
+          disconnected: disconnectedCount,
+          expired: expiredCount,
+          needs_reauth: needsReauthCount
+        }
       },
       timestamp: new Date().toISOString(),
     })
 
   } catch (error: any) {
-    console.error(`💥 [${jobId}] Critical error in simple job:`, error)
+    console.error(`💥 [${jobId}] Critical error in unified job:`, error)
     
     const endTime = Date.now()
     const durationMs = endTime - startTime
@@ -243,7 +294,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: "Failed to complete simple token refresh job",
+        error: "Failed to complete unified integration management job",
         details: error.message,
         duration: `${durationMs}ms`,
         timestamp: new Date().toISOString(),
