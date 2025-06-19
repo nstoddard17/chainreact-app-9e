@@ -282,33 +282,24 @@ export default function CollaborativeWorkflowBuilder() {
 
   // Get available integrations grouped by category
   const getIntegrationsFromNodes = () => {
-    const integrationMap: Record<string, {
-      id: string
-      name: string
-      logo: string
-      description: string
-      category: string
-      color: string
-      triggers: NodeComponent[]
-      actions: NodeComponent[]
-    }> = {}
+    const integrationMap: Record<string, any> = {}
+
+    for (const integrationId in INTEGRATION_CONFIGS) {
+      const config = INTEGRATION_CONFIGS[integrationId]
+      integrationMap[integrationId] = {
+        id: config.id,
+        name: config.name,
+        logo: config.logoUrl,
+        description: config.description,
+        category: config.category,
+        color: config.color,
+        triggers: [],
+        actions: [],
+      }
+    }
 
     ALL_NODE_COMPONENTS.forEach((node) => {
-      if (node.providerId) {
-        if (!integrationMap[node.providerId]) {
-          const config = INTEGRATION_CONFIGS[node.providerId]
-          integrationMap[node.providerId] = {
-            id: node.providerId,
-            name: config?.name || node.providerId,
-            logo: config?.logoUrl || `/integrations/${node.providerId}.svg`,
-            description: config?.description || `Integration for ${node.providerId}`,
-            category: config?.category || "Other",
-            color: config?.color || "#6B7280",
-            triggers: [],
-            actions: [],
-          }
-        }
-
+      if (node.providerId && integrationMap[node.providerId]) {
         if (node.isTrigger) {
           integrationMap[node.providerId].triggers.push(node)
         } else {
@@ -537,11 +528,14 @@ export default function CollaborativeWorkflowBuilder() {
                     }
                   }}
                 >
-                  <div className="w-12 h-12 flex items-center justify-center mb-2">
+                  <div 
+                    className="w-12 h-12 flex items-center justify-center mb-2 rounded-lg"
+                    style={{ backgroundColor: integration.color }}
+                  >
                     <img
                       src={integration.logo}
                       alt={`${integration.name} logo`}
-                      className="w-10 h-10 object-contain"
+                      className="w-8 h-8 object-contain"
                     />
                   </div>
                   <div>
