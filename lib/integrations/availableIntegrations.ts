@@ -190,7 +190,7 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
   // Social Media
   twitter: {
     id: "twitter",
-    name: "X",
+    name: "X (Twitter)",
     description: "Share updates and engage with your X audience",
     category: "social",
     logoUrl: "/integrations/x.svg",
@@ -504,7 +504,7 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
   "microsoft-forms": {
     id: "microsoft-forms",
     name: "Microsoft Forms",
-    description: "Create surveys, quizzes, and polls.",
+    description: "Create surveys, quizzes, and polls",
     category: "productivity",
     logoUrl: "/integrations/microsoft-forms.svg",
     capabilities: ["Create Forms", "Collect Responses", "Analyze Results", "Share Templates"],
@@ -519,8 +519,8 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
 
   blackbaud: {
     id: "blackbaud",
-    name: "Blackbaud Raiser's Edge NXT",
-    description: "Cloud-based fundraising and donor management software.",
+    name: "Blackbaud",
+    description: "Cloud-based fundraising and donor management software",
     category: "crm",
     logoUrl: "/integrations/blackbaud.svg",
     capabilities: ["Manage Constituents", "Process Donations", "Track Campaigns", "Generate Reports"],
@@ -535,8 +535,8 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
 
   globalpayments: {
     id: "globalpayments",
-    name: "GlobalPayments",
-    description: "Payment technology and software solutions.",
+    name: "Global Payments",
+    description: "Payment technology and software solutions",
     category: "finance",
     logoUrl: "/integrations/globalpayments.svg",
     capabilities: ["Process Payments", "Manage Transactions", "Generate Invoices", "View Reports"],
@@ -552,8 +552,8 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
   gumroad: {
     id: "gumroad",
     name: "Gumroad",
-    description: "Sell digital products, memberships, and more.",
-    category: "e-commerce",
+    description: "Sell digital products, memberships, and more",
+    category: "ecommerce",
     logoUrl: "/integrations/gumroad.svg",
     capabilities: ["Manage Products", "Track Sales", "Customer Data"],
     scopes: [],
@@ -568,7 +568,7 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
   manychat: {
     id: "manychat",
     name: "ManyChat",
-    description: "Automate conversations on Instagram, Facebook Messenger, and SMS.",
+    description: "Automate conversations on Instagram, Facebook Messenger, and SMS",
     category: "communication",
     logoUrl: "/integrations/manychat.svg",
     capabilities: ["Send Messages", "Manage Subscribers", "Run Automations"],
@@ -583,8 +583,8 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
 
   beehiiv: {
     id: "beehiiv",
-    name: "Beehiiv",
-    description: "The newsletter platform built for growth.",
+    name: "beehiiv",
+    description: "The newsletter platform built for growth",
     category: "communication",
     logoUrl: "/integrations/beehiiv.svg",
     capabilities: ["Manage Publications", "Manage Posts", "Subscriber Data"],
