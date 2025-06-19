@@ -21,7 +21,7 @@ import { availableIntegrations, IntegrationProvider } from "@/lib/integrations/a
 import { Zap, CheckCircle2, AlertTriangle, XCircle } from "lucide-react"
 
 function IntegrationsContent() {
-  const [activeTab, setActiveTab] = useState<"all" | "connected" | "expiring" | "expired" | "disconnected">("all")
+  const [activeFilter, setActiveFilter] = useState<"all" | "connected" | "expiring" | "expired" | "disconnected">("all")
   const [autoRefresh, setAutoRefresh] = useState(true)
   const [isInitializing, setIsInitializing] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
@@ -131,11 +131,11 @@ function IntegrationsContent() {
   }, [fetchIntegrations, toast])
 
   const providersWithStatus = useMemo(() => {
-    if (loading || !availableIntegrations) {
-      return availableIntegrations?.map((p) => ({ ...p, status: "disconnected" as const, statusText: "Loading..." })) || [];
+    if (loading || providers.length === 0) {
+      return [];
     }
 
-    return availableIntegrations.map((provider: IntegrationProvider) => {
+    return providers.map((provider: IntegrationProvider) => {
       const integration = integrations.find((i: Integration) => i.provider === provider.id)
       // To prevent timezone issues, create a UTC-based "now" for comparison
       const now = new Date()
@@ -181,7 +181,7 @@ function IntegrationsContent() {
         statusText,
       }
     })
-  }, [integrations, loading])
+  }, [integrations, loading, providers])
 
   const providerCounts = useMemo(() => {
     return providersWithStatus.reduce((counts, p) => {
@@ -209,7 +209,7 @@ function IntegrationsContent() {
 
   const filteredProviders = sortedProviders.filter(p => {
     const searchTermLower = searchQuery.toLowerCase()
-    const statusLower = activeTab.toLowerCase()
+    const statusLower = activeFilter.toLowerCase()
 
     const nameMatch = p.name.toLowerCase().includes(searchTermLower)
 
@@ -390,7 +390,7 @@ function IntegrationsContent() {
                 />
               </div>
 
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <Tabs value={activeFilter} onValueChange={setActiveFilter} className="w-full">
                 <TabsList className="w-full sm:w-auto grid grid-cols-2 sm:flex sm:flex-row gap-1 sm:gap-2 p-1">
                   <TabsTrigger value="all" className="flex-1 sm:flex-none text-xs sm:text-sm">All</TabsTrigger>
                   <TabsTrigger value="connected" className="flex-1 sm:flex-none text-xs sm:text-sm">Connected</TabsTrigger>
