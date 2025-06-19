@@ -1,3 +1,5 @@
+import { useIntegrationStore } from "@/stores/integrationStore"
+
 // Add comprehensive scope definitions for all providers
 export const INTEGRATION_SCOPES = {
   slack: {
@@ -168,15 +170,19 @@ export function validateScopes(
   }
 }
 
-export function isComponentAvailable(provider: string): boolean {
-  // Check if the provider is supported and has proper configuration
-  if (!isKnownProvider(provider)) return false
-  const config = INTEGRATION_SCOPES[provider]
-  if (!config) return false
+export async function isComponentAvailable(
+  providerId: string,
+  requiredScopes: string[],
+): Promise<boolean> {
+  const { getIntegrationByProvider } = useIntegrationStore.getState()
+  const integration = getIntegrationByProvider(providerId)
 
-  // Check if required environment variables are available
-  const envVars = getRequiredEnvVars(provider)
-  return envVars.every((envVar) => process.env[envVar])
+  if (!integration || integration.status !== "connected") {
+    return false
+  }
+
+  const grantedScopes = integration.scopes || []
+  return requiredScopes.every((scope) => grantedScopes.includes(scope))
 }
 
 function getRequiredEnvVars(provider: string): string[] {
