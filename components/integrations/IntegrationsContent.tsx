@@ -162,6 +162,15 @@ function IntegrationsContent() {
             } else {
               status = "connected";
             }
+            
+            console.log(`[Integration Status Debug]
+  - Provider: ${provider.id}
+  - expires_at (raw): ${integration.expires_at}
+  - Parsed expiresAtDate: ${expiresAtDate.toISOString()}
+  - Current Time (now): ${now.toISOString()}
+  - Difference (ms): ${diffMs}
+  - Calculated Status: ${status}`);
+
           } else {
             // Fallback for invalid date
             if (integration.status === 'connected') {
