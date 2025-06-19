@@ -28,12 +28,12 @@ export async function GET(request: NextRequest) {
     }
 
     // Test the refresh token
-    const clientId = process.env.NEXT_PUBLIC_ONEDRIVE_CLIENT_ID
-    const clientSecret = process.env.ONEDRIVE_CLIENT_SECRET
+    const clientId = process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID
+    const clientSecret = process.env.MICROSOFT_CLIENT_SECRET
 
     if (!clientId || !clientSecret) {
       return NextResponse.json({ 
-        error: "Missing OneDrive OAuth credentials",
+        error: "Missing Microsoft OAuth credentials",
         hasClientId: !!clientId,
         hasClientSecret: !!clientSecret
       }, { status: 500 })
