@@ -131,43 +131,32 @@ function IntegrationsContent() {
   }, [fetchIntegrations, toast])
 
   const providersWithStatus = useMemo(() => {
-    if (loading || providers.length === 0) {
-      return [];
-    }
+    if (!providers || providers.length === 0) return []
 
-    return providers.map((provider: IntegrationProvider) => {
-      const integration = integrations.find((i: Integration) => i.provider === provider.id)
-      let status: "connected" | "expired" | "expiring" | "disconnected" | "needs_reauthorization" = "disconnected"
-      let statusText = "Not Connected"
+    return providers.map((provider) => {
+      const integration = integrations.find((i) => i.provider === provider.id)
+      let status: "connected" | "expired" | "expiring" | "disconnected" = "disconnected"
 
       if (integration) {
-        status = integration.status
-        statusText = integration.status
+        // Prioritize expires_at for status calculation if it exists
+        if (integration.expires_at) {
+          const expiresAt = new Date(integration.expires_at)
+          const now = new Date()
+          const diffMs = expiresAt.getTime() - now.getTime()
+          const twentyFourHoursMs = 24 * 60 * 60 * 1000
 
-        if (integration.status === 'disconnected' && integration.disconnect_reason) {
-          status = "needs_reauthorization"
-          statusText = integration.disconnect_reason
-        } else if (integration.status === "connected") {
-          statusText = "Connected"
-          const expiresAt = integration.expires_at ? new Date(integration.expires_at) : null
-          if (expiresAt) {
-            const now = new Date()
-            const now_utc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(),
-              now.getUTCHours(), now.getUTCMinutes(), now.getUTCSeconds()))
-            
-            const expiryTimestamp = expiresAt.getTime()
-            const nowTimestamp = now_utc.getTime()
-            const diffMs = expiryTimestamp - nowTimestamp
-            const twentyFourHoursMs = 24 * 60 * 60 * 1000
-
-            if (diffMs <= 0) {
-              status = "expired"
-              statusText = "Token has expired."
-            } else if (diffMs < twentyFourHoursMs) {
-              status = "expiring"
-              statusText = "Token expires soon."
-            }
+          if (diffMs <= 0) {
+            status = "expired"
+          } else if (diffMs < twentyFourHoursMs) {
+            status = "expiring"
+          } else {
+            status = "connected"
           }
+        } else if (integration.status === 'connected') {
+          // Fallback for integrations without an expiry date (e.g., API keys)
+          status = "connected"
+        } else if (integration.status === 'expired') {
+            status = "expired"
         }
       }
 
@@ -175,10 +164,9 @@ function IntegrationsContent() {
         ...provider,
         integration,
         status,
-        statusText,
       }
     })
-  }, [integrations, loading, providers])
+  }, [providers, integrations])
 
   const providerCounts = useMemo(() => {
     return providersWithStatus.reduce((counts, p) => {
