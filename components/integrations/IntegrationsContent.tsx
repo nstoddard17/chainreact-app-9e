@@ -137,39 +137,36 @@ function IntegrationsContent() {
 
     return providers.map((provider: IntegrationProvider) => {
       const integration = integrations.find((i: Integration) => i.provider === provider.id)
-      // To prevent timezone issues, create a UTC-based "now" for comparison
-      const now = new Date()
-      const now_utc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(),
-        now.getUTCHours(), now.getUTCMinutes(), now.getUTCSeconds()))
-
-      const expiresAt = integration?.expires_at ? new Date(integration.expires_at) : null
       let status: "connected" | "expired" | "expiring" | "disconnected" | "needs_reauthorization" = "disconnected"
       let statusText = "Not Connected"
 
       if (integration) {
-        if (integration.status === "disconnected" && integration.disconnect_reason) {
+        status = integration.status
+        statusText = integration.status
+
+        if (integration.status === 'disconnected' && integration.disconnect_reason) {
           status = "needs_reauthorization"
           statusText = integration.disconnect_reason
         } else if (integration.status === "connected") {
+          statusText = "Connected"
+          const expiresAt = integration.expires_at ? new Date(integration.expires_at) : null
           if (expiresAt) {
+            const now = new Date()
+            const now_utc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(),
+              now.getUTCHours(), now.getUTCMinutes(), now.getUTCSeconds()))
+            
             const expiryTimestamp = expiresAt.getTime()
             const nowTimestamp = now_utc.getTime()
             const diffMs = expiryTimestamp - nowTimestamp
-            const tenMinutesMs = 10 * 60 * 1000
+            const twentyFourHoursMs = 24 * 60 * 60 * 1000
 
             if (diffMs <= 0) {
               status = "expired"
-              statusText = "Token is expired."
-            } else if (diffMs < tenMinutesMs) {
+              statusText = "Token has expired."
+            } else if (diffMs < twentyFourHoursMs) {
               status = "expiring"
-              statusText = "Token is expiring soon."
-            } else {
-              status = "connected"
-              statusText = "Connected"
+              statusText = "Token expires soon."
             }
-          } else {
-            status = "connected"
-            statusText = "Connected"
           }
         }
       }
