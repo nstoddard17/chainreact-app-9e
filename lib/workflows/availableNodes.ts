@@ -474,4 +474,220 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "eCommerce",
     isTrigger: false,
   },
+
+  // --- New Triggers from User ---
+
+  // Facebook
+  {
+    type: "facebook_trigger_new_post",
+    title: "New post published",
+    description: "Triggers when a new post is published to a Page",
+    icon: PenSquare,
+    providerId: "facebook",
+    category: "Social",
+    isTrigger: true,
+    requiredScopes: ["pages_read_engagement"],
+  },
+  {
+    type: "facebook_trigger_new_comment",
+    title: "New comment on post",
+    description: "Triggers when a new comment is made on a Page post",
+    icon: MessageSquare,
+    providerId: "facebook",
+    category: "Social",
+    isTrigger: true,
+    requiredScopes: ["pages_read_engagement"],
+  },
+
+  // Instagram
+  {
+    type: "instagram_trigger_new_media",
+    title: "New photo or video posted",
+    description: "Triggers when a new photo or video is posted",
+    icon: Video,
+    providerId: "instagram",
+    category: "Social",
+    isTrigger: true,
+    requiredScopes: ["user_media"],
+  },
+  {
+    type: "instagram_trigger_new_comment",
+    title: "New comment on a post",
+    description: "Triggers when a new comment is made on your media",
+    icon: MessageSquare,
+    providerId: "instagram",
+    category: "Social",
+    isTrigger: true,
+    requiredScopes: ["user_media"],
+  },
+
+  // LinkedIn
+  {
+    type: "linkedin_trigger_new_post",
+    title: "New post published",
+    description: "Triggers when a new post is published to a company page",
+    icon: PenSquare,
+    providerId: "linkedin",
+    category: "Social",
+    isTrigger: true,
+    requiredScopes: ["w_member_social"],
+  },
+  {
+    type: "linkedin_trigger_new_comment",
+    title: "New comment or reaction",
+    description: "Triggers on a new comment or reaction on a company page post",
+    icon: MessageSquare,
+    providerId: "linkedin",
+    category: "Social",
+    isTrigger: true,
+    requiredScopes: ["w_member_social"],
+  },
+
+  // Mailchimp
+  {
+    type: "mailchimp_trigger_new_subscriber",
+    title: "New subscriber added",
+    description: "Triggers when a new subscriber is added to an audience",
+    icon: Users,
+    providerId: "mailchimp",
+    category: "Email",
+    isTrigger: true,
+  },
+  {
+    type: "mailchimp_trigger_email_opened",
+    title: "Email campaign opened",
+    description: "Triggers when a subscriber opens an email campaign",
+    icon: MailOpen,
+    providerId: "mailchimp",
+    category: "Email",
+    isTrigger: true,
+  },
+
+  // ConvertKit
+  {
+    type: "convertkit_trigger_new_subscriber",
+    title: "New subscriber added",
+    description: "Triggers when a new subscriber is added",
+    icon: Users,
+    providerId: "convertkit",
+    category: "Email",
+    isTrigger: true,
+  },
+  {
+    type: "convertkit_trigger_tag_added",
+    title: "Tag added to a subscriber",
+    description: "Triggers when a tag is added to a subscriber",
+    icon: BarChart,
+    providerId: "convertkit",
+    category: "Email",
+    isTrigger: true,
+  },
+
+  // OneDrive
+  {
+    type: "onedrive_trigger_new_file",
+    title: "New file or folder",
+    description: "Triggers when a new file or folder is created",
+    icon: Upload,
+    providerId: "onedrive",
+    category: "Storage",
+    isTrigger: true,
+    requiredScopes: ["Files.ReadWrite"],
+  },
+  {
+    type: "onedrive_trigger_file_modified",
+    title: "File modified",
+    description: "Triggers when a file is modified",
+    icon: FileText,
+    providerId: "onedrive",
+    category: "Storage",
+    isTrigger: true,
+    requiredScopes: ["Files.ReadWrite"],
+  },
+
+  // Box
+  {
+    type: "box_trigger_new_file",
+    title: "New file uploaded",
+    description: "Triggers when a new file is uploaded to a folder",
+    icon: Upload,
+    providerId: "box",
+    category: "Storage",
+    isTrigger: true,
+    requiredScopes: ["root_readwrite"],
+  },
+  {
+    type: "box_trigger_new_comment",
+    title: "New comment on file",
+    description: "Triggers when a new comment is added to a file",
+    icon: MessageSquare,
+    providerId: "box",
+    category: "Storage",
+    isTrigger: true,
+    requiredScopes: ["root_readwrite"],
+  },
+
+  // PayPal
+  {
+    type: "paypal_trigger_new_payment",
+    title: "New successful payment",
+    description: "Triggers when a new successful payment is received",
+    icon: ShoppingCart,
+    providerId: "paypal",
+    category: "Finance",
+    isTrigger: true,
+  },
+  {
+    type: "paypal_trigger_new_subscription",
+    title: "New subscription created",
+    description: "Triggers when a new subscription is created",
+    icon: Repeat,
+    providerId: "paypal",
+    category: "Finance",
+    isTrigger: true,
+  },
+
+  // GitLab
+  {
+    type: "gitlab_trigger_new_push",
+    title: "New push to repository",
+    description: "Triggers on a new push to a repository branch",
+    icon: GitBranch,
+    providerId: "gitlab",
+    category: "Development",
+    isTrigger: true,
+    requiredScopes: ["read_repository"],
+  },
+  {
+    type: "gitlab_trigger_new_issue",
+    title: "Issue opened or closed",
+    description: "Triggers when an issue is opened or closed",
+    icon: AlertTriangle,
+    providerId: "gitlab",
+    category: "Development",
+    isTrigger: true,
+    requiredScopes: ["read_repository"],
+  },
+
+  // Microsoft Forms
+  {
+    type: "microsoft-forms_trigger_new_response",
+    title: "New form response",
+    description: "Triggers when a new response is submitted to a form",
+    icon: FileText,
+    providerId: "microsoft-forms",
+    category: "Productivity",
+    isTrigger: true,
+  },
+
+  // Canva
+  {
+    type: "canva_trigger_new_design",
+    title: "New design created",
+    description: "Triggers when a new design is created",
+    icon: PenSquare,
+    providerId: "canva",
+    category: "Design",
+    isTrigger: true,
+  },
 ] 
