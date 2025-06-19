@@ -83,8 +83,8 @@ export async function GET(request: NextRequest) {
 
     console.log(`✅ [${jobId}] Found ${allIntegrations?.length || 0} integrations that need attention`)
 
-    // Step 3: Fix expired status for any connected integrations that are actually expired
-    console.log(`🔧 [${jobId}] Step 3: Checking for expired integrations that need status update...`)
+    // Step 3: Fix incorrect integration statuses
+    console.log(`🔧 [${jobId}] Step 3: Correcting any incorrect integration statuses...`)
     let statusFixedCount = 0
     
     for (const integration of allIntegrations || []) {
@@ -92,9 +92,9 @@ export async function GET(request: NextRequest) {
         const expiresAt = new Date(integration.expires_at)
         const now = new Date()
         
-        // Use .getTime() for a reliable, timezone-proof comparison
+        // CASE 1: Fix 'connected' status for tokens that are actually expired
         if (expiresAt.getTime() <= now.getTime() && integration.status === "connected") {
-          console.log(`🔧 [${jobId}] Fixing status for ${integration.provider} - expired at ${expiresAt.toISOString()}`)
+          console.log(`🔧 [${jobId}] Fixing status for ${integration.provider}: connected -> expired`)
           
           const { error: updateError } = await supabase
             .from("integrations")
@@ -105,17 +105,38 @@ export async function GET(request: NextRequest) {
             .eq("id", integration.id)
 
           if (updateError) {
-            console.error(`❌ [${jobId}] Failed to update status for ${integration.provider}:`, updateError)
+            console.error(`❌ [${jobId}] Failed to correct status for ${integration.provider}:`, updateError)
           } else {
             statusFixedCount++
-            console.log(`✅ [${jobId}] Fixed status for ${integration.provider}: connected → expired`)
+            integration.status = "expired" // Update in-memory object for the next step
+            console.log(`✅ [${jobId}] Corrected status for ${integration.provider}`)
+          }
+        }
+        // CASE 2: Fix 'expired' status for tokens that are actually still valid
+        else if (expiresAt.getTime() > now.getTime() && integration.status === "expired") {
+          console.log(`🔧 [${jobId}] Fixing status for ${integration.provider}: expired -> connected`)
+
+          const { error: updateError } = await supabase
+            .from("integrations")
+            .update({
+              status: "connected",
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", integration.id)
+          
+          if (updateError) {
+            console.error(`❌ [${jobId}] Failed to correct status for ${integration.provider}:`, updateError)
+          } else {
+            statusFixedCount++
+            integration.status = "connected" // Update in-memory object for the next step
+            console.log(`✅ [${jobId}] Corrected status for ${integration.provider}`)
           }
         }
       }
     }
 
     if (statusFixedCount > 0) {
-      console.log(`🔧 [${jobId}] Fixed status for ${statusFixedCount} expired integrations`)
+      console.log(`🔧 [${jobId}] Corrected status for ${statusFixedCount} integrations`)
     }
 
     if (!allIntegrations || allIntegrations.length === 0) {
