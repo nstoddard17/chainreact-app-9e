@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { useEffect, useCallback, useState, useRef } from "react"
-import { useSearchParams } from "next/navigation"
+import { useSearchParams, useRouter } from "next/navigation"
 import {
   ReactFlow,
   Background,
@@ -22,7 +22,7 @@ import "@xyflow/react/dist/style.css"
 
 import { useWorkflowStore } from "@/stores/workflowStore"
 import { useCollaborationStore } from "@/stores/collaborationStore"
-import NodePalette from "./NodePalette"
+import { useIntegrationStore } from "@/stores/integrationStore"
 import ConfigurationPanel from "./ConfigurationPanel"
 import CustomNode from "./CustomNode"
 import { CollaboratorCursors } from "./CollaboratorCursors"
@@ -32,36 +32,24 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-// import { Separator } from "@/components/ui/separator"
 import { 
   Save, 
   Loader2, 
   Users, 
   Zap, 
   Play, 
-  Pause, 
   Settings, 
-  Eye, 
   History,
   Share2,
   Download,
-  Upload,
-  Maximize2,
-  Minimize2,
-  Grid3X3,
-  Layers,
-  Sparkles,
-  ChevronLeft,
-  ChevronRight,
-  Search,
-  Filter,
   MoreVertical,
   Copy,
   Trash2,
-  RefreshCw,
   AlertCircle,
-  CheckCircle,
-  XCircle
+  ArrowLeft,
+  Plus,
+  Search,
+  ChevronRight
 } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import {
@@ -77,7 +65,17 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
+import { ALL_NODE_COMPONENTS, NodeComponent } from "@/lib/workflows/availableNodes"
+import { INTEGRATION_CONFIGS } from "@/lib/integrations/availableIntegrations"
 
 const nodeTypes: NodeTypes = {
   custom: CustomNode,
@@ -85,6 +83,7 @@ const nodeTypes: NodeTypes = {
 
 export default function CollaborativeWorkflowBuilder() {
   const searchParams = useSearchParams()
+  const router = useRouter()
   const workflowId = searchParams.get("id")
 
   const {
@@ -112,20 +111,24 @@ export default function CollaborativeWorkflowBuilder() {
     resolveConflict,
   } = useCollaborationStore()
 
+  const { integrations } = useIntegrationStore()
+
   const [nodes, setNodes, onNodesChange] = useNodesState([] as Node[])
   const [edges, setEdges, onEdgesChange] = useEdgesState([] as Edge[])
   const [saving, setSaving] = useState(false)
   const [executing, setExecuting] = useState(false)
   const [showConflictDialog, setShowConflictDialog] = useState(false)
-  const [isFullscreen, setIsFullscreen] = useState(false)
-  const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false)
-  const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false)
-  const [showMiniMap, setShowMiniMap] = useState(true)
   const [workflowName, setWorkflowName] = useState("")
   const [isEditingName, setIsEditingName] = useState(false)
+  
+  // New states for the guided approach
+  const [showTriggerDialog, setShowTriggerDialog] = useState(false)
+  const [showActionDialog, setShowActionDialog] = useState(false)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
 
   const reactFlowWrapper = useRef<HTMLDivElement>(null)
-  const cursorUpdateTimer = useRef<NodeJS.Timeout>()
+  const cursorUpdateTimer = useRef<NodeJS.Timeout | null>(null)
 
   // Join collaboration session when workflow loads
   useEffect(() => {
@@ -146,7 +149,7 @@ export default function CollaborativeWorkflowBuilder() {
       const workflow = workflows.find((w) => w.id === workflowId)
       if (workflow) {
         setCurrentWorkflow(workflow)
-        setWorkflowName(workflow.name || "Untitled Workflow")
+        setWorkflowName(workflow.name || "Untitled Chain")
       }
     }
   }, [workflowId, workflows, setCurrentWorkflow])
@@ -161,7 +164,7 @@ export default function CollaborativeWorkflowBuilder() {
       }
     }
     loadWorkflows()
-  }, [])
+  }, [fetchWorkflows])
 
   // Update nodes and edges when current workflow changes
   useEffect(() => {
@@ -200,128 +203,6 @@ export default function CollaborativeWorkflowBuilder() {
       setShowConflictDialog(true)
     }
   }, [conflicts])
-
-  // Handle mouse movement for cursor tracking
-  const handleMouseMove = useCallback(
-    (event: React.MouseEvent) => {
-      if (!collaborationSession) return
-
-      // Throttle cursor updates
-      if (cursorUpdateTimer.current) {
-        clearTimeout(cursorUpdateTimer.current)
-      }
-
-      cursorUpdateTimer.current = setTimeout(() => {
-        const rect = reactFlowWrapper.current?.getBoundingClientRect()
-        if (rect) {
-          const position = {
-            x: event.clientX - rect.left,
-            y: event.clientY - rect.top,
-          }
-          updateCursorPosition(position)
-        }
-      }, 100)
-    },
-    [collaborationSession, updateCursorPosition],
-  )
-
-  const onConnect = useCallback(
-    async (params: Connection) => {
-      const newEdge: Edge = {
-        id: `edge-${Date.now()}`,
-        source: params.source!,
-        target: params.target!,
-        sourceHandle: params.sourceHandle,
-        targetHandle: params.targetHandle,
-        animated: true,
-        style: { stroke: '#8b5cf6', strokeWidth: 2 },
-      }
-
-      // Apply change through collaboration system
-      if (collaborationSession) {
-        const result = await applyChange("edge_add", {
-          edge: newEdge,
-        })
-
-        if (result.success) {
-          setEdges((eds) => addEdge(newEdge, eds))
-        } else if (result.conflicts) {
-          console.log("Edge add conflicts:", result.conflicts)
-        }
-      } else {
-        setEdges((eds) => addEdge(newEdge, eds))
-      }
-    },
-    [setEdges, collaborationSession, applyChange],
-  )
-
-  const onNodeClick = useCallback(
-    async (event: React.MouseEvent, node: Node) => {
-      setSelectedNode(node as any)
-
-      if (collaborationSession) {
-        await updateSelectedNodes([node.id])
-      }
-    },
-    [setSelectedNode, collaborationSession, updateSelectedNodes],
-  )
-
-  const onPaneClick = useCallback(async () => {
-    setSelectedNode(null)
-
-    if (collaborationSession) {
-      await updateSelectedNodes([])
-    }
-  }, [setSelectedNode, collaborationSession, updateSelectedNodes])
-
-  const onDragOver = useCallback((event: React.DragEvent) => {
-    event.preventDefault()
-    event.dataTransfer.dropEffect = "move"
-  }, [])
-
-  const onDrop = useCallback(
-    async (event: React.DragEvent) => {
-      event.preventDefault()
-
-      const reactFlowBounds = reactFlowWrapper.current?.getBoundingClientRect()
-      const type = event.dataTransfer.getData("application/reactflow")
-      const nodeData = JSON.parse(event.dataTransfer.getData("application/nodedata") || "{}")
-
-      if (typeof type === "undefined" || !type || !reactFlowBounds) {
-        return
-      }
-
-      const position = {
-        x: event.clientX - reactFlowBounds.left - 100,
-        y: event.clientY - reactFlowBounds.top - 50,
-      }
-
-      const newNode: Node = {
-        id: `node-${Date.now()}`,
-        type: "custom",
-        position,
-        data: {
-          ...nodeData,
-          type,
-          title: nodeData.label || type,
-          status: "disconnected",
-        },
-      }
-
-      if (collaborationSession) {
-        const result = await applyChange("node_add", {
-          node: newNode,
-        })
-
-        if (result.success) {
-          setNodes((nds) => nds.concat(newNode))
-        }
-      } else {
-        setNodes((nds) => nds.concat(newNode))
-      }
-    },
-    [setNodes, collaborationSession, applyChange],
-  )
 
   const handleSave = async () => {
     if (!currentWorkflow) return
@@ -395,19 +276,77 @@ export default function CollaborativeWorkflowBuilder() {
     }
   }
 
-  const toggleFullscreen = () => {
-    setIsFullscreen(!isFullscreen)
-  }
-
   const getWorkflowStatus = () => {
     if (executing) return { status: "running", color: "bg-blue-500" }
-    if (nodes.length === 0) return { status: "empty", color: "bg-gray-400" }
+    if (nodes.length === 0) return { status: "draft", color: "bg-gray-400" }
     if (nodes.some(node => !node.data.status || node.data.status === "error")) return { status: "error", color: "bg-red-500" }
     if (nodes.every(node => node.data.status === "connected")) return { status: "ready", color: "bg-green-500" }
     return { status: "draft", color: "bg-yellow-500" }
   }
 
   const workflowStatus = getWorkflowStatus()
+
+  // Get available integrations grouped by category
+  const getIntegrationsFromNodes = () => {
+    const integrationMap: Record<string, {
+      id: string
+      name: string
+      logo: string
+      description: string
+      category: string
+      color: string
+      triggers: NodeComponent[]
+      actions: NodeComponent[]
+    }> = {}
+
+    ALL_NODE_COMPONENTS.forEach((node) => {
+      if (node.providerId) {
+        if (!integrationMap[node.providerId]) {
+          const config = INTEGRATION_CONFIGS[node.providerId]
+          integrationMap[node.providerId] = {
+            id: node.providerId,
+            name: config?.name || node.providerId,
+            logo: config?.logoUrl || `/integrations/${node.providerId}.svg`,
+            description: config?.description || `Integration for ${node.providerId}`,
+            category: config?.category || "Other",
+            color: config?.color || "#FFFFFF",
+            triggers: [],
+            actions: [],
+          }
+        }
+
+        if (node.isTrigger) {
+          integrationMap[node.providerId].triggers.push(node)
+        } else {
+          integrationMap[node.providerId].actions.push(node)
+        }
+      }
+    })
+
+    return Object.values(integrationMap)
+  }
+
+  const availableIntegrations = getIntegrationsFromNodes()
+  const triggerIntegrations = availableIntegrations.filter(integration => integration.triggers.length > 0)
+
+  const handleTriggerSelect = (integration: any, trigger: NodeComponent) => {
+    const newNode: Node = {
+      id: `trigger-${Date.now()}`,
+      type: "custom",
+      position: { x: 400, y: 200 },
+      data: {
+        type: trigger.type,
+        title: trigger.title,
+        description: trigger.description,
+        provider: integration.id,
+        status: "disconnected",
+        config: {}
+      },
+    }
+
+    setNodes((nds) => [...nds, newNode])
+    setShowTriggerDialog(false)
+  }
 
   if (!currentWorkflow) {
     return (
@@ -421,7 +360,6 @@ export default function CollaborativeWorkflowBuilder() {
             Create a new workflow or select an existing one to start building amazing automations
           </p>
           <Button className="w-full">
-            <Sparkles className="w-4 h-4 mr-2" />
             Create New Workflow
           </Button>
         </Card>
@@ -431,14 +369,14 @@ export default function CollaborativeWorkflowBuilder() {
 
   return (
     <TooltipProvider>
-      <div className={cn(
-        "h-screen bg-slate-50 flex flex-col",
-        isFullscreen && "fixed inset-0 z-50"
-      )}>
+      <div className="h-screen bg-slate-50 flex flex-col">
         {/* Top Header */}
         <div className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shadow-sm">
           {/* Left Section */}
           <div className="flex items-center space-x-4">
+            <Button variant="ghost" size="sm" onClick={() => router.back()}>
+              <ArrowLeft className="w-4 h-4" />
+            </Button>
             <div className="flex items-center space-x-3">
               <div className={cn("w-3 h-3 rounded-full", workflowStatus.color)} />
               {isEditingName ? (
@@ -460,81 +398,32 @@ export default function CollaborativeWorkflowBuilder() {
                   {workflowName}
                 </h1>
               )}
-              <Badge variant="outline" className="capitalize">
-                {workflowStatus.status}
-              </Badge>
             </div>
           </div>
-
-          {/* Center Section - Collaborators */}
-          {activeCollaborators.length > 0 && (
-            <div className="flex items-center space-x-2">
-              <Users className="w-4 h-4 text-slate-600" />
-              <div className="flex -space-x-2">
-                {activeCollaborators.slice(0, 3).map((collaborator, index) => (
-                  <div
-                    key={collaborator.id}
-                    className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-purple-600 border-2 border-white flex items-center justify-center text-white text-xs font-medium"
-                    title={collaborator.user_name}
-                  >
-                                         {collaborator.user_name.charAt(0).toUpperCase()}
-                  </div>
-                ))}
-                {activeCollaborators.length > 3 && (
-                  <div className="w-8 h-8 rounded-full bg-slate-200 border-2 border-white flex items-center justify-center text-slate-600 text-xs">
-                    +{activeCollaborators.length - 3}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
 
           {/* Right Section */}
           <div className="flex items-center space-x-2">
             <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowMiniMap(!showMiniMap)}
-            >
-              <Grid3X3 className="w-4 h-4" />
-            </Button>
-            
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={toggleFullscreen}
-            >
-              {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-            </Button>
-
-            <div className="w-px h-6 bg-border" />
-
-            <Button
               variant="outline"
-              size="sm"
-              onClick={handleSave}
-              disabled={saving}
-            >
-              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-              {saving ? "Saving..." : "Save"}
-            </Button>
-
-            <Button
               onClick={handleExecute}
               disabled={executing || nodes.length === 0}
-              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
             >
               {executing ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                  Running...
+                  Testing...
                 </>
               ) : (
-                <>
-                  <Play className="w-4 h-4 mr-2" />
-                  Test Run
-                </>
+                "Test"
               )}
+            </Button>
+            
+            <Button 
+              onClick={handleSave}
+              disabled={saving}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {saving ? "Saving..." : "Enable"}
             </Button>
 
             <DropdownMenu>
@@ -572,144 +461,172 @@ export default function CollaborativeWorkflowBuilder() {
 
         {/* Main Content */}
         <div className="flex-1 flex">
-          {/* Left Panel - Node Palette */}
-          <div className={cn(
-            "transition-all duration-300 bg-white border-r border-slate-200",
-            leftPanelCollapsed ? "w-12" : "w-80"
-          )}>
-            <div className="h-full flex flex-col">
-              <div className="h-12 border-b border-slate-200 flex items-center justify-between px-4">
-                {!leftPanelCollapsed && (
-                  <h3 className="font-semibold text-slate-900">Components</h3>
-                )}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setLeftPanelCollapsed(!leftPanelCollapsed)}
-                >
-                  {leftPanelCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-                </Button>
+          {/* Left Sidebar - Apps */}
+          <div className="w-80 bg-white border-r border-slate-200">
+            <div className="p-4">
+              <h2 className="text-lg font-semibold text-slate-900 mb-4">App</h2>
+              
+              {/* Popular Apps */}
+              <div className="flex items-center space-x-2 mb-4">
+                {triggerIntegrations.slice(0, 4).map((integration) => (
+                  <div
+                    key={integration.id}
+                    className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center"
+                  >
+                    <img 
+                      src={integration.logo} 
+                      alt={integration.name} 
+                      className="w-6 h-6"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = '/placeholder.svg'
+                      }}
+                    />
+                  </div>
+                ))}
               </div>
-              {!leftPanelCollapsed && (
-                <div className="flex-1 overflow-hidden">
-                  <NodePalette />
+
+              {/* Search */}
+              <div className="relative mb-4">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                <Input
+                  placeholder="Search apps"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+
+              {/* App List */}
+              <ScrollArea className="h-[400px]">
+                <div className="space-y-2">
+                  {triggerIntegrations
+                    .filter(integration => 
+                      integration.name.toLowerCase().includes(searchTerm.toLowerCase())
+                    )
+                    .map((integration) => (
+                    <div
+                      key={integration.id}
+                      className="flex items-center space-x-3 p-2 rounded-lg hover:bg-slate-50 cursor-pointer"
+                      onClick={() => setShowTriggerDialog(true)}
+                    >
+                      <img 
+                        src={integration.logo} 
+                        alt={integration.name} 
+                        className="w-8 h-8"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = '/placeholder.svg'
+                        }}
+                      />
+                      <span className="font-medium text-slate-900">{integration.name}</span>
+                    </div>
+                  ))}
                 </div>
-              )}
+              </ScrollArea>
             </div>
           </div>
 
           {/* Center Panel - Canvas */}
           <div className="flex-1 relative">
-            <div
-              ref={reactFlowWrapper}
-              className="w-full h-full"
-              onMouseMove={handleMouseMove}
-            >
-              <ReactFlow
-                nodes={nodes}
-                edges={edges}
-                onNodesChange={onNodesChange}
-                onEdgesChange={onEdgesChange}
-                onConnect={onConnect}
-                onNodeClick={onNodeClick}
-                onPaneClick={onPaneClick}
-                onDrop={onDrop}
-                onDragOver={onDragOver}
-                nodeTypes={nodeTypes}
-                fitView
-                attributionPosition="bottom-right"
-                className="bg-slate-50"
-              >
-                <Background 
-                  variant={BackgroundVariant.Dots} 
-                  gap={20} 
-                  size={1} 
-                  color="#cbd5e1"
-                />
-                <Controls 
-                  className="bg-white shadow-lg border border-slate-200 rounded-lg"
-                  showInteractive={false}
-                />
-                {showMiniMap && (
-                  <MiniMap
-                    className="bg-white shadow-lg border border-slate-200 rounded-lg"
-                    maskColor="rgba(100, 116, 139, 0.1)"
-                    nodeColor="#8b5cf6"
-                  />
-                )}
-                
-                {/* Status Panel */}
-                <Panel position="top-left" className="bg-white shadow-lg border border-slate-200 rounded-lg p-3">
-                  <div className="flex items-center space-x-3 text-sm">
-                    <div className="flex items-center space-x-2">
-                      <Layers className="w-4 h-4 text-slate-600" />
-                      <span className="text-slate-600">{nodes.length} nodes</span>
-                    </div>
-                    <div className="w-px h-4 bg-border" />
-                    <div className="flex items-center space-x-2">
-                      <div className="w-2 h-2 bg-purple-500 rounded-full" />
-                      <span className="text-slate-600">{edges.length} connections</span>
-                    </div>
+            {nodes.length === 0 ? (
+              // Empty State - Start Your Chain
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="text-center max-w-md">
+                  <div className="w-20 h-20 rounded-full border-2 border-dashed border-slate-300 flex items-center justify-center mx-auto mb-8">
+                    <Plus className="w-8 h-8 text-slate-400" />
                   </div>
-                </Panel>
-
-                {/* Collaboration Cursors */}
-                <CollaboratorCursors collaborators={activeCollaborators} />
-              </ReactFlow>
-            </div>
-
-            {/* Empty State */}
-            {nodes.length === 0 && (
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <Card className="p-8 max-w-sm text-center shadow-lg pointer-events-auto">
-                  <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Zap className="w-8 h-8 text-white" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-slate-900 mb-2">Start Building</h3>
-                  <p className="text-slate-600 mb-4">
-                    Drag components from the left panel to create your workflow
+                  <h2 className="text-3xl font-bold text-slate-900 mb-4">Start your Chain</h2>
+                  <p className="text-lg text-slate-600 mb-8">
+                    Chains start with a trigger – an event that kicks off your workflow
                   </p>
-                  <div className="text-xs text-slate-500">
-                    Tip: Start with a trigger node
-                  </div>
-                </Card>
+                  <Button
+                    onClick={() => setShowTriggerDialog(true)}
+                    className="bg-slate-900 hover:bg-slate-800 text-white px-8 py-3 text-lg"
+                  >
+                    Choose a trigger
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              // ReactFlow Canvas
+              <div
+                ref={reactFlowWrapper}
+                className="w-full h-full"
+              >
+                <ReactFlow
+                  nodes={nodes}
+                  edges={edges}
+                  onNodesChange={onNodesChange}
+                  onEdgesChange={onEdgesChange}
+                  nodeTypes={nodeTypes}
+                  fitView
+                  className="bg-slate-50"
+                >
+                  <Background 
+                    variant={BackgroundVariant.Dots} 
+                    gap={20} 
+                    size={1} 
+                    color="#cbd5e1"
+                  />
+                  <Controls 
+                    className="bg-white shadow-lg border border-slate-200 rounded-lg"
+                    showInteractive={false}
+                  />
+                  <CollaboratorCursors collaborators={activeCollaborators} />
+                </ReactFlow>
               </div>
             )}
           </div>
 
           {/* Right Panel - Configuration */}
-          <div className={cn(
-            "transition-all duration-300 bg-white border-l border-slate-200",
-            rightPanelCollapsed ? "w-12" : "w-80"
-          )}>
-            <div className="h-full flex flex-col">
-              <div className="h-12 border-b border-slate-200 flex items-center justify-between px-4">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setRightPanelCollapsed(!rightPanelCollapsed)}
-                >
-                  {rightPanelCollapsed ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-                </Button>
-                {!rightPanelCollapsed && (
-                  <h3 className="font-semibold text-slate-900">Properties</h3>
-                )}
-              </div>
-              {!rightPanelCollapsed && (
-                <div className="flex-1 overflow-hidden">
-                  {selectedNode ? (
-                    <ConfigurationPanel />
-                  ) : (
-                    <div className="p-6 text-center text-slate-500">
-                      <Settings className="w-12 h-12 mx-auto mb-3 text-slate-300" />
-                      <p>Select a node to configure its properties</p>
-                    </div>
-                  )}
-                </div>
-              )}
+          {selectedNode && (
+            <div className="w-80 bg-white border-l border-slate-200">
+              <ConfigurationPanel />
             </div>
-          </div>
+          )}
         </div>
+
+        {/* Trigger Selection Dialog */}
+        <Dialog open={showTriggerDialog} onOpenChange={setShowTriggerDialog}>
+          <DialogContent className="max-w-4xl max-h-[80vh]">
+            <DialogHeader>
+              <DialogTitle>Choose a trigger</DialogTitle>
+              <DialogDescription>
+                Select the app and event that will start your workflow
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-96 overflow-y-auto">
+              {triggerIntegrations.map((integration) => (
+                <Card 
+                  key={integration.id}
+                  className="p-4 hover:shadow-md transition-shadow cursor-pointer"
+                  onClick={() => {
+                    // For now, just select the first trigger
+                    if (integration.triggers.length > 0) {
+                      handleTriggerSelect(integration, integration.triggers[0])
+                    }
+                  }}
+                >
+                  <div className="flex items-center space-x-3 mb-3">
+                    <img 
+                      src={integration.logo} 
+                      alt={integration.name} 
+                      className="w-10 h-10"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = '/placeholder.svg'
+                      }}
+                    />
+                    <div>
+                      <h3 className="font-semibold">{integration.name}</h3>
+                      <p className="text-sm text-slate-600">{integration.triggers.length} triggers</p>
+                    </div>
+                  </div>
+                  <p className="text-sm text-slate-500">{integration.description}</p>
+                </Card>
+              ))}
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* Execution Monitor */}
         {executionEvents.length > 0 && (
