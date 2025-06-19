@@ -400,9 +400,10 @@ function generateDropboxAuthUrl(state: string): string {
     client_id: clientId,
     redirect_uri: "https://chainreact.app/api/integrations/dropbox/callback",
     response_type: "code",
+    token_access_type: "offline",
+    scope: "account_info.read files.content.read files.content.write files.metadata.read files.metadata.write sharing.read sharing.write",
     state,
   })
-
   return `https://www.dropbox.com/oauth2/authorize?${params.toString()}`
 }
 
@@ -422,12 +423,12 @@ function generateBoxAuthUrl(state: string): string {
 
 function generateHubSpotAuthUrl(state: string): string {
   const clientId = process.env.NEXT_PUBLIC_HUBSPOT_CLIENT_ID
-  if (!clientId) throw new Error("HubSpot client ID not configured")
+  if (!clientId) throw new Error("Hubspot client ID not configured")
 
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: "https://chainreact.app/api/integrations/hubspot/callback",
-    scope: "crm.objects.contacts.read crm.objects.deals.read",
+    scope: "crm.objects.companies.read crm.objects.companies.write crm.objects.contacts.read crm.objects.contacts.write crm.objects.deals.read crm.objects.deals.write oauth",
     state,
   })
 
@@ -474,6 +475,7 @@ function generateMailchimpAuthUrl(state: string): string {
     client_id: clientId,
     redirect_uri: "https://chainreact.app/api/integrations/mailchimp/callback",
     response_type: "code",
+    scope: "campaigns audience automation root",
     state,
   })
 
