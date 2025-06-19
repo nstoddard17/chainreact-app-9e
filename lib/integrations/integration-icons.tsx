@@ -1,4 +1,3 @@
-import React from 'react';
 import Gmail from '@/public/integrations/gmail.svg';
 import GoogleCalendar from '@/public/integrations/google-calendar.svg';
 import GoogleDrive from '@/public/integrations/google-drive.svg';
@@ -24,7 +23,7 @@ import Airtable from '@/public/integrations/airtable.svg';
 import Mailchimp from '@/public/integrations/mailchimp.svg';
 import HubSpot from '@/public/integrations/hubspot.svg';
 
-export const integrationIcons: Record<string, React.ElementType> = {
+export const integrationIcons: Record<string, any> = {
   gmail: Gmail,
   'google-calendar': GoogleCalendar,
   'google-drive': GoogleDrive,

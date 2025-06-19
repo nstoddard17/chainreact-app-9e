@@ -288,7 +288,7 @@ export default function CollaborativeWorkflowBuilder() {
       {
         id: string
         name: string
-        logo: React.ElementType
+        logo: any
         description: string
         category: string
         color: string
@@ -303,7 +303,7 @@ export default function CollaborativeWorkflowBuilder() {
         integrationMap[integrationId] = {
           id: config.id,
           name: config.name,
-          logo: integrationIcons[config.id] || Users,
+          logo: integrationIcons[config.id],
           description: config.description,
           category: config.category,
           color: config.color,
@@ -547,7 +547,15 @@ export default function CollaborativeWorkflowBuilder() {
                     className="w-12 h-12 flex items-center justify-center mb-2 rounded-lg"
                     style={{ backgroundColor: integration.color }}
                   >
-                    <integration.logo className="w-8 h-8 object-contain text-white" />
+                    {integration.logo ? (
+                      <img
+                        src={integration.logo.src}
+                        alt={`${integration.name} logo`}
+                        className="w-8 h-8 object-contain"
+                      />
+                    ) : (
+                      <Users className="w-8 h-8 object-contain text-white" />
+                    )}
                   </div>
                   <div>
                     <h3 className="font-semibold text-slate-900">{integration.name}</h3>
