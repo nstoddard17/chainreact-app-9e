@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useMemo, useCallback, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { useIntegrationStore } from "@/stores/integrationStore"
 import { useAuthStore } from "@/stores/authStore"
 import AppLayout from "@/components/layout/AppLayout"
@@ -26,7 +27,9 @@ function IntegrationsContent() {
 
   const { integrations, providers, initializeProviders, fetchIntegrations, loading } = useIntegrationStore()
   const { user } = useAuthStore()
+  const router = useRouter()
 
+  // Initialize providers and fetch integrations
   useEffect(() => {
     const initialize = async () => {
       // Only initialize if providers are empty and not already initializing
@@ -42,6 +45,27 @@ function IntegrationsContent() {
     }
     initialize()
   }, [user, initializeProviders, fetchIntegrations, providers.length, isInitializing])
+
+  // Refresh integrations when component mounts and user is authenticated
+  useEffect(() => {
+    if (user && providers.length > 0 && !isInitializing) {
+      console.log("🔄 Component mounted, refreshing integrations...")
+      fetchIntegrations(true)
+    }
+  }, [user, providers.length, isInitializing, fetchIntegrations])
+
+  // Refresh when navigating to integrations page
+  useEffect(() => {
+    if (!user || !autoRefresh) return
+
+    // Check if we're on the integrations page
+    const isOnIntegrationsPage = typeof window !== 'undefined' && window.location.pathname === '/integrations'
+    
+    if (isOnIntegrationsPage && providers.length > 0) {
+      console.log("🔄 On integrations page, refreshing integrations...")
+      fetchIntegrations(true)
+    }
+  }, [user, autoRefresh, providers.length, fetchIntegrations])
 
   // Auto-refresh effect
   useEffect(() => {
@@ -76,8 +100,25 @@ function IntegrationsContent() {
       }
     }
 
+    const handleWindowFocus = () => {
+      if (autoRefresh) {
+        console.log("🔄 Window focused, refreshing integrations...")
+        toast({ 
+          title: "Refreshing integrations", 
+          description: "Checking for updates...",
+          duration: 2000
+        })
+        fetchIntegrations(true)
+      }
+    }
+
     document.addEventListener('visibilitychange', handleVisibilityChange)
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('focus', handleWindowFocus)
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('focus', handleWindowFocus)
+    }
   }, [user, autoRefresh, fetchIntegrations, toast])
 
   const handleRefreshTokens = useCallback(async () => {
@@ -295,31 +336,6 @@ function IntegrationsContent() {
           </div>
           <div className="flex gap-2">
             <Button 
-              onClick={() => {
-                toast({ 
-                  title: "Refreshing integrations", 
-                  description: "Checking for updates...",
-                  duration: 2000
-                })
-                fetchIntegrations(true)
-              }} 
-              disabled={loading} 
-              variant="outline"
-              className="w-full sm:w-auto text-sm sm:text-base"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Refreshing...
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                  Refresh
-                </>
-              )}
-            </Button>
-            <Button 
               onClick={handleRefreshTokens} 
               disabled={loading} 
               variant="outline"
@@ -333,7 +349,7 @@ function IntegrationsContent() {
               ) : (
                 <>
                   <RefreshCw className="mr-2 h-4 w-4" />
-                  Refresh All
+                  Refresh
                 </>
               )}
             </Button>
