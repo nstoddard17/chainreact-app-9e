@@ -137,8 +137,17 @@ function IntegrationsContent() {
       let status: "connected" | "expired" | "expiring" | "disconnected" | "needs_reauthorization" = "disconnected"
 
       if (integration) {
+        // Check if integration was marked as disconnected by cron job
+        if (integration.disconnected_at) {
+          // If it has a refresh token, it can be recovered, otherwise needs reauth
+          if (integration.refresh_token) {
+            status = "expired" // Can be refreshed
+          } else {
+            status = "needs_reauthorization" // Needs re-auth
+          }
+        }
         // Only show "needs_reauthorization" if database status is actually that
-        if (integration.status === "needs_reauthorization") {
+        else if (integration.status === "needs_reauthorization") {
           status = "needs_reauthorization"
         } else if (integration.status === "expired") {
           status = "expired"
