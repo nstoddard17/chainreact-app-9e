@@ -171,6 +171,39 @@ export async function GET(request: NextRequest) {
       try {
         console.log(`🔍 [${jobId}] Processing ${integration.provider} for user ${integration.user_id} (status: ${integration.status})`)
         
+        // Check if integration has no refresh token and is expired
+        if (!integration.refresh_token && integration.expires_at) {
+          const expiresAt = new Date(integration.expires_at)
+          const currentTime = new Date()
+          
+          if (expiresAt < currentTime) {
+            console.log(`🔧 [${jobId}] Integration ${integration.provider} has no refresh token and is expired - marking as needs_reauthorization`)
+            
+            const { error: updateError } = await supabase
+              .from("integrations")
+              .update({
+                status: "needs_reauthorization",
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", integration.id)
+
+            if (updateError) {
+              console.error(`❌ [${jobId}] Failed to update status for ${integration.provider}:`, updateError)
+              failed++
+              errors.push({ 
+                provider: integration.provider, 
+                userId: integration.user_id, 
+                error: `Failed to mark as needs_reauthorization: ${updateError.message}` 
+              })
+            } else {
+              console.log(`✅ [${jobId}] Marked ${integration.provider} as needs_reauthorization`)
+              // Count this as a status fix
+              statusFixedCount++
+            }
+            continue // Skip the refresh attempt since there's no refresh token
+          }
+        }
+        
         const result = await refreshTokenIfNeeded(integration)
         
         if (result.refreshed) {
