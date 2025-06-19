@@ -51,23 +51,18 @@ export const integrations = {
     provider_user_id: "provider_user_id",
     access_token: "access_token",
     refresh_token: "refresh_token",
-    // OAuth 1.0a tokens
-    token: "token",
-    token_secret: "token_secret",
-    // API Key auth
-    api_key: "api_key",
     expires_at: "expires_at",
     scopes: "scopes",
     metadata: "metadata",
     status: "status",
     created_at: "created_at",
     updated_at: "updated_at",
-    last_refreshed_at: "last_refreshed_at",
-    last_used_at: "last_used_at",
     is_active: "is_active",
-    last_token_refresh_status: "last_token_refresh_status",
+    last_token_refresh: "last_token_refresh",
     consecutive_failures: "consecutive_failures",
     last_failure_at: "last_failure_at",
+    disconnected_at: "disconnected_at",
+    disconnect_reason: "disconnect_reason",
   },
 }
 
@@ -113,19 +108,16 @@ export interface Integration {
   provider_user_id?: string
   access_token?: string
   refresh_token?: string
-  token?: string // OAuth 1.0a
-  token_secret?: string // OAuth 1.0a
-  api_key?: string
   expires_at?: string
   scopes?: string[]
   metadata?: Record<string, any>
-  status?: "connected" | "disconnected" | "error" | "syncing"
+  status?: "connected" | "disconnected" | "expired" | "needs_reauthorization"
   created_at: string
   updated_at: string
-  last_refreshed_at?: string
-  last_used_at?: string
   is_active?: boolean
-  last_token_refresh_status?: "success" | "failure"
+  last_token_refresh?: string
   consecutive_failures?: number
   last_failure_at?: string
+  disconnected_at?: string
+  disconnect_reason?: string
 } 
