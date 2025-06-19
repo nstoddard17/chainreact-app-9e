@@ -142,13 +142,16 @@ export async function GET(request: NextRequest) {
     const expiresIn = tokenData.expires_in
     const expiresAt = expiresIn ? new Date(new Date().getTime() + expiresIn * 1000) : null
 
+    // Format scopes for PostgreSQL text array
+    const scopes = tokenData.scope ? `{${tokenData.scope.split(' ').join(',')}}` : null
+
     const integrationData = {
       user_id: userId,
       provider: "notion",
       provider_user_id: tokenData.owner.user.id,
       access_token: tokenData.access_token,
       refresh_token: tokenData.refresh_token,
-      scopes: tokenData.scope.split(' '),
+      scopes: scopes,
       status: "connected",
       expires_at: expiresAt ? expiresAt.toISOString() : null,
       updated_at: new Date().toISOString(),
