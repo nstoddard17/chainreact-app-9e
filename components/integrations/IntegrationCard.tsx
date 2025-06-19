@@ -59,6 +59,22 @@ export function IntegrationCard({ provider, integration, status }: IntegrationCa
     }
   }
 
+  const formatExpiresAt = (expires_at?: string | null) => {
+    if (!expires_at) return null;
+
+    let expiresAtDate: Date;
+    if (/^\d+$/.test(expires_at)) {
+      expiresAtDate = new Date(parseInt(expires_at, 10) * 1000);
+    } else {
+      expiresAtDate = new Date(expires_at);
+    }
+
+    if (expiresAtDate && !isNaN(expiresAtDate.getTime())) {
+      return expiresAtDate.toLocaleString();
+    }
+    return 'Invalid date';
+  };
+
   const isLoading = 
     loadingStates[`connect-${provider.id}`] || 
     (integration ? loadingStates[`disconnect-${integration.provider}`] : false)
@@ -191,6 +207,9 @@ export function IntegrationCard({ provider, integration, status }: IntegrationCa
                 <div className="font-semibold mb-1">{provider.name === "Blackbaud Raiser's Edge NXT" ? "Blackbaud" : provider.name}</div>
                 {integration?.created_at && (
                   <div className="text-xs text-gray-400">Connected: {new Date(integration.created_at).toLocaleString()}</div>
+                )}
+                {integration?.expires_at && (
+                  <div className="text-xs text-gray-400">Expires: {formatExpiresAt(integration.expires_at)}</div>
                 )}
               </TooltipContent>
             </Tooltip>

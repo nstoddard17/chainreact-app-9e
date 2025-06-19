@@ -140,17 +140,35 @@ function IntegrationsContent() {
       if (integration) {
         // Prioritize expires_at for status calculation if it exists
         if (integration.expires_at) {
-          const expiresAt = new Date(integration.expires_at)
-          const now = new Date()
-          const diffMs = expiresAt.getTime() - now.getTime()
-          const twentyFourHoursMs = 24 * 60 * 60 * 1000
+          let expiresAtDate: Date;
+          const expiresAt = integration.expires_at;
 
-          if (diffMs <= 0) {
-            status = "expired"
-          } else if (diffMs < twentyFourHoursMs) {
-            status = "expiring"
+          // Check if it's a numeric string (unix timestamp in seconds)
+          if (/^\d+$/.test(expiresAt)) {
+            expiresAtDate = new Date(parseInt(expiresAt, 10) * 1000);
           } else {
-            status = "connected"
+            expiresAtDate = new Date(expiresAt);
+          }
+
+          if (expiresAtDate && !isNaN(expiresAtDate.getTime())) {
+            const now = new Date();
+            const diffMs = expiresAtDate.getTime() - now.getTime();
+            const twentyFourHoursMs = 24 * 60 * 60 * 1000;
+
+            if (diffMs <= 0) {
+              status = "expired";
+            } else if (diffMs < twentyFourHoursMs) {
+              status = "expiring";
+            } else {
+              status = "connected";
+            }
+          } else {
+            // Fallback for invalid date
+            if (integration.status === 'connected') {
+              status = "connected";
+            } else if (integration.status === 'expired') {
+              status = "expired";
+            }
           }
         } else if (integration.status === 'connected') {
           // Fallback for integrations without an expiry date (e.g., API keys)
@@ -375,7 +393,7 @@ function IntegrationsContent() {
                 />
               </div>
 
-              <Tabs value={activeFilter} onValueChange={setActiveFilter} className="w-full">
+              <Tabs value={activeFilter} onValueChange={(value) => setActiveFilter(value as any)} className="w-full">
                 <TabsList className="w-full sm:w-auto grid grid-cols-2 sm:flex sm:flex-row gap-1 sm:gap-2 p-1">
                   <TabsTrigger value="all" className="flex-1 sm:flex-none text-xs sm:text-sm">All</TabsTrigger>
                   <TabsTrigger value="connected" className="flex-1 sm:flex-none text-xs sm:text-sm">Connected</TabsTrigger>
