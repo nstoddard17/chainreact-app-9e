@@ -337,13 +337,16 @@ function generateLinkedInAuthUrl(state: string): string {
 
 function generateFacebookAuthUrl(state: string): string {
   const clientId = process.env.NEXT_PUBLIC_FACEBOOK_CLIENT_ID
+  console.log('Facebook Client ID:', clientId ? `${clientId.substring(0, 4)}...` : 'NOT SET')
+  console.log('Facebook Client ID length:', clientId ? clientId.length : 0)
+  
   if (!clientId) throw new Error("Facebook client ID not configured")
 
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: "https://chainreact.app/api/integrations/facebook/callback",
     response_type: "code",
-    scope: "public_profile pages_manage_posts",
+    scope: "public_profile email pages_read_engagement pages_show_list",
     state,
   })
 
