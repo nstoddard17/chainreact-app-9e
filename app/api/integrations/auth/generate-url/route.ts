@@ -351,7 +351,7 @@ function generateFacebookAuthUrl(state: string): string {
     client_id: clientId,
     redirect_uri: "https://chainreact.app/api/integrations/facebook/callback",
     response_type: "code",
-    scope: "email business_management pages_show_list pages_manage_posts pages_manage_engagement manage_fundraisers",
+    scope: "email business_management pages_show_list pages_manage_posts pages_manage_engagement pages_read_engagement pages_read_user_content manage_fundraisers",
     state,
   })
 
