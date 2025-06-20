@@ -156,6 +156,10 @@ export async function POST(request: NextRequest) {
         authUrl = generateMicrosoftOneNoteAuthUrl(finalState)
         break
 
+      case "gumroad":
+        authUrl = generateGumroadAuthUrl(finalState)
+        break
+
       default:
         return NextResponse.json({ error: `Provider ${provider} not supported` }, { status: 400 })
     }
@@ -677,4 +681,19 @@ function generateMicrosoftOneNoteAuthUrl(state: string): string {
   })
 
   return `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`
+}
+
+function generateGumroadAuthUrl(state: string): string {
+  const clientId = process.env.NEXT_PUBLIC_GUMROAD_CLIENT_ID
+  if (!clientId) throw new Error("Gumroad client ID not configured")
+
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: "https://chainreact.app/api/integrations/gumroad/callback",
+    response_type: "code",
+    scope: "view_profile edit_products view_sales mark_sales_as_shipped refund_sales",
+    state,
+  })
+
+  return `https://gumroad.com/oauth/authorize?${params.toString()}`
 }

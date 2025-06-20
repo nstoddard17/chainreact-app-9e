@@ -290,6 +290,9 @@ async function refreshTokenByProvider(integration: Integration): Promise<Refresh
     case "globalpayments":
       return refreshGlobalPaymentsToken(refresh_token)
 
+    case "gumroad":
+      return refreshGumroadToken(refresh_token)
+
     default:
       return {
         refreshed: false,
@@ -1759,6 +1762,59 @@ async function refreshGlobalPaymentsToken(refreshToken: string): Promise<Refresh
       refreshed: false,
       success: false,
       message: `GlobalPayments token refresh error: ${(error as Error).message}`,
+    }
+  }
+}
+
+async function refreshGumroadToken(refreshToken: string): Promise<RefreshResult> {
+  try {
+    const clientId = process.env.NEXT_PUBLIC_GUMROAD_CLIENT_ID
+    const clientSecret = process.env.GUMROAD_CLIENT_SECRET
+
+    if (!clientId || !clientSecret) {
+      return {
+        refreshed: false,
+        success: false,
+        message: "Missing Gumroad OAuth credentials",
+      }
+    }
+
+    const response = await fetch("https://gumroad.com/oauth/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        refresh_token: refreshToken,
+        client_id: clientId,
+        client_secret: clientSecret,
+      }),
+    })
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      return {
+        refreshed: false,
+        success: false,
+        message: `Gumroad token refresh failed: ${data.error || "Unknown error"}`,
+      }
+    }
+
+    return {
+      refreshed: true,
+      success: true,
+      message: "Successfully refreshed Gumroad token",
+      newToken: data.access_token,
+      newExpiry: Math.floor(Date.now() / 1000) + (data.expires_in || 3600),
+      newRefreshToken: data.refresh_token,
+    }
+  } catch (error) {
+    return {
+      refreshed: false,
+      success: false,
+      message: `Gumroad token refresh error: ${(error as Error).message}`,
     }
   }
 }
