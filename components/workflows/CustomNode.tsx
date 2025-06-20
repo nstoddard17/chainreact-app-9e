@@ -153,7 +153,6 @@ function CustomNode({ data, selected }: NodeProps) {
           type="target"
           position={Position.Top}
           className="w-3 h-3 bg-slate-400 border-2 border-white"
-          style={{ left: "50%" }}
         />
       )}
 
@@ -175,33 +174,12 @@ function CustomNode({ data, selected }: NodeProps) {
             style={{ left: "75%" }}
           />
         </>
-      ) : isTrigger ? (
+      ) : (
         <Handle
           type="source"
           position={Position.Bottom}
-          id="success"
           className="w-3 h-3 bg-green-500 border-2 border-white"
-          style={{ left: "50%" }}
         />
-      ) : (
-        <>
-          <Handle
-            type="source"
-            position={Position.Bottom}
-            id="success"
-            className="w-3 h-3 bg-green-500 border-2 border-white"
-            style={{ left: "50%" }}
-          />
-          {isAction && (
-            <Handle
-              type="source"
-              position={Position.Bottom}
-              id="error"
-              className="w-3 h-3 bg-red-500 border-2 border-white"
-              style={{ left: "75%", display: "none" }}
-            />
-          )}
-        </>
       )}
     </Card>
   )
