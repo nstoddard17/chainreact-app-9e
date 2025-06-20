@@ -4,9 +4,10 @@ import { useState } from "react"
 import AppLayout from "@/components/layout/AppLayout"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Settings, User, CreditCard, Bell, Shield, Key } from "lucide-react"
+import { Settings, User, CreditCard, Bell, Shield, Key, Trash2 } from "lucide-react"
 import ProfileSettings from "./ProfileSettings"
 import BillingContent from "@/components/billing/BillingContent"
+import DataDeletionSettings from "./DataDeletionSettings"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { toast } from "@/hooks/use-toast"
@@ -40,54 +41,35 @@ export default function SettingsContent() {
 
   return (
     <AppLayout>
-      <div className="space-y-6">
-        <div className="flex items-center space-x-2">
-          <Settings className="w-6 h-6 text-slate-600" />
+      <div className="max-w-4xl mx-auto p-6">
+        <div className="mb-8">
           <h1 className="text-3xl font-bold text-slate-900">Settings</h1>
+          <p className="text-slate-600 mt-2">Manage your account settings and preferences.</p>
         </div>
 
-        <Tabs defaultValue="profile" value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <Card className="bg-white rounded-2xl shadow-lg border border-slate-200">
-            <CardContent className="p-0">
-              <TabsList className="w-full justify-start rounded-none border-b border-slate-200 bg-transparent p-0">
-                <TabsTrigger
-                  value="profile"
-                  className="rounded-none border-b-2 border-transparent px-4 py-3 data-[state=active]:border-blue-500 data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-                >
-                  <User className="w-4 h-4 mr-2" />
-                  Profile
-                </TabsTrigger>
-                <TabsTrigger
-                  value="billing"
-                  className="rounded-none border-b-2 border-transparent px-4 py-3 data-[state=active]:border-blue-500 data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-                >
-                  <CreditCard className="w-4 h-4 mr-2" />
-                  Billing
-                </TabsTrigger>
-                <TabsTrigger
-                  value="notifications"
-                  className="rounded-none border-b-2 border-transparent px-4 py-3 data-[state=active]:border-blue-500 data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-                >
-                  <Bell className="w-4 h-4 mr-2" />
-                  Notifications
-                </TabsTrigger>
-                <TabsTrigger
-                  value="security"
-                  className="rounded-none border-b-2 border-transparent px-4 py-3 data-[state=active]:border-blue-500 data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-                >
-                  <Shield className="w-4 h-4 mr-2" />
-                  Security
-                </TabsTrigger>
-                <TabsTrigger
-                  value="api"
-                  className="rounded-none border-b-2 border-transparent px-4 py-3 data-[state=active]:border-blue-500 data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-                >
-                  <Key className="w-4 h-4 mr-2" />
-                  API Keys
-                </TabsTrigger>
-              </TabsList>
-            </CardContent>
-          </Card>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <TabsList className="grid w-full grid-cols-5">
+            <TabsTrigger value="profile" className="flex items-center gap-2">
+              <User className="h-4 w-4" />
+              Profile
+            </TabsTrigger>
+            <TabsTrigger value="billing" className="flex items-center gap-2">
+              <CreditCard className="h-4 w-4" />
+              Billing
+            </TabsTrigger>
+            <TabsTrigger value="notifications" className="flex items-center gap-2">
+              <Bell className="h-4 w-4" />
+              Notifications
+            </TabsTrigger>
+            <TabsTrigger value="privacy" className="flex items-center gap-2">
+              <Shield className="h-4 w-4" />
+              Privacy
+            </TabsTrigger>
+            <TabsTrigger value="api" className="flex items-center gap-2">
+              <Key className="h-4 w-4" />
+              API Keys
+            </TabsTrigger>
+          </TabsList>
 
           <TabsContent value="profile" className="mt-6">
             <ProfileSettings />
@@ -104,46 +86,13 @@ export default function SettingsContent() {
               </CardHeader>
               <CardContent>
                 <p className="text-slate-500">Configure your notification preferences.</p>
+                {/* Add notification settings here */}
               </CardContent>
             </Card>
           </TabsContent>
 
-          <TabsContent value="security" className="mt-6">
-            <Card className="bg-white rounded-2xl shadow-lg border border-slate-200 mb-6">
-              <CardHeader>
-                <CardTitle className="text-xl font-semibold text-slate-900">Security Settings</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-slate-500 mb-4">Manage your account security settings.</p>
-                <div className="mt-8 border-t pt-6">
-                  <h2 className="text-lg font-semibold mb-2">Facebook Data Deletion</h2>
-                  <p className="text-slate-500 mb-4">
-                    If you connected your account with Facebook, you can request deletion of your data associated with our app. Click the button below to request deletion, or email us at <a href="mailto:support@chainreact.app" className="underline">support@chainreact.app</a> for manual requests.
-                  </p>
-                  <Button variant="destructive" onClick={() => setShowDeleteDialog(true)}>
-                    Request Facebook Data Deletion
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-            <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Request Facebook Data Deletion</DialogTitle>
-                  <DialogDescription>
-                    Are you sure you want to request deletion of all data associated with your Facebook account? This action is irreversible. Your request will be processed and you will receive a confirmation email.
-                  </DialogDescription>
-                </DialogHeader>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setShowDeleteDialog(false)} disabled={deleting}>
-                    Cancel
-                  </Button>
-                  <Button variant="destructive" onClick={handleFacebookDelete} disabled={deleting}>
-                    {deleting ? "Requesting..." : "Confirm Request"}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+          <TabsContent value="privacy" className="mt-6">
+            <DataDeletionSettings />
           </TabsContent>
 
           <TabsContent value="api" className="mt-6">
