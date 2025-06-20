@@ -26,7 +26,7 @@ import "@xyflow/react/dist/style.css"
 import { useWorkflowStore } from "@/stores/workflowStore"
 import { useCollaborationStore } from "@/stores/collaborationStore"
 import { useIntegrationStore } from "@/stores/integrationStore"
-import ConfigurationPanel from "./ConfigurationPanel"
+import ConfigurationModal from "./ConfigurationModal"
 import CustomNode from "./CustomNode"
 import { AddActionNode } from "./AddActionNode"
 import { CollaboratorCursors } from "./CollaboratorCursors"
@@ -129,6 +129,7 @@ export default function CollaborativeWorkflowBuilder() {
   const [showActionDialog, setShowActionDialog] = useState(false)
   const [selectedIntegration, setSelectedIntegration] = useState<any | null>(null)
   const [sourceAddNode, setSourceAddNode] = useState<{ id: string, parentId: string } | null>(null)
+  const [configuringNode, setConfiguringNode] = useState<{ integration: any, nodeComponent: NodeComponent } | null>(null)
 
   const { fitView } = useReactFlow()
   const reactFlowWrapper = useRef<HTMLDivElement>(null)
@@ -435,114 +436,128 @@ export default function CollaborativeWorkflowBuilder() {
   const triggerIntegrations = availableIntegrations.filter(integration => integration.triggers.length > 0)
 
   const handleTriggerSelect = (integration: any, trigger: NodeComponent) => {
-    const triggerNodeId = crypto.randomUUID()
-    const addActionNodeId = crypto.randomUUID()
-
-    const triggerNode: Node = {
-      id: triggerNodeId,
-      type: "custom",
-      position: { x: 400, y: 100 },
-      data: {
-        type: trigger.type,
-        title: trigger.title,
-        description: trigger.description,
-        icon: trigger.icon,
-        providerId: integration.id,
-        isTrigger: trigger.isTrigger,
-        configSchema: trigger.configSchema,
-      },
-    }
-
-    const addActionNode: Node = {
-      id: addActionNodeId,
-      type: "addAction",
-      position: { x: triggerNode.position.x, y: triggerNode.position.y + 150 },
-      data: {
-        onClick: () => handleAddActionClick(addActionNodeId, triggerNodeId),
-      },
-    }
-
-    setNodes([triggerNode, addActionNode])
-    setEdges([
-      {
-        id: crypto.randomUUID(),
-        source: triggerNodeId,
-        target: addActionNodeId,
-        animated: true,
-        style: { stroke: '#b1b1b7', strokeWidth: 2, strokeDasharray: '5,5' } as React.CSSProperties,
-        type: 'straight',
-      },
-    ])
-
+    setConfiguringNode({ integration, nodeComponent: trigger })
     setShowTriggerDialog(false)
-    setSelectedIntegration(null)
-    setTimeout(() => fitView({ duration: 300 }), 0)
   }
 
   const handleActionSelect = (integration: any, action: NodeComponent) => {
-    if (!sourceAddNode) return
-
-    const parentNode = nodes.find(n => n.id === sourceAddNode.parentId)
-    if (!parentNode) return
-
-    const addActionNode = nodes.find(n => n.id === sourceAddNode.id)
-    if (!addActionNode) return
-
-    const incomingEdge = edges.find(e => e.target === addActionNode.id)
-    if (!incomingEdge) return
-
-    const newNodeId = crypto.randomUUID()
-    const newAddActionNodeId = crypto.randomUUID()
-
-    const newNode: Node = {
-      id: newNodeId,
-      type: "custom",
-      position: { x: parentNode.position.x, y: addActionNode.position.y },
-      data: {
-        type: action.type,
-        title: action.title,
-        description: action.description,
-        icon: action.icon,
-        providerId: integration.id,
-        isTrigger: action.isTrigger,
-        configSchema: action.configSchema,
-      },
-    }
-
-    const newAddActionNode: Node = {
-      id: newAddActionNodeId,
-      type: "addAction",
-      position: { x: parentNode.position.x, y: newNode.position.y + 150 },
-      data: {
-        onClick: () => handleAddActionClick(newAddActionNodeId, newNodeId),
-      },
-    }
-
-    setNodes(prev => [...prev.filter(n => n.id !== addActionNode.id), newNode, newAddActionNode])
-
-    const newEdgeToNewNode: Edge = {
-      ...incomingEdge,
-      id: crypto.randomUUID(),
-      target: newNode.id,
-      style: { stroke: "#8b5cf6", strokeWidth: 2 } as React.CSSProperties,
-      animated: true,
-      type: "straight",
-    }
-
-    const newEdgeToAddAction: Edge = {
-      id: crypto.randomUUID(),
-      source: newNode.id,
-      target: newAddActionNode.id,
-      animated: true,
-      style: { stroke: "#b1b1b7", strokeWidth: 2, strokeDasharray: "5,5" } as React.CSSProperties,
-      type: "straight",
-    }
-
-    setEdges(prev => [...prev.filter(e => e.id !== incomingEdge.id), newEdgeToNewNode, newEdgeToAddAction])
-
+    setConfiguringNode({ integration, nodeComponent: action })
     setShowActionDialog(false)
+  }
+
+  const handleSaveConfiguration = (config: Record<string, any>) => {
+    if (!configuringNode) return
+
+    const { integration, nodeComponent } = configuringNode
+
+    if (nodeComponent.isTrigger) {
+      // Logic to add a new trigger node
+      const triggerNodeId = crypto.randomUUID()
+      const addActionNodeId = crypto.randomUUID()
+
+      const triggerNode: Node = {
+        id: triggerNodeId,
+        type: "custom",
+        position: { x: 400, y: 100 },
+        data: {
+          type: nodeComponent.type,
+          title: nodeComponent.title,
+          description: nodeComponent.description,
+          icon: nodeComponent.icon,
+          providerId: integration.id,
+          isTrigger: nodeComponent.isTrigger,
+          configSchema: nodeComponent.configSchema,
+          config,
+        },
+      }
+
+      const addActionNode: Node = {
+        id: addActionNodeId,
+        type: "addAction",
+        position: { x: triggerNode.position.x, y: triggerNode.position.y + 150 },
+        data: {
+          onClick: () => handleAddActionClick(addActionNodeId, triggerNodeId),
+        },
+      }
+
+      setNodes([triggerNode, addActionNode])
+      setEdges([
+        {
+          id: crypto.randomUUID(),
+          source: triggerNodeId,
+          target: addActionNodeId,
+          animated: true,
+          style: { stroke: '#b1b1b7', strokeWidth: 2, strokeDasharray: '5,5' } as React.CSSProperties,
+          type: 'straight',
+        },
+      ])
+    } else {
+      // Logic to add a new action node
+      if (!sourceAddNode) return
+
+      const parentNode = nodes.find(n => n.id === sourceAddNode.parentId)
+      if (!parentNode) return
+
+      const addActionNode = nodes.find(n => n.id === sourceAddNode.id)
+      if (!addActionNode) return
+
+      const incomingEdge = edges.find(e => e.target === addActionNode.id)
+      if (!incomingEdge) return
+
+      const newNodeId = crypto.randomUUID()
+      const newAddActionNodeId = crypto.randomUUID()
+
+      const newNode: Node = {
+        id: newNodeId,
+        type: "custom",
+        position: { x: parentNode.position.x, y: addActionNode.position.y },
+        data: {
+          type: nodeComponent.type,
+          title: nodeComponent.title,
+          description: nodeComponent.description,
+          icon: nodeComponent.icon,
+          providerId: integration.id,
+          isTrigger: nodeComponent.isTrigger,
+          configSchema: nodeComponent.configSchema,
+          config,
+        },
+      }
+
+      const newAddActionNode: Node = {
+        id: newAddActionNodeId,
+        type: "addAction",
+        position: { x: parentNode.position.x, y: newNode.position.y + 150 },
+        data: {
+          onClick: () => handleAddActionClick(newAddActionNodeId, newNodeId),
+        },
+      }
+
+      setNodes(prev => [...prev.filter(n => n.id !== addActionNode.id), newNode, newAddActionNode])
+
+      const newEdgeToNewNode: Edge = {
+        ...incomingEdge,
+        id: crypto.randomUUID(),
+        target: newNode.id,
+        style: { stroke: "#8b5cf6", strokeWidth: 2 } as React.CSSProperties,
+        animated: true,
+        type: "straight",
+      }
+
+      const newEdgeToAddAction: Edge = {
+        id: crypto.randomUUID(),
+        source: newNode.id,
+        target: newAddActionNode.id,
+        animated: true,
+        style: { stroke: "#b1b1b7", strokeWidth: 2, strokeDasharray: "5,5" } as React.CSSProperties,
+        type: "straight",
+      }
+
+      setEdges(prev => [...prev.filter(e => e.id !== incomingEdge.id), newEdgeToNewNode, newEdgeToAddAction])
+      setSourceAddNode(null)
+    }
+
+    setConfiguringNode(null)
     setSelectedIntegration(null)
-    setSourceAddNode(null)
     setTimeout(() => fitView({ duration: 300 }), 0)
   }
 
@@ -720,10 +735,19 @@ export default function CollaborativeWorkflowBuilder() {
           {/* Right Panel - Configuration */}
           {selectedNode && (
             <div className="w-80 bg-white border-l border-slate-200">
-              <ConfigurationPanel />
+              {/* The old ConfigurationPanel is removed from here */}
             </div>
           )}
         </div>
+
+        {/* Configuration Modal */}
+        <ConfigurationModal
+          isOpen={!!configuringNode}
+          onClose={() => setConfiguringNode(null)}
+          onSave={handleSaveConfiguration}
+          nodeInfo={configuringNode?.nodeComponent || null}
+          integrationName={configuringNode?.integration?.name || ""}
+        />
 
         {/* Trigger Selection Dialog */}
         <Dialog open={showTriggerDialog} onOpenChange={(isOpen) => {
