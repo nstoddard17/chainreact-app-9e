@@ -659,41 +659,83 @@ export default function CollaborativeWorkflowBuilder() {
         </div>
 
         {/* Trigger Selection Dialog */}
-        <Dialog open={showTriggerDialog} onOpenChange={setShowTriggerDialog}>
-          <DialogContent className="max-w-5xl max-h-[85vh]">
+        <Dialog open={showTriggerDialog} onOpenChange={(isOpen) => {
+          if (!isOpen) {
+            setShowTriggerDialog(false);
+            setSelectedIntegration(null);
+          } else {
+            setShowTriggerDialog(true);
+          }
+        }}>
+          <DialogContent className="max-w-4xl h-[70vh] flex flex-col">
             <DialogHeader>
-              <DialogTitle className="text-2xl">Choose a trigger</DialogTitle>
-              <DialogDescription className="text-base">
-                Select the app and event that will start your workflow
+              <DialogTitle>
+                {selectedIntegration ? `Select a trigger for ${selectedIntegration.name}` : 'Select an Integration'}
+              </DialogTitle>
+              <DialogDescription>
+                {selectedIntegration
+                  ? 'Choose a trigger to start your workflow.'
+                  : 'Choose an application to connect to.'}
               </DialogDescription>
             </DialogHeader>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 max-h-[60vh] overflow-y-auto p-2">
-              {triggerIntegrations.map((integration) => (
-                <Card 
-                  key={integration.id}
-                  className="p-4 hover:shadow-lg hover:scale-105 transition-all duration-200 cursor-pointer flex flex-col items-center justify-center text-center space-y-2"
-                  onClick={() => setSelectedIntegration(integration)}
-                >
-                  <div 
-                    className="w-12 h-12 flex items-center justify-center mb-2 rounded-lg"
-                    style={{ backgroundColor: integration.color }}
-                  >
-                    {renderLogo(integration.id, integration.name)}
+            <div className="flex-grow overflow-y-auto p-4">
+              {!selectedIntegration ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {Object.values(INTEGRATION_CONFIGS)
+                    .filter(integration =>
+                      ALL_NODE_COMPONENTS.some(
+                        node => node.providerId === integration.id && node.isTrigger
+                      )
+                    )
+                    .map(integration => (
+                      <Card
+                        key={integration.id}
+                        className="p-4 flex flex-col items-center justify-center text-center cursor-pointer hover:shadow-lg transition-all"
+                        onClick={() => setSelectedIntegration(integration)}
+                      >
+                        {renderLogo(integration.id, integration.name)}
+                        <h3 className="mt-3 font-semibold">{integration.name}</h3>
+                        <p className="text-xs text-slate-500 mt-1">{integration.description}</p>
+                      </Card>
+                    ))}
+                </div>
+              ) : (
+                <div>
+                  <Button variant="ghost" onClick={() => setSelectedIntegration(null)} className="mb-4">
+                    <ArrowLeft className="w-4 h-4 mr-2" /> Back to Integrations
+                  </Button>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {ALL_NODE_COMPONENTS.filter(
+                      component => component.providerId === selectedIntegration.id && component.isTrigger
+                    ).map(component => (
+                      <Card
+                        key={component.type}
+                        className="p-4 flex flex-col items-start text-left cursor-pointer hover:shadow-lg transition-all"
+                        onClick={() => handleTriggerSelect(selectedIntegration, component)}
+                      >
+                        <div className="flex items-center space-x-3 mb-2">
+                          <component.icon className="w-6 h-6 text-slate-700" />
+                          <h3 className="font-semibold">{component.title}</h3>
+                        </div>
+                        <p className="text-xs text-slate-500">{component.description}</p>
+                      </Card>
+                    ))}
                   </div>
-                  <p className="font-semibold text-slate-800">{integration.name}</p>
-                  <p className="text-xs text-slate-500">
-                    {integration.triggers.length} trigger{integration.triggers.length !== 1 ? 's' : ''}
-                  </p>
-                  <p className="text-xs text-slate-400 mt-1 text-center px-2">{integration.description}</p>
-                </Card>
-              ))}
+                </div>
+              )}
             </div>
           </DialogContent>
         </Dialog>
 
         {/* Action Selection Dialog */}
-        <Dialog open={showActionDialog} onOpenChange={setShowActionDialog}>
+        <Dialog open={showActionDialog} onOpenChange={(isOpen) => {
+          if (!isOpen) {
+            setShowActionDialog(false);
+            setSelectedIntegration(null);
+          } else {
+            setShowActionDialog(true);
+          }
+        }}>
           <DialogContent className="max-w-4xl h-[70vh] flex flex-col">
             <DialogHeader>
               <DialogTitle>
