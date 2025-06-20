@@ -398,6 +398,11 @@ export function PublicLayout({ children }: PublicLayoutProps) {
                   </Link>
                 </li>
                 <li>
+                  <Link href="/sub-processors" className="hover:text-indigo-300 transition-colors duration-200">
+                    Sub-processors
+                  </Link>
+                </li>
+                <li>
                   <Link
                     href="/support"
                     className="hover:text-indigo-300 transition-colors duration-200"
