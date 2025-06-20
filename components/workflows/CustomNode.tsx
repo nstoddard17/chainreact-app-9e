@@ -147,12 +147,6 @@ function CustomNode({ data, selected }: NodeProps) {
           </div>
         )}
 
-        <div
-          className="w-20 h-20 rounded-full border-2 border-dashed border-slate-300 flex items-center justify-center mx-auto mb-8 cursor-pointer hover:bg-slate-100 transition-colors"
-          onClick={() => setShowTriggerDialog(true)}
-        >
-          <Plus className="w-8 h-8 text-slate-400" />
-        </div>
       </div>
 
       {/* Input Handle - not for triggers */}
