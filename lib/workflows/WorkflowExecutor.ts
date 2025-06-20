@@ -9,6 +9,7 @@ interface WorkflowContext {
   userId: string
   integrations: string[]
   input?: Record<string, any>
+  triggerNode?: any
 }
 
 interface WorkflowResult {
@@ -30,6 +31,29 @@ export class WorkflowExecutor {
       const logger = new TokenAuditLogger()
 
       const supabase = getAdminSupabaseClient()
+
+      // Step 1: Fetch workflow definition to get the trigger node
+      const { data: workflow, error: workflowError } = await supabase
+        .from("workflows")
+        .select("*, nodes:workflow_nodes(*)")
+        .eq("id", context.workflowId)
+        .single()
+
+      if (workflowError || !workflow) {
+        throw new Error(`Workflow with id ${context.workflowId} not found.`)
+      }
+
+      const triggerNode = workflow.nodes.find(node => node.data.isTrigger)
+
+      // Step 2: Evaluate trigger conditions
+      const triggerConditionsMet = await this.evaluateTrigger(triggerNode, context.input)
+      if (!triggerConditionsMet) {
+        return {
+          success: true, // Not an error, just not triggered
+          message: "Trigger conditions not met",
+          pausedForReauth: false,
+        }
+      }
 
       // Log the start of the execution
       // Validate all required integrations first
@@ -188,5 +212,57 @@ export class WorkflowExecutor {
       }
     }
     throw new Error("Access token not found in integration")
+  }
+
+  private async evaluateTrigger(triggerNode: any, input?: Record<string, any>): Promise<boolean> {
+    if (!triggerNode || !input) {
+      // If no input or trigger, assume it's a manual trigger or not event-based
+      return true
+    }
+
+    const { type, config } = triggerNode.data
+
+    switch (type) {
+      case "gmail_trigger_new_email":
+        const fromFilter = config?.from?.toLowerCase()
+        const subjectFilter = config?.subject?.toLowerCase()
+
+        if (fromFilter && !input.from?.toLowerCase().includes(fromFilter)) {
+          return false
+        }
+        if (subjectFilter && !input.subject?.toLowerCase().includes(subjectFilter)) {
+          return false
+        }
+        if (config?.hasAttachment === "yes" && !input.hasAttachment) {
+          return false
+        }
+        if (config?.hasAttachment === "no" && input.hasAttachment) {
+          return false
+        }
+        return true
+
+      case "gmail_trigger_new_attachment":
+        if (!input.hasAttachment) {
+          // This trigger requires an attachment
+          return false
+        }
+        const fromFilterAttach = config?.from?.toLowerCase()
+        const attachmentNameFilter = config?.attachmentName?.toLowerCase()
+
+        if (fromFilterAttach && !input.from?.toLowerCase().includes(fromFilterAttach)) {
+          return false
+        }
+        if (attachmentNameFilter && !input.attachmentName?.toLowerCase().includes(attachmentNameFilter)) {
+          return false
+        }
+        return true
+
+      // Add other trigger cases here
+      // e.g., case "slack_trigger_new_message":
+
+      default:
+        // By default, if no specific trigger logic, allow execution
+        return true
+    }
   }
 }

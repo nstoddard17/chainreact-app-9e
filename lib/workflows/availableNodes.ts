@@ -140,11 +140,9 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "gmail",
     category: "Email",
     isTrigger: true,
-    requiredScopes: ["https://www.googleapis.com/auth/gmail.send"],
     configSchema: [
-      { key: "to", label: "To", type: "email", placeholder: "recipient@example.com" },
-      { key: "subject", label: "Subject", type: "text", placeholder: "Your email subject" },
-      { key: "body", label: "Body", type: "textarea", placeholder: "Your email body" },
+      { key: "from", label: "From", type: "email", placeholder: "Optional: filter by sender" },
+      { key: "attachmentName", label: "Attachment Name", type: "text", placeholder: "Optional: filter by attachment name" },
     ],
   },
   {

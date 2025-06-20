@@ -436,19 +436,28 @@ export default function CollaborativeWorkflowBuilder() {
   const triggerIntegrations = availableIntegrations.filter(integration => integration.triggers.length > 0)
 
   const handleTriggerSelect = (integration: any, trigger: NodeComponent) => {
-    setConfiguringNode({ integration, nodeComponent: trigger })
+    if (trigger.configSchema && trigger.configSchema.length > 0) {
+      setConfiguringNode({ integration, nodeComponent: trigger })
+    } else {
+      handleSaveConfiguration({ integration, nodeComponent: trigger }, {})
+    }
     setShowTriggerDialog(false)
   }
 
   const handleActionSelect = (integration: any, action: NodeComponent) => {
-    setConfiguringNode({ integration, nodeComponent: action })
+    if (action.configSchema && action.configSchema.length > 0) {
+      setConfiguringNode({ integration, nodeComponent: action })
+    } else {
+      handleSaveConfiguration({ integration, nodeComponent: action }, {})
+    }
     setShowActionDialog(false)
   }
 
-  const handleSaveConfiguration = (config: Record<string, any>) => {
-    if (!configuringNode) return
-
-    const { integration, nodeComponent } = configuringNode
+  const handleSaveConfiguration = (
+    context: { integration: any; nodeComponent: NodeComponent },
+    config: Record<string, any>,
+  ) => {
+    const { integration, nodeComponent } = context
 
     if (nodeComponent.isTrigger) {
       // Logic to add a new trigger node
