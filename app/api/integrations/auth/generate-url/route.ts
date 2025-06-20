@@ -441,7 +441,15 @@ function generateBoxAuthUrl(state: string): string {
 
 function generateHubSpotAuthUrl(state: string): string {
   const clientId = process.env.NEXT_PUBLIC_HUBSPOT_CLIENT_ID
+  console.log('HubSpot Client ID:', clientId ? `${clientId.substring(0, 4)}...` : 'NOT SET')
+  console.log('HubSpot Client ID length:', clientId ? clientId.length : 0)
+  console.log('HubSpot Client ID format valid:', clientId ? /^\d+$/.test(clientId) : false)
+  
   if (!clientId) throw new Error("Hubspot client ID not configured")
+  
+  if (!/^\d+$/.test(clientId)) {
+    console.error('HubSpot Client ID format appears invalid. Expected numeric string, got:', clientId)
+  }
 
   const params = new URLSearchParams({
     client_id: clientId,
@@ -452,7 +460,10 @@ function generateHubSpotAuthUrl(state: string): string {
     state,
   })
 
-  return `https://app.hubspot.com/oauth/authorize?${params.toString()}`
+  const authUrl = `https://app.hubspot.com/oauth/authorize?${params.toString()}`
+  console.log('Generated HubSpot auth URL:', authUrl)
+  
+  return authUrl
 }
 
 async function generateAirtableAuthUrl(stateObject: any, supabase: any): Promise<string> {
@@ -495,7 +506,6 @@ function generateMailchimpAuthUrl(state: string): string {
     client_id: clientId,
     redirect_uri: "https://chainreact.app/api/integrations/mailchimp/callback",
     response_type: "code",
-    scope: "campaigns.read campaigns.write audience.read audience.write automation.read automation.write",
     state,
   })
 
