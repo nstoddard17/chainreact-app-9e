@@ -1,7 +1,10 @@
+"use client"
+
 import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 import CollaborativeWorkflowBuilder from "@/components/workflows/CollaborativeWorkflowBuilder"
+import { ReactFlowProvider } from "@xyflow/react"
 
 export default async function WorkflowBuilderPage() {
   const supabase = createServerComponentClient({ cookies })
@@ -14,5 +17,9 @@ export default async function WorkflowBuilderPage() {
     redirect("/auth/login")
   }
 
-  return <CollaborativeWorkflowBuilder />
+  return (
+    <ReactFlowProvider>
+      <CollaborativeWorkflowBuilder />
+    </ReactFlowProvider>
+  )
 }
