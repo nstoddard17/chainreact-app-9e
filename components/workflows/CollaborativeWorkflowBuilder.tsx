@@ -694,7 +694,10 @@ export default function CollaborativeWorkflowBuilder() {
               // Empty State - Start Your Chain
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="text-center max-w-md">
-                  <div className="w-20 h-20 rounded-full border-2 border-dashed border-slate-300 flex items-center justify-center mx-auto mb-8">
+                  <div
+                    className="w-20 h-20 rounded-full border-2 border-dashed border-slate-300 flex items-center justify-center mx-auto mb-8 cursor-pointer hover:bg-slate-100 transition-colors"
+                    onClick={() => setShowTriggerDialog(true)}
+                  >
                     <Plus className="w-8 h-8 text-slate-400" />
                   </div>
                   <h2 className="text-3xl font-bold text-slate-900 mb-4">Start your Chain</h2>
@@ -702,8 +705,8 @@ export default function CollaborativeWorkflowBuilder() {
                     Chains start with a trigger – an event that kicks off your workflow
                   </p>
                   <Button
+                    className="bg-slate-900 hover:bg-slate-800"
                     onClick={() => setShowTriggerDialog(true)}
-                    className="bg-slate-900 hover:bg-slate-800 text-white px-8 py-3 text-lg"
                   >
                     Choose a trigger
                   </Button>
