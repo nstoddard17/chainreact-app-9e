@@ -257,6 +257,58 @@ export class WorkflowExecutor {
         }
         return true
 
+      case "google_calendar_trigger_new_event":
+      case "google_calendar_trigger_event_updated":
+      case "google_calendar_trigger_event_canceled":
+        if (config?.calendarId && input.calendarId !== config.calendarId) {
+          return false
+        }
+        return true
+
+      case "google_drive_trigger_new_file":
+      case "google_drive_trigger_file_updated":
+        if (config?.folderId && input.folderId !== config.folderId) {
+          return false
+        }
+        return true
+
+      case "google_drive_trigger_new_comment":
+        if (config?.fileId && input.fileId !== config.fileId) {
+          return false
+        }
+        return true
+
+      case "google_sheets_trigger_new_row":
+      case "google_sheets_trigger_updated_row":
+        if (config?.spreadsheetId && input.spreadsheetId !== config.spreadsheetId) {
+          return false
+        }
+        if (config?.sheetName && input.sheetName !== config.sheetName) {
+          return false
+        }
+        return true
+
+      case "google_sheets_trigger_new_worksheet":
+        if (config?.spreadsheetId && input.spreadsheetId !== config.spreadsheetId) {
+          return false
+        }
+        return true
+
+      case "slack_trigger_new_message":
+        if (config?.channelId && input.channelId !== config.channelId) {
+          return false
+        }
+        return true
+
+      case "slack_trigger_new_reaction":
+        if (config?.channelId && input.channelId !== config.channelId) {
+          return false
+        }
+        if (config?.emoji && input.emoji !== config.emoji) {
+          return false
+        }
+        return true
+
       // Add other trigger cases here
       // e.g., case "slack_trigger_new_message":
 

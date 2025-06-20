@@ -57,6 +57,10 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     icon: Webhook,
     category: "Triggers",
     isTrigger: true,
+    configSchema: [
+      { key: "path", label: "Path", type: "text", placeholder: "/webhook-path" },
+      { key: "method", label: "HTTP Method", type: "select", options: ["POST", "GET", "PUT"] },
+    ],
   },
   {
     type: "schedule",
@@ -65,6 +69,10 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     icon: Clock,
     category: "Triggers",
     isTrigger: true,
+    configSchema: [
+      { key: "cron", label: "Cron Expression", type: "text", placeholder: "0 * * * *" },
+      { key: "timezone", label: "Timezone", type: "text", placeholder: "UTC" },
+    ],
   },
   {
     type: "manual",
@@ -83,6 +91,9 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     icon: Filter,
     category: "Logic",
     isTrigger: false,
+    configSchema: [
+      { key: "condition", label: "Condition", type: "textarea", placeholder: "e.g., {{data.value}} > 100" },
+    ],
   },
   {
     type: "delay",
@@ -91,6 +102,9 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     icon: Timer,
     category: "Logic",
     isTrigger: false,
+    configSchema: [
+      { key: "duration", label: "Duration (seconds)", type: "number", placeholder: "e.g., 60" },
+    ],
   },
   {
     type: "conditional",
@@ -99,6 +113,9 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     icon: GitBranch,
     category: "Logic",
     isTrigger: false,
+    configSchema: [
+      { key: "condition", label: "Condition", type: "textarea", placeholder: "e.g., {{data.status}} === 'success'" },
+    ],
   },
   {
     type: "custom_script",
@@ -107,6 +124,9 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     icon: Code,
     category: "Logic",
     isTrigger: false,
+    configSchema: [
+      { key: "script", label: "JavaScript Code", type: "textarea", placeholder: "return { value: 1 };" },
+    ],
   },
   {
     type: "loop",
@@ -115,6 +135,9 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     icon: Repeat,
     category: "Logic",
     isTrigger: false,
+    configSchema: [
+      { key: "items", label: "Items to loop over", type: "text", placeholder: "{{data.array}}" },
+    ],
   },
 
   // Gmail
@@ -174,6 +197,9 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "google-calendar",
     category: "Productivity",
     isTrigger: true,
+    configSchema: [
+      { key: "calendarId", label: "Calendar ID", type: "text", placeholder: "primary" },
+    ],
   },
   {
     type: "google_calendar_trigger_event_updated",
@@ -183,6 +209,9 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "google-calendar",
     category: "Productivity",
     isTrigger: true,
+    configSchema: [
+      { key: "calendarId", label: "Calendar ID", type: "text", placeholder: "primary" },
+    ],
   },
   {
     type: "google_calendar_trigger_event_canceled",
@@ -192,6 +221,9 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "google-calendar",
     category: "Productivity",
     isTrigger: true,
+    configSchema: [
+      { key: "calendarId", label: "Calendar ID", type: "text", placeholder: "primary" },
+    ],
   },
   {
     type: "google_calendar_action_create_event",
@@ -202,6 +234,13 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     requiredScopes: ["https://www.googleapis.com/auth/calendar"],
     category: "Productivity",
     isTrigger: false,
+    configSchema: [
+      { key: "calendarId", label: "Calendar ID", type: "text", placeholder: "primary" },
+      { key: "title", label: "Title", type: "text", placeholder: "My Event" },
+      { key: "startTime", label: "Start Time (ISO)", type: "text", placeholder: "e.g., 2024-01-01T10:00:00Z" },
+      { key: "endTime", label: "End Time (ISO)", type: "text", placeholder: "e.g., 2024-01-01T11:00:00Z" },
+      { key: "description", label: "Description", type: "textarea" },
+    ],
   },
 
   // Google Drive
@@ -213,6 +252,9 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "google-drive",
     category: "Storage",
     isTrigger: true,
+    configSchema: [
+      { key: "folderId", label: "Folder ID", type: "text", placeholder: "Google Drive Folder ID" },
+    ],
   },
   {
     type: "google_drive_trigger_file_updated",
@@ -222,6 +264,9 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "google-drive",
     category: "Storage",
     isTrigger: true,
+    configSchema: [
+      { key: "folderId", label: "Folder ID", type: "text", placeholder: "Google Drive Folder ID" },
+    ],
   },
   {
     type: "google_drive_trigger_new_comment",
@@ -231,6 +276,9 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "google-drive",
     category: "Storage",
     isTrigger: true,
+    configSchema: [
+      { key: "fileId", label: "File ID", type: "text", placeholder: "Google Drive File ID" },
+    ],
   },
   {
     type: "google_drive_action_upload_file",
@@ -241,6 +289,11 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     requiredScopes: ["https://www.googleapis.com/auth/drive"],
     category: "Storage",
     isTrigger: false,
+    configSchema: [
+      { key: "fileName", label: "File Name", type: "text" },
+      { key: "fileContent", label: "File Content", type: "textarea" },
+      { key: "folderId", label: "Folder ID", type: "text", placeholder: "Optional: Google Drive Folder ID" },
+    ],
   },
 
   // Google Sheets
@@ -252,6 +305,10 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "google-sheets",
     category: "Productivity",
     isTrigger: true,
+    configSchema: [
+      { key: "spreadsheetId", label: "Spreadsheet ID", type: "text" },
+      { key: "sheetName", label: "Sheet Name", type: "text" },
+    ],
   },
   {
     type: "google_sheets_trigger_new_worksheet",
@@ -261,6 +318,9 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "google-sheets",
     category: "Productivity",
     isTrigger: true,
+    configSchema: [
+      { key: "spreadsheetId", label: "Spreadsheet ID", type: "text" },
+    ],
   },
   {
     type: "google_sheets_trigger_updated_row",
@@ -270,55 +330,66 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "google-sheets",
     category: "Productivity",
     isTrigger: true,
+    configSchema: [
+      { key: "spreadsheetId", label: "Spreadsheet ID", type: "text" },
+      { key: "sheetName", label: "Sheet Name", type: "text" },
+    ],
   },
   {
-    type: "google_sheets_action_add_row",
-    title: "Add Row (Google Sheets)",
-    description: "Add a new row to a sheet",
+    type: "google_sheets_action_append_row",
+    title: "Append Row (Google Sheets)",
+    description: "Append a row to a Google Sheet",
     icon: Plus,
     providerId: "google-sheets",
     requiredScopes: ["https://www.googleapis.com/auth/spreadsheets"],
     category: "Productivity",
     isTrigger: false,
+    configSchema: [
+      { key: "spreadsheetId", label: "Spreadsheet ID", type: "text" },
+      { key: "sheetName", label: "Sheet Name", type: "text" },
+      { key: "rowData", label: "Row Data (JSON array)", type: "textarea", placeholder: 'e.g., ["value1", "value2"]' },
+    ],
   },
 
   // Slack
   {
     type: "slack_trigger_new_message",
-    title: "New Message in Channel (Slack)",
-    description: "Triggers on a new message in a public channel",
+    title: "New Message (Slack)",
+    description: "Triggers when a new message is posted in a channel",
     icon: MessageSquare,
     providerId: "slack",
     category: "Communication",
     isTrigger: true,
+    configSchema: [
+      { key: "channelId", label: "Channel ID", type: "text", placeholder: "C12345678" },
+    ],
   },
   {
     type: "slack_trigger_new_reaction",
     title: "New Reaction",
-    description: "Triggers when a new reaction is added to a message",
+    description: "Triggers when a reaction is added to a message",
     icon: MessageSquare,
     providerId: "slack",
     category: "Communication",
     isTrigger: true,
-  },
-  {
-    type: "slack_trigger_user_joined_channel",
-    title: "User Joined Channel",
-    description: "Triggers when a user joins a channel",
-    icon: MessageSquare,
-    providerId: "slack",
-    category: "Communication",
-    isTrigger: true,
+    configSchema: [
+      { key: "channelId", label: "Channel ID", type: "text", placeholder: "C12345678" },
+      { key: "emoji", label: "Emoji", type: "text", placeholder: "e.g., :thumbsup:" },
+    ],
   },
   {
     type: "slack_action_send_message",
-    title: "Send Channel Message (Slack)",
+    title: "Send Message (Slack)",
     description: "Send a message to a channel",
     icon: MessageSquare,
     providerId: "slack",
     requiredScopes: ["chat:write"],
     category: "Communication",
     isTrigger: false,
+    configSchema: [
+      { key: "channelId", label: "Channel ID", type: "text", placeholder: "C12345678" },
+      { key: "text", label: "Message Text", type: "textarea" },
+    ],
   },
 
   // Notion
