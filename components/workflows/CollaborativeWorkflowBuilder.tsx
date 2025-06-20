@@ -19,6 +19,7 @@ import {
   Panel,
   BackgroundVariant,
   useReactFlow,
+  type NodeChange,
 } from "@xyflow/react"
 import "@xyflow/react/dist/style.css"
 
@@ -131,6 +132,54 @@ export default function CollaborativeWorkflowBuilder() {
   const { fitView } = useReactFlow()
   const reactFlowWrapper = useRef<HTMLDivElement>(null)
   const cursorUpdateTimer = useRef<NodeJS.Timeout | null>(null)
+
+  const onNodesChangeCustom = useCallback((changes: NodeChange[]) => {
+    const removeChange = changes.find(change => change.type === 'remove');
+
+    if (removeChange) {
+      const nodeIdToRemove = removeChange.id;
+      const nodeToRemove = nodes.find(n => n.id === nodeIdToRemove);
+
+      if (nodeToRemove && nodeToRemove.type === 'custom') {
+        const incomingEdge = edges.find(e => e.target === nodeIdToRemove);
+        const outgoingEdge = edges.find(e => e.source === nodeIdToRemove);
+        const successorNode = outgoingEdge ? nodes.find(n => n.id === outgoingEdge.target) : undefined;
+
+        if (incomingEdge && outgoingEdge && successorNode && successorNode.type === 'addAction') {
+          const predecessorNode = nodes.find(n => n.id === incomingEdge.source);
+
+          if (predecessorNode) {
+            const newNodes = nodes
+              .map(n => {
+                if (n.id === successorNode.id) {
+                  return { ...n, position: { x: predecessorNode.position.x, y: predecessorNode.position.y + 150 } };
+                }
+                return n;
+              })
+              .filter(n => n.id !== nodeIdToRemove);
+
+            const newEdge: Edge = {
+              id: `${predecessorNode.id}-${successorNode.id}`,
+              source: predecessorNode.id,
+              target: successorNode.id,
+              animated: true,
+              style: { stroke: '#b1b1b7', strokeWidth: 2, strokeDasharray: '5,5' },
+              type: 'smoothstep',
+            };
+
+            const newEdges = edges.filter(e => e.id !== incomingEdge.id && e.id !== outgoingEdge.id);
+            newEdges.push(newEdge);
+
+            setNodes(newNodes);
+            setEdges(newEdges);
+            return;
+          }
+        }
+      }
+    }
+
+    onNodesChange(changes);
+  }, [nodes, edges, onNodesChange, setNodes, setEdges]);
 
   const renderLogo = (integrationId: string, integrationName: string) => {
     const logoPath = `/integrations/${integrationId}.svg`
@@ -419,6 +468,7 @@ export default function CollaborativeWorkflowBuilder() {
         target: addActionNodeId,
         animated: true,
         style: { stroke: '#b1b1b7', strokeWidth: 2, strokeDasharray: '5,5' } as React.CSSProperties,
+        type: 'smoothstep',
       },
     ])
 
@@ -470,6 +520,7 @@ export default function CollaborativeWorkflowBuilder() {
         target: newNode.id,
         style: { stroke: '#8b5cf6', strokeWidth: 2 } as React.CSSProperties,
         animated: true,
+        type: 'smoothstep',
     };
 
     const newEdgeToAddAction: Edge = {
@@ -478,6 +529,7 @@ export default function CollaborativeWorkflowBuilder() {
         target: newAddActionNode.id,
         animated: true,
         style: { stroke: '#b1b1b7', strokeWidth: 2, strokeDasharray: '5,5' } as React.CSSProperties,
+        type: 'smoothstep',
     };
 
     setEdges(prev => [...prev.filter(e => e.id !== incomingEdge.id), newEdgeToNewNode, newEdgeToAddAction]);
@@ -634,7 +686,7 @@ export default function CollaborativeWorkflowBuilder() {
                 <ReactFlow
                   nodes={nodes}
                   edges={edges}
-                  onNodesChange={onNodesChange}
+                  onNodesChange={onNodesChangeCustom}
                   onEdgesChange={onEdgesChange}
                   nodeTypes={nodeTypes}
                   fitView
