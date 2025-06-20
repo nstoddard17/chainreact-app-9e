@@ -10,7 +10,7 @@ type AddActionNodeData = {
 
 export function AddActionNode({ data }: NodeProps) {
   return (
-    <div className="flex flex-col items-center">
+    <div className="w-[200px] flex flex-col items-center">
       <div className="w-px h-10 bg-gray-300" />
       <button
         onClick={data.onClick as MouseEventHandler<HTMLButtonElement>}
