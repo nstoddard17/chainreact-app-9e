@@ -449,6 +449,7 @@ export default function CollaborativeWorkflowBuilder() {
         icon: trigger.icon,
         providerId: integration.id,
         isTrigger: trigger.isTrigger,
+        configSchema: trigger.configSchema,
       },
     }
 
@@ -504,6 +505,7 @@ export default function CollaborativeWorkflowBuilder() {
         icon: action.icon,
         providerId: integration.id,
         isTrigger: action.isTrigger,
+        configSchema: action.configSchema,
       },
     }
 
