@@ -438,7 +438,9 @@ function generateHubSpotAuthUrl(state: string): string {
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: "https://chainreact.app/api/integrations/hubspot/callback",
+    response_type: "code",
     scope: "crm.objects.companies.read crm.objects.companies.write crm.objects.contacts.read crm.objects.contacts.write crm.objects.deals.read crm.objects.deals.write oauth",
+    access_type: "offline",
     state,
   })
 

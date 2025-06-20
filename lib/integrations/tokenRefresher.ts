@@ -657,12 +657,20 @@ async function refreshHubSpotToken(refreshToken: string): Promise<RefreshResult>
       }
     }
 
+    // Debug logging to see what HubSpot actually returns
+    console.log('🔍 HubSpot token refresh response:', {
+      expires_in: data.expires_in,
+      expires_in_hours: data.expires_in ? Math.round(data.expires_in / 3600 * 100) / 100 : 'N/A',
+      has_refresh_token: !!data.refresh_token,
+      scopes: data.scope
+    })
+
     return {
       refreshed: true,
       success: true,
       message: "Successfully refreshed HubSpot token",
       newToken: data.access_token,
-      newExpiry: Math.floor(Date.now() / 1000) + (data.expires_in || 21600),
+      newExpiry: Math.floor(Date.now() / 1000) + (data.expires_in || 21600), // HubSpot tokens expire in 6 hours (21600 seconds)
       newRefreshToken: data.refresh_token,
     }
   } catch (error) {
