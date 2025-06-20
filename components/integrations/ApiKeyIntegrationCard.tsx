@@ -78,16 +78,7 @@ export function ApiKeyIntegrationCard({ provider, integration, status, open, onO
   const { icon: statusIcon, badgeClass: statusBadgeClass, action: statusAction } = getStatusUi()
 
   const renderLogo = () => {
-    // Enhanced fallback avatar with better styling
-    const getAvatarColor = (name: string) => {
-      const colors = [
-        "bg-blue-500", "bg-green-500", "bg-purple-500", "bg-pink-500",
-        "bg-indigo-500", "bg-red-500", "bg-yellow-500", "bg-teal-500",
-        "bg-orange-500", "bg-cyan-500", "bg-emerald-500", "bg-violet-500"
-      ]
-      const index = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
-      return colors[index % colors.length]
-    }
+    const logoPath = `/integrations/${provider.id}.svg`
 
     // Use X logo for provider 'x' or 'twitter'
     if ((provider.id === 'x' || provider.id === 'twitter') && !imageError) {
@@ -102,10 +93,11 @@ export function ApiKeyIntegrationCard({ provider, integration, status, open, onO
         />
       )
     }
-    if (provider.logoUrl && !imageError) {
+
+    if (!imageError) {
       return (
         <Image
-          src={provider.logoUrl}
+          src={logoPath}
           alt={provider.name}
           width={48}
           height={48}
@@ -114,6 +106,18 @@ export function ApiKeyIntegrationCard({ provider, integration, status, open, onO
         />
       )
     }
+    
+    // Fallback to text avatar
+    const getAvatarColor = (name: string) => {
+      const colors = [
+        "bg-blue-500", "bg-green-500", "bg-purple-500", "bg-pink-500",
+        "bg-indigo-500", "bg-red-500", "bg-yellow-500", "bg-teal-500",
+        "bg-orange-500", "bg-cyan-500", "bg-emerald-500", "bg-violet-500"
+      ]
+      const index = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
+      return colors[index % colors.length]
+    }
+
     return (
       <div className={`flex items-center justify-center w-12 h-12 rounded-lg text-lg font-bold text-white ${getAvatarColor(provider.name)}`}>
         {provider.name.substring(0, 2).toUpperCase()}
