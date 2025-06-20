@@ -27,6 +27,14 @@ import {
   Zap,
 } from "lucide-react"
 
+export interface ConfigField {
+  key: string;
+  label: string;
+  type: "text" | "textarea" | "select" | "number" | "email" | "password";
+  placeholder?: string;
+  options?: string[];
+}
+
 export interface NodeComponent {
   type: string
   title: string
@@ -37,6 +45,7 @@ export interface NodeComponent {
   requiredScopes?: string[]
   category: string
   isTrigger: boolean
+  configSchema?: ConfigField[]
 }
 
 export const ALL_NODE_COMPONENTS: NodeComponent[] = [
@@ -117,6 +126,11 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "gmail",
     category: "Email",
     isTrigger: true,
+    configSchema: [
+      { key: "from", label: "From", type: "email", placeholder: "Optional: filter by sender" },
+      { key: "subject", label: "Subject", type: "text", placeholder: "Optional: filter by subject" },
+      { key: "hasAttachment", label: "Has Attachment", type: "select", options: ["any", "yes", "no"] },
+    ],
   },
   {
     type: "gmail_trigger_new_attachment",
@@ -126,6 +140,12 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "gmail",
     category: "Email",
     isTrigger: true,
+    requiredScopes: ["https://www.googleapis.com/auth/gmail.send"],
+    configSchema: [
+      { key: "to", label: "To", type: "email", placeholder: "recipient@example.com" },
+      { key: "subject", label: "Subject", type: "text", placeholder: "Your email subject" },
+      { key: "body", label: "Body", type: "textarea", placeholder: "Your email body" },
+    ],
   },
   {
     type: "gmail_trigger_new_label",
