@@ -339,18 +339,26 @@ function generateFacebookAuthUrl(state: string): string {
   const clientId = process.env.NEXT_PUBLIC_FACEBOOK_CLIENT_ID
   console.log('Facebook Client ID:', clientId ? `${clientId.substring(0, 4)}...` : 'NOT SET')
   console.log('Facebook Client ID length:', clientId ? clientId.length : 0)
+  console.log('Facebook Client ID format valid:', clientId ? /^\d{15,16}$/.test(clientId) : false)
   
   if (!clientId) throw new Error("Facebook client ID not configured")
+  
+  if (!/^\d{15,16}$/.test(clientId)) {
+    console.error('Facebook Client ID format appears invalid. Expected 15-16 digits, got:', clientId)
+  }
 
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: "https://chainreact.app/api/integrations/facebook/callback",
     response_type: "code",
-    scope: "public_profile email pages_read_engagement pages_show_list",
+    scope: "email business_management pages_show_list pages_manage_posts pages_manage_engagement manage_fundraisers",
     state,
   })
 
-  return `https://www.facebook.com/v18.0/dialog/oauth?${params.toString()}`
+  const authUrl = `https://www.facebook.com/v19.0/dialog/oauth?${params.toString()}`
+  console.log('Generated Facebook auth URL:', authUrl)
+  
+  return authUrl
 }
 
 function generateInstagramAuthUrl(state: string): string {
