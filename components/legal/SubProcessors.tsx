@@ -360,17 +360,10 @@ export function SubProcessors() {
             </p>
             <div className="bg-slate-50 p-4 rounded-lg">
               <p className="text-slate-700">
-                <strong>Email:</strong> privacy@chainreact.app
+                <strong>Email:</strong> chainreact@gmail.com
                 <br />
                 <strong>Subject:</strong> Sub-processor Inquiry
                 <br />
-                <strong>Address:</strong> ChainReact, Inc.
-                <br />
-                123 Automation Street
-                <br />
-                San Francisco, CA 94105
-                <br />
-                United States
               </p>
             </div>
           </section>
