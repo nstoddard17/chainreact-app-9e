@@ -381,7 +381,7 @@ function generateTikTokAuthUrl(state: string): string {
   if (!clientId) throw new Error("TikTok client ID not configured")
 
   const params = new URLSearchParams({
-    client_key: clientId,
+    client_id: clientId,
     response_type: "code",
     scope: "user.info.basic",
     redirect_uri: "https://chainreact.app/api/integrations/tiktok/callback",
