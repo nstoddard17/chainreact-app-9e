@@ -18,6 +18,7 @@ import {
   type NodeTypes,
   Panel,
   BackgroundVariant,
+  useReactFlow,
 } from "@xyflow/react"
 import "@xyflow/react/dist/style.css"
 
@@ -127,6 +128,7 @@ export default function CollaborativeWorkflowBuilder() {
   const [showActionDialog, setShowActionDialog] = useState(false)
   const [selectedIntegration, setSelectedIntegration] = useState<any | null>(null)
 
+  const { fitView } = useReactFlow()
   const reactFlowWrapper = useRef<HTMLDivElement>(null)
   const cursorUpdateTimer = useRef<NodeJS.Timeout | null>(null)
 
@@ -402,7 +404,7 @@ export default function CollaborativeWorkflowBuilder() {
     const addActionNode: Node = {
       id: addActionNodeId,
       type: "addAction",
-      position: { x: 400, y: 250 },
+      position: { x: triggerNode.position.x, y: triggerNode.position.y + 150 },
       data: {
         onClick: handleAddActionClick,
       },
@@ -421,6 +423,7 @@ export default function CollaborativeWorkflowBuilder() {
 
     setShowTriggerDialog(false)
     setSelectedIntegration(null)
+    setTimeout(() => fitView({ duration: 300 }), 0)
   }
 
   const handleActionSelect = (integration: any, action: NodeComponent) => {
@@ -479,6 +482,7 @@ export default function CollaborativeWorkflowBuilder() {
 
     setShowActionDialog(false);
     setSelectedIntegration(null);
+    setTimeout(() => fitView({ duration: 300 }), 0)
   }
 
   const handleAddActionClick = () => {
