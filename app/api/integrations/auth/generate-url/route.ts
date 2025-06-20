@@ -156,6 +156,14 @@ export async function POST(request: NextRequest) {
         authUrl = generateGlobalPaymentsAuthUrl(finalState)
         break
 
+      case "microsoft-outlook":
+        authUrl = generateMicrosoftOutlookAuthUrl(finalState)
+        break
+
+      case "microsoft-onenote":
+        authUrl = generateMicrosoftOneNoteAuthUrl(finalState)
+        break
+
       default:
         return NextResponse.json({ error: `Provider ${provider} not supported` }, { status: 400 })
     }
@@ -626,10 +634,39 @@ function generateMicrosoftAuthUrl(state: string): string {
 
   const params = new URLSearchParams({
     client_id: clientId,
+    redirect_uri: "https://chainreact.app/api/integrations/microsoft-forms/callback",
     response_type: "code",
-    redirect_uri: `https://chainreact.app/api/integrations/microsoft-forms/callback`,
-    response_mode: "query",
-    scope: "User.Read Forms.ReadWrite.All offline_access",
+    scope: "User.Read Forms.ReadWrite.All",
+    state,
+  })
+
+  return `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`
+}
+
+function generateMicrosoftOutlookAuthUrl(state: string): string {
+  const clientId = process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID
+  if (!clientId) throw new Error("Microsoft client ID not configured")
+
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: "https://chainreact.app/api/integrations/microsoft-outlook/callback",
+    response_type: "code",
+    scope: "User.Read Mail.ReadWrite Mail.Send",
+    state,
+  })
+
+  return `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`
+}
+
+function generateMicrosoftOneNoteAuthUrl(state: string): string {
+  const clientId = process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID
+  if (!clientId) throw new Error("Microsoft client ID not configured")
+
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: "https://chainreact.app/api/integrations/microsoft-onenote/callback",
+    response_type: "code",
+    scope: "User.Read Notes.ReadWrite.All",
     state,
   })
 
