@@ -15,23 +15,6 @@ import {
   TooltipContent
 } from '@/components/ui/tooltip'
 
-// Colors for the letter avatar
-const avatarColors = [
-  "bg-blue-500",
-  "bg-green-500",
-  "bg-purple-500",
-  "bg-pink-500",
-  "bg-indigo-500",
-  "bg-red-500",
-  "bg-yellow-500",
-  "bg-teal-500",
-]
-
-const getAvatarColor = (name: string) => {
-  const index = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
-  return avatarColors[index % avatarColors.length]
-}
-
 interface IntegrationCardProps {
   provider: Provider
   integration: Integration | null
@@ -111,18 +94,8 @@ export function IntegrationCard({ provider, integration, status }: IntegrationCa
   const { icon: statusIcon, badgeClass, action: statusAction } = getStatusUi()
 
   const renderLogo = () => {
-    // Enhanced fallback avatar with better styling
-    const getAvatarColor = (name: string) => {
-      const colors = [
-        "bg-blue-500", "bg-green-500", "bg-purple-500", "bg-pink-500",
-        "bg-indigo-500", "bg-red-500", "bg-yellow-500", "bg-teal-500",
-        "bg-orange-500", "bg-cyan-500", "bg-emerald-500", "bg-violet-500"
-      ]
-      const index = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
-      return colors[index % colors.length]
-    }
+    const logoPath = `/integrations/${provider.id}.svg`
 
-    // Use X logo for provider 'x' or 'twitter'
     if ((provider.id === 'x' || provider.id === 'twitter') && !imageError) {
       return (
         <Image
@@ -135,10 +108,11 @@ export function IntegrationCard({ provider, integration, status }: IntegrationCa
         />
       )
     }
-    if (provider.logoUrl && !imageError) {
+
+    if (!imageError) {
       return (
         <Image
-          src={provider.logoUrl}
+          src={logoPath}
           alt={provider.name}
           width={48}
           height={48}
@@ -147,14 +121,28 @@ export function IntegrationCard({ provider, integration, status }: IntegrationCa
         />
       )
     }
+
+    const getAvatarColor = (name: string) => {
+      const colors = [
+        "bg-blue-500", "bg-green-500", "bg-purple-500", "bg-pink-500",
+        "bg-indigo-500", "bg-red-500", "bg-yellow-500", "bg-teal-500",
+        "bg-orange-500", "bg-cyan-500", "bg-emerald-500", "bg-violet-500"
+      ]
+      const index = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
+      return colors[index % colors.length]
+    }
+
     return (
-      <div className={`flex items-center justify-center w-12 h-12 rounded-lg text-lg font-bold text-white ${getAvatarColor(provider.name)}`}>
+      <div
+        className={`flex items-center justify-center w-12 h-12 rounded-lg text-lg font-bold text-white ${getAvatarColor(
+          provider.name
+        )}`}
+      >
         {provider.name.substring(0, 2).toUpperCase()}
       </div>
     )
   }
 
-  // Optional: Compose details for tooltip
   const details = [
     provider.name,
     provider.description,
@@ -191,7 +179,6 @@ export function IntegrationCard({ provider, integration, status }: IntegrationCa
             <span>Connected {new Date(integration.created_at).toLocaleDateString()}</span>
           )}
           {!integration && <span>Not connected</span>}
-          {/* Info icon with click-based popover */}
           <TooltipProvider>
             <Tooltip open={showInfo} onOpenChange={setShowInfo}>
               <TooltipTrigger asChild>
@@ -248,30 +235,25 @@ export function IntegrationCard({ provider, integration, status }: IntegrationCa
                 onClick={handleReconnect}
                 disabled={isLoading}
                 size="sm"
-                className="flex-1 bg-gray-900 text-white hover:bg-gray-800"
+                variant="default"
+                className="flex-1"
               >
-                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
-                Reconnect
+                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Reconnect'}
               </Button>
               <Button
                 onClick={handleDisconnect}
                 disabled={isLoading}
                 size="sm"
-                variant="outline"
-                className="w-10 h-10 p-0 border border-gray-300 hover:bg-gray-50"
+                variant="ghost"
+                className="text-gray-500 hover:text-gray-700 hover:bg-gray-100"
                 aria-label="Disconnect"
               >
                 <X className="h-4 w-4" />
               </Button>
             </div>
           ) : (
-            <Button
-              onClick={handleConnect}
-              disabled={isLoading}
-              size="sm"
-              className="w-full bg-gray-900 text-white hover:bg-gray-800"
-            >
-              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LinkIcon className="mr-2 h-4 w-4" />}
+            <Button onClick={handleConnect} disabled={isLoading} size="sm" className="w-full">
+              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Connect
             </Button>
           )}
