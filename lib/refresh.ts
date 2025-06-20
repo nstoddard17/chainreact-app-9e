@@ -191,8 +191,6 @@ async function refreshTokenByProvider(integration: Integration): Promise<Refresh
       return refreshBoxToken(refresh_token!)
     case "youtube-studio":
       return refreshGoogleToken(refresh_token!) // Uses same Google OAuth
-    case "convertkit":
-      return refreshConvertKitToken(refresh_token!)
     case "microsoft-outlook":
       return refreshMicrosoftToken(refresh_token!, integration) // Uses same Microsoft OAuth
     case "microsoft-onenote":
@@ -1504,62 +1502,6 @@ async function refreshBoxToken(refreshToken: string): Promise<RefreshResult> {
       refreshed: false,
       success: false,
       message: `Box token refresh error: ${(error as Error).message}`,
-    }
-  }
-}
-
-/**
- * Refreshes a ConvertKit OAuth token
- */
-async function refreshConvertKitToken(refreshToken: string): Promise<RefreshResult> {
-  try {
-    const clientId = process.env.NEXT_PUBLIC_CONVERTKIT_CLIENT_ID
-    const clientSecret = process.env.CONVERTKIT_CLIENT_SECRET
-
-    if (!clientId || !clientSecret) {
-      return {
-        refreshed: false,
-        success: false,
-        message: "Missing ConvertKit OAuth credentials",
-      }
-    }
-
-    const response = await fetch("https://app.convertkit.com/oauth/token", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: new URLSearchParams({
-        grant_type: "refresh_token",
-        refresh_token: refreshToken,
-        client_id: clientId,
-        client_secret: clientSecret,
-      }),
-    })
-
-    const data = await response.json()
-
-    if (!response.ok) {
-      return {
-        refreshed: false,
-        success: false,
-        message: `ConvertKit token refresh failed: ${data.error || "Unknown error"}`,
-      }
-    }
-
-    return {
-      refreshed: true,
-      success: true,
-      message: "Successfully refreshed ConvertKit token",
-      newToken: data.access_token,
-      newExpiry: Math.floor(Date.now() / 1000) + (data.expires_in || 3600),
-      newRefreshToken: data.refresh_token,
-    }
-  } catch (error) {
-    return {
-      refreshed: false,
-      success: false,
-      message: `ConvertKit token refresh error: ${(error as Error).message}`,
     }
   }
 }

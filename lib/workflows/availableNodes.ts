@@ -807,22 +807,22 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     isTrigger: true,
   },
 
-  // ConvertKit
+  // Kit
   {
-    type: "convertkit_trigger_new_subscriber",
+    type: "kit_trigger_new_subscriber",
     title: "New subscriber added",
     description: "Triggers when a new subscriber is added",
     icon: Users,
-    providerId: "convertkit",
+    providerId: "kit",
     category: "Email",
     isTrigger: true,
   },
   {
-    type: "convertkit_trigger_tag_added",
+    type: "kit_trigger_tag_added",
     title: "Tag added to a subscriber",
     description: "Triggers when a tag is added to a subscriber",
     icon: BarChart,
-    providerId: "convertkit",
+    providerId: "kit",
     category: "Email",
     isTrigger: true,
   },

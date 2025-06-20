@@ -66,10 +66,10 @@ export async function withAutoRefresh<T>(
     "stripe",
     "paypal",
     "docker",
-    "convertkit",
     "blackbaud",
     "globalpayments",
     "gumroad",
+    "kit",
   ].includes(provider)
 
   // For Google/Microsoft, always refresh before API calls to ensure fresh tokens
