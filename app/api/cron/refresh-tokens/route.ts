@@ -309,15 +309,17 @@ async function processIntegrationRefresh(
   const { provider, user_id, id } = integration
   const logPrefix = `[${jobId}] [${provider}:${id}]`
   const THIRTY_MINUTES = 30 * 60
+  
   const now = Math.floor(Date.now() / 1000)
   console.log(`${logPrefix} Processing ${provider} (status: ${integration.status})`)
   console.log(`   - expires_at: ${integration.expires_at}`)
   console.log(`   - refresh_token exists: ${!!integration.refresh_token}`)
   console.log(`   - consecutive_failures: ${integration.consecutive_failures || 0}`)
+  console.log(`   - using threshold: ${THIRTY_MINUTES / 60} minutes`)
 
   // If integration is disconnected/expired, try to recover it
   if (["disconnected", "needs_reauthorization", "expired"].includes(integration.status)) {
-    console.log(`${logPrefix} Attempting to recover ${integration.status} integration: ${provider}`)
+    console.log(`${logPrefix} Attempting to recover ${provider} integration`)
 
     if (!integration.refresh_token) {
       console.log(`${logPrefix} Cannot recover ${provider}: no refresh token - marking as needs_reauthorization`)
@@ -352,54 +354,30 @@ async function processIntegrationRefresh(
     return result
   }
 
-  // Normal processing for connected integrations
-  let needsAttention = false
-  let isExpired = false
-
-  if (integration.expires_at) {
-    const expiresAt =
-      typeof integration.expires_at === "string"
-        ? Math.floor(new Date(integration.expires_at).getTime() / 1000)
-        : integration.expires_at
-    const expiresIn = expiresAt - now
-    isExpired = expiresIn <= 0
-    needsAttention = isExpired || expiresIn < THIRTY_MINUTES
-
-    console.log(`${logPrefix}   - expires in: ${expiresIn}s (${Math.floor(expiresIn / 60)}min)`)
-    console.log(`${logPrefix}   - isExpired: ${isExpired}, needsAttention: ${needsAttention}`)
-  } else {
-    // No expiry set - this is normal for integrations that don't expire
-    // Only process if they have a refresh token (for proactive refresh)
-    needsAttention = !!integration.refresh_token
-    console.log(`${logPrefix} ⚠️ No expiry set for ${provider} — ${needsAttention ? 'has refresh token, will check' : 'no refresh token, skipping'}`)
-  }
-
-  if (!needsAttention) {
-    console.log(`${logPrefix} ⬅️ Skip ${provider}: not due`)
-    return { refreshed: false, success: true, message: "Token not due for refresh" }
-  }
-
-  if (!integration.refresh_token) {
-    console.log(`${logPrefix} ⚠️ ${provider} missing refresh token — marking reauthorization`)
-    await supabase
-      .from("integrations")
-      .update({ status: "needs_reauthorization", updated_at: new Date().toISOString() })
-      .eq("id", integration.id)
-    try {
-      await supabase.rpc("create_token_expiry_notification", {
-        p_user_id: integration.user_id,
-        p_provider: integration.provider,
-      })
-    } catch (notifError) {
-      console.error(`${logPrefix} ❌ Notification for ${provider} failed:`, notifError)
+  // Check if token needs refresh
+  if (integration.expires_at && integration.refresh_token) {
+    const expiresAt = typeof integration.expires_at === 'string' 
+      ? Math.floor(new Date(integration.expires_at).getTime() / 1000)
+      : integration.expires_at
+    
+    const timeUntilExpiry = expiresAt - now
+    
+    console.log(`${logPrefix} Token expires in ${Math.floor(timeUntilExpiry / 60)} minutes`)
+    
+    if (timeUntilExpiry <= THIRTY_MINUTES) {
+      console.log(`${logPrefix} Token expires within ${THIRTY_MINUTES / 60} minutes, refreshing...`)
+      console.log(`${logPrefix} Preparing to call refreshTokenWithRetry`)
+      const result = await refreshTokenWithRetry(integration, supabase, 3, false, jobId)
+      console.log(`${logPrefix} ⬅️ Completed refresh for ${provider}`)
+      return result
+    } else {
+      console.log(`${logPrefix} Token is still valid for ${Math.floor(timeUntilExpiry / 60)} minutes, skipping refresh`)
     }
-    return { refreshed: false, success: false, message: "Token needs reauthorization (no refresh token)" }
+  } else {
+    console.log(`${logPrefix} No expiry or refresh token, skipping`)
   }
 
-  console.log(`${logPrefix} Preparing to call refreshTokenWithRetry`)
-  const result = await refreshTokenWithRetry(integration, supabase, 3, isExpired, jobId)
-  console.log(`${logPrefix} ⬅️ Completed refresh for ${provider}`)
-  return result
+  return { refreshed: false, success: true, message: "Token not due for refresh" }
 }
 
 async function refreshTokenWithRetry(

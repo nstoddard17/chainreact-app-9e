@@ -139,6 +139,15 @@ export async function GET(request: NextRequest) {
 
     const tokenData = await tokenResponse.json()
 
+    // Debug logging to see what HubSpot actually returns
+    console.log('🔍 HubSpot initial token response:', {
+      expires_in: tokenData.expires_in,
+      expires_in_hours: tokenData.expires_in ? Math.round(tokenData.expires_in / 3600 * 100) / 100 : 'N/A',
+      has_refresh_token: !!tokenData.refresh_token,
+      scopes: tokenData.scopes,
+      token_type: tokenData.token_type
+    })
+
     const integrationData = {
       user_id: userId,
       provider: "hubspot",
