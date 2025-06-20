@@ -206,7 +206,7 @@ export function IntegrationCard({ provider, integration, status }: IntegrationCa
 
       <CardFooter className="p-5 pt-0">
         <div className="w-full">
-          {status === 'connected' ? (
+          {status === 'connected' || status === 'expiring' ? (
             <div className="flex items-center gap-3">
               <Button
                 onClick={handleDisconnect}
