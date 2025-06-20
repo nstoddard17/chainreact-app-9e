@@ -3,6 +3,7 @@
 import type React from "react"
 import { useEffect, useCallback, useState, useRef } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
+import Image from "next/image"
 import {
   ReactFlow,
   Background,
@@ -73,7 +74,6 @@ import {
 import { cn } from "@/lib/utils"
 import { ALL_NODE_COMPONENTS, NodeComponent } from "@/lib/workflows/availableNodes"
 import { INTEGRATION_CONFIGS } from "@/lib/integrations/availableIntegrations"
-import { integrationIcons } from "@/lib/integrations/integration-icons"
 
 const nodeTypes: NodeTypes = {
   custom: CustomNode,
@@ -118,12 +118,64 @@ export default function CollaborativeWorkflowBuilder() {
   const [showConflictDialog, setShowConflictDialog] = useState(false)
   const [workflowName, setWorkflowName] = useState("")
   const [isEditingName, setIsEditingName] = useState(false)
+  const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({})
   
   // New states for the guided approach
   const [showTriggerDialog, setShowTriggerDialog] = useState(false)
 
   const reactFlowWrapper = useRef<HTMLDivElement>(null)
   const cursorUpdateTimer = useRef<NodeJS.Timeout | null>(null)
+
+  const renderLogo = (integrationId: string, integrationName: string) => {
+    const logoPath = `/integrations/${integrationId}.svg`
+
+    if ((integrationId === 'x' || integrationId === 'twitter') && !imageErrors[integrationId]) {
+      return (
+        <Image
+          src={'/integrations/x.svg'}
+          alt={'X'}
+          width={28}
+          height={28}
+          className="object-contain"
+          onError={() => setImageErrors(prev => ({ ...prev, [integrationId]: true }))}
+        />
+      )
+    }
+
+    if (!imageErrors[integrationId]) {
+      return (
+        <Image
+          src={logoPath}
+          alt={integrationName}
+          width={28}
+          height={28}
+          className="object-contain"
+          onError={() => setImageErrors(prev => ({ ...prev, [integrationId]: true }))}
+        />
+      )
+    }
+
+    // Fallback to text avatar
+    const getAvatarColor = (name: string) => {
+      const colors = [
+        "bg-blue-500", "bg-green-500", "bg-purple-500", "bg-pink-500",
+        "bg-indigo-500", "bg-red-500", "bg-yellow-500", "bg-teal-500",
+        "bg-orange-500", "bg-cyan-500", "bg-emerald-500", "bg-violet-500"
+      ]
+      const index = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
+      return colors[index % colors.length]
+    }
+
+    return (
+      <div
+        className={`flex items-center justify-center w-7 h-7 rounded text-sm font-bold text-white ${getAvatarColor(
+          integrationName
+        )}`}
+      >
+        {integrationName.substring(0, 2).toUpperCase()}
+      </div>
+    )
+  }
 
   // Join collaboration session when workflow loads
   useEffect(() => {
@@ -547,7 +599,7 @@ export default function CollaborativeWorkflowBuilder() {
                     className="w-12 h-12 flex items-center justify-center mb-2 rounded-lg"
                     style={{ backgroundColor: integration.color }}
                   >
-                    {integration.logo && <integration.logo className="w-7 h-7 text-white" />}
+                    {renderLogo(integration.id, integration.name)}
                   </div>
                   <p className="font-semibold text-slate-800">{integration.name}</p>
                   <p className="text-xs text-slate-500">
