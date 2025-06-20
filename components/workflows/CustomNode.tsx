@@ -82,7 +82,7 @@ function CustomNode({ data, selected }: NodeProps) {
   const Icon = NODE_ICONS[data.type as keyof typeof NODE_ICONS] || Webhook
   const color = NODE_COLORS[data.type as keyof typeof NODE_COLORS] || "blue"
 
-  const isTrigger = ["webhook", "schedule", "email_trigger", "file_upload"].includes(data.type)
+  const isTrigger = data.isTrigger || ["webhook", "schedule", "email_trigger", "file_upload"].includes(data.type)
   const isAction = ["slack_message", "calendar_event", "sheets_append", "send_email", "webhook_call"].includes(
     data.type,
   )
