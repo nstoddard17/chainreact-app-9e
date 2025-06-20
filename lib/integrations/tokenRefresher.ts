@@ -278,7 +278,10 @@ async function refreshTokenByProvider(integration: Integration): Promise<Refresh
     case "convertkit":
       return refreshConvertKitToken(refresh_token)
 
-    case "microsoft-forms":
+    case "microsoft-outlook":
+      return refreshMicrosoftToken(refresh_token, integration) // Uses same Microsoft OAuth
+
+    case "microsoft-onenote":
       return refreshMicrosoftToken(refresh_token, integration) // Uses same Microsoft OAuth
 
     case "blackbaud":

@@ -140,14 +140,6 @@ export async function POST(request: NextRequest) {
         authUrl = generateConvertKitAuthUrl(finalState)
         break
 
-      case "microsoft-forms":
-        authUrl = generateMicrosoftAuthUrl(finalState)
-        break
-
-      case "canva":
-        authUrl = generateCanvaAuthUrl(finalState)
-        break
-
       case "blackbaud":
         authUrl = generateBlackbaudAuthUrl(finalState)
         break
@@ -628,19 +620,33 @@ function generateConvertKitAuthUrl(state: string): string {
   return `https://app.convertkit.com/oauth/authorize?${params.toString()}`
 }
 
-function generateMicrosoftAuthUrl(state: string): string {
-  const clientId = process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID
-  if (!clientId) throw new Error("Microsoft client ID not configured")
+function generateBlackbaudAuthUrl(state: string): string {
+  const clientId = process.env.NEXT_PUBLIC_BLACKBAUD_CLIENT_ID
+  if (!clientId) throw new Error("Blackbaud client ID not configured")
 
   const params = new URLSearchParams({
     client_id: clientId,
-    redirect_uri: "https://chainreact.app/api/integrations/microsoft-forms/callback",
     response_type: "code",
-    scope: "User.Read Forms.ReadWrite.All",
+    redirect_uri: `https://chainreact.app/api/integrations/blackbaud/callback`,
     state,
   })
 
-  return `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`
+  return `https://oauth2.sky.blackbaud.com/authorization?${params.toString()}`
+}
+
+function generateGlobalPaymentsAuthUrl(state: string): string {
+  const clientId = process.env.NEXT_PUBLIC_GLOBALPAYMENTS_CLIENT_ID
+  if (!clientId) throw new Error("GlobalPayments client ID not configured")
+
+  const params = new URLSearchParams({
+    client_id: clientId,
+    response_type: "code",
+    redirect_uri: `https://chainreact.app/api/integrations/globalpayments/callback`,
+    scope: "read_transactions write_transactions",
+    state,
+  })
+
+  return `https://api.globalpayments.com/oauth/authorize?${params.toString()}`
 }
 
 function generateMicrosoftOutlookAuthUrl(state: string): string {
@@ -671,48 +677,4 @@ function generateMicrosoftOneNoteAuthUrl(state: string): string {
   })
 
   return `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`
-}
-
-function generateCanvaAuthUrl(state: string): string {
-  const clientId = process.env.NEXT_PUBLIC_CANVA_CLIENT_ID
-  if (!clientId) throw new Error("Canva client ID not configured")
-
-  const params = new URLSearchParams({
-    client_id: clientId,
-    response_type: "code",
-    redirect_uri: `https://chainreact.app/api/integrations/canva/callback`,
-    scope: "asset:read asset:write design:read design:write",
-    state,
-  })
-
-  return `https://www.canva.com/api/oauth/authorize?${params.toString()}`
-}
-
-function generateBlackbaudAuthUrl(state: string): string {
-  const clientId = process.env.NEXT_PUBLIC_BLACKBAUD_CLIENT_ID
-  if (!clientId) throw new Error("Blackbaud client ID not configured")
-
-  const params = new URLSearchParams({
-    client_id: clientId,
-    response_type: "code",
-    redirect_uri: `https://chainreact.app/api/integrations/blackbaud/callback`,
-    state,
-  })
-
-  return `https://oauth2.sky.blackbaud.com/authorization?${params.toString()}`
-}
-
-function generateGlobalPaymentsAuthUrl(state: string): string {
-  const clientId = process.env.NEXT_PUBLIC_GLOBALPAYMENTS_CLIENT_ID
-  if (!clientId) throw new Error("GlobalPayments client ID not configured")
-
-  const params = new URLSearchParams({
-    client_id: clientId,
-    response_type: "code",
-    redirect_uri: `https://chainreact.app/api/integrations/globalpayments/callback`,
-    scope: "read_transactions write_transactions",
-    state,
-  })
-
-  return `https://api.globalpayments.com/oauth/authorize?${params.toString()}`
 }
