@@ -149,7 +149,12 @@ function CustomNode({ data, selected }: NodeProps) {
 
       {/* Input Handle - not for triggers */}
       {!isTrigger && (
-        <Handle type="target" position={Position.Top} className="w-3 h-3 bg-slate-400 border-2 border-white" />
+        <Handle
+          type="target"
+          position={Position.Top}
+          className="w-3 h-3 bg-slate-400 border-2 border-white"
+          style={{ left: "50%" }}
+        />
       )}
 
       {/* Output Handles */}
@@ -170,6 +175,14 @@ function CustomNode({ data, selected }: NodeProps) {
             style={{ left: "75%" }}
           />
         </>
+      ) : isTrigger ? (
+        <Handle
+          type="source"
+          position={Position.Bottom}
+          id="success"
+          className="w-3 h-3 bg-green-500 border-2 border-white"
+          style={{ left: "50%" }}
+        />
       ) : (
         <>
           <Handle
@@ -177,7 +190,7 @@ function CustomNode({ data, selected }: NodeProps) {
             position={Position.Bottom}
             id="success"
             className="w-3 h-3 bg-green-500 border-2 border-white"
-            style={{ left: "25%" }}
+            style={{ left: "50%" }}
           />
           {isAction && (
             <Handle
@@ -185,7 +198,7 @@ function CustomNode({ data, selected }: NodeProps) {
               position={Position.Bottom}
               id="error"
               className="w-3 h-3 bg-red-500 border-2 border-white"
-              style={{ left: "75%" }}
+              style={{ left: "75%", display: "none" }}
             />
           )}
         </>
