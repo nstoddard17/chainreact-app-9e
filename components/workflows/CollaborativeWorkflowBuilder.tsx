@@ -164,7 +164,7 @@ export default function CollaborativeWorkflowBuilder() {
               target: successorNode.id,
               animated: true,
               style: { stroke: '#b1b1b7', strokeWidth: 2, strokeDasharray: '5,5' },
-              type: 'smoothstep',
+              type: 'straight',
             };
 
             const newEdges = edges.filter(e => e.id !== incomingEdge.id && e.id !== outgoingEdge.id);
@@ -468,7 +468,7 @@ export default function CollaborativeWorkflowBuilder() {
         target: addActionNodeId,
         animated: true,
         style: { stroke: '#b1b1b7', strokeWidth: 2, strokeDasharray: '5,5' } as React.CSSProperties,
-        type: 'smoothstep',
+        type: 'straight',
       },
     ])
 
@@ -520,7 +520,7 @@ export default function CollaborativeWorkflowBuilder() {
         target: newNode.id,
         style: { stroke: '#8b5cf6', strokeWidth: 2 } as React.CSSProperties,
         animated: true,
-        type: 'smoothstep',
+        type: 'straight',
     };
 
     const newEdgeToAddAction: Edge = {
@@ -529,7 +529,7 @@ export default function CollaborativeWorkflowBuilder() {
         target: newAddActionNode.id,
         animated: true,
         style: { stroke: '#b1b1b7', strokeWidth: 2, strokeDasharray: '5,5' } as React.CSSProperties,
-        type: 'smoothstep',
+        type: 'straight',
     };
 
     setEdges(prev => [...prev.filter(e => e.id !== incomingEdge.id), newEdgeToNewNode, newEdgeToAddAction]);
