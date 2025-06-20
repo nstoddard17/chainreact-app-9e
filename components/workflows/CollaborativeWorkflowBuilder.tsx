@@ -696,6 +696,7 @@ export default function CollaborativeWorkflowBuilder() {
                   edges={edges}
                   onNodesChange={onNodesChangeCustom}
                   onEdgesChange={onEdgesChange}
+                  onNodeClick={(_event, node) => setSelectedNode(node)}
                   nodeTypes={nodeTypes}
                   fitView
                   className="bg-slate-50"
