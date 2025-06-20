@@ -187,12 +187,9 @@ function generateSlackAuthUrl(state: string): string {
     response_type: "code",
   })
 
-  // Add team parameter if specified in environment (optional)
-  const teamId = process.env.SLACK_TEAM_ID
-  if (teamId) {
-    params.append('team', teamId)
-    console.log(`Slack auth URL includes team parameter: ${teamId}`)
-  }
+  // Note: For distributed apps, do not use the 'team' parameter
+  // as it causes 'invalid_team_for_non_distributed_app' error
+  // Distributed apps should work across all workspaces
 
   const authUrl = `https://slack.com/oauth/v2/authorize?${params.toString()}`
   console.log(`Generated Slack auth URL: ${authUrl}`)
