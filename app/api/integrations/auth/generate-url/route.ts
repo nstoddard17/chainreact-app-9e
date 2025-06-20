@@ -519,7 +519,7 @@ function generateShopifyAuthUrl(state: string): string {
     client_id: clientId,
     redirect_uri: "https://chainreact.app/api/integrations/shopify/callback",
     response_type: "code",
-    scope: "read_products write_products",
+    scope: "read_products write_products read_orders write_orders read_customers write_customers read_inventory write_inventory",
     state,
   })
 
