@@ -153,11 +153,12 @@ function IntegrationsContent() {
           if (expiresAtDate && !isNaN(expiresAtDate.getTime())) {
             const now = new Date();
             const diffMs = expiresAtDate.getTime() - now.getTime();
-            const twentyFourHoursMs = 24 * 60 * 60 * 1000;
+            // Integrations are marked as "expiring" if they expire within 10 minutes
+            const tenMinutesMs = 10 * 60 * 1000;
 
             if (diffMs <= 0) {
               status = "expired";
-            } else if (diffMs < twentyFourHoursMs) {
+            } else if (diffMs < tenMinutesMs) {
               status = "expiring";
             } else {
               status = "connected";
