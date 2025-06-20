@@ -193,7 +193,9 @@ async function refreshTokenByProvider(integration: Integration): Promise<Refresh
       return refreshGoogleToken(refresh_token!) // Uses same Google OAuth
     case "convertkit":
       return refreshConvertKitToken(refresh_token!)
-    case "microsoft-forms":
+    case "microsoft-outlook":
+      return refreshMicrosoftToken(refresh_token!, integration) // Uses same Microsoft OAuth
+    case "microsoft-onenote":
       return refreshMicrosoftToken(refresh_token!, integration) // Uses same Microsoft OAuth
     case "blackbaud":
       return refreshBlackbaudToken(refresh_token!)

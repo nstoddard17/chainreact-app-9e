@@ -25,6 +25,8 @@ import {
   Video,
   ShoppingCart,
   Zap,
+  Send,
+  Edit,
 } from "lucide-react"
 
 export interface ConfigField {
@@ -911,25 +913,47 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     requiredScopes: ["read_repository"],
   },
 
-  // Microsoft Forms
+  // Microsoft Outlook
   {
-    type: "microsoft-forms_trigger_new_response",
-    title: "New form response",
-    description: "Triggers when a new response is submitted to a form",
-    icon: FileText,
-    providerId: "microsoft-forms",
-    category: "Productivity",
+    type: "microsoft-outlook_trigger_new_email",
+    title: "New email received",
+    description: "Triggers when a new email is received",
+    icon: Mail,
+    providerId: "microsoft-outlook",
+    category: "Communication",
     isTrigger: true,
+    requiredScopes: ["Mail.Read"],
+  },
+  {
+    type: "microsoft-outlook_trigger_email_sent",
+    title: "Email sent",
+    description: "Triggers when an email is sent",
+    icon: Send,
+    providerId: "microsoft-outlook",
+    category: "Communication",
+    isTrigger: true,
+    requiredScopes: ["Mail.Send"],
   },
 
-  // Canva
+  // Microsoft OneNote
   {
-    type: "canva_trigger_new_design",
-    title: "New design created",
-    description: "Triggers when a new design is created",
-    icon: PenSquare,
-    providerId: "canva",
-    category: "Design",
+    type: "microsoft-onenote_trigger_new_note",
+    title: "New note created",
+    description: "Triggers when a new note is created",
+    icon: FileText,
+    providerId: "microsoft-onenote",
+    category: "Productivity",
     isTrigger: true,
+    requiredScopes: ["Notes.ReadWrite.All"],
+  },
+  {
+    type: "microsoft-onenote_trigger_note_modified",
+    title: "Note modified",
+    description: "Triggers when a note is modified",
+    icon: Edit,
+    providerId: "microsoft-onenote",
+    category: "Productivity",
+    isTrigger: true,
+    requiredScopes: ["Notes.ReadWrite.All"],
   },
 ] 
