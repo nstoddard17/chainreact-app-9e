@@ -741,19 +741,18 @@ export default function CollaborativeWorkflowBuilder() {
             )}
           </div>
 
-          {/* Right Panel - Configuration */}
-          {selectedNode && (
-            <div className="w-80 bg-white border-l border-slate-200">
-              {/* The old ConfigurationPanel is removed from here */}
-            </div>
-          )}
+          {/* Right Panel - Configuration has been removed */}
         </div>
 
         {/* Configuration Modal */}
         <ConfigurationModal
           isOpen={!!configuringNode}
           onClose={() => setConfiguringNode(null)}
-          onSave={handleSaveConfiguration}
+          onSave={(config) => {
+            if (configuringNode) {
+              handleSaveConfiguration(configuringNode, config)
+            }
+          }}
           nodeInfo={configuringNode?.nodeComponent || null}
           integrationName={configuringNode?.integration?.name || ""}
         />
