@@ -22,6 +22,25 @@ export async function GET(request: NextRequest) {
 
   if (error) {
     console.error(`Slack OAuth error: ${error} - ${errorDescription}`)
+    console.error(`Slack OAuth error details:`, { error, errorDescription, searchParams: Object.fromEntries(searchParams.entries()) })
+    
+    // Provide specific error messages for common Slack errors
+    let userFriendlyMessage = errorDescription || "An unknown error occurred."
+    
+    if (error === 'invalid_team_for_non_distributed_app') {
+      userFriendlyMessage = "This Slack app is configured for a specific workspace. Please contact support to configure the app for your workspace, or try installing the app in the correct workspace."
+      console.error("Slack app distribution issue detected. Please verify:")
+      console.error("1. App is set to 'Distributed' in Slack App settings")
+      console.error("2. App is published to the App Directory (if required)")
+      console.error("3. App permissions and scopes are correctly configured")
+    } else if (error === 'access_denied') {
+      userFriendlyMessage = "Access was denied. Please try again and make sure to authorize all requested permissions."
+    } else if (error === 'invalid_client') {
+      userFriendlyMessage = "Slack app configuration error. Please contact support."
+    } else if (error === 'invalid_scope') {
+      userFriendlyMessage = "The requested permissions are not available for this Slack app. Please contact support."
+    }
+    
     const errorHtml = `
         <!DOCTYPE html>
         <html>
@@ -37,7 +56,7 @@ export async function GET(request: NextRequest) {
           <body>
             <div class="container">
               <h1>Slack Connection Failed</h1>
-              <p>${errorDescription || "An unknown error occurred."}</p>
+              <p>${userFriendlyMessage}</p>
               <p>Please try again or contact support if the problem persists.</p>
               <script>
                 if (window.opener) {
@@ -45,7 +64,7 @@ export async function GET(request: NextRequest) {
                     type: 'oauth-error',
                     provider: 'slack',
                     error: '${error}',
-                    errorDescription: '${errorDescription || "An unknown error occurred."}'
+                    errorDescription: '${userFriendlyMessage}'
                   }, '${baseUrl}');
                   setTimeout(() => window.close(), 1000);
                 }

@@ -187,7 +187,17 @@ function generateSlackAuthUrl(state: string): string {
     response_type: "code",
   })
 
-  return `https://slack.com/oauth/v2/authorize?${params.toString()}`
+  // Add team parameter if specified in environment (optional)
+  const teamId = process.env.SLACK_TEAM_ID
+  if (teamId) {
+    params.append('team', teamId)
+    console.log(`Slack auth URL includes team parameter: ${teamId}`)
+  }
+
+  const authUrl = `https://slack.com/oauth/v2/authorize?${params.toString()}`
+  console.log(`Generated Slack auth URL: ${authUrl}`)
+  
+  return authUrl
 }
 
 function generateDiscordAuthUrl(state: string): string {

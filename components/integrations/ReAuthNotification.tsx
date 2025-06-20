@@ -98,7 +98,7 @@ export function ReAuthNotification({ className }: ReAuthNotificationProps) {
 
   return (
     <div className={cn(
-      "fixed top-4 left-1/2 transform -translate-x-1/2 z-50 w-full max-w-md",
+      "fixed top-4 left-1/2 transform -translate-x-1/2 z-[100] w-full max-w-md",
       className
     )}>
       <Alert className="border-red-200 bg-red-50 shadow-lg border-l-4">
