@@ -9,7 +9,6 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { Badge } from "@/components/ui/badge"
 import { Loader2, Link as LinkIcon, Link2Off, RefreshCw, X, CheckCircle, Clock, XCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { GumroadGuide } from './guides/GumroadGuide'
 import { ManyChatGuide } from './guides/ManyChatGuide'
 import { BeehiivGuide } from './guides/BeehiivGuide'
 
@@ -126,7 +125,6 @@ export function ApiKeyIntegrationCard({ provider, integration, status, open, onO
   }
 
   const guideComponents = {
-    gumroad: GumroadGuide,
     manychat: ManyChatGuide,
     beehiiv: BeehiivGuide,
   } as const

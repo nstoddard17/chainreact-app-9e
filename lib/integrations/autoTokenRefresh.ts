@@ -49,6 +49,8 @@ export async function withAutoRefresh<T>(
     "google-sheets",
     "teams",
     "onedrive",
+    "microsoft-outlook",
+    "microsoft-onenote",
   ].includes(provider)
 
   const needsRefreshToken = [
@@ -67,6 +69,7 @@ export async function withAutoRefresh<T>(
     "convertkit",
     "blackbaud",
     "globalpayments",
+    "gumroad",
   ].includes(provider)
 
   // For Google/Microsoft, always refresh before API calls to ensure fresh tokens
@@ -282,6 +285,8 @@ async function processIntegrationRefresh(integration: any) {
     "google-sheets",
     "teams",
     "onedrive",
+    "microsoft-outlook",
+    "microsoft-onenote",
   ].includes(integration.provider)
 
   // Determine if refresh is needed
