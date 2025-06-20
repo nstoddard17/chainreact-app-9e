@@ -577,6 +577,21 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     authType: "oauth",
   },
 
+  kit: {
+    id: "kit",
+    name: "Kit",
+    description: "Email marketing and automation platform",
+    category: "marketing",
+    capabilities: ["Email Marketing", "Automation", "Subscriber Management", "Tag Management"],
+    scopes: [],
+    isAvailable: false,
+    requiresClientId: "NEXT_PUBLIC_KIT_CLIENT_ID",
+    requiresClientSecret: "KIT_CLIENT_SECRET",
+    color: "#FF6B35",
+    docsUrl: "https://developers.kit.com/",
+    authType: "oauth",
+  },
+
   // New Integrations End Here
 }
 

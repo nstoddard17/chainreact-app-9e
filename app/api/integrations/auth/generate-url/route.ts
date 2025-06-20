@@ -136,8 +136,8 @@ export async function POST(request: NextRequest) {
         authUrl = generateDockerAuthUrl(finalState)
         break
 
-      case "convertkit":
-        authUrl = generateConvertKitAuthUrl(finalState)
+      case "kit":
+        authUrl = generateKitAuthUrl(finalState)
         break
 
       case "blackbaud":
@@ -326,6 +326,9 @@ async function generateTwitterAuthUrl(stateObject: any, supabase: any): Promise<
 
 function generateLinkedInAuthUrl(state: string): string {
   const clientId = process.env.NEXT_PUBLIC_LINKEDIN_CLIENT_ID
+  console.log('LinkedIn Client ID:', clientId ? `${clientId.substring(0, 4)}...` : 'NOT SET')
+  console.log('LinkedIn Client ID length:', clientId ? clientId.length : 0)
+  
   if (!clientId) throw new Error("LinkedIn client ID not configured")
 
   const params = new URLSearchParams({
@@ -336,7 +339,10 @@ function generateLinkedInAuthUrl(state: string): string {
     scope: "profile email openid",
   })
 
-  return `https://www.linkedin.com/oauth/v2/authorization?${params.toString()}`
+  const authUrl = `https://www.linkedin.com/oauth/v2/authorization?${params.toString()}`
+  console.log('Generated LinkedIn auth URL:', authUrl)
+  
+  return authUrl
 }
 
 function generateFacebookAuthUrl(state: string): string {
@@ -610,18 +616,18 @@ function generateDockerAuthUrl(state: string): string {
   return `https://hub.docker.com/oauth/authorize?${params.toString()}`
 }
 
-function generateConvertKitAuthUrl(state: string): string {
-  const clientId = process.env.NEXT_PUBLIC_CONVERTKIT_CLIENT_ID
-  if (!clientId) throw new Error("ConvertKit client ID not configured")
+function generateKitAuthUrl(state: string): string {
+  const clientId = process.env.NEXT_PUBLIC_KIT_CLIENT_ID
+  if (!clientId) throw new Error("Kit client ID not configured")
 
   const params = new URLSearchParams({
     client_id: clientId,
-    redirect_uri: `https://chainreact.app/api/integrations/convertkit/callback`,
+    redirect_uri: "https://chainreact.app/api/integrations/kit/callback",
     response_type: "code",
     state,
   })
 
-  return `https://app.convertkit.com/oauth/authorize?${params.toString()}`
+  return `https://kit.com/oauth/authorize?${params.toString()}`
 }
 
 function generateBlackbaudAuthUrl(state: string): string {

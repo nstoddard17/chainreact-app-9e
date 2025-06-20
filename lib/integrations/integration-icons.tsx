@@ -33,7 +33,7 @@ export const integrationIcons: Record<string, string> = {
   manychat: '/integrations/manychat.svg',
   gumroad: '/integrations/gumroad.svg',
   beehiiv: '/integrations/beehiiv.svg',
-  convertkit: '/integrations/convertkit.svg',
   blackbaud: '/integrations/blackbaud.svg',
   globalpayments: '/integrations/globalpayments.svg',
+  kit: '/integrations/kit.svg',
 }; 
