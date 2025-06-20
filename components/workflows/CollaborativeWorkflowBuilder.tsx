@@ -26,6 +26,7 @@ import { useCollaborationStore } from "@/stores/collaborationStore"
 import { useIntegrationStore } from "@/stores/integrationStore"
 import ConfigurationPanel from "./ConfigurationPanel"
 import CustomNode from "./CustomNode"
+import { AddActionNode } from "./AddActionNode"
 import { CollaboratorCursors } from "./CollaboratorCursors"
 import { ExecutionMonitor } from "./ExecutionMonitor"
 import { ConflictResolutionDialog } from "./ConflictResolutionDialog"
@@ -77,6 +78,7 @@ import { INTEGRATION_CONFIGS } from "@/lib/integrations/availableIntegrations"
 
 const nodeTypes: NodeTypes = {
   custom: CustomNode,
+  addAction: AddActionNode,
 }
 
 export default function CollaborativeWorkflowBuilder() {
@@ -122,6 +124,7 @@ export default function CollaborativeWorkflowBuilder() {
   
   // New states for the guided approach
   const [showTriggerDialog, setShowTriggerDialog] = useState(false)
+  const [showActionDialog, setShowActionDialog] = useState(false)
   const [selectedIntegration, setSelectedIntegration] = useState<any | null>(null)
 
   const reactFlowWrapper = useRef<HTMLDivElement>(null)
@@ -220,12 +223,11 @@ export default function CollaborativeWorkflowBuilder() {
       // Convert WorkflowNode to ReactFlow Node
       const reactFlowNodes = (currentWorkflow.nodes || []).map((node: any) => ({
         id: node.id,
-        type: 'custom',
+        type: node.type || 'custom',
         position: node.position,
         data: {
           ...node.data,
-          title: node.data.label || node.data.type,
-          type: node.data.type
+          onClick: node.type === 'addAction' ? handleAddActionClick : undefined
         }
       }))
       
@@ -237,7 +239,7 @@ export default function CollaborativeWorkflowBuilder() {
         sourceHandle: conn.sourceHandle,
         targetHandle: conn.targetHandle,
         animated: true,
-        style: { stroke: '#8b5cf6', strokeWidth: 2 }
+        style: { stroke: conn.target.startsWith('add-action') ? '#b1b1b7' : '#8b5cf6', strokeWidth: 2, strokeDasharray: conn.target.startsWith('add-action') ? '5,5' : undefined } as React.CSSProperties
       }))
       
       setNodes(reactFlowNodes)
@@ -381,23 +383,106 @@ export default function CollaborativeWorkflowBuilder() {
   const triggerIntegrations = availableIntegrations.filter(integration => integration.triggers.length > 0)
 
   const handleTriggerSelect = (integration: any, trigger: NodeComponent) => {
-    const newNode: Node = {
-      id: `trigger-${Date.now()}`,
+    const triggerNodeId = crypto.randomUUID()
+    const addActionNodeId = crypto.randomUUID()
+
+    const triggerNode: Node = {
+      id: triggerNodeId,
       type: "custom",
-      position: { x: 400, y: 200 },
+      position: { x: 400, y: 100 },
       data: {
         type: trigger.type,
         title: trigger.title,
         description: trigger.description,
-        provider: integration.id,
-        status: "disconnected",
-        config: {}
+        icon: trigger.icon,
+        providerId: integration.id,
       },
     }
 
-    setNodes((nds) => [...nds, newNode])
+    const addActionNode: Node = {
+      id: addActionNodeId,
+      type: "addAction",
+      position: { x: 400, y: 250 },
+      data: {
+        onClick: handleAddActionClick,
+      },
+    }
+
+    setNodes([triggerNode, addActionNode])
+    setEdges([
+      {
+        id: crypto.randomUUID(),
+        source: triggerNodeId,
+        target: addActionNodeId,
+        animated: true,
+        style: { stroke: '#b1b1b7', strokeWidth: 2, strokeDasharray: '5,5' } as React.CSSProperties,
+      },
+    ])
+
     setShowTriggerDialog(false)
     setSelectedIntegration(null)
+  }
+
+  const handleActionSelect = (integration: any, action: NodeComponent) => {
+    const addActionNode = nodes.find(n => n.type === 'addAction');
+    if (!addActionNode) return;
+
+    const incomingEdge = edges.find(e => e.target === addActionNode.id);
+    if (!incomingEdge) return;
+
+    const parentNodeId = incomingEdge.source;
+
+    const newNodeId = crypto.randomUUID();
+    const newAddActionNodeId = crypto.randomUUID();
+
+    const newNode: Node = {
+      id: newNodeId,
+      type: 'custom',
+      position: { x: addActionNode.position.x, y: addActionNode.position.y },
+      data: {
+        type: action.type,
+        title: action.title,
+        description: action.description,
+        icon: action.icon,
+        providerId: integration.id,
+      }
+    };
+
+    const newAddActionNode: Node = {
+      id: newAddActionNodeId,
+      type: 'addAction',
+      position: { x: addActionNode.position.x, y: addActionNode.position.y + 150 },
+      data: {
+        onClick: handleAddActionClick
+      }
+    };
+    
+    setNodes(prev => [...prev.filter(n => n.id !== addActionNode.id), newNode, newAddActionNode]);
+    
+    const newEdgeToNewNode: Edge = {
+        ...incomingEdge,
+        id: crypto.randomUUID(),
+        target: newNode.id,
+        style: { stroke: '#8b5cf6', strokeWidth: 2 } as React.CSSProperties,
+        animated: true,
+    };
+
+    const newEdgeToAddAction: Edge = {
+        id: crypto.randomUUID(),
+        source: newNode.id,
+        target: newAddActionNode.id,
+        animated: true,
+        style: { stroke: '#b1b1b7', strokeWidth: 2, strokeDasharray: '5,5' } as React.CSSProperties,
+    };
+
+    setEdges(prev => [...prev.filter(e => e.id !== incomingEdge.id), newEdgeToNewNode, newEdgeToAddAction]);
+
+    setShowActionDialog(false);
+    setSelectedIntegration(null);
+  }
+
+  const handleAddActionClick = () => {
+    setShowActionDialog(true)
   }
 
   if (!currentWorkflow) {
@@ -607,41 +692,67 @@ export default function CollaborativeWorkflowBuilder() {
           </DialogContent>
         </Dialog>
 
-        {/* Slim modal for selecting a specific trigger */}
-        {selectedIntegration && (
-          <Dialog open={!!selectedIntegration} onOpenChange={() => setSelectedIntegration(null)}>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
-                <div className="flex items-center space-x-3 mb-4">
-                  <div 
-                    className="w-10 h-10 flex items-center justify-center rounded-lg"
-                    style={{ backgroundColor: selectedIntegration.color }}
-                  >
-                    {renderLogo(selectedIntegration.id, selectedIntegration.name)}
-                  </div>
-                  <DialogTitle className="text-xl">
-                    {selectedIntegration.name} Triggers
-                  </DialogTitle>
+        {/* Action Selection Dialog */}
+        <Dialog open={showActionDialog} onOpenChange={setShowActionDialog}>
+          <DialogContent className="max-w-4xl h-[70vh] flex flex-col">
+            <DialogHeader>
+              <DialogTitle>
+                {selectedIntegration ? `Select an action for ${selectedIntegration.name}` : 'Select an Integration'}
+              </DialogTitle>
+              <DialogDescription>
+                {selectedIntegration
+                  ? 'Choose an action to perform after the previous step.'
+                  : 'Choose an application to connect to.'}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex-grow overflow-y-auto p-4">
+              {!selectedIntegration ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {Object.values(INTEGRATION_CONFIGS)
+                    .filter(integration =>
+                      ALL_NODE_COMPONENTS.some(
+                        node => node.providerId === integration.id && !node.isTrigger
+                      )
+                    )
+                    .map(integration => (
+                      <Card
+                        key={integration.id}
+                        className="p-4 flex flex-col items-center justify-center text-center cursor-pointer hover:shadow-lg transition-all"
+                        onClick={() => setSelectedIntegration(integration)}
+                      >
+                        {renderLogo(integration.id, integration.name)}
+                        <h3 className="mt-3 font-semibold">{integration.name}</h3>
+                        <p className="text-xs text-slate-500 mt-1">{integration.description}</p>
+                      </Card>
+                    ))}
                 </div>
-              </DialogHeader>
-              <div className="flex flex-col space-y-2 max-h-[60vh] overflow-y-auto">
-                {selectedIntegration.triggers.map((trigger: NodeComponent) => (
-                  <button
-                    key={trigger.type}
-                    className="flex items-center p-3 rounded-lg hover:bg-slate-100 transition-colors"
-                    onClick={() => handleTriggerSelect(selectedIntegration, trigger)}
-                  >
-                    <trigger.icon className="w-5 h-5 mr-3 text-slate-600" />
-                    <div className="text-left">
-                      <p className="font-semibold text-slate-800">{trigger.title}</p>
-                      <p className="text-sm text-slate-500">{trigger.description}</p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </DialogContent>
-          </Dialog>
-        )}
+              ) : (
+                <div>
+                  <Button variant="ghost" onClick={() => setSelectedIntegration(null)} className="mb-4">
+                    <ArrowLeft className="w-4 h-4 mr-2" /> Back to Integrations
+                  </Button>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {ALL_NODE_COMPONENTS.filter(
+                      component => component.providerId === selectedIntegration.id && !component.isTrigger
+                    ).map(component => (
+                      <Card
+                        key={component.type}
+                        className="p-4 flex flex-col items-start text-left cursor-pointer hover:shadow-lg transition-all"
+                        onClick={() => handleActionSelect(selectedIntegration, component)}
+                      >
+                        <div className="flex items-center space-x-3 mb-2">
+                          <component.icon className="w-6 h-6 text-slate-700" />
+                          <h3 className="font-semibold">{component.title}</h3>
+                        </div>
+                        <p className="text-xs text-slate-500">{component.description}</p>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* Execution Monitor */}
         {executionEvents.length > 0 && (
