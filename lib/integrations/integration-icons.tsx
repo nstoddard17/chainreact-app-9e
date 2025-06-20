@@ -1,51 +1,39 @@
-import Gmail from '@/public/integrations/gmail.svg';
-import GoogleCalendar from '@/public/integrations/google-calendar.svg';
-import GoogleDrive from '@/public/integrations/google-drive.svg';
-import GoogleSheets from '@/public/integrations/google-sheets.svg';
-import Slack from '@/public/integrations/slack.svg';
-import Notion from '@/public/integrations/notion.svg';
-import GitHub from '@/public/integrations/github.svg';
-import Stripe from '@/public/integrations/stripe.svg';
-import YouTube from '@/public/integrations/youtube.svg';
-import MicrosoftTeams from '@/public/integrations/teams.svg';
-import OneDrive from '@/public/integrations/onedrive.svg';
-import Twitter from '@/public/integrations/twitter.svg';
-import Facebook from '@/public/integrations/facebook.svg';
-import Instagram from '@/public/integrations/instagram.svg';
-import TikTok from '@/public/integrations/tiktok.svg';
-import LinkedIn from '@/public/integrations/linkedin.svg';
-import Trello from '@/public/integrations/trello.svg';
-import Shopify from '@/public/integrations/shopify.svg';
-import GitLab from '@/public/integrations/gitlab.svg';
-import Dropbox from '@/public/integrations/dropbox.svg';
-import Box from '@/public/integrations/box.svg';
-import Airtable from '@/public/integrations/airtable.svg';
-import Mailchimp from '@/public/integrations/mailchimp.svg';
-import HubSpot from '@/public/integrations/hubspot.svg';
-
-export const integrationIcons: Record<string, any> = {
-  gmail: Gmail,
-  'google-calendar': GoogleCalendar,
-  'google-drive': GoogleDrive,
-  'google-sheets': GoogleSheets,
-  slack: Slack,
-  notion: Notion,
-  github: GitHub,
-  stripe: Stripe,
-  youtube: YouTube,
-  teams: MicrosoftTeams,
-  onedrive: OneDrive,
-  twitter: Twitter,
-  facebook: Facebook,
-  instagram: Instagram,
-  tiktok: TikTok,
-  linkedin: LinkedIn,
-  trello: Trello,
-  shopify: Shopify,
-  gitlab: GitLab,
-  dropbox: Dropbox,
-  box: Box,
-  airtable: Airtable,
-  mailchimp: Mailchimp,
-  hubspot: HubSpot,
+export const integrationIcons: Record<string, string> = {
+  gmail: '/integrations/gmail.svg',
+  'google-calendar': '/integrations/google-calendar.svg',
+  'google-drive': '/integrations/google-drive.svg',
+  'google-sheets': '/integrations/google-sheets.svg',
+  slack: '/integrations/slack.svg',
+  notion: '/integrations/notion.svg',
+  github: '/integrations/github.svg',
+  stripe: '/integrations/stripe.svg',
+  youtube: '/integrations/youtube.svg',
+  teams: '/integrations/teams.svg',
+  onedrive: '/integrations/onedrive.svg',
+  twitter: '/integrations/twitter.svg',
+  facebook: '/integrations/facebook.svg',
+  instagram: '/integrations/instagram.svg',
+  tiktok: '/integrations/tiktok.svg',
+  linkedin: '/integrations/linkedin.svg',
+  trello: '/integrations/trello.svg',
+  shopify: '/integrations/shopify.svg',
+  gitlab: '/integrations/gitlab.svg',
+  dropbox: '/integrations/dropbox.svg',
+  box: '/integrations/box.svg',
+  airtable: '/integrations/airtable.svg',
+  mailchimp: '/integrations/mailchimp.svg',
+  hubspot: '/integrations/hubspot.svg',
+  x: '/integrations/x.svg',
+  'google-docs': '/integrations/google-docs.svg',
+  discord: '/integrations/discord.svg',
+  paypal: '/integrations/paypal.svg',
+  canva: '/integrations/canva.svg',
+  'microsoft-forms': '/integrations/microsoft-forms.svg',
+  'youtube-studio': '/integrations/youtube-studio.svg',
+  manychat: '/integrations/manychat.svg',
+  gumroad: '/integrations/gumroad.svg',
+  beehiiv: '/integrations/beehiiv.svg',
+  convertkit: '/integrations/convertkit.svg',
+  blackbaud: '/integrations/blackbaud.svg',
+  globalpayments: '/integrations/globalpayments.svg',
 }; 
