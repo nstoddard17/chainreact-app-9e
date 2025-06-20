@@ -571,7 +571,7 @@ export default function CollaborativeWorkflowBuilder() {
           )}
         </div>
 
-                {/* Trigger Selection Dialog */}
+        {/* Trigger Selection Dialog */}
         <Dialog open={showTriggerDialog} onOpenChange={setShowTriggerDialog}>
           <DialogContent className="max-w-5xl max-h-[85vh]">
             <DialogHeader>
