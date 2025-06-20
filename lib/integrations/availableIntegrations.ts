@@ -18,6 +18,7 @@ export interface IntegrationConfig {
   tokenUrl?: string
   revokeUrl?: string
   color: string
+  logo?: any
   docsUrl?: string
   authType?: "oauth" | "apiKey"
 }

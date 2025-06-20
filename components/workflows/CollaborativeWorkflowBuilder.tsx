@@ -74,6 +74,7 @@ import {
 import { cn } from "@/lib/utils"
 import { ALL_NODE_COMPONENTS, NodeComponent } from "@/lib/workflows/availableNodes"
 import { INTEGRATION_CONFIGS } from "@/lib/integrations/availableIntegrations"
+import { integrationIcons } from "@/lib/integrations/integration-icons"
 
 const nodeTypes: NodeTypes = {
   custom: CustomNode,
@@ -122,6 +123,7 @@ export default function CollaborativeWorkflowBuilder() {
   
   // New states for the guided approach
   const [showTriggerDialog, setShowTriggerDialog] = useState(false)
+  const [selectedIntegration, setSelectedIntegration] = useState<any | null>(null)
 
   const reactFlowWrapper = useRef<HTMLDivElement>(null)
   const cursorUpdateTimer = useRef<NodeJS.Timeout | null>(null)
@@ -335,18 +337,18 @@ export default function CollaborativeWorkflowBuilder() {
 
   // Get available integrations grouped by category
   const getIntegrationsFromNodes = () => {
-    const integrationMap: Record<
-      string,
-      {
+    const integrationMap: {
+      [key: string]: {
         id: string
         name: string
+        logo: any
         description: string
         category: string
         color: string
         triggers: NodeComponent[]
         actions: NodeComponent[]
       }
-    > = {}
+    } = {}
 
     for (const integrationId in INTEGRATION_CONFIGS) {
       const config = INTEGRATION_CONFIGS[integrationId]
@@ -354,6 +356,7 @@ export default function CollaborativeWorkflowBuilder() {
         integrationMap[integrationId] = {
           id: config.id,
           name: config.name,
+          logo: integrationIcons[config.id],
           description: config.description,
           category: config.category,
           color: config.color,
@@ -396,6 +399,7 @@ export default function CollaborativeWorkflowBuilder() {
 
     setNodes((nds) => [...nds, newNode])
     setShowTriggerDialog(false)
+    setSelectedIntegration(null)
   }
 
   if (!currentWorkflow) {
@@ -571,7 +575,7 @@ export default function CollaborativeWorkflowBuilder() {
           )}
         </div>
 
-                {/* Trigger Selection Dialog */}
+        {/* Trigger Selection Dialog */}
         <Dialog open={showTriggerDialog} onOpenChange={setShowTriggerDialog}>
           <DialogContent className="max-w-5xl max-h-[85vh]">
             <DialogHeader>
@@ -586,18 +590,13 @@ export default function CollaborativeWorkflowBuilder() {
                 <Card 
                   key={integration.id}
                   className="p-4 hover:shadow-lg hover:scale-105 transition-all duration-200 cursor-pointer flex flex-col items-center justify-center text-center space-y-2"
-                  onClick={() => {
-                    // For now, just select the first trigger
-                    if (integration.triggers.length > 0) {
-                      handleTriggerSelect(integration, integration.triggers[0])
-                    }
-                  }}
+                  onClick={() => setSelectedIntegration(integration)}
                 >
                   <div 
                     className="w-12 h-12 flex items-center justify-center mb-2 rounded-lg"
                     style={{ backgroundColor: integration.color }}
                   >
-                    {renderLogo(integration.id, integration.name)}
+                    {integration.logo && <integration.logo className="w-7 h-7 text-white" />}
                   </div>
                   <p className="font-semibold text-slate-800">{integration.name}</p>
                   <p className="text-xs text-slate-500">
@@ -609,6 +608,42 @@ export default function CollaborativeWorkflowBuilder() {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Slim modal for selecting a specific trigger */}
+        {selectedIntegration && (
+          <Dialog open={!!selectedIntegration} onOpenChange={() => setSelectedIntegration(null)}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <div className="flex items-center space-x-3 mb-4">
+                  <div 
+                    className="w-10 h-10 flex items-center justify-center rounded-lg"
+                    style={{ backgroundColor: selectedIntegration.color }}
+                  >
+                    {selectedIntegration.logo && <selectedIntegration.logo className="w-6 h-6 text-white" />}
+                  </div>
+                  <DialogTitle className="text-xl">
+                    {selectedIntegration.name} Triggers
+                  </DialogTitle>
+                </div>
+              </DialogHeader>
+              <div className="flex flex-col space-y-2 max-h-[60vh] overflow-y-auto">
+                {selectedIntegration.triggers.map((trigger: NodeComponent) => (
+                  <button
+                    key={trigger.type}
+                    className="flex items-center p-3 rounded-lg hover:bg-slate-100 transition-colors"
+                    onClick={() => handleTriggerSelect(selectedIntegration, trigger)}
+                  >
+                    <trigger.icon className="w-5 h-5 mr-3 text-slate-600" />
+                    <div className="text-left">
+                      <p className="font-semibold text-slate-800">{trigger.title}</p>
+                      <p className="text-sm text-slate-500">{trigger.description}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
 
         {/* Execution Monitor */}
         {executionEvents.length > 0 && (
