@@ -495,7 +495,7 @@ function generateMailchimpAuthUrl(state: string): string {
     client_id: clientId,
     redirect_uri: "https://chainreact.app/api/integrations/mailchimp/callback",
     response_type: "code",
-    scope: "campaigns audience automation root",
+    scope: "campaigns.read campaigns.write audience.read audience.write automation.read automation.write",
     state,
   })
 
