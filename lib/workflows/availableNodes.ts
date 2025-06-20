@@ -186,6 +186,14 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     requiredScopes: ["https://www.googleapis.com/auth/gmail.send"],
     category: "Email",
     isTrigger: false,
+    configSchema: [
+      { key: "to", label: "To", type: "email", placeholder: "recipient@example.com" },
+      { key: "cc", label: "CC", type: "email", placeholder: "optional: cc@example.com" },
+      { key: "bcc", label: "BCC", type: "email", placeholder: "optional: bcc@example.com" },
+      { key: "subject", label: "Subject", type: "text", placeholder: "Your email subject" },
+      { key: "body", label: "Body", type: "textarea", placeholder: "Your email body" },
+      { key: "attachment", label: "Attachment URL", type: "text", placeholder: "Optional: URL to a file" },
+    ],
   },
 
   // Google Calendar
