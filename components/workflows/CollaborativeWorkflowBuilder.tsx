@@ -128,6 +128,7 @@ export default function CollaborativeWorkflowBuilder() {
   const [showTriggerDialog, setShowTriggerDialog] = useState(false)
   const [showActionDialog, setShowActionDialog] = useState(false)
   const [selectedIntegration, setSelectedIntegration] = useState<any | null>(null)
+  const [sourceAddNode, setSourceAddNode] = useState<{ id: string, parentId: string } | null>(null)
 
   const { fitView } = useReactFlow()
   const reactFlowWrapper = useRef<HTMLDivElement>(null)
@@ -456,7 +457,7 @@ export default function CollaborativeWorkflowBuilder() {
       type: "addAction",
       position: { x: triggerNode.position.x, y: triggerNode.position.y + 150 },
       data: {
-        onClick: handleAddActionClick,
+        onClick: () => handleAddActionClick(addActionNodeId, triggerNodeId),
       },
     }
 
@@ -478,21 +479,24 @@ export default function CollaborativeWorkflowBuilder() {
   }
 
   const handleActionSelect = (integration: any, action: NodeComponent) => {
-    const addActionNode = nodes.find(n => n.type === 'addAction');
-    if (!addActionNode) return;
+    if (!sourceAddNode) return
 
-    const incomingEdge = edges.find(e => e.target === addActionNode.id);
-    if (!incomingEdge) return;
+    const parentNode = nodes.find(n => n.id === sourceAddNode.parentId)
+    if (!parentNode) return
 
-    const parentNodeId = incomingEdge.source;
+    const addActionNode = nodes.find(n => n.id === sourceAddNode.id)
+    if (!addActionNode) return
 
-    const newNodeId = crypto.randomUUID();
-    const newAddActionNodeId = crypto.randomUUID();
+    const incomingEdge = edges.find(e => e.target === addActionNode.id)
+    if (!incomingEdge) return
+
+    const newNodeId = crypto.randomUUID()
+    const newAddActionNodeId = crypto.randomUUID()
 
     const newNode: Node = {
       id: newNodeId,
-      type: 'custom',
-      position: { x: addActionNode.position.x, y: addActionNode.position.y },
+      type: "custom",
+      position: { x: parentNode.position.x, y: addActionNode.position.y },
       data: {
         type: action.type,
         title: action.title,
@@ -500,46 +504,48 @@ export default function CollaborativeWorkflowBuilder() {
         icon: action.icon,
         providerId: integration.id,
         isTrigger: action.isTrigger,
-      }
-    };
+      },
+    }
 
     const newAddActionNode: Node = {
       id: newAddActionNodeId,
-      type: 'addAction',
-      position: { x: addActionNode.position.x, y: addActionNode.position.y + 150 },
+      type: "addAction",
+      position: { x: parentNode.position.x, y: newNode.position.y + 150 },
       data: {
-        onClick: handleAddActionClick
-      }
-    };
-    
-    setNodes(prev => [...prev.filter(n => n.id !== addActionNode.id), newNode, newAddActionNode]);
-    
+        onClick: () => handleAddActionClick(newAddActionNodeId, newNodeId),
+      },
+    }
+
+    setNodes(prev => [...prev.filter(n => n.id !== addActionNode.id), newNode, newAddActionNode])
+
     const newEdgeToNewNode: Edge = {
-        ...incomingEdge,
-        id: crypto.randomUUID(),
-        target: newNode.id,
-        style: { stroke: '#8b5cf6', strokeWidth: 2 } as React.CSSProperties,
-        animated: true,
-        type: 'straight',
-    };
+      ...incomingEdge,
+      id: crypto.randomUUID(),
+      target: newNode.id,
+      style: { stroke: "#8b5cf6", strokeWidth: 2 } as React.CSSProperties,
+      animated: true,
+      type: "straight",
+    }
 
     const newEdgeToAddAction: Edge = {
-        id: crypto.randomUUID(),
-        source: newNode.id,
-        target: newAddActionNode.id,
-        animated: true,
-        style: { stroke: '#b1b1b7', strokeWidth: 2, strokeDasharray: '5,5' } as React.CSSProperties,
-        type: 'straight',
-    };
+      id: crypto.randomUUID(),
+      source: newNode.id,
+      target: newAddActionNode.id,
+      animated: true,
+      style: { stroke: "#b1b1b7", strokeWidth: 2, strokeDasharray: "5,5" } as React.CSSProperties,
+      type: "straight",
+    }
 
-    setEdges(prev => [...prev.filter(e => e.id !== incomingEdge.id), newEdgeToNewNode, newEdgeToAddAction]);
+    setEdges(prev => [...prev.filter(e => e.id !== incomingEdge.id), newEdgeToNewNode, newEdgeToAddAction])
 
-    setShowActionDialog(false);
-    setSelectedIntegration(null);
+    setShowActionDialog(false)
+    setSelectedIntegration(null)
+    setSourceAddNode(null)
     setTimeout(() => fitView({ duration: 300 }), 0)
   }
 
-  const handleAddActionClick = () => {
+  const handleAddActionClick = (nodeId: string, parentId: string) => {
+    setSourceAddNode({ id: nodeId, parentId })
     setShowActionDialog(true)
   }
 
