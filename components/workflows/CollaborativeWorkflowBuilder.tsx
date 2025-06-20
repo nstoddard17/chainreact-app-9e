@@ -340,7 +340,6 @@ export default function CollaborativeWorkflowBuilder() {
       {
         id: string
         name: string
-        logo: any
         description: string
         category: string
         color: string
@@ -355,7 +354,6 @@ export default function CollaborativeWorkflowBuilder() {
         integrationMap[integrationId] = {
           id: config.id,
           name: config.name,
-          logo: integrationIcons[config.id],
           description: config.description,
           category: config.category,
           color: config.color,
