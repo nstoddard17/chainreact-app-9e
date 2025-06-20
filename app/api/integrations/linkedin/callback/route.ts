@@ -81,14 +81,21 @@ export async function GET(request: NextRequest) {
     const expiresAt = expiresIn ? new Date(new Date().getTime() + expiresIn * 1000) : null
 
     // Get user info
+    console.log('LinkedIn: Attempting to get user info with token:', tokenData.access_token ? 'TOKEN_PRESENT' : 'NO_TOKEN')
+    
     const userResponse = await fetch("https://api.linkedin.com/v2/me", {
       headers: {
         Authorization: `Bearer ${tokenData.access_token}`,
       },
     })
 
+    console.log('LinkedIn user info response status:', userResponse.status)
+    console.log('LinkedIn user info response headers:', Object.fromEntries(userResponse.headers.entries()))
+
     if (!userResponse.ok) {
-      throw new Error("Failed to get LinkedIn user info")
+      const errorText = await userResponse.text()
+      console.error('LinkedIn user info error response:', errorText)
+      throw new Error(`Failed to get LinkedIn user info: ${userResponse.status} ${errorText}`)
     }
 
     const userData = await userResponse.json()
