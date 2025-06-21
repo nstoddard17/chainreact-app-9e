@@ -10,6 +10,7 @@ interface Integration {
   expires_at?: string | number
   refresh_token_expires_at?: string | number
   user_id: string
+  status?: string
   [key: string]: any
 }
 
@@ -62,58 +63,53 @@ export async function refreshTokenIfNeeded(integration: Integration): Promise<Re
   ].includes(integration.provider)
 
   // Determine if refresh is needed
-  let needsRefresh = false
-  const accessTokenRefreshThreshold = isGoogleOrMicrosoft ? 1800 : 300 // 30 min vs 5 min
-  const refreshTokenRefreshThreshold = 86400 * 7 // 7 days for all providers
+  let needsRefresh = false;
+  const now = Math.floor(Date.now() / 1000);
+  const THIRTY_MINUTES = 30 * 60; // 30 minutes in seconds
 
+  // Check if the token expires within 30 minutes or has already expired
   if (integration.expires_at) {
     const expiresAtTimestamp =
       typeof integration.expires_at === "string"
         ? new Date(integration.expires_at).getTime() / 1000
-        : integration.expires_at
+        : integration.expires_at;
 
-    const now = Math.floor(Date.now() / 1000)
-    const expiresIn = expiresAtTimestamp - now
-    if (expiresIn < accessTokenRefreshThreshold) {
-      needsRefresh = true
+    const expiresIn = expiresAtTimestamp - now;
+    
+    if (expiresIn <= THIRTY_MINUTES) {
+      needsRefresh = true;
+      const status = expiresIn <= 0 ? "already expired" : "expires within 30 minutes";
+      console.log(`Token for ${integration.provider} ${status} (${expiresIn}s). Refreshing...`);
     }
   } else if (isGoogleOrMicrosoft) {
     // For Google/Microsoft without expiry, refresh proactively
-    needsRefresh = true
+    needsRefresh = true;
+    console.log(`Google/Microsoft integration (${integration.provider}) without expiry time. Refreshing proactively.`);
   }
 
-  // Check if refresh token is expiring
-  if (!needsRefresh && integration.refresh_token_expires_at) {
-    const refreshTokenExpiresAtTimestamp =
-      typeof integration.refresh_token_expires_at === "string"
-        ? new Date(integration.refresh_token_expires_at).getTime() / 1000
-        : integration.refresh_token_expires_at
-    
-    const now = Math.floor(Date.now() / 1000)
-    const expiresIn = refreshTokenExpiresAtTimestamp - now
-    if (expiresIn < refreshTokenRefreshThreshold) {
-      console.log(`Refresh token for ${integration.provider} is expiring soon. Triggering refresh.`)
-      needsRefresh = true
-    }
+  // Always try to refresh if marked as expired or needs_reauthorization
+  if (integration.status === "expired" || integration.status === "needs_reauthorization") {
+    needsRefresh = true;
+    console.log(`Integration ${integration.provider} is marked as ${integration.status}. Attempting recovery...`);
   }
 
-  if (!needsRefresh && !isGoogleOrMicrosoft) {
+  if (!needsRefresh) {
     return {
       refreshed: false,
       success: true,
-      message: "Token not due for refresh",
+      message: "Token not due for refresh (expires in more than 30 minutes)",
     }
   }
 
   // Attempt token refresh
   try {
-    const result = await refreshTokenByProvider(integration)
+    const result = await refreshTokenByProvider(integration);
 
     if (result.success && result.newToken) {
       // Update the token in the database
-      const supabase = createAdminClient()
+      const supabase = createAdminClient();
       if (!supabase) {
-        throw new Error("Failed to create database client")
+        throw new Error("Failed to create database client");
       }
 
       const updateData: any = {
@@ -121,37 +117,46 @@ export async function refreshTokenIfNeeded(integration: Integration): Promise<Re
         last_token_refresh: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         consecutive_failures: 0, // Reset failure count on success
+      };
+
+      // Always set status to connected if we successfully refreshed a token
+      const isRecovered = integration.status === "expired" || integration.status === "needs_reauthorization";
+      
+      updateData.status = "connected";
+      if (isRecovered) {
+        console.log(`Successfully recovered ${integration.provider} from ${integration.status} status`);
+        updateData.disconnected_at = null;
+        updateData.disconnect_reason = null;
       }
 
       // Set expiry based on provider type
-      if (isGoogleOrMicrosoft) {
-        // For Google/Microsoft, use the actual expiry time from the token refresh response
-        if (result.newExpiry) {
-          updateData.expires_at = new Date(result.newExpiry * 1000).toISOString()
-        } else {
-          // Default to 1 hour if no expiry provided
-          const expiryTimestamp = Math.floor(Date.now() / 1000) + 3600
-          updateData.expires_at = new Date(expiryTimestamp * 1000).toISOString()
-        }
-      } else if (result.newExpiry) {
-        updateData.expires_at = new Date(result.newExpiry * 1000).toISOString()
+      if (result.newExpiry) {
+        updateData.expires_at = new Date(result.newExpiry * 1000).toISOString();
+      } else if (isGoogleOrMicrosoft) {
+        // Default to 1 hour if no expiry provided for Google/Microsoft
+        const expiryTimestamp = Math.floor(Date.now() / 1000) + 3600;
+        updateData.expires_at = new Date(expiryTimestamp * 1000).toISOString();
       }
 
       // Update refresh token if provided
       if (result.newRefreshToken) {
-        updateData.refresh_token = result.newRefreshToken
+        updateData.refresh_token = result.newRefreshToken;
       }
 
       if (result.newRefreshTokenExpiry) {
-        updateData.refresh_token_expires_at = new Date(result.newRefreshTokenExpiry * 1000).toISOString()
+        updateData.refresh_token_expires_at = new Date(result.newRefreshTokenExpiry * 1000).toISOString();
       }
 
-      const { error } = await supabase.from("integrations").update(updateData).eq("id", integration.id)
+      const { error } = await supabase.from("integrations").update(updateData).eq("id", integration.id);
 
       if (error) {
-        console.error("Failed to update integration after token refresh:", error)
+        console.error("Failed to update integration after token refresh:", error);
         // Even if DB update fails, return success because token was technically refreshed
-        return { ...result, refreshed: true }
+        return { 
+          ...result, 
+          refreshed: true, 
+          recovered: isRecovered
+        };
       }
 
       // Fetch the updated integration to return it
@@ -159,18 +164,27 @@ export async function refreshTokenIfNeeded(integration: Integration): Promise<Re
         .from("integrations")
         .select("*")
         .eq("id", integration.id)
-        .single()
+        .single();
 
       if (fetchError) {
-        console.error("Failed to fetch updated integration:", fetchError)
+        console.error("Failed to fetch updated integration:", fetchError);
         // Return original result if fetch fails
-        return { ...result, refreshed: true }
+        return { 
+          ...result, 
+          refreshed: true,
+          recovered: isRecovered
+        };
       }
 
-      return { ...result, refreshed: true, updatedIntegration }
+      return { 
+        ...result, 
+        refreshed: true, 
+        recovered: isRecovered,
+        updatedIntegration 
+      };
     } else if (result.requiresReconnect) {
       // Mark integration as disconnected
-      const supabase = createAdminClient()
+      const supabase = createAdminClient();
       if (supabase) {
         await supabase
           .from("integrations")
@@ -180,59 +194,58 @@ export async function refreshTokenIfNeeded(integration: Integration): Promise<Re
             disconnect_reason: result.message,
             updated_at: new Date().toISOString(),
           })
-          .eq("id", integration.id)
+          .eq("id", integration.id);
 
         // Create notification for user
         try {
           await supabase.rpc("create_token_expiry_notification", {
             p_user_id: integration.user_id,
             p_provider: integration.provider,
-          })
+          });
         } catch (notifError) {
-          console.error(`Failed to create notification for ${integration.provider}:`, notifError)
+          console.error(`Failed to create notification for ${integration.provider}:`, notifError);
         }
       }
     }
 
-    return result
+    return result;
   } catch (error) {
-    console.error(`Error refreshing token for ${integration.provider}:`, error)
+    console.error(`Error refreshing token for ${integration.provider}:`, error);
 
     // Update failure count and check if we should mark as expired
-    const supabase = createAdminClient()
+    const supabase = createAdminClient();
     if (supabase) {
       const updateData: any = {
         consecutive_failures: (integration.consecutive_failures || 0) + 1,
         last_failure_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-      }
+      };
 
       // Check if the token is actually expired and update status accordingly
       if (integration.expires_at) {
         const expiresAtTimestamp =
           typeof integration.expires_at === "string"
             ? new Date(integration.expires_at).getTime() / 1000
-            : integration.expires_at
-        const now = Math.floor(Date.now() / 1000)
+            : integration.expires_at;
         
-        if (expiresAtTimestamp < now) {
-          // Token is actually expired, update status
-          updateData.status = "expired"
-          console.log(`Marking ${integration.provider} as expired due to failed refresh`)
+        if (expiresAtTimestamp < now && integration.status === "connected") {
+          // Token is actually expired, update status only if it's currently "connected"
+          updateData.status = "expired";
+          console.log(`Marking ${integration.provider} as expired due to failed refresh and expired token`);
         }
       }
 
       await supabase
         .from("integrations")
         .update(updateData)
-        .eq("id", integration.id)
+        .eq("id", integration.id);
     }
 
     return {
       refreshed: false,
       success: false,
       message: `Failed to refresh token: ${(error as Error).message}`,
-    }
+    };
   }
 }
 

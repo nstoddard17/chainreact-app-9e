@@ -30,6 +30,14 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
   const [isInitializing, setIsInitializing] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [openGuideForProviderId, setOpenGuideForProviderId] = useState<string | null>(null)
+  const [metrics, setMetrics] = useState({
+    connected: 0,
+    expiring: 0,
+    expired: 0,
+    disconnected: 0,
+    total: 0
+  })
+  const [loadingMetrics, setLoadingMetrics] = useState(false)
   const { toast } = useToast()
 
   const {
@@ -54,8 +62,35 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
   useEffect(() => {
     if (user) {
       fetchIntegrations()
+      fetchMetrics()
     }
   }, [user, fetchIntegrations])
+
+  const fetchMetrics = async () => {
+    if (!user) return
+    
+    try {
+      setLoadingMetrics(true)
+      const response = await fetch("/api/analytics/integration-metrics")
+      if (!response.ok) {
+        throw new Error("Failed to fetch integration metrics")
+      }
+      
+      const data = await response.json()
+      if (data.success && data.data) {
+        setMetrics(data.data)
+      }
+    } catch (error) {
+      console.error("Error fetching integration metrics:", error)
+    } finally {
+      setLoadingMetrics(false)
+    }
+  }
+  
+  const handleRefresh = () => {
+    fetchIntegrations()
+    fetchMetrics()
+  }
 
   const handleConnect = useCallback(
     async (providerId: string) => {
@@ -100,6 +135,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
                 variant: "default",
               })
               fetchIntegrations()
+              fetchMetrics()
             } else if (event.data.status === "error") {
               toast({
                 title: "Integration Error",
@@ -154,6 +190,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
             description: `${integration.provider} has been successfully disconnected.`,
           })
           fetchIntegrations()
+          fetchMetrics()
         } else {
           toast({
             title: "Error",
@@ -188,10 +225,10 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
         } else if (integration.expires_at) {
           const expiresAt = new Date(integration.expires_at)
           const now = new Date()
-          const sevenDays = 7 * 24 * 60 * 60 * 1000
+          const tenMinutes = 10 * 60 * 1000 // 10 minutes in milliseconds
           if (expiresAt.getTime() < now.getTime()) {
             status = "expired"
-          } else if (expiresAt.getTime() - now.getTime() < sevenDays) {
+          } else if (expiresAt.getTime() - now.getTime() < tenMinutes) {
             status = "expiring"
           } else {
             status = "connected"
@@ -285,7 +322,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
   }
 
   // Extract the status summary content for reuse
-  const StatusSummaryContent = ({ autoRefresh, setAutoRefresh, connected, expiring, expired, disconnected }: any) => (
+  const StatusSummaryContent = ({ autoRefresh, setAutoRefresh }: any) => (
     <Card className="shadow-sm rounded-lg border-gray-200">
       <CardHeader className="pb-3 sm:pb-4">
         <CardTitle className="text-base sm:text-lg font-semibold">Integration Status</CardTitle>
@@ -298,7 +335,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
               <span className="text-sm sm:text-base font-medium">Connected</span>
             </span>
             <Badge variant="secondary" className="font-mono bg-green-50 text-green-700 text-xs sm:text-sm">
-              {connected}
+              {loadingMetrics ? '...' : metrics.connected}
             </Badge>
           </li>
           <li className="flex justify-between items-center">
@@ -307,7 +344,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
               <span className="text-sm sm:text-base font-medium">Expiring</span>
             </span>
             <Badge variant="secondary" className="font-mono bg-yellow-50 text-yellow-700 text-xs sm:text-sm">
-              {expiring}
+              {loadingMetrics ? '...' : metrics.expiring}
             </Badge>
           </li>
           <li className="flex justify-between items-center">
@@ -316,7 +353,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
               <span className="text-sm sm:text-base font-medium">Expired</span>
             </span>
             <Badge variant="secondary" className="font-mono bg-red-50 text-red-700 text-xs sm:text-sm">
-              {expired}
+              {loadingMetrics ? '...' : metrics.expired}
             </Badge>
           </li>
           <li className="flex justify-between items-center">
@@ -325,7 +362,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
               <span className="text-sm sm:text-base font-medium">Disconnected</span>
             </span>
             <Badge variant="secondary" className="font-mono bg-gray-50 text-gray-700 text-xs sm:text-sm">
-              {disconnected}
+              {loadingMetrics ? '...' : metrics.disconnected}
             </Badge>
           </li>
         </ul>
@@ -352,12 +389,12 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
           </div>
           <div className="flex gap-2">
             <Button 
-              onClick={() => {}} 
-              disabled={loading} 
+              onClick={handleRefresh} 
+              disabled={loading || loadingMetrics} 
               variant="outline"
               className="w-full sm:w-auto text-sm sm:text-base"
             >
-              {loading ? (
+              {(loading || loadingMetrics) ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Refreshing...
@@ -414,10 +451,6 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
                 <StatusSummaryContent
                   autoRefresh={autoRefresh}
                   setAutoRefresh={setAutoRefresh}
-                  connected={filteredProviders.length}
-                  expiring={0}
-                  expired={0}
-                  disconnected={0}
                 />
               </div>
             </div>
@@ -428,10 +461,6 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
               <StatusSummaryContent
                 autoRefresh={autoRefresh}
                 setAutoRefresh={setAutoRefresh}
-                connected={filteredProviders.length}
-                expiring={0}
-                expired={0}
-                disconnected={0}
               />
             </div>
           </aside>
