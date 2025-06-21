@@ -101,19 +101,42 @@ export async function GET(request: NextRequest) {
     const userData = await userResponse.json()
 
     // Get user email
-    const emailResponse = await fetch("https://api.linkedin.com/v2/emailAddress?q=members&projection=(elements*(handle~))", {
-      headers: {
-        Authorization: `Bearer ${tokenData.access_token}`,
-      },
-    })
+    try {
+      // First try the emailAddress endpoint (r_emailaddress scope)
+      const emailResponse = await fetch("https://api.linkedin.com/v2/emailAddress?q=members&projection=(elements*(handle~))", {
+        headers: {
+          Authorization: `Bearer ${tokenData.access_token}`,
+        },
+      })
 
-    if (!emailResponse.ok) {
-      console.log('Failed to get LinkedIn email, continuing with profile only')
-    } else {
-      const emailData = await emailResponse.json()
-      if (emailData?.elements?.[0]?.['handle~']?.emailAddress) {
-        userData.email = emailData.elements[0]['handle~'].emailAddress
+      if (emailResponse.ok) {
+        const emailData = await emailResponse.json()
+        if (emailData?.elements?.[0]?.['handle~']?.emailAddress) {
+          userData.email = emailData.elements[0]['handle~'].emailAddress
+          console.log('LinkedIn: Successfully retrieved email via r_emailaddress scope')
+        }
+      } else {
+        console.log('LinkedIn: Could not get email via r_emailaddress, status:', emailResponse.status)
+        
+        // Try OpenID Connect userinfo endpoint as fallback (email scope)
+        const userinfoResponse = await fetch("https://api.linkedin.com/v2/userinfo", {
+          headers: {
+            Authorization: `Bearer ${tokenData.access_token}`,
+          },
+        })
+        
+        if (userinfoResponse.ok) {
+          const userinfoData = await userinfoResponse.json()
+          if (userinfoData.email) {
+            userData.email = userinfoData.email
+            console.log('LinkedIn: Successfully retrieved email via OpenID Connect')
+          }
+        } else {
+          console.log('LinkedIn: Could not get email via OpenID Connect, status:', userinfoResponse.status)
+        }
       }
+    } catch (error) {
+      console.error('LinkedIn: Error fetching email:', error)
     }
 
     const integrationData = {
