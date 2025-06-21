@@ -1,4 +1,4 @@
-;export function createPopupResponse(
+export function createPopupResponse(
   type: "success" | "error",
   provider: string,
   message: string,
@@ -7,13 +7,18 @@
   const title = type === "success" ? `${provider} Connection Successful` : `${provider} Connection Failed`
   const header = type === "success" ? `${provider} Connected!` : `Error Connecting ${provider}`
   const status = type === "success" ? 200 : 500
+  
+  // Ensure strings are properly escaped for JavaScript
+  const safeProvider = provider.replace(/[\\'"]/g, '\\$&');
+  const safeMessage = message.replace(/[\\'"]/g, '\\$&');
+  
   const script = `
     <script>
       if (window.opener) {
         window.opener.postMessage({
             type: 'oauth-${type}',
-            provider: '${provider}',
-            message: '${message}'
+            provider: '${safeProvider}',
+            message: '${safeMessage}'
         }, '${baseUrl}');
         setTimeout(() => window.close(), 500);
       } else {

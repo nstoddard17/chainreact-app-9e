@@ -3,6 +3,9 @@ import { createPopupResponse } from "@/lib/utils/createPopupResponse"
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 
 function createTrelloInitialPage(baseUrl: string, state: string | null) {
+  // Ensure state is safely encoded
+  const safeState = state ? state.replace(/[\\'"]/g, '\\$&') : '';
+  
   const html = `
     <!DOCTYPE html>
     <html>
@@ -13,7 +16,7 @@ function createTrelloInitialPage(baseUrl: string, state: string | null) {
             const hash = window.location.hash.substring(1);
             const params = new URLSearchParams(hash);
             const token = params.get('token');
-            const stateFromUrl = '${state}'; // Use state passed from server
+            const stateFromUrl = '${safeState}'; // Use state passed from server
 
             if (token && stateFromUrl) {
               try {
@@ -43,8 +46,9 @@ function createTrelloInitialPage(baseUrl: string, state: string | null) {
                 }
 
               } catch (error) {
+                const errorMessage = error.message ? error.message.replace(/[\\'"]/g, '\\$&') : 'An unknown error occurred.';
                 if (window.opener) {
-                  window.opener.postMessage({ type: 'oauth-error', provider: 'trello', message: error.message || 'An unknown error occurred.' }, '${baseUrl}');
+                  window.opener.postMessage({ type: 'oauth-error', provider: 'trello', message: errorMessage }, '${baseUrl}');
                 }
               } finally {
                 // Ensure the window always closes
