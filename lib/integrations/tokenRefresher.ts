@@ -390,7 +390,7 @@ async function refreshMicrosoftToken(
         client_secret: clientSecret,
         refresh_token: refreshToken,
         grant_type: "refresh_token",
-        scope: "offline_access",
+        scope: "offline_access User.Read Mail.ReadWrite Calendars.ReadWrite Files.ReadWrite.All",
       }),
     })
 
