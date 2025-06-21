@@ -11,7 +11,6 @@ import {
   Building2,
   Shield,
   Users,
-  Code,
   GraduationCap,
   X,
 } from "lucide-react"
@@ -32,7 +31,6 @@ const navigation = [
   { name: "Teams", href: "/teams", icon: Building2 },
   { name: "Learn", href: "/learn", icon: GraduationCap },
   { name: "Community", href: "/community", icon: Users },
-  { name: "Developer", href: "/developer", icon: Code },
   { name: "Enterprise", href: "/enterprise", icon: Shield },
   { name: "Settings", href: "/settings", icon: Settings },
 ]
