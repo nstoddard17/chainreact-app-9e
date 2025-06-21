@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
         grant_type: 'authorization_code',
         client_id: clientId,
         redirect_uri: redirectUri,
-        code_verifier: 'challenge', // PKCE support
+        code_verifier: code_verifier, // PKCE support
       }),
     })
 
