@@ -185,11 +185,12 @@ export async function POST(request: NextRequest) {
 function generateSlackAuthUrl(state: string): string {
   const clientId = process.env.NEXT_PUBLIC_SLACK_CLIENT_ID
   if (!clientId) throw new Error("Slack client ID not configured")
+  const baseUrl = getBaseUrl()
 
   const params = new URLSearchParams({
     client_id: clientId,
     scope: "channels:read,chat:write,users:read",
-    redirect_uri: "https://chainreact.app/api/integrations/slack/callback",
+    redirect_uri: `${baseUrl}/api/integrations/slack/callback`,
     state,
     response_type: "code",
   })
@@ -207,10 +208,11 @@ function generateSlackAuthUrl(state: string): string {
 function generateDiscordAuthUrl(state: string): string {
   const clientId = process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID
   if (!clientId) throw new Error("Discord client ID not configured")
+  const baseUrl = getBaseUrl()
 
   const params = new URLSearchParams({
     client_id: clientId,
-    redirect_uri: "https://chainreact.app/api/integrations/discord/callback",
+    redirect_uri: `${baseUrl}/api/integrations/discord/callback`,
     response_type: "code",
     scope: "identify guilds",
     state,
@@ -223,10 +225,11 @@ function generateDiscordAuthUrl(state: string): string {
 function generateGitHubAuthUrl(state: string): string {
   const clientId = process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID
   if (!clientId) throw new Error("GitHub client ID not configured")
+  const baseUrl = getBaseUrl()
 
   const params = new URLSearchParams({
     client_id: clientId,
-    redirect_uri: "https://chainreact.app/api/integrations/github/callback",
+    redirect_uri: `${baseUrl}/api/integrations/github/callback`,
     scope: "repo user:email read:org",
     state,
     response_type: "code",
@@ -301,6 +304,7 @@ function generateNotionAuthUrl(state: string): string {
 async function generateTwitterAuthUrl(stateObject: any, supabase: any): Promise<string> {
   const clientId = process.env.NEXT_PUBLIC_TWITTER_CLIENT_ID
   if (!clientId) throw new Error("Twitter client ID not configured")
+  const baseUrl = getBaseUrl()
 
   // Generate PKCE challenge
   const codeVerifier = crypto.randomBytes(32).toString("hex")
@@ -320,7 +324,7 @@ async function generateTwitterAuthUrl(stateObject: any, supabase: any): Promise<
   const params = new URLSearchParams({
     response_type: "code",
     client_id: clientId,
-    redirect_uri: "https://chainreact.app/api/integrations/twitter/callback",
+    redirect_uri: `${baseUrl}/api/integrations/twitter/callback`,
     scope: "tweet.read users.read tweet.write offline.access",
     state: state,
     code_challenge: codeChallenge,
@@ -336,11 +340,12 @@ function generateLinkedInAuthUrl(state: string): string {
   console.log('LinkedIn Client ID length:', clientId ? clientId.length : 0)
   
   if (!clientId) throw new Error("LinkedIn client ID not configured")
+  const baseUrl = getBaseUrl()
 
   const params = new URLSearchParams({
     response_type: "code",
     client_id: clientId,
-    redirect_uri: `https://chainreact.app/api/integrations/linkedin/callback`,
+    redirect_uri: `${baseUrl}/api/integrations/linkedin/callback`,
     state,
     scope: "profile email openid",
   })
@@ -362,10 +367,11 @@ function generateFacebookAuthUrl(state: string): string {
   if (!/^\d{15,16}$/.test(clientId)) {
     console.error('Facebook Client ID format appears invalid. Expected 15-16 digits, got:', clientId)
   }
+  const baseUrl = getBaseUrl()
 
   const params = new URLSearchParams({
     client_id: clientId,
-    redirect_uri: "https://chainreact.app/api/integrations/facebook/callback",
+    redirect_uri: `${baseUrl}/api/integrations/facebook/callback`,
     response_type: "code",
     scope: "email manage_fundraisers pages_show_list business_management read_insights pages_read_user_content pages_read_engagement pages_manage_metadata pages_manage_posts pages_manage_engagement",
     state,
@@ -380,10 +386,11 @@ function generateFacebookAuthUrl(state: string): string {
 function generateInstagramAuthUrl(state: string): string {
   const clientId = process.env.NEXT_PUBLIC_INSTAGRAM_CLIENT_ID
   if (!clientId) throw new Error("Instagram client ID not configured")
+  const baseUrl = getBaseUrl()
 
   const params = new URLSearchParams({
     client_id: clientId,
-    redirect_uri: "https://chainreact.app/api/integrations/instagram/callback",
+    redirect_uri: `${baseUrl}/api/integrations/instagram/callback`,
     response_type: "code",
     scope: "user_profile user_media",
     state,
@@ -395,12 +402,13 @@ function generateInstagramAuthUrl(state: string): string {
 function generateTikTokAuthUrl(state: string): string {
   const clientId = process.env.NEXT_PUBLIC_TIKTOK_CLIENT_ID
   if (!clientId) throw new Error("TikTok client ID not configured")
+  const baseUrl = getBaseUrl()
 
   const params = new URLSearchParams({
     client_id: clientId,
     response_type: "code",
     scope: "user.info.basic",
-    redirect_uri: "https://chainreact.app/api/integrations/tiktok/callback",
+    redirect_uri: `${baseUrl}/api/integrations/tiktok/callback`,
     state,
   })
 
@@ -410,6 +418,7 @@ function generateTikTokAuthUrl(state: string): string {
 function generateTrelloAuthUrl(state: string): string {
   const clientId = process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID
   if (!clientId) throw new Error("Trello client ID not configured")
+  const baseUrl = getBaseUrl()
 
   const params = new URLSearchParams({
     key: clientId,
@@ -418,7 +427,7 @@ function generateTrelloAuthUrl(state: string): string {
     scope: "read,write,account",
     expiration: "never",
     response_type: "token",
-    return_url: "https://chainreact.app/api/integrations/trello/callback",
+    return_url: `${baseUrl}/api/integrations/trello/callback`,
     callback_method: "fragment",
     state,
   })
@@ -429,10 +438,11 @@ function generateTrelloAuthUrl(state: string): string {
 function generateDropboxAuthUrl(state: string): string {
   const clientId = process.env.NEXT_PUBLIC_DROPBOX_CLIENT_ID
   if (!clientId) throw new Error("Dropbox client ID not configured")
+  const baseUrl = getBaseUrl()
 
   const params = new URLSearchParams({
     client_id: clientId,
-    redirect_uri: "https://chainreact.app/api/integrations/dropbox/callback",
+    redirect_uri: `${baseUrl}/api/integrations/dropbox/callback`,
     response_type: "code",
     state,
     token_access_type: "offline",
@@ -444,10 +454,11 @@ function generateDropboxAuthUrl(state: string): string {
 function generateBoxAuthUrl(state: string): string {
   const clientId = process.env.NEXT_PUBLIC_BOX_CLIENT_ID
   if (!clientId) throw new Error("Box client ID not configured")
+  const baseUrl = getBaseUrl()
 
   const params = new URLSearchParams({
     client_id: clientId,
-    redirect_uri: "https://chainreact.app/api/integrations/box/callback",
+    redirect_uri: `${baseUrl}/api/integrations/box/callback`,
     response_type: "code",
     state,
   })
@@ -458,10 +469,11 @@ function generateBoxAuthUrl(state: string): string {
 function generateHubSpotAuthUrl(state: string): string {
   const clientId = process.env.NEXT_PUBLIC_HUBSPOT_CLIENT_ID
   if (!clientId) throw new Error("Hubspot client ID not configured")
+  const baseUrl = getBaseUrl()
 
   const params = new URLSearchParams({
     client_id: clientId,
-    redirect_uri: "https://chainreact.app/api/integrations/hubspot/callback",
+    redirect_uri: `${baseUrl}/api/integrations/hubspot/callback`,
     response_type: "code",
     scope: "crm.objects.companies.read crm.objects.companies.write crm.objects.contacts.read crm.objects.contacts.write crm.objects.deals.read crm.objects.deals.write oauth",
     access_type: "offline",
@@ -474,6 +486,7 @@ function generateHubSpotAuthUrl(state: string): string {
 async function generateAirtableAuthUrl(stateObject: any, supabase: any): Promise<string> {
   const clientId = process.env.NEXT_PUBLIC_AIRTABLE_CLIENT_ID
   if (!clientId) throw new Error("Airtable client ID not configured")
+  const baseUrl = getBaseUrl()
 
   // Generate PKCE challenge
   const codeVerifier = crypto.randomBytes(32).toString("hex")
@@ -492,7 +505,7 @@ async function generateAirtableAuthUrl(stateObject: any, supabase: any): Promise
 
   const params = new URLSearchParams({
     client_id: clientId,
-    redirect_uri: `https://chainreact.app/api/integrations/airtable/callback`,
+    redirect_uri: `${baseUrl}/api/integrations/airtable/callback`,
     response_type: "code",
     scope: "data.records:read data.records:write schema.bases:read",
     state,
@@ -506,10 +519,11 @@ async function generateAirtableAuthUrl(stateObject: any, supabase: any): Promise
 function generateMailchimpAuthUrl(state: string): string {
   const clientId = process.env.NEXT_PUBLIC_MAILCHIMP_CLIENT_ID
   if (!clientId) throw new Error("Mailchimp client ID not configured")
+  const baseUrl = getBaseUrl()
 
   const params = new URLSearchParams({
     client_id: clientId,
-    redirect_uri: "https://chainreact.app/api/integrations/mailchimp/callback",
+    redirect_uri: `${baseUrl}/api/integrations/mailchimp/callback`,
     response_type: "code",
     state,
   })
@@ -520,10 +534,11 @@ function generateMailchimpAuthUrl(state: string): string {
 function generateShopifyAuthUrl(state: string): string {
   const clientId = process.env.NEXT_PUBLIC_SHOPIFY_CLIENT_ID
   if (!clientId) throw new Error("Shopify client ID not configured")
+  const baseUrl = getBaseUrl()
 
   const params = new URLSearchParams({
     client_id: clientId,
-    redirect_uri: "https://chainreact.app/api/integrations/shopify/callback",
+    redirect_uri: `${baseUrl}/api/integrations/shopify/callback`,
     response_type: "code",
     scope: "read_products write_products read_orders write_orders read_customers write_customers read_inventory write_inventory",
     state,
@@ -535,10 +550,11 @@ function generateShopifyAuthUrl(state: string): string {
 function generateStripeAuthUrl(state: string): string {
   const clientId = process.env.NEXT_PUBLIC_STRIPE_CLIENT_ID
   if (!clientId) throw new Error("Stripe client ID not configured")
+  const baseUrl = getBaseUrl()
 
   const params = new URLSearchParams({
     client_id: clientId,
-    redirect_uri: "https://chainreact.app/api/integrations/stripe/callback",
+    redirect_uri: `${baseUrl}/api/integrations/stripe/callback`,
     response_type: "code",
     scope: "read_write",
     state,
@@ -550,10 +566,11 @@ function generateStripeAuthUrl(state: string): string {
 function generatePayPalAuthUrl(state: string): string {
   const clientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID
   if (!clientId) throw new Error("PayPal client ID not configured")
+  const baseUrl = getBaseUrl()
 
   const params = new URLSearchParams({
     client_id: clientId,
-    redirect_uri: "https://chainreact.app/api/integrations/paypal/callback",
+    redirect_uri: `${baseUrl}/api/integrations/paypal/callback`,
     response_type: "code",
     scope: "openid profile email",
     state,
@@ -565,10 +582,11 @@ function generatePayPalAuthUrl(state: string): string {
 function generateTeamsAuthUrl(state: string): string {
   const clientId = process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID
   if (!clientId) throw new Error("Microsoft client ID not configured")
+  const baseUrl = getBaseUrl()
 
   const params = new URLSearchParams({
     client_id: clientId,
-    redirect_uri: "https://chainreact.app/api/integrations/teams/callback",
+    redirect_uri: `${baseUrl}/api/integrations/teams/callback`,
     response_type: "code",
     scope: "User.Read Chat.ReadWrite",
     state,
@@ -580,10 +598,11 @@ function generateTeamsAuthUrl(state: string): string {
 function generateOneDriveAuthUrl(state: string): string {
   const clientId = process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID
   if (!clientId) throw new Error("Microsoft client ID not configured")
+  const baseUrl = getBaseUrl()
 
   const params = new URLSearchParams({
     client_id: clientId,
-    redirect_uri: "https://chainreact.app/api/integrations/onedrive/callback",
+    redirect_uri: `${baseUrl}/api/integrations/onedrive/callback`,
     response_type: "code",
     scope: "Files.ReadWrite.All",
     state,
@@ -595,10 +614,11 @@ function generateOneDriveAuthUrl(state: string): string {
 function generateGitLabAuthUrl(state: string): string {
   const clientId = process.env.NEXT_PUBLIC_GITLAB_CLIENT_ID
   if (!clientId) throw new Error("GitLab client ID not configured")
+  const baseUrl = getBaseUrl()
 
   const params = new URLSearchParams({
     client_id: clientId,
-    redirect_uri: "https://chainreact.app/api/integrations/gitlab/callback",
+    redirect_uri: `${baseUrl}/api/integrations/gitlab/callback`,
     response_type: "code",
     scope: "api read_user",
     state,
@@ -610,10 +630,11 @@ function generateGitLabAuthUrl(state: string): string {
 function generateDockerAuthUrl(state: string): string {
   const clientId = process.env.NEXT_PUBLIC_DOCKER_CLIENT_ID
   if (!clientId) throw new Error("Docker client ID not configured")
+  const baseUrl = getBaseUrl()
 
   const params = new URLSearchParams({
     client_id: clientId,
-    redirect_uri: "https://chainreact.app/api/integrations/docker/callback",
+    redirect_uri: `${baseUrl}/api/integrations/docker/callback`,
     response_type: "code",
     scope: "openid",
     state,
@@ -625,10 +646,11 @@ function generateDockerAuthUrl(state: string): string {
 function generateKitAuthUrl(state: string): string {
   const clientId = process.env.NEXT_PUBLIC_KIT_CLIENT_ID
   if (!clientId) throw new Error("Kit client ID not configured")
+  const baseUrl = getBaseUrl()
 
   const params = new URLSearchParams({
     client_id: clientId,
-    redirect_uri: "https://chainreact.app/api/integrations/kit/callback",
+    redirect_uri: `${baseUrl}/api/integrations/kit/callback`,
     response_type: "code",
     state,
   })
@@ -639,11 +661,12 @@ function generateKitAuthUrl(state: string): string {
 function generateBlackbaudAuthUrl(state: string): string {
   const clientId = process.env.NEXT_PUBLIC_BLACKBAUD_CLIENT_ID
   if (!clientId) throw new Error("Blackbaud client ID not configured")
+  const baseUrl = getBaseUrl()
 
   const params = new URLSearchParams({
     client_id: clientId,
     response_type: "code",
-    redirect_uri: `https://chainreact.app/api/integrations/blackbaud/callback`,
+    redirect_uri: `${baseUrl}/api/integrations/blackbaud/callback`,
     state,
   })
 
@@ -653,11 +676,12 @@ function generateBlackbaudAuthUrl(state: string): string {
 function generateGlobalPaymentsAuthUrl(state: string): string {
   const clientId = process.env.NEXT_PUBLIC_GLOBALPAYMENTS_CLIENT_ID
   if (!clientId) throw new Error("GlobalPayments client ID not configured")
+  const baseUrl = getBaseUrl()
 
   const params = new URLSearchParams({
     client_id: clientId,
     response_type: "code",
-    redirect_uri: `https://chainreact.app/api/integrations/globalpayments/callback`,
+    redirect_uri: `${baseUrl}/api/integrations/globalpayments/callback`,
     scope: "read_transactions write_transactions",
     state,
   })
@@ -668,10 +692,11 @@ function generateGlobalPaymentsAuthUrl(state: string): string {
 function generateMicrosoftOutlookAuthUrl(state: string): string {
   const clientId = process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID
   if (!clientId) throw new Error("Microsoft client ID not configured")
+  const baseUrl = getBaseUrl()
 
   const params = new URLSearchParams({
     client_id: clientId,
-    redirect_uri: "https://chainreact.app/api/integrations/microsoft-outlook/callback",
+    redirect_uri: `${baseUrl}/api/integrations/microsoft-outlook/callback`,
     response_type: "code",
     scope: "User.Read Mail.ReadWrite Mail.Send",
     state,
@@ -683,10 +708,11 @@ function generateMicrosoftOutlookAuthUrl(state: string): string {
 function generateMicrosoftOneNoteAuthUrl(state: string): string {
   const clientId = process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID
   if (!clientId) throw new Error("Microsoft client ID not configured")
+  const baseUrl = getBaseUrl()
 
   const params = new URLSearchParams({
     client_id: clientId,
-    redirect_uri: "https://chainreact.app/api/integrations/microsoft-onenote/callback",
+    redirect_uri: `${baseUrl}/api/integrations/microsoft-onenote/callback`,
     response_type: "code",
     scope: "User.Read Notes.ReadWrite.All",
     state,
@@ -698,10 +724,11 @@ function generateMicrosoftOneNoteAuthUrl(state: string): string {
 function generateGumroadAuthUrl(state: string): string {
   const clientId = process.env.NEXT_PUBLIC_GUMROAD_CLIENT_ID
   if (!clientId) throw new Error("Gumroad client ID not configured")
+  const baseUrl = getBaseUrl()
 
   const params = new URLSearchParams({
     client_id: clientId,
-    redirect_uri: "https://chainreact.app/api/integrations/gumroad/callback",
+    redirect_uri: `${baseUrl}/api/integrations/gumroad/callback`,
     response_type: "code",
     scope: "view_profile edit_products view_sales mark_sales_as_shipped refund_sales",
     state,

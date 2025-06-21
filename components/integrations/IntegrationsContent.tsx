@@ -17,7 +17,7 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { availableIntegrations, IntegrationProvider, INTEGRATION_CONFIGS, IntegrationConfig } from "@/lib/integrations/availableIntegrations"
+import { INTEGRATION_CONFIGS, type IntegrationConfig } from "@/lib/integrations/availableIntegrations"
 import { Zap, CheckCircle2, AlertTriangle, XCircle } from "lucide-react"
 
 interface IntegrationsContentProps {
@@ -32,13 +32,22 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
   const [openGuideForProviderId, setOpenGuideForProviderId] = useState<string | null>(null)
   const { toast } = useToast()
 
-  const { integrations, providers, initializeProviders, fetchIntegrations, loading, needsReauthorization, clearStore } = useIntegrationStore()
-  const { user, session } = useAuthStore()
+  const {
+    integrations,
+    providers,
+    initializeProviders,
+    fetchIntegrations,
+    loading,
+    connectIntegration,
+    disconnectIntegration,
+    reconnectIntegration,
+  } = useIntegrationStore()
+  const { user } = useAuthStore()
   const router = useRouter()
 
   useEffect(() => {
     if (providers.length === 0) {
-      initializeProviders(Object.values(INTEGRATION_CONFIGS))
+      initializeProviders()
     }
   }, [providers.length, initializeProviders])
 
@@ -69,7 +78,41 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
         const data = await response.json()
 
         if (data.success && data.authUrl) {
-          router.push(data.authUrl)
+          const width = 600
+          const height = 700
+          const left = window.screen.width / 2 - width / 2
+          const top = window.screen.height / 2 - height / 2
+          const popup = window.open(
+            data.authUrl,
+            "oauth-popup",
+            `width=${width},height=${height},left=${left},top=${top}`,
+          )
+
+          const handleMessage = (event: MessageEvent) => {
+            if (event.origin !== window.location.origin) {
+              return
+            }
+            
+            if (event.data.status === "success") {
+              toast({
+                title: "Integration Connected",
+                description: `${event.data.provider || "Integration"} has been connected successfully.`,
+                variant: "default",
+              })
+              fetchIntegrations()
+            } else if (event.data.status === "error") {
+              toast({
+                title: "Integration Error",
+                description: event.data.message || "An unknown error occurred.",
+                variant: "destructive",
+              })
+            }
+
+            if (popup) popup.close()
+            window.removeEventListener("message", handleMessage)
+          }
+
+          window.addEventListener("message", handleMessage)
         } else {
           toast({
             title: "Error",
@@ -85,7 +128,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
         })
       }
     },
-    [user, router, toast],
+    [user, toast, fetchIntegrations],
   )
 
   const handleDisconnect = useCallback(
@@ -136,6 +179,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
   const providersWithStatus = useMemo(() => {
     return providers.map((provider) => {
       const integration = integrations.find((i) => i.provider === provider.id)
+      const config = INTEGRATION_CONFIGS[provider.id] || {}
       let status: "connected" | "expired" | "expiring" | "disconnected" = "disconnected"
 
       if (integration) {
@@ -158,6 +202,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
       }
 
       return {
+        ...config,
         ...provider,
         integration,
         status,
@@ -215,22 +260,22 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
                   key={p.id}
                   provider={p}
                   integration={p.integration ?? null}
-                  onConnect={(apiKey: string) => handleApiKeyConnect(p.id, apiKey)}
-                  onDisconnect={() => (p.integration ? handleDisconnect(p.integration.id) : {})}
-                  isLoading={loading}
+                  status={p.status === "connected" || p.status === "expiring" ? p.status : "disconnected"}
+                  open={openGuideForProviderId === p.id}
+                  onOpenChange={(isOpen) => setOpenGuideForProviderId(isOpen ? p.id : null)}
                 />
               )
             }
             return (
               <IntegrationCard
                 key={p.id}
-                provider={p}
+                provider={p as IntegrationConfig}
                 integration={p.integration ?? null}
                 status={p.status}
                 isConfigured={isConfigured}
-                onConnect={() => handleConnect(p.id)}
-                onDisconnect={() => (p.integration ? handleDisconnect(p.integration.id) : {})}
-                onReconnect={() => handleConnect(p.id)}
+                onConnect={() => connectIntegration(p.id)}
+                onDisconnect={() => (p.integration ? disconnectIntegration(p.integration.id) : {})}
+                onReconnect={() => (p.integration ? reconnectIntegration(p.integration.id) : {})}
               />
             )
           })
