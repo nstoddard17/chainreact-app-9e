@@ -62,6 +62,33 @@ export default function ConfigurationModal({ isOpen, onClose, onSave, nodeInfo, 
                 label: `${c.name} (${c.email})`,
               }))
             }
+          } else if (
+            field.dynamic === "google-calendars" &&
+            nodeInfo.providerId
+          ) {
+            const data = await loadIntegrationData(nodeInfo.providerId)
+            if (data && data.calendars) {
+              newOptions[field.name] = data.calendars.map((cal: any) => ({
+                value: cal.id,
+                label: cal.summary,
+              }))
+            }
+          } else if (
+            (field.dynamic === "google-drive-folders" ||
+              field.dynamic === "google-drive-files") &&
+            nodeInfo.providerId
+          ) {
+            const data = await loadIntegrationData(nodeInfo.providerId)
+            if (data && data.files) {
+              const items =
+                field.dynamic === "google-drive-folders"
+                  ? data.files.filter((f: any) => f.type === "folder")
+                  : data.files
+              newOptions[field.name] = items.map((item: any) => ({
+                value: item.id,
+                label: item.name,
+              }))
+            }
           }
         }
         setDynamicOptions(newOptions)
