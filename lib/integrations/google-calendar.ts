@@ -1,4 +1,4 @@
-import { google } from "googleapis"
+import { google, calendar_v3 } from "googleapis"
 
 export async function getGoogleCalendars(accessToken: string) {
   const oauth2Client = new google.auth.OAuth2()
@@ -12,7 +12,7 @@ export async function getGoogleCalendars(accessToken: string) {
     })
 
     const calendars =
-      response.data.items?.map((cal: any) => ({
+      response.data.items?.map((cal: calendar_v3.Schema$CalendarListEntry) => ({
         id: cal.id,
         summary: cal.summary,
       })) || []

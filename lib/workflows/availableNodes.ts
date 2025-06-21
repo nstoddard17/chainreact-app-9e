@@ -1,33 +1,4 @@
-import {
-  Webhook,
-  Clock,
-  MessageSquare,
-  Calendar,
-  FileSpreadsheet,
-  Mail,
-  Filter,
-  Timer,
-  GitBranch,
-  Code,
-  Database,
-  FileText,
-  Repeat,
-  AlertTriangle,
-  Settings,
-  Upload,
-  MailOpen,
-  Plus,
-  ExternalLink,
-  Users,
-  Briefcase,
-  PenSquare,
-  BarChart,
-  Video,
-  ShoppingCart,
-  Zap,
-  Send,
-  Edit,
-} from "lucide-react"
+import { ComponentType } from "react"
 
 export interface ConfigField {
   name: string
@@ -44,16 +15,11 @@ export interface NodeComponent {
   type: string
   title: string
   description: string
-  icon: React.ElementType
+  isTrigger?: boolean
   providerId?: string
-  scopes?: string[]
-  requiredScopes?: string[]
   category: string
-  isTrigger: boolean
   configSchema?: ConfigField[]
-  triggerType?: 'webhook' | 'polling'
-  payloadSchema?: Record<string, any>
-  actionParamsSchema?: Record<string, any>
+  [key: string]: any
 }
 
 export const ALL_NODE_COMPONENTS: NodeComponent[] = [
@@ -62,7 +28,6 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     type: "webhook",
     title: "Webhook",
     description: "Receive HTTP requests",
-    icon: Webhook,
     category: "Triggers",
     isTrigger: true,
     configSchema: [
@@ -73,8 +38,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   {
     type: "schedule",
     title: "Schedule",
-    description: "Cron-based scheduling",
-    icon: Clock,
+    description: "Trigger workflow on a time-based schedule",
     category: "Triggers",
     isTrigger: true,
     configSchema: [
@@ -106,8 +70,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   {
     type: "delay",
     title: "Delay",
-    description: "Wait for a specified time",
-    icon: Timer,
+    description: "Pause the workflow for a specified amount of time",
     category: "Logic",
     isTrigger: false,
     configSchema: [
@@ -139,8 +102,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   {
     type: "loop",
     title: "Loop",
-    description: "Repeat actions for each item in a list",
-    icon: Repeat,
+    description: "Repeat a set of actions for each item in a list",
     category: "Logic",
     isTrigger: false,
     configSchema: [
@@ -151,12 +113,11 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   // Gmail
   {
     type: "gmail_trigger_new_email",
-    title: "New Email (Gmail)",
-    description: "Triggers when a new email is received",
-    icon: Mail,
+    title: "New Email",
+    description: "Triggers when a new email is received.",
+    isTrigger: true,
     providerId: "gmail",
     category: "Email",
-    isTrigger: true,
     triggerType: 'webhook',
     configSchema: [
       { name: "from", label: "From", type: "email", placeholder: "Optional: filter by sender" },
@@ -179,11 +140,10 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   {
     type: "gmail_trigger_new_attachment",
     title: "New Attachment",
-    description: "Triggers when an email with an attachment is received",
-    icon: Mail,
+    description: "Triggers when a new email with an attachment is received.",
+    isTrigger: true,
     providerId: "gmail",
     category: "Email",
-    isTrigger: true,
     configSchema: [
       { name: "from", label: "From", type: "email", placeholder: "Optional: filter by sender" },
       { name: "attachmentName", label: "Attachment Name", type: "text", placeholder: "Optional: filter by attachment name" },
@@ -200,13 +160,12 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "gmail_action_send_email",
-    title: "Send Email (Gmail)",
-    description: "Send an email",
-    icon: MailOpen,
+    title: "Send Email",
+    description: "Sends an email from your Gmail account.",
+    isTrigger: false,
     providerId: "gmail",
     requiredScopes: ["https://www.googleapis.com/auth/gmail.send"],
     category: "Email",
-    isTrigger: false,
     configSchema: [
       {
         name: "to",
@@ -236,10 +195,9 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     type: "google_calendar_trigger_new_event",
     title: "New Event (Google Calendar)",
     description: "Triggers when a new event is created",
-    icon: Calendar,
+    isTrigger: true,
     providerId: "google-calendar",
     category: "Productivity",
-    isTrigger: true,
     configSchema: [
       {
         name: "calendarId",
@@ -254,10 +212,9 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     type: "google_calendar_trigger_event_updated",
     title: "Event Updated",
     description: "Triggers when an existing event is updated",
-    icon: Calendar,
+    isTrigger: true,
     providerId: "google-calendar",
     category: "Productivity",
-    isTrigger: true,
     configSchema: [
       {
         name: "calendarId",
@@ -272,10 +229,9 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     type: "google_calendar_trigger_event_canceled",
     title: "Event Canceled",
     description: "Triggers when an event is canceled",
-    icon: Calendar,
+    isTrigger: true,
     providerId: "google-calendar",
     category: "Productivity",
-    isTrigger: true,
     configSchema: [
       {
         name: "calendarId",
@@ -290,11 +246,10 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     type: "google_calendar_action_create_event",
     title: "Create Event (Google Calendar)",
     description: "Create a new calendar event",
-    icon: Plus,
+    isTrigger: false,
     providerId: "google-calendar",
     requiredScopes: ["https://www.googleapis.com/auth/calendar"],
     category: "Productivity",
-    isTrigger: false,
     configSchema: [
       {
         name: "calendarId",
@@ -323,8 +278,8 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   // Google Drive
   {
     type: "google-drive:new_file_in_folder",
-    title: "New File in Folder",
-    description: "Triggers when a new file is added to a specific folder in Google Drive.",
+    title: "New File in Folder (Google Drive)",
+    description: "Triggers when a new file is added to a folder",
     isTrigger: true,
     providerId: "google-drive",
     category: "Google Drive",
@@ -358,7 +313,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   {
     type: "google-drive:file_updated",
     title: "File Updated",
-    description: "Triggers when a specific file is updated in Google Drive.",
+    description: "Triggers when a file in a specific folder is updated",
     isTrigger: true,
     providerId: "google-drive",
     category: "Google Drive",
@@ -421,12 +376,11 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "google_sheets_trigger_updated_row",
-    title: "Updated Row",
-    description: "Triggers when a row is updated in a sheet",
-    icon: FileSpreadsheet,
+    title: "Updated Row in Sheet",
+    description: "Triggers when a row is updated in a Google Sheet.",
+    isTrigger: true,
     providerId: "google-sheets",
     category: "Productivity",
-    isTrigger: true,
     configSchema: [
       { name: "spreadsheetId", label: "Spreadsheet ID", type: "text" },
       { name: "sheetName", label: "Sheet Name", type: "text" },
@@ -434,13 +388,12 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "google_sheets_action_append_row",
-    title: "Append Row (Google Sheets)",
-    description: "Append a row to a Google Sheet",
-    icon: Plus,
+    title: "Add Row to Sheet",
+    description: "Adds a new row to a Google Sheet.",
+    isTrigger: false,
     providerId: "google-sheets",
     requiredScopes: ["https://www.googleapis.com/auth/spreadsheets"],
     category: "Productivity",
-    isTrigger: false,
     configSchema: [
       { name: "spreadsheetId", label: "Spreadsheet ID", type: "text" },
       { name: "sheetName", label: "Sheet Name", type: "text" },
@@ -531,8 +484,8 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   // GitHub
   {
     type: "github_trigger_new_commit",
-    title: "New Commit (GitHub)",
-    description: "Triggers on a new commit to a branch",
+    title: "New Commit",
+    description: "Triggers when a new commit is pushed to a branch.",
     icon: GitBranch,
     providerId: "github",
     category: "Development",
@@ -540,8 +493,8 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "github_action_create_issue",
-    title: "Create Issue (GitHub)",
-    description: "Create a new issue in a repository",
+    title: "Create Issue",
+    description: "Creates a new issue in a GitHub repository.",
     icon: Plus,
     providerId: "github",
     requiredScopes: ["repo"],
@@ -615,8 +568,8 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   // Discord
   {
     type: "discord_trigger_new_message",
-    title: "New Message in Channel (Discord)",
-    description: "Triggers on a new message in a channel",
+    title: "New Message in Channel",
+    description: "Triggers when a new message is posted in a Discord channel.",
     icon: MessageSquare,
     providerId: "discord",
     category: "Communication",
@@ -624,8 +577,8 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "discord_action_send_message",
-    title: "Send Channel Message (Discord)",
-    description: "Send a message to a channel",
+    title: "Send Channel Message",
+    description: "Sends a message to a Discord channel.",
     icon: MessageSquare,
     providerId: "discord",
     requiredScopes: ["bot"],
@@ -734,8 +687,8 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   // Trello
   {
     type: "trello_trigger_new_card",
-    title: "New Card (Trello)",
-    description: "Triggers when a new card is created in a list",
+    title: "New Card",
+    description: "Triggers when a new card is created on a board.",
     icon: Briefcase,
     providerId: "trello",
     category: "Productivity",
@@ -743,8 +696,8 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "trello_action_create_card",
-    title: "Create Card (Trello)",
-    description: "Create a new card in Trello",
+    title: "Create Card",
+    description: "Creates a new card on a Trello board.",
     icon: Plus,
     providerId: "trello",
     requiredScopes: ["write"],

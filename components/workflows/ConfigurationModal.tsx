@@ -131,7 +131,7 @@ export default function ConfigurationModal({ isOpen, onClose, onSave, nodeInfo, 
             </SelectTrigger>
             <SelectContent>
               {loadingDynamic && <SelectItem value="loading" disabled>Loading...</SelectItem>}
-              {options.map((option: any) => (
+              {(options as any[]).map((option: any) => (
                 <SelectItem
                   key={option.value}
                   value={option.value}
