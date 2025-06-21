@@ -1,11 +1,11 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createServerSupabaseClient } from "@/lib/supabase-server"
+import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { getTokenHealthReport, getIntegrationsNeedingAttention } from "@/lib/integrations/tokenMonitor"
 
 export async function GET(request: NextRequest) {
   try {
     // Get user from session
-    const supabase = createServerSupabaseClient()
+    const supabase = createSupabaseRouteHandlerClient()
     const {
       data: { user },
       error: authError,

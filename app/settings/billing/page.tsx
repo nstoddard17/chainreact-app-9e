@@ -1,4 +1,4 @@
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
+import { createSupabaseServerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 import BillingContent from "@/components/billing/BillingContent"
@@ -18,7 +18,7 @@ export default async function BillingPage() {
     console.warn(`Missing environment variables: ${missingVars.join(", ")}`)
   }
 
-  const supabase = createServerComponentClient({ cookies })
+  const supabase = createSupabaseServerClient()
 
   const {
     data: { session },

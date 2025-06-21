@@ -1,4 +1,4 @@
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
+import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 import { type NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
@@ -10,7 +10,8 @@ const reviewSchema = z.object({
 
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const supabase = createRouteHandlerClient({ cookies })
+    cookies()
+    const supabase = createSupabaseRouteHandlerClient()
     const {
       data: { session },
     } = await supabase.auth.getSession()
@@ -47,7 +48,8 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const supabase = createRouteHandlerClient({ cookies })
+    cookies()
+    const supabase = createSupabaseRouteHandlerClient()
 
     const { data: reviews, error } = await supabase
       .from("template_reviews")

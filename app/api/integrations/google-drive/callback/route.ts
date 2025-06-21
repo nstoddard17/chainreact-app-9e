@@ -1,5 +1,5 @@
 import { type NextRequest } from 'next/server'
-import supabaseAdmin from '@/lib/supabase/admin'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { createPopupResponse } from '@/lib/utils/createPopupResponse'
 import { getBaseUrl } from '@/lib/utils/getBaseUrl'
 
@@ -23,10 +23,19 @@ export async function GET(request: NextRequest) {
   try {
     const { userId, code_verifier } = JSON.parse(atob(state))
     if (!userId) {
-      return createPopupResponse('error', provider, 'Missing userId in Google Drive state.', baseUrl)
+      throw new Error('Missing userId in Google Drive state')
     }
 
+    const supabase = createAdminClient()
+
+    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET
     const redirectUri = `${baseUrl}/api/integrations/google-drive/callback`
+
+    if (!clientId || !clientSecret) {
+      throw new Error('Google client ID or secret not configured')
+    }
+
     const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: {
@@ -34,54 +43,51 @@ export async function GET(request: NextRequest) {
       },
       body: new URLSearchParams({
         code,
-        client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!,
-        client_secret: process.env.GOOGLE_CLIENT_SECRET!,
+        client_id: clientId,
+        client_secret: clientSecret,
         redirect_uri: redirectUri,
         grant_type: 'authorization_code',
-        code_verifier: code_verifier || '',
       }),
     })
 
     if (!tokenResponse.ok) {
       const errorData = await tokenResponse.json()
-      console.error('Failed to exchange Google Drive code for token:', errorData)
-      return createPopupResponse(
-        'error',
-        provider,
-        errorData.error_description || 'Failed to get Google Drive access token.',
-        baseUrl,
-      )
+      throw new Error(`Google token exchange failed: ${errorData.error_description}`)
     }
 
     const tokenData = await tokenResponse.json()
 
-    const expiresIn = tokenData.expires_in
-    const expiresAt = expiresIn ? new Date(new Date().getTime() + expiresIn * 1000) : null
+    const expiresIn = tokenData.expires_in // Typically 3600 seconds
+    const expiresAt = new Date(new Date().getTime() + expiresIn * 1000)
 
+    // Upsert the integration details
     const integrationData = {
       user_id: userId,
-      provider: 'google-drive',
+      provider: provider,
       access_token: tokenData.access_token,
       refresh_token: tokenData.refresh_token,
-      expires_at: expiresAt ? expiresAt.toISOString() : null,
-      scopes: tokenData.scope.split(' '),
+      scopes: tokenData.scope ? tokenData.scope.split(' ') : [],
       status: 'connected',
+      expires_at: expiresAt.toISOString(),
       updated_at: new Date().toISOString(),
     }
 
-    const { error: dbError } = await supabaseAdmin
-      .from('integrations')
-      .upsert(integrationData, { onConflict: 'user_id, provider' })
+    const { error: upsertError } = await supabase.from('integrations').upsert(integrationData, {
+      onConflict: 'user_id, provider',
+    })
 
-    if (dbError) {
-      console.error('Error saving Google Drive integration to DB:', dbError)
-      return createPopupResponse('error', provider, `Database Error: ${dbError.message}`, baseUrl)
+    if (upsertError) {
+      throw new Error(`Failed to save Google Drive integration: ${upsertError.message}`)
     }
 
-    return createPopupResponse('success', provider, 'Google Drive account connected successfully.', baseUrl)
-  } catch (error) {
-    console.error('Error during Google Drive OAuth callback:', error)
-    const message = error instanceof Error ? error.message : 'An unexpected error occurred'
-    return createPopupResponse('error', provider, message, baseUrl)
+    return createPopupResponse('success', provider, 'You can now close this window.', baseUrl)
+  } catch (e: any) {
+    console.error('Google Drive callback error:', e)
+    return createPopupResponse(
+      'error',
+      provider,
+      e.message || 'An unexpected error occurred.',
+      baseUrl,
+    )
   }
 }

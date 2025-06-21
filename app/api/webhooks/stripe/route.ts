@@ -1,10 +1,10 @@
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
+import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 import Stripe from "stripe"
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2024-06-20",
+  apiVersion: "2025-05-28.basil",
 })
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!
@@ -22,7 +22,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 })
   }
 
-  const supabase = createRouteHandlerClient({ cookies })
+  cookies()
+  const supabase = createSupabaseRouteHandlerClient()
 
   try {
     switch (event.type) {

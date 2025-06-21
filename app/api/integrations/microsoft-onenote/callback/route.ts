@@ -1,5 +1,5 @@
 import { type NextRequest } from "next/server"
-import supabaseAdmin from "@/lib/supabase/admin"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { createPopupResponse } from "@/lib/utils/createPopupResponse"
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 
@@ -22,6 +22,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    const supabaseAdmin = createAdminClient()
     const { userId } = JSON.parse(atob(state))
     if (!userId) {
       return createPopupResponse('error', provider, 'Missing userId in Microsoft OneNote state.', baseUrl)

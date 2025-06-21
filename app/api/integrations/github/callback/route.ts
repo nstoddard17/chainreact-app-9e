@@ -1,5 +1,5 @@
 import { type NextRequest } from 'next/server'
-import supabaseAdmin from '@/lib/supabase/admin'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { createPopupResponse } from '@/lib/utils/createPopupResponse'
 import { getBaseUrl } from '@/lib/utils/getBaseUrl'
 
@@ -26,6 +26,11 @@ export async function GET(request: NextRequest) {
       return createPopupResponse('error', provider, 'Missing userId in GitHub state.', baseUrl)
     }
 
+    const supabase = createAdminClient()
+
+    const clientId = process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID
+    const clientSecret = process.env.GITHUB_CLIENT_SECRET
+
     const response = await fetch('https://github.com/login/oauth/access_token', {
       method: 'POST',
       headers: {
@@ -33,8 +38,8 @@ export async function GET(request: NextRequest) {
         Accept: 'application/json',
       },
       body: JSON.stringify({
-        client_id: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID!,
-        client_secret: process.env.GITHUB_CLIENT_SECRET!,
+        client_id: clientId,
+        client_secret: clientSecret,
         code,
         redirect_uri: `${baseUrl}/api/integrations/github/callback`,
       }),
@@ -67,13 +72,13 @@ export async function GET(request: NextRequest) {
       updated_at: new Date().toISOString(),
     }
 
-    const { error: dbError } = await supabaseAdmin
-      .from('integrations')
-      .upsert(integrationData, { onConflict: 'user_id, provider' })
+    const { error: upsertError } = await supabase.from('integrations').upsert(integrationData, {
+      onConflict: 'user_id, provider',
+    })
 
-    if (dbError) {
-      console.error('Error saving GitHub integration to DB:', dbError)
-      return createPopupResponse('error', provider, `Database Error: ${dbError.message}`, baseUrl)
+    if (upsertError) {
+      console.error('Error saving GitHub integration to DB:', upsertError)
+      return createPopupResponse('error', provider, `Database Error: ${upsertError.message}`, baseUrl)
     }
 
     return createPopupResponse('success', provider, 'GitHub account connected successfully.', baseUrl)

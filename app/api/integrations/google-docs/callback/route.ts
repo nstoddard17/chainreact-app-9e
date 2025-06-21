@@ -1,5 +1,5 @@
 import { type NextRequest } from 'next/server'
-import supabaseAdmin from '@/lib/supabase/admin'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { createPopupResponse } from '@/lib/utils/createPopupResponse'
 import { getBaseUrl } from '@/lib/utils/getBaseUrl'
 
@@ -26,6 +26,11 @@ export async function GET(request: NextRequest) {
       return createPopupResponse('error', provider, 'Missing userId in Google Docs state.', baseUrl)
     }
 
+    const supabase = createAdminClient()
+
+    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET
+
     const redirectUri = `${baseUrl}/api/integrations/google-docs/callback`
     const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
@@ -34,8 +39,8 @@ export async function GET(request: NextRequest) {
       },
       body: new URLSearchParams({
         code,
-        client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!,
-        client_secret: process.env.GOOGLE_CLIENT_SECRET!,
+        client_id: clientId!,
+        client_secret: clientSecret!,
         redirect_uri: redirectUri,
         grant_type: 'authorization_code',
         code_verifier: code_verifier || '',
@@ -69,13 +74,13 @@ export async function GET(request: NextRequest) {
       updated_at: new Date().toISOString(),
     }
 
-    const { error: dbError } = await supabaseAdmin
-      .from('integrations')
-      .upsert(integrationData, { onConflict: 'user_id, provider' })
+    const { error: upsertError } = await supabase.from('integrations').upsert(integrationData, {
+      onConflict: 'user_id, provider',
+    })
 
-    if (dbError) {
-      console.error('Error saving Google Docs integration to DB:', dbError)
-      return createPopupResponse('error', provider, `Database Error: ${dbError.message}`, baseUrl)
+    if (upsertError) {
+      console.error('Error saving Google Docs integration to DB:', upsertError)
+      return createPopupResponse('error', provider, `Database Error: ${upsertError.message}`, baseUrl)
     }
 
     return createPopupResponse('success', provider, 'Google Docs account connected successfully.', baseUrl)

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import supabaseAdmin from "@/lib/supabase/admin"
+import { createAdminClient } from "@/lib/supabase/admin"
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -10,6 +10,7 @@ export async function GET(request: Request) {
   }
 
   try {
+    const supabaseAdmin = createAdminClient()
     // Fetch active collaboration sessions for the workflow
     const { data: sessions, error: sessionsError } = await supabaseAdmin
       .from("collaboration_sessions")

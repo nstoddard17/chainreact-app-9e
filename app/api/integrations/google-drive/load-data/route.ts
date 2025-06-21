@@ -1,11 +1,11 @@
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
+import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { getGoogleDriveFiles } from "@/lib/integrations/google-drive"
-import { getValidAccessToken } from "@/lib/integrations/getValidAccessToken"
+import { cookies } from "next/headers"
 
-export async function GET(req: Request) {
-  const supabase = createRouteHandlerClient({ cookies })
+export async function POST(req: Request) {
+  cookies()
+  const supabase = createSupabaseRouteHandlerClient()
   const {
     data: { session },
   } = await supabase.auth.getSession()
@@ -14,32 +14,27 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const { searchParams } = new URL(req.url)
-  const folderId = searchParams.get("folderId") || undefined
+  const { integrationId, folderId } = await req.json()
 
-  const userId = session.user.id
-  const provider = "google-drive"
+  if (!integrationId) {
+    return NextResponse.json({ error: "Integration ID is required" }, { status: 400 })
+  }
 
   try {
-    const { accessToken, valid } = await getValidAccessToken(userId, provider)
+    const { data: integration, error } = await supabase
+      .from("integrations")
+      .select("access_token")
+      .eq("id", integrationId)
+      .eq("user_id", session.user.id)
+      .single()
 
-    if (!valid || !accessToken) {
-      return NextResponse.json(
-        {
-          error:
-            "Google Drive connection is not valid or requires re-authentication.",
-        },
-        { status: 401 },
-      )
+    if (error || !integration) {
+      return NextResponse.json({ error: "Integration not found" }, { status: 404 })
     }
 
-    const files = await getGoogleDriveFiles(accessToken, folderId)
-
-    return NextResponse.json({ files })
-  } catch (error: any) {
-    return NextResponse.json(
-      { error: `Failed to load Google Drive data: ${error.message}` },
-      { status: 500 },
-    )
+    const files = await getGoogleDriveFiles(integration.access_token, folderId)
+    return NextResponse.json(files)
+  } catch (error) {
+    return NextResponse.json({ error: "Failed to load files" }, { status: 500 })
   }
 } 

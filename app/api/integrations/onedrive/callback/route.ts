@@ -1,5 +1,5 @@
 import { type NextRequest } from 'next/server'
-import supabaseAdmin from '@/lib/supabase/admin'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { createPopupResponse } from '@/lib/utils/createPopupResponse'
 import { getBaseUrl } from '@/lib/utils/getBaseUrl'
 
@@ -24,21 +24,27 @@ export async function GET(request: NextRequest) {
   try {
     const { userId } = JSON.parse(atob(state))
     if (!userId) {
-      return createPopupResponse('error', provider, 'Missing userId in OneDrive state.', baseUrl)
+      throw new Error('Missing userId in OneDrive state')
     }
 
-    const tenant = 'common'
-    const tokenUrl = `https://login.microsoftonline.com/${tenant}/oauth2/v2.0/token`
+    const supabase = createAdminClient()
+
+    const clientId = process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID
+    const clientSecret = process.env.MICROSOFT_CLIENT_SECRET
     const redirectUri = `${baseUrl}/api/integrations/onedrive/callback`
 
-    const tokenResponse = await fetch(tokenUrl, {
+    if (!clientId || !clientSecret) {
+      throw new Error('Microsoft client ID or secret not configured')
+    }
+
+    const tokenResponse = await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: new URLSearchParams({
-        client_id: process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID!,
-        client_secret: process.env.MICROSOFT_CLIENT_SECRET!,
+        client_id: clientId,
+        client_secret: clientSecret,
         code,
         redirect_uri: redirectUri,
         grant_type: 'authorization_code',
@@ -48,43 +54,42 @@ export async function GET(request: NextRequest) {
 
     if (!tokenResponse.ok) {
       const errorData = await tokenResponse.json()
-      console.error('Failed to exchange OneDrive code for token:', errorData)
-      return createPopupResponse(
-        'error',
-        provider,
-        errorData.error_description || 'Failed to get OneDrive access token.',
-        baseUrl,
-      )
+      throw new Error(`Microsoft token exchange failed: ${errorData.error_description}`)
     }
 
     const tokenData = await tokenResponse.json()
-    const expiresIn = tokenData.expires_in
-    const expiresAt = expiresIn ? new Date(new Date().getTime() + expiresIn * 1000) : null
 
+    const expiresIn = tokenData.expires_in
+    const expiresAt = new Date(new Date().getTime() + expiresIn * 1000)
+
+    // Upsert the integration details
     const integrationData = {
       user_id: userId,
-      provider: 'onedrive',
+      provider: provider,
       access_token: tokenData.access_token,
       refresh_token: tokenData.refresh_token,
-      scopes: tokenData.scope.split(' '),
+      scopes: tokenData.scope ? tokenData.scope.split(' ') : [],
       status: 'connected',
-      expires_at: expiresAt ? expiresAt.toISOString() : null,
+      expires_at: expiresAt.toISOString(),
       updated_at: new Date().toISOString(),
     }
 
-    const { error: dbError } = await supabaseAdmin
-      .from('integrations')
-      .upsert(integrationData, { onConflict: 'user_id, provider' })
+    const { error: upsertError } = await supabase.from('integrations').upsert(integrationData, {
+      onConflict: 'user_id, provider',
+    })
 
-    if (dbError) {
-      console.error('Error saving OneDrive integration to DB:', dbError)
-      return createPopupResponse('error', provider, `Database Error: ${dbError.message}`, baseUrl)
+    if (upsertError) {
+      throw new Error(`Failed to save OneDrive integration: ${upsertError.message}`)
     }
 
-    return createPopupResponse('success', provider, 'OneDrive account connected successfully.', baseUrl)
-  } catch (error) {
-    console.error('Error during OneDrive OAuth callback:', error)
-    const message = error instanceof Error ? error.message : 'An unexpected error occurred'
-    return createPopupResponse('error', provider, message, baseUrl)
+    return createPopupResponse('success', provider, 'You can now close this window.', baseUrl)
+  } catch (e: any) {
+    console.error('OneDrive callback error:', e)
+    return createPopupResponse(
+      'error',
+      provider,
+      e.message || 'An unexpected error occurred.',
+      baseUrl,
+    )
   }
 }

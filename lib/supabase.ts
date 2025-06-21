@@ -1,4 +1,4 @@
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { createBrowserClient } from "@supabase/ssr"
 import type { Database } from "@/types/supabase"
 
 // Check if Supabase is configured with exact environment variables
@@ -25,70 +25,22 @@ export const isSupabaseConfigured = () => {
   return true
 }
 
-// Browser client for client-side operations with persistence
-export const createBrowserSupabaseClient = () => {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-  if (!supabaseUrl || !supabaseAnonKey) {
-    const missingVars = []
-    if (!supabaseUrl) missingVars.push("NEXT_PUBLIC_SUPABASE_URL")
-    if (!supabaseAnonKey) missingVars.push("NEXT_PUBLIC_SUPABASE_ANON_KEY")
-
-    const errorMessage = `Missing required Supabase environment variables: ${missingVars.join(", ")}`
-
-    if (process.env.NODE_ENV === "development") {
-      throw new Error(errorMessage)
-    } else {
-      console.error(errorMessage)
-      return null
-    }
-  }
-
-  return createClientComponentClient<Database>({
-    options: {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: true,
-        flowType: "pkce",
-      },
-    },
-  })
-}
-
-// Global singleton for browser usage
-declare global {
-  var __supabase_browser_client__: ReturnType<typeof createClientComponentClient<Database>> | undefined
-}
+let supabase: ReturnType<typeof createBrowserClient<Database>> | null = null
 
 export const getSupabaseClient = () => {
-  // This function only works on the client side
-  if (typeof window === "undefined") {
-    console.warn("getSupabaseClient called on server side, returning null")
-    return null
+  if (supabase) {
+    return supabase
   }
 
-  // Browser-side: use global singleton
-  if (!globalThis.__supabase_browser_client__) {
-    try {
-      globalThis.__supabase_browser_client__ = createBrowserSupabaseClient()
-    } catch (error) {
-      console.error("Failed to create browser Supabase client:", error)
-      return null
-    }
+  if (isSupabaseConfigured()) {
+    supabase = createBrowserClient<Database>(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+    return supabase
   }
-  return globalThis.__supabase_browser_client__
+
+  return null
 }
 
-// For compatibility with existing code - only use on client side
-const supabaseClient = typeof window !== "undefined" ? getSupabaseClient() : null
-
-// Single named export to avoid conflicts
-export const supabase = supabaseClient
-
-// Required exports for deployment
-export const createClient = () => getSupabaseClient()
-
-// Default export for compatibility
-export default supabaseClient
+export { supabase }

@@ -1,5 +1,5 @@
 import { type NextRequest } from 'next/server'
-import supabaseAdmin from '@/lib/supabase/admin'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { createPopupResponse } from '@/lib/utils/createPopupResponse'
 import { getBaseUrl } from '@/lib/utils/getBaseUrl'
 
@@ -26,6 +26,11 @@ export async function GET(request: NextRequest) {
       return createPopupResponse('error', provider, 'Missing userId in GitLab state.', baseUrl)
     }
 
+    const supabase = createAdminClient()
+
+    const clientId = process.env.NEXT_PUBLIC_GITLAB_CLIENT_ID
+    const clientSecret = process.env.GITLAB_CLIENT_SECRET
+
     const redirectUri = `${baseUrl}/api/integrations/gitlab/callback`
     const response = await fetch('https://gitlab.com/oauth/token', {
       method: 'POST',
@@ -33,8 +38,8 @@ export async function GET(request: NextRequest) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        client_id: process.env.NEXT_PUBLIC_GITLAB_CLIENT_ID!,
-        client_secret: process.env.GITLAB_CLIENT_SECRET!,
+        client_id: clientId,
+        client_secret: clientSecret,
         code,
         grant_type: 'authorization_code',
         redirect_uri: redirectUri,
@@ -68,13 +73,13 @@ export async function GET(request: NextRequest) {
       updated_at: new Date().toISOString(),
     }
 
-    const { error: dbError } = await supabaseAdmin
-      .from('integrations')
-      .upsert(integrationData, { onConflict: 'user_id, provider' })
+    const { error: upsertError } = await supabase.from('integrations').upsert(integrationData, {
+      onConflict: 'user_id, provider',
+    })
 
-    if (dbError) {
-      console.error('Error saving GitLab integration to DB:', dbError)
-      return createPopupResponse('error', provider, `Database Error: ${dbError.message}`, baseUrl)
+    if (upsertError) {
+      console.error('Error saving GitLab integration to DB:', upsertError)
+      return createPopupResponse('error', provider, `Database Error: ${upsertError.message}`, baseUrl)
     }
 
     return createPopupResponse('success', provider, 'GitLab account connected successfully.', baseUrl)

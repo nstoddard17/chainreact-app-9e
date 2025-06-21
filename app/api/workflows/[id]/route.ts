@@ -1,9 +1,10 @@
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
+import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
-  const supabase = createRouteHandlerClient({ cookies })
+  cookies()
+  const supabase = createSupabaseRouteHandlerClient()
 
   try {
     const {
@@ -32,7 +33,8 @@ export async function GET(request: Request, { params }: { params: { id: string }
 }
 
 export async function PUT(request: Request, { params }: { params: { id: string } }) {
-  const supabase = createRouteHandlerClient({ cookies })
+  cookies()
+  const supabase = createSupabaseRouteHandlerClient()
 
   try {
     const {
@@ -64,7 +66,8 @@ export async function PUT(request: Request, { params }: { params: { id: string }
 }
 
 export async function DELETE(request: Request, { params }: { params: { id: string } }) {
-  const supabase = createRouteHandlerClient({ cookies })
+  cookies()
+  const supabase = createSupabaseRouteHandlerClient()
 
   try {
     const {

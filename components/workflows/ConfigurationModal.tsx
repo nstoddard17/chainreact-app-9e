@@ -20,7 +20,7 @@ interface ConfigurationModalProps {
 
 export default function ConfigurationModal({ isOpen, onClose, onSave, nodeInfo, integrationName }: ConfigurationModalProps) {
   const [config, setConfig] = useState<Record<string, any>>({})
-  const { loadIntegrationData, integrationData } = useIntegrationStore()
+  const { loadIntegrationData, getIntegrationByProvider } = useIntegrationStore()
   const [dynamicOptions, setDynamicOptions] = useState<
     Record<string, { value: string; label: string }[]>
   >({})
@@ -40,50 +40,60 @@ export default function ConfigurationModal({ isOpen, onClose, onSave, nodeInfo, 
 
       // Fetch dynamic data if needed
       const fetchDynamicData = async () => {
+        if (!nodeInfo?.providerId) return
+
+        const integration = getIntegrationByProvider(nodeInfo.providerId)
+        if (!integration) return
+
         setLoadingDynamic(true)
         const newOptions: Record<string, { value: string; label: string }[]> = {}
         for (const field of nodeInfo.configSchema || []) {
-          if (field.dynamic === "slack-channels" && nodeInfo.providerId) {
-            const data = await loadIntegrationData(nodeInfo.providerId)
-            if (data && data.channels) {
-              newOptions[field.name] = data.channels.map((ch: any) => ({
+          if (field.dynamic === "slack-channels") {
+            const data = await loadIntegrationData(
+              nodeInfo.providerId,
+              integration.id,
+            )
+            if (data) {
+              newOptions[field.name] = data.map((ch: any) => ({
                 value: ch.id,
                 label: `#${ch.name}`,
               }))
             }
-          } else if (
-            field.dynamic === "google-contacts" &&
-            nodeInfo.providerId
-          ) {
-            const data = await loadIntegrationData(nodeInfo.providerId)
-            if (data && data.contacts) {
-              newOptions[field.name] = data.contacts.map((c: any) => ({
+          } else if (field.dynamic === "google-contacts") {
+            const data = await loadIntegrationData(
+              nodeInfo.providerId,
+              integration.id,
+            )
+            if (data) {
+              newOptions[field.name] = data.map((c: any) => ({
                 value: c.email,
                 label: `${c.name} (${c.email})`,
               }))
             }
-          } else if (
-            field.dynamic === "google-calendars" &&
-            nodeInfo.providerId
-          ) {
-            const data = await loadIntegrationData(nodeInfo.providerId)
-            if (data && data.calendars) {
-              newOptions[field.name] = data.calendars.map((cal: any) => ({
+          } else if (field.dynamic === "google-calendars") {
+            const data = await loadIntegrationData(
+              nodeInfo.providerId,
+              integration.id,
+            )
+            if (data) {
+              newOptions[field.name] = data.map((cal: any) => ({
                 value: cal.id,
                 label: cal.summary,
               }))
             }
           } else if (
-            (field.dynamic === "google-drive-folders" ||
-              field.dynamic === "google-drive-files") &&
-            nodeInfo.providerId
+            field.dynamic === "google-drive-folders" ||
+            field.dynamic === "google-drive-files"
           ) {
-            const data = await loadIntegrationData(nodeInfo.providerId)
-            if (data && data.files) {
+            const data = await loadIntegrationData(
+              nodeInfo.providerId,
+              integration.id,
+            )
+            if (data) {
               const items =
                 field.dynamic === "google-drive-folders"
-                  ? data.files.filter((f: any) => f.type === "folder")
-                  : data.files
+                  ? data.filter((f: any) => f.type === "folder")
+                  : data
               newOptions[field.name] = items.map((item: any) => ({
                 value: item.id,
                 label: item.name,
@@ -97,7 +107,7 @@ export default function ConfigurationModal({ isOpen, onClose, onSave, nodeInfo, 
 
       fetchDynamicData()
     }
-  }, [isOpen, nodeInfo, loadIntegrationData])
+  }, [isOpen, nodeInfo, loadIntegrationData, getIntegrationByProvider])
 
   if (!nodeInfo) {
     return null

@@ -1,5 +1,5 @@
 import { type NextRequest } from 'next/server'
-import supabaseAdmin from '@/lib/supabase/admin'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { createPopupResponse } from '@/lib/utils/createPopupResponse'
 import { getBaseUrl } from '@/lib/utils/getBaseUrl'
 
@@ -26,6 +26,7 @@ export async function GET(request: NextRequest) {
       return createPopupResponse('error', provider, 'Missing userId in YouTube state.', baseUrl)
     }
 
+    const supabase = createAdminClient()
     const redirectUri = `${baseUrl}/api/integrations/youtube/callback`
     const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
@@ -68,7 +69,7 @@ export async function GET(request: NextRequest) {
       updated_at: new Date().toISOString(),
     }
 
-    const { error: dbError } = await supabaseAdmin
+    const { error: dbError } = await supabase
       .from('integrations')
       .upsert(integrationData, { onConflict: 'user_id, provider' })
 

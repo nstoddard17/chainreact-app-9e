@@ -1,6 +1,6 @@
-import { createMiddlewareClient } from "@supabase/auth-helpers-nextjs"
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
+import { updateSession } from "@/utils/supabase/middleware"
 
 export async function middleware(request: NextRequest) {
   try {
@@ -11,32 +11,19 @@ export async function middleware(request: NextRequest) {
     // Handle www to non-www redirect
     if (hostname.startsWith("www.")) {
       const newHostname = hostname.replace(/^www\./, "")
-      return NextResponse.redirect(
-        new URL(url.pathname + url.search, `https://${newHostname}`),
-        301
-      )
+      return NextResponse.redirect(new URL(url.pathname + url.search, `https://${newHostname}`), 301)
     }
 
-    // Skip middleware for static files and API routes
+    // The new matcher in config is good, but this is an extra layer of safety
     if (
       pathname.startsWith("/_next") ||
-      pathname.startsWith("/api") ||
       pathname.startsWith("/auth") ||
       pathname.includes(".")
     ) {
       return NextResponse.next()
     }
 
-    const res = NextResponse.next()
-
-    // Create a Supabase client configured to use cookies
-    const supabase = createMiddlewareClient({ req: request, res })
-
-    // Use getUser() instead of getSession() for secure authentication
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser()
+    const { response, supabase, user } = await updateSession(request)
 
     // Protected routes
     const protectedRoutes = [
@@ -52,7 +39,7 @@ export async function middleware(request: NextRequest) {
       "/community",
     ]
 
-    const isProtectedRoute = protectedRoutes.some((route) => pathname.startsWith(route))
+    const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route))
 
     // Only redirect if no user and accessing protected route
     if (!user && isProtectedRoute) {
@@ -62,6 +49,8 @@ export async function middleware(request: NextRequest) {
     }
 
     // Track API usage if user exists
+    // Note: The matcher for this middleware excludes /api routes, so this tracking logic might not be hit.
+    // We may need to adjust the matcher if we want to track API usage here.
     if (user && pathname.startsWith("/api/")) {
       if (pathname.startsWith("/api/workflows/execute")) {
         await trackUsage(supabase, user.id, "execution", "run")
@@ -72,7 +61,7 @@ export async function middleware(request: NextRequest) {
       }
     }
 
-    return res
+    return response
   } catch (error) {
     console.error("Middleware error:", error)
     // Don't redirect on middleware errors, let the app handle it
@@ -125,11 +114,13 @@ export const config = {
   matcher: [
     /*
      * Match all request paths except for the ones starting with:
-     * - api (API routes)
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
+     *
+     * We are explicitly NOT excluding /api routes here to allow for usage tracking,
+     * but we are excluding static assets and auth routes.
      */
-    "/((?!api|_next/static|_next/image|favicon.ico).*)",
+    "/((?!_next/static|_next/image|favicon.ico|auth/login).*)",
   ],
 }

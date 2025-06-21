@@ -1,10 +1,11 @@
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
+import { createSupabaseServerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 import AnalyticsContent from "@/components/analytics/AnalyticsContent"
 
 export default async function AnalyticsPage() {
-  const supabase = createServerComponentClient({ cookies })
+  cookies()
+  const supabase = createSupabaseServerClient()
 
   const {
     data: { session },

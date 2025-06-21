@@ -1,5 +1,5 @@
 import { type NextRequest } from 'next/server'
-import supabaseAdmin from '@/lib/supabase/admin'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { createPopupResponse } from '@/lib/utils/createPopupResponse'
 import { getBaseUrl } from '@/lib/utils/getBaseUrl'
 
@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
 
   try {
     // Fetch the code_verifier from the database
-    const { data: pkceData, error: pkceError } = await supabaseAdmin
+    const { data: pkceData, error: pkceError } = await createAdminClient()
       .from("pkce_flow")
       .select("code_verifier, state")
       .eq("state", state)
@@ -43,68 +43,69 @@ export async function GET(request: NextRequest) {
       return createPopupResponse('error', provider, 'Missing userId in Twitter state.', baseUrl);
     }
 
-    const tokenUrl = 'https://api.twitter.com/2/oauth2/token';
-    const body = new URLSearchParams({
-      code: code,
-      grant_type: 'authorization_code',
-      client_id: process.env.NEXT_PUBLIC_TWITTER_CLIENT_ID!,
-      redirect_uri: `${baseUrl}/api/integrations/twitter/callback`,
-      code_verifier: code_verifier,
-    });
+    const supabase = createAdminClient()
 
-    const clientId = process.env.NEXT_PUBLIC_TWITTER_CLIENT_ID!;
-    const clientSecret = process.env.TWITTER_CLIENT_SECRET!;
-    const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+    const clientId = process.env.NEXT_PUBLIC_TWITTER_CLIENT_ID
+    const clientSecret = process.env.TWITTER_CLIENT_SECRET
+    const redirectUri = `${baseUrl}/api/integrations/twitter/callback`
 
-    const response = await fetch(tokenUrl, {
+    if (!clientId || !clientSecret) {
+      throw new Error('Twitter client ID or secret not configured')
+    }
+
+    const tokenResponse = await fetch('https://api.twitter.com/2/oauth2/token', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
-        Authorization: `Basic ${basicAuth}`,
+        'Authorization': `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`,
       },
-      body: body,
-    });
+      body: new URLSearchParams({
+        code,
+        grant_type: 'authorization_code',
+        client_id: clientId,
+        redirect_uri: redirectUri,
+        code_verifier: 'challenge', // PKCE support
+      }),
+    })
 
-    if (!response.ok) {
-      const errorData = await response
-        .json()
-        .catch(() => ({ error: 'Unknown error', error_description: 'Failed to parse error response from Twitter.' }));
-      const message = errorData.error_description || errorData.error || 'Failed to get Twitter access token.';
-      console.error('Failed to exchange Twitter code for token:', errorData);
-      return createPopupResponse('error', provider, message, baseUrl);
+    if (!tokenResponse.ok) {
+      const errorData = await tokenResponse.json()
+      throw new Error(`Twitter token exchange failed: ${errorData.error_description}`)
     }
 
-    const tokens = await response.json();
-    const expiresIn = tokens.expires_in;
-    const expiresAt = expiresIn ? new Date(new Date().getTime() + expiresIn * 1000) : null;
+    const tokenData = await tokenResponse.json()
 
+    const expiresIn = tokenData.expires_in
+    const expiresAt = new Date(new Date().getTime() + expiresIn * 1000)
+
+    // Upsert the integration details
     const integrationData = {
       user_id: userId,
-      provider: 'twitter',
-      access_token: tokens.access_token,
-      refresh_token: tokens.refresh_token,
-      scopes: tokens.scope.split(' '),
+      provider: provider,
+      access_token: tokenData.access_token,
+      refresh_token: tokenData.refresh_token,
+      scopes: tokenData.scope ? tokenData.scope.split(' ') : [],
       status: 'connected',
-      expires_at: expiresAt ? expiresAt.toISOString() : null,
+      expires_at: expiresAt.toISOString(),
       updated_at: new Date().toISOString(),
-    };
-
-    const { error: dbError } = await supabaseAdmin
-      .from('integrations')
-      .upsert(integrationData, { onConflict: 'user_id, provider' });
-
-    // Clean up PKCE entry
-    await supabaseAdmin.from('pkce_flow').delete().eq('state', state).eq('provider', 'twitter');
-
-    if (dbError) {
-      console.error('Error saving Twitter integration to DB:', dbError);
-      return createPopupResponse('error', provider, `Database Error: ${dbError.message}`, baseUrl);
     }
 
-    return createPopupResponse('success', provider, 'Twitter account connected successfully.', baseUrl);
-  } catch (error) {
-    console.error('Error during Twitter OAuth callback:', error);
-    const message = error instanceof Error ? error.message : 'An unexpected error occurred.';
-    return createPopupResponse('error', provider, message, baseUrl);
+    const { error: upsertError } = await supabase.from('integrations').upsert(integrationData, {
+      onConflict: 'user_id, provider',
+    })
+
+    if (upsertError) {
+      throw new Error(`Failed to save Twitter integration: ${upsertError.message}`)
+    }
+
+    return createPopupResponse('success', provider, 'You can now close this window.', baseUrl)
+  } catch (e: any) {
+    console.error('Twitter callback error:', e)
+    return createPopupResponse(
+      'error',
+      provider,
+      e.message || 'An unexpected error occurred.',
+      baseUrl,
+    )
   }
 }

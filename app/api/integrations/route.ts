@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
+import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 
 export const dynamic = 'force-dynamic'
@@ -7,7 +7,8 @@ export const revalidate = 0
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient({ cookies })
+    cookies()
+    const supabase = createSupabaseRouteHandlerClient()
 
     // Use getUser() instead of getSession() for secure authentication
     const {

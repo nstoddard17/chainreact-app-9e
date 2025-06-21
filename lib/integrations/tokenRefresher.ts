@@ -1,5 +1,6 @@
-import { getAdminSupabaseClient } from "@/lib/supabase/admin"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { decrypt } from "@/lib/security/encryption"
+import { getSecret } from "@/lib/secrets"
 
 interface Integration {
   id: string
@@ -19,6 +20,7 @@ interface RefreshResult {
   newExpiry?: number
   newRefreshToken?: string
   requiresReconnect?: boolean
+  recovered?: boolean
 }
 
 export async function refreshTokenIfNeeded(integration: Integration): Promise<RefreshResult> {
@@ -86,7 +88,7 @@ export async function refreshTokenIfNeeded(integration: Integration): Promise<Re
 
     if (result.success && result.newToken) {
       // Update the token in the database
-      const supabase = getAdminSupabaseClient()
+      const supabase = createAdminClient()
       if (!supabase) {
         throw new Error("Failed to create database client")
       }
@@ -124,7 +126,7 @@ export async function refreshTokenIfNeeded(integration: Integration): Promise<Re
       }
     } else if (result.requiresReconnect) {
       // Mark integration as disconnected
-      const supabase = getAdminSupabaseClient()
+      const supabase = createAdminClient()
       if (supabase) {
         await supabase
           .from("integrations")
@@ -153,7 +155,7 @@ export async function refreshTokenIfNeeded(integration: Integration): Promise<Re
     console.error(`Error refreshing token for ${integration.provider}:`, error)
 
     // Update failure count and check if we should mark as expired
-    const supabase = getAdminSupabaseClient()
+    const supabase = createAdminClient()
     if (supabase) {
       const updateData: any = {
         consecutive_failures: (integration.consecutive_failures || 0) + 1,
@@ -201,100 +203,81 @@ async function refreshTokenByProvider(integration: Integration): Promise<Refresh
     }
   }
 
+  // Decrypt the refresh token if needed
+  const secret = await getSecret("encryption_key")
+  if (!secret) {
+    return {
+      refreshed: false,
+      success: false,
+      message: "Encryption secret is not configured.",
+    }
+  }
+  const decryptedRefreshToken = decrypt(refresh_token, secret)
+
   switch (provider) {
     case "google":
     case "youtube":
+    case "youtube-studio":
     case "gmail":
     case "google-calendar":
     case "google-docs":
     case "google-drive":
     case "google-sheets":
-      return refreshGoogleToken(refresh_token)
-
+      return await refreshGoogleToken(decryptedRefreshToken)
     case "teams":
     case "onedrive":
-      return refreshMicrosoftToken(refresh_token, integration)
-
+      return await refreshMicrosoftToken(decryptedRefreshToken, integration)
     case "dropbox":
-      return refreshDropboxToken(refresh_token)
-
+      return await refreshDropboxToken(decryptedRefreshToken)
     case "slack":
-      return refreshSlackToken(refresh_token)
-
+      return await refreshSlackToken(decryptedRefreshToken)
     case "twitter":
-      return refreshTwitterToken(refresh_token)
-
+      return await refreshTwitterToken(decryptedRefreshToken)
     case "hubspot":
-      return refreshHubSpotToken(refresh_token)
-
+      return await refreshHubSpotToken(decryptedRefreshToken)
     case "linkedin":
-      return refreshLinkedInToken(refresh_token)
-
+      return await refreshLinkedInToken(decryptedRefreshToken)
     case "facebook":
-      return refreshFacebookToken(refresh_token)
-
+      return await refreshFacebookToken(decryptedRefreshToken)
     case "gitlab":
-      return refreshGitLabToken(refresh_token)
-
+      return await refreshGitLabToken(decryptedRefreshToken)
     case "airtable":
-      return refreshAirtableToken(refresh_token)
-
+      return await refreshAirtableToken(decryptedRefreshToken)
     case "discord":
-      return refreshDiscordToken(refresh_token)
-
+      return await refreshDiscordToken(decryptedRefreshToken)
     case "instagram":
-      return refreshInstagramToken(refresh_token)
-
+      return await refreshInstagramToken(decryptedRefreshToken)
     case "tiktok":
-      return refreshTikTokToken(refresh_token)
-
+      return await refreshTikTokToken(decryptedRefreshToken)
     case "github":
-      return refreshGitHubToken(refresh_token)
-
+      return await refreshGitHubToken(decryptedRefreshToken)
+    case "notion":
+      return await refreshNotionToken(decryptedRefreshToken)
     case "trello":
-      return refreshTrelloToken(refresh_token)
-
+      return await refreshTrelloToken(decryptedRefreshToken)
     case "mailchimp":
-      return refreshMailchimpToken(refresh_token)
-
+      return await refreshMailchimpToken(decryptedRefreshToken)
     case "shopify":
-      return refreshShopifyToken(refresh_token)
-
+      return await refreshShopifyToken(decryptedRefreshToken)
     case "paypal":
-      return refreshPayPalToken(refresh_token)
-
+      return await refreshPayPalToken(decryptedRefreshToken)
     case "stripe":
-      return refreshStripeToken(refresh_token)
-
+      return await refreshStripeToken(decryptedRefreshToken)
     case "box":
-      return refreshBoxToken(refresh_token)
-
-    case "youtube-studio":
-      return refreshGoogleToken(refresh_token) // Uses same Google OAuth
-
-    case "microsoft-outlook":
-      return refreshMicrosoftToken(refresh_token, integration) // Uses same Microsoft OAuth
-
-    case "microsoft-onenote":
-      return refreshMicrosoftToken(refresh_token, integration) // Uses same Microsoft OAuth
-
+      return await refreshBoxToken(decryptedRefreshToken)
     case "blackbaud":
-      return refreshBlackbaudToken(refresh_token)
-
+      return await refreshBlackbaudToken(decryptedRefreshToken)
     case "globalpayments":
-      return refreshGlobalPaymentsToken(refresh_token)
-
+      return await refreshGlobalPaymentsToken(decryptedRefreshToken)
     case "gumroad":
-      return refreshGumroadToken(refresh_token)
-
+      return await refreshGumroadToken(decryptedRefreshToken)
     case "kit":
-      return refreshKitToken(refresh_token)
-
+      return await refreshKitToken(decryptedRefreshToken)
     default:
       return {
         refreshed: false,
         success: false,
-        message: `Token refresh not implemented for ${provider}`,
+        message: `Token refresh for ${provider} is not supported`,
       }
   }
 }
@@ -328,13 +311,11 @@ async function refreshGoogleToken(refreshToken: string): Promise<RefreshResult> 
     const data = await response.json()
 
     if (!response.ok) {
-      console.error("Google token refresh failed:", data)
-      
       if (data.error === "invalid_grant") {
         return {
           refreshed: false,
           success: false,
-          message: "Google token expired and requires re-authentication",
+          message: "Google token has been revoked and requires re-authentication",
           requiresReconnect: true,
         }
       }
@@ -342,24 +323,18 @@ async function refreshGoogleToken(refreshToken: string): Promise<RefreshResult> 
       return {
         refreshed: false,
         success: false,
-        message: `Google token refresh failed: ${data.error}`,
+        message: `Google token refresh failed: ${data.error_description}`,
       }
     }
-
-    // Calculate expiry time (default to 1 hour if not provided)
-    const expiresIn = data.expires_in || 3600
-    const expiryTime = Math.floor(Date.now() / 1000) + expiresIn
 
     return {
       refreshed: true,
       success: true,
       message: "Successfully refreshed Google token",
       newToken: data.access_token,
-      newExpiry: expiryTime,
-      newRefreshToken: data.refresh_token, // Google may return a new refresh token
+      newExpiry: Math.floor(Date.now() / 1000) + data.expires_in,
     }
   } catch (error) {
-    console.error("Google token refresh error:", error)
     return {
       refreshed: false,
       success: false,
@@ -370,26 +345,18 @@ async function refreshGoogleToken(refreshToken: string): Promise<RefreshResult> 
 
 async function refreshMicrosoftToken(refreshToken: string, integration: Integration): Promise<RefreshResult> {
   try {
-    // Use unified Microsoft OAuth app for all Microsoft services
-    const clientId = process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID
-    const clientSecret = process.env.MICROSOFT_CLIENT_SECRET
+    // Microsoft may use a tenant-specific or common endpoint
+    const tenant = integration.metadata?.tenantId || "common"
+    const tokenUrl = `https://login.microsoftonline.com/${tenant}/oauth2/v2.0/token`
 
-    if (!clientId || !clientSecret) {
-      return {
-        refreshed: false,
-        success: false,
-        message: "Missing Microsoft OAuth credentials",
-      }
-    }
-
-    const response = await fetch("https://login.microsoftonline.com/common/oauth2/v2.0/token", {
+    const response = await fetch(tokenUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
       },
       body: new URLSearchParams({
-        client_id: clientId,
-        client_secret: clientSecret,
+        client_id: process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID!,
+        client_secret: process.env.MICROSOFT_CLIENT_SECRET!,
         refresh_token: refreshToken,
         grant_type: "refresh_token",
       }),
@@ -402,7 +369,7 @@ async function refreshMicrosoftToken(refreshToken: string, integration: Integrat
         return {
           refreshed: false,
           success: false,
-          message: `Microsoft ${integration.provider} token requires re-authentication`,
+          message: "Microsoft token has been revoked or expired and requires re-authentication",
           requiresReconnect: true,
         }
       }
@@ -410,7 +377,7 @@ async function refreshMicrosoftToken(refreshToken: string, integration: Integrat
       return {
         refreshed: false,
         success: false,
-        message: `Microsoft token refresh failed: ${data.error}`,
+        message: `Microsoft token refresh failed: ${data.error_description}`,
       }
     }
 
@@ -419,8 +386,8 @@ async function refreshMicrosoftToken(refreshToken: string, integration: Integrat
       success: true,
       message: "Successfully refreshed Microsoft token",
       newToken: data.access_token,
-      newExpiry: Math.floor(Date.now() / 1000) + (data.expires_in || 3600),
-      newRefreshToken: data.refresh_token,
+      newExpiry: Math.floor(Date.now() / 1000) + data.expires_in,
+      newRefreshToken: data.refresh_token, // Microsoft often returns a new refresh token
     }
   } catch (error) {
     return {
@@ -444,35 +411,25 @@ async function refreshDropboxToken(refreshToken: string): Promise<RefreshResult>
       }
     }
 
-    const response = await fetch("https://api.dropboxapi.com/oauth2/token", {
+    const response = await fetch("https://api.dropbox.com/oauth2/token", {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
+        "Authorization": `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`,
       },
       body: new URLSearchParams({
-        client_id: clientId,
-        client_secret: clientSecret,
-        refresh_token: refreshToken,
         grant_type: "refresh_token",
+        refresh_token: refreshToken,
       }),
     })
 
     const data = await response.json()
 
     if (!response.ok) {
-      if (data.error === "invalid_grant") {
-        return {
-          refreshed: false,
-          success: false,
-          message: "Dropbox token expired and requires re-authentication",
-          requiresReconnect: true,
-        }
-      }
-
       return {
         refreshed: false,
         success: false,
-        message: `Dropbox token refresh failed: ${data.error}`,
+        message: `Dropbox token refresh failed: ${data.error_description}`,
       }
     }
 
@@ -513,23 +470,14 @@ async function refreshSlackToken(refreshToken: string): Promise<RefreshResult> {
       body: new URLSearchParams({
         client_id: clientId,
         client_secret: clientSecret,
-        refresh_token: refreshToken,
         grant_type: "refresh_token",
+        refresh_token: refreshToken,
       }),
     })
 
     const data = await response.json()
 
     if (!data.ok) {
-      if (data.error === "invalid_auth" || data.error === "token_revoked") {
-        return {
-          refreshed: false,
-          success: false,
-          message: "Slack token expired and requires re-authentication",
-          requiresReconnect: true,
-        }
-      }
-
       return {
         refreshed: false,
         success: false,
@@ -542,7 +490,8 @@ async function refreshSlackToken(refreshToken: string): Promise<RefreshResult> {
       success: true,
       message: "Successfully refreshed Slack token",
       newToken: data.access_token,
-      newExpiry: Math.floor(Date.now() / 1000) + (data.expires_in || 86400),
+      newExpiry: Math.floor(Date.now() / 1000) + (data.expires_in || 43200), // 12 hours default
+      newRefreshToken: data.refresh_token,
     }
   } catch (error) {
     return {
@@ -570,11 +519,11 @@ async function refreshTwitterToken(refreshToken: string): Promise<RefreshResult>
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
-        Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`,
+        "Authorization": `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`,
       },
       body: new URLSearchParams({
-        grant_type: "refresh_token",
         refresh_token: refreshToken,
+        grant_type: "refresh_token",
         client_id: clientId,
       }),
     })
@@ -582,19 +531,10 @@ async function refreshTwitterToken(refreshToken: string): Promise<RefreshResult>
     const data = await response.json()
 
     if (!response.ok) {
-      if (data.error === "invalid_grant") {
-        return {
-          refreshed: false,
-          success: false,
-          message: "Twitter token expired and requires re-authentication",
-          requiresReconnect: true,
-        }
-      }
-
       return {
         refreshed: false,
         success: false,
-        message: `Twitter token refresh failed: ${data.error_description || data.error}`,
+        message: `Twitter token refresh failed: ${data.error}`,
       }
     }
 
@@ -603,7 +543,7 @@ async function refreshTwitterToken(refreshToken: string): Promise<RefreshResult>
       success: true,
       message: "Successfully refreshed Twitter token",
       newToken: data.access_token,
-      newExpiry: Math.floor(Date.now() / 1000) + (data.expires_in || 7200),
+      newExpiry: Math.floor(Date.now() / 1000) + (data.expires_in || 7200), // 2 hours default
       newRefreshToken: data.refresh_token,
     }
   } catch (error) {
@@ -644,36 +584,19 @@ async function refreshHubSpotToken(refreshToken: string): Promise<RefreshResult>
     const data = await response.json()
 
     if (!response.ok) {
-      if (data.error === "invalid_grant") {
-        return {
-          refreshed: false,
-          success: false,
-          message: "HubSpot token expired and requires re-authentication",
-          requiresReconnect: true,
-        }
-      }
-
       return {
         refreshed: false,
         success: false,
-        message: `HubSpot token refresh failed: ${data.error || data.message}`,
+        message: `HubSpot token refresh failed: ${data.message}`,
       }
     }
-
-    // Debug logging to see what HubSpot actually returns
-    console.log('🔍 HubSpot token refresh response:', {
-      expires_in: data.expires_in,
-      expires_in_hours: data.expires_in ? Math.round(data.expires_in / 3600 * 100) / 100 : 'N/A',
-      has_refresh_token: !!data.refresh_token,
-      scopes: data.scope
-    })
 
     return {
       refreshed: true,
       success: true,
       message: "Successfully refreshed HubSpot token",
       newToken: data.access_token,
-      newExpiry: Math.floor(Date.now() / 1000) + (data.expires_in || 21600), // HubSpot tokens expire in 6 hours (21600 seconds)
+      newExpiry: Math.floor(Date.now() / 1000) + data.expires_in,
       newRefreshToken: data.refresh_token,
     }
   } catch (error) {
@@ -714,19 +637,10 @@ async function refreshLinkedInToken(refreshToken: string): Promise<RefreshResult
     const data = await response.json()
 
     if (!response.ok) {
-      if (data.error === "invalid_grant") {
-        return {
-          refreshed: false,
-          success: false,
-          message: "LinkedIn token expired and requires re-authentication",
-          requiresReconnect: true,
-        }
-      }
-
       return {
         refreshed: false,
         success: false,
-        message: `LinkedIn token refresh failed: ${data.error_description || data.error}`,
+        message: `LinkedIn token refresh failed: ${data.error_description}`,
       }
     }
 
@@ -735,7 +649,8 @@ async function refreshLinkedInToken(refreshToken: string): Promise<RefreshResult
       success: true,
       message: "Successfully refreshed LinkedIn token",
       newToken: data.access_token,
-      newExpiry: Math.floor(Date.now() / 1000) + (data.expires_in || 5184000), // 60 days default
+      newExpiry: Math.floor(Date.now() / 1000) + data.expires_in,
+      newRefreshToken: data.refresh_token,
     }
   } catch (error) {
     return {
@@ -759,35 +674,26 @@ async function refreshFacebookToken(refreshToken: string): Promise<RefreshResult
       }
     }
 
-    const response = await fetch("https://graph.facebook.com/v18.0/oauth/access_token", {
+    const response = await fetch("https://graph.facebook.com/v13.0/oauth/access_token", {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
       },
       body: new URLSearchParams({
-        grant_type: "refresh_token",
-        refresh_token: refreshToken,
+        grant_type: "fb_exchange_token",
         client_id: clientId,
         client_secret: clientSecret,
+        fb_exchange_token: refreshToken,
       }),
     })
 
     const data = await response.json()
 
-    if (!response.ok || data.error) {
-      if (data.error?.code === 190) {
-        return {
-          refreshed: false,
-          success: false,
-          message: "Facebook token expired and requires re-authentication",
-          requiresReconnect: true,
-        }
-      }
-
+    if (!response.ok) {
       return {
         refreshed: false,
         success: false,
-        message: `Facebook token refresh failed: ${data.error?.message || data.error}`,
+        message: `Facebook token refresh failed: ${data.error.message}`,
       }
     }
 
@@ -796,7 +702,7 @@ async function refreshFacebookToken(refreshToken: string): Promise<RefreshResult
       success: true,
       message: "Successfully refreshed Facebook token",
       newToken: data.access_token,
-      newExpiry: Math.floor(Date.now() / 1000) + (data.expires_in || 5184000), // 60 days default
+      newExpiry: Math.floor(Date.now() / 1000) + data.expires_in,
     }
   } catch (error) {
     return {
@@ -948,7 +854,7 @@ async function refreshAirtableToken(refreshToken: string): Promise<RefreshResult
 
 async function fetchAllUserIntegrations(userId: string) {
   try {
-    const supabase = getAdminSupabaseClient()
+    const supabase = createAdminClient()
     const { data, error } = await supabase
       .from("integrations")
       .select("*")
@@ -968,7 +874,7 @@ async function fetchAllUserIntegrations(userId: string) {
 
 async function fetchIntegrationById(integrationId: string, userId: string) {
   try {
-    const supabase = getAdminSupabaseClient()
+    const supabase = createAdminClient()
     const { data, error } = await supabase
       .from("integrations")
       .select("*")
@@ -992,7 +898,7 @@ async function updateIntegrationTokens(
   newAccessToken: string,
   newRefreshToken?: string,
 ) {
-  const supabase = getAdminSupabaseClient()
+  const supabase = createAdminClient()
   const updates: {
     access_token: string
     refresh_token?: string

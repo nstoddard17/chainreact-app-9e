@@ -1,9 +1,10 @@
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
+import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 
 export async function POST(request: Request) {
-  const supabase = createRouteHandlerClient({ cookies })
+  cookies()
+  const supabase = createSupabaseRouteHandlerClient()
 
   try {
     const {
@@ -111,7 +112,6 @@ async function executeWorkflowAdvanced(workflow: any, inputData: any, userId: st
   }
 
   // Load workflow variables
-  const supabase = createRouteHandlerClient({ cookies })
   const { data: variables } = await supabase.from("workflow_variables").select("*").eq("workflow_id", workflow.id)
 
   if (variables) {
@@ -418,7 +418,7 @@ async function executeVariableSetNode(node: any, context: any) {
 
   // Store in database if workflow scope
   if (scope === "workflow") {
-    const supabase = createRouteHandlerClient({ cookies })
+    const supabase = createSupabaseRouteHandlerClient()
     await supabase.from("workflow_variables").upsert({
       workflow_id: context.workflowId,
       name: variableName,
@@ -757,7 +757,7 @@ async function executeSlackMessageNode(node: any, context: any) {
   }
 
   // Get Slack integration
-  const supabase = createRouteHandlerClient({ cookies })
+  const supabase = createSupabaseRouteHandlerClient()
   const { data: integration } = await supabase
     .from("integrations")
     .select("*")
@@ -812,7 +812,7 @@ async function executeCalendarEventNode(node: any, context: any) {
   }
 
   // Get Google Calendar integration
-  const supabase = createRouteHandlerClient({ cookies })
+  const supabase = createSupabaseRouteHandlerClient()
   const { data: integration } = await supabase
     .from("integrations")
     .select("*")
@@ -877,7 +877,7 @@ async function executeSheetsAppendNode(node: any, context: any) {
   }
 
   // Get Google Sheets integration
-  const supabase = createRouteHandlerClient({ cookies })
+  const supabase = createSupabaseRouteHandlerClient()
   const { data: integration } = await supabase
     .from("integrations")
     .select("*")

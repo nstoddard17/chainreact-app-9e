@@ -59,7 +59,11 @@ export interface IntegrationStore {
   getIntegrationByProvider: (providerId: string) => Integration | null
   getConnectedProviders: () => string[]
   initializeGlobalPreload: () => Promise<void>
-  loadIntegrationData: (providerId: string) => Promise<any>
+  loadIntegrationData: (
+    providerId: string,
+    integrationId: string,
+    params?: Record<string, any>,
+  ) => Promise<any>
   clearAllData: () => void
   connectApiKeyIntegration: (providerId: string, apiKey: string) => Promise<void>
   reconnectIntegration: (integrationId: string) => Promise<void>
@@ -523,33 +527,49 @@ export const useIntegrationStore = create<IntegrationStore>()(
       }
     },
 
-    loadIntegrationData: async (providerId: string) => {
-      set((state) => ({
-        loadingStates: { ...state.loadingStates, [`data-${providerId}`]: true },
-      }))
+    loadIntegrationData: async (
+      providerId: string,
+      integrationId: string,
+      params?: Record<string, any>,
+    ) => {
+      const { setLoading, setError, integrationData } = get()
+      setLoading(`data-${providerId}`, true)
 
       try {
-        const response = await apiClient.get(
-          `/api/integrations/${providerId}/load-data`,
-        )
+        let url = ""
+        switch (providerId) {
+          case "slack":
+            url = "/api/integrations/slack/load-data"
+            break
+          case "gmail":
+            url = "/api/integrations/gmail/load-data"
+            break
+          case "google-calendar":
+            url = "/api/integrations/google-calendar/load-data"
+            break
+          case "google-drive":
+            url = "/api/integrations/google-drive/load-data"
+            break
+          default:
+            throw new Error(`Loading data for ${providerId} is not supported.`)
+        }
+
+        const response = await apiClient.post(url, { integrationId, ...params })
+        const data = response.data
+
         set((state) => ({
           integrationData: {
             ...state.integrationData,
-            [providerId]: response.data,
+            [providerId]: data,
           },
         }))
-        return response.data
+        setLoading(`data-${providerId}`, false)
+        return data
       } catch (error: any) {
         console.error(`Failed to load data for ${providerId}:`, error)
-        get().setError(`Failed to load data for ${providerId}. Please try again.`)
+        setError(`Failed to load data for ${providerId}.`)
+        setLoading(`data-${providerId}`, false)
         return null
-      } finally {
-        set((state) => ({
-          loadingStates: {
-            ...state.loadingStates,
-            [`data-${providerId}`]: false,
-          },
-        }))
       }
     },
 
