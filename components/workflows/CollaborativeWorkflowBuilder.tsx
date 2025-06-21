@@ -76,6 +76,8 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
 import { ALL_NODE_COMPONENTS, NodeComponent } from "@/lib/workflows/availableNodes"
 import { INTEGRATION_CONFIGS } from "@/lib/integrations/availableIntegrations"
+import { useToast } from "@/hooks/use-toast"
+import { motion } from "framer-motion"
 
 // This function doesn't depend on component state, so it can be moved outside.
 const getIntegrationsFromNodes = () => {
@@ -191,6 +193,11 @@ export default function CollaborativeWorkflowBuilder() {
   edgesRef.current = edges;
   
   const availableIntegrations = useMemo(() => getIntegrationsFromNodes(), [])
+
+  const { toast } = useToast()
+  const [isSaving, setIsSaving] = useState(false)
+  const [isExecuting, setIsExecuting] = useState(false)
+  const [testExecutions, setTestExecutions] = useState<any[]>([])
 
   const handleConfigureNode = useCallback((nodeId: string) => {
     const nodeToConfigure = nodesRef.current.find(n => n.id === nodeId)
@@ -444,7 +451,7 @@ export default function CollaborativeWorkflowBuilder() {
   const handleSaveDraft = async () => {
     if (!currentWorkflow) return
 
-    setSaving(true)
+    setIsSaving(true)
     try {
       // Create a version of the nodes and connections suitable for saving to the DB.
       // This means stripping out functions and other non-serializable data.
@@ -494,7 +501,7 @@ export default function CollaborativeWorkflowBuilder() {
     } catch (error) {
       console.error("Failed to save workflow:", error)
     } finally {
-      setSaving(false)
+      setIsSaving(false)
     }
   }
 
@@ -537,54 +544,35 @@ export default function CollaborativeWorkflowBuilder() {
 
   const handleExecute = async () => {
     if (!currentWorkflow) return
-
-    setExecuting(true)
+    setIsExecuting(true)
     try {
-      const triggerNode = nodes.find(n => n.data.isTrigger);
-      let startNodeId: string | undefined = undefined;
-
-      if (triggerNode) {
-        const firstConnection = edges.find(e => e.source === triggerNode.id);
-        if (firstConnection) {
-          startNodeId = firstConnection.target;
-        }
-      }
-
-      if (!startNodeId) {
-        console.error("Test execution failed: Could not find a node connected to the trigger.");
-        // Optionally, show a toast notification to the user
-        setExecuting(false);
-        return;
-      }
-
-      const response = await fetch("/api/workflows/execute-advanced", {
+      const response = await fetch(`/api/workflows/execute`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          workflowId: currentWorkflow.id,
-          inputData: {}, // In a real app, you'd want a way to provide mock trigger data
-          options: {
-            enableParallel: true,
-            maxConcurrency: 3,
-            enableSubWorkflows: true,
-          },
-          startNodeId: startNodeId,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ workflowId }),
       })
-
       const result = await response.json()
-
-      if (result.success) {
-        // Show success notification
+      if (response.ok && result.success) {
+        toast({
+          title: "Success",
+          description: "Workflow test executed successfully.",
+        })
+        // Add to history
+        setTestExecutions(prev => [{ id: result.output?.executionId, status: 'Completed', timestamp: new Date() }, ...prev])
       } else {
-        // Show error notification
+        throw new Error(result.message || "Failed to execute workflow test.")
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to execute workflow:", error)
+      toast({
+        title: "Error",
+        description: `Workflow test failed: ${error.message}`,
+        variant: "destructive",
+      })
+      // Add to history
+      setTestExecutions(prev => [{ id: Date.now(), status: `Failed: ${error.message}`, timestamp: new Date() }, ...prev])
     } finally {
-      setExecuting(false)
+      setIsExecuting(false)
     }
   }
 
@@ -1156,6 +1144,27 @@ export default function CollaborativeWorkflowBuilder() {
             </Alert>
           </div>
         )}
+
+        {/* Test Runs */}
+        <div className="mt-4 p-4 border rounded-lg bg-gray-50">
+          <h3 className="text-lg font-semibold mb-2">Test Runs</h3>
+          <div className="max-h-60 overflow-y-auto">
+            {testExecutions.length === 0 ? (
+              <p className="text-sm text-gray-500">No test runs yet. Click "Test" to see results.</p>
+            ) : (
+              <ul className="space-y-2">
+                {testExecutions.map((run) => (
+                  <li key={run.id} className="p-2 border rounded-md text-sm flex justify-between items-center">
+                    <div>
+                      <span className={`font-medium ${run.status === 'Completed' ? 'text-green-600' : 'text-red-600'}`}>{run.status}</span>
+                      <p className="text-xs text-gray-500">{new Date(run.timestamp).toLocaleString()}</p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
       </div>
     </TooltipProvider>
   )

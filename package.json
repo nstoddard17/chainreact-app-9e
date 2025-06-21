@@ -72,6 +72,7 @@
     "drizzle-orm": "latest",
     "embla-carousel-react": "latest",
     "expo-sqlite": "latest",
+    "framer-motion": "^12.18.1",
     "gel": "latest",
     "googleapis": "^105.0.0",
     "immer": "latest",
