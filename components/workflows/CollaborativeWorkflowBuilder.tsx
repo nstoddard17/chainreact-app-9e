@@ -78,7 +78,7 @@ import { ALL_NODE_COMPONENTS, NodeComponent } from "@/lib/workflows/availableNod
 import { INTEGRATION_CONFIGS } from "@/lib/integrations/availableIntegrations"
 
 const nodeTypes: NodeTypes = {
-  custom: CustomNode,
+  custom: CustomNode as any,
   addAction: AddActionNode,
 }
 
@@ -130,7 +130,12 @@ export default function CollaborativeWorkflowBuilder() {
   const [showActionDialog, setShowActionDialog] = useState(false)
   const [selectedIntegration, setSelectedIntegration] = useState<any | null>(null)
   const [sourceAddNode, setSourceAddNode] = useState<{ id: string, parentId: string } | null>(null)
-  const [configuringNode, setConfiguringNode] = useState<{ integration: any, nodeComponent: NodeComponent } | null>(null)
+  const [configuringNode, setConfiguringNode] = useState<{
+    id: string
+    integration: any
+    nodeComponent: NodeComponent
+    config: Record<string, any>
+  } | null>(null)
 
   const { fitView } = useReactFlow()
   const reactFlowWrapper = useRef<HTMLDivElement>(null)
@@ -264,20 +269,63 @@ export default function CollaborativeWorkflowBuilder() {
   }, [currentWorkflow, setNodes, setEdges])
 
   const handleConfigureNode = (nodeId: string) => {
-    const nodeToConfigure = nodes.find(n => n.id === nodeId);
-    if (nodeToConfigure && nodeToConfigure.data.configSchema) {
-      const integration = availableIntegrations.find(i => i.id === nodeToConfigure.data.providerId);
-      const nodeComponent = ALL_NODE_COMPONENTS.find(c => c.type === nodeToConfigure.data.type);
-      if (integration && nodeComponent) {
-        setConfiguringNode({ integration, nodeComponent });
-      }
+    const nodeToConfigure = nodes.find(n => n.id === nodeId)
+    if (!nodeToConfigure) return
+
+    const nodeComponent = ALL_NODE_COMPONENTS.find(c => c.type === nodeToConfigure.data.type)
+    if (!nodeComponent?.configSchema || nodeComponent.configSchema.length === 0) return
+
+    const integration = availableIntegrations.find(i => i.id === nodeToConfigure.data.providerId)
+    if (integration && nodeComponent) {
+      setConfiguringNode({
+        id: nodeId,
+        integration,
+        nodeComponent,
+        config: nodeToConfigure.data.config || {},
+      })
     }
-  };
+  }
 
   const handleDeleteNode = (nodeId: string) => {
-    setNodes(prev => prev.filter(n => n.id !== nodeId));
-    setEdges(prev => prev.filter(e => e.source !== nodeId && e.target !== nodeId));
-  };
+    const nodeToRemove = nodes.find(n => n.id === nodeId)
+    if (!nodeToRemove) return
+
+    if (nodeToRemove.data.isTrigger) {
+      // If deleting the trigger, clear the whole board
+      setNodes([])
+      setEdges([])
+      return
+    }
+
+    const incomingEdge = edges.find(e => e.target === nodeId)
+    const outgoingEdges = edges.filter(e => e.source === nodeId)
+
+    let newNodes = nodes.filter(n => n.id !== nodeId)
+    let newEdges = edges.filter(e => e.source !== nodeId && e.target !== nodeId)
+
+    // Reconnect predecessor to successor(s)
+    if (incomingEdge && outgoingEdges.length > 0) {
+      const predecessorId = incomingEdge.source
+      outgoingEdges.forEach(outgoingEdge => {
+        const successorId = outgoingEdge.target
+        newEdges.push({
+          id: `${predecessorId}-${successorId}`,
+          source: predecessorId,
+          target: successorId,
+          animated: true,
+          style: {
+            stroke: successorId.startsWith('add-action') ? '#b1b1b7' : '#8b5cf6',
+            strokeWidth: 2,
+            strokeDasharray: successorId.startsWith('add-action') ? '5,5' : undefined,
+          },
+          type: 'straight',
+        })
+      })
+    }
+    
+    setNodes(newNodes)
+    setEdges(newEdges)
+  }
 
   // Show conflict dialog when conflicts arise
   useEffect(() => {
@@ -470,9 +518,10 @@ export default function CollaborativeWorkflowBuilder() {
 
   const handleTriggerSelect = (integration: any, trigger: NodeComponent) => {
     if (trigger.configSchema && trigger.configSchema.length > 0) {
-      setConfiguringNode({ integration, nodeComponent: trigger })
+      // We set a temporary ID for triggers since we know it's a new node
+      setConfiguringNode({ id: 'new-trigger', integration, nodeComponent: trigger, config: {} })
     } else {
-      handleSaveConfiguration({ integration, nodeComponent: trigger }, {})
+      handleSaveConfiguration({ integration, nodeComponent: trigger, id: 'new-trigger', config: {} }, {})
     }
     setShowTriggerDialog(false)
   }
@@ -481,16 +530,37 @@ export default function CollaborativeWorkflowBuilder() {
     if (!sourceAddNode) return
 
     // Don't add the node yet, just open the configuration modal
-    setConfiguringNode({ integration, nodeComponent: action })
+    // We set a temporary ID here, the actual ID is created on save
+    setConfiguringNode({ id: 'new-action', integration, nodeComponent: action, config: {} })
     setShowActionDialog(false)
   }
 
   const handleSaveConfiguration = (
-    context: { integration: any; nodeComponent: NodeComponent },
-    config: Record<string, any>,
+    context: { id: string; integration: any; nodeComponent: NodeComponent; config: Record<string, any> },
+    newConfig: Record<string, any>,
   ) => {
-    const { integration, nodeComponent } = context
+    const { id, integration, nodeComponent } = context
 
+    // Case 1: Updating an existing node
+    if (id !== 'new-trigger' && id !== 'new-action') {
+      setNodes(prevNodes =>
+        prevNodes.map(node =>
+          node.id === id
+            ? {
+                ...node,
+                data: {
+                  ...node.data,
+                  config: newConfig,
+                },
+              }
+            : node
+        )
+      )
+      setConfiguringNode(null)
+      return
+    }
+
+    // Case 2: Adding a new trigger node
     if (nodeComponent.isTrigger) {
       // Logic to add a new trigger node
       const triggerNodeId = crypto.randomUUID()
@@ -508,7 +578,9 @@ export default function CollaborativeWorkflowBuilder() {
           providerId: integration.id,
           isTrigger: nodeComponent.isTrigger,
           configSchema: nodeComponent.configSchema,
-          config,
+          config: newConfig,
+          onConfigure: handleConfigureNode,
+          onDelete: handleDeleteNode,
         },
       }
 
@@ -533,7 +605,7 @@ export default function CollaborativeWorkflowBuilder() {
         },
       ])
     } else {
-      // Logic to add a new action node
+      // Case 3: Adding a new action node
       if (!sourceAddNode) return
 
       const parentNode = nodes.find(n => n.id === sourceAddNode.parentId)
@@ -560,7 +632,9 @@ export default function CollaborativeWorkflowBuilder() {
           providerId: integration.id,
           isTrigger: nodeComponent.isTrigger,
           configSchema: nodeComponent.configSchema,
-          config,
+          config: newConfig,
+          onConfigure: handleConfigureNode,
+          onDelete: handleDeleteNode,
         },
       }
 
@@ -825,6 +899,7 @@ export default function CollaborativeWorkflowBuilder() {
             }
           }}
           nodeInfo={configuringNode?.nodeComponent || null}
+          initialData={configuringNode?.config || {}}
           integrationName={configuringNode?.integration?.name || ""}
         />
 
