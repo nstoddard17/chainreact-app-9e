@@ -124,7 +124,7 @@ const getIntegrationsFromNodes = () => {
 }
 
 const nodeTypes: NodeTypes = {
-  custom: CustomNode as any,
+  custom: CustomNode,
   addAction: AddActionNode,
 };
 
@@ -203,7 +203,6 @@ export default function CollaborativeWorkflowBuilder() {
 
   const handleSaveDraft = useCallback(async () => {
     if (!currentWorkflow) return
-
     setIsSaving(true)
     try {
       const dbNodes = nodesRef.current.map(node => {
@@ -211,18 +210,12 @@ export default function CollaborativeWorkflowBuilder() {
         delete dataForDb.onConfigure
         delete dataForDb.onDelete
         delete dataForDb.onClick
-        delete dataForDb.icon
 
         return {
           id: node.id,
           type: node.type || 'custom',
           position: node.position,
-          data: {
-            label: dataForDb.label || dataForDb.title || 'Untitled',
-            type: dataForDb.type || 'custom',
-            config: dataForDb.config || {},
-            ...dataForDb,
-          },
+          data: { ...dataForDb },
         }
       })
 
@@ -241,10 +234,8 @@ export default function CollaborativeWorkflowBuilder() {
         connections: dbConnections,
       }
       
-      useWorkflowStore.setState({ currentWorkflow: updatedWorkflow })
-      
-      await saveWorkflow()
-      originalWorkflowName.current = workflowName; // Update original name after save
+      await saveWorkflow(updatedWorkflow)
+      originalWorkflowName.current = workflowName; 
       toast({
         title: "Workflow Saved",
         description: "Your changes have been saved successfully.",
@@ -285,46 +276,40 @@ export default function CollaborativeWorkflowBuilder() {
         config: nodeToConfigure.data.config || {},
       })
     }
-  }, [availableIntegrations, setConfiguringNode])
+  }, [availableIntegrations])
 
   const handleDeleteNode = useCallback((nodeId: string) => {
-    const nodeToRemove = nodesRef.current.find(n => n.id === nodeId)
-    if (!nodeToRemove) return
+    const nodes = nodesRef.current;
+    const edges = edgesRef.current;
 
-    if (nodeToRemove.data.isTrigger) {
-      setNodes([])
-      setEdges([])
-      return
+    const nodeToRemove = nodes.find(n => n.id === nodeId);
+    if (!nodeToRemove) return;
+
+    // If deleting the trigger or if it's the last real node, clear everything.
+    if (nodeToRemove.data.isTrigger || nodes.filter(n => n.type === 'custom').length === 1) {
+      setNodes([]);
+      setEdges([]);
+      return;
     }
 
-    const incomingEdge = edgesRef.current.find(e => e.target === nodeId)
-    const outgoingEdges = edgesRef.current.filter(e => e.source === nodeId)
+    const incomingEdge = edges.find(e => e.target === nodeId);
+    const outgoingEdge = edges.find(e => e.source === nodeId);
+    
+    let newNodes = nodes.filter(n => n.id !== nodeId);
+    let newEdges = edges.filter(e => e.source !== nodeId && e.target !== nodeId);
 
-    const newNodes = nodesRef.current.filter(n => n.id !== nodeId)
-    let newEdges = edgesRef.current.filter(e => e.source !== nodeId && e.target !== nodeId)
-
-    if (incomingEdge && outgoingEdges.length > 0) {
-      const predecessorId = incomingEdge.source
-      outgoingEdges.forEach(outgoingEdge => {
-        const successorId = outgoingEdge.target
-        newEdges.push({
-          id: `${predecessorId}-${successorId}`,
-          source: predecessorId,
-          target: successorId,
-          animated: true,
-          style: {
-            stroke: successorId.startsWith('add-action') ? '#b1b1b7' : '#8b5cf6',
-            strokeWidth: 2,
-            strokeDasharray: successorId.startsWith('add-action') ? '5,5' : undefined,
-          },
-          type: 'straight',
-        })
-      })
+    // If the deleted node was in the middle of a chain, reconnect the gap.
+    if (incomingEdge && outgoingEdge) {
+      newEdges.push({
+        ...incomingEdge,
+        id: `${incomingEdge.source}-${outgoingEdge.target}`,
+        target: outgoingEdge.target,
+      });
     }
     
-    setNodes(newNodes)
-    setEdges(newEdges)
-  }, [setNodes, setEdges])
+    setNodes(newNodes);
+    setEdges(newEdges);
+  }, [setNodes, setEdges]);
 
   const handleAddActionClick = useCallback((nodeId: string, parentId: string) => {
     setSourceAddNode({ id: nodeId, parentId })
@@ -497,10 +482,9 @@ export default function CollaborativeWorkflowBuilder() {
         position: node.position,
         data: {
           ...node.data,
-          // Inject callbacks here
           onConfigure: handleConfigureNode,
           onDelete: handleDeleteNode,
-          onAddAction: node.type === 'addAction' ? handleAddActionClick : undefined,
+          onClick: node.type === 'addAction' ? () => handleAddActionClick(node.id, node.data.parentId) : undefined,
         }
       }));
       
@@ -519,7 +503,7 @@ export default function CollaborativeWorkflowBuilder() {
       setWorkflowName(currentWorkflow.name || "Untitled Chain");
       originalWorkflowName.current = currentWorkflow.name || "Untitled Chain";
     }
-  }, [currentWorkflow, handleConfigureNode, handleDeleteNode, handleAddActionClick]);
+  }, [currentWorkflow, handleConfigureNode, handleDeleteNode, handleAddActionClick, setNodes, setEdges]);
 
   const handleEnable = async () => {
     if (!currentWorkflow) return
@@ -808,11 +792,11 @@ export default function CollaborativeWorkflowBuilder() {
                       setIsEditingName(false);
                     }
                   }}
-                  className="text-xl font-bold bg-transparent border-none p-0 h-auto focus-visible:ring-0"
+                  className="text-xl font-bold text-slate-900 bg-transparent border-none p-0 h-auto focus-visible:ring-0"
                   autoFocus
                 />
               ) : (
-                <h1
+                <h1 
                   className="text-xl font-bold text-slate-900 cursor-pointer hover:text-slate-700"
                   onClick={() => {
                     originalWorkflowName.current = workflowName;
@@ -937,7 +921,7 @@ export default function CollaborativeWorkflowBuilder() {
                 <ReactFlow
                   nodes={nodes}
                   edges={edges}
-                  onNodesChange={onNodesChangeCustom}
+                  onNodesChange={onNodesChange}
                   onEdgesChange={onEdgesChange}
                   onNodeDragStop={onNodeDragStop}
                   onNodeClick={(_event, node) => {
