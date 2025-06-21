@@ -367,22 +367,30 @@ async function refreshGoogleToken(refreshToken: string): Promise<RefreshResult> 
   }
 }
 
-async function refreshMicrosoftToken(refreshToken: string, integration: Integration): Promise<RefreshResult> {
-  try {
-    // Microsoft may use a tenant-specific or common endpoint
-    const tenant = integration.metadata?.tenantId || "common"
-    const tokenUrl = `https://login.microsoftonline.com/${tenant}/oauth2/v2.0/token`
+async function refreshMicrosoftToken(
+  refreshToken: string,
+  integration: Integration,
+): Promise<RefreshResult> {
+  const clientId = process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID
+  const clientSecret = process.env.MICROSOFT_CLIENT_SECRET
+  const tenantId = integration.metadata?.tenantId || "common"
 
-    const response = await fetch(tokenUrl, {
+  if (!clientId || !clientSecret) {
+    throw new Error("Microsoft client ID or secret not configured")
+  }
+
+  try {
+    const response = await fetch(`https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`, {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
       },
       body: new URLSearchParams({
-        client_id: process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID!,
-        client_secret: process.env.MICROSOFT_CLIENT_SECRET!,
+        client_id: clientId,
+        client_secret: clientSecret,
         refresh_token: refreshToken,
         grant_type: "refresh_token",
+        scope: "offline_access User.Read Mail.ReadWrite Calendars.ReadWrite Files.ReadWrite.All",
       }),
     })
 
@@ -544,7 +552,6 @@ async function refreshTwitterToken(refreshToken: string): Promise<RefreshResult>
       body: new URLSearchParams({
         refresh_token: refreshToken,
         grant_type: "refresh_token",
-        client_id: clientId,
       }),
     })
 
@@ -796,21 +803,16 @@ async function refreshGitLabToken(refreshToken: string): Promise<RefreshResult> 
 }
 
 async function refreshAirtableToken(refreshToken: string): Promise<RefreshResult> {
+  const clientId = process.env.NEXT_PUBLIC_AIRTABLE_CLIENT_ID
+  const clientSecret = process.env.AIRTABLE_CLIENT_SECRET
+
+  if (!clientId || !clientSecret) {
+    throw new Error("Airtable client ID or secret not configured")
+  }
+
+  const authHeader = `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`
+
   try {
-    const clientId = process.env.NEXT_PUBLIC_AIRTABLE_CLIENT_ID
-    const clientSecret = process.env.AIRTABLE_CLIENT_SECRET
-
-    if (!clientId || !clientSecret) {
-      return {
-        refreshed: false,
-        success: false,
-        message: "Missing Airtable OAuth credentials",
-      }
-    }
-
-    // Use Basic Authentication like in the callback
-    const authHeader = `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`
-
     const response = await fetch("https://airtable.com/oauth2/v1/token", {
       method: "POST",
       headers: {
@@ -1478,18 +1480,14 @@ async function refreshStripeToken(refreshToken: string): Promise<RefreshResult> 
 }
 
 async function refreshBoxToken(refreshToken: string): Promise<RefreshResult> {
+  const clientId = process.env.NEXT_PUBLIC_BOX_CLIENT_ID
+  const clientSecret = process.env.BOX_CLIENT_SECRET
+
+  if (!clientId || !clientSecret) {
+    throw new Error("Box client ID or secret not configured")
+  }
+
   try {
-    const clientId = process.env.NEXT_PUBLIC_BOX_CLIENT_ID
-    const clientSecret = process.env.BOX_CLIENT_SECRET
-
-    if (!clientId || !clientSecret) {
-      return {
-        refreshed: false,
-        success: false,
-        message: "Missing Box OAuth credentials",
-      }
-    }
-
     const response = await fetch("https://api.box.com/oauth2/token", {
       method: "POST",
       headers: {
