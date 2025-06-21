@@ -123,6 +123,11 @@ const getIntegrationsFromNodes = () => {
   return Object.values(integrationMap)
 }
 
+const nodeTypes: NodeTypes = {
+  custom: CustomNode as any,
+  addAction: AddActionNode,
+};
+
 export default function CollaborativeWorkflowBuilder() {
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -181,6 +186,7 @@ export default function CollaborativeWorkflowBuilder() {
   const { fitView } = useReactFlow()
   const reactFlowWrapper = useRef<HTMLDivElement>(null)
   const cursorUpdateTimer = useRef<NodeJS.Timeout | null>(null)
+  const originalWorkflowName = useRef<string>("")
 
   // Use refs to hold the latest nodes and edges for callbacks without creating dependency cycles
   const nodesRef = useRef(nodes);
@@ -194,6 +200,74 @@ export default function CollaborativeWorkflowBuilder() {
   const [isSaving, setIsSaving] = useState(false)
   const [isExecuting, setIsExecuting] = useState(false)
   const [testExecutions, setTestExecutions] = useState<any[]>([])
+
+  const handleSaveDraft = useCallback(async () => {
+    if (!currentWorkflow) return
+
+    setIsSaving(true)
+    try {
+      const dbNodes = nodesRef.current.map(node => {
+        const dataForDb: any = { ...node.data }
+        delete dataForDb.onConfigure
+        delete dataForDb.onDelete
+        delete dataForDb.onClick
+        delete dataForDb.icon
+
+        return {
+          id: node.id,
+          type: node.type || 'custom',
+          position: node.position,
+          data: {
+            label: dataForDb.label || dataForDb.title || 'Untitled',
+            type: dataForDb.type || 'custom',
+            config: dataForDb.config || {},
+            ...dataForDb,
+          },
+        }
+      })
+
+      const dbConnections = edgesRef.current.map(edge => ({
+        id: edge.id,
+        source: edge.source,
+        target: edge.target,
+        sourceHandle: edge.sourceHandle || undefined,
+        targetHandle: edge.targetHandle || undefined,
+      }))
+
+      const updatedWorkflow = {
+        ...currentWorkflow,
+        name: workflowName,
+        nodes: dbNodes,
+        connections: dbConnections,
+      }
+      
+      useWorkflowStore.setState({ currentWorkflow: updatedWorkflow })
+      
+      await saveWorkflow()
+      originalWorkflowName.current = workflowName; // Update original name after save
+      toast({
+        title: "Workflow Saved",
+        description: "Your changes have been saved successfully.",
+      })
+
+    } catch (error) {
+      console.error("Failed to save workflow:", error)
+      toast({
+        title: "Error Saving",
+        description: `Failed to save workflow: ${error instanceof Error ? error.message : "Unknown error"}`,
+        variant: "destructive",
+      })
+    } finally {
+      setIsSaving(false)
+    }
+  }, [currentWorkflow, workflowName, saveWorkflow, toast])
+
+  const handleNameChangeCommit = useCallback(() => {
+    setIsEditingName(false);
+    if (workflowName && workflowName !== originalWorkflowName.current) {
+      handleSaveDraft();
+    }
+  }, [workflowName, handleSaveDraft]);
 
   const handleConfigureNode = useCallback((nodeId: string) => {
     const nodeToConfigure = nodesRef.current.find(n => n.id === nodeId)
@@ -414,7 +488,7 @@ export default function CollaborativeWorkflowBuilder() {
     loadWorkflows()
   }, [fetchWorkflows])
 
-  // Update nodes and edges when current workflow changes
+  // This useEffect is now the single source of truth for injecting callbacks into nodes.
   useEffect(() => {
     if (currentWorkflow) {
       const reactFlowNodes = (currentWorkflow.nodes || []).map((node: any) => ({
@@ -423,11 +497,12 @@ export default function CollaborativeWorkflowBuilder() {
         position: node.position,
         data: {
           ...node.data,
+          // Inject callbacks here
           onConfigure: handleConfigureNode,
           onDelete: handleDeleteNode,
-          onClick: node.type === 'addAction' ? () => handleAddActionClick(node.id, node.data.parentId) : undefined,
+          onAddAction: node.type === 'addAction' ? handleAddActionClick : undefined,
         }
-      }))
+      }));
       
       const reactFlowEdges = (currentWorkflow.connections || []).map((conn: any) => ({
         id: conn.id,
@@ -437,69 +512,14 @@ export default function CollaborativeWorkflowBuilder() {
         targetHandle: conn.targetHandle,
         animated: true,
         style: { stroke: conn.target.startsWith('add-action') ? '#b1b1b7' : '#8b5cf6', strokeWidth: 2, strokeDasharray: conn.target.startsWith('add-action') ? '5,5' : undefined } as React.CSSProperties
-      }))
+      }));
       
-      setNodes(reactFlowNodes)
-      setEdges(reactFlowEdges)
+      setNodes(reactFlowNodes);
+      setEdges(reactFlowEdges);
+      setWorkflowName(currentWorkflow.name || "Untitled Chain");
+      originalWorkflowName.current = currentWorkflow.name || "Untitled Chain";
     }
-  }, [currentWorkflow, handleConfigureNode, handleDeleteNode, setNodes, setEdges, handleAddActionClick])
-
-  const handleSaveDraft = async () => {
-    if (!currentWorkflow) return
-
-    setIsSaving(true)
-    try {
-      // Create a version of the nodes and connections suitable for saving to the DB.
-      // This means stripping out functions and other non-serializable data.
-      const dbNodes = nodes.map(node => {
-        const dataForDb: any = { ...node.data }
-        delete dataForDb.onConfigure
-        delete dataForDb.onDelete
-        delete dataForDb.onClick
-        delete dataForDb.icon
-
-        return {
-          id: node.id,
-          type: node.type || 'custom',
-          position: node.position,
-          data: {
-            // Ensure the base properties are present and correctly typed
-            label: dataForDb.label || dataForDb.title || 'Untitled',
-            type: dataForDb.type || 'custom',
-            config: dataForDb.config || {},
-            // Spread the rest of the serializable data
-            ...dataForDb,
-          },
-        }
-      })
-
-      const dbConnections = edges.map(edge => ({
-        id: edge.id,
-        source: edge.source,
-        target: edge.target,
-        sourceHandle: edge.sourceHandle || undefined,
-        targetHandle: edge.targetHandle || undefined,
-      }))
-
-      const updatedWorkflow = {
-        ...currentWorkflow,
-        name: workflowName,
-        nodes: dbNodes,
-        connections: dbConnections,
-      }
-      
-      // Update the store's current workflow without triggering a local re-render with incomplete data
-      useWorkflowStore.setState({ currentWorkflow: updatedWorkflow })
-      
-      // Now call the actual save function which likely uses the store's state
-      await saveWorkflow()
-
-    } catch (error) {
-      console.error("Failed to save workflow:", error)
-    } finally {
-      setIsSaving(false)
-    }
-  }
+  }, [currentWorkflow, handleConfigureNode, handleDeleteNode, handleAddActionClick]);
 
   const handleEnable = async () => {
     if (!currentWorkflow) return
@@ -745,22 +765,6 @@ export default function CollaborativeWorkflowBuilder() {
     setTimeout(() => fitView({ duration: 300 }), 0)
   }
 
-  const nodeTypes: NodeTypes = useMemo(() => ({
-    custom: (props: NodeProps) => (
-      <CustomNode
-        {...props}
-        onConfigure={handleConfigureNode}
-        onDelete={handleDeleteNode}
-      />
-    ),
-    addAction: (props: NodeProps) => (
-      <AddActionNode
-        {...props}
-        onAddAction={handleAddActionClick}
-      />
-    ),
-  }), [handleConfigureNode, handleDeleteNode, handleAddActionClick]);
-
   if (!currentWorkflow) {
     return (
       <div className="h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
@@ -796,17 +800,24 @@ export default function CollaborativeWorkflowBuilder() {
                 <Input
                   value={workflowName}
                   onChange={(e) => setWorkflowName(e.target.value)}
-                  onBlur={() => setIsEditingName(false)}
+                  onBlur={handleNameChangeCommit}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') setIsEditingName(false)
+                    if (e.key === "Enter") handleNameChangeCommit();
+                    if (e.key === "Escape") {
+                      setWorkflowName(originalWorkflowName.current);
+                      setIsEditingName(false);
+                    }
                   }}
                   className="text-xl font-bold bg-transparent border-none p-0 h-auto focus-visible:ring-0"
                   autoFocus
                 />
               ) : (
-                <h1 
+                <h1
                   className="text-xl font-bold text-slate-900 cursor-pointer hover:text-slate-700"
-                  onClick={() => setIsEditingName(true)}
+                  onClick={() => {
+                    originalWorkflowName.current = workflowName;
+                    setIsEditingName(true);
+                  }}
                 >
                   {workflowName}
                 </h1>
