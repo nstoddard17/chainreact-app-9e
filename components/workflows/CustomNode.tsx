@@ -39,7 +39,6 @@ function CustomNode({ id, data, selected }: NodeProps<CustomNodeData>) {
 
   const handleConfigure = (e: React.MouseEvent) => {
     e.stopPropagation()
-    // Call the function from the data prop
     if (onConfigure) {
       onConfigure(id)
     }
@@ -47,7 +46,6 @@ function CustomNode({ id, data, selected }: NodeProps<CustomNodeData>) {
 
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation()
-    // Call the function from the data prop
     if (onDelete) {
       onDelete(id)
     }
@@ -55,82 +53,84 @@ function CustomNode({ id, data, selected }: NodeProps<CustomNodeData>) {
 
   return (
     <Card
-      className={`w-80 ${
-        selected ? "border-2 border-blue-500 shadow-lg" : "border"
-      } hover:shadow-lg transition-all duration-200 flex flex-col`}
+      className={`w-64 ${
+        selected ? "border-2 border-primary shadow-lg" : "border"
+      } ${isTrigger ? "bg-primary/5" : "bg-card"} hover:shadow-md transition-all duration-200`}
     >
-      <div className="p-4 border-b">
-        <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-lg flex items-center justify-center">
+      <div className="p-3 border-b flex items-center justify-between">
+        <div className="flex items-center space-x-2">
+          <div className="w-8 h-8 rounded-md flex items-center justify-center bg-primary/10">
             {providerId ? (
               <img
                 src={`/integrations/${providerId}.svg`}
                 alt={`${title || ''} logo`}
-                className="w-7 h-7 object-contain"
+                className="w-5 h-5 object-contain"
               />
             ) : (
-              component?.icon && React.createElement(component.icon, { className: "h-7 w-7" })
+              component?.icon && React.createElement(component.icon, { className: "h-5 w-5 text-primary" })
             )}
           </div>
-          <div className="flex-1 font-medium text-slate-900">{title}</div>
-          <div className="flex items-center">
-            {component?.configSchema && component.configSchema.length > 0 && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleConfigure}
-                className="h-8 w-8 text-slate-500 hover:bg-slate-100"
-              >
-                <Settings className="w-4 h-4" />
-              </Button>
-            )}
+          <div className="font-medium text-sm truncate max-w-[140px]">{title}</div>
+        </div>
+        <div className="flex items-center">
+          {component?.configSchema && component.configSchema.length > 0 && (
             <Button
               variant="ghost"
               size="icon"
-              onClick={handleDelete}
-              className="h-8 w-8 text-slate-500 hover:bg-slate-100"
+              onClick={handleConfigure}
+              className="h-6 w-6 text-muted-foreground hover:text-foreground"
             >
-              <Trash2 className="w-4 h-4" />
+              <Settings className="w-3.5 h-3.5" />
             </Button>
-          </div>
+          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleDelete}
+            className="h-6 w-6 text-muted-foreground hover:text-destructive"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </Button>
         </div>
       </div>
 
-      <div className="p-4 flex-grow">
-        {description && (
-          <div className="text-sm text-slate-600 mb-3">
-            {description}
-          </div>
-        )}
+      {(description || filledConfig.length > 0) && (
+        <div className="p-3 text-xs">
+          {description && (
+            <div className="text-muted-foreground mb-2">
+              {description}
+            </div>
+          )}
 
-        {filledConfig.length > 0 && (
-          <div className="text-sm text-slate-600 bg-slate-50 rounded p-3 space-y-1">
-            <div className="font-semibold text-xs text-slate-500 uppercase tracking-wider mb-2">Configuration</div>
-            {filledConfig.map(([key, value]) => (
-              <div key={key} className="flex">
-                <div className="w-1/3 font-medium text-slate-500 truncate capitalize">{key.replace(/_/g, ' ')}:</div>
-                <div className="w-2/3 text-slate-700 font-mono text-xs bg-white rounded px-2 py-1 truncate">{String(value)}</div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+          {filledConfig.length > 0 && (
+            <div className="bg-muted/50 rounded-sm p-2 space-y-1">
+              <div className="font-medium text-[10px] text-muted-foreground uppercase tracking-wider">Configuration</div>
+              {filledConfig.map(([key, value]) => (
+                <div key={key} className="flex">
+                  <div className="w-1/3 font-medium text-muted-foreground truncate capitalize">{key.replace(/_/g, ' ')}:</div>
+                  <div className="w-2/3 text-foreground font-mono text-[10px] bg-background rounded px-1.5 py-0.5 truncate">{String(value)}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {!isTrigger && (
         <Handle
           type="target"
           position={Position.Top}
-          className="!w-4 !h-4 !bg-slate-300"
+          className="!w-3 !h-3 !bg-primary/50"
         />
       )}
 
       {hasMultipleOutputs ? (
         <>
-          <Handle type="source" position={Position.Bottom} id="true" className="!w-4 !h-4 !bg-green-500" style={{ left: "25%" }} />
-          <Handle type="source" position={Position.Bottom} id="false" className="!w-4 !h-4 !bg-red-500" style={{ left: "75%" }} />
+          <Handle type="source" position={Position.Bottom} id="true" className="!w-3 !h-3 !bg-green-500" style={{ left: "25%" }} />
+          <Handle type="source" position={Position.Bottom} id="false" className="!w-3 !h-3 !bg-red-500" style={{ left: "75%" }} />
         </>
       ) : (
-        <Handle type="source" position={Position.Bottom} className="!w-4 !h-4 !bg-slate-300" />
+        <Handle type="source" position={Position.Bottom} className="!w-3 !h-3 !bg-primary/50" />
       )}
     </Card>
   )

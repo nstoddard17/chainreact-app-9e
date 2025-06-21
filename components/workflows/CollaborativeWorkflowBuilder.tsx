@@ -39,6 +39,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { ALL_NODE_COMPONENTS, NodeComponent } from "@/lib/workflows/availableNodes"
 import { INTEGRATION_CONFIGS } from "@/lib/integrations/availableIntegrations"
 import { useToast } from "@/hooks/use-toast"
+import { Card } from "@/components/ui/card"
 
 type IntegrationInfo = {
   id: string
@@ -128,14 +129,13 @@ const useWorkflowBuilderState = () => {
 
   const recalculateLayout = useCallback(() => {
     const nodeList = getNodes()
-    const sequenceNodes = nodeList
       .filter((n) => n.type === "custom" || n.type === "addAction")
       .sort((a, b) => a.position.y - b.position.y)
-    if (sequenceNodes.length === 0) return
+    if (nodeList.length === 0) return
 
-    const triggerNode = sequenceNodes.find((n) => n.data.isTrigger)
+    const triggerNode = nodeList.find((n) => n.data.isTrigger)
     const basePosition = triggerNode ? { x: triggerNode.position.x, y: triggerNode.position.y } : { x: 400, y: 100 }
-    const verticalGap = 160
+    const verticalGap = 120
     let currentY = basePosition.y
     const newNodes = getNodes()
       .map((n) => {
@@ -159,7 +159,7 @@ const useWorkflowBuilderState = () => {
         source: source.id,
         target: target.id,
         animated: true,
-        style: { stroke: target.type === "addAction" ? "#b1b1b7" : "#8b5cf6", strokeWidth: 2, strokeDasharray: target.type === "addAction" ? "5,5" : undefined },
+        style: { stroke: target.type === "addAction" ? "#d1d5db" : "#8b5cf6", strokeWidth: target.type === "addAction" ? 1 : 2, strokeDasharray: target.type === "addAction" ? "3,3" : undefined },
         type: "straight",
       })
     }
@@ -253,11 +253,11 @@ const useWorkflowBuilderState = () => {
       data: { ...trigger, name: trigger.name, isTrigger: true, onConfigure: handleConfigureNode, onDelete: handleDeleteNode },
     }
     const addActionNode: Node = {
-      id: "add-action-1", type: "addAction", position: { x: 400, y: 260 },
+      id: "add-action-1", type: "addAction", position: { x: 400, y: 220 },
       data: { parentId: "trigger", onClick: () => handleAddActionClick("add-action-1", "trigger") },
     }
     setNodes([triggerNode, addActionNode])
-    setEdges([{ id: "trigger-add-action-1", source: "trigger", target: "add-action-1", animated: true, style: { stroke: "#b1b1b7", strokeWidth: 2, strokeDasharray: "5,5" } }])
+    setEdges([{ id: "trigger-add-action-1", source: "trigger", target: "add-action-1", animated: true, style: { stroke: "#d1d5db", strokeWidth: 1, strokeDasharray: "3,3" } }])
     setShowTriggerDialog(false)
     setTimeout(recalculateLayout, 50)
   }
@@ -268,12 +268,12 @@ const useWorkflowBuilderState = () => {
     if (!parentNode) return
     const newNodeId = `node-${Date.now()}`
     const newActionNode: Node = {
-      id: newNodeId, type: "custom", position: { x: parentNode.position.x, y: parentNode.position.y + 160 },
+      id: newNodeId, type: "custom", position: { x: parentNode.position.x, y: parentNode.position.y + 120 },
       data: { ...action, onConfigure: handleConfigureNode, onDelete: handleDeleteNode },
     }
     const newAddActionId = `add-action-${Date.now()}`
     const newAddActionNode: Node = {
-      id: newAddActionId, type: "addAction", position: { x: parentNode.position.x, y: parentNode.position.y + 320 },
+      id: newAddActionId, type: "addAction", position: { x: parentNode.position.x, y: parentNode.position.y + 240 },
       data: { parentId: newNodeId, onClick: () => handleAddActionClick(newAddActionId, newNodeId) },
     }
     setNodes((prevNodes) => [...prevNodes.filter((n) => n.id !== sourceAddNode.id), newActionNode, newAddActionNode])
@@ -357,10 +357,29 @@ function WorkflowBuilderContent() {
   }
   return (
     <div style={{ height: "calc(100vh - 65px)" }}>
-      <ReactFlow nodes={nodes} edges={edges} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect} nodeTypes={nodeTypes} fitView className="bg-background" proOptions={{ hideAttribution: true }}>
-        <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
+      <ReactFlow 
+        nodes={nodes} 
+        edges={edges} 
+        onNodesChange={onNodesChange} 
+        onEdgesChange={onEdgesChange} 
+        onConnect={onConnect} 
+        nodeTypes={nodeTypes} 
+        fitView 
+        className="bg-background" 
+        proOptions={{ hideAttribution: true }}
+        defaultEdgeOptions={{
+          type: 'straight',
+          style: { strokeWidth: 2, stroke: '#8b5cf6' },
+          animated: true
+        }}
+        defaultViewport={{ x: 0, y: 0, zoom: 1.2 }}
+      >
+        <Background variant={BackgroundVariant.Dots} gap={12} size={1} color="#e2e8f0" />
         <Controls />
-        <MiniMap />
+        <MiniMap 
+          nodeColor={(n) => n.data?.isTrigger ? '#8b5cf6' : '#64748b'}
+          maskColor="rgba(243, 244, 246, 0.6)"
+        />
         <CollaboratorCursors collaborators={collaborators || []} />
         {isExecuting && executionEvents.length > 0 && <ExecutionMonitor events={executionEvents} />}
         <Panel position="top-left" className="p-4">
@@ -393,21 +412,31 @@ function WorkflowBuilderContent() {
             initialData={configuringNode.config}
         />}
         <Dialog open={showTriggerDialog} onOpenChange={setShowTriggerDialog}>
-          <DialogContent className="max-w-4xl">
+          <DialogContent className="sm:max-w-md">
             <DialogHeader><DialogTitle>Select a Trigger</DialogTitle><DialogDescription>Select an integration to add a trigger to your workflow.</DialogDescription></DialogHeader>
-            <div className="py-4">
-              <ScrollArea className="h-[50vh]">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pr-4">
+            <div className="py-2">
+              <ScrollArea className="h-[60vh]">
+                <div className="flex flex-col gap-2 pr-4">
                   {availableIntegrations.map((integration) => (
                     <div key={integration.id}>
                       {integration.triggers.length > 0 && (
                         <>
-                          <h3 className="font-semibold mb-2 text-sm flex items-center gap-2">{renderLogo(integration.id, integration.name)} {integration.name}</h3>
-                          <div className="space-y-2">
+                          <h3 className="font-semibold mb-1 text-sm flex items-center gap-2">{renderLogo(integration.id, integration.name)} {integration.name}</h3>
+                          <div className="space-y-1">
                             {integration.triggers.map((trigger) => (
-                              <div key={trigger.type} onClick={() => handleTriggerSelect(integration, trigger)} className="p-3 rounded-lg border hover:bg-muted cursor-pointer">
-                                <p className="font-medium">{trigger.name}</p><p className="text-sm text-muted-foreground">{trigger.description}</p>
-                              </div>
+                              <Card
+                                key={trigger.type}
+                                className="p-3 cursor-pointer hover:bg-muted transition-colors"
+                                onClick={() => handleTriggerSelect(integration, trigger)}
+                              >
+                                <div className="flex items-center space-x-3">
+                                  {trigger.icon && React.createElement(trigger.icon, { className: "w-5 h-5 text-muted-foreground" })}
+                                  <div className="flex-1">
+                                    <h3 className="font-medium text-sm">{trigger.name}</h3>
+                                    <p className="text-xs text-muted-foreground">{trigger.description}</p>
+                                  </div>
+                                </div>
+                              </Card>
                             ))}
                           </div>
                         </>
@@ -420,35 +449,62 @@ function WorkflowBuilderContent() {
           </DialogContent>
         </Dialog>
         <Dialog open={showActionDialog} onOpenChange={setShowActionDialog}>
-          <DialogContent className="max-w-4xl">
+          <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>{selectedIntegration ? `Select an action for ${selectedIntegration.name}` : "Select an Integration"}</DialogTitle>
               <DialogDescription>{selectedIntegration ? "Choose an action to perform." : "Select an integration to see its available actions."}</DialogDescription>
             </DialogHeader>
-            <div className="py-4">
+            <div className="py-2">
               <ScrollArea className="h-[60vh]">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pr-4">
-                  {!selectedIntegration ? (availableIntegrations.map((integration) =>
-                      integration.actions.length > 0 ? (<div key={integration.id} onClick={() => setSelectedIntegration(integration)} className="p-4 rounded-lg border hover:bg-muted cursor-pointer flex flex-col items-center gap-2">{renderLogo(integration.id, integration.name)}<p className="font-semibold text-center">{integration.name}</p></div>) : null
-                  )) : (
-                    <>
-                      <div className="col-span-1">
-                        <Button variant="ghost" onClick={() => setSelectedIntegration(null)} className="mb-4"><ArrowLeft className="w-4 h-4 mr-2" /> Back to Integrations</Button>
-                        <div className="p-4 rounded-lg border flex flex-col items-center gap-2">{renderLogo(selectedIntegration.id, selectedIntegration.name)}<p className="font-semibold text-center">{selectedIntegration.name}</p><p className="text-sm text-muted-foreground text-center">{selectedIntegration.description}</p></div>
-                      </div>
-                      <div className="md:col-span-2">
-                        <div className="space-y-3">
-                          {selectedIntegration.actions.map((action: NodeComponent) => (
-                            <div key={action.type} onClick={() => handleActionSelect(selectedIntegration, action)} className="p-3 rounded-lg border hover:bg-muted cursor-pointer"><p className="font-medium">{action.name}</p><p className="text-sm text-muted-foreground">{action.description}</p></div>
-                          ))}
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </div>
+                {!selectedIntegration ? (
+                  <div className="flex flex-col gap-2 pr-4">
+                    {availableIntegrations.map((integration) =>
+                      integration.actions.length > 0 ? (
+                        <Card
+                          key={integration.id} 
+                          className="p-3 flex items-center gap-4 cursor-pointer hover:bg-muted transition-colors"
+                          onClick={() => setSelectedIntegration(integration)}
+                        >
+                          {renderLogo(integration.id, integration.name)}
+                          <div className="flex-1">
+                            <h3 className="font-medium text-sm">{integration.name}</h3>
+                            <p className="text-xs text-muted-foreground">{integration.description}</p>
+                          </div>
+                        </Card>
+                      ) : null
+                    )}
+                  </div>
+                ) : (
+                  <div className="pr-4">
+                    <Button variant="ghost" onClick={() => setSelectedIntegration(null)} className="mb-2 -ml-2">
+                      <ArrowLeft className="w-4 h-4 mr-2" /> Back to Integrations
+                    </Button>
+                    <div className="flex flex-col gap-1">
+                      {selectedIntegration.actions.map((action: NodeComponent) => (
+                        <Card
+                          key={action.type} 
+                          className="p-3 cursor-pointer hover:bg-muted transition-colors"
+                          onClick={() => handleActionSelect(selectedIntegration, action)}
+                        >
+                          <div className="flex items-center space-x-3">
+                            {action.icon && React.createElement(action.icon, { className: "w-5 h-5 text-muted-foreground" })}
+                            <div className="flex-1">
+                              <h3 className="font-medium text-sm">{action.name}</h3>
+                              <p className="text-xs text-muted-foreground">{action.description}</p>
+                            </div>
+                          </div>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </ScrollArea>
             </div>
-            {!selectedIntegration && (<DialogFooter><Button variant="outline" onClick={() => { setShowActionDialog(false); setSelectedIntegration(null) }}>Cancel</Button></DialogFooter>)}
+            {!selectedIntegration && (
+              <DialogFooter>
+                <Button variant="outline" onClick={() => { setShowActionDialog(false); setSelectedIntegration(null) }}>Cancel</Button>
+              </DialogFooter>
+            )}
           </DialogContent>
         </Dialog>
       </ReactFlow>
