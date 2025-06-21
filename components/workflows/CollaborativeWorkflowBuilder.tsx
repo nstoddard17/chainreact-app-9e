@@ -1,7 +1,6 @@
 "use client"
 
-import type React from "react"
-import { useEffect, useCallback, useState, useRef } from "react"
+import React, { useEffect, useCallback, useState, useRef } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import {
   ReactFlow,
@@ -479,11 +478,10 @@ export default function CollaborativeWorkflowBuilder() {
   }
 
   const handleActionSelect = (integration: any, action: NodeComponent) => {
-    if (action.configSchema && action.configSchema.length > 0) {
-      setConfiguringNode({ integration, nodeComponent: action })
-    } else {
-      handleSaveConfiguration({ integration, nodeComponent: action }, {})
-    }
+    if (!sourceAddNode) return
+
+    // Don't add the node yet, just open the configuration modal
+    setConfiguringNode({ integration, nodeComponent: action })
     setShowActionDialog(false)
   }
 
@@ -884,13 +882,13 @@ export default function CollaborativeWorkflowBuilder() {
                   ).map(component => (
                     <Card
                       key={component.type}
-                      className="p-3 cursor-pointer hover:bg-slate-50 transition-colors"
+                      className="p-3 hover:bg-slate-50 cursor-pointer transition-all duration-150"
                       onClick={() => handleTriggerSelect(selectedIntegration, component)}
                     >
-                      <div className="flex items-center space-x-3">
-                        <component.icon className="w-5 h-5 text-slate-700" />
-                        <div className="flex-1">
-                          <h3 className="font-semibold">{component.title}</h3>
+                      <div className="flex items-center gap-3">
+                        {component.icon && React.createElement(component.icon, { className: "w-5 h-5" })}
+                        <div>
+                          <h4 className="font-semibold text-sm">{component.title}</h4>
                           <p className="text-xs text-slate-500">{component.description}</p>
                         </div>
                       </div>
@@ -956,13 +954,13 @@ export default function CollaborativeWorkflowBuilder() {
                   ).map(component => (
                     <Card
                       key={component.type}
-                      className="p-3 cursor-pointer hover:bg-slate-50 transition-colors"
+                      className="p-3 hover:bg-slate-50 cursor-pointer transition-all duration-150"
                       onClick={() => handleActionSelect(selectedIntegration, component)}
                     >
-                      <div className="flex items-center space-x-3">
-                        <component.icon className="w-5 h-5 text-slate-700" />
-                        <div className="flex-1">
-                          <h3 className="font-semibold">{component.title}</h3>
+                      <div className="flex items-center gap-3">
+                        {component.icon && React.createElement(component.icon, { className: "w-5 h-5" })}
+                        <div>
+                          <h4 className="font-semibold text-sm">{component.title}</h4>
                           <p className="text-xs text-slate-500">{component.description}</p>
                         </div>
                       </div>
