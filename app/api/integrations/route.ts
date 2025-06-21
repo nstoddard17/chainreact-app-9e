@@ -51,16 +51,53 @@ export async function GET(request: NextRequest) {
 
     console.log(`✅ Found ${integrations?.length || 0} integrations for user ${user.id}`)
     
-    // Log each integration for debugging
+    // Check for expired integrations and update their status in the database
+    const now = new Date();
+    const expiredIntegrations = [];
+    const updatedIntegrations = [];
+
     if (integrations && integrations.length > 0) {
-      console.log("📋 Integrations found:")
-      integrations.forEach((integration, index) => {
+      console.log("📋 Verifying integrations status:")
+      
+      for (const integration of integrations) {
+        // Check if integration is expired but not marked as such
+        if (
+          integration.status === "connected" && 
+          integration.expires_at && 
+          new Date(integration.expires_at) <= now
+        ) {
+          console.log(`⚠️ Integration ${integration.id} (${integration.provider}) is expired but marked as connected. Updating status...`);
+          
+          // Update status to expired in database
+          const { data, error: updateError } = await supabase
+            .from("integrations")
+            .update({
+              status: "expired",
+              updated_at: now.toISOString()
+            })
+            .eq("id", integration.id)
+            .select();
+            
+          if (updateError) {
+            console.error(`Failed to update expired integration ${integration.id}:`, updateError);
+          } else {
+            console.log(`✅ Updated ${integration.provider} status to expired`);
+            integration.status = "expired"; // Update in memory too
+            expiredIntegrations.push(integration.provider);
+            updatedIntegrations.push(data?.[0] || integration);
+          }
+        }
+        
         console.log(
-          `  ${index + 1}. ${integration.provider} (${integration.status}) - Expires at: ${
+          `  • ${integration.provider} (${integration.status}) - Expires at: ${
             integration.expires_at || "N/A"
           }`,
-        )
-      })
+        );
+      }
+      
+      if (expiredIntegrations.length > 0) {
+        console.log(`🔄 Updated ${expiredIntegrations.length} expired integrations: ${expiredIntegrations.join(', ')}`);
+      }
     }
 
     // Transform the data to ensure consistent format and redact sensitive info
@@ -88,6 +125,10 @@ export async function GET(request: NextRequest) {
       user_id: user.id,
       debug: {
         request_timestamp: new Date().toISOString(),
+        status_updates: expiredIntegrations.length > 0 ? {
+          expired_count: expiredIntegrations.length,
+          expired_providers: expiredIntegrations
+        } : undefined
       }
     }, {
       headers: {
