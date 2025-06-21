@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { createBrowserClient } from "@supabase/ssr"
+import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 
 export default function TrelloAuthPage() {
   const [processing, setProcessing] = useState(true)
@@ -31,12 +32,7 @@ export default function TrelloAuthPage() {
 
         if (!session?.user) {
           console.error("No authenticated user found")
-          toast({
-            title: "Authentication Required",
-            description: "Please log in to connect integrations",
-            variant: "destructive",
-          })
-          router.push("/auth/login?redirect=/integrations")
+          notifyParentAndClose("error", "Please log in to connect integrations")
           return
         }
 
@@ -46,12 +42,7 @@ export default function TrelloAuthPage() {
         const state = searchParams.get("state")
         if (!state) {
           console.error("No state parameter found in URL")
-          toast({
-            title: "Authentication Failed",
-            description: "Invalid authentication request",
-            variant: "destructive",
-          })
-          router.push("/integrations?error=trello_invalid_state")
+          notifyParentAndClose("error", "Invalid authentication request")
           return
         }
 
@@ -59,12 +50,7 @@ export default function TrelloAuthPage() {
         const hash = window.location.hash
         if (!hash) {
           console.error("No hash fragment found in URL")
-          toast({
-            title: "Authentication Failed",
-            description: "No token received from Trello",
-            variant: "destructive",
-          })
-          router.push("/integrations?error=trello_no_token")
+          notifyParentAndClose("error", "No token received from Trello")
           return
         }
 
@@ -73,12 +59,7 @@ export default function TrelloAuthPage() {
 
         if (!token) {
           console.error("No token found in URL fragment")
-          toast({
-            title: "Authentication Failed",
-            description: "No token received from Trello",
-            variant: "destructive",
-          })
-          router.push("/integrations?error=trello_no_token")
+          notifyParentAndClose("error", "No token received from Trello")
           return
         }
 
@@ -100,23 +81,36 @@ export default function TrelloAuthPage() {
           throw new Error(result.error || "Failed to process Trello token")
         }
 
-        toast({
-          title: "Success!",
-          description: "Trello integration connected successfully",
-        })
-
-        // Use replace instead of push to avoid back button issues
-        router.replace("/integrations?success=true&provider=trello&t=" + Date.now())
+        // Notify parent window of success and close this popup
+        notifyParentAndClose("success", "Trello connected successfully!")
       } catch (error: any) {
         console.error("Error processing Trello callback:", error)
-        toast({
-          title: "Authentication Failed",
-          description: error.message || "Failed to connect Trello integration",
-          variant: "destructive",
-        })
-        router.replace(`/integrations?error=trello_process_failed&message=${encodeURIComponent(error.message)}`)
+        notifyParentAndClose("error", error.message || "Failed to connect Trello integration")
       } finally {
         setProcessing(false)
+      }
+    }
+
+    // Function to notify parent window and close this popup
+    const notifyParentAndClose = (type: "success" | "error", message: string) => {
+      const baseUrl = getBaseUrl()
+      
+      if (window.opener) {
+        // Use the format that IntegrationsContent.tsx expects
+        window.opener.postMessage({ 
+          type: `oauth-${type}`,
+          status: type,  // This is what the parent window checks for
+          provider: "trello", 
+          message 
+        }, baseUrl)
+        
+        // Short delay before closing to ensure message is received
+        setTimeout(() => window.close(), 300)
+      } else {
+        // If there's no opener, we need to redirect back to integrations page
+        const status = type === "success" ? "success=true" : "error=trello_auth_failed"
+        const encodedMsg = encodeURIComponent(message)
+        router.replace(`/integrations?${status}&provider=trello&message=${encodedMsg}&t=${Date.now()}`)
       }
     }
 
@@ -138,7 +132,7 @@ export default function TrelloAuthPage() {
           <p className="text-slate-600">
             {processing
               ? "Please wait while we complete your Trello integration setup."
-              : "Redirecting you back to integrations..."}
+              : "Connecting to integrations..."}
           </p>
         </div>
       </div>
