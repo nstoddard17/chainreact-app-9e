@@ -35,6 +35,9 @@ function createTrelloInitialPage(baseUrl: string, state: string | null) {
                   throw new Error(errorData.error || 'Failed to process Trello token.');
                 }
                 
+                // Add a delay to allow the database to update before posting the message
+                await new Promise(resolve => setTimeout(resolve, 500));
+
                 if (window.opener) {
                    window.opener.postMessage({ type: 'oauth-success', provider: 'trello', message: 'Trello connected successfully!' }, '${baseUrl}');
                 }
@@ -44,7 +47,8 @@ function createTrelloInitialPage(baseUrl: string, state: string | null) {
                   window.opener.postMessage({ type: 'oauth-error', provider: 'trello', message: error.message || 'An unknown error occurred.' }, '${baseUrl}');
                 }
               } finally {
-                setTimeout(() => window.close(), 500);
+                // Ensure the window always closes
+                setTimeout(() => window.close(), 100);
               }
             } else if (window.opener) {
                 window.opener.postMessage({ type: 'oauth-error', provider: 'trello', message: 'Trello authentication failed. Token not found.' }, '${baseUrl}');
