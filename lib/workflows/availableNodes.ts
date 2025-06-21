@@ -374,6 +374,27 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
       },
     ],
   },
+  {
+    type: "google_drive_action_upload_file",
+    title: "Upload File (Google Drive)",
+    description: "Upload a file from a URL to Google Drive",
+    icon: Upload,
+    providerId: "google-drive",
+    category: "Google Drive",
+    isTrigger: false,
+    configSchema: [
+      { name: "fileUrl", label: "File URL", type: "text", required: true, placeholder: "Publicly accessible URL of the file" },
+      { name: "fileName", label: "File Name", type: "text", required: true, placeholder: "e.g., report.pdf" },
+      {
+        name: "folderId",
+        label: "Destination Folder",
+        type: "select",
+        dynamic: "google-drive-folders",
+        required: false,
+        placeholder: "Select a folder (optional, defaults to root)",
+      },
+    ],
+  },
 
   // Google Sheets
   {
@@ -1262,17 +1283,6 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     icon: Send,
     providerId: "beehiiv",
     category: "Communication",
-    isTrigger: false,
-  },
-
-  // New Google Drive Actions
-  {
-    type: "google_drive_action_upload_file",
-    title: "Upload File (Google Drive)",
-    description: "Upload a file to Google Drive",
-    icon: Upload,
-    providerId: "google-drive",
-    category: "Storage",
     isTrigger: false,
   },
 
