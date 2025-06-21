@@ -36,7 +36,7 @@ export interface ConfigField {
   required?: boolean
   placeholder?: string
   options?: { value: string; label: string }[] | string[]
-  dynamic?: "slack-channels" | "google-contacts"
+  dynamic?: "slack-channels" | "google-contacts" | "google-calendars" | "google-drive-folders" | "google-drive-files"
   [key: string]: any
 }
 
@@ -241,7 +241,13 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Productivity",
     isTrigger: true,
     configSchema: [
-      { name: "calendarId", label: "Calendar ID", type: "text", placeholder: "primary" },
+      {
+        name: "calendarId",
+        label: "Calendar",
+        type: "select",
+        dynamic: "google-calendars",
+        required: true,
+      },
     ],
   },
   {
@@ -253,7 +259,13 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Productivity",
     isTrigger: true,
     configSchema: [
-      { name: "calendarId", label: "Calendar ID", type: "text", placeholder: "primary" },
+      {
+        name: "calendarId",
+        label: "Calendar",
+        type: "select",
+        dynamic: "google-calendars",
+        required: true,
+      },
     ],
   },
   {
@@ -265,7 +277,13 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Productivity",
     isTrigger: true,
     configSchema: [
-      { name: "calendarId", label: "Calendar ID", type: "text", placeholder: "primary" },
+      {
+        name: "calendarId",
+        label: "Calendar",
+        type: "select",
+        dynamic: "google-calendars",
+        required: true,
+      },
     ],
   },
   {
@@ -278,64 +296,100 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Productivity",
     isTrigger: false,
     configSchema: [
-      { name: "calendarId", label: "Calendar ID", type: "text", placeholder: "primary" },
+      {
+        name: "calendarId",
+        label: "Calendar",
+        type: "select",
+        dynamic: "google-calendars",
+        required: true,
+      },
       { name: "title", label: "Title", type: "text", placeholder: "My Event" },
-      { name: "startTime", label: "Start Time (ISO)", type: "text", placeholder: "e.g., 2024-01-01T10:00:00Z" },
-      { name: "endTime", label: "End Time (ISO)", type: "text", placeholder: "e.g., 2024-01-01T11:00:00Z" },
+      {
+        name: "startTime",
+        label: "Start Time (ISO)",
+        type: "text",
+        placeholder: "e.g., 2024-01-01T10:00:00Z",
+      },
+      {
+        name: "endTime",
+        label: "End Time (ISO)",
+        type: "text",
+        placeholder: "e.g., 2024-01-01T11:00:00Z",
+      },
       { name: "description", label: "Description", type: "textarea" },
     ],
   },
 
   // Google Drive
   {
-    type: "google_drive_trigger_new_file",
-    title: "New File in Folder (Google Drive)",
-    description: "Triggers when a new file is added to a folder",
-    icon: Upload,
-    providerId: "google-drive",
-    category: "Storage",
+    type: "google-drive:new_file_in_folder",
+    title: "New File in Folder",
+    description: "Triggers when a new file is added to a specific folder in Google Drive.",
     isTrigger: true,
+    providerId: "google-drive",
+    category: "Google Drive",
     configSchema: [
-      { name: "folderId", label: "Folder ID", type: "text", placeholder: "Google Drive Folder ID" },
+      {
+        name: "folderId",
+        label: "Folder",
+        type: "select",
+        dynamic: "google-drive-folders",
+        required: true,
+      },
     ],
   },
   {
-    type: "google_drive_trigger_file_updated",
+    type: "google-drive:new_folder_in_folder",
+    title: "New Folder in Folder",
+    description: "Triggers when a new folder is created inside a specific folder in Google Drive.",
+    isTrigger: true,
+    providerId: "google-drive",
+    category: "Google Drive",
+    configSchema: [
+      {
+        name: "folderId",
+        label: "Parent Folder",
+        type: "select",
+        dynamic: "google-drive-folders",
+        required: true,
+      },
+    ],
+  },
+  {
+    type: "google-drive:file_updated",
     title: "File Updated",
-    description: "Triggers when a file in a specific folder is updated",
-    icon: Upload,
-    providerId: "google-drive",
-    category: "Storage",
+    description: "Triggers when a specific file is updated in Google Drive.",
     isTrigger: true,
+    providerId: "google-drive",
+    category: "Google Drive",
     configSchema: [
-      { name: "folderId", label: "Folder ID", type: "text", placeholder: "Google Drive Folder ID" },
+      {
+        name: "fileId",
+        label: "File",
+        type: "select",
+        dynamic: "google-drive-files",
+        required: true,
+      },
     ],
   },
   {
-    type: "google_drive_trigger_new_comment",
-    title: "New Comment on File",
-    description: "Triggers when a new comment is added to a file",
-    icon: Upload,
-    providerId: "google-drive",
-    category: "Storage",
-    isTrigger: true,
-    configSchema: [
-      { name: "fileId", label: "File ID", type: "text", placeholder: "Google Drive File ID" },
-    ],
-  },
-  {
-    type: "google_drive_action_upload_file",
-    title: "Upload File (Google Drive)",
-    description: "Upload a file to Google Drive",
-    icon: Upload,
-    providerId: "google-drive",
-    requiredScopes: ["https://www.googleapis.com/auth/drive"],
-    category: "Storage",
+    type: "google-drive:create_file",
+    title: "Create File",
+    description: "Creates a new file in Google Drive.",
     isTrigger: false,
+    providerId: "google-drive",
+    category: "Google Drive",
     configSchema: [
       { name: "fileName", label: "File Name", type: "text" },
       { name: "fileContent", label: "File Content", type: "textarea" },
-      { name: "folderId", label: "Folder ID", type: "text", placeholder: "Optional: Google Drive Folder ID" },
+      {
+        name: "folderId",
+        label: "Folder",
+        type: "select",
+        dynamic: "google-drive-folders",
+        required: false,
+        placeholder: "Select a folder (optional)",
+      },
     ],
   },
 
