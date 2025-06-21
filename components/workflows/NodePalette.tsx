@@ -42,7 +42,15 @@ const Node = ({ component, available }: { component: NodeComponent; available: b
               !available ? "cursor-not-allowed opacity-50" : ""
             }`}
           >
-            <component.icon className="h-6 w-6" />
+            {component.providerId ? (
+              <img
+                src={`/public/integrations/${component.providerId}.svg`}
+                alt={`${component.title} logo`}
+                className="h-6 w-6 object-contain"
+              />
+            ) : (
+              <component.icon className="h-6 w-6" />
+            )}
             <div className="flex-1">
               <p className="font-semibold">{component.title}</p>
             </div>

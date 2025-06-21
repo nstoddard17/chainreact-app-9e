@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import Image from "next/image"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -94,14 +93,12 @@ export function IntegrationCard({ provider, integration, status }: IntegrationCa
   const { icon: statusIcon, badgeClass, action: statusAction } = getStatusUi()
 
   const renderLogo = () => {
-    const logoPath = `/integrations/${provider.id}.svg`
+    const logoPath = `/public/integrations/${provider.id}.svg`
     return (
-      <Image
+      <img
         src={logoPath}
-        alt={provider.name}
-        width={48}
-        height={48}
-        className="object-contain"
+        alt={`${provider.name} logo`}
+        className="w-6 h-6 object-contain"
       />
     )
   }
