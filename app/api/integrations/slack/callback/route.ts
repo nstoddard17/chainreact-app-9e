@@ -173,13 +173,14 @@ export async function GET(request: NextRequest) {
       token_type: tokenData.token_type,
     });
 
-    // Determine which token to use - prefer bot token, fall back to user token
-    const accessToken = tokenData.access_token || (tokenData.authed_user && tokenData.authed_user.access_token);
-    const refreshToken = tokenData.refresh_token || (tokenData.authed_user && tokenData.authed_user.refresh_token);
-    const tokenType = tokenData.access_token ? 'bot' : 'user';
-    const scopes = tokenData.scope ? tokenData.scope.split(' ') : [];
+    // For user token flow, the token is in authed_user.access_token
+    const accessToken = tokenData.authed_user?.access_token || tokenData.access_token;
+    const refreshToken = tokenData.authed_user?.refresh_token || tokenData.refresh_token;
+    const tokenType = tokenData.authed_user?.access_token ? 'user' : 'bot';
+    const scopes = tokenData.authed_user?.scope ? tokenData.authed_user.scope.split(' ') : 
+                  (tokenData.scope ? tokenData.scope.split(' ') : []);
 
-    const expiresIn = tokenData.expires_in; // Typically in seconds
+    const expiresIn = tokenData.authed_user?.expires_in || tokenData.expires_in; // Typically in seconds
     const expiresAt = expiresIn ? new Date(new Date().getTime() + expiresIn * 1000) : null;
 
     const { data: existingIntegration, error: fetchError } = await supabase
