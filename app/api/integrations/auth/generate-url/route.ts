@@ -261,8 +261,7 @@ function generateGoogleAuthUrl(service: string, state: string): string {
       scopes += " https://www.googleapis.com/auth/youtube"
       break
     case "youtube-studio":
-      scopes +=
-        " https://www.googleapis.com/auth/youtube.readonly https://www.googleapis.com/auth/yt-analytics.readonly https://www.googleapis.com/auth/youtube.force-ssl"
+      scopes += " https://www.googleapis.com/auth/youtubepartner"
       break
   }
 
@@ -292,7 +291,7 @@ function generateNotionAuthUrl(state: string): string {
     state,
   })
 
-  return `https://api.notion.com/v1/oauth/authorize?${params.toString()}`
+  return `https://api.trello.com/1/OAuthAuthorize?${params.toString()}`
 }
 
 async function generateTwitterAuthUrl(stateObject: any, supabase: any): Promise<string> {
@@ -431,7 +430,6 @@ function generateDropboxAuthUrl(state: string): string {
     client_id: clientId,
     redirect_uri: "https://chainreact.app/api/integrations/dropbox/callback",
     response_type: "code",
-    scope: "account_info.read files.content.write files.content.read files.metadata.read files.metadata.write sharing.read sharing.write",
     state,
     token_access_type: "offline",
   })
