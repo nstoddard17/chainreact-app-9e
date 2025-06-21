@@ -408,11 +408,11 @@ function generateTikTokAuthUrl(state: string): string {
 }
 
 function generateTrelloAuthUrl(state: string): string {
-  const apiKey = process.env.NEXT_PUBLIC_TRELLO_API_KEY
-  if (!apiKey) throw new Error("Trello API key not configured")
+  const clientId = process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID
+  if (!clientId) throw new Error("Trello client ID not configured")
 
   const params = new URLSearchParams({
-    key: apiKey,
+    key: clientId,
     name: "ChainReact",
     // These scopes are required to enable the full set of Power-Up capabilities.
     scope: "read,write,account",
