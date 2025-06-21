@@ -159,6 +159,26 @@ export async function GET(request: NextRequest) {
         throw new Error(`Slack token exchange failed: ${tokenData.error}`)
     }
 
+    // Log token data structure (without sensitive values)
+    console.log('Slack token response structure:', {
+      ok: tokenData.ok,
+      app_id: tokenData.app_id,
+      authed_user: tokenData.authed_user ? { id: tokenData.authed_user.id } : null,
+      team: tokenData.team,
+      has_access_token: !!tokenData.access_token,
+      has_authed_user_token: tokenData.authed_user && !!tokenData.authed_user.access_token,
+      has_refresh_token: !!tokenData.refresh_token,
+      has_authed_user_refresh_token: tokenData.authed_user && !!tokenData.authed_user.refresh_token,
+      scope: tokenData.scope,
+      token_type: tokenData.token_type,
+    });
+
+    // Determine which token to use - prefer bot token, fall back to user token
+    const accessToken = tokenData.access_token || (tokenData.authed_user && tokenData.authed_user.access_token);
+    const refreshToken = tokenData.refresh_token || (tokenData.authed_user && tokenData.authed_user.refresh_token);
+    const tokenType = tokenData.access_token ? 'bot' : 'user';
+    const scopes = tokenData.scope ? tokenData.scope.split(' ') : [];
+
     const expiresIn = tokenData.expires_in; // Typically in seconds
     const expiresAt = expiresIn ? new Date(new Date().getTime() + expiresIn * 1000) : null;
 
@@ -176,12 +196,19 @@ export async function GET(request: NextRequest) {
     const integrationData = {
       user_id: userId,
       provider: 'slack',
-      access_token: tokenData.access_token,
-      refresh_token: tokenData.refresh_token,
-      scopes: tokenData.scope.split(' '),
+      access_token: accessToken,
+      refresh_token: refreshToken,
+      scopes: scopes,
       status: 'connected',
       expires_at: expiresAt ? expiresAt.toISOString() : null,
       updated_at: new Date().toISOString(),
+      metadata: {
+        token_type: tokenType,
+        team_id: tokenData.team?.id,
+        team_name: tokenData.team?.name,
+        app_id: tokenData.app_id,
+        authed_user_id: tokenData.authed_user?.id
+      }
     };
 
     const { error: upsertError } = await supabase.from('integrations').upsert(integrationData, {
