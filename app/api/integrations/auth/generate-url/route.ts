@@ -213,6 +213,7 @@ function generateDiscordAuthUrl(state: string): string {
     response_type: "code",
     scope: "identify guilds",
     state,
+    prompt: "consent",
   })
 
   return `https://discord.com/api/oauth2/authorize?${params.toString()}`
@@ -270,9 +271,9 @@ function generateGoogleAuthUrl(service: string, state: string): string {
     redirect_uri: `https://chainreact.app/api/integrations/${service}/callback`,
     response_type: "code",
     scope: scopes,
+    state,
     access_type: "offline",
     prompt: "consent",
-    state,
   })
 
   return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`
@@ -430,10 +431,11 @@ function generateDropboxAuthUrl(state: string): string {
     client_id: clientId,
     redirect_uri: "https://chainreact.app/api/integrations/dropbox/callback",
     response_type: "code",
-    token_access_type: "offline",
-    scope: "account_info.read files.content.read files.content.write files.metadata.read files.metadata.write sharing.read sharing.write",
+    scope: "account_info.read files.content.write files.content.read files.metadata.read files.metadata.write sharing.read sharing.write",
     state,
+    token_access_type: "offline",
   })
+
   return `https://www.dropbox.com/oauth2/authorize?${params.toString()}`
 }
 
