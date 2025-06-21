@@ -223,7 +223,7 @@ export default function WorkflowBuilder() {
       </div>
       
       <Dialog open={showTriggerModal} onOpenChange={setShowTriggerModal}>
-        <DialogContent className="max-w-4xl">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>
               {selectedIntegration ? `Choose a trigger for ${selectedIntegration.name}` : "Choose an integration"}
@@ -241,8 +241,8 @@ export default function WorkflowBuilder() {
             </Button>
           )}
 
-          <ScrollArea className="h-[60vh]">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
+          <ScrollArea className="h-[60vh] -mx-4">
+            <div className="flex flex-col gap-2 px-4">
               {!selectedIntegration
                 ? AVAILABLE_INTEGRATIONS.filter(int => int.triggers.length > 0).map((integration) => (
                     <Card
@@ -250,26 +250,24 @@ export default function WorkflowBuilder() {
                       className="cursor-pointer hover:shadow-lg transition-shadow"
                       onClick={() => handleIntegrationSelected(integration)}
                     >
-                      <CardContent className="p-6 flex flex-col items-center text-center">
-                        <img src={integration.logo} alt={integration.name} className="h-12 w-12 mb-4" />
-                        <h3 className="font-semibold text-lg">{integration.name}</h3>
-                        <p className="text-sm text-muted-foreground mb-4">{integration.description}</p>
-                        <Badge variant="secondary">{integration.triggers.length} triggers</Badge>
+                      <CardContent className="flex items-center gap-4 p-4">
+                        <img src={integration.logo} alt={`${integration.name} logo`} className="w-8 h-8 object-contain" />
+                        <div>
+                          <h3 className="font-semibold">{integration.name}</h3>
+                          <p className="text-sm text-gray-500">{integration.triggers.length} {integration.triggers.length > 1 ? 'triggers' : 'trigger'}</p>
+                        </div>
                       </CardContent>
                     </Card>
                   ))
-                : selectedIntegration.triggers.map((trigger: NodeComponent) => (
+                : selectedIntegration.triggers.map((trigger: any) => (
                     <Card
                       key={trigger.type}
                       className="cursor-pointer hover:shadow-lg transition-shadow"
                       onClick={() => handleTriggerSelected(trigger)}
                     >
-                      <CardContent className="p-6 flex items-start">
-                        <trigger.icon className="h-8 w-8 text-primary mr-4 mt-1" />
-                        <div>
-                          <h3 className="font-semibold">{trigger.title}</h3>
-                          <p className="text-sm text-muted-foreground">{trigger.description}</p>
-                        </div>
+                      <CardContent className="p-4">
+                        <h3 className="font-semibold">{trigger.title}</h3>
+                        <p className="text-sm text-gray-500">{trigger.description}</p>
                       </CardContent>
                     </Card>
                   ))}
@@ -277,7 +275,60 @@ export default function WorkflowBuilder() {
           </ScrollArea>
         </DialogContent>
       </Dialog>
-      {/* ... other modals and main content ... */}
+      
+      <Dialog open={showActionModal} onOpenChange={setShowActionModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {selectedIntegration ? `Choose an action for ${selectedIntegration.name}` : "Choose an integration"}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedIntegration
+                ? "Select an action to add to your workflow."
+                : "Select an integration to see its available actions."}
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedIntegration && (
+            <Button variant="ghost" onClick={() => setSelectedIntegration(null)} className="mb-4">
+              <ArrowLeft className="mr-2 h-4 w-4" /> Back to integrations
+            </Button>
+          )}
+
+          <ScrollArea className="h-[60vh] -mx-4">
+            <div className="flex flex-col gap-2 px-4">
+              {!selectedIntegration
+                ? AVAILABLE_INTEGRATIONS.filter(int => int.actions.length > 0).map((integration) => (
+                    <Card
+                      key={integration.id}
+                      className="cursor-pointer hover:shadow-lg transition-shadow"
+                      onClick={() => handleIntegrationSelected(integration)}
+                    >
+                      <CardContent className="flex items-center gap-4 p-4">
+                        <img src={integration.logo} alt={`${integration.name} logo`} className="w-8 h-8 object-contain" />
+                        <div>
+                          <h3 className="font-semibold">{integration.name}</h3>
+                          <p className="text-sm text-gray-500">{integration.actions.length} {integration.actions.length > 1 ? 'actions' : 'action'}</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))
+                : selectedIntegration.actions.map((action: any) => (
+                  <Card
+                    key={action.type}
+                    className="cursor-pointer hover:shadow-lg transition-shadow"
+                    onClick={() => handleActionSelected(action)}
+                  >
+                    <CardContent className="p-4">
+                      <h3 className="font-semibold">{action.title}</h3>
+                      <p className="text-sm text-gray-500">{action.description}</p>
+                    </CardContent>
+                  </Card>
+                ))}
+            </div>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   )
 }
