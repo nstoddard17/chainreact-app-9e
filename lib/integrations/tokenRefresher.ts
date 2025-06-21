@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { decrypt } from "@/lib/security/encryption"
 import { getSecret } from "@/lib/secrets"
+import { SupabaseClient } from "@supabase/supabase-js"
 
 interface Integration {
   id: string
@@ -25,6 +26,7 @@ interface RefreshResult {
   requiresReconnect?: boolean
   recovered?: boolean
   updatedIntegration?: Integration
+  statusUpdate?: "expired" | "connected" | "disconnected"
 }
 
 export async function refreshTokenIfNeeded(integration: Integration): Promise<RefreshResult> {
@@ -183,13 +185,13 @@ export async function refreshTokenIfNeeded(integration: Integration): Promise<Re
         updatedIntegration 
       };
     } else if (result.requiresReconnect) {
-      // Mark integration as disconnected
+      // Mark integration as expired or disconnected based on the result
       const supabase = createAdminClient();
       if (supabase) {
         await supabase
           .from("integrations")
           .update({
-            status: "disconnected",
+            status: result.statusUpdate || "disconnected", // Use specified status or default to disconnected
             disconnected_at: new Date().toISOString(),
             disconnect_reason: result.message,
             updated_at: new Date().toISOString(),
@@ -212,33 +214,15 @@ export async function refreshTokenIfNeeded(integration: Integration): Promise<Re
   } catch (error) {
     console.error(`Error refreshing token for ${integration.provider}:`, error);
 
-    // Update failure count and check if we should mark as expired
+    // Use the handleRefreshError function for consistent error handling
     const supabase = createAdminClient();
     if (supabase) {
-      const updateData: any = {
-        consecutive_failures: (integration.consecutive_failures || 0) + 1,
-        last_failure_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-
-      // Check if the token is actually expired and update status accordingly
-      if (integration.expires_at) {
-        const expiresAtTimestamp =
-          typeof integration.expires_at === "string"
-            ? new Date(integration.expires_at).getTime() / 1000
-            : integration.expires_at;
-        
-        if (expiresAtTimestamp < now && integration.status === "connected") {
-          // Token is actually expired, update status only if it's currently "connected"
-          updateData.status = "expired";
-          console.log(`Marking ${integration.provider} as expired due to failed refresh and expired token`);
-        }
-      }
-
-      await supabase
-        .from("integrations")
-        .update(updateData)
-        .eq("id", integration.id);
+      return await handleRefreshError(
+        supabase,
+        integration,
+        error,
+        `Failed to refresh token: ${(error as Error).message}`
+      );
     }
 
     return {
@@ -883,6 +867,7 @@ async function refreshAirtableToken(refreshToken: string): Promise<RefreshResult
           success: false,
           message: "Airtable token expired and requires re-authentication",
           requiresReconnect: true,
+          statusUpdate: "expired"
         }
       }
 
@@ -1776,3 +1761,48 @@ async function refreshKitToken(refreshToken: string): Promise<RefreshResult> {
     }
   }
 }
+
+export const handleRefreshError = async (
+  supabase: SupabaseClient,
+  integration: any,
+  error: any,
+  errorMessage: string
+): Promise<RefreshResult> => {
+  console.error(`Token refresh error for ${integration.provider}:`, errorMessage, error);
+  
+  // Update integration with failure count
+  const updateData: any = {
+    consecutive_failures: (integration.consecutive_failures || 0) + 1,
+    last_failure_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+  
+  // Check if the token has actually expired based on its expires_at timestamp
+  const now = new Date();
+  if (integration.expires_at && new Date(integration.expires_at) <= now) {
+    // Token is actually expired, update status to "expired"
+    console.log(`Setting ${integration.provider} status to 'expired' since refresh failed and token has expired (${integration.expires_at})`);
+    updateData.status = "expired";
+  } else if (integration.expires_at) {
+    // Token is still valid, keep status as "connected"
+    const expiresAt = new Date(integration.expires_at);
+    const timeUntilExpiry = (expiresAt.getTime() - now.getTime()) / 1000; // in seconds
+    console.log(`Keeping ${integration.provider} status as 'connected' since token is still valid for ${timeUntilExpiry.toFixed(0)} seconds`);
+    
+    // Only set status if it's not already connected
+    if (integration.status !== "connected") {
+      updateData.status = "connected";
+    }
+  }
+
+  await supabase
+    .from("integrations")
+    .update(updateData)
+    .eq("id", integration.id);
+
+  return {
+    refreshed: false,
+    success: false,
+    message: errorMessage,
+  };
+};

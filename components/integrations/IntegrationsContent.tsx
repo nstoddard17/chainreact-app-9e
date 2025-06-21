@@ -225,10 +225,12 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
         } else if (integration.expires_at) {
           const expiresAt = new Date(integration.expires_at)
           const now = new Date()
-          const tenMinutes = 10 * 60 * 1000 // 10 minutes in milliseconds
+          const tenMinutesMs = 10 * 60 * 1000 // 10 minutes in milliseconds
+          const timeUntilExpiry = expiresAt.getTime() - now.getTime()
+          
           if (expiresAt.getTime() < now.getTime()) {
             status = "expired"
-          } else if (expiresAt.getTime() - now.getTime() < tenMinutes) {
+          } else if (timeUntilExpiry < tenMinutesMs) {
             status = "expiring"
           } else {
             status = "connected"
@@ -248,7 +250,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
   }, [providers, integrations])
 
   const filteredProviders = useMemo(() => {
-    return providersWithStatus
+    const filtered = providersWithStatus
       .filter((p) => {
         if (activeFilter !== "all" && p.status !== activeFilter) {
           return false
@@ -259,7 +261,20 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
         return true
       })
       .sort((a, b) => a.name.localeCompare(b.name))
-  }, [providersWithStatus, activeFilter, searchQuery])
+    
+    // Debug log to help diagnose the discrepancy
+    if (activeFilter === "expiring") {
+      console.log(`Expiring filter active: ${filtered.length} items shown, metrics reports ${metrics.expiring}`)
+      console.log("Expiring items:", filtered.map(p => ({
+        name: p.name,
+        expires_at: p.integration?.expires_at,
+        timeLeft: p.integration?.expires_at ? 
+          new Date(p.integration.expires_at).getTime() - new Date().getTime() : 'N/A'
+      })))
+    }
+    
+    return filtered
+  }, [providersWithStatus, activeFilter, searchQuery, metrics.expiring])
 
   if (isInitializing && !providers.length) {
     return (
