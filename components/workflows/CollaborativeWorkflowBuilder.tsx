@@ -249,6 +249,11 @@ export default function CollaborativeWorkflowBuilder() {
     setEdges(newEdges)
   }, [setNodes, setEdges])
 
+  const handleAddActionClick = useCallback((nodeId: string, parentId: string) => {
+    setSourceAddNode({ id: nodeId, parentId })
+    setShowActionDialog(true)
+  }, [])
+
   const onNodesChangeCustom = useCallback((changes: NodeChange[]) => {
     const removeChange = changes.find(change => change.type === 'remove');
 
@@ -296,6 +301,68 @@ export default function CollaborativeWorkflowBuilder() {
 
     onNodesChange(changes);
   }, [onNodesChange, setNodes, setEdges]);
+
+  const onNodeDragStop = useCallback((event: React.MouseEvent, node: Node) => {
+    const sortedNodes = nodesRef.current
+      .filter(n => n.type === 'custom' || n.type === 'addAction')
+      .sort((a, b) => a.position.y - b.position.y)
+    
+    const draggedNodeIndex = sortedNodes.findIndex(n => n.id === node.id)
+    if (draggedNodeIndex === -1) return
+
+    // Find the new index based on Y position
+    let newIndex = 0
+    for (let i = 0; i < sortedNodes.length; i++) {
+      if (i !== draggedNodeIndex) {
+        if (node.position.y > sortedNodes[i].position.y) {
+          newIndex = i > draggedNodeIndex ? i : i + 1
+        }
+      }
+    }
+    newIndex = Math.min(newIndex, sortedNodes.length - 1)
+
+    if (newIndex === draggedNodeIndex) {
+      // Node didn't change position, just snap it back
+      const updatedNodes = nodesRef.current.map(n => {
+        if (n.id === node.id) {
+          return { ...n, position: sortedNodes[draggedNodeIndex].position }
+        }
+        return n
+      })
+      setNodes(updatedNodes)
+      return
+    }
+
+    const newSortedNodes = [...sortedNodes]
+    const [draggedNode] = newSortedNodes.splice(draggedNodeIndex, 1)
+    newSortedNodes.splice(newIndex, 0, draggedNode)
+
+    const basePosition = newSortedNodes[0].position
+    const updatedNodes = newSortedNodes.map((n, index) => ({
+      ...n,
+      position: { x: basePosition.x, y: basePosition.y + index * 150 },
+    }))
+
+    const newEdges: Edge[] = []
+    for (let i = 0; i < updatedNodes.length - 1; i++) {
+      newEdges.push({
+        id: `${updatedNodes[i].id}-${updatedNodes[i+1].id}`,
+        source: updatedNodes[i].id,
+        target: updatedNodes[i+1].id,
+        animated: true,
+        style: { 
+          stroke: updatedNodes[i+1].type === 'addAction' ? '#b1b1b7' : '#8b5cf6',
+          strokeWidth: 2, 
+          strokeDasharray: updatedNodes[i+1].type === 'addAction' ? '5,5' : undefined 
+        },
+        type: 'straight'
+      })
+    }
+    
+    setNodes(nodesRef.current.map(n => updatedNodes.find(un => un.id === n.id) || n))
+    setEdges(newEdges)
+
+  }, [setNodes, setEdges])
 
   const renderLogo = (integrationId: string, integrationName: string) => {
     const logoPath = `/integrations/${integrationId}.svg`
@@ -372,7 +439,7 @@ export default function CollaborativeWorkflowBuilder() {
       setNodes(reactFlowNodes)
       setEdges(reactFlowEdges)
     }
-  }, [currentWorkflow, handleConfigureNode, handleDeleteNode, setNodes, setEdges])
+  }, [currentWorkflow, handleConfigureNode, handleDeleteNode, setNodes, setEdges, handleAddActionClick])
 
   const handleSaveDraft = async () => {
     if (!currentWorkflow) return
@@ -694,11 +761,6 @@ export default function CollaborativeWorkflowBuilder() {
     setTimeout(() => fitView({ duration: 300 }), 0)
   }
 
-  const handleAddActionClick = (nodeId: string, parentId: string) => {
-    setSourceAddNode({ id: nodeId, parentId })
-    setShowActionDialog(true)
-  }
-
   if (!currentWorkflow) {
     return (
       <div className="h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
@@ -866,6 +928,7 @@ export default function CollaborativeWorkflowBuilder() {
                   edges={edges}
                   onNodesChange={onNodesChangeCustom}
                   onEdgesChange={onEdgesChange}
+                  onNodeDragStop={onNodeDragStop}
                   onNodeClick={(_event, node) => {
                     if (node && node.type) {
                       const nodeData = node.data as { label: string; type: string; config: Record<string, any> };

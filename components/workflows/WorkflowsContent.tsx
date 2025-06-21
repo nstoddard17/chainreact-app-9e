@@ -148,7 +148,7 @@ export default function WorkflowsContent() {
 
   if (loading) {
     return (
-      <AppLayout>
+      <AppLayout title="Workflows">
         <div className="flex items-center justify-center h-64">
           <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
         </div>
@@ -158,7 +158,7 @@ export default function WorkflowsContent() {
   }
 
   return (
-    <AppLayout>
+    <AppLayout title="Workflows">
       <div className="space-y-8 p-6">
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold text-slate-900">Workflows</h1>
@@ -256,83 +256,89 @@ export default function WorkflowsContent() {
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                {workflows.map((workflow) => (
-                  <Card
-                    key={workflow.id}
-                    className="bg-white rounded-xl shadow-sm border border-slate-200 hover:shadow-lg hover:border-slate-300 transition-all duration-300 transform hover:-translate-y-1 group"
-                  >
-                    <CardHeader className="pb-3">
-                      <div className="flex items-start justify-between">
-                        <CardTitle className="text-lg font-semibold text-slate-900 group-hover:text-blue-600 transition-colors duration-200 line-clamp-1">
-                          {workflow.name}
-                        </CardTitle>
-                        <div
-                          className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ml-2 ${
-                            workflow.status === "active"
-                              ? "bg-green-100 text-green-700"
-                              : workflow.status === "paused"
-                                ? "bg-yellow-100 text-yellow-700"
-                                : "bg-slate-100 text-slate-700"
-                          }`}
-                        >
-                          {workflow.status}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {workflows.map((workflow) => {
+                  const functionalNodes = workflow.nodes?.filter(n => n.type !== 'addAction') || [];
+                  
+                  return (
+                    <Card
+                      key={workflow.id}
+                      className="bg-white rounded-xl shadow-sm border border-slate-200 hover:shadow-lg hover:border-slate-300 transition-all duration-300 transform hover:-translate-y-1 group"
+                    >
+                      <CardHeader className="pb-3">
+                        <div className="flex items-start justify-between">
+                          <CardTitle className="text-lg font-semibold text-slate-900 group-hover:text-blue-600 transition-colors duration-200 line-clamp-1">
+                            {workflow.name}
+                          </CardTitle>
+                          <div
+                            className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ml-2 ${
+                              workflow.status === "active"
+                                ? "bg-green-100 text-green-700"
+                                : workflow.status === "paused"
+                                  ? "bg-yellow-100 text-yellow-700"
+                                  : "bg-slate-100 text-slate-700"
+                            }`}
+                          >
+                            {workflow.status}
+                          </div>
                         </div>
-                      </div>
-                      <p className="text-sm text-slate-600 line-clamp-2 min-h-[2.5rem]">
-                        {workflow.description || "No description"}
-                      </p>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="flex justify-between text-sm text-slate-500 bg-slate-50 rounded-lg p-3">
-                        <span className="flex items-center gap-1">
-                          <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-                          {workflow.nodes?.length || 0} nodes
-                        </span>
-                        <span>Updated: {new Date(workflow.updated_at).toLocaleDateString()}</span>
-                      </div>
+                        <p className="text-sm text-slate-600 line-clamp-2 min-h-[2.5rem]">
+                          {workflow.description || "No description"}
+                        </p>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="flex items-center text-sm text-slate-500 bg-slate-50 p-2 rounded-lg">
+                          <div className="flex items-center gap-2">
+                            <div className={`w-2 h-2 rounded-full ${functionalNodes.length > 0 ? 'bg-blue-500' : 'bg-slate-400'}`}></div>
+                            <span>{functionalNodes.length} nodes</span>
+                          </div>
+                          <div className="flex-1 text-right">
+                            Updated: {new Date(workflow.updated_at).toLocaleDateString()}
+                          </div>
+                        </div>
 
-                      <div className="flex items-center gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="flex-1 hover:bg-slate-50 hover:shadow-sm focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 transition-all duration-200"
-                          onClick={() => handleToggleStatus(workflow.id, workflow.status)}
-                        >
-                          {workflow.status === "active" ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-                        </Button>
-                        <Link href={`/workflows/builder?id=${workflow.id}`} className="flex-1">
+                        <div className="flex items-center gap-2">
                           <Button
                             size="sm"
                             variant="outline"
-                            className="w-full hover:bg-slate-50 hover:shadow-sm focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 transition-all duration-200"
+                            className="flex-1 hover:bg-slate-50 hover:shadow-sm focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 transition-all duration-200"
+                            onClick={() => handleToggleStatus(workflow.id, workflow.status)}
                           >
-                            <Settings className="w-4 h-4" />
+                            {workflow.status === "active" ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
                           </Button>
-                        </Link>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="flex-1 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 transition-all duration-200"
-                          onClick={() => {
-                            setTemplateDialog({ open: true, workflowId: workflow.id })
-                            setTemplateForm((prev) => ({ ...prev, name: `${workflow.name} Template` }))
-                          }}
-                        >
-                          <Template className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="flex-1 hover:bg-red-50 hover:text-red-600 hover:border-red-200 focus:ring-2 focus:ring-red-500 focus:ring-offset-1 transition-all duration-200"
-                          onClick={() => handleDeleteWorkflow(workflow.id)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                          <Link href={`/workflows/builder?id=${workflow.id}`} className="flex-1">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="w-full hover:bg-slate-50 hover:shadow-sm focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 transition-all duration-200"
+                            >
+                              <Settings className="w-4 h-4" />
+                            </Button>
+                          </Link>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="flex-1 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 transition-all duration-200"
+                            onClick={() => {
+                              setTemplateDialog({ open: true, workflowId: workflow.id })
+                              setTemplateForm((prev) => ({ ...prev, name: `${workflow.name} Template` }))
+                            }}
+                          >
+                            <Template className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="flex-1 hover:bg-red-50 hover:text-red-600 hover:border-red-200 focus:ring-2 focus:ring-red-500 focus:ring-offset-1 transition-all duration-200"
+                            onClick={() => handleDeleteWorkflow(workflow.id)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )
+                })}
               </div>
             )}
           </TabsContent>
