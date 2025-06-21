@@ -131,6 +131,30 @@ export async function refreshTokenIfNeeded(integration: Integration): Promise<Re
         decryptedRefreshToken = decrypt(integration.refresh_token, secret);
       } catch (decryptError) {
         console.error(`Failed to decrypt ${integration.provider} refresh token:`, decryptError);
+        
+        // Mark the integration as needing reauthorization
+        const supabase = createAdminClient();
+        if (supabase) {
+          await supabase
+            .from("integrations")
+            .update({
+              status: "needs_reauthorization",
+              updated_at: new Date().toISOString(),
+              disconnect_reason: `Decryption error: ${(decryptError as Error).message}`,
+            })
+            .eq("id", integration.id);
+            
+          // Try to create a notification for the user
+          try {
+            await supabase.rpc("create_token_expiry_notification", {
+              p_user_id: integration.user_id,
+              p_provider: integration.provider,
+            });
+          } catch (notifError) {
+            console.error(`Failed to create notification for ${integration.provider}:`, notifError);
+          }
+        }
+        
         return {
           refreshed: false,
           success: false,
@@ -143,6 +167,30 @@ export async function refreshTokenIfNeeded(integration: Integration): Promise<Re
       // Ensure the refresh token was properly decrypted
       if (!decryptedRefreshToken || decryptedRefreshToken.length < 10) {
         console.error(`Invalid decrypted refresh token for ${integration.provider}`);
+        
+        // Mark the integration as needing reauthorization
+        const supabase = createAdminClient();
+        if (supabase) {
+          await supabase
+            .from("integrations")
+            .update({
+              status: "needs_reauthorization",
+              updated_at: new Date().toISOString(),
+              disconnect_reason: "Invalid refresh token after decryption",
+            })
+            .eq("id", integration.id);
+            
+          // Try to create a notification for the user
+          try {
+            await supabase.rpc("create_token_expiry_notification", {
+              p_user_id: integration.user_id,
+              p_provider: integration.provider,
+            });
+          } catch (notifError) {
+            console.error(`Failed to create notification for ${integration.provider}:`, notifError);
+          }
+        }
+        
         return {
           refreshed: false,
           success: false,
