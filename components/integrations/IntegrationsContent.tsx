@@ -351,7 +351,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
                 <ApiKeyIntegrationCard
                   key={p.id}
                   provider={p}
-                  integration={p.integration}
+                  integration={p.integration ?? null}
                   onConnect={(apiKey: string) => handleApiKeyConnect(p.id, apiKey)}
                   onDisconnect={() => (p.integration ? handleDisconnect(p.integration.id) : {})}
                   isLoading={loading}
@@ -361,8 +361,9 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
             return (
               <IntegrationCard
                 key={p.id}
-                config={p}
-                isConnected={!!p.integration}
+                provider={p}
+                integration={p.integration ?? null}
+                status={p.status}
                 isConfigured={isConfigured}
                 onConnect={() => handleConnect(p.id)}
                 onDisconnect={() => (p.integration ? handleDisconnect(p.integration.id) : {})}

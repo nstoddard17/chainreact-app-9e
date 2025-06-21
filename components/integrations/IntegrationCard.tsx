@@ -5,7 +5,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Loader2, Link as LinkIcon, Link2Off, RefreshCw, Info, X, CheckCircle, Clock, XCircle } from "lucide-react"
-import { useIntegrationStore, type Integration, type Provider } from "@/stores/integrationStore"
+import { useIntegrationStore, type Provider } from "@/stores/integrationStore"
 import { cn } from "@/lib/utils"
 import {
   TooltipProvider,
@@ -22,18 +22,28 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
+import { IntegrationConfig } from "@/lib/integrations/availableIntegrations"
+import { Integration } from "@/stores/integrationStore"
 
 interface IntegrationCardProps {
-  provider: Provider
+  provider: IntegrationConfig
   integration: Integration | null
-  status: 'connected' | 'expiring' | 'disconnected' | 'expired'
+  status: "connected" | "expiring" | "disconnected" | "expired"
   isConfigured: boolean
   onConnect: () => void
   onDisconnect: () => void
   onManage?: () => void
 }
 
-export function IntegrationCard({ provider, integration, status, isConfigured, onConnect, onDisconnect, onManage }: IntegrationCardProps) {
+export function IntegrationCard({
+  provider,
+  integration,
+  status,
+  isConfigured,
+  onConnect,
+  onDisconnect,
+  onManage,
+}: IntegrationCardProps) {
   const { connectIntegration, disconnectIntegration, reconnectIntegration, loadingStates } = useIntegrationStore()
   const [imageError, setImageError] = useState(false)
   const [showInfo, setShowInfo] = useState(false)
@@ -134,6 +144,8 @@ export function IntegrationCard({ provider, integration, status, isConfigured, o
     setShowDisconnectDialog(false)
   }
 
+  const isConnected = status === "connected" || status === "expiring"
+
   return (
     <Card className="flex flex-col h-full transition-all duration-200 hover:shadow-lg rounded-xl border border-gray-200 bg-white overflow-hidden">
       <CardHeader className="flex flex-row items-center justify-between p-5 pb-4 space-y-0">
@@ -191,50 +203,16 @@ export function IntegrationCard({ provider, integration, status, isConfigured, o
 
       <CardFooter className="p-5 pt-0">
         <div className="w-full">
-          {status === 'connected' || status === 'expiring' ? (
-            <div className="flex items-center gap-3">
-              <Button
-                onClick={handleDisconnectConfirm}
-                disabled={isLoading}
-                size="sm"
-                variant="outline"
-                className="flex-1 bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-              >
-                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+          {isConnected ? (
+            <div className="flex space-x-2">
+              <Button onClick={() => setShowDisconnectDialog(true)} variant="destructive" className="w-full">
                 Disconnect
               </Button>
-              <Button
-                onClick={handleReconnect}
-                disabled={isLoading}
-                size="sm"
-                variant="ghost"
-                className="w-10 h-10 p-0 border border-gray-300 hover:bg-gray-50"
-                aria-label="Reconnect"
-              >
-                <RefreshCw className="h-4 w-4" />
-              </Button>
-            </div>
-          ) : status === 'expired' ? (
-            <div className="flex items-center gap-3">
-              <Button
-                onClick={handleReconnect}
-                disabled={isLoading}
-                size="sm"
-                variant="default"
-                className="flex-1"
-              >
-                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Reconnect'}
-              </Button>
-              <Button
-                onClick={handleDisconnect}
-                disabled={isLoading}
-                size="sm"
-                variant="ghost"
-                className="text-gray-500 hover:text-gray-700 hover:bg-gray-100"
-                aria-label="Disconnect"
-              >
-                <X className="h-4 w-4" />
-              </Button>
+              {onManage && (
+                <Button onClick={onManage} variant="secondary" className="w-full">
+                  Manage
+                </Button>
+              )}
             </div>
           ) : (
             <Button onClick={handleConnectClick} disabled={!isConfigured} className="w-full">
@@ -248,10 +226,13 @@ export function IntegrationCard({ provider, integration, status, isConfigured, o
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Confirm Disconnect</DialogTitle>
-            <DialogDescription>Are you sure you want to disconnect this integration?</DialogDescription>
+            <DialogDescription>Are you sure you want to disconnect {provider.name}?</DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button type="submit" onClick={handleDisconnectConfirm}>
+            <Button variant="ghost" onClick={() => setShowDisconnectDialog(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDisconnectConfirm}>
               Disconnect
             </Button>
           </DialogFooter>
