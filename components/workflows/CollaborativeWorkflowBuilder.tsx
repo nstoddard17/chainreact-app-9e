@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useCallback, useState, useRef } from "react"
+import React, { useEffect, useCallback, useState, useRef, useMemo } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import {
   ReactFlow,
@@ -77,6 +77,49 @@ import { cn } from "@/lib/utils"
 import { ALL_NODE_COMPONENTS, NodeComponent } from "@/lib/workflows/availableNodes"
 import { INTEGRATION_CONFIGS } from "@/lib/integrations/availableIntegrations"
 
+// This function doesn't depend on component state, so it can be moved outside.
+const getIntegrationsFromNodes = () => {
+  const integrationMap: Record<
+    string,
+    {
+      id: string
+      name: string
+      description: string
+      category: string
+      color: string
+      triggers: NodeComponent[]
+      actions: NodeComponent[]
+    }
+  > = {}
+
+  for (const integrationId in INTEGRATION_CONFIGS) {
+    const config = INTEGRATION_CONFIGS[integrationId]
+    if (config) {
+      integrationMap[integrationId] = {
+        id: config.id,
+        name: config.name,
+        description: config.description,
+        category: config.category,
+        color: config.color,
+        triggers: [],
+        actions: [],
+      }
+    }
+  }
+
+  ALL_NODE_COMPONENTS.forEach((node) => {
+    if (node.providerId && integrationMap[node.providerId]) {
+      if (node.isTrigger) {
+        integrationMap[node.providerId].triggers.push(node)
+      } else {
+        integrationMap[node.providerId].actions.push(node)
+      }
+    }
+  })
+
+  return Object.values(integrationMap)
+}
+
 const nodeTypes: NodeTypes = {
   custom: CustomNode as any,
   addAction: AddActionNode,
@@ -141,55 +184,20 @@ export default function CollaborativeWorkflowBuilder() {
   const reactFlowWrapper = useRef<HTMLDivElement>(null)
   const cursorUpdateTimer = useRef<NodeJS.Timeout | null>(null)
 
+  // Use refs to hold the latest nodes and edges for callbacks without creating dependency cycles
+  const nodesRef = useRef(nodes);
+  nodesRef.current = nodes;
+  const edgesRef = useRef(edges);
+  edgesRef.current = edges;
+  
+  const availableIntegrations = useMemo(() => getIntegrationsFromNodes(), [])
+
   const handleConfigureNode = useCallback((nodeId: string) => {
-    const nodeToConfigure = nodes.find(n => n.id === nodeId)
+    const nodeToConfigure = nodesRef.current.find(n => n.id === nodeId)
     if (!nodeToConfigure) return
 
     const nodeComponent = ALL_NODE_COMPONENTS.find(c => c.type === nodeToConfigure.data.type)
     if (!nodeComponent?.configSchema || nodeComponent.configSchema.length === 0) return
-
-    const getIntegrationsFromNodes = () => {
-      const integrationMap: Record<
-        string,
-        {
-          id: string
-          name: string
-          description: string
-          category: string
-          color: string
-          triggers: NodeComponent[]
-          actions: NodeComponent[]
-        }
-      > = {}
-  
-      for (const integrationId in INTEGRATION_CONFIGS) {
-        const config = INTEGRATION_CONFIGS[integrationId]
-        if (config) {
-          integrationMap[integrationId] = {
-            id: config.id,
-            name: config.name,
-            description: config.description,
-            category: config.category,
-            color: config.color,
-            triggers: [],
-            actions: [],
-          }
-        }
-      }
-  
-      ALL_NODE_COMPONENTS.forEach((node) => {
-        if (node.providerId && integrationMap[node.providerId]) {
-          if (node.isTrigger) {
-            integrationMap[node.providerId].triggers.push(node)
-          } else {
-            integrationMap[node.providerId].actions.push(node)
-          }
-        }
-      })
-  
-      return Object.values(integrationMap)
-    }
-    const availableIntegrations = getIntegrationsFromNodes()
 
     const integration = availableIntegrations.find(i => i.id === nodeToConfigure.data.providerId)
     if (integration && nodeComponent) {
@@ -200,26 +208,24 @@ export default function CollaborativeWorkflowBuilder() {
         config: nodeToConfigure.data.config || {},
       })
     }
-  }, [nodes])
+  }, [availableIntegrations, setConfiguringNode])
 
   const handleDeleteNode = useCallback((nodeId: string) => {
-    const nodeToRemove = nodes.find(n => n.id === nodeId)
+    const nodeToRemove = nodesRef.current.find(n => n.id === nodeId)
     if (!nodeToRemove) return
 
     if (nodeToRemove.data.isTrigger) {
-      // If deleting the trigger, clear the whole board
       setNodes([])
       setEdges([])
       return
     }
 
-    const incomingEdge = edges.find(e => e.target === nodeId)
-    const outgoingEdges = edges.filter(e => e.source === nodeId)
+    const incomingEdge = edgesRef.current.find(e => e.target === nodeId)
+    const outgoingEdges = edgesRef.current.filter(e => e.source === nodeId)
 
-    let newNodes = nodes.filter(n => n.id !== nodeId)
-    let newEdges = edges.filter(e => e.source !== nodeId && e.target !== nodeId)
+    const newNodes = nodesRef.current.filter(n => n.id !== nodeId)
+    let newEdges = edgesRef.current.filter(e => e.source !== nodeId && e.target !== nodeId)
 
-    // Reconnect predecessor to successor(s)
     if (incomingEdge && outgoingEdges.length > 0) {
       const predecessorId = incomingEdge.source
       outgoingEdges.forEach(outgoingEdge => {
@@ -241,25 +247,25 @@ export default function CollaborativeWorkflowBuilder() {
     
     setNodes(newNodes)
     setEdges(newEdges)
-  }, [nodes, edges])
+  }, [setNodes, setEdges])
 
   const onNodesChangeCustom = useCallback((changes: NodeChange[]) => {
     const removeChange = changes.find(change => change.type === 'remove');
 
     if (removeChange) {
       const nodeIdToRemove = removeChange.id;
-      const nodeToRemove = nodes.find(n => n.id === nodeIdToRemove);
+      const nodeToRemove = nodesRef.current.find(n => n.id === nodeIdToRemove);
 
       if (nodeToRemove && nodeToRemove.type === 'custom') {
-        const incomingEdge = edges.find(e => e.target === nodeIdToRemove);
-        const outgoingEdge = edges.find(e => e.source === nodeIdToRemove);
-        const successorNode = outgoingEdge ? nodes.find(n => n.id === outgoingEdge.target) : undefined;
+        const incomingEdge = edgesRef.current.find(e => e.target === nodeIdToRemove);
+        const outgoingEdge = edgesRef.current.find(e => e.source === nodeIdToRemove);
+        const successorNode = outgoingEdge ? nodesRef.current.find(n => n.id === outgoingEdge.target) : undefined;
 
         if (incomingEdge && outgoingEdge && successorNode && successorNode.type === 'addAction') {
-          const predecessorNode = nodes.find(n => n.id === incomingEdge.source);
+          const predecessorNode = nodesRef.current.find(n => n.id === incomingEdge.source);
 
           if (predecessorNode) {
-            const newNodes = nodes
+            const newNodes = nodesRef.current
               .map(n => {
                 if (n.id === successorNode.id) {
                   return { ...n, position: { x: predecessorNode.position.x, y: predecessorNode.position.y + 150 } };
@@ -277,7 +283,7 @@ export default function CollaborativeWorkflowBuilder() {
               type: 'straight',
             };
 
-            const newEdges = edges.filter(e => e.id !== incomingEdge.id && e.id !== outgoingEdge.id);
+            const newEdges = edgesRef.current.filter(e => e.id !== incomingEdge.id && e.id !== outgoingEdge.id);
             newEdges.push(newEdge);
 
             setNodes(newNodes);
@@ -289,7 +295,7 @@ export default function CollaborativeWorkflowBuilder() {
     }
 
     onNodesChange(changes);
-  }, [nodes, edges, onNodesChange, setNodes, setEdges]);
+  }, [onNodesChange, setNodes, setEdges]);
 
   const renderLogo = (integrationId: string, integrationName: string) => {
     const logoPath = `/integrations/${integrationId}.svg`
@@ -526,49 +532,6 @@ export default function CollaborativeWorkflowBuilder() {
   const workflowStatus = getWorkflowStatus()
 
   // Get available integrations grouped by category
-  const getIntegrationsFromNodes = () => {
-    const integrationMap: Record<
-      string,
-      {
-        id: string
-        name: string
-        description: string
-        category: string
-        color: string
-        triggers: NodeComponent[]
-        actions: NodeComponent[]
-      }
-    > = {}
-
-    for (const integrationId in INTEGRATION_CONFIGS) {
-      const config = INTEGRATION_CONFIGS[integrationId]
-      if (config) {
-        integrationMap[integrationId] = {
-          id: config.id,
-          name: config.name,
-          description: config.description,
-          category: config.category,
-          color: config.color,
-          triggers: [],
-          actions: [],
-        }
-      }
-    }
-
-    ALL_NODE_COMPONENTS.forEach((node) => {
-      if (node.providerId && integrationMap[node.providerId]) {
-        if (node.isTrigger) {
-          integrationMap[node.providerId].triggers.push(node)
-        } else {
-          integrationMap[node.providerId].actions.push(node)
-        }
-      }
-    })
-
-    return Object.values(integrationMap)
-  }
-
-  const availableIntegrations = getIntegrationsFromNodes()
   const triggerIntegrations = availableIntegrations.filter(integration => integration.triggers.length > 0)
 
   const handleTriggerSelect = (integration: any, trigger: NodeComponent) => {
