@@ -17,10 +17,14 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { availableIntegrations, IntegrationProvider } from "@/lib/integrations/availableIntegrations"
+import { availableIntegrations, IntegrationProvider, INTEGRATION_CONFIGS, IntegrationConfig } from "@/lib/integrations/availableIntegrations"
 import { Zap, CheckCircle2, AlertTriangle, XCircle } from "lucide-react"
 
-function IntegrationsContent() {
+interface IntegrationsContentProps {
+  configuredClients: Record<string, boolean>
+}
+
+function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
   const [activeFilter, setActiveFilter] = useState<"all" | "connected" | "expiring" | "expired" | "disconnected">("all")
   const [autoRefresh, setAutoRefresh] = useState(true)
   const [isInitializing, setIsInitializing] = useState(false)
@@ -39,65 +43,65 @@ function IntegrationsContent() {
       if (providers.length === 0 && !isInitializing) {
         setIsInitializing(true)
         // Ensure providers are initialized before fetching integrations
-        await initializeProviders()
-        if (session) {
+        await initializeProviders(INTEGRATION_CONFIGS)
+        if (user) {
           await fetchIntegrations()
         }
         setIsInitializing(false)
       }
     }
     initialize()
-  }, [session, initializeProviders, fetchIntegrations, providers.length, isInitializing])
+  }, [user, initializeProviders, fetchIntegrations, providers.length, isInitializing])
 
   // Refresh integrations when component mounts and user is authenticated
   useEffect(() => {
-    if (session && providers.length > 0 && !isInitializing) {
+    if (user && providers.length > 0 && !isInitializing) {
       console.log("🔄 Component mounted, refreshing integrations...")
       fetchIntegrations()
     }
-  }, [session, providers.length, isInitializing, fetchIntegrations])
+  }, [user, providers.length, isInitializing, fetchIntegrations])
 
   // Refresh when navigating to integrations page
   useEffect(() => {
-    if (!session || !autoRefresh) return
+    if (!user || !autoRefresh) return
 
     // Check if we're on the integrations page
-    const isOnIntegrationsPage = typeof window !== 'undefined' && window.location.pathname === '/integrations'
-    
+    const isOnIntegrationsPage = typeof window !== "undefined" && window.location.pathname === "/integrations"
+
     if (isOnIntegrationsPage && providers.length > 0) {
       console.log("🔄 On integrations page, refreshing integrations...")
       fetchIntegrations()
     }
-  }, [session, autoRefresh, providers.length, fetchIntegrations])
+  }, [user, autoRefresh, providers.length, fetchIntegrations])
 
   // Auto-refresh effect
   useEffect(() => {
-    if (!autoRefresh || !session) return
+    if (!autoRefresh || !user) return
 
     const interval = setInterval(() => {
       console.log("🔄 Auto-refreshing integrations...")
-      toast({ 
-        title: "Refreshing integrations", 
+      toast({
+        title: "Refreshing integrations",
         description: "Checking for updates...",
-        duration: 2000
+        duration: 2000,
       })
       fetchIntegrations()
     }, 300000) // Refresh every 5 minutes when auto-refresh is enabled
 
     return () => clearInterval(interval)
-  }, [autoRefresh, session, fetchIntegrations, toast])
+  }, [autoRefresh, user, fetchIntegrations, toast])
 
   // Refresh when page becomes visible (user returns to tab)
   useEffect(() => {
-    if (!session) return
+    if (!user) return
 
     const handleVisibilityChange = () => {
       if (!document.hidden && autoRefresh) {
         console.log("🔄 Page became visible, refreshing integrations...")
-        toast({ 
-          title: "Refreshing integrations", 
+        toast({
+          title: "Refreshing integrations",
           description: "Checking for updates...",
-          duration: 2000
+          duration: 2000,
         })
         fetchIntegrations()
       }
@@ -106,23 +110,23 @@ function IntegrationsContent() {
     const handleWindowFocus = () => {
       if (autoRefresh) {
         console.log("🔄 Window focused, refreshing integrations...")
-        toast({ 
-          title: "Refreshing integrations", 
+        toast({
+          title: "Refreshing integrations",
           description: "Checking for updates...",
-          duration: 2000
+          duration: 2000,
         })
         fetchIntegrations()
       }
     }
 
-    document.addEventListener('visibilitychange', handleVisibilityChange)
-    window.addEventListener('focus', handleWindowFocus)
-    
+    document.addEventListener("visibilitychange", handleVisibilityChange)
+    window.addEventListener("focus", handleWindowFocus)
+
     return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
-      window.removeEventListener('focus', handleWindowFocus)
+      document.removeEventListener("visibilitychange", handleVisibilityChange)
+      window.removeEventListener("focus", handleWindowFocus)
     }
-  }, [session, autoRefresh, fetchIntegrations, toast])
+  }, [user, autoRefresh, fetchIntegrations, toast])
 
   const handleRefreshTokens = useCallback(async () => {
     toast({ title: "Refreshing tokens...", description: "This may take a moment." })
@@ -225,6 +229,93 @@ function IntegrationsContent() {
     return nameMatch
   })
 
+  const handleConnect = useCallback(
+    async (providerId: string) => {
+      if (!user) {
+        toast({
+          title: "Authentication Error",
+          description: "You must be logged in to connect integrations.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      try {
+        const response = await fetch("/api/integrations/auth/generate-url", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ provider: providerId }),
+        })
+
+        const data = await response.json()
+
+        if (data.success && data.authUrl) {
+          router.push(data.authUrl)
+        } else {
+          toast({
+            title: "Error",
+            description: data.error || "Could not generate authentication URL.",
+            variant: "destructive",
+          })
+        }
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "An unexpected error occurred. Please try again.",
+          variant: "destructive",
+        })
+      }
+    },
+    [user, router, toast],
+  )
+
+  const handleDisconnect = useCallback(
+    async (integrationId: string) => {
+      // Find the integration to get the provider name
+      const integration = integrations.find((i) => i.id === integrationId)
+      if (!integration) {
+        toast({ title: "Error", description: "Integration not found.", variant: "destructive" })
+        return
+      }
+
+      toast({
+        title: `Disconnecting ${integration.provider}...`,
+        description: "Please wait.",
+      })
+
+      try {
+        const response = await fetch(`/api/integrations/${integrationId}`, { method: "DELETE" })
+        const data = await response.json()
+
+        if (data.success) {
+          toast({
+            title: "Disconnected",
+            description: `${integration.provider} has been successfully disconnected.`,
+          })
+          fetchIntegrations() // Refresh the list
+        } else {
+          toast({
+            title: "Error",
+            description: data.error || "Failed to disconnect.",
+            variant: "destructive",
+          })
+        }
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "An unexpected error occurred while disconnecting.",
+          variant: "destructive",
+        })
+      }
+    },
+    [integrations, fetchIntegrations, toast],
+  )
+
+  const handleApiKeyConnect = async (providerId: string, apiKey: string) => {
+    console.log(`Connecting ${providerId} with API key...`)
+    // Implement API key connection logic here
+  }
+
   if (isInitializing && !providers.length) {
     return (
       <AppLayout title="Loading...">
@@ -254,28 +345,32 @@ function IntegrationsContent() {
           </div>
         ) : (
           filteredProviders.map((p) => {
-            const CardComponent = p.authType === "apiKey" ? ApiKeyIntegrationCard : IntegrationCard
+            const isConfigured = configuredClients[p.id] ?? false
             if (p.authType === "apiKey") {
               return (
                 <ApiKeyIntegrationCard
                   key={p.id}
                   provider={p}
-                  integration={p.integration || null}
-                  status={p.status as any}
-                  open={openGuideForProviderId === p.id}
-                  onOpenChange={(open: boolean) => setOpenGuideForProviderId(open ? p.id : null)}
-                />
-              )
-            } else {
-              return (
-                <IntegrationCard
-                  key={p.id}
-                  provider={p}
-                  integration={p.integration || null}
-                  status={p.status as any}
+                  integration={p.integration}
+                  onConnect={(apiKey: string) => handleApiKeyConnect(p.id, apiKey)}
+                  onDisconnect={() => (p.integration ? handleDisconnect(p.integration.id) : {})}
+                  isLoading={loading}
                 />
               )
             }
+            return (
+              <IntegrationCard
+                key={p.id}
+                config={p}
+                isConnected={!!p.integration}
+                isConfigured={isConfigured}
+                onConnect={() => handleConnect(p.id)}
+                onDisconnect={() => (p.integration ? handleDisconnect(p.integration.id) : {})}
+                onManage={() => {
+                  /* Implement manage logic */
+                }}
+              />
+            )
           })
         )}
       </div>

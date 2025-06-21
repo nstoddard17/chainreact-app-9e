@@ -27,9 +27,13 @@ interface IntegrationCardProps {
   provider: Provider
   integration: Integration | null
   status: 'connected' | 'expiring' | 'disconnected' | 'expired'
+  isConfigured: boolean
+  onConnect: () => void
+  onDisconnect: () => void
+  onManage?: () => void
 }
 
-export function IntegrationCard({ provider, integration, status }: IntegrationCardProps) {
+export function IntegrationCard({ provider, integration, status, isConfigured, onConnect, onDisconnect, onManage }: IntegrationCardProps) {
   const { connectIntegration, disconnectIntegration, reconnectIntegration, loadingStates } = useIntegrationStore()
   const [imageError, setImageError] = useState(false)
   const [showInfo, setShowInfo] = useState(false)
@@ -119,17 +123,14 @@ export function IntegrationCard({ provider, integration, status }: IntegrationCa
     integration?.created_at ? `Last connected: ${new Date(integration.created_at).toLocaleString()}` : null,
   ].filter(Boolean).join(' \n ')
 
-  // Check if the integration is configured on the frontend
-  const isConfigured = provider.requiresClientId ? !!process.env[provider.requiresClientId] : true
-
   const handleConnectClick = () => {
     if (isConfigured) {
-      handleConnect()
+      onConnect()
     }
   }
 
   const handleDisconnectConfirm = () => {
-    handleDisconnect()
+    onDisconnect()
     setShowDisconnectDialog(false)
   }
 
