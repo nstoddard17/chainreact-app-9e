@@ -42,8 +42,32 @@ export default function TrelloAuthPage() {
 
         const user = session.user
 
+        // Get the state from URL params
+        const state = searchParams.get("state")
+        if (!state) {
+          console.error("No state parameter found in URL")
+          toast({
+            title: "Authentication Failed",
+            description: "Invalid authentication request",
+            variant: "destructive",
+          })
+          router.push("/integrations?error=trello_invalid_state")
+          return
+        }
+
         // Get the token from the URL fragment
         const hash = window.location.hash
+        if (!hash) {
+          console.error("No hash fragment found in URL")
+          toast({
+            title: "Authentication Failed",
+            description: "No token received from Trello",
+            variant: "destructive",
+          })
+          router.push("/integrations?error=trello_no_token")
+          return
+        }
+
         const urlParams = new URLSearchParams(hash.substring(1)) // Remove the # and parse
         const token = urlParams.get("token")
 
