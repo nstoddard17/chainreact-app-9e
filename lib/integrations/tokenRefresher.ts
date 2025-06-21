@@ -830,18 +830,19 @@ async function refreshAirtableToken(refreshToken: string): Promise<RefreshResult
     throw new Error("Airtable client ID or secret not configured")
   }
 
-  const authHeader = `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`
+  const tokenUrl = "https://www.airtable.com/oauth2/v1/token"
 
   try {
-    const response = await fetch("https://airtable.com/oauth2/v1/token", {
+    const response = await fetch(tokenUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
-        "Authorization": authHeader,
       },
       body: new URLSearchParams({
         grant_type: "refresh_token",
         refresh_token: refreshToken,
+        client_id: clientId,
+        client_secret: clientSecret,
       }),
     })
 
