@@ -95,51 +95,14 @@ export function IntegrationCard({ provider, integration, status }: IntegrationCa
 
   const renderLogo = () => {
     const logoPath = `/integrations/${provider.id}.svg`
-
-    if ((provider.id === 'x' || provider.id === 'twitter') && !imageError) {
-      return (
-        <Image
-          src={'/integrations/x.svg'}
-          alt={'X'}
-          width={48}
-          height={48}
-          className="object-contain"
-          onError={() => setImageError(true)}
-        />
-      )
-    }
-
-    if (!imageError) {
-      return (
-        <Image
-          src={logoPath}
-          alt={provider.name}
-          width={48}
-          height={48}
-          className="object-contain"
-          onError={() => setImageError(true)}
-        />
-      )
-    }
-
-    const getAvatarColor = (name: string) => {
-      const colors = [
-        "bg-blue-500", "bg-green-500", "bg-purple-500", "bg-pink-500",
-        "bg-indigo-500", "bg-red-500", "bg-yellow-500", "bg-teal-500",
-        "bg-orange-500", "bg-cyan-500", "bg-emerald-500", "bg-violet-500"
-      ]
-      const index = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
-      return colors[index % colors.length]
-    }
-
     return (
-      <div
-        className={`flex items-center justify-center w-12 h-12 rounded-lg text-lg font-bold text-white ${getAvatarColor(
-          provider.name
-        )}`}
-      >
-        {provider.name.substring(0, 2).toUpperCase()}
-      </div>
+      <Image
+        src={logoPath}
+        alt={provider.name}
+        width={48}
+        height={48}
+        className="object-contain"
+      />
     )
   }
 

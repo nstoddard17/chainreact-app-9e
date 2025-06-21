@@ -2,92 +2,14 @@
 
 import { memo } from "react"
 import { Handle, Position, type NodeProps } from "@xyflow/react"
+import Image from "next/image"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import {
-  Webhook,
-  Clock,
-  MessageSquare,
-  Calendar,
-  FileSpreadsheet,
-  Mail,
-  Filter,
-  Timer,
-  GitBranch,
-  Code,
-  Database,
-  FileText,
-  Repeat,
-  AlertTriangle,
-  Settings,
-  Zap,
-  Upload,
-  MailOpen,
-  Plus,
-} from "lucide-react"
-
-const NODE_ICONS = {
-  webhook: Webhook,
-  schedule: Clock,
-  email_trigger: MailOpen,
-  file_upload: Upload,
-  slack_message: MessageSquare,
-  calendar_event: Calendar,
-  sheets_append: FileSpreadsheet,
-  send_email: Mail,
-  webhook_call: Zap,
-  if_condition: GitBranch,
-  switch_case: Settings,
-  filter: Filter,
-  delay: Timer,
-  loop: Repeat,
-  data_transform: Database,
-  template: FileText,
-  javascript: Code,
-  variable_set: Database,
-  variable_get: Database,
-  try_catch: AlertTriangle,
-  retry: Repeat,
-}
-
-const NODE_COLORS = {
-  // Triggers
-  webhook: "green",
-  schedule: "green",
-  email_trigger: "green",
-  file_upload: "green",
-  // Actions
-  slack_message: "blue",
-  calendar_event: "blue",
-  sheets_append: "blue",
-  send_email: "blue",
-  webhook_call: "blue",
-  // Logic
-  if_condition: "yellow",
-  switch_case: "yellow",
-  filter: "yellow",
-  delay: "yellow",
-  loop: "yellow",
-  // Data
-  data_transform: "purple",
-  template: "purple",
-  javascript: "purple",
-  variable_set: "purple",
-  variable_get: "purple",
-  // Error handling
-  try_catch: "red",
-  retry: "red",
-}
 
 function CustomNode({ data, selected }: NodeProps) {
-  const Icon = NODE_ICONS[data.type as keyof typeof NODE_ICONS] || Webhook
-  const color = NODE_COLORS[data.type as keyof typeof NODE_COLORS] || "blue"
-
-  const isTrigger = data.isTrigger || ["webhook", "schedule", "email_trigger", "file_upload"].includes(data.type)
-  const isAction = ["slack_message", "calendar_event", "sheets_append", "send_email", "webhook_call"].includes(
-    data.type,
-  )
+  const isTrigger = data.isTrigger
   const hasMultipleOutputs = ["if_condition", "switch_case", "try_catch"].includes(data.type)
+  const logoPath = data.providerId ? `/integrations/${data.providerId}.svg` : `/integrations/airtable.svg`
 
   return (
     <Card
@@ -97,20 +19,8 @@ function CustomNode({ data, selected }: NodeProps) {
     >
       <div className="p-4">
         <div className="flex items-center space-x-3 mb-3">
-          <div
-            className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-              color === "green"
-                ? "bg-gradient-to-br from-green-400 to-green-600"
-                : color === "blue"
-                  ? "bg-gradient-to-br from-blue-400 to-blue-600"
-                  : color === "yellow"
-                    ? "bg-gradient-to-br from-yellow-400 to-yellow-600"
-                    : color === "purple"
-                      ? "bg-gradient-to-br from-purple-400 to-purple-600"
-                      : "bg-gradient-to-br from-red-400 to-red-600"
-            }`}
-          >
-            <Icon className="w-5 h-5 text-white" />
+          <div className="w-10 h-10 rounded-lg flex items-center justify-center">
+            <Image src={logoPath} alt={data.title} width={28} height={28} className="object-contain" />
           </div>
           <div className="flex-1">
             <div className="font-medium text-slate-900">{data.title}</div>
@@ -146,7 +56,6 @@ function CustomNode({ data, selected }: NodeProps) {
             )}
           </div>
         )}
-
       </div>
 
       {/* Input Handle - not for triggers */}
