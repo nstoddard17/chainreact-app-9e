@@ -377,7 +377,12 @@ const useWorkflowBuilderState = () => {
   }
   const renderLogo = (integrationId: string, integrationName: string) => {
     const config = INTEGRATION_CONFIGS[integrationId as keyof typeof INTEGRATION_CONFIGS]
-    return <img src={config?.logo || `/integrations/${integrationId}.svg`} alt={`${integrationName} logo`} className="w-6 h-6" />
+    return <img 
+      src={config?.logo || `/integrations/${integrationId}.svg`} 
+      alt={`${integrationName} logo`} 
+      className="w-10 h-10 object-contain" 
+      style={{ filter: "drop-shadow(0px 1px 2px rgba(0, 0, 0, 0.05))" }}
+    />
   }
 
   return {
@@ -504,33 +509,34 @@ function WorkflowBuilderContent() {
 
       {/* Move dialogs outside of conditional rendering */}
       <Dialog open={showTriggerDialog} onOpenChange={setShowTriggerDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Choose a Trigger</DialogTitle>
-            <DialogDescription>Select a trigger to start your workflow</DialogDescription>
+        <DialogContent className="max-w-3xl p-6">
+          <DialogHeader className="mb-4">
+            <DialogTitle className="text-2xl font-bold">Choose a Trigger</DialogTitle>
+            <DialogDescription className="text-base">Select a trigger to start your workflow</DialogDescription>
           </DialogHeader>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4 overflow-y-auto max-h-[60vh] p-2">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-6 overflow-y-auto max-h-[60vh] p-2">
             {availableIntegrations.map((integration) => 
               integration.triggers.length > 0 && integration.triggers.map((trigger) => (
                 <button
                   key={`${integration.id}-${trigger.type}`}
-                  className="flex flex-col items-center p-4 border rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
+                  className="flex flex-col items-center p-6 border rounded-lg hover:border-blue-500 hover:ring-1 hover:ring-blue-200 transition-all cursor-pointer relative"
                   onClick={() => {
                     console.log(`Selected trigger: ${integration.id}-${trigger.type}`);
                     handleTriggerSelect(integration, trigger);
                     setShowTriggerDialog(false);
                   }}
                 >
-                  <div className="w-12 h-12 flex items-center justify-center rounded-full bg-gray-100 mb-2">
+                  <div className="w-20 h-20 flex items-center justify-center rounded-full bg-gray-50 mb-3">
                     {renderLogo(integration.id, integration.name)}
                   </div>
-                  <div className="font-medium text-center">{trigger.name}</div>
+                  <div className="font-medium text-center text-base">{integration.name}</div>
+                  <div className="text-sm text-gray-500 text-center mt-1">{trigger.name}</div>
                 </button>
               ))
             )}
           </div>
-          <DialogFooter className="mt-4">
-            <Button type="button" variant="outline" onClick={() => setShowTriggerDialog(false)}>
+          <DialogFooter className="mt-6">
+            <Button type="button" variant="outline" size="lg" className="px-6" onClick={() => setShowTriggerDialog(false)}>
               Cancel
             </Button>
           </DialogFooter>
@@ -538,33 +544,34 @@ function WorkflowBuilderContent() {
       </Dialog>
 
       <Dialog open={showActionDialog} onOpenChange={setShowActionDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Choose an Action</DialogTitle>
-            <DialogDescription>Select an action to add to your workflow</DialogDescription>
+        <DialogContent className="max-w-3xl p-6">
+          <DialogHeader className="mb-4">
+            <DialogTitle className="text-2xl font-bold">Choose an Action</DialogTitle>
+            <DialogDescription className="text-base">Select an action to add to your workflow</DialogDescription>
           </DialogHeader>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4 overflow-y-auto max-h-[60vh] p-2">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-6 overflow-y-auto max-h-[60vh] p-2">
             {availableIntegrations.map((integration) => 
               integration.actions.length > 0 && integration.actions.map((action) => (
                 <button
                   key={`${integration.id}-${action.type}`}
-                  className="flex flex-col items-center p-4 border rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
+                  className="flex flex-col items-center p-6 border rounded-lg hover:border-blue-500 hover:ring-1 hover:ring-blue-200 transition-all cursor-pointer relative"
                   onClick={() => {
                     console.log(`Selected action: ${integration.id}-${action.type}`);
                     handleActionSelect(integration, action);
                     setShowActionDialog(false);
                   }}
                 >
-                  <div className="w-12 h-12 flex items-center justify-center rounded-full bg-gray-100 mb-2">
+                  <div className="w-20 h-20 flex items-center justify-center rounded-full bg-gray-50 mb-3">
                     {renderLogo(integration.id, integration.name)}
                   </div>
-                  <div className="font-medium text-center">{action.name}</div>
+                  <div className="font-medium text-center text-base">{integration.name}</div>
+                  <div className="text-sm text-gray-500 text-center mt-1">{action.name}</div>
                 </button>
               ))
             )}
           </div>
-          <DialogFooter className="mt-4">
-            <Button type="button" variant="outline" onClick={() => setShowActionDialog(false)}>
+          <DialogFooter className="mt-6">
+            <Button type="button" variant="outline" size="lg" className="px-6" onClick={() => setShowActionDialog(false)}>
               Cancel
             </Button>
           </DialogFooter>
