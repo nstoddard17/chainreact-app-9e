@@ -141,6 +141,108 @@ export default function CollaborativeWorkflowBuilder() {
   const reactFlowWrapper = useRef<HTMLDivElement>(null)
   const cursorUpdateTimer = useRef<NodeJS.Timeout | null>(null)
 
+  const handleConfigureNode = useCallback((nodeId: string) => {
+    const nodeToConfigure = nodes.find(n => n.id === nodeId)
+    if (!nodeToConfigure) return
+
+    const nodeComponent = ALL_NODE_COMPONENTS.find(c => c.type === nodeToConfigure.data.type)
+    if (!nodeComponent?.configSchema || nodeComponent.configSchema.length === 0) return
+
+    const getIntegrationsFromNodes = () => {
+      const integrationMap: Record<
+        string,
+        {
+          id: string
+          name: string
+          description: string
+          category: string
+          color: string
+          triggers: NodeComponent[]
+          actions: NodeComponent[]
+        }
+      > = {}
+  
+      for (const integrationId in INTEGRATION_CONFIGS) {
+        const config = INTEGRATION_CONFIGS[integrationId]
+        if (config) {
+          integrationMap[integrationId] = {
+            id: config.id,
+            name: config.name,
+            description: config.description,
+            category: config.category,
+            color: config.color,
+            triggers: [],
+            actions: [],
+          }
+        }
+      }
+  
+      ALL_NODE_COMPONENTS.forEach((node) => {
+        if (node.providerId && integrationMap[node.providerId]) {
+          if (node.isTrigger) {
+            integrationMap[node.providerId].triggers.push(node)
+          } else {
+            integrationMap[node.providerId].actions.push(node)
+          }
+        }
+      })
+  
+      return Object.values(integrationMap)
+    }
+    const availableIntegrations = getIntegrationsFromNodes()
+
+    const integration = availableIntegrations.find(i => i.id === nodeToConfigure.data.providerId)
+    if (integration && nodeComponent) {
+      setConfiguringNode({
+        id: nodeId,
+        integration,
+        nodeComponent,
+        config: nodeToConfigure.data.config || {},
+      })
+    }
+  }, [nodes])
+
+  const handleDeleteNode = useCallback((nodeId: string) => {
+    const nodeToRemove = nodes.find(n => n.id === nodeId)
+    if (!nodeToRemove) return
+
+    if (nodeToRemove.data.isTrigger) {
+      // If deleting the trigger, clear the whole board
+      setNodes([])
+      setEdges([])
+      return
+    }
+
+    const incomingEdge = edges.find(e => e.target === nodeId)
+    const outgoingEdges = edges.filter(e => e.source === nodeId)
+
+    let newNodes = nodes.filter(n => n.id !== nodeId)
+    let newEdges = edges.filter(e => e.source !== nodeId && e.target !== nodeId)
+
+    // Reconnect predecessor to successor(s)
+    if (incomingEdge && outgoingEdges.length > 0) {
+      const predecessorId = incomingEdge.source
+      outgoingEdges.forEach(outgoingEdge => {
+        const successorId = outgoingEdge.target
+        newEdges.push({
+          id: `${predecessorId}-${successorId}`,
+          source: predecessorId,
+          target: successorId,
+          animated: true,
+          style: {
+            stroke: successorId.startsWith('add-action') ? '#b1b1b7' : '#8b5cf6',
+            strokeWidth: 2,
+            strokeDasharray: successorId.startsWith('add-action') ? '5,5' : undefined,
+          },
+          type: 'straight',
+        })
+      })
+    }
+    
+    setNodes(newNodes)
+    setEdges(newEdges)
+  }, [nodes, edges])
+
   const onNodesChangeCustom = useCallback((changes: NodeChange[]) => {
     const removeChange = changes.find(change => change.type === 'remove');
 
@@ -239,20 +341,18 @@ export default function CollaborativeWorkflowBuilder() {
   // Update nodes and edges when current workflow changes
   useEffect(() => {
     if (currentWorkflow) {
-      // Convert WorkflowNode to ReactFlow Node
       const reactFlowNodes = (currentWorkflow.nodes || []).map((node: any) => ({
         id: node.id,
         type: node.type || 'custom',
         position: node.position,
         data: {
           ...node.data,
-          onClick: node.type === 'addAction' ? handleAddActionClick : undefined,
           onConfigure: handleConfigureNode,
           onDelete: handleDeleteNode,
+          onClick: node.type === 'addAction' ? () => handleAddActionClick(node.id, node.data.parentId) : undefined,
         }
       }))
       
-      // Convert WorkflowConnection to ReactFlow Edge
       const reactFlowEdges = (currentWorkflow.connections || []).map((conn: any) => ({
         id: conn.id,
         source: conn.source,
@@ -266,103 +366,58 @@ export default function CollaborativeWorkflowBuilder() {
       setNodes(reactFlowNodes)
       setEdges(reactFlowEdges)
     }
-  }, [currentWorkflow, setNodes, setEdges])
-
-  const handleConfigureNode = (nodeId: string) => {
-    const nodeToConfigure = nodes.find(n => n.id === nodeId)
-    if (!nodeToConfigure) return
-
-    const nodeComponent = ALL_NODE_COMPONENTS.find(c => c.type === nodeToConfigure.data.type)
-    if (!nodeComponent?.configSchema || nodeComponent.configSchema.length === 0) return
-
-    const integration = availableIntegrations.find(i => i.id === nodeToConfigure.data.providerId)
-    if (integration && nodeComponent) {
-      setConfiguringNode({
-        id: nodeId,
-        integration,
-        nodeComponent,
-        config: nodeToConfigure.data.config || {},
-      })
-    }
-  }
-
-  const handleDeleteNode = (nodeId: string) => {
-    const nodeToRemove = nodes.find(n => n.id === nodeId)
-    if (!nodeToRemove) return
-
-    if (nodeToRemove.data.isTrigger) {
-      // If deleting the trigger, clear the whole board
-      setNodes([])
-      setEdges([])
-      return
-    }
-
-    const incomingEdge = edges.find(e => e.target === nodeId)
-    const outgoingEdges = edges.filter(e => e.source === nodeId)
-
-    let newNodes = nodes.filter(n => n.id !== nodeId)
-    let newEdges = edges.filter(e => e.source !== nodeId && e.target !== nodeId)
-
-    // Reconnect predecessor to successor(s)
-    if (incomingEdge && outgoingEdges.length > 0) {
-      const predecessorId = incomingEdge.source
-      outgoingEdges.forEach(outgoingEdge => {
-        const successorId = outgoingEdge.target
-        newEdges.push({
-          id: `${predecessorId}-${successorId}`,
-          source: predecessorId,
-          target: successorId,
-          animated: true,
-          style: {
-            stroke: successorId.startsWith('add-action') ? '#b1b1b7' : '#8b5cf6',
-            strokeWidth: 2,
-            strokeDasharray: successorId.startsWith('add-action') ? '5,5' : undefined,
-          },
-          type: 'straight',
-        })
-      })
-    }
-    
-    setNodes(newNodes)
-    setEdges(newEdges)
-  }
-
-  // Show conflict dialog when conflicts arise
-  useEffect(() => {
-    if (conflicts.length > 0) {
-      setShowConflictDialog(true)
-    }
-  }, [conflicts])
+  }, [currentWorkflow, handleConfigureNode, handleDeleteNode, setNodes, setEdges])
 
   const handleSaveDraft = async () => {
     if (!currentWorkflow) return
 
     setSaving(true)
     try {
+      // Create a version of the nodes and connections suitable for saving to the DB.
+      // This means stripping out functions and other non-serializable data.
+      const dbNodes = nodes.map(node => {
+        const dataForDb: any = { ...node.data }
+        delete dataForDb.onConfigure
+        delete dataForDb.onDelete
+        delete dataForDb.onClick
+        delete dataForDb.icon
+
+        return {
+          id: node.id,
+          type: node.type || 'custom',
+          position: node.position,
+          data: {
+            // Ensure the base properties are present and correctly typed
+            label: dataForDb.label || dataForDb.title || 'Untitled',
+            type: dataForDb.type || 'custom',
+            config: dataForDb.config || {},
+            // Spread the rest of the serializable data
+            ...dataForDb,
+          },
+        }
+      })
+
+      const dbConnections = edges.map(edge => ({
+        id: edge.id,
+        source: edge.source,
+        target: edge.target,
+        sourceHandle: edge.sourceHandle || undefined,
+        targetHandle: edge.targetHandle || undefined,
+      }))
+
       const updatedWorkflow = {
         ...currentWorkflow,
         name: workflowName,
-        nodes: nodes.map(node => ({
-          id: node.id,
-          type: (node.data.type as string) || 'custom',
-          position: node.position,
-          data: {
-            label: (node.data.title as string) || (node.data.label as string) || 'Untitled',
-            type: (node.data.type as string) || 'custom',
-            config: (node.data.config as Record<string, any>) || {}
-          }
-        })),
-        connections: edges.map(edge => ({
-          id: edge.id,
-          source: edge.source,
-          target: edge.target,
-          sourceHandle: edge.sourceHandle || undefined,
-          targetHandle: edge.targetHandle || undefined
-        }))
+        nodes: dbNodes,
+        connections: dbConnections,
       }
       
-      setCurrentWorkflow(updatedWorkflow)
+      // Update the store's current workflow without triggering a local re-render with incomplete data
+      useWorkflowStore.setState({ currentWorkflow: updatedWorkflow })
+      
+      // Now call the actual save function which likely uses the store's state
       await saveWorkflow()
+
     } catch (error) {
       console.error("Failed to save workflow:", error)
     } finally {
