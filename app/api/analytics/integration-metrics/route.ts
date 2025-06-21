@@ -30,6 +30,7 @@ export async function GET() {
     // Calculate metrics and update expired integrations
     const now = new Date()
     const tenMinutesFromNow = new Date(now.getTime() + 10 * 60 * 1000)
+    const tenMinutesMs = 10 * 60 * 1000 // 10 minutes in milliseconds
 
     const metrics = {
       connected: 0,
@@ -41,6 +42,7 @@ export async function GET() {
 
     // Track integrations that need status updates
     const integrationsToUpdate = [];
+    const expiringIntegrations = []; // For debugging
 
     for (const integration of integrations || []) {
       // First determine actual status based on expiry dates
@@ -49,6 +51,7 @@ export async function GET() {
       // Check if integration is expired based on expires_at date
       if (integration.expires_at) {
         const expiresAt = new Date(integration.expires_at);
+        const timeUntilExpiry = expiresAt.getTime() - now.getTime();
         
         if (expiresAt <= now && integration.status === "connected") {
           // Token is expired but status doesn't reflect that
@@ -60,6 +63,16 @@ export async function GET() {
             newStatus: "expired"
           });
         }
+        
+        // Track expiring integrations for debugging
+        if (timeUntilExpiry > 0 && timeUntilExpiry < tenMinutesMs) {
+          expiringIntegrations.push({
+            id: integration.id,
+            provider: integration.provider,
+            expires_at: integration.expires_at,
+            timeUntilExpiry: timeUntilExpiry
+          });
+        }
       }
       
       // Update metrics based on actual status or expire date
@@ -69,10 +82,11 @@ export async function GET() {
         metrics.expired++;
       } else if (integration.expires_at) {
         const expiresAt = new Date(integration.expires_at);
+        const timeUntilExpiry = expiresAt.getTime() - now.getTime();
         
         if (expiresAt <= now) {
           metrics.expired++;
-        } else if (expiresAt <= tenMinutesFromNow) {
+        } else if (timeUntilExpiry < tenMinutesMs) { // Use consistent calculation
           metrics.expiring++;
         } else {
           metrics.connected++;
@@ -80,6 +94,12 @@ export async function GET() {
       } else {
         metrics.connected++;
       }
+    }
+    
+    // Log expiring integrations for debugging
+    if (expiringIntegrations.length > 0) {
+      console.log(`Found ${expiringIntegrations.length} expiring integrations:`);
+      console.log(JSON.stringify(expiringIntegrations, null, 2));
     }
 
     // Update expired integrations in the database

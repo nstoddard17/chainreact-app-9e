@@ -8,18 +8,34 @@ interface User {
   id: string
   email: string
   name?: string
+  first_name?: string
+  last_name?: string
+  full_name?: string
   avatar?: string
+}
+
+interface Profile {
+  id: string
+  full_name?: string
+  first_name?: string
+  last_name?: string
+  avatar_url?: string
+  company?: string
+  job_title?: string
+  created_at?: string
+  updated_at?: string
 }
 
 interface AuthState {
   user: User | null
+  profile: Profile | null
   loading: boolean
   initialized: boolean
   error: string | null
   hydrated: boolean
   initialize: () => Promise<void>
   signOut: () => Promise<void>
-  updateProfile: (updates: Partial<User>) => Promise<void>
+  updateProfile: (updates: Partial<Profile>) => Promise<void>
   signIn: (email: string, password: string) => Promise<void>
   signUp: (email: string, password: string, metadata?: Record<string, any>) => Promise<void>
   signInWithGoogle: () => Promise<void>
@@ -31,6 +47,7 @@ export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
       user: null,
+      profile: null,
       loading: false,
       initialized: false,
       error: null,
@@ -72,7 +89,26 @@ export const useAuthStore = create<AuthState>()(
               avatar: session.user.user_metadata?.avatar_url,
             }
 
-            set({ user, loading: false, initialized: true })
+            // Fetch additional profile data from user_profiles table
+            const { data: profileData } = await supabase
+              .from('user_profiles')
+              .select('first_name, last_name, full_name, company, job_title, avatar_url, created_at, updated_at')
+              .eq('id', session.user.id)
+              .single()
+
+            if (profileData) {
+              user.first_name = profileData.first_name
+              user.last_name = profileData.last_name
+              user.full_name = profileData.full_name || user.name
+            }
+
+            const profile: Profile = profileData || {
+              id: session.user.id,
+              full_name: user.name,
+              avatar_url: user.avatar
+            }
+
+            set({ user, profile, loading: false, initialized: true })
 
             // Set current user ID in integration store
             setTimeout(async () => {
@@ -133,7 +169,26 @@ export const useAuthStore = create<AuthState>()(
                   avatar: session.user.user_metadata?.avatar_url,
                 }
 
-                set({ user, error: null })
+                // Fetch additional profile data from user_profiles table
+                const { data: profileData } = await supabase
+                  .from('user_profiles')
+                  .select('first_name, last_name, full_name, company, job_title, avatar_url, created_at, updated_at')
+                  .eq('id', session.user.id)
+                  .single()
+
+                if (profileData) {
+                  user.first_name = profileData.first_name
+                  user.last_name = profileData.last_name
+                  user.full_name = profileData.full_name || user.name
+                }
+
+                const profile: Profile = profileData || {
+                  id: session.user.id,
+                  full_name: user.name,
+                  avatar_url: user.avatar
+                }
+
+                set({ user, profile, error: null })
                 
                 // Update integration store with new user ID
                 setTimeout(async () => {
@@ -199,25 +254,50 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      updateProfile: async (updates: Partial<User>) => {
+      updateProfile: async (updates: Partial<Profile>) => {
         try {
           const { user } = get()
           if (!user) throw new Error("No user logged in")
 
-          const { error } = await supabase.auth.updateUser({
+          // First, update the user metadata in Supabase Auth
+          const { error: authError } = await supabase.auth.updateUser({
             data: {
-              full_name: updates.name,
-              avatar_url: updates.avatar,
+              full_name: updates.full_name,
+              avatar_url: updates.avatar_url,
             },
           })
 
-          if (error) throw error
+          if (authError) throw authError
 
+          // Then, update the user_profiles table with first_name and last_name
+          const { error: profileError } = await supabase
+            .from('user_profiles')
+            .upsert({
+              id: user.id,
+              full_name: updates.full_name,
+              first_name: updates.first_name,
+              last_name: updates.last_name,
+              updated_at: new Date().toISOString(),
+            }, {
+              onConflict: 'id'
+            })
+
+          if (profileError) throw profileError
+
+          // Update the local state
+          const { profile } = get()
           set({
             user: {
               ...user,
-              ...updates,
+              name: updates.full_name,
+              first_name: updates.first_name,
+              last_name: updates.last_name,
+              full_name: updates.full_name,
             },
+            profile: {
+              ...profile,
+              ...updates,
+            }
           })
         } catch (error: any) {
           console.error("Profile update error:", error)

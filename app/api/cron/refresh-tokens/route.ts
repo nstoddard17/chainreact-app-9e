@@ -271,14 +271,38 @@ async function processIntegrations(
       console.error(`❌ [${jobId}] Failed to refresh ${integration.provider} after ${MAX_RETRIES} attempts`);
       
       // Update integration with failure count
+      const updateData: {
+        consecutive_failures: number;
+        last_failure_at: string;
+        updated_at: string;
+        status?: string;
+      } = {
+        consecutive_failures: (integration.consecutive_failures || 0) + 1,
+        last_failure_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      
+      // Check if the token has actually expired based on its expires_at timestamp
+      const now = new Date();
+      if (integration.expires_at && new Date(integration.expires_at) <= now) {
+        // Token is actually expired, update status to "expired"
+        console.log(`[${jobId}] Setting ${integration.provider} status to 'expired' since refresh failed and token has expired (${integration.expires_at})`);
+        updateData.status = "expired";
+      } else if (integration.expires_at) {
+        // Token is still valid, keep status as "connected"
+        const expiresAt = new Date(integration.expires_at);
+        const timeUntilExpiry = (expiresAt.getTime() - now.getTime()) / 1000; // in seconds
+        console.log(`[${jobId}] Keeping ${integration.provider} status as 'connected' since token is still valid for ${timeUntilExpiry.toFixed(0)} seconds`);
+        
+        // Only set status if it's not already connected
+        if (integration.status !== "connected") {
+          updateData.status = "connected";
+        }
+      }
+      
       await supabase
         .from("integrations")
-        .update({
-          consecutive_failures: (integration.consecutive_failures || 0) + 1,
-          last_failure_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          // We don't change status here since that's handled by tokenRefresher
-        })
+        .update(updateData)
         .eq("id", integration.id);
     }
   }

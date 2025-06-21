@@ -13,7 +13,8 @@ import { Loader2 } from "lucide-react"
 export default function ProfileSettings() {
   const { user, profile, updateProfile } = useAuthStore()
   const [formData, setFormData] = useState({
-    full_name: "",
+    first_name: "",
+    last_name: "",
     company: "",
     job_title: "",
   })
@@ -23,7 +24,8 @@ export default function ProfileSettings() {
   useEffect(() => {
     if (profile) {
       setFormData({
-        full_name: profile.full_name || "",
+        first_name: profile.first_name || "",
+        last_name: profile.last_name || "",
         company: profile.company || "",
         job_title: profile.job_title || "",
       })
@@ -36,7 +38,13 @@ export default function ProfileSettings() {
     setSuccess(false)
 
     try {
-      await updateProfile(formData)
+      // Combine first_name and last_name to create full_name
+      const updatedData = {
+        ...formData,
+        full_name: `${formData.first_name} ${formData.last_name}`.trim()
+      }
+      
+      await updateProfile(updatedData)
       setSuccess(true)
       setTimeout(() => setSuccess(false), 3000)
     } catch (error) {
@@ -59,14 +67,26 @@ export default function ProfileSettings() {
             <p className="text-xs text-slate-500">Your email address cannot be changed.</p>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="full_name">Full Name</Label>
-            <Input
-              id="full_name"
-              value={formData.full_name}
-              onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-              placeholder="Your full name"
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="first_name">First Name</Label>
+              <Input
+                id="first_name"
+                value={formData.first_name}
+                onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
+                placeholder="Your first name"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="last_name">Last Name</Label>
+              <Input
+                id="last_name"
+                value={formData.last_name}
+                onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
+                placeholder="Your last name"
+              />
+            </div>
           </div>
 
           <div className="space-y-2">
