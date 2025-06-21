@@ -1,4 +1,5 @@
-import { WebClient } from "@slack/web-api"
+import { WebClient, CodedError } from "@slack/web-api"
+import { createClient } from "@supabase/supabase-js"
 
 export interface SlackOAuthClient {
   getAuthUrl: (scopes: string[], state?: string) => string
@@ -84,7 +85,7 @@ export async function getSlackUserInfo(accessToken: string) {
   try {
     const response = await client.auth.test()
     return response
-  } catch (error) {
+  } catch (error: unknown) {
     throw new Error("Failed to get Slack user info")
   }
 }
@@ -95,8 +96,12 @@ export async function testSlackConnection(accessToken: string) {
   try {
     const response = await client.auth.test()
     return { success: true, data: response }
-  } catch (error) {
-    return { success: false, error: error.message }
+  } catch (error: unknown) {
+    let message = "An unknown error occurred"
+    if (error instanceof Error) {
+      message = error.message
+    }
+    return { success: false, error: message }
   }
 }
 
@@ -108,12 +113,16 @@ export async function getSlackChannels(accessToken: string) {
       types: "public_channel,private_channel",
     })
     return response.channels || []
-  } catch (error) {
+  } catch (error: unknown) {
     throw new Error("Failed to get Slack channels")
   }
 }
 
-export async function sendSlackMessage(accessToken: string, channel: string, text: string) {
+export async function sendSlackMessage(
+  accessToken: string,
+  channel: string,
+  text: string,
+) {
   const client = new WebClient(accessToken)
 
   try {
@@ -122,7 +131,78 @@ export async function sendSlackMessage(accessToken: string, channel: string, tex
       text,
     })
     return response
-  } catch (error) {
+  } catch (error: unknown) {
     throw new Error("Failed to send Slack message")
+  }
+}
+
+export class SlackService {
+  private slackClient: WebClient
+  private supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  )
+
+  constructor(accessToken: string) {
+    this.slackClient = new WebClient(accessToken)
+  }
+
+  async sendChannelMessage(params: { channel: string; text: string }): Promise<any> {
+    const { channel, text } = params
+
+    if (!channel || !text) {
+      throw new Error("Missing required parameters: channel and text are required.")
+    }
+
+    try {
+      const result = await this.slackClient.chat.postMessage({
+        channel,
+        text,
+      })
+      return result
+    } catch (error: unknown) {
+      console.error("Error sending Slack message:", error)
+
+      let errorMessage = "An unknown error occurred."
+
+      if (
+        error &&
+        typeof error === "object" &&
+        "code" in error &&
+        "data" in error &&
+        typeof (error as any).code === "string"
+      ) {
+        const codedError = error as { code: string; data: { error?: string } }
+        errorMessage = `Slack API Error (${codedError.code}): ${
+          codedError.data?.error || "No additional details"
+        }`
+      } else if (error instanceof Error) {
+        errorMessage = error.message
+      }
+
+      throw new Error(`Failed to send message to Slack channel ${channel}: ${errorMessage}`)
+    }
+  }
+
+  static async refreshToken(userId: string, integrationId: string): Promise<string | null> {
+    // Slack's standard OAuth tokens (xoxp) do not expire, so a refresh flow is not typically needed.
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    )
+
+    const { data: integration, error } = await supabase
+      .from("integrations")
+      .select("access_token")
+      .eq("id", integrationId)
+      .eq("user_id", userId)
+      .single()
+
+    if (error || !integration) {
+      console.error(`Failed to retrieve Slack integration for user ${userId}:`, error)
+      return null
+    }
+
+    return integration.access_token
   }
 }

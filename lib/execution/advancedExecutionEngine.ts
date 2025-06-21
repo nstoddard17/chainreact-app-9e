@@ -78,6 +78,7 @@ export class AdvancedExecutionEngine {
       enableParallel?: boolean
       maxConcurrency?: number
       enableSubWorkflows?: boolean
+      startNodeId?: string
     } = {},
   ): Promise<any> {
     const session = await this.getExecutionSession(sessionId)
@@ -251,7 +252,7 @@ export class AdvancedExecutionEngine {
     }
 
     // Execute main workflow path
-    const mainResult = await this.executeMainWorkflowPath(session.id, workflow, context)
+    const mainResult = await this.executeMainWorkflowPath(session.id, workflow, context, options.startNodeId)
     results.mainResult = mainResult
 
     return results
@@ -605,18 +606,60 @@ export class AdvancedExecutionEngine {
     return await this.executeNode(startNode, workflow, context)
   }
 
-  private async executeMainWorkflowPath(sessionId: string, workflow: any, context: any): Promise<any> {
-    // This is a simplified execution path. A real implementation would traverse the graph.
+  private async executeMainWorkflowPath(sessionId: string, workflow: any, context: any, startNodeId?: string): Promise<any> {
     let currentData = context.data;
     const nodes = workflow.nodes || [];
+    const connections = workflow.connections || [];
+    
+    let executionQueue: any[] = [];
 
-    for (const node of nodes) {
-      currentData = await this.executeNode(node, workflow, { ...context, data: currentData });
+    if (startNodeId) {
+      const startNode = nodes.find((n: any) => n.id === startNodeId);
+      if (startNode) {
+        executionQueue.push(startNode);
+      } else {
+        throw new Error(`Test execution failed: Start node ${startNodeId} not found.`);
+      }
+    } else {
+      // Find trigger node(s) if no startNodeId is provided
+      const triggerNodes = nodes.filter((n: any) => n.data.isTrigger);
+      if (triggerNodes.length === 0) {
+        throw new Error("No trigger node found in the workflow.");
+      }
+      // For simplicity, this example assumes one trigger. Real-world scenarios might need to handle multiple.
+      const initialConnections = connections.filter((c: any) => c.source === triggerNodes[0].id);
+      const firstActionNodes = initialConnections.map((c: any) => nodes.find((n: any) => n.id === c.target)).filter(Boolean);
+      executionQueue.push(...firstActionNodes);
     }
+    
+    const executedNodeIds = new Set<string>();
+
+    while (executionQueue.length > 0) {
+      const currentNode = executionQueue.shift();
+      
+      if (executedNodeIds.has(currentNode.id)) {
+        continue;
+      }
+
+      currentData = await this.executeNode(currentNode, workflow, { ...context, data: currentData });
+      executedNodeIds.add(currentNode.id);
+      
+      // Find next nodes
+      const nextConnections = connections.filter((c: any) => c.source === currentNode.id);
+      const nextNodes = nextConnections.map((c: any) => nodes.find((n: any) => n.id === c.target)).filter(Boolean);
+      
+      for (const nextNode of nextNodes) {
+        if (!executedNodeIds.has(nextNode.id)) {
+          executionQueue.push(nextNode);
+        }
+      }
+    }
+
     return currentData;
   }
 
   private async executeNode(node: any, workflow: any, context: any): Promise<any> {
+    await this.logExecutionEvent(context.session.id, "node_execution_start", node.id, { nodeType: node.data.type });
     // Placeholder for fetching integration-specific API clients and handling auth
     // This would involve fetching stored credentials and handling OAuth token refreshes.
     const apiClient = await this.getApiClientForNode(node.data.providerId, context.session.user_id);
@@ -640,13 +683,16 @@ export class AdvancedExecutionEngine {
             if (node.data.providerId === 'gmail' && apiClient) {
               if (nodeComponent?.actionParamsSchema) {
                 if (node.data.type === 'gmail_action_send_email') {
-                  return await retry(() => (apiClient as GmailService).sendEmail(params));
+                  const result = await retry(() => (apiClient as GmailService).sendEmail(params));
+                  await this.logExecutionEvent(context.session.id, "node_execution_end", node.id, { success: true, result });
+                  return { ...context.data, [node.id]: result };
                 }
               }
             }
           }
         }
     }
+    await this.logExecutionEvent(context.session.id, "node_execution_end", node.id, { success: false, reason: "No action taken" });
     return context.data; // Return original data if no action taken
   }
 
