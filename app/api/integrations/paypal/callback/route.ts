@@ -1,5 +1,5 @@
 import { type NextRequest } from 'next/server'
-import supabaseAdmin from '@/lib/supabase/admin'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { createPopupResponse } from '@/lib/utils/createPopupResponse'
 import { getBaseUrl } from '@/lib/utils/getBaseUrl'
 
@@ -24,65 +24,70 @@ export async function GET(request: NextRequest) {
   try {
     const { userId } = JSON.parse(atob(state))
     if (!userId) {
-      return createPopupResponse('error', provider, 'Missing userId in PayPal state.', baseUrl)
+      throw new Error('Missing userId in PayPal state')
     }
 
-    const clientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID!
-    const clientSecret = process.env.PAYPAL_CLIENT_SECRET!
-    const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64')
-    const tokenUrl = `${process.env.PAYPAL_API_BASE}/v1/oauth2/token`
+    const supabase = createAdminClient()
 
-    const tokenResponse = await fetch(tokenUrl, {
+    const clientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID
+    const clientSecret = process.env.PAYPAL_CLIENT_SECRET
+    const redirectUri = `${baseUrl}/api/integrations/paypal/callback`
+
+    if (!clientId || !clientSecret) {
+      throw new Error('PayPal client ID or secret not configured')
+    }
+
+    const tokenResponse = await fetch('https://api.paypal.com/v1/oauth2/token', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
-        Authorization: `Basic ${auth}`,
+        'Authorization': `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`,
       },
       body: new URLSearchParams({
+        code,
         grant_type: 'authorization_code',
-        code: code,
+        redirect_uri: redirectUri,
       }),
     })
 
     if (!tokenResponse.ok) {
       const errorData = await tokenResponse.json()
-      console.error('Failed to exchange PayPal code for token:', errorData)
-      return createPopupResponse(
-        'error',
-        provider,
-        errorData.error_description || 'Failed to get PayPal access token.',
-        baseUrl,
-      )
+      throw new Error(`PayPal token exchange failed: ${errorData.error_description}`)
     }
 
     const tokenData = await tokenResponse.json()
-    const expiresIn = tokenData.expires_in
-    const expiresAt = expiresIn ? new Date(new Date().getTime() + expiresIn * 1000) : null
 
+    const expiresIn = tokenData.expires_in
+    const expiresAt = new Date(new Date().getTime() + expiresIn * 1000)
+
+    // Upsert the integration details
     const integrationData = {
       user_id: userId,
-      provider: 'paypal',
+      provider: provider,
       access_token: tokenData.access_token,
       refresh_token: tokenData.refresh_token,
-      scopes: tokenData.scope.split(' '),
+      scopes: tokenData.scope ? tokenData.scope.split(' ') : [],
       status: 'connected',
-      expires_at: expiresAt ? expiresAt.toISOString() : null,
+      expires_at: expiresAt.toISOString(),
       updated_at: new Date().toISOString(),
     }
 
-    const { error: dbError } = await supabaseAdmin
-      .from('integrations')
-      .upsert(integrationData, { onConflict: 'user_id, provider' })
+    const { error: upsertError } = await supabase.from('integrations').upsert(integrationData, {
+      onConflict: 'user_id, provider',
+    })
 
-    if (dbError) {
-      console.error('Error saving PayPal integration to DB:', dbError)
-      return createPopupResponse('error', provider, `Database Error: ${dbError.message}`, baseUrl)
+    if (upsertError) {
+      throw new Error(`Failed to save PayPal integration: ${upsertError.message}`)
     }
 
-    return createPopupResponse('success', provider, 'PayPal account connected successfully.', baseUrl)
-  } catch (error) {
-    console.error('Error during PayPal OAuth callback:', error)
-    const message = error instanceof Error ? error.message : 'An unexpected error occurred'
-    return createPopupResponse('error', provider, message, baseUrl)
+    return createPopupResponse('success', provider, 'You can now close this window.', baseUrl)
+  } catch (e: any) {
+    console.error('PayPal callback error:', e)
+    return createPopupResponse(
+      'error',
+      provider,
+      e.message || 'An unexpected error occurred.',
+      baseUrl,
+    )
   }
 }

@@ -1,4 +1,4 @@
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
+import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 import Stripe from "stripe"
@@ -8,12 +8,13 @@ if (!process.env.STRIPE_SECRET_KEY) {
 }
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? "", {
-  apiVersion: "2024-06-20",
+  apiVersion: "2025-05-28.basil",
   typescript: true,
 })
 
 export async function POST(request: Request, { params }: { params: { id: string } }) {
-  const supabase = createRouteHandlerClient({ cookies })
+  cookies()
+  const supabase = createSupabaseRouteHandlerClient()
 
   try {
     const {

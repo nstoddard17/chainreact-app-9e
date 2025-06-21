@@ -1,11 +1,12 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
+import { createSupabaseServerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 import { TokenAuditLogger } from "@/lib/integrations/TokenAuditLogger"
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createServerComponentClient({ cookies })
+    cookies()
+    const supabase = createSupabaseServerClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {

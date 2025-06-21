@@ -1,5 +1,5 @@
 import { type NextRequest } from 'next/server'
-import supabaseAdmin from '@/lib/supabase/admin'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { createPopupResponse } from '@/lib/utils/createPopupResponse'
 import { getBaseUrl } from '@/lib/utils/getBaseUrl'
 
@@ -24,7 +24,14 @@ export async function GET(request: NextRequest) {
   try {
     const { userId } = JSON.parse(atob(state))
     if (!userId) {
-      return createPopupResponse('error', provider, 'Missing userId in Stripe state.', baseUrl)
+      throw new Error('Missing userId in Stripe state')
+    }
+
+    const supabase = createAdminClient()
+
+    const clientSecret = process.env.STRIPE_SECRET_KEY
+    if (!clientSecret) {
+      throw new Error('Stripe secret key not configured')
     }
 
     const tokenResponse = await fetch('https://connect.stripe.com/oauth/token', {
@@ -33,7 +40,7 @@ export async function GET(request: NextRequest) {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: new URLSearchParams({
-        client_secret: process.env.STRIPE_SECRET_KEY!,
+        client_secret: clientSecret,
         code,
         grant_type: 'authorization_code',
       }),
@@ -41,48 +48,43 @@ export async function GET(request: NextRequest) {
 
     if (!tokenResponse.ok) {
       const errorData = await tokenResponse.json()
-      console.error('Failed to exchange Stripe code for token:', errorData)
-      return createPopupResponse(
-        'error',
-        provider,
-        errorData.error_description || 'Failed to get Stripe access token.',
-        baseUrl,
-      )
+      throw new Error(`Stripe token exchange failed: ${errorData.error_description}`)
     }
 
     const tokenData = await tokenResponse.json()
-    // Stripe tokens don't expire in the same way, but we get a refresh token
-    const expiresAt = null
 
+    // Upsert the integration details
     const integrationData = {
       user_id: userId,
-      provider: 'stripe',
+      provider: provider,
       access_token: tokenData.access_token,
       refresh_token: tokenData.refresh_token,
-      scopes: tokenData.scope.split(' '),
+      scopes: tokenData.scope ? tokenData.scope.split(' ') : [],
       status: 'connected',
-      expires_at: null,
-      updated_at: new Date().toISOString(),
       metadata: {
         stripe_publishable_key: tokenData.stripe_publishable_key,
         stripe_user_id: tokenData.stripe_user_id,
         livemode: tokenData.livemode,
       },
+      updated_at: new Date().toISOString(),
     }
 
-    const { error: dbError } = await supabaseAdmin
-      .from('integrations')
-      .upsert(integrationData, { onConflict: 'user_id, provider' })
+    const { error: upsertError } = await supabase.from('integrations').upsert(integrationData, {
+      onConflict: 'user_id, provider',
+    })
 
-    if (dbError) {
-      console.error('Error saving Stripe integration to DB:', dbError)
-      return createPopupResponse('error', provider, `Database Error: ${dbError.message}`, baseUrl)
+    if (upsertError) {
+      throw new Error(`Failed to save Stripe integration: ${upsertError.message}`)
     }
 
-    return createPopupResponse('success', provider, 'Stripe account connected successfully.', baseUrl)
-  } catch (error) {
-    console.error('Error during Stripe OAuth callback:', error)
-    const message = error instanceof Error ? error.message : 'An unexpected error occurred'
-    return createPopupResponse('error', provider, message, baseUrl)
+    return createPopupResponse('success', provider, 'You can now close this window.', baseUrl)
+  } catch (e: any) {
+    console.error('Stripe callback error:', e)
+    return createPopupResponse(
+      'error',
+      provider,
+      e.message || 'An unexpected error occurred.',
+      baseUrl,
+    )
   }
 }

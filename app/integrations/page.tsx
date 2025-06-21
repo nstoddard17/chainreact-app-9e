@@ -1,10 +1,10 @@
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
+import { createSupabaseServerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 import IntegrationsContent from "@/components/integrations/IntegrationsContent"
 
 export default async function IntegrationsPage() {
-  const supabase = createServerComponentClient({ cookies })
+  const supabase = createSupabaseServerClient()
 
   const {
     data: { session },

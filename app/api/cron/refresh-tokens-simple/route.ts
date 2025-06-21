@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getAdminSupabaseClient } from "@/lib/supabase/admin"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { refreshTokenIfNeeded } from "@/lib/integrations/tokenRefresher"
 
 export const dynamic = "force-dynamic"
@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
 
     console.log(`🚀 [${jobId}] Unified integration management job started`)
 
-    const supabase = getAdminSupabaseClient()
+    const supabase = createAdminClient()
     if (!supabase) {
       return NextResponse.json({ error: "Failed to create database client" }, { status: 500 })
     }
@@ -329,7 +329,7 @@ export async function GET(request: NextRequest) {
 
     // Try to update the job log with error
     try {
-      const supabase = getAdminSupabaseClient()
+      const supabase = createAdminClient()
       if (supabase) {
         await supabase.from("token_refresh_logs").update({
           status: "failed",

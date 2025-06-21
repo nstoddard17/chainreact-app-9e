@@ -1,5 +1,5 @@
 import { type NextRequest } from "next/server"
-import supabaseAdmin from "@/lib/supabase/admin"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { createPopupResponse } from "@/lib/utils/createPopupResponse"
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 
@@ -62,6 +62,7 @@ export async function GET(request: NextRequest) {
 
   // This part of the code now runs after the client-side script has extracted the token and state
   try {
+    const supabaseAdmin = createAdminClient()
     const stateData = JSON.parse(atob(state))
     const { userId } = stateData
 

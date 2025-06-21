@@ -1,10 +1,11 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
+import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient({ cookies })
+    cookies()
+    const supabase = createSupabaseRouteHandlerClient()
 
     // Get current user
     const {
@@ -35,6 +36,22 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    interface TestResult {
+      integrationFound: boolean
+      integrationStatus: any
+      tokenValid: boolean
+      apiResponseStatus: number
+      integration: {
+        id: any
+        provider_user_id: any
+        scopes: any
+        created_at: any
+        updated_at: any
+      }
+      userData?: any
+      apiError?: any
+    }
+
     // Test the Notion API with the stored token
     const testResponse = await fetch("https://api.notion.com/v1/users/me", {
       headers: {
@@ -43,7 +60,7 @@ export async function GET(request: NextRequest) {
       },
     })
 
-    const testResult = {
+    const testResult: TestResult = {
       integrationFound: true,
       integrationStatus: integration.status,
       tokenValid: testResponse.ok,

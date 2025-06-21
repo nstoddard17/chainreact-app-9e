@@ -1,4 +1,30 @@
 import { ComponentType } from "react"
+import {
+  Zap,
+  Filter,
+  GitBranch,
+  Code,
+  Mail,
+  MessageSquare,
+  Send,
+  Calendar,
+  File,
+  Users,
+  FileSpreadsheet,
+  FileText,
+  Plus,
+  ShoppingCart,
+  Database,
+  Upload,
+  PenSquare,
+  Briefcase,
+  Video,
+  MailOpen,
+  BarChart,
+  Repeat,
+  AlertTriangle,
+  Edit,
+} from "lucide-react"
 
 export interface ConfigField {
   name: string
@@ -19,6 +45,7 @@ export interface NodeComponent {
   providerId?: string
   category: string
   configSchema?: ConfigField[]
+  icon?: ComponentType<any>
   [key: string]: any
 }
 
@@ -480,6 +507,15 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Productivity",
     isTrigger: false,
   },
+  {
+    type: "notion_action_append_to_page",
+    title: "Append to Page (Notion)",
+    description: "Append content to an existing page",
+    icon: Plus,
+    providerId: "notion",
+    category: "Productivity",
+    isTrigger: false,
+  },
 
   // GitHub
   {
@@ -528,7 +564,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     type: "hubspot_trigger_new_contact",
     title: "New Contact (HubSpot)",
     description: "Triggers when a new contact is created",
-    icon: Users,
+    icon: Briefcase,
     providerId: "hubspot",
     category: "CRM",
     isTrigger: true,
@@ -557,7 +593,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   {
     type: "airtable_action_create_record",
     title: "Create Record (Airtable)",
-    description: "Create a new record in Airtable",
+    description: "Create a new record in a table",
     icon: Plus,
     providerId: "airtable",
     requiredScopes: ["data.records:write"],
@@ -769,7 +805,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   {
     type: "shopify_action_create_product",
     title: "Create Product (Shopify)",
-    description: "Create a new product in your store",
+    description: "Create a new product",
     icon: Plus,
     providerId: "shopify",
     requiredScopes: ["write_products"],
@@ -1226,6 +1262,28 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     icon: Send,
     providerId: "beehiiv",
     category: "Communication",
+    isTrigger: false,
+  },
+
+  // New Google Drive Actions
+  {
+    type: "google_drive_action_upload_file",
+    title: "Upload File (Google Drive)",
+    description: "Upload a file to Google Drive",
+    icon: Upload,
+    providerId: "google-drive",
+    category: "Storage",
+    isTrigger: false,
+  },
+
+  // New Google Docs Actions
+  {
+    type: "google_docs_action_create_document",
+    title: "Create Document (Google Docs)",
+    description: "Create a new Google Document",
+    icon: PenSquare,
+    providerId: "google-docs",
+    category: "Productivity",
     isTrigger: false,
   },
 ] 

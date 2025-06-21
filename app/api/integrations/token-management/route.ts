@@ -1,11 +1,14 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
+import { createSupabaseServerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 import { encrypt, decrypt } from "@/lib/security/encryption"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { TokenAuditLogger } from "@/lib/integrations/TokenAuditLogger"
 
-const getSupabase = () => createServerComponentClient({ cookies })
+const getSupabase = () => {
+  cookies()
+  return createSupabaseServerClient()
+}
 const getAdminSupabase = () => createAdminClient()
 
 const ENCRYPTION_SECRET = process.env.ENCRYPTION_KEY

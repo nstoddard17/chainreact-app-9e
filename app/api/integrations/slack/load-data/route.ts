@@ -1,14 +1,11 @@
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
+import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 import { getSlackChannels } from "@/lib/integrations/slack"
-import { getValidAccessToken } from "@/lib/integrations/getValidAccessToken"
 
-export async function GET(
-  req: Request,
-  { params }: { params: { provider: string } },
-) {
-  const supabase = createRouteHandlerClient({ cookies })
+export async function POST(req: Request) {
+  cookies()
+  const supabase = createSupabaseRouteHandlerClient()
   const {
     data: { session },
   } = await supabase.auth.getSession()
@@ -17,26 +14,27 @@ export async function GET(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const userId = session.user.id
-  const provider = "slack" // Hardcoded for now
+  const { integrationId } = await req.json()
+
+  if (!integrationId) {
+    return NextResponse.json({ error: "Integration ID is required" }, { status: 400 })
+  }
 
   try {
-    const { accessToken, valid } = await getValidAccessToken(userId, provider)
+    const { data: integration, error } = await supabase
+      .from("integrations")
+      .select("access_token")
+      .eq("id", integrationId)
+      .eq("user_id", session.user.id)
+      .single()
 
-    if (!valid || !accessToken) {
-      return NextResponse.json(
-        { error: "Slack connection is not valid or requires re-authentication." },
-        { status: 401 },
-      )
+    if (error || !integration) {
+      return NextResponse.json({ error: "Integration not found" }, { status: 404 })
     }
 
-    const channels = await getSlackChannels(accessToken)
-
-    return NextResponse.json({ channels })
-  } catch (error: any) {
-    return NextResponse.json(
-      { error: `Failed to load Slack data: ${error.message}` },
-      { status: 500 },
-    )
+    const channels = await getSlackChannels(integration.access_token)
+    return NextResponse.json(channels)
+  } catch (error) {
+    return NextResponse.json({ error: "Failed to load channels" }, { status: 500 })
   }
 } 

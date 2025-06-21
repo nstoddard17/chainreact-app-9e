@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server"
-import { getSession } from "@/utils/supabase/server"
+import { createSupabaseRouteHandlerClient } from "../../../../utils/supabase/server"
 
 export async function GET() {
   try {
+    const supabase = createSupabaseRouteHandlerClient()
     // Check authentication
-    const session = await getSession()
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }

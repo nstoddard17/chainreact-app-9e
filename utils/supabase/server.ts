@@ -1,62 +1,66 @@
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
-import type { Database } from "@/types/supabase"
+import { type Database } from '@/types/supabase'
+import { createServerClient, type CookieOptions } from '@supabase/ssr'
+import { cookies } from 'next/headers'
 
-export const createClient = () => {
-  return createServerComponentClient<Database>({ cookies })
-}
-
-// Add this export after the createClient function
-export const createServerClient = () => {
-  return createServerComponentClient<Database>({ cookies })
-}
-
-// Secure function to get authenticated user
-export const getUser = async () => {
-  const supabase = createClient()
-
-  try {
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser()
-
-    if (error) {
-      console.error("Error getting user:", error)
-      return null
+export function createSupabaseServerClient() {
+  const cookieStore = cookies()
+  return createServerClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value
+        },
+        set(name: string, value: string, options: CookieOptions) {
+          cookieStore.set({ name, value, ...options })
+        },
+        remove(name: string, options: CookieOptions) {
+          cookieStore.set({ name, value: '', ...options })
+        },
+      },
     }
-
-    return user
-  } catch (error) {
-    console.error("Failed to get user:", error)
-    return null
-  }
+  )
 }
 
-// Function to get session (use sparingly, prefer getUser for authentication)
-export const getSession = async () => {
-  const supabase = createClient()
-
-  try {
-    const {
-      data: { session },
-      error,
-    } = await supabase.auth.getSession()
-
-    if (error) {
-      console.error("Error getting session:", error)
-      return null
+export function createSupabaseServerActionClient() {
+  const cookieStore = cookies()
+  return createServerClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value
+        },
+        set(name: string, value: string, options: CookieOptions) {
+          cookieStore.set({ name, value, ...options })
+        },
+        remove(name: string, options: CookieOptions) {
+          cookieStore.set({ name, value: '', ...options })
+        },
+      },
     }
-
-    return session
-  } catch (error) {
-    console.error("Failed to get session:", error)
-    return null
-  }
+  )
 }
 
-// Helper function to check if user is authenticated
-export const isAuthenticated = async (): Promise<boolean> => {
-  const user = await getUser()
-  return !!user
-}
+export function createSupabaseRouteHandlerClient() {
+  const cookieStore = cookies()
+  return createServerClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value
+        },
+        set(name: string, value: string, options: CookieOptions) {
+          cookieStore.set({ name, value, ...options })
+        },
+        remove(name: string, options: CookieOptions) {
+          cookieStore.set({ name, value: '', ...options })
+        },
+      },
+    }
+  )
+} 

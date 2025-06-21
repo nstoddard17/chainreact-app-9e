@@ -1,12 +1,13 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
+import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 import crypto from "crypto"
-import supabaseAdmin from "@/lib/supabase/admin"
+import { createAdminClient } from "@/lib/supabase/admin"
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createServerComponentClient({ cookies })
+    cookies()
+    const supabase = createSupabaseRouteHandlerClient()
 
     // Get authenticated user
     const {
@@ -35,6 +36,7 @@ export async function POST(request: NextRequest) {
 
     let authUrl: string
     let finalState = btoa(JSON.stringify(stateObject))
+    const supabaseAdmin = createAdminClient()
 
     switch (provider.toLowerCase()) {
       case "slack":

@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
+import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 import type { Database } from "@/types/supabase"
 import { getRequiredScopes, getOptionalScopes } from "@/lib/integrations/integrationScopes"
@@ -259,23 +259,18 @@ function analyzeIntegration(
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient<Database>({ cookies })
-
+    cookies()
+    const supabase = createSupabaseRouteHandlerClient()
     const {
-      data: { session },
+      data: { user },
       error: sessionError,
-    } = await supabase.auth.getSession()
+    } = await supabase.auth.getUser()
 
-    if (sessionError) {
-      console.error("Session error:", sessionError)
-      return NextResponse.json({ error: "Authentication error" }, { status: 401 })
-    }
-
-    if (!session) {
+    if (sessionError || !user) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
     }
 
-    const userId = session.user.id
+    const userId = user.id
 
     const { data: integrations, error } = await supabase
       .from("integrations")

@@ -1,36 +1,23 @@
 "use client"
 
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
-import { SessionContextProvider } from "@supabase/auth-helpers-react"
-import { type ReactNode, useState, useEffect } from "react"
+import { createBrowserClient } from "@supabase/ssr"
+import { type ReactNode, useState } from "react"
+import { SupabaseContext } from "@/lib/supabase-context"
 
 interface SupabaseProviderProps {
   children: ReactNode
 }
 
 const SupabaseProvider = ({ children }: SupabaseProviderProps) => {
-  const [supabaseClient] = useState(() => createClientComponentClient())
-  const [session, setSession] = useState(null)
-
-  useEffect(() => {
-    async function getInitialSession() {
-      const {
-        data: { session },
-      } = await supabaseClient.auth.getSession()
-      setSession(session)
-    }
-
-    getInitialSession()
-
-    supabaseClient.auth.onAuthStateChange((event, session) => {
-      setSession(session)
-    })
-  }, [supabaseClient])
+  const [supabaseClient] = useState(() => createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  ))
 
   return (
-    <SessionContextProvider supabaseClient={supabaseClient} initialSession={session}>
+    <SupabaseContext.Provider value={{ supabase: supabaseClient }}>
       {children}
-    </SessionContextProvider>
+    </SupabaseContext.Provider>
   )
 }
 

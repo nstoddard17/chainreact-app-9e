@@ -1,10 +1,11 @@
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
+import { createSupabaseServerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 import { type NextRequest, NextResponse } from "next/server"
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createServerComponentClient({ cookies })
+    cookies()
+    const supabase = createSupabaseServerClient()
     const {
       data: { session },
     } = await supabase.auth.getSession()
@@ -39,7 +40,8 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createServerComponentClient({ cookies })
+    cookies()
+    const supabase = createSupabaseServerClient()
     const {
       data: { session },
     } = await supabase.auth.getSession()

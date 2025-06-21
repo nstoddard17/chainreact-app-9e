@@ -1,11 +1,11 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getAdminSupabaseClient } from "@/lib/supabase/admin"
+import { createAdminClient } from "@/lib/supabase/admin"
 
 export const dynamic = "force-dynamic"
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = getAdminSupabaseClient()
+    const supabase = createAdminClient()
     if (!supabase) {
       return NextResponse.json({ error: "Failed to create database client" }, { status: 500 })
     }

@@ -1,5 +1,5 @@
 import { type NextRequest } from 'next/server'
-import supabaseAdmin from '@/lib/supabase/admin'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { createPopupResponse } from '@/lib/utils/createPopupResponse'
 import { getBaseUrl } from '@/lib/utils/getBaseUrl'
 
@@ -40,6 +40,8 @@ export async function GET(request: NextRequest) {
     if (!userId) {
       throw new Error('Missing userId in Box state')
     }
+
+    const supabase = createAdminClient()
 
     const clientId = process.env.NEXT_PUBLIC_BOX_CLIENT_ID
     const clientSecret = process.env.BOX_CLIENT_SECRET
@@ -86,7 +88,7 @@ export async function GET(request: NextRequest) {
       updated_at: new Date().toISOString(),
     }
 
-    const { error: upsertError } = await supabaseAdmin.from('integrations').upsert(integrationData, {
+    const { error: upsertError } = await supabase.from('integrations').upsert(integrationData, {
       onConflict: 'user_id, provider',
     })
 

@@ -1,9 +1,11 @@
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
+import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
+import crypto from "crypto"
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
-  const supabase = createRouteHandlerClient({ cookies })
+  cookies()
+  const supabase = createSupabaseRouteHandlerClient()
 
   try {
     const {
@@ -46,7 +48,8 @@ export async function GET(request: Request, { params }: { params: { id: string }
 }
 
 export async function POST(request: Request, { params }: { params: { id: string } }) {
-  const supabase = createRouteHandlerClient({ cookies })
+  cookies()
+  const supabase = createSupabaseRouteHandlerClient()
 
   try {
     const {

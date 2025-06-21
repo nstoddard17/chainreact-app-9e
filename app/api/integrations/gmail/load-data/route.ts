@@ -1,14 +1,11 @@
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
+import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { getGoogleContacts } from "@/lib/integrations/gmail"
-import { getValidAccessToken } from "@/lib/integrations/getValidAccessToken"
+import { cookies } from "next/headers"
 
-export async function GET(
-  req: Request,
-  { params }: { params: { provider: string } },
-) {
-  const supabase = createRouteHandlerClient({ cookies })
+export async function POST(req: Request) {
+  cookies()
+  const supabase = createSupabaseRouteHandlerClient()
   const {
     data: { session },
   } = await supabase.auth.getSession()
@@ -17,29 +14,27 @@ export async function GET(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const userId = session.user.id
-  const provider = "google"
+  const { integrationId } = await req.json()
+
+  if (!integrationId) {
+    return NextResponse.json({ error: "Integration ID is required" }, { status: 400 })
+  }
 
   try {
-    const { accessToken, valid } = await getValidAccessToken(userId, provider)
+    const { data: integration, error } = await supabase
+      .from("integrations")
+      .select("access_token")
+      .eq("id", integrationId)
+      .eq("user_id", session.user.id)
+      .single()
 
-    if (!valid || !accessToken) {
-      return NextResponse.json(
-        {
-          error:
-            "Google connection is not valid or requires re-authentication.",
-        },
-        { status: 401 },
-      )
+    if (error || !integration) {
+      return NextResponse.json({ error: "Integration not found" }, { status: 404 })
     }
 
-    const contacts = await getGoogleContacts(accessToken)
-
-    return NextResponse.json({ contacts })
-  } catch (error: any) {
-    return NextResponse.json(
-      { error: `Failed to load Google data: ${error.message}` },
-      { status: 500 },
-    )
+    const contacts = await getGoogleContacts(integration.access_token)
+    return NextResponse.json(contacts)
+  } catch (error) {
+    return NextResponse.json({ error: "Failed to load contacts" }, { status: 500 })
   }
 } 

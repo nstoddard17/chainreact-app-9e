@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getAdminSupabaseClient } from "@/lib/supabase/admin"
+import { createAdminClient } from "@/lib/supabase/admin"
 
 export const dynamic = "force-dynamic"
 
@@ -18,7 +18,7 @@ interface Integration {
 // Access at: https://chainreact.app/api/cron/debug-integrations
 export async function GET(request: NextRequest) {
   try {
-    const supabase = getAdminSupabaseClient()
+    const supabase = createAdminClient()
     if (!supabase) {
       return NextResponse.json({ error: "Failed to create Supabase client" }, { status: 500 })
     }

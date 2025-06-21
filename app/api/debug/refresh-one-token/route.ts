@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { getAdminSupabaseClient } from "@/lib/supabase/admin";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { refreshTokenIfNeeded } from "@/lib/integrations/tokenRefresher";
 
 export async function GET(request: NextRequest) {
@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
   console.log(`[DEBUG] 🚀 Starting forced refresh for integration ID: ${integrationId}`);
 
   // --- 2. Fetch the Specific Integration ---
-  const supabase = getAdminSupabaseClient();
+  const supabase = createAdminClient();
   if (!supabase) {
     console.error("[DEBUG] ❌ Failed to create Supabase admin client.");
     return NextResponse.json({ error: "Database connection failed" }, { status: 500 });

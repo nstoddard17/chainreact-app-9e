@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getAdminSupabaseClient } from "@/lib/supabase/admin"
+import { createAdminClient } from "@/lib/supabase/admin"
 
 export const dynamic = "force-dynamic"
 
@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Missing jobId parameter" }, { status: 400 })
     }
 
-    const supabase = getAdminSupabaseClient()
+    const supabase = createAdminClient()
     if (!supabase) {
       return NextResponse.json({ error: "Failed to create database client" }, { status: 500 })
     }
