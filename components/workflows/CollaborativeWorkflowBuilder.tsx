@@ -18,6 +18,7 @@ import {
   BackgroundVariant,
   useReactFlow,
   type NodeChange,
+  type NodeProps,
 } from "@xyflow/react"
 import "@xyflow/react/dist/style.css"
 
@@ -120,11 +121,6 @@ const getIntegrationsFromNodes = () => {
   })
 
   return Object.values(integrationMap)
-}
-
-const nodeTypes: NodeTypes = {
-  custom: CustomNode as any,
-  addAction: AddActionNode,
 }
 
 export default function CollaborativeWorkflowBuilder() {
@@ -748,6 +744,22 @@ export default function CollaborativeWorkflowBuilder() {
     setSelectedIntegration(null)
     setTimeout(() => fitView({ duration: 300 }), 0)
   }
+
+  const nodeTypes: NodeTypes = useMemo(() => ({
+    custom: (props: NodeProps) => (
+      <CustomNode
+        {...props}
+        onConfigure={handleConfigureNode}
+        onDelete={handleDeleteNode}
+      />
+    ),
+    addAction: (props: NodeProps) => (
+      <AddActionNode
+        {...props}
+        onAddAction={handleAddActionClick}
+      />
+    ),
+  }), [handleConfigureNode, handleDeleteNode, handleAddActionClick]);
 
   if (!currentWorkflow) {
     return (
