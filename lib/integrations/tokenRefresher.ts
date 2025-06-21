@@ -26,7 +26,7 @@ interface RefreshResult {
   requiresReconnect?: boolean
   recovered?: boolean
   updatedIntegration?: Integration
-  statusUpdate?: "expired" | "connected" | "disconnected"
+  statusUpdate?: "expired" | "connected" | "disconnected" | "needs_reauthorization"
 }
 
 export async function refreshTokenIfNeeded(integration: Integration): Promise<RefreshResult> {
@@ -103,134 +103,222 @@ export async function refreshTokenIfNeeded(integration: Integration): Promise<Re
     }
   }
 
-  // Attempt token refresh
-  try {
-    const result = await refreshTokenByProvider(integration);
-
-    if (result.success && result.newToken) {
-      // Update the token in the database
-      const supabase = createAdminClient();
-      if (!supabase) {
-        throw new Error("Failed to create database client");
+  // Attempt token refresh with retry logic
+  const MAX_RETRIES = 2;
+  let lastError = null;
+  
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      // If this is a retry, add a small delay
+      if (attempt > 0) {
+        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+        console.log(`Retry attempt ${attempt} for ${integration.provider}...`);
       }
-
-      const updateData: any = {
-        access_token: result.newToken,
-        last_token_refresh: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        consecutive_failures: 0, // Reset failure count on success
-      };
-
-      // Always set status to connected if we successfully refreshed a token
-      const isRecovered = integration.status === "expired" || integration.status === "needs_reauthorization";
       
-      updateData.status = "connected";
-      if (isRecovered) {
-        console.log(`Successfully recovered ${integration.provider} from ${integration.status} status`);
-        updateData.disconnected_at = null;
-        updateData.disconnect_reason = null;
+      // Get the decryption key
+      const secret = await getSecret("encryption_key");
+      if (!secret) {
+        return {
+          refreshed: false,
+          success: false,
+          message: "Encryption secret is not configured.",
+        }
       }
-
-      // Set expiry based on provider type
-      if (result.newExpiry) {
-        updateData.expires_at = new Date(result.newExpiry * 1000).toISOString();
-      } else if (isGoogleOrMicrosoft) {
-        // Default to 1 hour if no expiry provided for Google/Microsoft
-        const expiryTimestamp = Math.floor(Date.now() / 1000) + 3600;
-        updateData.expires_at = new Date(expiryTimestamp * 1000).toISOString();
+      
+      // Try to decrypt the refresh token
+      let decryptedRefreshToken;
+      try {
+        decryptedRefreshToken = decrypt(integration.refresh_token, secret);
+      } catch (decryptError) {
+        console.error(`Failed to decrypt ${integration.provider} refresh token:`, decryptError);
+        return {
+          refreshed: false,
+          success: false,
+          message: `Failed to decrypt refresh token: ${(decryptError as Error).message}`,
+          requiresReconnect: true,
+          statusUpdate: "needs_reauthorization"
+        };
       }
-
-      // Update refresh token if provided
-      if (result.newRefreshToken) {
-        updateData.refresh_token = result.newRefreshToken;
+      
+      // Ensure the refresh token was properly decrypted
+      if (!decryptedRefreshToken || decryptedRefreshToken.length < 10) {
+        console.error(`Invalid decrypted refresh token for ${integration.provider}`);
+        return {
+          refreshed: false,
+          success: false,
+          message: "Invalid refresh token after decryption",
+          requiresReconnect: true,
+          statusUpdate: "needs_reauthorization"
+        };
       }
+      
+      // Now attempt the actual token refresh
+      const result = await refreshTokenByProvider({
+        ...integration,
+        refresh_token: decryptedRefreshToken
+      });
 
-      if (result.newRefreshTokenExpiry) {
-        updateData.refresh_token_expires_at = new Date(result.newRefreshTokenExpiry * 1000).toISOString();
-      }
+      if (result.success && result.newToken) {
+        // Update the token in the database
+        const supabase = createAdminClient();
+        if (!supabase) {
+          throw new Error("Failed to create database client");
+        }
 
-      const { error } = await supabase.from("integrations").update(updateData).eq("id", integration.id);
+        const updateData: any = {
+          access_token: result.newToken,
+          last_token_refresh: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          consecutive_failures: 0, // Reset failure count on success
+        };
 
-      if (error) {
-        console.error("Failed to update integration after token refresh:", error);
-        // Even if DB update fails, return success because token was technically refreshed
+        // Always set status to connected if we successfully refreshed a token
+        const isRecovered = integration.status === "expired" || integration.status === "needs_reauthorization";
+        
+        updateData.status = "connected";
+        if (isRecovered) {
+          console.log(`Successfully recovered ${integration.provider} from ${integration.status} status`);
+          updateData.disconnected_at = null;
+          updateData.disconnect_reason = null;
+        }
+
+        // Set expiry based on provider type
+        if (result.newExpiry) {
+          updateData.expires_at = new Date(result.newExpiry * 1000).toISOString();
+        } else if (isGoogleOrMicrosoft) {
+          // Default to 1 hour if no expiry provided for Google/Microsoft
+          const expiryTimestamp = Math.floor(Date.now() / 1000) + 3600;
+          updateData.expires_at = new Date(expiryTimestamp * 1000).toISOString();
+        }
+
+        // Update refresh token if provided
+        if (result.newRefreshToken) {
+          updateData.refresh_token = result.newRefreshToken;
+        }
+
+        if (result.newRefreshTokenExpiry) {
+          updateData.refresh_token_expires_at = new Date(result.newRefreshTokenExpiry * 1000).toISOString();
+        }
+
+        const { error } = await supabase.from("integrations").update(updateData).eq("id", integration.id);
+
+        if (error) {
+          console.error("Failed to update integration after token refresh:", error);
+          // Even if DB update fails, return success because token was technically refreshed
+          return { 
+            ...result, 
+            refreshed: true, 
+            recovered: isRecovered
+          };
+        }
+
+        // Fetch the updated integration to return it
+        const { data: updatedIntegration, error: fetchError } = await supabase
+          .from("integrations")
+          .select("*")
+          .eq("id", integration.id)
+          .single();
+
+        if (fetchError) {
+          console.error("Failed to fetch updated integration:", fetchError);
+          // Return original result if fetch fails
+          return { 
+            ...result, 
+            refreshed: true,
+            recovered: isRecovered
+          };
+        }
+
         return { 
           ...result, 
           refreshed: true, 
-          recovered: isRecovered
+          recovered: isRecovered,
+          updatedIntegration 
         };
-      }
+      } else if (result.requiresReconnect) {
+        // Mark integration as expired or disconnected based on the result
+        const supabase = createAdminClient();
+        if (supabase) {
+          await supabase
+            .from("integrations")
+            .update({
+              status: result.statusUpdate || "disconnected", // Use specified status or default to disconnected
+              disconnected_at: new Date().toISOString(),
+              disconnect_reason: result.message,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", integration.id);
 
-      // Fetch the updated integration to return it
-      const { data: updatedIntegration, error: fetchError } = await supabase
-        .from("integrations")
-        .select("*")
-        .eq("id", integration.id)
-        .single();
-
-      if (fetchError) {
-        console.error("Failed to fetch updated integration:", fetchError);
-        // Return original result if fetch fails
-        return { 
-          ...result, 
-          refreshed: true,
-          recovered: isRecovered
-        };
-      }
-
-      return { 
-        ...result, 
-        refreshed: true, 
-        recovered: isRecovered,
-        updatedIntegration 
-      };
-    } else if (result.requiresReconnect) {
-      // Mark integration as expired or disconnected based on the result
-      const supabase = createAdminClient();
-      if (supabase) {
-        await supabase
-          .from("integrations")
-          .update({
-            status: result.statusUpdate || "disconnected", // Use specified status or default to disconnected
-            disconnected_at: new Date().toISOString(),
-            disconnect_reason: result.message,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", integration.id);
-
-        // Create notification for user
-        try {
-          await supabase.rpc("create_token_expiry_notification", {
-            p_user_id: integration.user_id,
-            p_provider: integration.provider,
-          });
-        } catch (notifError) {
-          console.error(`Failed to create notification for ${integration.provider}:`, notifError);
+          // Create notification for user
+          try {
+            await supabase.rpc("create_token_expiry_notification", {
+              p_user_id: integration.user_id,
+              p_provider: integration.provider,
+            });
+          } catch (notifError) {
+            console.error(`Failed to create notification for ${integration.provider}:`, notifError);
+          }
         }
+        
+        // No need to retry if reconnect is required
+        return result;
+      }
+      
+      // If we got here, the refresh wasn't successful but doesn't require reconnect
+      // Store the error for potential retry
+      lastError = result;
+      
+    } catch (error) {
+      console.error(`Error refreshing token for ${integration.provider} (attempt ${attempt+1}/${MAX_RETRIES+1}):`, error);
+      lastError = error;
+      
+      // Continue to next retry unless this is the last attempt
+      if (attempt === MAX_RETRIES) {
+        // Use the handleRefreshError function for consistent error handling
+        const supabase = createAdminClient();
+        if (supabase) {
+          return await handleRefreshError(
+            supabase,
+            integration,
+            error,
+            `Failed to refresh token after ${MAX_RETRIES+1} attempts: ${(error as Error).message}`
+          );
+        }
+
+        return {
+          refreshed: false,
+          success: false,
+          message: `Failed to refresh token after ${MAX_RETRIES+1} attempts: ${(error as Error).message}`,
+        };
       }
     }
-
-    return result;
-  } catch (error) {
-    console.error(`Error refreshing token for ${integration.provider}:`, error);
-
-    // Use the handleRefreshError function for consistent error handling
+  }
+  
+  // If we got here, all retries failed but we have a lastError
+  if (lastError) {
     const supabase = createAdminClient();
-    if (supabase) {
+    if (supabase && lastError instanceof Error) {
       return await handleRefreshError(
         supabase,
         integration,
-        error,
-        `Failed to refresh token: ${(error as Error).message}`
+        lastError,
+        `Failed to refresh token after ${MAX_RETRIES+1} attempts: ${lastError.message}`
       );
+    } else if (typeof lastError === 'object' && lastError !== null && 'message' in lastError) {
+      return {
+        refreshed: false,
+        success: false,
+        message: `Failed to refresh token: ${lastError.message}`,
+      };
     }
-
-    return {
-      refreshed: false,
-      success: false,
-      message: `Failed to refresh token: ${(error as Error).message}`,
-    };
   }
+  
+  // Fallback error response
+  return {
+    refreshed: false,
+    success: false,
+    message: `Failed to refresh token for ${integration.provider} after multiple attempts`,
+  };
 }
 
 async function refreshTokenByProvider(integration: Integration): Promise<RefreshResult> {
@@ -829,8 +917,8 @@ async function refreshAirtableToken(refreshToken: string): Promise<RefreshResult
 
   const tokenUrl = "https://www.airtable.com/oauth2/v1/token"
   
-  // Create Basic Auth header
-  const authHeader = `Basic ${btoa(`${clientId}:${clientSecret}`)}`
+  // Create Basic Auth header using Buffer instead of btoa
+  const authHeader = `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`
 
   try {
     const response = await fetch(tokenUrl, {
