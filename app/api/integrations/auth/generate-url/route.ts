@@ -283,17 +283,19 @@ function generateGoogleAuthUrl(service: string, state: string): string {
 function generateNotionAuthUrl(state: string): string {
   const clientId = process.env.NEXT_PUBLIC_NOTION_CLIENT_ID
   if (!clientId) throw new Error("Notion client ID not configured")
+  const baseUrl = getBaseUrl()
 
   // Note: The `owner` parameter has been intentionally omitted to ensure
   // the user is always prompted to select a workspace.
   const params = new URLSearchParams({
     client_id: clientId,
     response_type: "code",
-    redirect_uri: "https://chainreact.app/api/integrations/notion/callback",
+    redirect_uri: `${baseUrl}/api/integrations/notion/callback`,
     state,
+    owner: "user",
   })
 
-  return `https://api.trello.com/1/OAuthAuthorize?${params.toString()}`
+  return `https://api.notion.com/v1/oauth/authorize?${params.toString()}`
 }
 
 async function generateTwitterAuthUrl(stateObject: any, supabase: any): Promise<string> {

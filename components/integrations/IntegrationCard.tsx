@@ -13,6 +13,15 @@ import {
   TooltipTrigger,
   TooltipContent
 } from '@/components/ui/tooltip'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 
 interface IntegrationCardProps {
   provider: Provider
@@ -24,6 +33,7 @@ export function IntegrationCard({ provider, integration, status }: IntegrationCa
   const { connectIntegration, disconnectIntegration, reconnectIntegration, loadingStates } = useIntegrationStore()
   const [imageError, setImageError] = useState(false)
   const [showInfo, setShowInfo] = useState(false)
+  const [showDisconnectDialog, setShowDisconnectDialog] = useState(false)
 
   const handleConnect = () => {
     connectIntegration(provider.id)
@@ -109,6 +119,20 @@ export function IntegrationCard({ provider, integration, status }: IntegrationCa
     integration?.created_at ? `Last connected: ${new Date(integration.created_at).toLocaleString()}` : null,
   ].filter(Boolean).join(' \n ')
 
+  // Check if the integration is configured on the frontend
+  const isConfigured = provider.requiresClientId ? !!process.env[provider.requiresClientId] : true
+
+  const handleConnectClick = () => {
+    if (isConfigured) {
+      handleConnect()
+    }
+  }
+
+  const handleDisconnectConfirm = () => {
+    handleDisconnect()
+    setShowDisconnectDialog(false)
+  }
+
   return (
     <Card className="flex flex-col h-full transition-all duration-200 hover:shadow-lg rounded-xl border border-gray-200 bg-white overflow-hidden">
       <CardHeader className="flex flex-row items-center justify-between p-5 pb-4 space-y-0">
@@ -169,7 +193,7 @@ export function IntegrationCard({ provider, integration, status }: IntegrationCa
           {status === 'connected' || status === 'expiring' ? (
             <div className="flex items-center gap-3">
               <Button
-                onClick={handleDisconnect}
+                onClick={handleDisconnectConfirm}
                 disabled={isLoading}
                 size="sm"
                 variant="outline"
@@ -212,13 +236,26 @@ export function IntegrationCard({ provider, integration, status }: IntegrationCa
               </Button>
             </div>
           ) : (
-            <Button onClick={handleConnect} disabled={isLoading} size="sm" className="w-full">
-              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Connect
+            <Button onClick={handleConnectClick} disabled={!isConfigured} className="w-full">
+              {isConfigured ? "Connect" : "Not Configured"}
             </Button>
           )}
         </div>
       </CardFooter>
+
+      <Dialog open={showDisconnectDialog} onOpenChange={setShowDisconnectDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Confirm Disconnect</DialogTitle>
+            <DialogDescription>Are you sure you want to disconnect this integration?</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="submit" onClick={handleDisconnectConfirm}>
+              Disconnect
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   )
 }
