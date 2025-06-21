@@ -34,7 +34,7 @@ import { Badge, type BadgeProps } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Save, Loader2, Play, ArrowLeft, Plus } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { ALL_NODE_COMPONENTS, NodeComponent } from "@/lib/workflows/availableNodes"
 import { INTEGRATION_CONFIGS } from "@/lib/integrations/availableIntegrations"
@@ -255,28 +255,47 @@ const useWorkflowBuilderState = () => {
   }, [currentWorkflow, fitView, handleAddActionClick, handleConfigureNode, handleDeleteNode, setCurrentWorkflow, setEdges, setNodes, workflowId])
 
   const handleTriggerSelect = (integration: IntegrationInfo, trigger: NodeComponent) => {
-    const triggerNode: Node = {
-      id: "trigger", type: "custom", position: { x: 400, y: 100 },
-      data: { ...trigger, name: trigger.name, isTrigger: true, onConfigure: handleConfigureNode, onDelete: handleDeleteNode },
-    }
-    const addActionNode: Node = {
-      id: "add-action-1", type: "addAction", position: { x: 400, y: 220 },
-      data: { parentId: "trigger", onClick: () => handleAddActionClick("add-action-1", "trigger") },
-    }
-    setNodes([triggerNode, addActionNode])
-    setEdges([{ 
-      id: "trigger-add-action-1", 
-      source: "trigger", 
-      target: "add-action-1", 
-      animated: false, 
-      style: { 
-        stroke: "#d1d5db", 
-        strokeWidth: 1, 
-        strokeDasharray: "5,5" 
-      } 
-    }])
-    setShowTriggerDialog(false)
-    setTimeout(() => fitView({ padding: 0.5 }), 100)
+    console.log("Trigger selected:", trigger);
+    // Direct approach to add the trigger node
+    const triggerNode = {
+      id: "trigger",
+      type: "custom",
+      position: { x: 400, y: 100 },
+      data: {
+        ...trigger,
+        name: trigger.name,
+        isTrigger: true,
+        onConfigure: handleConfigureNode,
+        onDelete: handleDeleteNode
+      }
+    };
+    
+    const addActionNode = {
+      id: "add-action-1",
+      type: "addAction",
+      position: { x: 400, y: 220 },
+      data: {
+        parentId: "trigger",
+        onClick: () => handleAddActionClick("add-action-1", "trigger")
+      }
+    };
+    
+    setNodes([triggerNode, addActionNode]);
+    
+    setEdges([{
+      id: "trigger-add-action-1",
+      source: "trigger",
+      target: "add-action-1",
+      animated: false,
+      style: {
+        stroke: "#d1d5db",
+        strokeWidth: 1,
+        strokeDasharray: "5,5"
+      }
+    }]);
+    
+    setShowTriggerDialog(false);
+    setTimeout(() => fitView({ padding: 0.5 }), 100);
   }
 
   const handleActionSelect = (integration: IntegrationInfo, action: NodeComponent) => {
@@ -379,179 +398,187 @@ export default function CollaborativeWorkflowBuilder() {
 
 function WorkflowBuilderContent() {
   const router = useRouter()
+  const [showTriggerDialog, setShowTriggerDialog] = useState(false);
+  
   const {
-    nodes, edges, onNodesChange, onEdgesChange, onConnect, workflowName, setWorkflowName, isSaving, handleSave, handleExecute, showTriggerDialog,
-    setShowTriggerDialog, showActionDialog, setShowActionDialog, handleTriggerSelect, handleActionSelect, selectedIntegration, setSelectedIntegration,
+    nodes, edges, onNodesChange, onEdgesChange, onConnect, workflowName, setWorkflowName, isSaving, handleSave, handleExecute, 
+    showActionDialog, setShowActionDialog, handleTriggerSelect, handleActionSelect, selectedIntegration, setSelectedIntegration,
     availableIntegrations, renderLogo, getWorkflowStatus, currentWorkflow, isExecuting, executionEvents,
     configuringNode, setConfiguringNode, handleSaveConfiguration, collaborators
   } = useWorkflowBuilderState()
+  
+  console.log("Debug WorkflowBuilderContent:", {
+    showTriggerDialog,
+    availableIntegrations,
+    handleTriggerSelect: !!handleTriggerSelect,
+    currentWorkflow
+  });
+
+  const onTriggerSelect = (integration: IntegrationInfo, trigger: NodeComponent) => {
+    console.log("Trigger selected in onTriggerSelect:", integration, trigger);
+    handleTriggerSelect(integration, trigger);
+    setShowTriggerDialog(false);
+  };
 
   if (!currentWorkflow) {
     return <div className="flex items-center justify-center h-full"><Loader2 className="w-8 h-8 animate-spin" /></div>
   }
   return (
-    <div style={{ height: "calc(100vh - 65px)" }}>
-      <ReactFlow 
-        nodes={nodes} 
-        edges={edges} 
-        onNodesChange={onNodesChange} 
-        onEdgesChange={onEdgesChange} 
-        onConnect={onConnect} 
-        nodeTypes={nodeTypes} 
-        fitView 
-        className="bg-background" 
-        proOptions={{ hideAttribution: true }}
-        defaultEdgeOptions={{
-          type: 'straight',
-          style: { strokeWidth: 1, stroke: '#d1d5db' },
-          animated: false
-        }}
-        defaultViewport={{ x: 0, y: 0, zoom: 1.2 }}
-      >
-        <Background variant={BackgroundVariant.Dots} gap={12} size={1} color="#e2e8f0" />
-        <Controls className="left-4 bottom-4 top-auto" />
-        <CollaboratorCursors collaborators={collaborators || []} />
-        {isExecuting && executionEvents.length > 0 && <ExecutionMonitor events={executionEvents} />}
-        
-        {nodes.length === 0 && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
+    <div style={{ height: "calc(100vh - 65px)", position: "relative" }}>
+      {nodes.length === 0 ? (
+        // Empty state outside of ReactFlow
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-background p-4">
+          <div className="text-center max-w-md flex flex-col items-center">
             <div 
-              className="w-16 h-16 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center mb-6 cursor-pointer hover:border-gray-400"
-              onClick={() => setShowTriggerDialog(true)}
+              className="w-20 h-20 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center mb-6 cursor-pointer hover:border-gray-400 hover:shadow-sm transition-all"
+              onClick={() => {
+                console.log("Plus button clicked");
+                setShowTriggerDialog(true);
+              }}
             >
-              <Plus className="h-8 w-8 text-gray-400 hover:text-gray-500" />
+              <Plus className="h-10 w-10 text-gray-400 hover:text-gray-500" />
             </div>
             <h2 className="text-[32px] font-bold mb-2">Start your Chain</h2>
-            <p className="text-gray-600 mb-6 text-center leading-relaxed">
+            <p className="text-gray-600 mb-8 text-center leading-relaxed text-lg">
               Chains start with a trigger – an event that kicks off<br />
               your workflow
             </p>
             <button 
-              onClick={() => setShowTriggerDialog(true)} 
-              className="bg-gray-900 text-white px-4 py-2 rounded-md hover:bg-gray-800 transition-colors font-medium"
+              onClick={() => {
+                console.log("Choose trigger button clicked");
+                setShowTriggerDialog(true);
+              }}
+              className="bg-gray-900 text-white px-8 py-3 rounded-md hover:bg-gray-800 transition-colors font-medium text-lg shadow-sm hover:shadow"
             >
               Choose a trigger
             </button>
           </div>
-        )}
-        
-        <Panel position="top-left" className="p-4">
-          <div className="flex items-center space-x-4">
-            <Button variant="ghost" size="icon" onClick={() => router.push("/workflows")}><ArrowLeft className="w-5 h-5" /></Button>
-            <Input value={workflowName} onChange={(e) => setWorkflowName(e.target.value)} onBlur={handleSave} className="text-xl font-semibold !border-none !outline-none !ring-0 p-0 bg-transparent" style={{ boxShadow: "none" }} />
+        </div>
+      ) : (
+        // Regular ReactFlow when there are nodes
+        <ReactFlow 
+          nodes={nodes} 
+          edges={edges} 
+          onNodesChange={onNodesChange} 
+          onEdgesChange={onEdgesChange} 
+          onConnect={onConnect} 
+          nodeTypes={nodeTypes} 
+          fitView 
+          className="bg-background" 
+          proOptions={{ hideAttribution: true }}
+          defaultEdgeOptions={{
+            type: 'straight',
+            style: { strokeWidth: 1, stroke: '#d1d5db' },
+            animated: false
+          }}
+          defaultViewport={{ x: 0, y: 0, zoom: 1.2 }}
+        >
+          <Background variant={BackgroundVariant.Dots} gap={12} size={1} color="#e2e8f0" />
+          <Controls className="left-4 bottom-4 top-auto" />
+          <CollaboratorCursors collaborators={collaborators || []} />
+          {isExecuting && executionEvents.length > 0 && <ExecutionMonitor events={executionEvents} />}
+          
+          <Panel position="top-left" className="p-4">
+            <div className="flex items-center space-x-4">
+              <Button variant="ghost" size="icon" onClick={() => router.push("/workflows")}><ArrowLeft className="w-5 h-5" /></Button>
+              <Input value={workflowName} onChange={(e) => setWorkflowName(e.target.value)} onBlur={handleSave} className="text-xl font-semibold !border-none !outline-none !ring-0 p-0 bg-transparent" style={{ boxShadow: "none" }} />
+            </div>
+          </Panel>
+          <Panel position="top-right" className="p-4 flex items-center space-x-2">
+            <Badge variant={getWorkflowStatus().variant}>{getWorkflowStatus().text}</Badge>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild><Button onClick={handleSave} disabled={isSaving || isExecuting} variant="secondary">{isSaving ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Save className="w-5 h-5 mr-2" />}Save</Button></TooltipTrigger>
+                <TooltipContent><p>Save your workflow</p></TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild><Button onClick={handleExecute} disabled={isSaving || isExecuting} variant="default">{isExecuting ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Play className="w-5 h-5 mr-2" />}Execute</Button></TooltipTrigger>
+                <TooltipContent><p>Execute the workflow</p></TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </Panel>
+        </ReactFlow>
+      )}
+
+      {/* Move dialogs outside of conditional rendering */}
+      <Dialog open={showTriggerDialog} onOpenChange={setShowTriggerDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Choose a Trigger</DialogTitle>
+            <DialogDescription>Select a trigger to start your workflow</DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4 overflow-y-auto max-h-[60vh] p-2">
+            {availableIntegrations.map((integration) => 
+              integration.triggers.length > 0 && integration.triggers.map((trigger) => (
+                <button
+                  key={`${integration.id}-${trigger.type}`}
+                  className="flex flex-col items-center p-4 border rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
+                  onClick={() => {
+                    console.log(`Selected trigger: ${integration.id}-${trigger.type}`);
+                    handleTriggerSelect(integration, trigger);
+                    setShowTriggerDialog(false);
+                  }}
+                >
+                  <div className="w-12 h-12 flex items-center justify-center rounded-full bg-gray-100 mb-2">
+                    {renderLogo(integration.id, integration.name)}
+                  </div>
+                  <div className="font-medium text-center">{trigger.name}</div>
+                </button>
+              ))
+            )}
           </div>
-        </Panel>
-        <Panel position="top-right" className="p-4 flex items-center space-x-2">
-          <Badge variant={getWorkflowStatus().variant}>{getWorkflowStatus().text}</Badge>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild><Button onClick={handleSave} disabled={isSaving || isExecuting} variant="secondary">{isSaving ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Save className="w-5 h-5 mr-2" />}Save</Button></TooltipTrigger>
-              <TooltipContent><p>Save your workflow</p></TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild><Button onClick={handleExecute} disabled={isSaving || isExecuting} variant="default">{isExecuting ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Play className="w-5 h-5 mr-2" />}Execute</Button></TooltipTrigger>
-              <TooltipContent><p>Execute the workflow</p></TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </Panel>
-        {configuringNode && <ConfigurationModal
-            isOpen={!!configuringNode}
-            onClose={() => setConfiguringNode(null)}
-            onSave={(config) => handleSaveConfiguration(configuringNode, config)}
-            nodeInfo={configuringNode.nodeComponent}
-            integrationName={configuringNode.integration.name}
-            initialData={configuringNode.config}
-        />}
-        <Dialog open={showTriggerDialog} onOpenChange={setShowTriggerDialog}>
-          <DialogContent className="max-w-4xl">
-            <DialogHeader>
-              <DialogTitle>Select a Trigger</DialogTitle>
-              <DialogDescription>Select an integration to add a trigger to your workflow.</DialogDescription>
-            </DialogHeader>
-            <div className="py-4">
-              <ScrollArea className="h-[50vh]">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pr-4">
-                  {availableIntegrations.map((integration) => (
-                    <div key={integration.id}>
-                      {integration.triggers.length > 0 && (
-                        <>
-                          <h3 className="font-semibold mb-2 text-sm flex items-center gap-2">{renderLogo(integration.id, integration.name)} {integration.name}</h3>
-                          <div className="space-y-2">
-                            {integration.triggers.map((trigger) => (
-                              <div 
-                                key={trigger.type} 
-                                onClick={() => handleTriggerSelect(integration, trigger)} 
-                                className="p-3 rounded-lg border hover:bg-muted cursor-pointer"
-                              >
-                                <p className="font-medium">{trigger.name}</p>
-                                <p className="text-sm text-muted-foreground">{trigger.description}</p>
-                              </div>
-                            ))}
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </ScrollArea>
-            </div>
-          </DialogContent>
-        </Dialog>
-        <Dialog open={showActionDialog} onOpenChange={setShowActionDialog}>
-          <DialogContent className="max-w-4xl">
-            <DialogHeader>
-              <DialogTitle>{selectedIntegration ? `Select an action for ${selectedIntegration.name}` : "Select an Integration"}</DialogTitle>
-              <DialogDescription>{selectedIntegration ? "Choose an action to perform." : "Select an integration to see its available actions."}</DialogDescription>
-            </DialogHeader>
-            <div className="py-4">
-              <ScrollArea className="h-[60vh]">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pr-4">
-                  {!selectedIntegration ? (availableIntegrations.map((integration) =>
-                      integration.actions.length > 0 ? (
-                        <div 
-                          key={integration.id} 
-                          onClick={() => setSelectedIntegration(integration)} 
-                          className="p-4 rounded-lg border hover:bg-muted cursor-pointer flex flex-col items-center gap-2"
-                        >
-                          {renderLogo(integration.id, integration.name)}
-                          <p className="font-semibold text-center">{integration.name}</p>
-                        </div>
-                      ) : null
-                  )) : (
-                    <>
-                      <div className="col-span-1">
-                        <Button variant="ghost" onClick={() => setSelectedIntegration(null)} className="mb-4"><ArrowLeft className="w-4 h-4 mr-2" /> Back to Integrations</Button>
-                        <div className="p-4 rounded-lg border flex flex-col items-center gap-2">
-                          {renderLogo(selectedIntegration.id, selectedIntegration.name)}
-                          <p className="font-semibold text-center">{selectedIntegration.name}</p>
-                          <p className="text-sm text-muted-foreground text-center">{selectedIntegration.description}</p>
-                        </div>
-                      </div>
-                      <div className="md:col-span-2">
-                        <div className="space-y-3">
-                          {selectedIntegration.actions.map((action: NodeComponent) => (
-                            <div 
-                              key={action.type} 
-                              onClick={() => handleActionSelect(selectedIntegration, action)} 
-                              className="p-3 rounded-lg border hover:bg-muted cursor-pointer"
-                            >
-                              <p className="font-medium">{action.name}</p>
-                              <p className="text-sm text-muted-foreground">{action.description}</p>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </div>
-              </ScrollArea>
-            </div>
-            {!selectedIntegration && (<DialogFooter><Button variant="outline" onClick={() => { setShowActionDialog(false); setSelectedIntegration(null) }}>Cancel</Button></DialogFooter>)}
-          </DialogContent>
-        </Dialog>
-      </ReactFlow>
+          <DialogFooter className="mt-4">
+            <Button type="button" variant="outline" onClick={() => setShowTriggerDialog(false)}>
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showActionDialog} onOpenChange={setShowActionDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Choose an Action</DialogTitle>
+            <DialogDescription>Select an action to add to your workflow</DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4 overflow-y-auto max-h-[60vh] p-2">
+            {availableIntegrations.map((integration) => 
+              integration.actions.length > 0 && integration.actions.map((action) => (
+                <button
+                  key={`${integration.id}-${action.type}`}
+                  className="flex flex-col items-center p-4 border rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
+                  onClick={() => {
+                    console.log(`Selected action: ${integration.id}-${action.type}`);
+                    handleActionSelect(integration, action);
+                    setShowActionDialog(false);
+                  }}
+                >
+                  <div className="w-12 h-12 flex items-center justify-center rounded-full bg-gray-100 mb-2">
+                    {renderLogo(integration.id, integration.name)}
+                  </div>
+                  <div className="font-medium text-center">{action.name}</div>
+                </button>
+              ))
+            )}
+          </div>
+          <DialogFooter className="mt-4">
+            <Button type="button" variant="outline" onClick={() => setShowActionDialog(false)}>
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {configuringNode && <ConfigurationModal
+        isOpen={!!configuringNode}
+        onClose={() => setConfiguringNode(null)}
+        onSave={(config) => handleSaveConfiguration(configuringNode, config)}
+        nodeInfo={configuringNode.nodeComponent}
+        integrationName={configuringNode.integration.name}
+        initialData={configuringNode.config}
+      />}
     </div>
   )
 }
