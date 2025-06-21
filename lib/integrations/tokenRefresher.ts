@@ -57,6 +57,8 @@ export async function refreshTokenIfNeeded(integration: Integration): Promise<Re
     "google-sheets",
     "teams",
     "onedrive",
+    "microsoft-onenote",
+    "microsoft-outlook",
   ].includes(integration.provider)
 
   // Determine if refresh is needed
@@ -268,6 +270,8 @@ async function refreshTokenByProvider(integration: Integration): Promise<Refresh
       return await refreshGoogleToken(decryptedRefreshToken)
     case "teams":
     case "onedrive":
+    case "microsoft-onenote":
+    case "microsoft-outlook":
       return await refreshMicrosoftToken(decryptedRefreshToken, integration)
     case "dropbox":
       return await refreshDropboxToken(decryptedRefreshToken)
@@ -293,8 +297,6 @@ async function refreshTokenByProvider(integration: Integration): Promise<Refresh
       return await refreshTikTokToken(decryptedRefreshToken)
     case "github":
       return await refreshGitHubToken(decryptedRefreshToken)
-    case "notion":
-      return await refreshNotionToken(decryptedRefreshToken)
     case "trello":
       return await refreshTrelloToken(decryptedRefreshToken)
     case "mailchimp":
