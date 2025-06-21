@@ -427,7 +427,9 @@ function generateTrelloAuthUrl(state: string): string {
     scope: "read,write,account",
     expiration: "never",
     response_type: "token",
-    return_url: `${baseUrl}/api/integrations/trello/callback`,
+    // Use the page.tsx handler instead of the API route for the callback
+    // This allows our client-side code to handle parsing the token from the URL fragment
+    return_url: `${baseUrl}/integrations/trello-auth?state=${state}`,
     callback_method: "fragment",
     state,
   })
