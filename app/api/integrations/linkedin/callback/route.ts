@@ -80,10 +80,10 @@ export async function GET(request: NextRequest) {
     const expiresIn = tokenData.expires_in
     const expiresAt = expiresIn ? new Date(new Date().getTime() + expiresIn * 1000) : null
 
-    // Get user info
+    // Get user info from OpenID userinfo endpoint
     console.log('LinkedIn: Attempting to get user info with token:', tokenData.access_token ? 'TOKEN_PRESENT' : 'NO_TOKEN')
     
-    const userResponse = await fetch("https://api.linkedin.com/v2/me?projection=(id,firstName,lastName,profilePicture(displayImage~:playableStreams))", {
+    const userResponse = await fetch("https://api.linkedin.com/v2/userinfo", {
       headers: {
         Authorization: `Bearer ${tokenData.access_token}`,
       },
@@ -99,56 +99,28 @@ export async function GET(request: NextRequest) {
     }
 
     const userData = await userResponse.json()
+    console.log('LinkedIn user info structure:', Object.keys(userData))
 
-    // Get user email
-    try {
-      // First try the emailAddress endpoint (r_emailaddress scope)
-      const emailResponse = await fetch("https://api.linkedin.com/v2/emailAddress?q=members&projection=(elements*(handle~))", {
-        headers: {
-          Authorization: `Bearer ${tokenData.access_token}`,
-        },
-      })
-
-      if (emailResponse.ok) {
-        const emailData = await emailResponse.json()
-        if (emailData?.elements?.[0]?.['handle~']?.emailAddress) {
-          userData.email = emailData.elements[0]['handle~'].emailAddress
-          console.log('LinkedIn: Successfully retrieved email via r_emailaddress scope')
-        }
-      } else {
-        console.log('LinkedIn: Could not get email via r_emailaddress, status:', emailResponse.status)
-        
-        // Try OpenID Connect userinfo endpoint as fallback (email scope)
-        const userinfoResponse = await fetch("https://api.linkedin.com/v2/userinfo", {
-          headers: {
-            Authorization: `Bearer ${tokenData.access_token}`,
-          },
-        })
-        
-        if (userinfoResponse.ok) {
-          const userinfoData = await userinfoResponse.json()
-          if (userinfoData.email) {
-            userData.email = userinfoData.email
-            console.log('LinkedIn: Successfully retrieved email via OpenID Connect')
-          }
-        } else {
-          console.log('LinkedIn: Could not get email via OpenID Connect, status:', userinfoResponse.status)
-        }
-      }
-    } catch (error) {
-      console.error('LinkedIn: Error fetching email:', error)
-    }
+    // With OpenID profile, we already have the email in the userinfo response
+    // No need for a separate email fetch
 
     const integrationData = {
       user_id: userId,
       provider: "linkedin",
-      provider_user_id: userData.id,
+      provider_user_id: userData.sub || userData.id,
       access_token: tokenData.access_token,
       refresh_token: tokenData.refresh_token,
       expires_at: expiresAt ? expiresAt.toISOString() : null,
       scopes: tokenData.scope ? tokenData.scope.split(" ") : [],
       status: "connected",
       updated_at: new Date().toISOString(),
+      metadata: {
+        name: userData.name,
+        email: userData.email,
+        picture: userData.picture,
+        given_name: userData.given_name,
+        family_name: userData.family_name
+      }
     }
 
     const { error: upsertError } = await supabase.from("integrations").upsert(integrationData, {
