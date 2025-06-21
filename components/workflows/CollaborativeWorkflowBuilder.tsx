@@ -3,7 +3,6 @@
 import type React from "react"
 import { useEffect, useCallback, useState, useRef } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
-import Image from "next/image"
 import {
   ReactFlow,
   Background,
@@ -184,14 +183,12 @@ export default function CollaborativeWorkflowBuilder() {
   }, [nodes, edges, onNodesChange, setNodes, setEdges]);
 
   const renderLogo = (integrationId: string, integrationName: string) => {
-    const logoPath = `/integrations/${integrationId}.svg`
+    const logoPath = `/public/integrations/${integrationId}.svg`
     return (
-      <Image
+      <img
         src={logoPath}
-        alt={integrationName}
-        width={28}
-        height={28}
-        className="object-contain"
+        alt={`${integrationName} logo`}
+        className="w-7 h-7 object-contain"
       />
     )
   }

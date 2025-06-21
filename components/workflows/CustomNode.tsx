@@ -2,14 +2,14 @@
 
 import { memo } from "react"
 import { Handle, Position, type NodeProps } from "@xyflow/react"
-import Image from "next/image"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { ALL_NODE_COMPONENTS } from "@/lib/workflows/availableNodes"
 
 function CustomNode({ data, selected }: NodeProps) {
   const isTrigger = data.isTrigger
   const hasMultipleOutputs = ["if_condition", "switch_case", "try_catch"].includes(data.type)
-  const logoPath = data.providerId ? `/integrations/${data.providerId}.svg` : `/integrations/airtable.svg`
+  const component = ALL_NODE_COMPONENTS.find((c) => c.type === data.type)
 
   return (
     <Card
@@ -20,7 +20,15 @@ function CustomNode({ data, selected }: NodeProps) {
       <div className="p-4">
         <div className="flex items-center space-x-3 mb-3">
           <div className="w-10 h-10 rounded-lg flex items-center justify-center">
-            <Image src={logoPath} alt={data.title} width={28} height={28} className="object-contain" />
+            {data.providerId ? (
+              <img
+                src={`/public/integrations/${data.providerId}.svg`}
+                alt={data.title}
+                className="w-7 h-7 object-contain"
+              />
+            ) : (
+              component && <component.icon className="h-7 w-7" />
+            )}
           </div>
           <div className="flex-1">
             <div className="font-medium text-slate-900">{data.title}</div>
