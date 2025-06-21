@@ -844,18 +844,21 @@ async function refreshAirtableToken(refreshToken: string): Promise<RefreshResult
   }
 
   const tokenUrl = "https://www.airtable.com/oauth2/v1/token"
+  
+  // Create Basic Auth header
+  const authHeader = `Basic ${btoa(`${clientId}:${clientSecret}`)}`
 
   try {
     const response = await fetch(tokenUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
+        "Authorization": authHeader,
       },
       body: new URLSearchParams({
         grant_type: "refresh_token",
         refresh_token: refreshToken,
-        client_id: clientId,
-        client_secret: clientSecret,
+        // Remove client_id and client_secret from body since they're in the Authorization header
       }),
     })
 
