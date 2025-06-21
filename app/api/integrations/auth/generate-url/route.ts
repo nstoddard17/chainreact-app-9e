@@ -348,7 +348,7 @@ function generateLinkedInAuthUrl(state: string): string {
     client_id: clientId,
     redirect_uri: `${baseUrl}/api/integrations/linkedin/callback`,
     state,
-    scope: "r_liteprofile r_emailaddress w_member_social",
+    scope: "openid profile email r_liteprofile w_member_social r_events rw_events",
   })
 
   const authUrl = `https://www.linkedin.com/oauth/v2/authorization?${params.toString()}`
