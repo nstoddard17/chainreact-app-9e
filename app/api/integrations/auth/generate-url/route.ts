@@ -189,16 +189,15 @@ function generateSlackAuthUrl(state: string): string {
 
   const params = new URLSearchParams({
     client_id: clientId,
-    scope: "channels:read,chat:write,users:read",
+    scope: "channels:read,chat:write,users:read", // Bot permissions (if user has admin access)
+    user_scope: "channels:read,chat:write,users:read", // User permissions (fallback)
     redirect_uri: `${baseUrl}/api/integrations/slack/callback`,
     state,
     response_type: "code",
-    user_scope: "chat:write",
   })
 
-  // Note: For distributed apps, do not use the 'team' parameter
-  // as it causes 'invalid_team_for_non_distributed_app' error
-  // Distributed apps should work across all workspaces
+  // Add this parameter to force Slack to show the workspace selector
+  params.append("multiple_workspaces", "true")
 
   const authUrl = `https://slack.com/oauth/v2/authorize?${params.toString()}`
   console.log(`Generated Slack auth URL: ${authUrl}`)
