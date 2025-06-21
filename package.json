@@ -48,7 +48,7 @@
     "@radix-ui/react-toggle": "latest",
     "@radix-ui/react-toggle-group": "latest",
     "@radix-ui/react-tooltip": "latest",
-    "@slack/web-api": "latest",
+    "@slack/web-api": "^7.9.3",
     "@supabase/auth-helpers-nextjs": "latest",
     "@supabase/auth-helpers-react": "latest",
     "@supabase/supabase-js": "latest",

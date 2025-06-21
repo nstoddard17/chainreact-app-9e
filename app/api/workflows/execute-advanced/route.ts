@@ -15,7 +15,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { workflowId, inputData = {}, options = {} } = await request.json()
+    const { workflowId, inputData = {}, options = {}, startNodeId } = await request.json()
 
     if (!workflowId) {
       return NextResponse.json({ error: "Workflow ID is required" }, { status: 400 })
@@ -46,6 +46,7 @@ export async function POST(request: Request) {
       enableParallel: options.enableParallel ?? true,
       maxConcurrency: options.maxConcurrency ?? 3,
       enableSubWorkflows: options.enableSubWorkflows ?? true,
+      startNodeId,
     })
 
     return NextResponse.json({

@@ -120,6 +120,7 @@ export default function CollaborativeWorkflowBuilder() {
   const [saving, setSaving] = useState(false)
   const [enabling, setEnabling] = useState(false)
   const [executing, setExecuting] = useState(false)
+  const [testTriggers, setTestTriggers] = useState<string[]>([])
   const [showConflictDialog, setShowConflictDialog] = useState(false)
   const [workflowName, setWorkflowName] = useState("")
   const [isEditingName, setIsEditingName] = useState(false)
@@ -364,6 +365,23 @@ export default function CollaborativeWorkflowBuilder() {
 
     setExecuting(true)
     try {
+      const triggerNode = nodes.find(n => n.data.isTrigger);
+      let startNodeId: string | undefined = undefined;
+
+      if (triggerNode) {
+        const firstConnection = edges.find(e => e.source === triggerNode.id);
+        if (firstConnection) {
+          startNodeId = firstConnection.target;
+        }
+      }
+
+      if (!startNodeId) {
+        console.error("Test execution failed: Could not find a node connected to the trigger.");
+        // Optionally, show a toast notification to the user
+        setExecuting(false);
+        return;
+      }
+
       const response = await fetch("/api/workflows/execute-advanced", {
         method: "POST",
         headers: {
@@ -371,12 +389,13 @@ export default function CollaborativeWorkflowBuilder() {
         },
         body: JSON.stringify({
           workflowId: currentWorkflow.id,
-          inputData: {},
+          inputData: {}, // In a real app, you'd want a way to provide mock trigger data
           options: {
             enableParallel: true,
             maxConcurrency: 3,
             enableSubWorkflows: true,
           },
+          startNodeId: startNodeId,
         }),
       })
 
