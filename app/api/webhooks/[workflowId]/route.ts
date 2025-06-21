@@ -1,61 +1,50 @@
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
-import { NextResponse } from "next/server"
+import { NextResponse } from 'next/server';
+import { AdvancedExecutionEngine } from '@/lib/execution/advancedExecutionEngine';
+import { createClient } from '@supabase/supabase-js';
 
-export async function POST(request: Request, { params }: { params: { workflowId: string } }) {
-  const supabase = createRouteHandlerClient({ cookies })
+export async function POST(
+  request: Request,
+  { params }: { params: { workflowId: string } }
+) {
+  const { workflowId } = params;
+  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
   try {
-    const workflowId = params.workflowId
-    const body = await request.json()
-
-    // Get workflow
     const { data: workflow, error: workflowError } = await supabase
-      .from("workflows")
-      .select("*")
-      .eq("id", workflowId)
-      .eq("status", "active")
-      .single()
+      .from('workflows')
+      .select('user_id, nodes')
+      .eq('id', workflowId)
+      .single();
 
     if (workflowError || !workflow) {
-      return NextResponse.json({ error: "Workflow not found or inactive" }, { status: 404 })
+      return NextResponse.json({ error: 'Workflow not found' }, { status: 404 });
+    }
+    
+    const triggerNode = workflow.nodes.find((node: any) => node.data.isTrigger && node.data.triggerType === 'webhook');
+
+    if (!triggerNode) {
+      return NextResponse.json({ error: 'No webhook trigger found for this workflow' }, { status: 400 });
     }
 
-    // Check if workflow has webhook trigger
-    const hasWebhookTrigger = workflow.nodes?.some((node: any) => node.data?.type === "webhook")
+    const payload = await request.json();
 
-    if (!hasWebhookTrigger) {
-      return NextResponse.json({ error: "Workflow does not have webhook trigger" }, { status: 400 })
-    }
+    // TODO: Add payload validation against the `payloadSchema` defined in the trigger node.
 
-    // Execute workflow with webhook data
-    const response = await fetch(`${request.url.split("/api/webhooks")[0]}/api/workflows/execute`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        workflowId,
-        inputData: {
-          webhook: {
-            headers: Object.fromEntries(request.headers.entries()),
-            body,
-            timestamp: new Date().toISOString(),
-          },
-        },
-      }),
-    })
+    const executionEngine = new AdvancedExecutionEngine();
+    const executionSession = await executionEngine.createExecutionSession(
+      workflowId,
+      workflow.user_id,
+      'webhook',
+      { inputData: payload }
+    );
 
-    const result = await response.json()
+    // Asynchronously execute the workflow without waiting for it to complete
+    executionEngine.executeWorkflowAdvanced(executionSession.id, payload);
 
-    return NextResponse.json({
-      success: true,
-      message: "Webhook received and workflow triggered",
-      executionId: result.executionId,
-    })
-  } catch (error) {
-    console.error("Webhook processing error:", error)
-    return NextResponse.json({ error: "Webhook processing failed" }, { status: 500 })
+    return NextResponse.json({ success: true, sessionId: executionSession.id });
+  } catch (error: any) {
+    console.error(`Webhook error for workflow ${workflowId}:`, error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 

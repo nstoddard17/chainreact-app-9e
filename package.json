@@ -74,6 +74,7 @@
     "embla-carousel-react": "latest",
     "expo-sqlite": "latest",
     "gel": "latest",
+    "googleapis": "^105.0.0",
     "immer": "latest",
     "input-otp": "latest",
     "knex": "latest",
@@ -104,8 +105,8 @@
     "zustand": "latest"
   },
   "devDependencies": {
-    "@types/node": "^22.15.32",
-    "@types/react": "^19",
+    "@types/node": "latest",
+    "@types/react": "latest",
     "@types/react-dom": "^19",
     "eslint": "^9.29.0",
     "eslint-config-next": "15.3.3",
