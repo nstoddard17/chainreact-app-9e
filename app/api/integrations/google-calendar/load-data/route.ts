@@ -1,4 +1,5 @@
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
+import { type CookieOptions, createServerClient } from "@supabase/ssr"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 import { getGoogleCalendars } from "@/lib/integrations/google-calendar"
