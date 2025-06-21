@@ -7,7 +7,7 @@ import { ALL_NODE_COMPONENTS, NodeComponent } from "@/lib/workflows/availableNod
 import { Settings, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
-// Define a more specific type for the node data
+// The data object passed to the node will now contain these callbacks.
 interface CustomNodeData {
   title: string
   description: string
@@ -15,15 +15,11 @@ interface CustomNodeData {
   providerId?: string
   isTrigger?: boolean
   config?: Record<string, any>
-}
-
-// Extend NodeProps with our specific data type and the callback functions
-interface CustomNodeProps extends NodeProps<CustomNodeData> {
   onConfigure: (id: string) => void
   onDelete: (id: string) => void
 }
 
-function CustomNode({ id, data, selected, onConfigure, onDelete }: CustomNodeProps) {
+function CustomNode({ id, data, selected }: NodeProps<CustomNodeData>) {
   const {
     title,
     description,
@@ -31,6 +27,8 @@ function CustomNode({ id, data, selected, onConfigure, onDelete }: CustomNodePro
     providerId,
     isTrigger,
     config,
+    onConfigure,
+    onDelete,
   } = data
 
   const component = ALL_NODE_COMPONENTS.find((c) => c.type === type)
@@ -41,12 +39,18 @@ function CustomNode({ id, data, selected, onConfigure, onDelete }: CustomNodePro
 
   const handleConfigure = (e: React.MouseEvent) => {
     e.stopPropagation()
-    onConfigure(id)
+    // Call the function from the data prop
+    if (onConfigure) {
+      onConfigure(id)
+    }
   }
 
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation()
-    onDelete(id)
+    // Call the function from the data prop
+    if (onDelete) {
+      onDelete(id)
+    }
   }
 
   return (
