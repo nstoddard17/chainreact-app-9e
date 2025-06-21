@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog"
 import { ConfigField, NodeComponent } from "@/lib/workflows/availableNodes"
+import { useIntegrationStore } from "@/stores/integrationStore"
 
 interface ConfigurationModalProps {
   isOpen: boolean
@@ -19,13 +20,46 @@ interface ConfigurationModalProps {
 
 export default function ConfigurationModal({ isOpen, onClose, onSave, nodeInfo, integrationName }: ConfigurationModalProps) {
   const [config, setConfig] = useState<Record<string, any>>({})
+  const { loadIntegrationData, integrationData } = useIntegrationStore()
+  const [dynamicOptions, setDynamicOptions] = useState<
+    Record<string, { value: string; label: string }[]>
+  >({})
+  const [loadingDynamic, setLoadingDynamic] = useState(false)
 
   useEffect(() => {
-    // Reset config when modal opens for a new node
-    if (isOpen) {
-      setConfig({})
+    if (isOpen && nodeInfo) {
+      // Initialize config with default or existing values
+      const initialConfig = nodeInfo.configSchema?.reduce(
+        (acc, field) => {
+          acc[field.name] = "" // Set a default empty value
+          return acc
+        },
+        {} as Record<string, any>,
+      )
+      setConfig(initialConfig || {})
+
+      // Fetch dynamic data if needed
+      const fetchDynamicData = async () => {
+        setLoadingDynamic(true)
+        const newOptions: Record<string, { value: string; label: string }[]> = {}
+        for (const field of nodeInfo.configSchema || []) {
+          if (field.dynamic === "slack-channels" && nodeInfo.providerId) {
+            const data = await loadIntegrationData(nodeInfo.providerId)
+            if (data && data.channels) {
+              newOptions[field.name] = data.channels.map((ch: any) => ({
+                value: ch.id,
+                label: `#${ch.name}`,
+              }))
+            }
+          }
+        }
+        setDynamicOptions(newOptions)
+        setLoadingDynamic(false)
+      }
+
+      fetchDynamicData()
     }
-  }, [isOpen])
+  }, [isOpen, nodeInfo, loadIntegrationData])
 
   if (!nodeInfo) {
     return null
@@ -36,47 +70,61 @@ export default function ConfigurationModal({ isOpen, onClose, onSave, nodeInfo, 
     onClose()
   }
 
-  const renderConfigField = (field: ConfigField) => {
-    const value = config[field.key] || ""
-    const handleConfigChange = (key: string, value: any) => {
-      setConfig(prev => ({ ...prev, [key]: value }))
+  const renderField = (field: ConfigField) => {
+    const value = config[field.name] || ""
+
+    const handleChange = (
+      e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+    ) => {
+      setConfig({ ...config, [field.name]: e.target.value })
     }
 
-    if (field.type === "select") {
-      return (
-        <Select value={value} onValueChange={(value) => handleConfigChange(field.key, value)}>
-          <SelectTrigger>
-            <SelectValue placeholder={`Select ${field.label.toLowerCase()}`} />
-          </SelectTrigger>
-          <SelectContent>
-            {field.options?.map((option) => (
-              <SelectItem key={option} value={option}>
-                {option}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      )
-    } else if (field.type === "textarea") {
-      return (
-        <Textarea
-          id={field.key}
-          value={value}
-          onChange={(e) => handleConfigChange(field.key, e.target.value)}
-          placeholder={field.placeholder}
-          rows={3}
-        />
-      )
-    } else {
-      return (
-        <Input
-          id={field.key}
-          type={field.type}
-          value={value}
-          onChange={(e) => handleConfigChange(field.key, e.target.value)}
-          placeholder={field.placeholder}
-        />
-      )
+    const handleSelectChange = (newValue: string) => {
+      setConfig({ ...config, [field.name]: newValue })
+    }
+
+    switch (field.type) {
+      case "select":
+        const options = dynamicOptions[field.name] || field.options || []
+        return (
+          <Select onValueChange={handleSelectChange} value={value}>
+            <SelectTrigger>
+              <SelectValue placeholder={field.placeholder} />
+            </SelectTrigger>
+            <SelectContent>
+              {loadingDynamic && <SelectItem value="loading" disabled>Loading...</SelectItem>}
+              {options.map((option: any) => (
+                <SelectItem
+                  key={option.value}
+                  value={option.value}
+                >
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )
+      case "textarea":
+        return (
+          <Textarea
+            id={field.name}
+            value={value}
+            onChange={handleChange}
+            placeholder={field.placeholder}
+            required={field.required}
+          />
+        )
+      default:
+        return (
+          <Input
+            id={field.name}
+            type={field.type}
+            value={value}
+            onChange={handleChange}
+            placeholder={field.placeholder}
+            required={field.required}
+          />
+        )
     }
   }
 
@@ -84,25 +132,23 @@ export default function ConfigurationModal({ isOpen, onClose, onSave, nodeInfo, 
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Configure {nodeInfo.title}</DialogTitle>
-          <DialogDescription>
-            Set up the parameters for your {integrationName} node.
-          </DialogDescription>
+          <DialogTitle>
+            Configure {nodeInfo?.title} on {integrationName}
+          </DialogTitle>
+          <DialogDescription>{nodeInfo?.description}</DialogDescription>
         </DialogHeader>
-        <div className="space-y-6 py-4">
-          {nodeInfo.configSchema && nodeInfo.configSchema.length > 0 ? (
-            nodeInfo.configSchema.map((field) => (
-              <div key={field.key} className="space-y-2">
-                <Label htmlFor={field.key}>{field.label}</Label>
-                {renderConfigField(field)}
-              </div>
-            ))
-          ) : (
-            <p className="text-slate-500 text-sm">This node has no configuration options.</p>
-          )}
+        <div className="space-y-4 py-4">
+          {nodeInfo?.configSchema?.map((field) => (
+            <div key={field.name} className="space-y-2">
+              <Label htmlFor={field.name}>{field.label}</Label>
+              {renderField(field)}
+            </div>
+          ))}
         </div>
         <DialogFooter>
-          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
           <Button onClick={handleSave}>Save</Button>
         </DialogFooter>
       </DialogContent>

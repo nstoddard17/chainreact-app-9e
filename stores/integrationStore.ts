@@ -1,6 +1,8 @@
 import { create } from "zustand"
 import { getSupabaseClient } from "@/lib/supabase"
+import { apiClient } from "@/lib/apiClient"
 
+// This represents the structure of a connected integration
 export interface Integration {
   id: string
   user_id: string
@@ -16,6 +18,7 @@ export interface Integration {
   disconnected_at?: string | null
   disconnect_reason?: string | null
   lastRefreshTime: string | null
+  [key: string]: any
 }
 
 export interface Provider {
@@ -31,6 +34,7 @@ export interface Provider {
 
 export interface IntegrationStore {
   integrations: Integration[]
+  integrationData: Record<string, any>
   providers: Provider[]
   loading: boolean
   error: string | null
@@ -55,6 +59,7 @@ export interface IntegrationStore {
   getIntegrationByProvider: (providerId: string) => Integration | null
   getConnectedProviders: () => string[]
   initializeGlobalPreload: () => Promise<void>
+  loadIntegrationData: (providerId: string) => Promise<any>
   clearAllData: () => void
   connectApiKeyIntegration: (providerId: string, apiKey: string) => Promise<void>
   reconnectIntegration: (integrationId: string) => Promise<void>
@@ -66,6 +71,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
   (set, get) => ({
     providers: [],
     integrations: [],
+    integrationData: {},
     apiKeyIntegrations: [],
     loading: false,
     loadingStates: {},
@@ -517,10 +523,41 @@ export const useIntegrationStore = create<IntegrationStore>()(
       }
     },
 
+    loadIntegrationData: async (providerId: string) => {
+      set((state) => ({
+        loadingStates: { ...state.loadingStates, [`data-${providerId}`]: true },
+      }))
+
+      try {
+        const response = await apiClient.get(
+          `/api/integrations/${providerId}/load-data`,
+        )
+        set((state) => ({
+          integrationData: {
+            ...state.integrationData,
+            [providerId]: response.data,
+          },
+        }))
+        return response.data
+      } catch (error: any) {
+        console.error(`Failed to load data for ${providerId}:`, error)
+        get().setError(`Failed to load data for ${providerId}. Please try again.`)
+        return null
+      } finally {
+        set((state) => ({
+          loadingStates: {
+            ...state.loadingStates,
+            [`data-${providerId}`]: false,
+          },
+        }))
+      }
+    },
+
     clearAllData: () => {
       set({
         integrations: [],
         providers: [],
+        integrationData: {},
         loading: false,
         error: null,
         loadingStates: {},
