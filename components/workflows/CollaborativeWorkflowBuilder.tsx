@@ -183,7 +183,7 @@ export default function CollaborativeWorkflowBuilder() {
   }, [nodes, edges, onNodesChange, setNodes, setEdges]);
 
   const renderLogo = (integrationId: string, integrationName: string) => {
-    const logoPath = `/public/integrations/${integrationId}.svg`
+    const logoPath = `/integrations/${integrationId}.svg`
     return (
       <img
         src={logoPath}

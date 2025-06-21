@@ -14,7 +14,7 @@ function CustomNode({ data, selected }: NodeProps) {
   return (
     <Card
       className={`min-w-[200px] ${
-        selected ? "ring-2 ring-blue-500 ring-offset-2" : ""
+        selected ? "border-2 border-blue-500 shadow-lg" : "border"
       } hover:shadow-lg transition-all duration-200`}
     >
       <div className="p-4">
@@ -22,8 +22,8 @@ function CustomNode({ data, selected }: NodeProps) {
           <div className="w-10 h-10 rounded-lg flex items-center justify-center">
             {data.providerId ? (
               <img
-                src={`/public/integrations/${data.providerId}.svg`}
-                alt={data.title}
+                src={`/integrations/${data.providerId}.svg`}
+                alt={`${data.title} logo`}
                 className="w-7 h-7 object-contain"
               />
             ) : (
