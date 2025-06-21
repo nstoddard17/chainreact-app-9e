@@ -239,7 +239,9 @@ export default function CollaborativeWorkflowBuilder() {
         position: node.position,
         data: {
           ...node.data,
-          onClick: node.type === 'addAction' ? handleAddActionClick : undefined
+          onClick: node.type === 'addAction' ? handleAddActionClick : undefined,
+          onConfigure: handleConfigureNode,
+          onDelete: handleDeleteNode,
         }
       }))
       
@@ -258,6 +260,22 @@ export default function CollaborativeWorkflowBuilder() {
       setEdges(reactFlowEdges)
     }
   }, [currentWorkflow, setNodes, setEdges])
+
+  const handleConfigureNode = (nodeId: string) => {
+    const nodeToConfigure = nodes.find(n => n.id === nodeId);
+    if (nodeToConfigure && nodeToConfigure.data.configSchema) {
+      const integration = availableIntegrations.find(i => i.id === nodeToConfigure.data.providerId);
+      const nodeComponent = ALL_NODE_COMPONENTS.find(c => c.type === nodeToConfigure.data.type);
+      if (integration && nodeComponent) {
+        setConfiguringNode({ integration, nodeComponent });
+      }
+    }
+  };
+
+  const handleDeleteNode = (nodeId: string) => {
+    setNodes(prev => prev.filter(n => n.id !== nodeId));
+    setEdges(prev => prev.filter(e => e.source !== nodeId && e.target !== nodeId));
+  };
 
   // Show conflict dialog when conflicts arise
   useEffect(() => {

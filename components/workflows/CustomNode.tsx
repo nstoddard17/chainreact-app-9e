@@ -5,6 +5,8 @@ import { Handle, Position, type NodeProps } from "@xyflow/react"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/availableNodes"
+import { Settings, Trash2 } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
 function CustomNode({ data, selected }: NodeProps) {
   const isTrigger = data.isTrigger
@@ -64,6 +66,29 @@ function CustomNode({ data, selected }: NodeProps) {
             )}
           </div>
         )}
+      </div>
+
+      <div className="flex items-center justify-end space-x-2 px-4 pb-4">
+        {component?.configSchema && component.configSchema.length > 0 && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => data.onConfigure?.(data.id)}
+            className="flex items-center space-x-1"
+          >
+            <Settings className="w-4 h-4" />
+            <span>Configure</span>
+          </Button>
+        )}
+        <Button
+          variant="destructive"
+          size="sm"
+          onClick={() => data.onDelete?.(data.id)}
+          className="flex items-center space-x-1"
+        >
+          <Trash2 className="w-4 h-4" />
+          <span>Delete</span>
+        </Button>
       </div>
 
       {/* Input Handle - not for triggers */}
