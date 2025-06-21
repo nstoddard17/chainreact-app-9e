@@ -193,6 +193,7 @@ function generateSlackAuthUrl(state: string): string {
     redirect_uri: `${baseUrl}/api/integrations/slack/callback`,
     state,
     response_type: "code",
+    user_scope: "chat:write",
   })
 
   // Note: For distributed apps, do not use the 'team' parameter
@@ -347,7 +348,7 @@ function generateLinkedInAuthUrl(state: string): string {
     client_id: clientId,
     redirect_uri: `${baseUrl}/api/integrations/linkedin/callback`,
     state,
-    scope: "profile email openid",
+    scope: "r_liteprofile r_emailaddress w_member_social",
   })
 
   const authUrl = `https://www.linkedin.com/oauth/v2/authorization?${params.toString()}`

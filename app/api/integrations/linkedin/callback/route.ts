@@ -83,7 +83,7 @@ export async function GET(request: NextRequest) {
     // Get user info
     console.log('LinkedIn: Attempting to get user info with token:', tokenData.access_token ? 'TOKEN_PRESENT' : 'NO_TOKEN')
     
-    const userResponse = await fetch("https://api.linkedin.com/v2/me", {
+    const userResponse = await fetch("https://api.linkedin.com/v2/me?projection=(id,firstName,lastName,profilePicture(displayImage~:playableStreams))", {
       headers: {
         Authorization: `Bearer ${tokenData.access_token}`,
       },
@@ -99,6 +99,22 @@ export async function GET(request: NextRequest) {
     }
 
     const userData = await userResponse.json()
+
+    // Get user email
+    const emailResponse = await fetch("https://api.linkedin.com/v2/emailAddress?q=members&projection=(elements*(handle~))", {
+      headers: {
+        Authorization: `Bearer ${tokenData.access_token}`,
+      },
+    })
+
+    if (!emailResponse.ok) {
+      console.log('Failed to get LinkedIn email, continuing with profile only')
+    } else {
+      const emailData = await emailResponse.json()
+      if (emailData?.elements?.[0]?.['handle~']?.emailAddress) {
+        userData.email = emailData.elements[0]['handle~'].emailAddress
+      }
+    }
 
     const integrationData = {
       user_id: userId,
