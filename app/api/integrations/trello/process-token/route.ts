@@ -2,22 +2,24 @@ import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import { validateAndUpdateIntegrationScopes } from "@/lib/integrations/scopeValidation"
 
-// Use direct Supabase client with service role for reliable database operations
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+const getSupabaseClient = () => {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-if (!supabaseUrl || !supabaseKey) {
-  throw new Error("NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be defined")
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error("Server environment is not configured for Trello processing.")
+  }
+
+  return createClient(supabaseUrl, supabaseKey, {
+    auth: {
+      persistSession: false,
+    },
+  })
 }
-
-const supabase = createClient(supabaseUrl, supabaseKey, {
-  auth: {
-    persistSession: false,
-  },
-})
 
 export const POST = async (request: NextRequest) => {
   try {
+    const supabase = getSupabaseClient()
     console.log("Processing Trello token")
     const { token, userId } = await request.json()
 
@@ -139,6 +141,6 @@ export const POST = async (request: NextRequest) => {
     return NextResponse.json({ success: true, integrationId })
   } catch (e: any) {
     console.error("Error processing Trello token:", e)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return NextResponse.json({ error: e.message || "Internal server error" }, { status: 500 })
   }
 }
