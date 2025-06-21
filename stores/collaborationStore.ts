@@ -48,7 +48,7 @@ interface ExecutionEvent {
 
 interface CollaborationState {
   collaborationSession: CollaborationSession | null
-  activeCollaborators: Collaborator[]
+  collaborators: Collaborator[]
   pendingChanges: WorkflowChange[]
   conflicts: Conflict[]
   executionEvents: ExecutionEvent[]
@@ -66,11 +66,13 @@ interface CollaborationActions {
   clearConflicts: () => void
   addExecutionEvent: (event: ExecutionEvent) => void
   clearExecutionEvents: () => void
+  setupRealtimeSubscriptions: (workflowId: string) => void
+  pollCollaboratorUpdates: (workflowId: string) => void
 }
 
 export const useCollaborationStore = create<CollaborationState & CollaborationActions>((set, get) => ({
   collaborationSession: null,
-  activeCollaborators: [],
+  collaborators: [],
   pendingChanges: [],
   conflicts: [],
   executionEvents: [],
@@ -124,7 +126,7 @@ export const useCollaborationStore = create<CollaborationState & CollaborationAc
 
       set({
         collaborationSession: null,
-        activeCollaborators: [],
+        collaborators: [],
         pendingChanges: [],
         conflicts: [],
         executionEvents: [],
@@ -274,17 +276,21 @@ export const useCollaborationStore = create<CollaborationState & CollaborationAc
     set({ executionEvents: [] })
   },
 
-  // Private method for setting up real-time subscriptions
-  setupRealtimeSubscriptions: (workflowId: string) => {
-    // In a real implementation, this would set up WebSocket or Server-Sent Events
-    // For now, we'll simulate with polling
-    const pollInterval = setInterval(() => {
-      // Poll for collaborator updates
-      get().pollCollaboratorUpdates(workflowId)
-    }, 2000)
+  setupRealtimeSubscriptions: (workflowId) => {
+    // Placeholder for real-time logic
+    // e.g., using Supabase real-time
+    console.log(`Setting up real-time subscriptions for workflow ${workflowId}`)
 
-    // Store interval for cleanup
-    ;(window as any).collaborationPollInterval = pollInterval
+    // Start polling for collaborator updates
+    const intervalId = setInterval(() => {
+        get().pollCollaboratorUpdates(workflowId);
+    }, 5000); // Poll every 5 seconds
+
+    // When store is unmounted, clear interval
+    return () => {
+        console.log(`Clearing real-time subscriptions for workflow ${workflowId}`);
+        clearInterval(intervalId);
+    };
   },
 
   pollCollaboratorUpdates: async (workflowId: string) => {
@@ -293,7 +299,7 @@ export const useCollaborationStore = create<CollaborationState & CollaborationAc
       const result = await response.json()
 
       if (result.success) {
-        set({ activeCollaborators: result.collaborators })
+        set({ collaborators: result.collaborators })
       }
     } catch (error) {
       console.error("Failed to poll collaborator updates:", error)

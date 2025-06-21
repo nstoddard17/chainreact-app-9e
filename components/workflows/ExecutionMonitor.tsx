@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Play, CheckCircle, XCircle, Clock } from "lucide-react"
 
-interface ExecutionEvent {
+export interface ExecutionEvent {
   id: string
   event_type: string
   node_id?: string

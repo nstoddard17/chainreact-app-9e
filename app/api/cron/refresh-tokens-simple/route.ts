@@ -66,36 +66,60 @@ export async function GET(request: NextRequest) {
 
     // Step 2: Get all integrations that need attention
     console.log(`📊 [${jobId}] Step 2: Getting integrations that need attention...`)
-    
-    const now = new Date().toISOString()
-    
-    // Get all integrations that need attention (connected, disconnected, expired, needs_reauthorization)
-    const { data: allIntegrations, error: fetchError } = await supabase
+
+    const now = new Date()
+    const soon = new Date(now.getTime() + 30 * 60 * 1000) // 30 minutes from now
+
+    // Get integrations that are already in a state requiring attention
+    const { data: problemIntegrations, error: problemFetchError } = await supabase
       .from("integrations")
       .select("*")
-      .or(`status.eq.connected,status.eq.disconnected,status.eq.expired,status.eq.needs_reauthorization,expires_at.lt.${now}`)
-      .limit(50) // Increased limit to process more integrations per run
+      .in("status", ["disconnected", "expired", "needs_reauthorization"])
 
-    if (fetchError) {
-      console.error(`❌ [${jobId}] Error fetching integrations:`, fetchError)
-      throw new Error(`Error fetching integrations: ${fetchError.message}`)
+    if (problemFetchError) {
+      console.error(`❌ [${jobId}] Error fetching problem integrations:`, problemFetchError)
+      throw new Error(`Error fetching problem integrations: ${problemFetchError.message}`)
     }
+    console.log(`✅ [${jobId}] Found ${problemIntegrations?.length || 0} integrations with problem statuses.`)
 
-    console.log(`✅ [${jobId}] Found ${allIntegrations?.length || 0} integrations that need attention`)
+    // Get integrations that are connected but will expire soon
+    const { data: expiringIntegrations, error: expiringFetchError } = await supabase
+      .from("integrations")
+      .select("*")
+      .eq("status", "connected")
+      .lt("expires_at", soon.toISOString())
+
+    if (expiringFetchError) {
+      console.error(`❌ [${jobId}] Error fetching expiring integrations:`, expiringFetchError)
+      throw new Error(`Error fetching expiring integrations: ${expiringFetchError.message}`)
+    }
+    console.log(`✅ [${jobId}] Found ${expiringIntegrations?.length || 0} integrations expiring soon.`)
+
+    // Combine and deduplicate integrations
+    const allIntegrationsMap = new Map()
+    if (problemIntegrations) {
+      problemIntegrations.forEach(int => allIntegrationsMap.set(int.id, int))
+    }
+    if (expiringIntegrations) {
+      expiringIntegrations.forEach(int => allIntegrationsMap.set(int.id, int))
+    }
+    const allIntegrations = Array.from(allIntegrationsMap.values())
+
+    console.log(`✅ [${jobId}] Found a total of ${allIntegrations.length} unique integrations to process.`)
 
     // Step 3: Fix incorrect integration statuses
     console.log(`🔧 [${jobId}] Step 3: Correcting any incorrect integration statuses...`)
     let statusFixedCount = 0
-    
+
     for (const integration of allIntegrations || []) {
       if (integration.expires_at) {
         const expiresAt = new Date(integration.expires_at)
         const now = new Date()
-        
+
         // CASE 1: Fix 'connected' status for tokens that are actually expired
         if (expiresAt.getTime() <= now.getTime() && integration.status === "connected") {
           console.log(`🔧 [${jobId}] Fixing status for ${integration.provider}: connected -> expired`)
-          
+
           const { error: updateError } = await supabase
             .from("integrations")
             .update({
@@ -123,7 +147,7 @@ export async function GET(request: NextRequest) {
               updated_at: new Date().toISOString(),
             })
             .eq("id", integration.id)
-          
+
           if (updateError) {
             console.error(`❌ [${jobId}] Failed to correct status for ${integration.provider}:`, updateError)
           } else {
