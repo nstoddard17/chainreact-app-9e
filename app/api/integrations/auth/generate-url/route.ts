@@ -3,6 +3,7 @@ import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 import crypto from "crypto"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 
 export async function POST(request: NextRequest) {
   try {
@@ -237,6 +238,7 @@ function generateGitHubAuthUrl(state: string): string {
 function generateGoogleAuthUrl(service: string, state: string): string {
   const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
   if (!clientId) throw new Error("Google client ID not configured")
+  const baseUrl = getBaseUrl()
 
   // Map service to specific scopes
   let scopes = "https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile"
@@ -267,7 +269,7 @@ function generateGoogleAuthUrl(service: string, state: string): string {
 
   const params = new URLSearchParams({
     client_id: clientId,
-    redirect_uri: `https://chainreact.app/api/integrations/${service}/callback`,
+    redirect_uri: `${baseUrl}/api/integrations/${service}/callback`,
     response_type: "code",
     scope: scopes,
     state,
