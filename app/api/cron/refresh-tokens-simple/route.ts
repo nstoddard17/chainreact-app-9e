@@ -247,6 +247,24 @@ export async function GET(request: NextRequest) {
           }
         }
         
+        // Check if the token is about to expire
+        if (integration.expires_at) {
+          const expiresAt = new Date(integration.expires_at);
+          const now = new Date();
+          const timeUntilExpiry = (expiresAt.getTime() - now.getTime()) / 1000; // in seconds
+          
+          if (timeUntilExpiry <= 0) {
+            console.log(`Token for ${integration.provider} already expired (${timeUntilExpiry.toFixed(0)}s). Refreshing...`);
+          } else if (timeUntilExpiry <= 1800) { // 30 minutes
+            console.log(`Token for ${integration.provider} expires within 30 minutes (${timeUntilExpiry.toFixed(0)}s). Refreshing...`);
+          }
+        }
+        
+        // If the integration is marked as expired, log that we're trying to recover it
+        if (integration.status === "expired") {
+          console.log(`Integration ${integration.provider} is marked as expired. Attempting recovery...`);
+        }
+        
         const result = await refreshTokenIfNeeded(integration)
         
         if (result.refreshed) {
