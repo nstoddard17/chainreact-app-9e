@@ -60,7 +60,7 @@ const getIntegrationsFromNodes = () => {
         integrations[node.providerId] = {
           id: node.providerId,
           name: config?.name || node.providerId,
-          logo: config?.logoUrl || "/placeholder.svg",
+          logo: `/integrations/${node.providerId}.svg`,
           description: config?.description || `Integration for ${node.providerId}`,
           category: config?.category || "Uncategorized",
           color: config?.color || "#FFFFFF",
