@@ -30,11 +30,14 @@ import {
 } from "lucide-react"
 
 export interface ConfigField {
-  key: string;
-  label: string;
-  type: "text" | "textarea" | "select" | "number" | "email" | "password";
-  placeholder?: string;
-  options?: string[];
+  name: string
+  label: string
+  type: "string" | "number" | "boolean" | "select" | "textarea" | "text" | "email" | "password"
+  required?: boolean
+  placeholder?: string
+  options?: { value: string; label: string }[] | string[]
+  dynamic?: "slack-channels"
+  [key: string]: any
 }
 
 export interface NodeComponent {
@@ -63,8 +66,8 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Triggers",
     isTrigger: true,
     configSchema: [
-      { key: "path", label: "Path", type: "text", placeholder: "/webhook-path" },
-      { key: "method", label: "HTTP Method", type: "select", options: ["POST", "GET", "PUT"] },
+      { name: "path", label: "Path", type: "text", placeholder: "/webhook-path" },
+      { name: "method", label: "HTTP Method", type: "select", options: ["POST", "GET", "PUT"] },
     ],
   },
   {
@@ -75,8 +78,8 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Triggers",
     isTrigger: true,
     configSchema: [
-      { key: "cron", label: "Cron Expression", type: "text", placeholder: "0 * * * *" },
-      { key: "timezone", label: "Timezone", type: "text", placeholder: "UTC" },
+      { name: "cron", label: "Cron Expression", type: "text", placeholder: "0 * * * *" },
+      { name: "timezone", label: "Timezone", type: "text", placeholder: "UTC" },
     ],
   },
   {
@@ -97,7 +100,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Logic",
     isTrigger: false,
     configSchema: [
-      { key: "condition", label: "Condition", type: "textarea", placeholder: "e.g., {{data.value}} > 100" },
+      { name: "condition", label: "Condition", type: "textarea", placeholder: "e.g., {{data.value}} > 100" },
     ],
   },
   {
@@ -108,7 +111,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Logic",
     isTrigger: false,
     configSchema: [
-      { key: "duration", label: "Duration (seconds)", type: "number", placeholder: "e.g., 60" },
+      { name: "duration", label: "Duration (seconds)", type: "number", placeholder: "e.g., 60" },
     ],
   },
   {
@@ -119,7 +122,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Logic",
     isTrigger: false,
     configSchema: [
-      { key: "condition", label: "Condition", type: "textarea", placeholder: "e.g., {{data.status}} === 'success'" },
+      { name: "condition", label: "Condition", type: "textarea", placeholder: "e.g., {{data.status}} === 'success'" },
     ],
   },
   {
@@ -130,7 +133,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Logic",
     isTrigger: false,
     configSchema: [
-      { key: "script", label: "JavaScript Code", type: "textarea", placeholder: "return { value: 1 };" },
+      { name: "script", label: "JavaScript Code", type: "textarea", placeholder: "return { value: 1 };" },
     ],
   },
   {
@@ -141,7 +144,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Logic",
     isTrigger: false,
     configSchema: [
-      { key: "items", label: "Items to loop over", type: "text", placeholder: "{{data.array}}" },
+      { name: "items", label: "Items to loop over", type: "text", placeholder: "{{data.array}}" },
     ],
   },
 
@@ -156,9 +159,9 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     isTrigger: true,
     triggerType: 'webhook',
     configSchema: [
-      { key: "from", label: "From", type: "email", placeholder: "Optional: filter by sender" },
-      { key: "subject", label: "Subject", type: "text", placeholder: "Optional: filter by subject" },
-      { key: "hasAttachment", label: "Has Attachment", type: "select", options: ["any", "yes", "no"] },
+      { name: "from", label: "From", type: "email", placeholder: "Optional: filter by sender" },
+      { name: "subject", label: "Subject", type: "text", placeholder: "Optional: filter by subject" },
+      { name: "hasAttachment", label: "Has Attachment", type: "select", options: ["any", "yes", "no"] },
     ],
     payloadSchema: {
       id: "The unique ID of the email.",
@@ -182,8 +185,8 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Email",
     isTrigger: true,
     configSchema: [
-      { key: "from", label: "From", type: "email", placeholder: "Optional: filter by sender" },
-      { key: "attachmentName", label: "Attachment Name", type: "text", placeholder: "Optional: filter by attachment name" },
+      { name: "from", label: "From", type: "email", placeholder: "Optional: filter by sender" },
+      { name: "attachmentName", label: "Attachment Name", type: "text", placeholder: "Optional: filter by attachment name" },
     ],
   },
   {
@@ -205,12 +208,12 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Email",
     isTrigger: false,
     configSchema: [
-      { key: "to", label: "To", type: "email", placeholder: "recipient@example.com" },
-      { key: "cc", label: "CC", type: "email", placeholder: "optional: cc@example.com" },
-      { key: "bcc", label: "BCC", type: "email", placeholder: "optional: bcc@example.com" },
-      { key: "subject", label: "Subject", type: "text", placeholder: "Your email subject" },
-      { key: "body", label: "Body", type: "textarea", placeholder: "Your email body" },
-      { key: "attachment", label: "Attachment URL", type: "text", placeholder: "Optional: URL to a file" },
+      { name: "to", label: "To", type: "email", placeholder: "recipient@example.com" },
+      { name: "cc", label: "CC", type: "email", placeholder: "optional: cc@example.com" },
+      { name: "bcc", label: "BCC", type: "email", placeholder: "optional: bcc@example.com" },
+      { name: "subject", label: "Subject", type: "text", placeholder: "Your email subject" },
+      { name: "body", label: "Body", type: "textarea", placeholder: "Your email body" },
+      { name: "attachment", label: "Attachment URL", type: "text", placeholder: "Optional: URL to a file" },
     ],
     actionParamsSchema: {
       to: "The email address of the primary recipient.",
@@ -232,7 +235,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Productivity",
     isTrigger: true,
     configSchema: [
-      { key: "calendarId", label: "Calendar ID", type: "text", placeholder: "primary" },
+      { name: "calendarId", label: "Calendar ID", type: "text", placeholder: "primary" },
     ],
   },
   {
@@ -244,7 +247,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Productivity",
     isTrigger: true,
     configSchema: [
-      { key: "calendarId", label: "Calendar ID", type: "text", placeholder: "primary" },
+      { name: "calendarId", label: "Calendar ID", type: "text", placeholder: "primary" },
     ],
   },
   {
@@ -256,7 +259,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Productivity",
     isTrigger: true,
     configSchema: [
-      { key: "calendarId", label: "Calendar ID", type: "text", placeholder: "primary" },
+      { name: "calendarId", label: "Calendar ID", type: "text", placeholder: "primary" },
     ],
   },
   {
@@ -269,11 +272,11 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Productivity",
     isTrigger: false,
     configSchema: [
-      { key: "calendarId", label: "Calendar ID", type: "text", placeholder: "primary" },
-      { key: "title", label: "Title", type: "text", placeholder: "My Event" },
-      { key: "startTime", label: "Start Time (ISO)", type: "text", placeholder: "e.g., 2024-01-01T10:00:00Z" },
-      { key: "endTime", label: "End Time (ISO)", type: "text", placeholder: "e.g., 2024-01-01T11:00:00Z" },
-      { key: "description", label: "Description", type: "textarea" },
+      { name: "calendarId", label: "Calendar ID", type: "text", placeholder: "primary" },
+      { name: "title", label: "Title", type: "text", placeholder: "My Event" },
+      { name: "startTime", label: "Start Time (ISO)", type: "text", placeholder: "e.g., 2024-01-01T10:00:00Z" },
+      { name: "endTime", label: "End Time (ISO)", type: "text", placeholder: "e.g., 2024-01-01T11:00:00Z" },
+      { name: "description", label: "Description", type: "textarea" },
     ],
   },
 
@@ -287,7 +290,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Storage",
     isTrigger: true,
     configSchema: [
-      { key: "folderId", label: "Folder ID", type: "text", placeholder: "Google Drive Folder ID" },
+      { name: "folderId", label: "Folder ID", type: "text", placeholder: "Google Drive Folder ID" },
     ],
   },
   {
@@ -299,7 +302,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Storage",
     isTrigger: true,
     configSchema: [
-      { key: "folderId", label: "Folder ID", type: "text", placeholder: "Google Drive Folder ID" },
+      { name: "folderId", label: "Folder ID", type: "text", placeholder: "Google Drive Folder ID" },
     ],
   },
   {
@@ -311,7 +314,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Storage",
     isTrigger: true,
     configSchema: [
-      { key: "fileId", label: "File ID", type: "text", placeholder: "Google Drive File ID" },
+      { name: "fileId", label: "File ID", type: "text", placeholder: "Google Drive File ID" },
     ],
   },
   {
@@ -324,9 +327,9 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Storage",
     isTrigger: false,
     configSchema: [
-      { key: "fileName", label: "File Name", type: "text" },
-      { key: "fileContent", label: "File Content", type: "textarea" },
-      { key: "folderId", label: "Folder ID", type: "text", placeholder: "Optional: Google Drive Folder ID" },
+      { name: "fileName", label: "File Name", type: "text" },
+      { name: "fileContent", label: "File Content", type: "textarea" },
+      { name: "folderId", label: "Folder ID", type: "text", placeholder: "Optional: Google Drive Folder ID" },
     ],
   },
 
@@ -340,8 +343,8 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Productivity",
     isTrigger: true,
     configSchema: [
-      { key: "spreadsheetId", label: "Spreadsheet ID", type: "text" },
-      { key: "sheetName", label: "Sheet Name", type: "text" },
+      { name: "spreadsheetId", label: "Spreadsheet ID", type: "text" },
+      { name: "sheetName", label: "Sheet Name", type: "text" },
     ],
   },
   {
@@ -353,7 +356,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Productivity",
     isTrigger: true,
     configSchema: [
-      { key: "spreadsheetId", label: "Spreadsheet ID", type: "text" },
+      { name: "spreadsheetId", label: "Spreadsheet ID", type: "text" },
     ],
   },
   {
@@ -365,8 +368,8 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Productivity",
     isTrigger: true,
     configSchema: [
-      { key: "spreadsheetId", label: "Spreadsheet ID", type: "text" },
-      { key: "sheetName", label: "Sheet Name", type: "text" },
+      { name: "spreadsheetId", label: "Spreadsheet ID", type: "text" },
+      { name: "sheetName", label: "Sheet Name", type: "text" },
     ],
   },
   {
@@ -379,9 +382,9 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Productivity",
     isTrigger: false,
     configSchema: [
-      { key: "spreadsheetId", label: "Spreadsheet ID", type: "text" },
-      { key: "sheetName", label: "Sheet Name", type: "text" },
-      { key: "rowData", label: "Row Data (JSON array)", type: "textarea", placeholder: 'e.g., ["value1", "value2"]' },
+      { name: "spreadsheetId", label: "Spreadsheet ID", type: "text" },
+      { name: "sheetName", label: "Sheet Name", type: "text" },
+      { name: "rowData", label: "Row Data (JSON array)", type: "textarea", placeholder: 'e.g., ["value1", "value2"]' },
     ],
   },
 
@@ -395,7 +398,13 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Communication",
     isTrigger: true,
     configSchema: [
-      { key: "channelId", label: "Channel ID", type: "text", placeholder: "C12345678" },
+      {
+        name: "channel",
+        label: "Channel",
+        type: "select",
+        required: true,
+        dynamic: "slack-channels",
+      },
     ],
   },
   {
@@ -407,8 +416,14 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Communication",
     isTrigger: true,
     configSchema: [
-      { key: "channelId", label: "Channel ID", type: "text", placeholder: "C12345678" },
-      { key: "emoji", label: "Emoji", type: "text", placeholder: "e.g., :thumbsup:" },
+      {
+        name: "channel",
+        label: "Channel",
+        type: "select",
+        required: true,
+        dynamic: "slack-channels",
+      },
+      { name: "emoji", label: "Emoji", type: "text", placeholder: "e.g., :thumbsup:" },
     ],
   },
   {
@@ -421,8 +436,14 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Communication",
     isTrigger: false,
     configSchema: [
-      { key: "channelId", label: "Channel ID", type: "text", placeholder: "C12345678" },
-      { key: "text", label: "Message Text", type: "textarea" },
+      {
+        name: "channel",
+        label: "Channel",
+        type: "select",
+        required: true,
+        dynamic: "slack-channels",
+      },
+      { name: "text", label: "Message Text", type: "textarea" },
     ],
   },
 
@@ -994,8 +1015,8 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     isTrigger: false,
     requiredScopes: ["https://www.googleapis.com/auth/gmail.modify"],
     configSchema: [
-      { key: "messageId", label: "Message ID", type: "text" },
-      { key: "labelName", label: "Label Name", type: "text" },
+      { name: "messageId", label: "Message ID", type: "text" },
+      { name: "labelName", label: "Label Name", type: "text" },
     ],
   },
   {
@@ -1007,7 +1028,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Email",
     isTrigger: false,
     requiredScopes: ["https://www.googleapis.com/auth/gmail.modify"],
-    configSchema: [{ key: "messageId", label: "Message ID", type: "text" }],
+    configSchema: [{ name: "messageId", label: "Message ID", type: "text" }],
   },
   {
     type: "gmail_action_search_email",
@@ -1018,7 +1039,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Email",
     isTrigger: false,
     requiredScopes: ["https://www.googleapis.com/auth/gmail.readonly"],
-    configSchema: [{ key: "query", label: "Search Query", type: "text" }],
+    configSchema: [{ name: "query", label: "Search Query", type: "text" }],
   },
   {
     type: "microsoft-outlook_action_add_folder",
@@ -1030,8 +1051,8 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     isTrigger: false,
     requiredScopes: ["Mail.ReadWrite"],
     configSchema: [
-      { key: "messageId", label: "Message ID", type: "text" },
-      { key: "folderName", label: "Folder Name", type: "text" },
+      { name: "messageId", label: "Message ID", type: "text" },
+      { name: "folderName", label: "Folder Name", type: "text" },
     ],
   },
   {
@@ -1043,7 +1064,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Communication",
     isTrigger: false,
     requiredScopes: ["Mail.ReadWrite"],
-    configSchema: [{ key: "messageId", label: "Message ID", type: "text" }],
+    configSchema: [{ name: "messageId", label: "Message ID", type: "text" }],
   },
   {
     type: "microsoft-outlook_action_search_email",
@@ -1054,7 +1075,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Communication",
     isTrigger: false,
     requiredScopes: ["Mail.Read"],
-    configSchema: [{ key: "query", label: "Search Query", type: "text" }],
+    configSchema: [{ name: "query", label: "Search Query", type: "text" }],
   },
 
   // Teams / Slack / Discord Triggers and Actions
@@ -1066,7 +1087,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "slack",
     category: "Communication",
     isTrigger: true,
-    configSchema: [{ key: "command", label: "Command", type: "text" }],
+    configSchema: [{ name: "command", label: "Command", type: "text" }],
   },
   {
     type: "slack_action_post_interactive",
@@ -1078,8 +1099,8 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     isTrigger: false,
     requiredScopes: ["chat:write"],
     configSchema: [
-      { key: "channelId", label: "Channel ID", type: "text" },
-      { key: "blocks", label: "Blocks (JSON)", type: "textarea" },
+      { name: "channelId", label: "Channel ID", type: "text" },
+      { name: "blocks", label: "Blocks (JSON)", type: "textarea" },
     ],
   },
   {
@@ -1092,9 +1113,9 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     isTrigger: false,
     requiredScopes: ["reactions:write"],
     configSchema: [
-      { key: "channelId", label: "Channel ID", type: "text" },
-      { key: "timestamp", label: "Message Timestamp", type: "text" },
-      { key: "reaction", label: "Reaction", type: "text" },
+      { name: "channelId", label: "Channel ID", type: "text" },
+      { name: "timestamp", label: "Message Timestamp", type: "text" },
+      { name: "reaction", label: "Reaction", type: "text" },
     ],
   },
   {
@@ -1105,7 +1126,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "discord",
     category: "Communication",
     isTrigger: true,
-    configSchema: [{ key: "command", label: "Command", type: "text" }],
+    configSchema: [{ name: "command", label: "Command", type: "text" }],
   },
   {
     type: "discord_action_post_interactive",
@@ -1117,8 +1138,8 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     isTrigger: false,
     requiredScopes: ["bot"],
     configSchema: [
-      { key: "channelId", label: "Channel ID", type: "text" },
-      { key: "embeds", label: "Embeds (JSON)", type: "textarea" },
+      { name: "channelId", label: "Channel ID", type: "text" },
+      { name: "embeds", label: "Embeds (JSON)", type: "textarea" },
     ],
   },
   {
@@ -1131,9 +1152,9 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     isTrigger: false,
     requiredScopes: ["bot"],
     configSchema: [
-      { key: "channelId", label: "Channel ID", type: "text" },
-      { key: "messageId", label: "Message ID", type: "text" },
-      { key: "emoji", label: "Emoji", type: "text" },
+      { name: "channelId", label: "Channel ID", type: "text" },
+      { name: "messageId", label: "Message ID", type: "text" },
+      { name: "emoji", label: "Emoji", type: "text" },
     ],
   },
 
