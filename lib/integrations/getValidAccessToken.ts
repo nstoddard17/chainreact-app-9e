@@ -1,13 +1,15 @@
-import { getAdminSupabaseClient } from "@/lib/supabase/admin"
+import { createSupabaseServerClient } from "@/utils/supabase/server"
 import { refreshTokenIfNeeded } from "./tokenRefresher"
+import { Integration } from "./tokenRefresher"
 
-interface TokenResult {
+export interface TokenResult {
   valid: boolean
   accessToken?: string
   requiresReauth: boolean
   message: string
   provider: string
   userId: string
+  token?: Integration
 }
 
 /**
@@ -16,7 +18,7 @@ interface TokenResult {
  */
 export async function getValidAccessToken(userId: string, provider: string): Promise<TokenResult> {
   try {
-    const supabase = getAdminSupabaseClient()
+    const supabase = createSupabaseServerClient()
     if (!supabase) {
       return {
         valid: false,
@@ -48,9 +50,10 @@ export async function getValidAccessToken(userId: string, provider: string): Pro
 
     // Check if token needs refresh
     const refreshResult = await refreshTokenIfNeeded(integration)
+    const finalIntegration = refreshResult.updatedIntegration || integration
 
     // If refresh failed and we don't have a refresh token, require reauth
-    if (!refreshResult.success && !integration.refresh_token) {
+    if (!refreshResult.success && !finalIntegration.refresh_token) {
       // Create a notification for the user
       await supabase.rpc("create_token_expiry_notification", {
         p_user_id: userId,
@@ -64,7 +67,7 @@ export async function getValidAccessToken(userId: string, provider: string): Pro
           status: "disconnected",
           updated_at: new Date().toISOString(),
         })
-        .eq("id", integration.id)
+        .eq("id", finalIntegration.id)
 
       return {
         valid: false,
@@ -78,11 +81,12 @@ export async function getValidAccessToken(userId: string, provider: string): Pro
     // Return the current token (which may have been refreshed)
     return {
       valid: true,
-      accessToken: refreshResult.newToken || integration.access_token,
+      accessToken: finalIntegration.access_token,
       requiresReauth: false,
       message: refreshResult.refreshed ? "Token was refreshed" : "Token is valid",
       provider,
       userId,
+      token: finalIntegration,
     }
   } catch (error: any) {
     console.error(`Error getting valid access token for ${provider}:`, error)

@@ -23,6 +23,7 @@ interface RefreshResult {
   newRefreshTokenExpiry?: number
   requiresReconnect?: boolean
   recovered?: boolean
+  updatedIntegration?: Integration
 }
 
 export async function refreshTokenIfNeeded(integration: Integration): Promise<RefreshResult> {
@@ -147,7 +148,24 @@ export async function refreshTokenIfNeeded(integration: Integration): Promise<Re
 
       if (error) {
         console.error("Failed to update integration after token refresh:", error)
+        // Even if DB update fails, return success because token was technically refreshed
+        return { ...result, refreshed: true }
       }
+
+      // Fetch the updated integration to return it
+      const { data: updatedIntegration, error: fetchError } = await supabase
+        .from("integrations")
+        .select("*")
+        .eq("id", integration.id)
+        .single()
+
+      if (fetchError) {
+        console.error("Failed to fetch updated integration:", fetchError)
+        // Return original result if fetch fails
+        return { ...result, refreshed: true }
+      }
+
+      return { ...result, refreshed: true, updatedIntegration }
     } else if (result.requiresReconnect) {
       // Mark integration as disconnected
       const supabase = createAdminClient()

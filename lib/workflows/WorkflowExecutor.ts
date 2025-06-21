@@ -1,8 +1,9 @@
-import { getValidAccessToken } from "@/lib/integrations/getValidAccessToken"
-import { getAdminSupabaseClient } from "@/lib/supabase/admin"
+import { getValidAccessToken, TokenResult } from "@/lib/integrations/getValidAccessToken"
+import { createSupabaseServerClient } from "@/utils/supabase/server"
 import { TokenAuditLogger } from "../integrations/TokenAuditLogger"
 import { decrypt } from "@/lib/security/encryption"
 import { getSecret } from "@/lib/secrets"
+import { executeAction } from "./executeNode"
 
 interface WorkflowContext {
   workflowId: string
@@ -27,15 +28,14 @@ export class WorkflowExecutor {
    * Automatically handles token refresh and pauses for reauth if needed
    */
   async executeWorkflow(context: WorkflowContext): Promise<WorkflowResult> {
+    let executionId
     try {
       const logger = new TokenAuditLogger()
+      const supabase = createSupabaseServerClient()
 
-      const supabase = getAdminSupabaseClient()
-
-      // Step 1: Fetch workflow definition to get the trigger node
       const { data: workflow, error: workflowError } = await supabase
         .from("workflows")
-        .select("*, nodes:workflow_nodes(*)")
+        .select("*, nodes:workflow_nodes(*), edges:workflow_edges(*)")
         .eq("id", context.workflowId)
         .single()
 
@@ -43,37 +43,38 @@ export class WorkflowExecutor {
         throw new Error(`Workflow with id ${context.workflowId} not found.`)
       }
 
-      const triggerNode = workflow.nodes.find(node => node.data.isTrigger)
+      const triggerNode = workflow.nodes.find((node: any) => node.data.isTrigger)
 
-      // Step 2: Evaluate trigger conditions
       const triggerConditionsMet = await this.evaluateTrigger(triggerNode, context.input)
       if (!triggerConditionsMet) {
         return {
-          success: true, // Not an error, just not triggered
+          success: true,
           message: "Trigger conditions not met",
           pausedForReauth: false,
         }
       }
 
-      // Log the start of the execution
-      // Validate all required integrations first
+      const requiredIntegrations = workflow.nodes
+        .map((node: any) => node.data.providerId)
+        .filter((providerId: any): providerId is string => !!providerId)
+
       const integrationResults = await Promise.all(
-        context.integrations.map((provider) => getValidAccessToken(context.userId, provider)),
+        [...new Set(requiredIntegrations)].map((provider: string) =>
+          getValidAccessToken(context.userId, provider)
+        )
       )
 
-      // Check if any integrations require reauth
       const missingIntegrations = integrationResults
-        .filter((result) => !result.valid && result.requiresReauth)
-        .map((result) => result.provider)
+        .filter((result: any) => !result.valid && result.requiresReauth)
+        .map((result: any) => result.provider)
 
       if (missingIntegrations.length > 0) {
-        // Create a workflow execution record with paused status
-        await this.createExecutionRecord(context.workflowId, "paused", {
+        // This execution ID is for a paused workflow
+        const pausedExecutionId = await this.createExecutionRecord(context.workflowId, "paused", {
           reason: "missing_integrations",
           missingIntegrations,
           input: context.input,
         })
-
         return {
           success: false,
           message: "Workflow paused due to missing integrations",
@@ -82,21 +83,12 @@ export class WorkflowExecutor {
         }
       }
 
-      // All integrations are valid, create execution record
-      const executionId = await this.createExecutionRecord(context.workflowId, "running", {
+      executionId = await this.createExecutionRecord(context.workflowId, "running", {
         input: context.input,
       })
 
-      // Execute the workflow (this would be your actual workflow execution logic)
-      // For now, we'll just simulate a successful execution
-      const result = {
-        success: true,
-        message: "Workflow executed successfully",
-        pausedForReauth: false,
-        output: { executionId, ...context.input },
-      }
+      const result = await this.traverseAndExecute(workflow, executionId, context)
 
-      // Update execution record with success
       await this.updateExecutionRecord(executionId, "completed", {
         output: result.output,
       })
@@ -104,7 +96,11 @@ export class WorkflowExecutor {
       return result
     } catch (error: any) {
       console.error("Error executing workflow:", error)
-
+      if (executionId) {
+        await this.updateExecutionRecord(executionId, "failed", {
+          error: error.message,
+        })
+      }
       return {
         success: false,
         message: `Workflow execution failed: ${error.message}`,
@@ -114,19 +110,12 @@ export class WorkflowExecutor {
     }
   }
 
-  /**
-   * Creates a workflow execution record
-   */
   private async createExecutionRecord(
     workflowId: string,
     status: "pending" | "running" | "completed" | "failed" | "paused",
-    data?: Record<string, any>,
+    data?: Record<string, any>
   ): Promise<string> {
-    const supabase = getAdminSupabaseClient()
-    if (!supabase) {
-      throw new Error("Failed to create database client")
-    }
-
+    const supabase = createSupabaseServerClient()
     const { data: execution, error } = await supabase
       .from("workflow_executions")
       .insert({
@@ -137,74 +126,94 @@ export class WorkflowExecutor {
       })
       .select()
       .single()
-
-    if (error) {
-      throw new Error(`Failed to create execution record: ${error.message}`)
-    }
-
+    if (error) throw new Error(`Failed to create execution record: ${error.message}`)
     return execution.id
   }
 
-  /**
-   * Updates a workflow execution record
-   */
   private async updateExecutionRecord(
     executionId: string,
     status: "pending" | "running" | "completed" | "failed" | "paused",
-    data?: Record<string, any>,
+    data?: Record<string, any>
   ): Promise<void> {
-    const supabase = getAdminSupabaseClient()
-    if (!supabase) {
-      throw new Error("Failed to create database client")
-    }
-
+    const supabase = createSupabaseServerClient()
     const updateData: any = {
       status,
       updated_at: new Date().toISOString(),
     }
-
     if (status === "completed" || status === "failed") {
       updateData.completed_at = new Date().toISOString()
     }
-
     if (data) {
       updateData.execution_data = data
     }
-
     const { error } = await supabase.from("workflow_executions").update(updateData).eq("id", executionId)
+    if (error) throw new Error(`Failed to update execution record: ${error.message}`)
+  }
 
-    if (error) {
-      throw new Error(`Failed to update execution record: ${error.message}`)
+  private async traverseAndExecute(
+    workflow: any,
+    executionId: string,
+    context: WorkflowContext
+  ): Promise<WorkflowResult> {
+    const triggerNode = workflow.nodes.find((node: any) => node.data.isTrigger)
+    if (!triggerNode) throw new Error("No trigger node found in the workflow.")
+
+    const edges = workflow.edges || []
+    let currentNodeId = edges.find((edge: any) => edge.source === triggerNode.id)?.target
+    let currentInput = context.input || {}
+    const outputs = []
+
+    while (currentNodeId) {
+      const currentNode = workflow.nodes.find((node: any) => node.id === currentNodeId)
+      if (!currentNode) {
+        throw new Error(`Node with ID ${currentNodeId} not found.`)
+      }
+
+      try {
+        const result = await executeAction({
+          node: currentNode,
+          input: currentInput,
+          userId: context.userId,
+          workflowId: context.workflowId,
+        })
+
+        if (!result.success) {
+          throw new Error(result.message)
+        }
+
+        currentInput = result.output
+        outputs.push(result.output)
+
+        const nextEdge = edges.find((edge: any) => edge.source === currentNodeId)
+        currentNodeId = nextEdge ? nextEdge.target : null
+      } catch (error: any) {
+        throw error
+      }
+    }
+
+    return {
+      success: true,
+      message: "Workflow executed successfully",
+      pausedForReauth: false,
+      output: { executionId, finalOutput: currentInput, allOutputs: outputs },
     }
   }
 
   private async getIntegration(integrationId: string): Promise<any> {
-    const supabase = getAdminSupabaseClient()
-    const { data, error } = await supabase
-      .from("integrations")
-      .select()
-      .eq("id", integrationId)
-      .single()
-
-    if (error) {
-      throw new Error(`Failed to get integration: ${error.message}`)
-    }
-
+    const supabase = createSupabaseServerClient()
+    const { data, error } = await supabase.from("integrations").select().eq("id", integrationId).single()
+    if (error) throw new Error(`Failed to get integration: ${error.message}`)
     return data
   }
 
-  private async updateStepExecution(
-    stepExecutionId: string,
-    updates: Record<string, any>,
-  ): Promise<void> {
-    const supabase = getAdminSupabaseClient()
+  private async updateStepExecution(stepExecutionId: string, updates: Record<string, any>): Promise<void> {
+    const supabase = createSupabaseServerClient()
     await supabase.from("step_executions").update(updates).eq("id", stepExecutionId)
   }
 
   private async getDecryptedAccessToken(integration: any): Promise<string> {
     if (integration.access_token) {
       try {
-        const supabase = getAdminSupabaseClient()
         const secret = await getSecret("encryption_key")
         return await decrypt(integration.access_token, secret)
       } catch (error: any) {
@@ -216,104 +225,27 @@ export class WorkflowExecutor {
 
   private async evaluateTrigger(triggerNode: any, input?: Record<string, any>): Promise<boolean> {
     if (!triggerNode || !input) {
-      // If no input or trigger, assume it's a manual trigger or not event-based
       return true
     }
 
     const { type, config } = triggerNode.data
-
     switch (type) {
       case "gmail_trigger_new_email":
         const fromFilter = config?.from?.toLowerCase()
         const subjectFilter = config?.subject?.toLowerCase()
-
-        if (fromFilter && !input.from?.toLowerCase().includes(fromFilter)) {
-          return false
-        }
-        if (subjectFilter && !input.subject?.toLowerCase().includes(subjectFilter)) {
-          return false
-        }
-        if (config?.hasAttachment === "yes" && !input.hasAttachment) {
-          return false
-        }
-        if (config?.hasAttachment === "no" && input.hasAttachment) {
-          return false
-        }
+        if (fromFilter && !input.from?.toLowerCase().includes(fromFilter)) return false
+        if (subjectFilter && !input.subject?.toLowerCase().includes(subjectFilter)) return false
+        if (config?.hasAttachment === "yes" && !input.hasAttachment) return false
+        if (config?.hasAttachment === "no" && input.hasAttachment) return false
         return true
-
       case "gmail_trigger_new_attachment":
-        if (!input.hasAttachment) {
-          // This trigger requires an attachment
-          return false
-        }
+        if (!input.hasAttachment) return false
         const fromFilterAttach = config?.from?.toLowerCase()
         const attachmentNameFilter = config?.attachmentName?.toLowerCase()
-
-        if (fromFilterAttach && !input.from?.toLowerCase().includes(fromFilterAttach)) {
-          return false
-        }
-        if (attachmentNameFilter && !input.attachmentName?.toLowerCase().includes(attachmentNameFilter)) {
-          return false
-        }
+        if (fromFilterAttach && !input.from?.toLowerCase().includes(fromFilterAttach)) return false
+        if (attachmentNameFilter && !input.attachmentName?.toLowerCase().includes(attachmentNameFilter)) return false
         return true
-
-      case "google_calendar_trigger_new_event":
-      case "google_calendar_trigger_event_updated":
-      case "google_calendar_trigger_event_canceled":
-        if (config?.calendarId && input.calendarId !== config.calendarId) {
-          return false
-        }
-        return true
-
-      case "google_drive_trigger_new_file":
-      case "google_drive_trigger_file_updated":
-        if (config?.folderId && input.folderId !== config.folderId) {
-          return false
-        }
-        return true
-
-      case "google_drive_trigger_new_comment":
-        if (config?.fileId && input.fileId !== config.fileId) {
-          return false
-        }
-        return true
-
-      case "google_sheets_trigger_new_row":
-      case "google_sheets_trigger_updated_row":
-        if (config?.spreadsheetId && input.spreadsheetId !== config.spreadsheetId) {
-          return false
-        }
-        if (config?.sheetName && input.sheetName !== config.sheetName) {
-          return false
-        }
-        return true
-
-      case "google_sheets_trigger_new_worksheet":
-        if (config?.spreadsheetId && input.spreadsheetId !== config.spreadsheetId) {
-          return false
-        }
-        return true
-
-      case "slack_trigger_new_message":
-        if (config?.channelId && input.channelId !== config.channelId) {
-          return false
-        }
-        return true
-
-      case "slack_trigger_new_reaction":
-        if (config?.channelId && input.channelId !== config.channelId) {
-          return false
-        }
-        if (config?.emoji && input.emoji !== config.emoji) {
-          return false
-        }
-        return true
-
-      // Add other trigger cases here
-      // e.g., case "slack_trigger_new_message":
-
       default:
-        // By default, if no specific trigger logic, allow execution
         return true
     }
   }
