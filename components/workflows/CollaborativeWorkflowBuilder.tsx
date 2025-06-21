@@ -248,7 +248,9 @@ const useWorkflowBuilderState = () => {
       setEdges(initialEdges)
       setTimeout(() => fitView({ padding: 0.2, duration: 300 }), 100)
     } else if (!workflowId) {
-      setNodes([]); setEdges([]); setShowTriggerDialog(true)
+      setNodes([])
+      setEdges([])
+      // Don't automatically show the trigger dialog, let the user click the button
     }
   }, [currentWorkflow, fitView, handleAddActionClick, handleConfigureNode, handleDeleteNode, setCurrentWorkflow, setEdges, setNodes, workflowId])
 
@@ -408,14 +410,16 @@ function WorkflowBuilderContent() {
       >
         <Background variant={BackgroundVariant.Dots} gap={12} size={1} color="#e2e8f0" />
         <Controls className="left-4 bottom-4 top-auto" />
-        <MiniMap nodeColor={(n) => n.data?.isTrigger ? '#4285F4' : '#64748b'} />
         <CollaboratorCursors collaborators={collaborators || []} />
         {isExecuting && executionEvents.length > 0 && <ExecutionMonitor events={executionEvents} />}
         
         {nodes.length === 0 && (
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <div className="w-16 h-16 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center mb-6">
-              <Plus className="h-8 w-8 text-gray-400" />
+            <div 
+              className="w-16 h-16 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center mb-6 cursor-pointer hover:border-gray-400"
+              onClick={() => setShowTriggerDialog(true)}
+            >
+              <Plus className="h-8 w-8 text-gray-400 hover:text-gray-500" />
             </div>
             <h2 className="text-[32px] font-bold mb-2">Start your Chain</h2>
             <p className="text-gray-600 mb-6 text-center leading-relaxed">
