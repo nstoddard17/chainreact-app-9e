@@ -44,7 +44,7 @@ const Node = ({ component, available }: { component: NodeComponent; available: b
           >
             {component.providerId ? (
               <img
-                src={`/public/integrations/${component.providerId}.svg`}
+                src={`/integrations/${component.providerId}.svg`}
                 alt={`${component.title} logo`}
                 className="h-6 w-6 object-contain"
               />

@@ -93,7 +93,7 @@ export function IntegrationCard({ provider, integration, status }: IntegrationCa
   const { icon: statusIcon, badgeClass, action: statusAction } = getStatusUi()
 
   const renderLogo = () => {
-    const logoPath = `/public/integrations/${provider.id}.svg`
+    const logoPath = `/integrations/${provider.id}.svg`
     return (
       <img
         src={logoPath}
