@@ -16,10 +16,18 @@ interface ConfigurationModalProps {
   onSave: (config: Record<string, any>) => void
   nodeInfo: NodeComponent | null
   integrationName: string
+  initialData?: Record<string, any>
 }
 
-export default function ConfigurationModal({ isOpen, onClose, onSave, nodeInfo, integrationName }: ConfigurationModalProps) {
-  const [config, setConfig] = useState<Record<string, any>>({})
+export default function ConfigurationModal({
+  isOpen,
+  onClose,
+  onSave,
+  nodeInfo,
+  integrationName,
+  initialData = {},
+}: ConfigurationModalProps) {
+  const [config, setConfig] = useState<Record<string, any>>(initialData)
   const { loadIntegrationData, getIntegrationByProvider } = useIntegrationStore()
   const [dynamicOptions, setDynamicOptions] = useState<
     Record<string, { value: string; label: string }[]>
@@ -29,14 +37,15 @@ export default function ConfigurationModal({ isOpen, onClose, onSave, nodeInfo, 
   useEffect(() => {
     if (isOpen && nodeInfo) {
       // Initialize config with default or existing values
-      const initialConfig = nodeInfo.configSchema?.reduce(
-        (acc, field) => {
-          acc[field.name] = "" // Set a default empty value
-          return acc
-        },
-        {} as Record<string, any>,
-      )
-      setConfig(initialConfig || {})
+      const initialConfig =
+        nodeInfo.configSchema?.reduce(
+          (acc, field) => {
+            acc[field.name] = initialData[field.name] || "" // Use initialData or default
+            return acc
+          },
+          {} as Record<string, any>,
+        ) || {}
+      setConfig(initialConfig)
 
       // Fetch dynamic data if needed
       const fetchDynamicData = async () => {
@@ -107,7 +116,7 @@ export default function ConfigurationModal({ isOpen, onClose, onSave, nodeInfo, 
 
       fetchDynamicData()
     }
-  }, [isOpen, nodeInfo, loadIntegrationData, getIntegrationByProvider])
+  }, [isOpen, nodeInfo, loadIntegrationData, getIntegrationByProvider, initialData])
 
   if (!nodeInfo) {
     return null
