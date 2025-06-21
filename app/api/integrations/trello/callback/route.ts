@@ -1,35 +1,57 @@
 import { type NextRequest } from "next/server"
-import { createAdminClient } from "@/lib/supabase/admin"
 import { createPopupResponse } from "@/lib/utils/createPopupResponse"
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 
-function createTrelloInitialPage(baseUrl: string) {
+function createTrelloInitialPage(baseUrl: string, state: string | null) {
   const html = `
     <!DOCTYPE html>
     <html>
       <head>
         <title>Connecting to Trello...</title>
         <script>
-          // The Trello token is in the URL hash, so we need to parse it from there.
-          const hash = window.location.hash.substring(1);
-          const params = new URLSearchParams(hash);
-          const token = params.get('token');
-          const state = params.get('state');
+          async function processTrelloAuth() {
+            const hash = window.location.hash.substring(1);
+            const params = new URLSearchParams(hash);
+            const token = params.get('token');
+            const stateFromUrl = '${state}'; // Use state passed from server
 
-          if (token && state) {
-              // Forward the token and state to the server-side callback as query params
-              const serverCallbackUrl = new URL('${baseUrl}/api/integrations/trello/callback');
-              serverCallbackUrl.searchParams.set('token', token);
-              serverCallbackUrl.searchParams.set('state', state);
-              window.location.href = serverCallbackUrl.href;
-          } else if (window.opener) {
-              window.opener.postMessage({
-                  type: 'oauth-error',
-                  provider: 'trello',
-                  message: 'Trello authentication failed. Token not found.'
-              }, '${baseUrl}');
-              setTimeout(() => window.close(), 1000);
+            if (token && stateFromUrl) {
+              try {
+                const stateData = JSON.parse(atob(stateFromUrl));
+                const { userId } = stateData;
+
+                if (!userId) {
+                  throw new Error('User ID not found in state');
+                }
+
+                const response = await fetch('/api/integrations/trello/process-token', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ token, userId }),
+                });
+
+                if (!response.ok) {
+                  const errorData = await response.json();
+                  throw new Error(errorData.error || 'Failed to process Trello token.');
+                }
+                
+                if (window.opener) {
+                   window.opener.postMessage({ type: 'oauth-success', provider: 'trello', message: 'Trello connected successfully!' }, '${baseUrl}');
+                }
+
+              } catch (error) {
+                if (window.opener) {
+                  window.opener.postMessage({ type: 'oauth-error', provider: 'trello', message: error.message || 'An unknown error occurred.' }, '${baseUrl}');
+                }
+              } finally {
+                setTimeout(() => window.close(), 500);
+              }
+            } else if (window.opener) {
+                window.opener.postMessage({ type: 'oauth-error', provider: 'trello', message: 'Trello authentication failed. Token not found.' }, '${baseUrl}');
+                setTimeout(() => window.close(), 1000);
+            }
           }
+          processTrelloAuth();
         </script>
       </head>
       <body>
@@ -42,7 +64,8 @@ function createTrelloInitialPage(baseUrl: string) {
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
-  const token = searchParams.get("token")
+  // Trello provides the token in the URL fragment, not search params.
+  // The state IS available in the query params on the first redirect.
   const state = searchParams.get("state")
   const error = searchParams.get("error")
   const errorDescription = searchParams.get("error_description")
@@ -54,48 +77,7 @@ export async function GET(request: NextRequest) {
     return createPopupResponse("error", provider, errorDescription || "An unknown error occurred.", baseUrl)
   }
 
-  // If token and state are missing, it's the initial call from Trello.
-  // We return a page with JS to extract them from the URL hash and redirect.
-  if (!token || !state) {
-    return createTrelloInitialPage(baseUrl)
-  }
-
-  // This part of the code now runs after the client-side script has extracted the token and state
-  try {
-    const supabaseAdmin = createAdminClient()
-    const stateData = JSON.parse(atob(state))
-    const { userId } = stateData
-
-    if (!userId) {
-      throw new Error("Missing userId in Trello state")
-    }
-
-    const accessToken = token
-
-    const integrationData = {
-      user_id: userId,
-      provider: "trello",
-      access_token: accessToken,
-      refresh_token: null, // Trello doesn't provide a refresh token in this flow
-      expires_at: null, // Trello tokens don't expire unless manually revoked
-      // These scopes correspond to the ones requested in the auth URL generation
-      // and are required to enable full Power-Up functionality.
-      scopes: '{read,write,account}',
-      status: "connected",
-      updated_at: new Date().toISOString(),
-    }
-
-    const { error: upsertError } = await supabaseAdmin.from("integrations").upsert(integrationData, {
-      onConflict: "user_id, provider",
-    })
-
-    if (upsertError) {
-      throw new Error(`Failed to save Trello integration: ${upsertError.message}`)
-    }
-
-    return createPopupResponse("success", provider, "Successfully connected to Trello.", baseUrl)
-  } catch (e: any) {
-    console.error("Trello callback error:", e)
-    return createPopupResponse("error", provider, e.message || "An unexpected error occurred.", baseUrl)
-  }
+  // The GET request only serves the initial HTML page.
+  // The client-side script will extract the token from the hash and call the process-token API endpoint.
+  return createTrelloInitialPage(baseUrl, state)
 }
