@@ -50,8 +50,7 @@ import {
   Trash2,
   AlertCircle,
   ArrowLeft,
-  Plus,
-  ArrowRight
+  Plus
 } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import {
@@ -747,7 +746,7 @@ export default function CollaborativeWorkflowBuilder() {
             setShowTriggerDialog(true);
           }
         }}>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="max-w-4xl h-[70vh] flex flex-col">
             <DialogHeader>
               <DialogTitle>
                 {selectedIntegration ? `Select a trigger for ${selectedIntegration.name}` : 'Select an Integration'}
@@ -758,9 +757,9 @@ export default function CollaborativeWorkflowBuilder() {
                   : 'Choose an application to connect to.'}
               </DialogDescription>
             </DialogHeader>
-            <div className="flex-grow overflow-y-auto p-1">
+            <div className="flex-grow overflow-y-auto p-4">
               {!selectedIntegration ? (
-                <div className="flex flex-col gap-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                   {Object.values(INTEGRATION_CONFIGS)
                     .filter(integration =>
                       ALL_NODE_COMPONENTS.some(
@@ -770,39 +769,34 @@ export default function CollaborativeWorkflowBuilder() {
                     .map(integration => (
                       <Card
                         key={integration.id}
-                        className="p-3 flex items-center gap-4 cursor-pointer hover:bg-slate-50 transition-colors"
+                        className="p-4 flex flex-col items-center justify-center text-center cursor-pointer hover:shadow-lg transition-all"
                         onClick={() => setSelectedIntegration(integration)}
                       >
                         {renderLogo(integration.id, integration.name)}
-                        <div className="flex-1">
-                          <h3 className="font-semibold">{integration.name}</h3>
-                          <p className="text-xs text-slate-500">{integration.description}</p>
-                        </div>
-                        <ArrowRight className="w-4 h-4 text-slate-400" />
+                        <h3 className="mt-3 font-semibold">{integration.name}</h3>
+                        <p className="text-xs text-slate-500 mt-1">{integration.description}</p>
                       </Card>
                     ))}
                 </div>
               ) : (
                 <div>
-                  <Button variant="ghost" onClick={() => setSelectedIntegration(null)} className="mb-2 -ml-4">
+                  <Button variant="ghost" onClick={() => setSelectedIntegration(null)} className="mb-4">
                     <ArrowLeft className="w-4 h-4 mr-2" /> Back to Integrations
                   </Button>
-                  <div className="flex flex-col gap-2">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {ALL_NODE_COMPONENTS.filter(
                       component => component.providerId === selectedIntegration.id && component.isTrigger
                     ).map(component => (
                       <Card
                         key={component.type}
-                        className="p-3 cursor-pointer hover:bg-slate-50 transition-colors"
+                        className="p-4 flex flex-col items-start text-left cursor-pointer hover:shadow-lg transition-all"
                         onClick={() => handleTriggerSelect(selectedIntegration, component)}
                       >
-                        <div className="flex items-center space-x-3">
-                          <component.icon className="w-5 h-5 text-slate-700" />
-                          <div className="flex-1">
-                            <h3 className="font-semibold">{component.title}</h3>
-                            <p className="text-xs text-slate-500">{component.description}</p>
-                          </div>
+                        <div className="flex items-center space-x-3 mb-2">
+                          <component.icon className="w-6 h-6 text-slate-700" />
+                          <h3 className="font-semibold">{component.title}</h3>
                         </div>
+                        <p className="text-xs text-slate-500">{component.description}</p>
                       </Card>
                     ))}
                   </div>
@@ -821,7 +815,7 @@ export default function CollaborativeWorkflowBuilder() {
             setShowActionDialog(true);
           }
         }}>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="max-w-4xl h-[70vh] flex flex-col">
             <DialogHeader>
               <DialogTitle>
                 {selectedIntegration ? `Select an action for ${selectedIntegration.name}` : 'Select an Integration'}
@@ -832,9 +826,9 @@ export default function CollaborativeWorkflowBuilder() {
                   : 'Choose an application to connect to.'}
               </DialogDescription>
             </DialogHeader>
-            <div className="flex-grow overflow-y-auto p-1">
+            <div className="flex-grow overflow-y-auto p-4">
               {!selectedIntegration ? (
-                <div className="flex flex-col gap-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                   {Object.values(INTEGRATION_CONFIGS)
                     .filter(integration =>
                       ALL_NODE_COMPONENTS.some(
@@ -844,39 +838,34 @@ export default function CollaborativeWorkflowBuilder() {
                     .map(integration => (
                       <Card
                         key={integration.id}
-                        className="p-3 flex items-center gap-4 cursor-pointer hover:bg-slate-50 transition-colors"
+                        className="p-4 flex flex-col items-center justify-center text-center cursor-pointer hover:shadow-lg transition-all"
                         onClick={() => setSelectedIntegration(integration)}
                       >
                         {renderLogo(integration.id, integration.name)}
-                        <div className="flex-1">
-                          <h3 className="font-semibold">{integration.name}</h3>
-                          <p className="text-xs text-slate-500">{integration.description}</p>
-                        </div>
-                        <ArrowRight className="w-4 h-4 text-slate-400" />
+                        <h3 className="mt-3 font-semibold">{integration.name}</h3>
+                        <p className="text-xs text-slate-500 mt-1">{integration.description}</p>
                       </Card>
                     ))}
                 </div>
               ) : (
                 <div>
-                  <Button variant="ghost" onClick={() => setSelectedIntegration(null)} className="mb-2 -ml-4">
+                  <Button variant="ghost" onClick={() => setSelectedIntegration(null)} className="mb-4">
                     <ArrowLeft className="w-4 h-4 mr-2" /> Back to Integrations
                   </Button>
-                  <div className="flex flex-col gap-2">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {ALL_NODE_COMPONENTS.filter(
                       component => component.providerId === selectedIntegration.id && !component.isTrigger
                     ).map(component => (
                       <Card
                         key={component.type}
-                        className="p-3 cursor-pointer hover:bg-slate-50 transition-colors"
+                        className="p-4 flex flex-col items-start text-left cursor-pointer hover:shadow-lg transition-all"
                         onClick={() => handleActionSelect(selectedIntegration, component)}
                       >
-                        <div className="flex items-center space-x-3">
-                          <component.icon className="w-5 h-5 text-slate-700" />
-                          <div className="flex-1">
-                            <h3 className="font-semibold">{component.title}</h3>
-                            <p className="text-xs text-slate-500">{component.description}</p>
-                          </div>
+                        <div className="flex items-center space-x-3 mb-2">
+                          <component.icon className="w-6 h-6 text-slate-700" />
+                          <h3 className="font-semibold">{component.title}</h3>
                         </div>
+                        <p className="text-xs text-slate-500">{component.description}</p>
                       </Card>
                     ))}
                   </div>

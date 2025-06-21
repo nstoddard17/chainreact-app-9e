@@ -20,7 +20,7 @@ function CustomNode({ data, selected }: NodeProps) {
       } hover:shadow-lg transition-all duration-200`}
     >
       <div className="p-4">
-        <div className="flex items-center space-x-3 mb-3">
+        <div className="flex items-center space-x-3">
           <div className="w-10 h-10 rounded-lg flex items-center justify-center">
             {data.providerId ? (
               <img
@@ -32,14 +32,37 @@ function CustomNode({ data, selected }: NodeProps) {
               component && <component.icon className="h-7 w-7" />
             )}
           </div>
-          <div className="flex-1">
-            <div className="font-medium text-slate-900">{data.title}</div>
-            <div className="text-xs text-slate-500">{data.description}</div>
+          <div className="flex-1 font-medium text-slate-900">{data.title}</div>
+          <div className="flex items-center">
+            {component?.configSchema && component.configSchema.length > 0 && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={(e) => { e.stopPropagation(); data.onConfigure?.(data.id); }}
+                className="h-8 w-8 text-slate-500 hover:bg-slate-100"
+              >
+                <Settings className="w-4 h-4" />
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={(e) => { e.stopPropagation(); data.onDelete?.(data.id); }}
+              className="h-8 w-8 text-slate-500 hover:bg-slate-100"
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
           </div>
         </div>
 
+        {data.description && (
+          <div className="text-xs text-slate-500 mt-2 pl-13">
+            {data.description}
+          </div>
+        )}
+
         {data.status && (
-          <div className="mb-2">
+          <div className="mt-2">
             <Badge
               variant={data.status === "connected" ? "default" : "secondary"}
               className={`text-xs ${
@@ -66,29 +89,6 @@ function CustomNode({ data, selected }: NodeProps) {
             )}
           </div>
         )}
-      </div>
-
-      <div className="flex items-center justify-end space-x-2 px-4 pb-4">
-        {component?.configSchema && component.configSchema.length > 0 && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => data.onConfigure?.(data.id)}
-            className="flex items-center space-x-1"
-          >
-            <Settings className="w-4 h-4" />
-            <span>Configure</span>
-          </Button>
-        )}
-        <Button
-          variant="destructive"
-          size="sm"
-          onClick={() => data.onDelete?.(data.id)}
-          className="flex items-center space-x-1"
-        >
-          <Trash2 className="w-4 h-4" />
-          <span>Delete</span>
-        </Button>
       </div>
 
       {/* Input Handle - not for triggers */}
