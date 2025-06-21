@@ -124,8 +124,8 @@ const getIntegrationsFromNodes = () => {
 }
 
 const nodeTypes: NodeTypes = {
-  custom: CustomNode,
-  addAction: AddActionNode,
+  custom: CustomNode as React.ComponentType<NodeProps>,
+  addAction: AddActionNode as React.ComponentType<NodeProps>,
 };
 
 export default function CollaborativeWorkflowBuilder() {
@@ -235,6 +235,7 @@ export default function CollaborativeWorkflowBuilder() {
       }
       
       await saveWorkflow(updatedWorkflow)
+      await fetchWorkflows()
       originalWorkflowName.current = workflowName; 
       toast({
         title: "Workflow Saved",
@@ -251,7 +252,7 @@ export default function CollaborativeWorkflowBuilder() {
     } finally {
       setIsSaving(false)
     }
-  }, [currentWorkflow, workflowName, saveWorkflow, toast])
+  }, [currentWorkflow, workflowName, saveWorkflow, toast, fetchWorkflows])
 
   const handleNameChangeCommit = useCallback(() => {
     setIsEditingName(false);
@@ -316,115 +317,71 @@ export default function CollaborativeWorkflowBuilder() {
     setShowActionDialog(true)
   }, [])
 
-  const onNodesChangeCustom = useCallback((changes: NodeChange[]) => {
-    const removeChange = changes.find(change => change.type === 'remove');
-
-    if (removeChange) {
-      const nodeIdToRemove = removeChange.id;
-      const nodeToRemove = nodesRef.current.find(n => n.id === nodeIdToRemove);
-
-      if (nodeToRemove && nodeToRemove.type === 'custom') {
-        const incomingEdge = edgesRef.current.find(e => e.target === nodeIdToRemove);
-        const outgoingEdge = edgesRef.current.find(e => e.source === nodeIdToRemove);
-        const successorNode = outgoingEdge ? nodesRef.current.find(n => n.id === outgoingEdge.target) : undefined;
-
-        if (incomingEdge && outgoingEdge && successorNode && successorNode.type === 'addAction') {
-          const predecessorNode = nodesRef.current.find(n => n.id === incomingEdge.source);
-
-          if (predecessorNode) {
-            const newNodes = nodesRef.current
-              .map(n => {
-                if (n.id === successorNode.id) {
-                  return { ...n, position: { x: predecessorNode.position.x, y: predecessorNode.position.y + 150 } };
-                }
-                return n;
-              })
-              .filter(n => n.id !== nodeIdToRemove);
-
-            const newEdge: Edge = {
-              id: `${predecessorNode.id}-${successorNode.id}`,
-              source: predecessorNode.id,
-              target: successorNode.id,
-              animated: true,
-              style: { stroke: '#b1b1b7', strokeWidth: 2, strokeDasharray: '5,5' },
-              type: 'straight',
-            };
-
-            const newEdges = edgesRef.current.filter(e => e.id !== incomingEdge.id && e.id !== outgoingEdge.id);
-            newEdges.push(newEdge);
-
-            setNodes(newNodes);
-            setEdges(newEdges);
-            return;
-          }
-        }
-      }
-    }
-
-    onNodesChange(changes);
-  }, [onNodesChange, setNodes, setEdges]);
-
   const onNodeDragStop = useCallback((event: React.MouseEvent, node: Node) => {
+    // We only care about custom nodes being dragged
+    if (node.type !== 'custom') return;
+
     const sortedNodes = nodesRef.current
-      .filter(n => n.type === 'custom' || n.type === 'addAction')
-      .sort((a, b) => a.position.y - b.position.y)
-    
-    const draggedNodeIndex = sortedNodes.findIndex(n => n.id === node.id)
-    if (draggedNodeIndex === -1) return
+        .filter(n => n.type === 'custom' || n.type === 'addAction')
+        .sort((a, b) => a.position.y - b.position.y);
+
+    const draggedNodeIndex = sortedNodes.findIndex(n => n.id === node.id);
+
+    // This should not happen if the event is for a custom node
+    if (draggedNodeIndex === -1) return;
+
+    let newNodesOrder = [...sortedNodes];
+
+    // Remove the dragged node to re-insert it
+    const [draggedItem] = newNodesOrder.splice(draggedNodeIndex, 1);
 
     // Find the new index based on Y position
-    let newIndex = 0
-    for (let i = 0; i < sortedNodes.length; i++) {
-      if (i !== draggedNodeIndex) {
-        if (node.position.y > sortedNodes[i].position.y) {
-          newIndex = i > draggedNodeIndex ? i : i + 1
+    let newIndex = 0;
+    for (let i = 0; i < newNodesOrder.length; i++) {
+        if (node.position.y > newNodesOrder[i].position.y) {
+            newIndex = i + 1;
         }
-      }
-    }
-    newIndex = Math.min(newIndex, sortedNodes.length - 1)
-
-    if (newIndex === draggedNodeIndex) {
-      // Node didn't change position, just snap it back
-      const updatedNodes = nodesRef.current.map(n => {
-        if (n.id === node.id) {
-          return { ...n, position: sortedNodes[draggedNodeIndex].position }
-        }
-        return n
-      })
-      setNodes(updatedNodes)
-      return
-    }
-
-    const newSortedNodes = [...sortedNodes]
-    const [draggedNode] = newSortedNodes.splice(draggedNodeIndex, 1)
-    newSortedNodes.splice(newIndex, 0, draggedNode)
-
-    const basePosition = newSortedNodes[0].position
-    const updatedNodes = newSortedNodes.map((n, index) => ({
-      ...n,
-      position: { x: basePosition.x, y: basePosition.y + index * 150 },
-    }))
-
-    const newEdges: Edge[] = []
-    for (let i = 0; i < updatedNodes.length - 1; i++) {
-      newEdges.push({
-        id: `${updatedNodes[i].id}-${updatedNodes[i+1].id}`,
-        source: updatedNodes[i].id,
-        target: updatedNodes[i+1].id,
-        animated: true,
-        style: { 
-          stroke: updatedNodes[i+1].type === 'addAction' ? '#b1b1b7' : '#8b5cf6',
-          strokeWidth: 2, 
-          strokeDasharray: updatedNodes[i+1].type === 'addAction' ? '5,5' : undefined 
-        },
-        type: 'straight'
-      })
     }
     
-    setNodes(nodesRef.current.map(n => updatedNodes.find(un => un.id === n.id) || n))
-    setEdges(newEdges)
+    // Insert it at the new position
+    newNodesOrder.splice(newIndex, 0, draggedItem);
+    
+    const triggerNode = nodesRef.current.find(n => n.data.isTrigger);
+    if (!triggerNode) return; // Should always have a trigger
 
-  }, [setNodes, setEdges])
+    const basePosition = triggerNode.position;
+    const verticalGap = 150;
+
+    const updatedNodes = newNodesOrder.map((n, index) => ({
+        ...n,
+        // The trigger node's y position is the baseline
+        position: { x: basePosition.x, y: basePosition.y + index * verticalGap },
+    }));
+
+    const newEdges: Edge[] = [];
+    for (let i = 0; i < updatedNodes.length - 1; i++) {
+        newEdges.push({
+            id: `${updatedNodes[i].id}-${updatedNodes[i+1].id}`,
+            source: updatedNodes[i].id,
+            target: updatedNodes[i+1].id,
+            animated: true,
+            style: {
+                stroke: updatedNodes[i+1].type === 'addAction' ? '#b1b1b7' : '#8b5cf6',
+                strokeWidth: 2,
+                strokeDasharray: updatedNodes[i+1].type === 'addAction' ? '5,5' : undefined
+            },
+            type: 'straight'
+        });
+    }
+
+    setNodes(currentNodes => {
+      // Create a map of the updated nodes for quick lookup
+      const updatedNodesMap = new Map(updatedNodes.map(n => [n.id, n]));
+      // Update positions for re-ordered nodes, keep others as they are
+      return currentNodes.map(n => updatedNodesMap.get(n.id) || n);
+    });
+    setEdges(newEdges);
+}, [setNodes, setEdges]);
 
   const renderLogo = (integrationId: string, integrationName: string) => {
     const logoPath = `/integrations/${integrationId}.svg`
@@ -457,6 +414,7 @@ export default function CollaborativeWorkflowBuilder() {
       if (workflow) {
         setCurrentWorkflow(workflow)
         setWorkflowName(workflow.name || "Untitled Chain")
+        originalWorkflowName.current = workflow.name || "Untitled Chain"
       }
     }
   }, [workflowId, workflows, setCurrentWorkflow])
@@ -602,10 +560,63 @@ export default function CollaborativeWorkflowBuilder() {
   const handleActionSelect = (integration: any, action: NodeComponent) => {
     if (!sourceAddNode) return
 
-    // Don't add the node yet, just open the configuration modal
-    // We set a temporary ID here, the actual ID is created on save
-    setConfiguringNode({ id: 'new-action', integration, nodeComponent: action, config: {} })
+    const { parentId } = sourceAddNode
+    
+    const parentNode = nodesRef.current.find(n => n.id === parentId)
+    if (!parentNode) return
+
+    const newNodeId = `${action.type}-${Date.now()}`
+    const newNode: Node = {
+      id: newNodeId,
+      type: "custom",
+      position: { x: parentNode.position.x, y: parentNode.position.y + 150 },
+      data: {
+        type: action.type,
+        label: action.label,
+        providerId: integration.id,
+        isTrigger: false,
+        config: {},
+        onConfigure: handleConfigureNode,
+        onDelete: handleDeleteNode,
+      },
+    }
+
+    const newAddNodeId = `add-action-${newNodeId}`
+    const newAddNode: Node = {
+      id: newAddNodeId,
+      type: "addAction",
+      position: { x: parentNode.position.x, y: parentNode.position.y + 300 },
+      data: {
+        parentId: newNodeId,
+        onClick: () => handleAddActionClick(newAddNodeId, newNodeId),
+      },
+    }
+
+    const updatedNodes = nodesRef.current.filter(n => n.id !== sourceAddNode.id)
+    updatedNodes.push(newNode, newAddNode)
+
+    const newEdges = edgesRef.current.filter(e => e.target !== sourceAddNode.id)
+    newEdges.push(
+      { id: `${parentId}-${newNodeId}`, source: parentId, target: newNodeId, animated: true, style: { stroke: '#8b5cf6', strokeWidth: 2 } },
+      { id: `${newNodeId}-${newAddNodeId}`, source: newNodeId, target: newAddNodeId, animated: true, style: { stroke: '#b1b1b7', strokeWidth: 2, strokeDasharray: '5,5' } }
+    )
+
+    setNodes(updatedNodes)
+    setEdges(newEdges)
+
     setShowActionDialog(false)
+    setSelectedIntegration(null)
+    setSourceAddNode(null)
+
+    // Automatically open config if needed
+    if (action.configSchema && action.configSchema.length > 0) {
+      setConfiguringNode({
+        id: newNodeId,
+        integration,
+        nodeComponent: action,
+        config: {},
+      })
+    }
   }
 
   const handleSaveConfiguration = (
@@ -775,8 +786,8 @@ export default function CollaborativeWorkflowBuilder() {
         <div className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shadow-sm">
           {/* Left Section */}
           <div className="flex items-center space-x-4">
-            <Button variant="ghost" size="sm" onClick={() => router.back()}>
-              <ArrowLeft className="w-4 h-4" />
+            <Button variant="ghost" size="icon" onClick={() => router.back()}>
+              <ArrowLeft className="h-5 w-5" />
             </Button>
             <div className="flex items-center space-x-3">
               <div className={cn("w-3 h-3 rounded-full", workflowStatus.color)} />
@@ -786,18 +797,21 @@ export default function CollaborativeWorkflowBuilder() {
                   onChange={(e) => setWorkflowName(e.target.value)}
                   onBlur={handleNameChangeCommit}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter") handleNameChangeCommit();
-                    if (e.key === "Escape") {
+                    if (e.key === 'Enter') {
+                      handleNameChangeCommit();
+                      e.currentTarget.blur();
+                    }
+                    if (e.key === 'Escape') {
                       setWorkflowName(originalWorkflowName.current);
                       setIsEditingName(false);
                     }
                   }}
-                  className="text-xl font-bold text-slate-900 bg-transparent border-none p-0 h-auto focus-visible:ring-0"
+                  className="text-2xl font-bold h-9 p-0 bg-transparent border-none focus:ring-0 focus:ring-offset-0 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
                   autoFocus
                 />
               ) : (
-                <h1 
-                  className="text-xl font-bold text-slate-900 cursor-pointer hover:text-slate-700"
+                <h1
+                  className="text-2xl font-bold cursor-pointer h-9 flex items-center"
                   onClick={() => {
                     originalWorkflowName.current = workflowName;
                     setIsEditingName(true);
