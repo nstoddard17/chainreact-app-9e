@@ -48,6 +48,9 @@ export interface NodeComponent {
   category: string
   isTrigger: boolean
   configSchema?: ConfigField[]
+  triggerType?: 'webhook' | 'polling'
+  payloadSchema?: Record<string, any>
+  actionParamsSchema?: Record<string, any>
 }
 
 export const ALL_NODE_COMPONENTS: NodeComponent[] = [
@@ -151,11 +154,24 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "gmail",
     category: "Email",
     isTrigger: true,
+    triggerType: 'webhook',
     configSchema: [
       { key: "from", label: "From", type: "email", placeholder: "Optional: filter by sender" },
       { key: "subject", label: "Subject", type: "text", placeholder: "Optional: filter by subject" },
       { key: "hasAttachment", label: "Has Attachment", type: "select", options: ["any", "yes", "no"] },
     ],
+    payloadSchema: {
+      id: "The unique ID of the email.",
+      threadId: "The ID of the email thread.",
+      labelIds: "An array of label IDs applied to the email.",
+      snippet: "A short snippet of the email's content.",
+      from: "The sender's email address.",
+      to: "The recipient's email address.",
+      subject: "The subject of the email.",
+      body: "The full body of the email (HTML or plain text).",
+      attachments: "An array of attachment objects, if any.",
+      receivedAt: "The timestamp when the email was received.",
+    },
   },
   {
     type: "gmail_trigger_new_attachment",
@@ -196,6 +212,14 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
       { key: "body", label: "Body", type: "textarea", placeholder: "Your email body" },
       { key: "attachment", label: "Attachment URL", type: "text", placeholder: "Optional: URL to a file" },
     ],
+    actionParamsSchema: {
+      to: "The email address of the primary recipient.",
+      cc: "Comma-separated list of CC recipients.",
+      bcc: "Comma-separated list of BCC recipients.",
+      subject: "The subject line of the email.",
+      body: "The email content, which can be plain text or HTML.",
+      attachment: "A URL to a file to be included as an attachment.",
+    },
   },
 
   // Google Calendar

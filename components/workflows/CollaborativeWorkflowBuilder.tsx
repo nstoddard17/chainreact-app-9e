@@ -22,7 +22,7 @@ import {
 } from "@xyflow/react"
 import "@xyflow/react/dist/style.css"
 
-import { useWorkflowStore } from "@/stores/workflowStore"
+import { useWorkflowStore, WorkflowNode } from "@/stores/workflowStore"
 import { useCollaborationStore } from "@/stores/collaborationStore"
 import { useIntegrationStore } from "@/stores/integrationStore"
 import ConfigurationModal from "./ConfigurationModal"
@@ -73,6 +73,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
 import { ALL_NODE_COMPONENTS, NodeComponent } from "@/lib/workflows/availableNodes"
 import { INTEGRATION_CONFIGS } from "@/lib/integrations/availableIntegrations"
@@ -117,6 +118,7 @@ export default function CollaborativeWorkflowBuilder() {
   const [nodes, setNodes, onNodesChange] = useNodesState([] as Node[])
   const [edges, setEdges, onEdgesChange] = useEdgesState([] as Edge[])
   const [saving, setSaving] = useState(false)
+  const [enabling, setEnabling] = useState(false)
   const [executing, setExecuting] = useState(false)
   const [showConflictDialog, setShowConflictDialog] = useState(false)
   const [workflowName, setWorkflowName] = useState("")
@@ -284,12 +286,11 @@ export default function CollaborativeWorkflowBuilder() {
     }
   }, [conflicts])
 
-  const handleSave = async () => {
+  const handleSaveDraft = async () => {
     if (!currentWorkflow) return
 
     setSaving(true)
     try {
-      // First update the current workflow with the current nodes and edges
       const updatedWorkflow = {
         ...currentWorkflow,
         name: workflowName,
@@ -318,6 +319,43 @@ export default function CollaborativeWorkflowBuilder() {
       console.error("Failed to save workflow:", error)
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleEnable = async () => {
+    if (!currentWorkflow) return
+
+    setEnabling(true)
+    try {
+      const updatedWorkflow = {
+        ...currentWorkflow,
+        name: workflowName,
+        nodes: nodes.map(node => ({
+          id: node.id,
+          type: (node.data.type as string) || 'custom',
+          position: node.position,
+          data: {
+            label: (node.data.title as string) || (node.data.label as string) || 'Untitled',
+            type: (node.data.type as string) || 'custom',
+            config: (node.data.config as Record<string, any>) || {}
+          }
+        })),
+        connections: edges.map(edge => ({
+          id: edge.id,
+          source: edge.source,
+          target: edge.target,
+          sourceHandle: edge.sourceHandle || undefined,
+          targetHandle: edge.targetHandle || undefined
+        })),
+        status: 'active'
+      }
+      
+      setCurrentWorkflow(updatedWorkflow)
+      await saveWorkflow()
+    } catch (error) {
+      console.error("Failed to enable workflow:", error)
+    } finally {
+      setEnabling(false)
     }
   }
 
@@ -609,6 +647,20 @@ export default function CollaborativeWorkflowBuilder() {
           <div className="flex items-center space-x-2">
             <Button
               variant="outline"
+              onClick={handleSaveDraft}
+              disabled={saving || enabling}
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  Saving...
+                </>
+              ) : (
+                "Save"
+              )}
+            </Button>
+            <Button
+              variant="outline"
               onClick={handleExecute}
               disabled={executing || nodes.length === 0}
             >
@@ -623,11 +675,16 @@ export default function CollaborativeWorkflowBuilder() {
             </Button>
             
             <Button 
-              onClick={handleSave}
-              disabled={saving}
+              onClick={handleEnable}
+              disabled={saving || enabling}
               className="bg-blue-600 hover:bg-blue-700"
             >
-              {saving ? "Saving..." : "Enable"}
+              {enabling ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  Enabling...
+                </>
+              ) : "Enable"}
             </Button>
 
             <DropdownMenu>
@@ -700,7 +757,24 @@ export default function CollaborativeWorkflowBuilder() {
                   edges={edges}
                   onNodesChange={onNodesChangeCustom}
                   onEdgesChange={onEdgesChange}
-                  onNodeClick={(_event, node) => setSelectedNode(node)}
+                  onNodeClick={(_event, node) => {
+                    if (node && node.type) {
+                      const nodeData = node.data as { label: string; type: string; config: Record<string, any> };
+                      const workflowNode: WorkflowNode = {
+                        id: node.id,
+                        type: node.type,
+                        position: node.position,
+                        data: {
+                          label: nodeData.label,
+                          type: nodeData.type,
+                          config: nodeData.config,
+                        },
+                      };
+                      setSelectedNode(workflowNode);
+                    } else {
+                      setSelectedNode(null);
+                    }
+                  }}
                   nodeTypes={nodeTypes}
                   fitView
                   className="bg-slate-50"
@@ -746,7 +820,10 @@ export default function CollaborativeWorkflowBuilder() {
             setShowTriggerDialog(true);
           }
         }}>
-          <DialogContent className="max-w-4xl h-[70vh] flex flex-col">
+          <DialogContent className={cn(
+            "h-[70vh] flex flex-col",
+            selectedIntegration ? "sm:max-w-md" : "max-w-4xl"
+          )}>
             <DialogHeader>
               <DialogTitle>
                 {selectedIntegration ? `Select a trigger for ${selectedIntegration.name}` : 'Select an Integration'}
@@ -757,7 +834,7 @@ export default function CollaborativeWorkflowBuilder() {
                   : 'Choose an application to connect to.'}
               </DialogDescription>
             </DialogHeader>
-            <div className="flex-grow overflow-y-auto p-4">
+            <ScrollArea className="flex-grow p-4 -mx-4">
               {!selectedIntegration ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                   {Object.values(INTEGRATION_CONFIGS)
@@ -779,30 +856,30 @@ export default function CollaborativeWorkflowBuilder() {
                     ))}
                 </div>
               ) : (
-                <div>
-                  <Button variant="ghost" onClick={() => setSelectedIntegration(null)} className="mb-4">
+                <div className="flex flex-col gap-2 px-4">
+                  <Button variant="ghost" onClick={() => setSelectedIntegration(null)} className="mb-2 -ml-4">
                     <ArrowLeft className="w-4 h-4 mr-2" /> Back to Integrations
                   </Button>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {ALL_NODE_COMPONENTS.filter(
-                      component => component.providerId === selectedIntegration.id && component.isTrigger
-                    ).map(component => (
-                      <Card
-                        key={component.type}
-                        className="p-4 flex flex-col items-start text-left cursor-pointer hover:shadow-lg transition-all"
-                        onClick={() => handleTriggerSelect(selectedIntegration, component)}
-                      >
-                        <div className="flex items-center space-x-3 mb-2">
-                          <component.icon className="w-6 h-6 text-slate-700" />
+                  {ALL_NODE_COMPONENTS.filter(
+                    component => component.providerId === selectedIntegration.id && component.isTrigger
+                  ).map(component => (
+                    <Card
+                      key={component.type}
+                      className="p-3 cursor-pointer hover:bg-slate-50 transition-colors"
+                      onClick={() => handleTriggerSelect(selectedIntegration, component)}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <component.icon className="w-5 h-5 text-slate-700" />
+                        <div className="flex-1">
                           <h3 className="font-semibold">{component.title}</h3>
+                          <p className="text-xs text-slate-500">{component.description}</p>
                         </div>
-                        <p className="text-xs text-slate-500">{component.description}</p>
-                      </Card>
-                    ))}
-                  </div>
+                      </div>
+                    </Card>
+                  ))}
                 </div>
               )}
-            </div>
+            </ScrollArea>
           </DialogContent>
         </Dialog>
 
@@ -815,7 +892,10 @@ export default function CollaborativeWorkflowBuilder() {
             setShowActionDialog(true);
           }
         }}>
-          <DialogContent className="max-w-4xl h-[70vh] flex flex-col">
+          <DialogContent className={cn(
+            "h-[70vh] flex flex-col",
+            selectedIntegration ? "sm:max-w-md" : "max-w-4xl"
+          )}>
             <DialogHeader>
               <DialogTitle>
                 {selectedIntegration ? `Select an action for ${selectedIntegration.name}` : 'Select an Integration'}
@@ -826,7 +906,7 @@ export default function CollaborativeWorkflowBuilder() {
                   : 'Choose an application to connect to.'}
               </DialogDescription>
             </DialogHeader>
-            <div className="flex-grow overflow-y-auto p-4">
+            <ScrollArea className="flex-grow p-4 -mx-4">
               {!selectedIntegration ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                   {Object.values(INTEGRATION_CONFIGS)
@@ -848,30 +928,30 @@ export default function CollaborativeWorkflowBuilder() {
                     ))}
                 </div>
               ) : (
-                <div>
-                  <Button variant="ghost" onClick={() => setSelectedIntegration(null)} className="mb-4">
+                <div className="flex flex-col gap-2 px-4">
+                  <Button variant="ghost" onClick={() => setSelectedIntegration(null)} className="mb-2 -ml-4">
                     <ArrowLeft className="w-4 h-4 mr-2" /> Back to Integrations
                   </Button>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {ALL_NODE_COMPONENTS.filter(
-                      component => component.providerId === selectedIntegration.id && !component.isTrigger
-                    ).map(component => (
-                      <Card
-                        key={component.type}
-                        className="p-4 flex flex-col items-start text-left cursor-pointer hover:shadow-lg transition-all"
-                        onClick={() => handleActionSelect(selectedIntegration, component)}
-                      >
-                        <div className="flex items-center space-x-3 mb-2">
-                          <component.icon className="w-6 h-6 text-slate-700" />
+                  {ALL_NODE_COMPONENTS.filter(
+                    component => component.providerId === selectedIntegration.id && !component.isTrigger
+                  ).map(component => (
+                    <Card
+                      key={component.type}
+                      className="p-3 cursor-pointer hover:bg-slate-50 transition-colors"
+                      onClick={() => handleActionSelect(selectedIntegration, component)}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <component.icon className="w-5 h-5 text-slate-700" />
+                        <div className="flex-1">
                           <h3 className="font-semibold">{component.title}</h3>
+                          <p className="text-xs text-slate-500">{component.description}</p>
                         </div>
-                        <p className="text-xs text-slate-500">{component.description}</p>
-                      </Card>
-                    ))}
-                  </div>
+                      </div>
+                    </Card>
+                  ))}
                 </div>
               )}
-            </div>
+            </ScrollArea>
           </DialogContent>
         </Dialog>
 

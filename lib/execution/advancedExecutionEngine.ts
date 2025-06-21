@@ -1,4 +1,18 @@
 import { createClient } from "@supabase/supabase-js"
+import { ALL_NODE_COMPONENTS } from "@/lib/workflows/availableNodes"
+import { GmailService } from "@/lib/integrations/gmail"
+
+// A simple retry mechanism
+async function retry<T>(fn: () => Promise<T>, retries = 3, delay = 1000): Promise<T> {
+  try {
+    return await fn();
+  } catch (error: any) {
+    if (retries === 0) throw error;
+    // Exponential backoff
+    await new Promise(resolve => setTimeout(resolve, delay));
+    return retry(fn, retries - 1, delay * 2);
+  }
+}
 
 export interface ExecutionSession {
   id: string
@@ -592,46 +606,99 @@ export class AdvancedExecutionEngine {
   }
 
   private async executeMainWorkflowPath(sessionId: string, workflow: any, context: any): Promise<any> {
-    const nodes = workflow.nodes || []
-    const connections = workflow.connections || []
+    // This is a simplified execution path. A real implementation would traverse the graph.
+    let currentData = context.data;
+    const nodes = workflow.nodes || [];
 
-    // Find trigger nodes (nodes with no incoming connections)
-    const triggerNodes = nodes.filter((node: any) => !connections.some((conn: any) => conn.target === node.id))
-
-    if (triggerNodes.length === 0) {
-      throw new Error("No trigger nodes found")
+    for (const node of nodes) {
+      currentData = await this.executeNode(node, workflow, { ...context, data: currentData });
     }
-
-    const results: any = {}
-
-    // Execute from each trigger node
-    for (const triggerNode of triggerNodes) {
-      const result = await this.executeNode(triggerNode, workflow, context)
-      results[triggerNode.id] = result
-    }
-
-    return results
+    return currentData;
   }
 
   private async executeNode(node: any, workflow: any, context: any): Promise<any> {
-    // This would use the existing node execution logic from the previous implementation
-    // For brevity, returning a mock result
-    return {
-      nodeId: node.id,
-      type: node.data.type,
-      result: `Executed ${node.data.type} node`,
-      timestamp: new Date().toISOString(),
+    // Placeholder for fetching integration-specific API clients and handling auth
+    // This would involve fetching stored credentials and handling OAuth token refreshes.
+    const apiClient = await this.getApiClientForNode(node.data.providerId, context.session.user_id);
+
+    // Placeholder for handling different node types
+    switch (node.data.type) {
+      case 'custom_script':
+        // Execute custom script
+        break;
+      // Other generic node types...
+
+      default:
+        // Handle integration-specific actions
+        if (node.data.providerId && apiClient) {
+          const nodeComponent = ALL_NODE_COMPONENTS.find(c => c.type === node.data.type);
+          
+          if (nodeComponent && nodeComponent.actionParamsSchema) {
+            // Map workflow data to action parameters
+            const params = this.mapWorkflowData(context.data, node.data.config);
+
+            if (node.data.providerId === 'gmail' && apiClient) {
+              if (nodeComponent?.actionParamsSchema) {
+                if (node.data.type === 'gmail_action_send_email') {
+                  return await retry(() => (apiClient as GmailService).sendEmail(params));
+                }
+              }
+            }
+          }
+        }
     }
+    return context.data; // Return original data if no action taken
+  }
+
+  private async getApiClientForNode(providerId: string | undefined, userId: string): Promise<any | null> {
+    if (!providerId) return null;
+
+    const { data: integration, error } = await this.supabase
+      .from('integrations')
+      .select('id, access_token, refresh_token, expires_at')
+      .eq('user_id', userId)
+      .eq('provider', providerId)
+      .single();
+
+    if (error || !integration) {
+      console.error(`No integration found for provider ${providerId} for user ${userId}`);
+      return null;
+    }
+
+    let accessToken = integration.access_token;
+    const expiresAt = integration.expires_at ? new Date(integration.expires_at).getTime() : 0;
+
+    // Check if the token is expired or will expire soon (e.g., within 5 minutes)
+    if (Date.now() >= expiresAt - 5 * 60 * 1000) {
+      if (providerId === 'gmail') {
+        accessToken = await GmailService.refreshToken(userId, integration.id);
+        if (!accessToken) {
+          // TODO: Handle re-authorization flow
+          throw new Error('Failed to refresh Gmail token.');
+        }
+      }
+      // TODO: Add refresh logic for other providers
+    }
+
+    if (!accessToken) {
+      throw new Error(`No valid access token for ${providerId}`);
+    }
+
+    if (providerId === 'gmail') {
+      return new GmailService(accessToken);
+    }
+
+    return null;
   }
 
   private mapWorkflowData(data: any, mapping: Record<string, string>): any {
-    const mapped: any = {}
+    const mappedData: Record<string, any> = {};
 
     for (const [targetKey, sourcePath] of Object.entries(mapping)) {
-      mapped[targetKey] = this.evaluateExpression(sourcePath, { data })
+      mappedData[targetKey] = this.evaluateExpression(sourcePath, { data })
     }
 
-    return mapped
+    return mappedData;
   }
 
   private evaluateExpression(expression: string, context: any): any {
