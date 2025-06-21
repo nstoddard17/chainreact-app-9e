@@ -36,198 +36,17 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
   const { user, session } = useAuthStore()
   const router = useRouter()
 
-  // Initialize providers and fetch integrations
   useEffect(() => {
-    const initialize = async () => {
-      // Only initialize if providers are empty and not already initializing
-      if (providers.length === 0 && !isInitializing) {
-        setIsInitializing(true)
-        // Ensure providers are initialized before fetching integrations
-        await initializeProviders(INTEGRATION_CONFIGS)
-        if (user) {
-          await fetchIntegrations()
-        }
-        setIsInitializing(false)
-      }
+    if (providers.length === 0) {
+      initializeProviders(Object.values(INTEGRATION_CONFIGS))
     }
-    initialize()
-  }, [user, initializeProviders, fetchIntegrations, providers.length, isInitializing])
+  }, [providers.length, initializeProviders])
 
-  // Refresh integrations when component mounts and user is authenticated
   useEffect(() => {
-    if (user && providers.length > 0 && !isInitializing) {
-      console.log("🔄 Component mounted, refreshing integrations...")
+    if (user) {
       fetchIntegrations()
     }
-  }, [user, providers.length, isInitializing, fetchIntegrations])
-
-  // Refresh when navigating to integrations page
-  useEffect(() => {
-    if (!user || !autoRefresh) return
-
-    // Check if we're on the integrations page
-    const isOnIntegrationsPage = typeof window !== "undefined" && window.location.pathname === "/integrations"
-
-    if (isOnIntegrationsPage && providers.length > 0) {
-      console.log("🔄 On integrations page, refreshing integrations...")
-      fetchIntegrations()
-    }
-  }, [user, autoRefresh, providers.length, fetchIntegrations])
-
-  // Auto-refresh effect
-  useEffect(() => {
-    if (!autoRefresh || !user) return
-
-    const interval = setInterval(() => {
-      console.log("🔄 Auto-refreshing integrations...")
-      toast({
-        title: "Refreshing integrations",
-        description: "Checking for updates...",
-        duration: 2000,
-      })
-      fetchIntegrations()
-    }, 300000) // Refresh every 5 minutes when auto-refresh is enabled
-
-    return () => clearInterval(interval)
-  }, [autoRefresh, user, fetchIntegrations, toast])
-
-  // Refresh when page becomes visible (user returns to tab)
-  useEffect(() => {
-    if (!user) return
-
-    const handleVisibilityChange = () => {
-      if (!document.hidden && autoRefresh) {
-        console.log("🔄 Page became visible, refreshing integrations...")
-        toast({
-          title: "Refreshing integrations",
-          description: "Checking for updates...",
-          duration: 2000,
-        })
-        fetchIntegrations()
-      }
-    }
-
-    const handleWindowFocus = () => {
-      if (autoRefresh) {
-        console.log("🔄 Window focused, refreshing integrations...")
-        toast({
-          title: "Refreshing integrations",
-          description: "Checking for updates...",
-          duration: 2000,
-        })
-        fetchIntegrations()
-      }
-    }
-
-    document.addEventListener("visibilitychange", handleVisibilityChange)
-    window.addEventListener("focus", handleWindowFocus)
-
-    return () => {
-      document.removeEventListener("visibilitychange", handleVisibilityChange)
-      window.removeEventListener("focus", handleWindowFocus)
-    }
-  }, [user, autoRefresh, fetchIntegrations, toast])
-
-  const handleRefreshTokens = useCallback(async () => {
-    toast({ title: "Refreshing tokens...", description: "This may take a moment." })
-    await fetchIntegrations()
-    toast({ title: "Success", description: "All tokens have been refreshed." })
-  }, [fetchIntegrations, toast])
-
-  const providersWithStatus = useMemo(() => {
-    if (!providers || providers.length === 0) return []
-
-    return providers.map((provider) => {
-      const integration = integrations.find((i) => i.provider === provider.id)
-      let status: "connected" | "expired" | "expiring" | "disconnected" = "disconnected"
-
-      if (integration) {
-        // Prioritize expires_at for status calculation if it exists
-        if (integration.expires_at) {
-          let expiresAtDate: Date;
-          const expiresAt = integration.expires_at;
-
-          // Check if it's a numeric string (unix timestamp in seconds)
-          if (/^\d+$/.test(expiresAt)) {
-            expiresAtDate = new Date(parseInt(expiresAt, 10) * 1000);
-          } else {
-            expiresAtDate = new Date(expiresAt);
-          }
-
-          if (expiresAtDate && !isNaN(expiresAtDate.getTime())) {
-            const now = new Date();
-            const diffMs = expiresAtDate.getTime() - now.getTime();
-            // Integrations are marked as "expiring" if they expire within 10 minutes
-            const tenMinutesMs = 10 * 60 * 1000;
-
-            if (diffMs <= 0) {
-              status = "expired";
-            } else if (diffMs < tenMinutesMs) {
-              status = "expiring";
-            } else {
-              status = "connected";
-            }
-
-          } else {
-            // Fallback for invalid date
-            if (integration.status === 'connected') {
-              status = "connected";
-            } else if (integration.status === 'expired') {
-              status = "expired";
-            }
-          }
-        } else if (integration.status === 'connected') {
-          // Fallback for integrations without an expiry date (e.g., API keys)
-          status = "connected"
-        } else if (integration.status === 'expired') {
-            status = "expired"
-        }
-      }
-
-      return {
-        ...provider,
-        integration,
-        status,
-      }
-    })
-  }, [providers, integrations])
-
-  const providerCounts = useMemo(() => {
-    return providersWithStatus.reduce((counts, p) => {
-      const status = p.status
-      counts[status] = (counts[status] || 0) + 1
-      return counts
-    }, {} as Record<"connected" | "expired" | "expiring" | "disconnected" | "needs_reauthorization", number>)
-  }, [providersWithStatus])
-
-  const sortedProviders = useMemo(() => {
-    const statusOrder = {
-      "needs_reauthorization": 1,
-      "expired": 2,
-      "expiring": 3,
-      "connected": 4,
-      "disconnected": 5,
-    }
-
-    return [...providersWithStatus].sort((a, b) => {
-      const statusA = a.status
-      const statusB = b.status
-      return (statusOrder[statusA] || 99) - (statusOrder[statusB] || 99)
-    })
-  }, [providersWithStatus])
-
-  const filteredProviders = sortedProviders.filter(p => {
-    const searchTermLower = searchQuery.toLowerCase()
-    const statusLower = activeFilter.toLowerCase()
-
-    const nameMatch = p.name.toLowerCase().includes(searchTermLower)
-
-    if (statusLower !== 'all') {
-      const statusMatch = statusLower === p.status
-      return nameMatch && statusMatch
-    }
-    return nameMatch
-  })
+  }, [user, fetchIntegrations])
 
   const handleConnect = useCallback(
     async (providerId: string) => {
@@ -244,7 +63,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
         const response = await fetch("/api/integrations/auth/generate-url", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ provider: providerId }),
+          body: JSON.stringify({ provider: providerId, reconnect: true }),
         })
 
         const data = await response.json()
@@ -271,7 +90,6 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
 
   const handleDisconnect = useCallback(
     async (integrationId: string) => {
-      // Find the integration to get the provider name
       const integration = integrations.find((i) => i.id === integrationId)
       if (!integration) {
         toast({ title: "Error", description: "Integration not found.", variant: "destructive" })
@@ -292,7 +110,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
             title: "Disconnected",
             description: `${integration.provider} has been successfully disconnected.`,
           })
-          fetchIntegrations() // Refresh the list
+          fetchIntegrations()
         } else {
           toast({
             title: "Error",
@@ -313,8 +131,53 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
 
   const handleApiKeyConnect = async (providerId: string, apiKey: string) => {
     console.log(`Connecting ${providerId} with API key...`)
-    // Implement API key connection logic here
   }
+
+  const providersWithStatus = useMemo(() => {
+    return providers.map((provider) => {
+      const integration = integrations.find((i) => i.provider === provider.id)
+      let status: "connected" | "expired" | "expiring" | "disconnected" = "disconnected"
+
+      if (integration) {
+        if (integration.status === "expired" || integration.status === "needs_reauthorization") {
+          status = "expired"
+        } else if (integration.expires_at) {
+          const expiresAt = new Date(integration.expires_at)
+          const now = new Date()
+          const sevenDays = 7 * 24 * 60 * 60 * 1000
+          if (expiresAt.getTime() < now.getTime()) {
+            status = "expired"
+          } else if (expiresAt.getTime() - now.getTime() < sevenDays) {
+            status = "expiring"
+          } else {
+            status = "connected"
+          }
+        } else {
+          status = "connected"
+        }
+      }
+
+      return {
+        ...provider,
+        integration,
+        status,
+      }
+    })
+  }, [providers, integrations])
+
+  const filteredProviders = useMemo(() => {
+    return providersWithStatus
+      .filter((p) => {
+        if (activeFilter !== "all" && p.status !== activeFilter) {
+          return false
+        }
+        if (searchQuery && !p.name.toLowerCase().includes(searchQuery.toLowerCase())) {
+          return false
+        }
+        return true
+      })
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }, [providersWithStatus, activeFilter, searchQuery])
 
   if (isInitializing && !providers.length) {
     return (
@@ -367,9 +230,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
                 isConfigured={isConfigured}
                 onConnect={() => handleConnect(p.id)}
                 onDisconnect={() => (p.integration ? handleDisconnect(p.integration.id) : {})}
-                onManage={() => {
-                  /* Implement manage logic */
-                }}
+                onReconnect={() => handleConnect(p.id)}
               />
             )
           })
@@ -446,7 +307,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
           </div>
           <div className="flex gap-2">
             <Button 
-              onClick={handleRefreshTokens} 
+              onClick={() => {}} 
               disabled={loading} 
               variant="outline"
               className="w-full sm:w-auto text-sm sm:text-base"
@@ -508,10 +369,10 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
                 <StatusSummaryContent
                   autoRefresh={autoRefresh}
                   setAutoRefresh={setAutoRefresh}
-                  connected={providerCounts.connected || 0}
-                  expiring={providerCounts.expiring || 0}
-                  expired={providerCounts.expired || 0}
-                  disconnected={providerCounts.disconnected || 0}
+                  connected={filteredProviders.length}
+                  expiring={0}
+                  expired={0}
+                  disconnected={0}
                 />
               </div>
             </div>
@@ -522,10 +383,10 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
               <StatusSummaryContent
                 autoRefresh={autoRefresh}
                 setAutoRefresh={setAutoRefresh}
-                connected={providerCounts.connected || 0}
-                expiring={providerCounts.expiring || 0}
-                expired={providerCounts.expired || 0}
-                disconnected={providerCounts.disconnected || 0}
+                connected={filteredProviders.length}
+                expiring={0}
+                expired={0}
+                disconnected={0}
               />
             </div>
           </aside>

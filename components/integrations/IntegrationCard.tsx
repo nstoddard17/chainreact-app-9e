@@ -32,7 +32,7 @@ interface IntegrationCardProps {
   isConfigured: boolean
   onConnect: () => void
   onDisconnect: () => void
-  onManage?: () => void
+  onReconnect: () => void
 }
 
 export function IntegrationCard({
@@ -42,7 +42,7 @@ export function IntegrationCard({
   isConfigured,
   onConnect,
   onDisconnect,
-  onManage,
+  onReconnect,
 }: IntegrationCardProps) {
   const { connectIntegration, disconnectIntegration, reconnectIntegration, loadingStates } = useIntegrationStore()
   const [imageError, setImageError] = useState(false)
@@ -205,18 +205,16 @@ export function IntegrationCard({
         <div className="w-full">
           {isConnected ? (
             <div className="flex space-x-2">
-              <Button onClick={() => setShowDisconnectDialog(true)} variant="destructive" className="w-full">
+              <Button onClick={() => setShowDisconnectDialog(true)} variant="outline" className="flex-grow">
                 Disconnect
               </Button>
-              {onManage && (
-                <Button onClick={onManage} variant="secondary" className="w-full">
-                  Manage
-                </Button>
-              )}
+              <Button onClick={onReconnect} variant="secondary" size="icon" aria-label="Reconnect">
+                <RefreshCw className="h-4 w-4" />
+              </Button>
             </div>
           ) : (
             <Button onClick={handleConnectClick} disabled={!isConfigured} className="w-full">
-              {isConfigured ? "Connect" : "Not Configured"}
+              {isConfigured ? (status === "expired" ? "Reconnect" : "Connect") : "Not Configured"}
             </Button>
           )}
         </div>
