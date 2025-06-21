@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog"
 import { ConfigField, NodeComponent } from "@/lib/workflows/availableNodes"
 import { useIntegrationStore } from "@/stores/integrationStore"
+import { Combobox } from "@/components/ui/combobox"
 
 interface ConfigurationModalProps {
   isOpen: boolean
@@ -142,15 +143,45 @@ export default function ConfigurationModal({
 
     switch (field.type) {
       case "select":
-        const options = dynamicOptions[field.name] || field.options || []
+        let selectOptions: { value: string; label: string }[] | undefined = dynamicOptions[field.name];
+
+        if (!selectOptions && field.options) {
+          if (field.options.every((opt): opt is string => typeof opt === 'string')) {
+            // It's a string array
+            selectOptions = (field.options as string[]).map(option => ({
+              value: option,
+              label: option.charAt(0).toUpperCase() + option.slice(1)
+            }));
+          } else {
+            // It's already an array of { value, label }
+            selectOptions = field.options as { value: string; label: string }[];
+          }
+        }
+
+        const finalOptions = selectOptions || [];
+        
+        if (field.dynamic) {
+          return (
+            <Combobox
+              options={finalOptions}
+              value={value}
+              onChange={handleSelectChange}
+              placeholder={field.placeholder}
+              searchPlaceholder="Search or type..."
+              emptyPlaceholder={loadingDynamic ? "Loading..." : "No results found."}
+              disabled={loadingDynamic}
+            />
+          )
+        }
+
         return (
-          <Select onValueChange={handleSelectChange} value={value}>
+          <Select onValueChange={handleSelectChange} value={value} disabled={loadingDynamic}>
             <SelectTrigger>
               <SelectValue placeholder={field.placeholder} />
             </SelectTrigger>
             <SelectContent>
               {loadingDynamic && <SelectItem value="loading" disabled>Loading...</SelectItem>}
-              {(options as any[]).map((option: any) => (
+              {finalOptions.map((option) => (
                 <SelectItem
                   key={option.value}
                   value={option.value}
