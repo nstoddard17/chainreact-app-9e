@@ -51,6 +51,17 @@ export default function ConfigurationModal({ isOpen, onClose, onSave, nodeInfo, 
                 label: `#${ch.name}`,
               }))
             }
+          } else if (
+            field.dynamic === "google-contacts" &&
+            nodeInfo.providerId
+          ) {
+            const data = await loadIntegrationData(nodeInfo.providerId)
+            if (data && data.contacts) {
+              newOptions[field.name] = data.contacts.map((c: any) => ({
+                value: c.email,
+                label: `${c.name} (${c.email})`,
+              }))
+            }
           }
         }
         setDynamicOptions(newOptions)

@@ -36,7 +36,7 @@ export interface ConfigField {
   required?: boolean
   placeholder?: string
   options?: { value: string; label: string }[] | string[]
-  dynamic?: "slack-channels"
+  dynamic?: "slack-channels" | "google-contacts"
   [key: string]: any
 }
 
@@ -208,11 +208,17 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Email",
     isTrigger: false,
     configSchema: [
-      { name: "to", label: "To", type: "email", placeholder: "recipient@example.com" },
+      {
+        name: "to",
+        label: "To",
+        type: "select",
+        required: true,
+        dynamic: "google-contacts",
+      },
       { name: "cc", label: "CC", type: "email", placeholder: "optional: cc@example.com" },
       { name: "bcc", label: "BCC", type: "email", placeholder: "optional: bcc@example.com" },
-      { name: "subject", label: "Subject", type: "text", placeholder: "Your email subject" },
-      { name: "body", label: "Body", type: "textarea", placeholder: "Your email body" },
+      { name: "subject", label: "Subject", type: "text", placeholder: "Your email subject", required: true },
+      { name: "body", label: "Body", type: "textarea", placeholder: "Your email body", required: true },
       { name: "attachment", label: "Attachment URL", type: "text", placeholder: "Optional: URL to a file" },
     ],
     actionParamsSchema: {

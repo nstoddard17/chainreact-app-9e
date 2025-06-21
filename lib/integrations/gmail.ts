@@ -83,4 +83,44 @@ export class GmailService {
       throw new Error('Could not send email via Gmail.');
     }
   }
+}
+
+export async function getGoogleContacts(accessToken: string) {
+  const oauth2Client = new google.auth.OAuth2()
+  oauth2Client.setCredentials({ access_token: accessToken })
+
+  const people = google.people({ version: "v1", auth: oauth2Client })
+
+  try {
+    const response = await people.people.connections.list({
+      resourceName: "people/me",
+      personFields: "names,emailAddresses",
+      pageSize: 200, // Adjust as needed
+    })
+
+    const contacts =
+      response.data.connections
+        ?.map((person) => {
+          const primaryName = person.names?.find(
+            (name) => name.metadata?.primary,
+          )
+          const primaryEmail = person.emailAddresses?.find(
+            (email) => email.metadata?.primary,
+          )
+
+          if (primaryName && primaryEmail) {
+            return {
+              name: primaryName.displayName,
+              email: primaryEmail.value,
+            }
+          }
+          return null
+        })
+        .filter((contact) => contact !== null) || []
+
+    return contacts
+  } catch (error) {
+    console.error("Failed to get Google contacts:", error)
+    throw new Error("Failed to get Google contacts")
+  }
 } 
