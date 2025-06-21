@@ -8,6 +8,7 @@ interface Integration {
   access_token: string
   refresh_token?: string
   expires_at?: string | number
+  refresh_token_expires_at?: string | number
   user_id: string
   [key: string]: any
 }
@@ -19,6 +20,7 @@ interface RefreshResult {
   newToken?: string
   newExpiry?: number
   newRefreshToken?: string
+  newRefreshTokenExpiry?: number
   requiresReconnect?: boolean
   recovered?: boolean
 }
@@ -58,7 +60,8 @@ export async function refreshTokenIfNeeded(integration: Integration): Promise<Re
 
   // Determine if refresh is needed
   let needsRefresh = false
-  const refreshThreshold = isGoogleOrMicrosoft ? 1800 : 300 // 30 min vs 5 min
+  const accessTokenRefreshThreshold = isGoogleOrMicrosoft ? 1800 : 300 // 30 min vs 5 min
+  const refreshTokenRefreshThreshold = 86400 * 7 // 7 days for all providers
 
   if (integration.expires_at) {
     const expiresAtTimestamp =
@@ -68,10 +71,27 @@ export async function refreshTokenIfNeeded(integration: Integration): Promise<Re
 
     const now = Math.floor(Date.now() / 1000)
     const expiresIn = expiresAtTimestamp - now
-    needsRefresh = expiresIn < refreshThreshold
+    if (expiresIn < accessTokenRefreshThreshold) {
+      needsRefresh = true
+    }
   } else if (isGoogleOrMicrosoft) {
     // For Google/Microsoft without expiry, refresh proactively
     needsRefresh = true
+  }
+
+  // Check if refresh token is expiring
+  if (!needsRefresh && integration.refresh_token_expires_at) {
+    const refreshTokenExpiresAtTimestamp =
+      typeof integration.refresh_token_expires_at === "string"
+        ? new Date(integration.refresh_token_expires_at).getTime() / 1000
+        : integration.refresh_token_expires_at
+    
+    const now = Math.floor(Date.now() / 1000)
+    const expiresIn = refreshTokenExpiresAtTimestamp - now
+    if (expiresIn < refreshTokenRefreshThreshold) {
+      console.log(`Refresh token for ${integration.provider} is expiring soon. Triggering refresh.`)
+      needsRefresh = true
+    }
   }
 
   if (!needsRefresh && !isGoogleOrMicrosoft) {
@@ -117,6 +137,10 @@ export async function refreshTokenIfNeeded(integration: Integration): Promise<Re
       // Update refresh token if provided
       if (result.newRefreshToken) {
         updateData.refresh_token = result.newRefreshToken
+      }
+
+      if (result.newRefreshTokenExpiry) {
+        updateData.refresh_token_expires_at = new Date(result.newRefreshTokenExpiry * 1000).toISOString()
       }
 
       const { error } = await supabase.from("integrations").update(updateData).eq("id", integration.id)
@@ -503,23 +527,19 @@ async function refreshSlackToken(refreshToken: string): Promise<RefreshResult> {
 }
 
 async function refreshTwitterToken(refreshToken: string): Promise<RefreshResult> {
+  const clientId = process.env.NEXT_PUBLIC_TWITTER_CLIENT_ID
+  const clientSecret = process.env.TWITTER_CLIENT_SECRET
+
+  if (!clientId || !clientSecret) {
+    throw new Error("Twitter client ID or secret not configured")
+  }
+
   try {
-    const clientId = process.env.NEXT_PUBLIC_TWITTER_CLIENT_ID
-    const clientSecret = process.env.TWITTER_CLIENT_SECRET
-
-    if (!clientId || !clientSecret) {
-      return {
-        refreshed: false,
-        success: false,
-        message: "Missing Twitter OAuth credentials",
-      }
-    }
-
     const response = await fetch("https://api.twitter.com/2/oauth2/token", {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
-        "Authorization": `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`,
+        Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`,
       },
       body: new URLSearchParams({
         refresh_token: refreshToken,
