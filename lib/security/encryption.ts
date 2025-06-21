@@ -16,8 +16,37 @@ export const encrypt = (text: string, secret: string): string => {
 }
 
 export const decrypt = (encryptedText: string, secret: string): string => {
-  const cipher = aes256.createCipher(secret)
-  return cipher.decrypt(encryptedText)
+  try {
+    // Validate inputs
+    if (!encryptedText || typeof encryptedText !== 'string') {
+      throw new Error('Invalid encrypted text provided');
+    }
+    
+    if (!secret || typeof secret !== 'string') {
+      throw new Error('Invalid secret key provided');
+    }
+
+    const cipher = aes256.createCipher(secret);
+    
+    try {
+      const decrypted = cipher.decrypt(encryptedText);
+      
+      // Validate the decrypted result
+      if (!decrypted || decrypted.length === 0) {
+        throw new Error('Decryption resulted in empty string');
+      }
+      
+      return decrypted;
+    } catch (innerError: any) {
+      // Handle specific aes256 errors
+      console.error('Decryption error:', innerError.message);
+      throw new Error(`Decryption failed: ${innerError.message}`);
+    }
+  } catch (error: any) {
+    // Log the error with specific details but without exposing the encrypted text
+    console.error(`Decryption error: ${error.message}, text length: ${encryptedText?.length || 0}`);
+    throw new Error(`Failed to decrypt data: ${error.message}`);
+  }
 }
 
 export class EncryptionService {
