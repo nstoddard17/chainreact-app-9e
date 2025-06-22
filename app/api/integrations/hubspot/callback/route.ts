@@ -157,7 +157,7 @@ export async function GET(request: NextRequest) {
       expires_at: tokenData.expires_in
         ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString()
         : null,
-      scopes: tokenData.scopes,
+      scopes: tokenData.scope ? tokenData.scope.split(" ") : [],
       status: "connected",
       updated_at: new Date().toISOString(),
     }
