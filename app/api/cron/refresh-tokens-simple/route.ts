@@ -1,5 +1,4 @@
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
+import { createClient } from "@supabase/supabase-js"
 import { NextResponse } from "next/server"
 import { decrypt } from "@/lib/security/encryption"
 import { getSecret } from "@/lib/secrets"
@@ -13,8 +12,19 @@ export async function GET(request: Request) {
   
   console.log(`Starting refresh-tokens-simple cron job ${cleanupMode ? "(cleanup mode)" : ""}`)
   
-  const supabase = createRouteHandlerClient({ cookies })
-  const encryptionKey = getSecret("encryption_key")
+  // Create a Supabase client with the service role key for admin access
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    }
+  )
+  
+  const encryptionKey = await getSecret("encryption_key")
   
   if (!encryptionKey) {
     console.error("Missing encryption key")
