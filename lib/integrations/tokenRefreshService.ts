@@ -32,7 +32,7 @@ export interface RefreshResult {
 export interface RefreshTokensOptions {
   prioritizeExpiring?: boolean; // Prioritize tokens that are about to expire
   dryRun?: boolean; // Don't actually update the database
-  limit?: number; // Maximum number of tokens to refresh
+  limit?: number; // Maximum number of tokens to refresh. If omitted, all eligible tokens will be processed.
   batchSize?: number; // Number of tokens to refresh in each batch
   onlyProvider?: string; // Only refresh tokens for this provider
   accessTokenExpiryThreshold?: number; // Minutes before access token expiry to refresh
@@ -66,7 +66,6 @@ export interface RefreshStats {
 const DEFAULT_REFRESH_OPTIONS: RefreshTokensOptions = {
   prioritizeExpiring: true,
   dryRun: false,
-  limit: 500,
   batchSize: 50,
   accessTokenExpiryThreshold: 30, // 30 minutes
   refreshTokenExpiryThreshold: 30, // 30 minutes
@@ -128,8 +127,10 @@ export async function refreshTokens(options: RefreshTokensOptions = {}): Promise
                    .order("refresh_token_expires_at", { ascending: true, nullsFirst: false });
     }
     
-    // Limit the number of tokens to process
-    query = query.limit(config.limit || 200);
+    // Limit the number of tokens to process, if specified
+    if (config.limit && config.limit > 0) {
+      query = query.limit(config.limit);
+    }
     
     // Execute the query
     const { data: integrations, error } = await query;
