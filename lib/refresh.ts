@@ -57,7 +57,7 @@ export async function refreshTokenIfNeeded(integration: Integration): Promise<Ex
         access_token: result.accessToken,
         last_token_refresh: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-        status: "active",
+        status: "connected",
         consecutive_failures: 0,
         disconnect_reason: null,
       }
@@ -88,7 +88,7 @@ export async function refreshTokenIfNeeded(integration: Integration): Promise<Ex
       // Handle error - if the token refresh failed, mark the integration accordingly
       const status = result.invalidRefreshToken || result.needsReauthorization
         ? "needs_reauthorization"
-        : "error"
+        : "expired"
 
       await db
         .from("integrations")

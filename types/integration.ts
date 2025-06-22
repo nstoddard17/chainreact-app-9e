@@ -4,7 +4,7 @@ export interface Integration {
   provider: string;
   access_token: string;
   refresh_token: string | null;
-  status: 'active' | 'needs_reauthorization' | 'error' | string;
+  status: "connected" | "disconnected" | "expired" | "needs_reauthorization";
   scopes?: string;
   expires_at?: string;
   refresh_token_expires_at?: string;
