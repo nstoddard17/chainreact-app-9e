@@ -247,24 +247,6 @@ export async function GET(request: NextRequest) {
           }
         }
         
-        // Check if the token is about to expire
-        if (integration.expires_at) {
-          const expiresAt = new Date(integration.expires_at);
-          const now = new Date();
-          const timeUntilExpiry = (expiresAt.getTime() - now.getTime()) / 1000; // in seconds
-          
-          if (timeUntilExpiry <= 0) {
-            console.log(`Token for ${integration.provider} already expired (${timeUntilExpiry.toFixed(0)}s). Refreshing...`);
-          } else if (timeUntilExpiry <= 1800) { // 30 minutes
-            console.log(`Token for ${integration.provider} expires within 30 minutes (${timeUntilExpiry.toFixed(0)}s). Refreshing...`);
-          }
-        }
-        
-        // If the integration is marked as expired, log that we're trying to recover it
-        if (integration.status === "expired") {
-          console.log(`Integration ${integration.provider} is marked as expired. Attempting recovery...`);
-        }
-        
         const result = await refreshTokenIfNeeded(integration)
         
         if (result.refreshed) {
@@ -305,54 +287,6 @@ export async function GET(request: NextRequest) {
             error: result.message 
           })
           console.warn(`⚠️ [${jobId}] Failed ${integration.provider}: ${result.message}`)
-          
-          // Check if the token has actually expired based on its expires_at timestamp
-          if (integration.expires_at) {
-            const now = new Date();
-            const expiresAt = new Date(integration.expires_at);
-            const timeUntilExpiry = (expiresAt.getTime() - now.getTime()) / 1000; // in seconds
-            
-            if (expiresAt <= now) {
-              // Token is actually expired, update status to "expired"
-              console.log(`[${jobId}] Setting ${integration.provider} status to 'expired' since processing failed and token has expired (${integration.expires_at})`);
-              
-              await supabase
-                .from("integrations")
-                .update({
-                  status: "expired",
-                  consecutive_failures: (integration.consecutive_failures || 0) + 1,
-                  last_failure_at: new Date().toISOString(),
-                  updated_at: new Date().toISOString(),
-                })
-                .eq("id", integration.id);
-            } else {
-              // Token is still valid, keep status as "connected"
-              console.log(`[${jobId}] Keeping ${integration.provider} status as 'connected' since token is still valid for ${timeUntilExpiry.toFixed(0)} seconds despite error`);
-              
-              // Only set status if it's not already connected
-              if (integration.status !== "connected") {
-                await supabase
-                  .from("integrations")
-                  .update({
-                    status: "connected",
-                    consecutive_failures: (integration.consecutive_failures || 0) + 1,
-                    last_failure_at: new Date().toISOString(),
-                    updated_at: new Date().toISOString(),
-                  })
-                  .eq("id", integration.id);
-              } else {
-                // Just update the failure count
-                await supabase
-                  .from("integrations")
-                  .update({
-                    consecutive_failures: (integration.consecutive_failures || 0) + 1,
-                    last_failure_at: new Date().toISOString(),
-                    updated_at: new Date().toISOString(),
-                  })
-                  .eq("id", integration.id);
-              }
-            }
-          }
         }
       } catch (error: any) {
         failed++
@@ -362,54 +296,6 @@ export async function GET(request: NextRequest) {
           error: error.message 
         })
         console.error(`💥 [${jobId}] Error processing ${integration.provider}:`, error)
-        
-        // Check if the token has actually expired based on its expires_at timestamp
-        if (integration.expires_at) {
-          const now = new Date();
-          const expiresAt = new Date(integration.expires_at);
-          const timeUntilExpiry = (expiresAt.getTime() - now.getTime()) / 1000; // in seconds
-          
-          if (expiresAt <= now) {
-            // Token is actually expired, update status to "expired"
-            console.log(`[${jobId}] Setting ${integration.provider} status to 'expired' since processing failed and token has expired (${integration.expires_at})`);
-            
-            await supabase
-              .from("integrations")
-              .update({
-                status: "expired",
-                consecutive_failures: (integration.consecutive_failures || 0) + 1,
-                last_failure_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
-              })
-              .eq("id", integration.id);
-          } else {
-            // Token is still valid, keep status as "connected"
-            console.log(`[${jobId}] Keeping ${integration.provider} status as 'connected' since token is still valid for ${timeUntilExpiry.toFixed(0)} seconds despite error`);
-            
-            // Only set status if it's not already connected
-            if (integration.status !== "connected") {
-              await supabase
-                .from("integrations")
-                .update({
-                  status: "connected",
-                  consecutive_failures: (integration.consecutive_failures || 0) + 1,
-                  last_failure_at: new Date().toISOString(),
-                  updated_at: new Date().toISOString(),
-                })
-                .eq("id", integration.id);
-            } else {
-              // Just update the failure count
-              await supabase
-                .from("integrations")
-                .update({
-                  consecutive_failures: (integration.consecutive_failures || 0) + 1,
-                  last_failure_at: new Date().toISOString(),
-                  updated_at: new Date().toISOString(),
-                })
-                .eq("id", integration.id);
-            }
-          }
-        }
       }
     }
 
