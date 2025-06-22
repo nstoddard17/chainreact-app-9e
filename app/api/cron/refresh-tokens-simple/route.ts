@@ -66,60 +66,36 @@ export async function GET(request: NextRequest) {
 
     // Step 2: Get all integrations that need attention
     console.log(`📊 [${jobId}] Step 2: Getting integrations that need attention...`)
-
+    
     const now = new Date()
-    const soon = new Date(now.getTime() + 30 * 60 * 1000) // 30 minutes from now
-
-    // Get integrations that are already in a state requiring attention
-    const { data: problemIntegrations, error: problemFetchError } = await supabase
+    
+    // Get all integrations that need attention (connected, disconnected, expired, needs_reauthorization)
+    const { data: allIntegrations, error: fetchError } = await supabase
       .from("integrations")
       .select("*")
-      .in("status", ["disconnected", "expired", "needs_reauthorization"])
+      .or(`status.eq.connected,status.eq.disconnected,status.eq.expired,status.eq.needs_reauthorization,expires_at.lt.${now.toISOString()}`)
+      .limit(50) // Increased limit to process more integrations per run
 
-    if (problemFetchError) {
-      console.error(`❌ [${jobId}] Error fetching problem integrations:`, problemFetchError)
-      throw new Error(`Error fetching problem integrations: ${problemFetchError.message}`)
+    if (fetchError) {
+      console.error(`❌ [${jobId}] Error fetching integrations:`, fetchError)
+      throw new Error(`Error fetching integrations: ${fetchError.message}`)
     }
-    console.log(`✅ [${jobId}] Found ${problemIntegrations?.length || 0} integrations with problem statuses.`)
 
-    // Get integrations that are connected but will expire soon
-    const { data: expiringIntegrations, error: expiringFetchError } = await supabase
-      .from("integrations")
-      .select("*")
-      .eq("status", "connected")
-      .lt("expires_at", soon.toISOString())
-
-    if (expiringFetchError) {
-      console.error(`❌ [${jobId}] Error fetching expiring integrations:`, expiringFetchError)
-      throw new Error(`Error fetching expiring integrations: ${expiringFetchError.message}`)
-    }
-    console.log(`✅ [${jobId}] Found ${expiringIntegrations?.length || 0} integrations expiring soon.`)
-
-    // Combine and deduplicate integrations
-    const allIntegrationsMap = new Map()
-    if (problemIntegrations) {
-      problemIntegrations.forEach(int => allIntegrationsMap.set(int.id, int))
-    }
-    if (expiringIntegrations) {
-      expiringIntegrations.forEach(int => allIntegrationsMap.set(int.id, int))
-    }
-    const allIntegrations = Array.from(allIntegrationsMap.values())
-
-    console.log(`✅ [${jobId}] Found a total of ${allIntegrations.length} unique integrations to process.`)
+    console.log(`✅ [${jobId}] Found ${allIntegrations?.length || 0} integrations that need attention`)
 
     // Step 3: Fix incorrect integration statuses
     console.log(`🔧 [${jobId}] Step 3: Correcting any incorrect integration statuses...`)
     let statusFixedCount = 0
-
+    
     for (const integration of allIntegrations || []) {
       if (integration.expires_at) {
         const expiresAt = new Date(integration.expires_at)
         const now = new Date()
-
+        
         // CASE 1: Fix 'connected' status for tokens that are actually expired
         if (expiresAt.getTime() <= now.getTime() && integration.status === "connected") {
           console.log(`🔧 [${jobId}] Fixing status for ${integration.provider}: connected -> expired`)
-
+          
           const { error: updateError } = await supabase
             .from("integrations")
             .update({
@@ -147,7 +123,7 @@ export async function GET(request: NextRequest) {
               updated_at: new Date().toISOString(),
             })
             .eq("id", integration.id)
-
+          
           if (updateError) {
             console.error(`❌ [${jobId}] Failed to correct status for ${integration.provider}:`, updateError)
           } else {
@@ -196,14 +172,13 @@ export async function GET(request: NextRequest) {
     let failed = 0
     let skipped = 0
     let recovered = 0
-    let needsReauth = 0
     const errors: Array<{ provider: string; userId: string; error: string }> = []
 
     // Group integrations by status for better logging
-    const connectedCount = allIntegrations.filter(i => i.status === "connected").length
-    const disconnectedCount = allIntegrations.filter(i => i.status === "disconnected").length
-    const expiredCount = allIntegrations.filter(i => i.status === "expired").length
-    const needsReauthCount = allIntegrations.filter(i => i.status === "needs_reauthorization").length
+    const connectedCount = allIntegrations.filter((i: any) => i.status === "connected").length
+    const disconnectedCount = allIntegrations.filter((i: any) => i.status === "disconnected").length
+    const expiredCount = allIntegrations.filter((i: any) => i.status === "expired").length
+    const needsReauthCount = allIntegrations.filter((i: any) => i.status === "needs_reauthorization").length
 
     console.log(`📊 [${jobId}] Integration breakdown:`)
     console.log(`   - Connected: ${connectedCount}`)
@@ -241,50 +216,10 @@ export async function GET(request: NextRequest) {
               })
             } else {
               console.log(`✅ [${jobId}] Marked ${integration.provider} as needs_reauthorization`)
-              needsReauth++
               // Count this as a status fix
               statusFixedCount++
             }
             continue // Skip the refresh attempt since there's no refresh token
-          }
-        }
-        
-        // Check for potentially corrupted refresh tokens
-        if (integration.refresh_token) {
-          // Check if refresh token is likely corrupted (not properly encrypted)
-          const refreshTokenLength = integration.refresh_token.length;
-          const isLikelyCorrupted = 
-            refreshTokenLength < 20 || // Too short to be a valid encrypted token
-            (integration.refresh_token.includes('null') && refreshTokenLength < 10) || // Contains null and is short
-            integration.refresh_token === 'undefined' || // Is literally 'undefined'
-            integration.refresh_token.trim() === ''; // Is empty or just whitespace
-          
-          if (isLikelyCorrupted) {
-            console.log(`🔧 [${jobId}] Integration ${integration.provider} has an invalid refresh token - marking as needs_reauthorization`);
-            
-            const { error: updateError } = await supabase
-              .from("integrations")
-              .update({
-                status: "needs_reauthorization",
-                updated_at: new Date().toISOString(),
-                disconnect_reason: "Invalid refresh token detected",
-              })
-              .eq("id", integration.id);
-
-            if (updateError) {
-              console.error(`❌ [${jobId}] Failed to update status for ${integration.provider}:`, updateError);
-              failed++;
-              errors.push({ 
-                provider: integration.provider, 
-                userId: integration.user_id, 
-                error: `Failed to mark as needs_reauthorization: ${updateError.message}` 
-              });
-            } else {
-              console.log(`✅ [${jobId}] Marked ${integration.provider} as needs_reauthorization due to invalid token`);
-              needsReauth++;
-              statusFixedCount++;
-            }
-            continue; // Skip the refresh attempt
           }
         }
         
@@ -328,40 +263,6 @@ export async function GET(request: NextRequest) {
             error: result.message 
           })
           console.warn(`⚠️ [${jobId}] Failed ${integration.provider}: ${result.message}`)
-          
-          // Check if the error is related to decryption
-          if (result.message && result.message.includes("decrypt")) {
-            console.log(`[${jobId}] Setting ${integration.provider} status to 'needs_reauthorization' due to decryption error`);
-            
-            await supabase
-              .from("integrations")
-              .update({
-                status: "needs_reauthorization",
-                updated_at: new Date().toISOString(),
-                disconnect_reason: "Token decryption error",
-              })
-              .eq("id", integration.id);
-              
-            needsReauth++;
-          }
-          // Check if the token has actually expired
-          else if (integration.expires_at) {
-            const now = new Date();
-            const expiresAt = new Date(integration.expires_at);
-            
-            if (expiresAt <= now) {
-              // Token is actually expired, update status to "expired"
-              console.log(`[${jobId}] Setting ${integration.provider} status to 'expired' since refresh failed and token has expired (${integration.expires_at})`);
-              
-              await supabase
-                .from("integrations")
-                .update({
-                  status: "expired",
-                  updated_at: new Date().toISOString(),
-                })
-                .eq("id", integration.id);
-            }
-          }
         }
       } catch (error: any) {
         failed++
@@ -371,40 +272,6 @@ export async function GET(request: NextRequest) {
           error: error.message 
         })
         console.error(`💥 [${jobId}] Error processing ${integration.provider}:`, error)
-        
-        // Mark as needs_reauthorization if decryption error
-        if (error.message && error.message.includes("decrypt")) {
-          console.log(`[${jobId}] Setting ${integration.provider} status to 'needs_reauthorization' due to decryption error`);
-          
-          await supabase
-            .from("integrations")
-            .update({
-              status: "needs_reauthorization",
-              updated_at: new Date().toISOString(),
-              disconnect_reason: "Token decryption error during refresh",
-            })
-            .eq("id", integration.id);
-            
-          needsReauth++;
-        }
-        // Check if the token has actually expired
-        else if (integration.expires_at) {
-          const now = new Date();
-          const expiresAt = new Date(integration.expires_at);
-          
-          if (expiresAt <= now) {
-            // Token is actually expired, update status to "expired"
-            console.log(`[${jobId}] Setting ${integration.provider} status to 'expired' since processing failed and token has expired (${integration.expires_at})`);
-            
-            await supabase
-              .from("integrations")
-              .update({
-                status: "expired",
-                updated_at: new Date().toISOString(),
-              })
-              .eq("id", integration.id);
-          }
-        }
       }
     }
 
@@ -416,7 +283,6 @@ export async function GET(request: NextRequest) {
     console.log(`   - Recovered integrations: ${recovered}`)
     console.log(`   - Failed: ${failed}`)
     console.log(`   - Skipped: ${skipped}`)
-    console.log(`   - Needs reauthorization: ${needsReauth}`)
     console.log(`   - Status fixes: ${statusFixedCount}`)
 
     // Update the job log
@@ -443,7 +309,6 @@ export async function GET(request: NextRequest) {
         recovered,
         failed,
         skipped,
-        needs_reauth: needsReauth,
         status_fixes: statusFixedCount,
         errors: errors.length,
         breakdown: {
