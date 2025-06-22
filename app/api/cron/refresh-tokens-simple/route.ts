@@ -179,19 +179,37 @@ export async function GET(request: NextRequest) {
             error: refreshResult.error || "Unknown error",
           })
 
-          // Update integration with error details
+          // Determine the appropriate status based on the error
           let status: "expired" | "needs_reauthorization" = "expired"
-          if (refreshResult.invalidRefreshToken || refreshResult.needsReauthorization) {
+          let shouldDisconnect = false
+
+          // Check for specific error patterns that indicate the refresh token is permanently invalid
+          const errorMessage = refreshResult.error?.toLowerCase() || ""
+          const isInvalidGrant =
+            errorMessage.includes("invalid_grant") ||
+            errorMessage.includes("invalid token") ||
+            errorMessage.includes("authorization grant is invalid") ||
+            errorMessage.includes("expired") ||
+            errorMessage.includes("revoked")
+
+          if (refreshResult.invalidRefreshToken || refreshResult.needsReauthorization || isInvalidGrant) {
             status = "needs_reauthorization"
+            shouldDisconnect = true
           }
 
+          // Update integration with error details
           await updateIntegrationWithError(
             supabase,
             integration.id,
             refreshResult.error || "Unknown error during token refresh",
-            { status },
+            { status, shouldDisconnect },
           )
-          console.warn(`⚠️ [${jobId}] Failed to refresh ${integration.provider}: ${refreshResult.error}`)
+
+          if (shouldDisconnect) {
+            console.warn(`🔒 [${jobId}] ${integration.provider} requires re-authorization - refresh token is invalid`)
+          } else {
+            console.warn(`⚠️ [${jobId}] Failed to refresh ${integration.provider}: ${refreshResult.error}`)
+          }
         }
       } catch (error: any) {
         failed++
@@ -395,11 +413,17 @@ async function updateIntegrationWithError(
       ...additionalData,
     }
 
-    // If there are too many consecutive failures, mark as needing reauthorization
-    if (consecutiveFailures >= 3 && !additionalData.status) {
+    // Handle disconnection logic
+    if (additionalData.shouldDisconnect || consecutiveFailures >= 5) {
       updateData.status = "needs_reauthorization"
       updateData.disconnected_at = now.toISOString()
+      updateData.is_active = false // Deactivate the integration
+    } else if (consecutiveFailures >= 3 && !additionalData.status) {
+      updateData.status = "needs_reauthorization"
     }
+
+    // Remove shouldDisconnect from the data before database update
+    delete updateData.shouldDisconnect
 
     // Add metadata with error information
     try {
@@ -415,6 +439,7 @@ async function updateIntegrationWithError(
           ...currentMetadata,
           last_error: errorMessage,
           last_error_at: now.toISOString(),
+          requires_reauth: additionalData.shouldDisconnect || false,
         }
       }
     } catch (metadataError) {
@@ -427,9 +452,10 @@ async function updateIntegrationWithError(
     if (updateError) {
       console.error(`Error updating integration ${integrationId} with error:`, updateError.message)
     } else {
-      console.log(
-        `✅ Updated integration ${integrationId} with error status (${consecutiveFailures} consecutive failures)`,
-      )
+      const statusMsg = additionalData.shouldDisconnect
+        ? `deactivated (requires re-auth)`
+        : `error status (${consecutiveFailures} consecutive failures)`
+      console.log(`✅ Updated integration ${integrationId} with ${statusMsg}`)
     }
   } catch (error) {
     console.error(`Unexpected error updating integration ${integrationId} with error:`, error)
