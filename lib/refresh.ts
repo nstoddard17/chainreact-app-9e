@@ -59,7 +59,7 @@ export async function refreshTokenIfNeeded(integration: Integration): Promise<Ex
         updated_at: new Date().toISOString(),
         status: "active",
         consecutive_failures: 0,
-        last_failure_reason: null,
+        disconnect_reason: null,
       }
 
       // Calculate and set the access token expiration
@@ -95,7 +95,7 @@ export async function refreshTokenIfNeeded(integration: Integration): Promise<Ex
         .update({
           status,
           consecutive_failures: (integration.consecutive_failures || 0) + 1,
-          last_failure_reason: result.error,
+          disconnect_reason: result.error,
           updated_at: new Date().toISOString(),
         })
         .eq("id", integration.id)

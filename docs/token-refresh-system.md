@@ -48,7 +48,7 @@ The system relies on the following fields in the `integrations` table:
 - `refresh_token_expires_at`: ISO timestamp when the refresh token expires (if applicable)
 - `status`: Current status of the integration ("active", "needs_reauthorization", etc.)
 - `consecutive_failures`: Count of consecutive token refresh failures
-- `last_failure_reason`: Error message from the last failed token refresh
+- `disconnect_reason`: Error message from the last failed token refresh
 - `last_token_refresh`: ISO timestamp of the last successful token refresh
 
 ## Usage
