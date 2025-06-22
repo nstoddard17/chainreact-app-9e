@@ -466,9 +466,22 @@ export async function refreshTokenForProvider(
     });
   }
 
+  // Determine the scope string from integration.scope or integration.scopes
+  let scopeString: string | undefined = undefined;
+  if (integration.scope) {
+    scopeString = integration.scope;
+  } else if (integration.scopes) {
+    // Handle both string and array types for scopes
+    if (Array.isArray(integration.scopes)) {
+      scopeString = integration.scopes.join(' ');
+    } else if (typeof integration.scopes === 'string') {
+      scopeString = integration.scopes;
+    }
+  }
+  
   // Add scope if required by the provider and available in the integration
-  if (config.sendScopeWithRefresh && integration.scope) {
-    body.set('scope', integration.scope);
+  if (config.sendScopeWithRefresh && scopeString) {
+    body.set('scope', scopeString);
   }
 
   // HACK: Force add redirect_uri for all Microsoft providers to fix refresh issues
@@ -515,14 +528,20 @@ export async function refreshTokenForProvider(
     
     // Check for specific error codes that indicate an invalid refresh token
     const isInvalidGrant = data.error === 'invalid_grant';
+    const isInvalidOrExpiredToken = isInvalidGrant || response.status === 401;
+    
+    // Set a specific error message for invalid/expired refresh tokens
+    const finalErrorMessage = isInvalidOrExpiredToken 
+      ? "Refresh token expired. User must re-authorize."
+      : errorMessage;
     
     return {
       success: false,
-      error: errorMessage,
+      error: finalErrorMessage,
       statusCode: response.status,
       providerResponse: data,
-      invalidRefreshToken: isInvalidGrant || response.status === 401,
-      needsReauthorization: isInvalidGrant || response.status === 401,
+      invalidRefreshToken: isInvalidOrExpiredToken,
+      needsReauthorization: isInvalidOrExpiredToken,
     };
   }
 
