@@ -557,4 +557,4 @@ export function getOAuthClientCredentials(provider: string | OAuthProviderConfig
   }
   
   return { clientId, clientSecret };
-} 
+}

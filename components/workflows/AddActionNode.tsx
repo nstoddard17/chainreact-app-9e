@@ -22,4 +22,4 @@ export function AddActionNode({ data }: NodeProps) {
       <Handle type="target" position={Position.Top} className="!w-0 !h-0 !-top-1 !bg-transparent !border-none" />
     </div>
   )
-} 
+}

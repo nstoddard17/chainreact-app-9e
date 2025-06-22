@@ -43,4 +43,4 @@ SELECT
 FROM integrations
 GROUP BY user_id, provider
 HAVING COUNT(*) > 1
-ORDER BY count DESC; 
+ORDER BY count DESC;

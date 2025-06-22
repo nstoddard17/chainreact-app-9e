@@ -44,4 +44,4 @@ SELECT
   COUNT(*) FILTER (WHERE last_used_at > NOW() - INTERVAL '7 days') as used_this_week,
   COUNT(*) FILTER (WHERE last_token_refresh > NOW() - INTERVAL '7 days') as refreshed_this_week
 FROM integrations 
-WHERE provider = 'onedrive'; 
+WHERE provider = 'onedrive';

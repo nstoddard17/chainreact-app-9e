@@ -36,4 +36,4 @@ GROUP BY
     WHEN expires_at IS NULL THEN 'good'
     WHEN expires_at <= NOW() THEN 'bad'
     ELSE 'good'
-  END; 
+  END;

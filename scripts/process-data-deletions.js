@@ -157,4 +157,4 @@ if (require.main === module) {
     })
 }
 
-module.exports = { processDataDeletions } 
+module.exports = { processDataDeletions }

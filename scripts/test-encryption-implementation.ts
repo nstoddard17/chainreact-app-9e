@@ -102,4 +102,4 @@ function testEncryptionImplementation() {
   console.log("3. There are bugs in the encryption/decryption implementation")
 }
 
-testEncryptionImplementation() 
+testEncryptionImplementation()

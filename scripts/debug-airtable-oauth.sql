@@ -48,4 +48,4 @@ SELECT
 FROM token_refresh_logs 
 WHERE errors::text LIKE '%airtable%'
 ORDER BY executed_at DESC
-LIMIT 5; 
+LIMIT 5;

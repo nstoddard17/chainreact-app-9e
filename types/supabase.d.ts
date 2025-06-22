@@ -26,4 +26,4 @@ declare module '@supabase/supabase-js' {
       }
     }
   ): SupabaseClient
-} 
+}

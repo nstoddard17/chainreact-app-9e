@@ -65,4 +65,4 @@ SELECT
         ELSE 'Not marked as disconnected'
     END as disconnect_status
 FROM integrations 
-WHERE provider = 'airtable'; 
+WHERE provider = 'airtable';

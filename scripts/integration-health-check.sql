@@ -160,4 +160,4 @@ SELECT
     (COUNT(*) FILTER (WHERE status = 'connected' AND (expires_at IS NULL OR expires_at > NOW()))::numeric / COUNT(*)::numeric) * 100, 
     1
   ) as health_percentage
-FROM integrations; 
+FROM integrations;

@@ -69,4 +69,4 @@ SELECT
 FROM integrations 
 WHERE user_id = '3d0c4fed-5e0e-43f2-b037-c64ce781e008'
 GROUP BY status
-ORDER BY count DESC; 
+ORDER BY count DESC;

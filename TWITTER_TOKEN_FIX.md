@@ -56,17 +56,17 @@ Updated the following callbacks to use consistent token encryption:
 
 ### 1. Run the Database Fix Script
 
-```bash
+\`\`\`bash
 # Run the script to fix existing unencrypted tokens
 npx tsx scripts/fix-unencrypted-tokens.ts
-```
+\`\`\`
 
 ### 2. Test the Token Refresh
 
-```bash
+\`\`\`bash
 # Test the token refresh system
 curl "https://your-domain.com/api/cron/refresh-tokens-simple?provider=twitter"
-```
+\`\`\`
 
 ### 3. Monitor the Results
 
@@ -107,4 +107,4 @@ After applying this fix:
 - ✅ Twitter token refresh errors should be resolved
 - ✅ All OAuth callbacks will encrypt tokens consistently
 - ✅ Existing unencrypted tokens will be fixed
-- ✅ Token refresh system will work reliably across all providers 
+- ✅ Token refresh system will work reliably across all providers

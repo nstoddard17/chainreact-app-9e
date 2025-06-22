@@ -25,4 +25,4 @@ export async function getSecret(key: string): Promise<string | undefined> {
   
   // Return undefined if secret not found
   return undefined;
-} 
+}

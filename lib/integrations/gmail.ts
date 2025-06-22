@@ -123,4 +123,4 @@ export async function getGoogleContacts(accessToken: string) {
     console.error("Failed to get Google contacts:", error)
     throw new Error("Failed to get Google contacts")
   }
-} 
+}

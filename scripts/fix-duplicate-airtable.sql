@@ -93,4 +93,4 @@ SELECT
 FROM integrations 
 WHERE provider = 'airtable' 
   AND user_id = '3d0c4fed-5e0e-43f2-b037-c64ce781e008'
-ORDER BY updated_at DESC; 
+ORDER BY updated_at DESC;

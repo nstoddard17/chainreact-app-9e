@@ -50,4 +50,4 @@ FROM (
         user_id = '3d0c4fed-5e0e-43f2-b037-c64ce781e008'
 ) as status_calc
 GROUP BY
-    calculated_status; 
+    calculated_status;

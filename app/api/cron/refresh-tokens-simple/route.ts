@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
-import { TokenRefreshService } from "@/lib/integrations/tokenRefreshService"
-import { NextRequest } from "next/server"
+import type { NextRequest } from "next/server"
+import { getAdminSupabaseClient } from "@/lib/supabase/admin"
+import { refreshTokenForProvider } from "@/lib/integrations/tokenRefreshService"
 
 export const dynamic = "force-dynamic"
 export const maxDuration = 300
@@ -39,73 +40,403 @@ export const maxDuration = 300
  *     responses:
  *       200:
  *         description: Token refresh process completed.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                 total_integrations_to_process:
- *                   type: integer
- *                 success_count:
- *                   type: integer
- *                 failure_count:
- *                   type: integer
- *                 duration_seconds:
- *                    type: number
- *                 details:
- *                    type: array
- *                    items:
- *                      type: string
  */
 export async function GET(request: NextRequest) {
+  const jobId = `token-refresh-${Date.now()}`
+  const startTime = Date.now()
+
   try {
-    const searchParams = request.nextUrl.searchParams;
-    const cleanupMode = searchParams.get('cleanupMode') === 'true';
-    const provider = searchParams.get('provider') || undefined;
-    const includeInactive = searchParams.get('includeInactive') === 'true';
+    // Check for Vercel cron job header or secret authentication
+    const cronHeader = request.headers.get("x-vercel-cron")
+    const authHeader = request.headers.get("authorization")
+    const url = new URL(request.url)
+    const querySecret = url.searchParams.get("secret") || url.searchParams.get("cron_secret")
+    const expectedSecret = process.env.CRON_SECRET
+
+    if (!expectedSecret) {
+      return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 500 })
+    }
+
+    // Allow either Vercel cron header OR secret authentication
+    const providedSecret = authHeader?.replace("Bearer ", "") || querySecret
+    const isVercelCron = cronHeader === "1"
+
+    if (!isVercelCron && (!providedSecret || providedSecret !== expectedSecret)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    console.log(`🚀 [${jobId}] Token refresh job started`)
+
+    // Get query parameters
+    const searchParams = request.nextUrl.searchParams
+    const cleanupMode = searchParams.get("cleanupMode") === "true"
+    const provider = searchParams.get("provider") || undefined
+    const includeInactive = searchParams.get("includeInactive") === "true"
 
     // Determine thresholds based on cleanup mode
-    const accessTokenExpiryThreshold = cleanupMode ? 2880 : 30; // 48 hours for cleanup, 30 mins otherwise
-    const refreshTokenExpiryThreshold = cleanupMode ? 43200 : 30; // 30 days for cleanup, 30 mins otherwise
+    const accessTokenExpiryThreshold = cleanupMode ? 2880 : 30 // 48 hours for cleanup, 30 mins otherwise
+    const refreshTokenExpiryThreshold = cleanupMode ? 43200 : 30 // 30 days for cleanup, 30 mins otherwise
 
-    // Run token refresh using our service
-    const stats = await TokenRefreshService.refreshTokens({
-      prioritizeExpiring: true,
-      onlyProvider: provider,
-      includeInactive,
-      accessTokenExpiryThreshold,
-      refreshTokenExpiryThreshold,
-    });
-    
-    // Log the outcome
-    const duration = (stats.durationMs ?? 0) / 1000;
-    const responseMessage = `Token refresh finished in ${duration.toFixed(2)}s. ${stats.successful} succeeded, ${stats.failed} failed.`;
-    
-    console.log(responseMessage, {
-      total_processed: stats.processed,
-      successful: stats.successful,
-      failed: stats.failed,
-      skipped: stats.skipped,
-      provider_stats: stats.providerStats
-    });
+    const supabase = getAdminSupabaseClient()
+    if (!supabase) {
+      return NextResponse.json({ error: "Failed to create database client" }, { status: 500 })
+    }
 
-    return NextResponse.json({ 
+    console.log(`📊 [${jobId}] Getting integrations that need token refresh...`)
+
+    const now = new Date()
+    const accessExpiryThreshold = new Date(now.getTime() + accessTokenExpiryThreshold * 60 * 1000)
+    const refreshExpiryThreshold = new Date(now.getTime() + refreshTokenExpiryThreshold * 60 * 1000)
+
+    // Build the query to get integrations with refresh tokens
+    let query = supabase.from("integrations").select("*").not("refresh_token", "is", null)
+
+    // Filter by status
+    if (!includeInactive) {
+      query = query.eq("is_active", true)
+    }
+
+    // Filter by provider if specified
+    if (provider) {
+      query = query.eq("provider", provider)
+    }
+
+    // Get tokens where either:
+    // 1. Access token expires soon or has no expiry
+    // 2. Refresh token expires soon
+    query = query.or(
+      `expires_at.lt.${accessExpiryThreshold.toISOString()},expires_at.is.null,refresh_token_expires_at.lt.${refreshExpiryThreshold.toISOString()}`,
+    )
+
+    // Order by expiration time
+    query = query.order("expires_at", { ascending: true, nullsFirst: false })
+
+    // Execute the query
+    const { data: integrations, error: fetchError } = await query
+
+    if (fetchError) {
+      console.error(`❌ [${jobId}] Error fetching integrations:`, fetchError)
+      throw new Error(`Error fetching integrations: ${fetchError.message}`)
+    }
+
+    console.log(`✅ [${jobId}] Found ${integrations?.length || 0} integrations that need token refresh`)
+
+    if (!integrations || integrations.length === 0) {
+      console.log(`ℹ️ [${jobId}] No integrations to process`)
+
+      const endTime = Date.now()
+      const durationMs = endTime - startTime
+
+      return NextResponse.json({
+        success: true,
+        message: "Token refresh job completed - no integrations to process",
+        jobId,
+        duration: `${durationMs}ms`,
+        stats: {
+          processed: 0,
+          successful: 0,
+          failed: 0,
+          skipped: 0,
+        },
+        timestamp: new Date().toISOString(),
+      })
+    }
+
+    // Process integrations
+    console.log(`🔄 [${jobId}] Processing ${integrations.length} integrations...`)
+
+    let successful = 0
+    let failed = 0
+    let skipped = 0
+    const errors: Array<{ provider: string; userId: string; error: string }> = []
+    const providerStats: Record<string, { processed: number; successful: number; failed: number }> = {}
+
+    for (const integration of integrations) {
+      try {
+        // Initialize provider stats if not yet initialized
+        if (!providerStats[integration.provider]) {
+          providerStats[integration.provider] = {
+            processed: 0,
+            successful: 0,
+            failed: 0,
+          }
+        }
+
+        providerStats[integration.provider].processed++
+
+        console.log(
+          `🔍 [${jobId}] Processing ${integration.provider} for user ${integration.user_id} (status: ${integration.status})`,
+        )
+
+        // Check if integration has no refresh token
+        if (!integration.refresh_token) {
+          console.log(`⏭️ [${jobId}] Skipping ${integration.provider} - no refresh token`)
+          skipped++
+          continue
+        }
+
+        // Check if refresh is actually needed
+        const needsRefresh = shouldRefreshToken(integration, {
+          accessTokenExpiryThreshold,
+          refreshTokenExpiryThreshold,
+        })
+
+        if (!needsRefresh.shouldRefresh) {
+          console.log(`⏭️ [${jobId}] Skipping ${integration.provider}: ${needsRefresh.reason}`)
+          skipped++
+          continue
+        }
+
+        console.log(`🔄 [${jobId}] Refreshing token for ${integration.provider}: ${needsRefresh.reason}`)
+
+        // Refresh the token
+        const refreshResult = await refreshTokenForProvider(
+          integration.provider,
+          integration.refresh_token,
+          integration,
+        )
+
+        if (refreshResult.success) {
+          successful++
+          providerStats[integration.provider].successful++
+
+          // Update the token in the database
+          await updateIntegrationWithRefreshResult(supabase, integration.id, refreshResult)
+          console.log(`✅ [${jobId}] Successfully refreshed ${integration.provider}`)
+        } else {
+          failed++
+          providerStats[integration.provider].failed++
+          errors.push({
+            provider: integration.provider,
+            userId: integration.user_id,
+            error: refreshResult.error || "Unknown error",
+          })
+
+          // Update integration with error details
+          let status: "expired" | "needs_reauthorization" = "expired"
+          if (refreshResult.invalidRefreshToken || refreshResult.needsReauthorization) {
+            status = "needs_reauthorization"
+          }
+
+          await updateIntegrationWithError(
+            supabase,
+            integration.id,
+            refreshResult.error || "Unknown error during token refresh",
+            { status },
+          )
+          console.warn(`⚠️ [${jobId}] Failed to refresh ${integration.provider}: ${refreshResult.error}`)
+        }
+      } catch (error: any) {
+        failed++
+        if (providerStats[integration.provider]) {
+          providerStats[integration.provider].failed++
+        }
+        errors.push({
+          provider: integration.provider,
+          userId: integration.user_id,
+          error: error.message,
+        })
+        console.error(`💥 [${jobId}] Error processing ${integration.provider}:`, error)
+
+        // Update integration with error details
+        await updateIntegrationWithError(supabase, integration.id, `Unexpected error: ${error.message}`, {})
+      }
+    }
+
+    const endTime = Date.now()
+    const durationMs = endTime - startTime
+    const duration = durationMs / 1000
+
+    console.log(`🏁 [${jobId}] Token refresh job completed in ${duration.toFixed(2)}s`)
+    console.log(`   - Successful refreshes: ${successful}`)
+    console.log(`   - Failed: ${failed}`)
+    console.log(`   - Skipped: ${skipped}`)
+
+    const responseMessage = `Token refresh finished in ${duration.toFixed(2)}s. ${successful} succeeded, ${failed} failed.`
+
+    return NextResponse.json({
+      success: true,
       message: responseMessage,
+      jobId,
       duration_seconds: duration,
       stats: {
-        processed: stats.processed,
-        successful: stats.successful,
-        failed: stats.failed,
-        skipped: stats.skipped,
+        processed: integrations.length,
+        successful,
+        failed,
+        skipped,
       },
-      errors: stats.errors,
-      provider_stats: stats.providerStats,
-     });
-  } catch (e) {
-    const error = e as Error;
-    console.error(`Token refresh cron job failed: ${error.message}`, { error });
-    return NextResponse.json({ message: "Token refresh failed", error: error.message }, { status: 500 });
+      errors: errors.slice(0, 10), // Limit errors in response
+      provider_stats: providerStats,
+      timestamp: new Date().toISOString(),
+    })
+  } catch (error: any) {
+    console.error(`💥 [${jobId}] Critical error in token refresh job:`, error)
+
+    const endTime = Date.now()
+    const durationMs = endTime - startTime
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Failed to complete token refresh job",
+        details: error.message,
+        duration: `${durationMs}ms`,
+        timestamp: new Date().toISOString(),
+      },
+      { status: 500 },
+    )
+  }
+}
+
+/**
+ * Determines if a token should be refreshed based on expiration times
+ */
+function shouldRefreshToken(
+  integration: any,
+  options: { accessTokenExpiryThreshold?: number; refreshTokenExpiryThreshold?: number },
+): { shouldRefresh: boolean; reason: string } {
+  const now = new Date()
+  const accessThreshold = options.accessTokenExpiryThreshold || 30 // Default 30 minutes
+  const refreshThreshold = options.refreshTokenExpiryThreshold || 60 // Default 60 minutes
+
+  // Check access token expiration
+  if (integration.expires_at) {
+    const expiresAt = new Date(integration.expires_at)
+    const minutesUntilExpiration = (expiresAt.getTime() - now.getTime()) / (1000 * 60)
+
+    if (minutesUntilExpiration <= accessThreshold) {
+      return {
+        shouldRefresh: true,
+        reason: `Access token expires in ${Math.max(0, Math.round(minutesUntilExpiration))} minutes`,
+      }
+    }
+  } else {
+    // No expiration is set, we should refresh to be safe
+    return { shouldRefresh: true, reason: "No access token expiration set" }
+  }
+
+  // Check refresh token expiration if applicable
+  if (integration.refresh_token_expires_at) {
+    const refreshExpiresAt = new Date(integration.refresh_token_expires_at)
+    const minutesUntilRefreshExpiration = (refreshExpiresAt.getTime() - now.getTime()) / (1000 * 60)
+
+    if (minutesUntilRefreshExpiration <= refreshThreshold) {
+      return {
+        shouldRefresh: true,
+        reason: `Refresh token expires in ${Math.max(0, Math.round(minutesUntilRefreshExpiration))} minutes`,
+      }
+    }
+  }
+
+  // No refresh needed
+  return { shouldRefresh: false, reason: "Tokens are still valid" }
+}
+
+/**
+ * Update an integration with a successful refresh result
+ */
+async function updateIntegrationWithRefreshResult(
+  supabase: any,
+  integrationId: string,
+  refreshResult: any,
+): Promise<void> {
+  const { accessToken, refreshToken, accessTokenExpiresIn, scope } = refreshResult
+
+  if (!accessToken) {
+    throw new Error("Cannot update integration: No access token in refresh result")
+  }
+
+  try {
+    // Calculate the new expiration date
+    const now = new Date()
+    let expiresAt: Date | null = null
+
+    if (accessTokenExpiresIn) {
+      expiresAt = new Date(now.getTime() + accessTokenExpiresIn * 1000)
+    }
+
+    // Prepare the update data
+    const updateData: Record<string, any> = {
+      access_token: accessToken,
+      updated_at: now.toISOString(),
+      last_refresh_attempt: now.toISOString(),
+      last_refresh_success: now.toISOString(),
+      consecutive_failures: 0,
+      status: "connected",
+    }
+
+    if (expiresAt) {
+      updateData.expires_at = expiresAt.toISOString()
+    }
+
+    if (refreshToken) {
+      updateData.refresh_token = refreshToken
+    }
+
+    if (scope) {
+      updateData.scope = scope
+    }
+
+    // Update the integration in the database
+    const { error } = await supabase.from("integrations").update(updateData).eq("id", integrationId)
+
+    if (error) {
+      throw error
+    }
+
+    console.log(`✅ Updated tokens for integration ID: ${integrationId}`)
+  } catch (error: any) {
+    console.error(`❌ Failed to update tokens for integration ID: ${integrationId}:`, error)
+    throw error
+  }
+}
+
+/**
+ * Update an integration with an error from token refresh
+ */
+async function updateIntegrationWithError(
+  supabase: any,
+  integrationId: string,
+  errorMessage: string,
+  additionalData: Record<string, any> = {},
+): Promise<void> {
+  try {
+    // Get the current integration data
+    const { data: integration, error: fetchError } = await supabase
+      .from("integrations")
+      .select("consecutive_failures")
+      .eq("id", integrationId)
+      .single()
+
+    if (fetchError) {
+      console.error(`Error fetching integration ${integrationId}:`, fetchError.message)
+      throw fetchError
+    }
+
+    // Increment the failure counter
+    const consecutiveFailures = (integration?.consecutive_failures || 0) + 1
+
+    // Prepare the update data
+    const updateData: Record<string, any> = {
+      consecutive_failures: consecutiveFailures,
+      disconnect_reason: errorMessage,
+      updated_at: new Date().toISOString(),
+      last_refresh_attempt: new Date().toISOString(),
+      ...additionalData,
+    }
+
+    // If there are too many consecutive failures, mark as needing reauthorization
+    if (consecutiveFailures >= 3 && !additionalData.status) {
+      updateData.status = "needs_reauthorization"
+    }
+
+    // Update the database
+    const { error: updateError } = await supabase.from("integrations").update(updateData).eq("id", integrationId)
+
+    if (updateError) {
+      console.error(`Error updating integration ${integrationId} with error:`, updateError.message)
+    }
+  } catch (error) {
+    console.error(`Unexpected error updating integration ${integrationId} with error:`, error)
   }
 }

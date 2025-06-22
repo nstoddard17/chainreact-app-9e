@@ -31,4 +31,4 @@ WHERE
   AND event_type LIKE '%token%'
 ORDER BY 
   created_at DESC
-LIMIT 10; 
+LIMIT 10;

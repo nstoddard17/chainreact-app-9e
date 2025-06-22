@@ -85,4 +85,4 @@ GROUP BY
     WHEN status = 'needs_reauthorization' THEN 'needs_reauthorization'
     ELSE status
   END
-ORDER BY source, status; 
+ORDER BY source, status;

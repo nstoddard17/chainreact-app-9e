@@ -127,4 +127,4 @@ export async function GET(request: NextRequest) {
     console.error("Blackbaud callback error:", e)
     return createPopupResponse("error", "blackbaud", e.message || "An unexpected error occurred.", baseUrl)
   }
-} 
+}

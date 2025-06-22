@@ -66,4 +66,4 @@ export function createPopupResponse(
     </html>
   `
   return new Response(html, { status, headers: { "Content-Type": "text/html" } })
-} 
+}

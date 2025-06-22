@@ -132,4 +132,4 @@ async function fixUnencryptedTokens() {
 }
 
 // Run the script
-fixUnencryptedTokens().catch(console.error) 
+fixUnencryptedTokens().catch(console.error)

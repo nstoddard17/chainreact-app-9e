@@ -23,4 +23,4 @@ OPENAI_API_KEY=sk-placeholder
 // Write the content to the .env.local file
 fs.writeFileSync(envFilePath, envFileContent, 'utf8');
 console.log(`Created .env.local file at ${envFilePath}`);
-console.log('Note: This file contains placeholder values. Replace them with your actual values before deploying.'); 
+console.log('Note: This file contains placeholder values. Replace them with your actual values before deploying.');

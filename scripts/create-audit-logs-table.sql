@@ -37,4 +37,4 @@ BEGIN
   DELETE FROM audit_logs 
   WHERE created_at < NOW() - INTERVAL '90 days';
 END;
-$$ LANGUAGE plpgsql; 
+$$ LANGUAGE plpgsql;

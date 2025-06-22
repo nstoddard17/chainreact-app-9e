@@ -1296,4 +1296,4 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Productivity",
     isTrigger: false,
   },
-] 
+]
