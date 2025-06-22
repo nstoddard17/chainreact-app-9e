@@ -88,4 +88,4 @@ export async function GET(request: NextRequest) {
     const message = error instanceof Error ? error.message : 'An unexpected error occurred'
     return createPopupResponse('error', provider, message, baseUrl)
   }
-} 
+}

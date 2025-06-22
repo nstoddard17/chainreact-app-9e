@@ -91,4 +91,4 @@ export function ManyChatGuide({ open, onOpenChange, onConnect }: ManyChatGuidePr
       </DialogContent>
     </Dialog>
   )
-} 
+}

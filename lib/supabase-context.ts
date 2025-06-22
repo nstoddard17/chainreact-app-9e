@@ -15,4 +15,4 @@ export const useSupabase = () => {
     throw new Error("useSupabase must be used within a SupabaseProvider")
   }
   return context
-} 
+}

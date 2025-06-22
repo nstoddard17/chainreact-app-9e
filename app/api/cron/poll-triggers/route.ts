@@ -63,4 +63,4 @@ async function fetchDataForPollingTrigger(triggerNode: any, userId: string): Pro
   
   // Simulating finding one new item.
   return [{ id: crypto.randomUUID(), message: 'This is a new item found via polling.' }];
-} 
+}

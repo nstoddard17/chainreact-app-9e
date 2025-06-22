@@ -109,4 +109,4 @@ function testEncryptionImplementation() {
   console.log("If any tests failed, there might be issues with the key format or the aes256 library.");
 }
 
-testEncryptionImplementation(); 
+testEncryptionImplementation();

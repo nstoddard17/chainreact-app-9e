@@ -93,4 +93,4 @@ export async function GET(request: NextRequest) {
       details: error.message
     }, { status: 500 })
   }
-} 
+}

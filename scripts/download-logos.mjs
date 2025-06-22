@@ -79,4 +79,4 @@ ${integrations.map(int => `  '${int.filename.split('.')[0]}': {
   }
 }
 
-main(); 
+main();

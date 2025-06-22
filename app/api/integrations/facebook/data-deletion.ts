@@ -40,4 +40,4 @@ export async function GET(request: NextRequest) {
   // Status page for Facebook deletion requests (optional)
   // You can render a status or confirmation message here
   return NextResponse.json({ status: 'pending', message: 'Your Facebook data deletion request is being processed.' })
-} 
+}

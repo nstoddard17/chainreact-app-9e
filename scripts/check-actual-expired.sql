@@ -71,4 +71,4 @@ WHERE
         OR 
         expires_at IS NULL
     )
-    AND disconnected_at IS NOT NULL; 
+    AND disconnected_at IS NOT NULL;

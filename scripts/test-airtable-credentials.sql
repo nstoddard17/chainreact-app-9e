@@ -64,4 +64,4 @@ SELECT
 FROM integrations 
 WHERE provider = 'airtable'
   AND status = 'expired'
-ORDER BY updated_at DESC; 
+ORDER BY updated_at DESC;

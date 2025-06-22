@@ -226,4 +226,4 @@ WHERE user_id = '3d0c4fed-5e0e-43f2-b037-c64ce781e008'
     OR 
     expires_at IS NULL
   )
-ORDER BY provider; 
+ORDER BY provider;

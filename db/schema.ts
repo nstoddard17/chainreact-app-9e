@@ -120,4 +120,4 @@ export interface Integration {
   consecutive_failures?: number
   disconnected_at?: string
   disconnect_reason?: string
-} 
+}

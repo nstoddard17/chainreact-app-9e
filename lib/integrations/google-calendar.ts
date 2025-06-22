@@ -22,4 +22,4 @@ export async function getGoogleCalendars(accessToken: string) {
     console.error("Failed to get Google calendars:", error)
     throw new Error("Failed to get Google calendars")
   }
-} 
+}

@@ -57,17 +57,17 @@ The system relies on the following fields in the `integrations` table:
 
 #### Via API route (for serverless environments)
 
-```bash
+\`\`\`bash
 # Production
 curl https://yourapp.com/api/cron/refresh-tokens-simple
 
 # With parameters
 curl https://yourapp.com/api/cron/refresh-tokens-simple?limit=100&provider=google&dry_run=true
-```
+\`\`\`
 
 #### Via Node.js script
 
-```bash
+\`\`\`bash
 # Run token refresh
 npm run refresh-tokens
 
@@ -76,7 +76,7 @@ npm run refresh-tokens:dry-run
 
 # With additional options
 node scripts/scheduled-token-refresh.js --limit 100 --provider google
-```
+\`\`\`
 
 ### Setting Up Scheduled Refresh
 
@@ -84,7 +84,7 @@ node scripts/scheduled-token-refresh.js --limit 100 --provider google
 
 Add the following to your `vercel.json`:
 
-```json
+\`\`\`json
 {
   "crons": [
     {
@@ -93,16 +93,16 @@ Add the following to your `vercel.json`:
     }
   ]
 }
-```
+\`\`\`
 
 #### With traditional Cron
 
 Add the following to your server's crontab:
 
-```
+\`\`\`
 # Run every 4 hours
 0 */4 * * * cd /path/to/chainreact && npm run refresh-tokens
-```
+\`\`\`
 
 ## Error Handling
 
@@ -129,4 +129,4 @@ To add a new OAuth provider:
 
 1. Add the provider configuration to `lib/integrations/oauthConfig.ts`
 2. Add environment variables for client credentials
-3. No additional code changes are needed for the token refresh system 
+3. No additional code changes are needed for the token refresh system

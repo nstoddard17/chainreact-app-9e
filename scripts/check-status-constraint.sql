@@ -53,4 +53,4 @@ SELECT
   pg_get_constraintdef(oid) as constraint_definition
 FROM pg_constraint 
 WHERE conrelid = 'integrations'::regclass 
-  AND conname = 'integrations_status_check'; 
+  AND conname = 'integrations_status_check';

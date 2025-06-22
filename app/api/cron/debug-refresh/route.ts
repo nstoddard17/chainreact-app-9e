@@ -86,4 +86,4 @@ export async function GET(request: NextRequest) {
     console.error("Error in debug-refresh endpoint:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-} 
+}

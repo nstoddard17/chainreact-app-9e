@@ -37,4 +37,4 @@ export async function POST(request: NextRequest) {
     console.error("Error logging integration event:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
-} 
+}

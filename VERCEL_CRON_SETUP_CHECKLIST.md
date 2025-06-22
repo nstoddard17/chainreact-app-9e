@@ -19,7 +19,7 @@ Make sure these are set in your Vercel dashboard:
 
 ### 3. vercel.json Configuration ✅
 Your `vercel.json` is correctly configured:
-```json
+\`\`\`json
 {
   "crons": [
     {
@@ -28,7 +28,7 @@ Your `vercel.json` is correctly configured:
     }
   ]
 }
-```
+\`\`\`
 
 ### 4. API Route Configuration ✅
 Your `/api/cron/refresh-tokens/route.ts` is correctly configured:
@@ -58,9 +58,9 @@ Your database has the required tables:
 ## 🚀 Deployment Steps
 
 ### 1. Deploy to Vercel
-```bash
+\`\`\`bash
 vercel --prod
-```
+\`\`\`
 
 ### 2. Verify Environment Variables
 In Vercel dashboard, confirm all required environment variables are set:
@@ -122,7 +122,7 @@ After deployment and plan upgrade:
 - Error logs show failures
 
 ### Database Monitoring:
-```sql
+\`\`\`sql
 -- Check recent cron job runs
 SELECT * FROM token_refresh_logs 
 ORDER BY executed_at DESC 
@@ -130,7 +130,7 @@ LIMIT 10;
 
 -- Check token health
 SELECT * FROM token_health_summary;
-```
+\`\`\`
 
 ## 🎯 Expected Behavior
 
@@ -163,4 +163,4 @@ Once properly configured:
 4. **Monitor the first few cron job runs**
 5. **Check database logs** for successful execution
 
-Your setup is very close to working! The main issue is likely the Vercel plan upgrade requirement. 
+Your setup is very close to working! The main issue is likely the Vercel plan upgrade requirement.

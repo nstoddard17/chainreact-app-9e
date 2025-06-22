@@ -44,4 +44,4 @@ export async function GET(request: Request) {
     console.error("Failed to get collaborators:", error)
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
   }
-} 
+}

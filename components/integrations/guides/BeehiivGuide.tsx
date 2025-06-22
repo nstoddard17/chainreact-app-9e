@@ -91,4 +91,4 @@ export function BeehiivGuide({ open, onOpenChange, onConnect }: BeehiivGuideProp
       </DialogContent>
     </Dialog>
   )
-} 
+}

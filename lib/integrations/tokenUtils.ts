@@ -57,4 +57,4 @@ export async function prepareIntegrationData(
     updated_at: new Date().toISOString(),
     ...(metadata && { metadata })
   }
-} 
+}

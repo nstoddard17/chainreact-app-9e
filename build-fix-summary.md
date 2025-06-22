@@ -4,9 +4,9 @@
 
 The build was failing with the following error:
 
-```
+\`\`\`
 Module not found: Can't resolve '@supabase/auth-helpers-nextjs'
-```
+\`\`\`
 
 This was because the `@supabase/auth-helpers-nextjs` package was not installed but was being imported in the `app/api/cron/refresh-tokens-simple/route.ts` file.
 
@@ -52,4 +52,4 @@ This was because the `@supabase/auth-helpers-nextjs` package was not installed b
 
 3. **Monitor Token Health**:
    - Regularly check the logs for decryption errors
-   - Consider implementing a more comprehensive token health monitoring system 
+   - Consider implementing a more comprehensive token health monitoring system

@@ -321,4 +321,4 @@ async function performIntegrationSpecificDeletion(userId: string, provider: stri
     .delete()
     .eq("user_id", userId)
     .contains("execution_data", { integration_provider: provider })
-} 
+}

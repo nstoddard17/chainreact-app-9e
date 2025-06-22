@@ -106,4 +106,4 @@ SELECT
   STRING_AGG(provider, ', ') as providers
 FROM integrations 
 WHERE is_active = false
-GROUP BY issue_type; 
+GROUP BY issue_type;

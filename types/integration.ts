@@ -24,4 +24,4 @@ export interface RefreshResult {
   refreshTokenExpiresIn?: number;
   error?: string;
   invalidRefreshToken?: boolean;
-} 
+}
