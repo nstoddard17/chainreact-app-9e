@@ -238,7 +238,7 @@ export async function refreshTokens(options: RefreshTokensOptions = {}): Promise
               (stats.errors[refreshResult.error || "unknown"] || 0) + 1;
               
             if (!config.dryRun) {
-              let status = "error";
+              let status: "expired" | "needs_reauthorization" = "expired";
               if (refreshResult.invalidRefreshToken || refreshResult.needsReauthorization) {
                 status = "needs_reauthorization";
               }
@@ -340,7 +340,7 @@ async function updateIntegrationWithRefreshResult(
   
   // Prepare the update data
   const updateData: Record<string, any> = {
-    status: "active",
+    status: "connected",
     last_token_refresh: now.toISOString(),
     updated_at: now.toISOString(),
     consecutive_failures: 0,
