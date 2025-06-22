@@ -477,20 +477,34 @@ export async function refreshTokenForProvider(
       body: new URLSearchParams(params),
     });
     
-    const data = await response.json();
+    // Try to parse the response as JSON, but handle non-JSON responses gracefully
+    let data: any;
+    try {
+      data = await response.json();
+    } catch (error) {
+      // If parsing fails, the body might not be JSON. We'll use the raw text.
+      data = { error: 'Invalid JSON response', body: await response.text() };
+    }
     
-    // Handle errors
-    if (!response.ok || data.error) {
+    if (!response.ok) {
+      const errorMessage = data.error_description || data.error || `HTTP ${response.status} - ${response.statusText}`;
+      console.error(
+        `Failed to refresh token for ${provider} (ID: ${integration.id}). ` +
+        `Status: ${response.status}. ` +
+        `Error: ${errorMessage}. ` +
+        `Response: ${JSON.stringify(data)}`
+      );
+      
+      // Check for specific error codes that indicate an invalid refresh token
+      const isInvalidGrant = data.error === 'invalid_grant';
+      
       return {
         success: false,
-        error: `${provider} API error: ${data.error || response.statusText} - ${data.error_description || "No description"}`,
+        error: errorMessage,
         statusCode: response.status,
         providerResponse: data,
-        invalidRefreshToken: 
-          data.error === "invalid_grant" || 
-          data.error === "invalid_token" ||
-          data.error === "bad_verification_code",
-        needsReauthorization: true,
+        invalidRefreshToken: isInvalidGrant || response.status === 401,
+        needsReauthorization: isInvalidGrant || response.status === 401,
       };
     }
     
