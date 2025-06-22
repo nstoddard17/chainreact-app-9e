@@ -93,6 +93,22 @@ export const lucia = {
   sessionCookieName: "session",
 }
 
+// Add missing auth export (alias for lucia)
+export const auth = lucia
+
+// Add missing getAuthSession function
+export async function getAuthSession() {
+  try {
+    // This would need to be implemented based on your cookie handling
+    // For now, return null - you'll need to implement proper session validation
+    const { user, session } = await validateRequest()
+    return { user, session }
+  } catch (error) {
+    console.error("Error getting auth session:", error)
+    return { user: null, session: null }
+  }
+}
+
 export async function validateRequest() {
   // This would need to be implemented based on your cookie handling
   return { user: null, session: null }

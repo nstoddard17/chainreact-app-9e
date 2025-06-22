@@ -1,91 +1,78 @@
-import { type NextRequest } from "next/server"
-import { createAdminClient } from "@/lib/supabase/admin"
-import { createPopupResponse } from "@/lib/utils/createPopupResponse"
-import { getBaseUrl } from "@/lib/utils/getBaseUrl"
+import { type NextRequest, NextResponse } from "next/server"
+import { cookies } from "next/headers"
+import { db } from "@/lib/db"
+import { integrationTable } from "@/lib/db/schema"
 
 export async function GET(request: NextRequest) {
-  const url = new URL(request.url)
-  const code = url.searchParams.get("code")
-  const state = url.searchParams.get("state")
-  const error = url.searchParams.get("error")
-  const errorDescription = url.searchParams.get("error_description")
-  const baseUrl = getBaseUrl()
-  const provider = "microsoft-onenote"
+  const searchParams = request.nextUrl.searchParams
+  const code = searchParams.get("code")
+  const userId = cookies().get("userId")?.value
 
-  if (error) {
-    console.error(`Error with Microsoft OneNote OAuth: ${error} - ${errorDescription}`)
-    return createPopupResponse('error', provider, errorDescription || `OAuth Error: ${error}`, baseUrl)
-  }
-
-  if (!code || !state) {
-    return createPopupResponse('error', provider, 'No code or state provided for Microsoft OneNote OAuth.', baseUrl)
+  if (!code || !userId) {
+    return NextResponse.json({ error: "Missing code or userId" }, { status: 400 })
   }
 
   try {
-    const supabaseAdmin = createAdminClient()
-    const { userId } = JSON.parse(atob(state))
-    if (!userId) {
-      return createPopupResponse('error', provider, 'Missing userId in Microsoft OneNote state.', baseUrl)
+    const tokenEndpoint = "https://login.microsoftonline.com/common/oauth2/v2.0/token"
+    const clientId = process.env.MICROSOFT_ONENOTE_CLIENT_ID
+    const clientSecret = process.env.MICROSOFT_ONENOTE_CLIENT_SECRET
+    const redirectUri = process.env.MICROSOFT_ONENOTE_REDIRECT_URI
+
+    if (!clientId || !clientSecret || !redirectUri) {
+      console.error("Missing environment variables for Microsoft OneNote integration.")
+      return NextResponse.json({ error: "Missing configuration" }, { status: 500 })
     }
 
-    const tenant = 'common'
-    const tokenUrl = `https://login.microsoftonline.com/${tenant}/oauth2/v2.0/token`
-    const redirectUri = `${baseUrl}/api/integrations/microsoft-onenote/callback`
+    const tokenParams = new URLSearchParams()
+    tokenParams.append("grant_type", "authorization_code")
+    tokenParams.append("code", code)
+    tokenParams.append("redirect_uri", redirectUri)
+    tokenParams.append("client_id", clientId)
+    tokenParams.append("client_secret", clientSecret)
 
-    const tokenResponse = await fetch(tokenUrl, {
-      method: 'POST',
+    const tokenResponse = await fetch(tokenEndpoint, {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
+        "Content-Type": "application/x-www-form-urlencoded",
       },
-      body: new URLSearchParams({
-        client_id: process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID!,
-        client_secret: process.env.MICROSOFT_CLIENT_SECRET!,
-        code,
-        redirect_uri: redirectUri,
-        grant_type: 'authorization_code',
-        scope: 'offline_access User.Read Notes.ReadWrite.All',
-      }),
+      body: tokenParams,
     })
 
     if (!tokenResponse.ok) {
-      const errorData = await tokenResponse.json()
-      console.error('Failed to exchange Microsoft OneNote code for token:', errorData)
-      return createPopupResponse(
-        'error',
-        provider,
-        errorData.error_description || 'Failed to get Microsoft OneNote access token.',
-        baseUrl,
-      )
+      console.error("Failed to retrieve tokens from Microsoft:", tokenResponse.status, await tokenResponse.text())
+      return NextResponse.json({ error: "Failed to retrieve tokens from Microsoft" }, { status: 500 })
     }
 
     const tokenData = await tokenResponse.json()
+
+    // After getting tokenData
     const expiresIn = tokenData.expires_in
-    const expiresAt = expiresIn ? new Date(new Date().getTime() + expiresIn * 1000) : null
+    const refreshExpiresIn = tokenData.refresh_expires_in || 90 * 24 * 60 * 60 // 90 days default
+    const expiresAt = expiresIn ? new Date(Date.now() + expiresIn * 1000) : null
+    const refreshTokenExpiresAt = new Date(Date.now() + refreshExpiresIn * 1000)
 
     const integrationData = {
-      user_id: userId,
-      provider: 'microsoft-onenote',
       access_token: tokenData.access_token,
       refresh_token: tokenData.refresh_token,
-      scopes: tokenData.scope ? tokenData.scope.split(' ') : [],
-      status: 'connected',
       expires_at: expiresAt ? expiresAt.toISOString() : null,
-      updated_at: new Date().toISOString(),
+      refresh_token_expires_at: refreshTokenExpiresAt.toISOString(),
     }
 
-    const { error: dbError } = await supabaseAdmin
-      .from('integrations')
-      .upsert(integrationData, { onConflict: 'user_id, provider' })
+    await db
+      .insert(integrationTable)
+      .values({
+        userId: userId,
+        type: "microsoft-onenote",
+        data: integrationData,
+      })
+      .onConflictDoUpdate({
+        target: [integrationTable.userId, integrationTable.type],
+        set: { data: integrationData },
+      })
 
-    if (dbError) {
-      console.error('Error saving Microsoft OneNote integration to DB:', dbError)
-      return createPopupResponse('error', provider, `Database Error: ${dbError.message}`, baseUrl)
-    }
-
-    return createPopupResponse('success', provider, 'Microsoft OneNote account connected successfully.', baseUrl)
+    return NextResponse.redirect(new URL("/dashboard", request.url))
   } catch (error) {
-    console.error('Error during Microsoft OneNote OAuth callback:', error)
-    const message = error instanceof Error ? error.message : 'An unexpected error occurred'
-    return createPopupResponse('error', provider, message, baseUrl)
+    console.error("Error during Microsoft OneNote integration:", error)
+    return NextResponse.json({ error: "Integration failed" }, { status: 500 })
   }
 }
