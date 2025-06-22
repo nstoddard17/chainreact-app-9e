@@ -25,6 +25,8 @@ export interface OAuthProviderConfig {
   refreshTokenExpiryBuffer?: number; // Minutes before expiry to refresh (for refresh tokens that expire)
   sendScopeWithRefresh?: boolean; // Whether to include the scope parameter during token refresh
   sendClientIdWithRefresh?: boolean; // Whether to also send client_id in the body during refresh
+  sendRedirectUriWithRefresh?: boolean; // Whether to send the redirect_uri during token refresh
+  redirectUriPath?: string; // The path for the redirect URI (e.g., /api/integrations/callback)
   // Custom parameters for token refresh
   additionalRefreshParams?: Record<string, string>;
   // When a refresh happens, should we update scopes in the database?
@@ -138,6 +140,8 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     refreshTokenExpirationSupported: false,
     accessTokenExpiryBuffer: 30,
     sendScopeWithRefresh: true,
+    sendRedirectUriWithRefresh: true,
+    redirectUriPath: "/api/integrations/microsoft/callback",
   },
   onedrive: {
     id: "onedrive",
@@ -151,6 +155,8 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     refreshTokenExpirationSupported: false,
     accessTokenExpiryBuffer: 30,
     sendScopeWithRefresh: true,
+    sendRedirectUriWithRefresh: true,
+    redirectUriPath: "/api/integrations/onedrive/callback",
   },
   slack: {
     id: "slack",
@@ -164,6 +170,9 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     authMethod: "basic",
     refreshTokenExpirationSupported: false,
     accessTokenExpiryBuffer: 15, // Refresh 15 minutes before expiry
+    sendScopeWithRefresh: true,
+    sendRedirectUriWithRefresh: true,
+    redirectUriPath: "/api/integrations/microsoft-onenote/callback",
   },
   dropbox: {
     id: "dropbox",
@@ -190,7 +199,10 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     authMethod: "basic",
     sendClientIdWithRefresh: true,
     refreshTokenExpirationSupported: false,
-    accessTokenExpiryBuffer: 15,
+    accessTokenExpiryBuffer: 30,
+    sendScopeWithRefresh: true,
+    sendRedirectUriWithRefresh: true,
+    redirectUriPath: "/api/integrations/microsoft-onenote/callback",
   },
   facebook: {
     id: "facebook",
@@ -269,6 +281,8 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     refreshTokenExpirationSupported: false,
     accessTokenExpiryBuffer: 30,
     sendScopeWithRefresh: true,
+    sendRedirectUriWithRefresh: true,
+    redirectUriPath: "/api/integrations/microsoft-onenote/callback",
   },
   "microsoft-outlook": {
     id: "microsoft-outlook",
@@ -282,6 +296,8 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     refreshTokenExpirationSupported: false,
     accessTokenExpiryBuffer: 30,
     sendScopeWithRefresh: true,
+    sendRedirectUriWithRefresh: true,
+    redirectUriPath: "/api/integrations/microsoft-outlook/callback",
   },
   teams: {
     id: "teams",
@@ -295,6 +311,8 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     refreshTokenExpirationSupported: false,
     accessTokenExpiryBuffer: 30,
     sendScopeWithRefresh: true,
+    sendRedirectUriWithRefresh: true,
+    redirectUriPath: "/api/integrations/teams/callback",
   },
 };
 

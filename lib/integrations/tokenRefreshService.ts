@@ -9,6 +9,7 @@ import { Integration } from "@/types/integration";
 import { db } from "@/lib/db";
 import { getOAuthConfig, getOAuthClientCredentials, OAuthProviderConfig } from "./oauthConfig";
 import fetch from 'node-fetch';
+import { getBaseUrl } from "@/lib/utils/getBaseUrl";
 
 // Standard response for token refresh operations
 export interface RefreshResult {
@@ -466,6 +467,13 @@ export async function refreshTokenForProvider(
   // Add scope if required by the provider and available in the integration
   if (config.sendScopeWithRefresh && integration.scope) {
     body.set('scope', integration.scope);
+  }
+
+  // HACK: Force add redirect_uri for all Microsoft providers to fix refresh issues
+  if (provider.startsWith("microsoft") || provider === 'onedrive' || provider === 'teams') {
+    const baseUrl = getBaseUrl();
+    const redirectUri = `${baseUrl}/api/integrations/${provider}/callback`;
+    body.set('redirect_uri', redirectUri);
   }
 
   // Prepare the request
