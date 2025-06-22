@@ -1,91 +1,111 @@
 import { NextResponse } from "next/server"
 import { TokenRefreshService } from "@/lib/integrations/tokenRefreshService"
+import { NextRequest } from "next/server"
 
 export const dynamic = "force-dynamic"
 export const maxDuration = 300
 
 /**
- * @route GET /api/cron/refresh-tokens-simple
- * @description Cron job to refresh OAuth tokens based on prioritized expiration
- * @query cleanup - If "true", will run in cleanup mode to fix invalid tokens
- * @query provider - Optional provider ID to only refresh tokens for that provider
- * @query limit - Maximum number of tokens to refresh (default: 200)
- * @query dry_run - If "true", won't update the database
- * @query include_inactive - If "true", will include inactive integrations
+ * @swagger
+ * /api/cron/refresh-tokens-simple:
+ *   get:
+ *     summary: Refreshes expiring OAuth tokens for all integrations.
+ *     description: |
+ *       This endpoint queries all integrations, identifies tokens that are expiring soon, and refreshes them.
+ *       - By default, processes all integrations with no limit.
+ *       - Access tokens expiring in the next 30 minutes are refreshed.
+ *       - Refresh tokens expiring in the next 30 minutes are refreshed.
+ *       - The `cleanupMode=true` parameter can be used to run a less frequent, deeper check (e.g., once a day)
+ *         for tokens with longer expiration windows (30 days for refresh tokens).
+ *     parameters:
+ *       - name: cleanupMode
+ *         in: query
+ *         required: false
+ *         schema:
+ *           type: boolean
+ *         description: If true, uses a 30-day look-behind for refresh tokens and 48 hours for access tokens.
+ *       - name: provider
+ *         in: query
+ *         required: false
+ *         schema:
+ *           type: string
+ *         description: If provided, only refreshes tokens for the specified provider.
+ *       - name: includeInactive
+ *         in: query
+ *         required: false
+ *         schema:
+ *           type: boolean
+ *         description: If true, also attempts to refresh tokens for inactive integrations.
+ *     responses:
+ *       200:
+ *         description: Token refresh process completed.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 total_integrations_to_process:
+ *                   type: integer
+ *                 success_count:
+ *                   type: integer
+ *                 failure_count:
+ *                   type: integer
+ *                 duration_seconds:
+ *                    type: number
+ *                 details:
+ *                    type: array
+ *                    items:
+ *                      type: string
  */
-export async function GET(request: Request) {
-  const searchParams = new URL(request.url).searchParams
-  const cleanupMode = searchParams.get("cleanup") === "true"
-  const dryRun = searchParams.get("dry_run") === "true"
-  const provider = searchParams.get("provider") || undefined
-  const limitParam = searchParams.get("limit")
-  const limit = limitParam ? parseInt(limitParam, 10) : undefined
-  const includeInactive = searchParams.get("include_inactive") === "true"
-  
-  console.log(`Starting refresh-tokens-simple cron job with options:`, {
-    cleanupMode,
-    dryRun,
-    provider,
-    limit,
-    includeInactive
-  })
-  
+export async function GET(request: NextRequest) {
   try {
+    const searchParams = request.nextUrl.searchParams;
+    const cleanupMode = searchParams.get('cleanupMode') === 'true';
+    const provider = searchParams.get('provider') || undefined;
+    const includeInactive = searchParams.get('includeInactive') === 'true';
+
+    // Determine thresholds based on cleanup mode
+    const accessTokenExpiryThreshold = cleanupMode ? 2880 : 30; // 48 hours for cleanup, 30 mins otherwise
+    const refreshTokenExpiryThreshold = cleanupMode ? 43200 : 30; // 30 days for cleanup, 30 mins otherwise
+
     // Run token refresh using our service
     const stats = await TokenRefreshService.refreshTokens({
       prioritizeExpiring: true,
-      dryRun,
-      limit,
-      batchSize: 50,
       onlyProvider: provider,
       includeInactive,
-      // In cleanup mode, set high thresholds to refresh all tokens
-      accessTokenExpiryThreshold: cleanupMode ? 43200 : 30, // 30 days in cleanup mode
-      refreshTokenExpiryThreshold: cleanupMode ? 43200 : 60, // 30 days in cleanup mode
-    })
+      accessTokenExpiryThreshold,
+      refreshTokenExpiryThreshold,
+    });
     
     // Log the outcome
-    const duration = (new Date().getTime() - stats.startTime.getTime()) / 1000;
-    const successRate = stats.processed > 0 ? (stats.successful / stats.processed) * 100 : 100;
-
-    console.log(`Token refresh completed in ${duration.toFixed(2)}s. ` +
-      `Success rate: ${successRate.toFixed(0)}%. ` +
-      `Total processed: ${stats.processed}, Succeeded: ${stats.successful}, ` +
-      `Failed: ${stats.failed}, Skipped: ${stats.skipped}.`
-    );
+    const duration = (new Date().getTime() - (stats.endTime?.getTime() ?? new Date().getTime())) / 1000;
+    const responseMessage = `Token refresh finished in ${duration.toFixed(2)}s. ${stats.successful} succeeded, ${stats.failed} failed.`;
     
-    // Format the response
-    const response = {
-      timestamp: new Date().toISOString(),
-      durationMs: stats.durationMs,
+    console.log(responseMessage, {
+      total_processed: stats.processed,
+      successful: stats.successful,
+      failed: stats.failed,
+      skipped: stats.skipped,
+      provider_stats: stats.providerStats
+    });
+
+    return NextResponse.json({ 
+      message: responseMessage,
+      duration_seconds: duration,
       stats: {
         processed: stats.processed,
         successful: stats.successful,
         failed: stats.failed,
         skipped: stats.skipped,
-        successRate: `${successRate}%`,
       },
       errors: stats.errors,
-      providerStats: stats.providerStats,
-      options: {
-        cleanupMode,
-        dryRun,
-        provider,
-        limit,
-        includeInactive,
-      },
-    }
-    
-    return NextResponse.json(response)
-  } catch (error: any) {
-    console.error("Error during token refresh:", error)
-    
-    return NextResponse.json(
-      { 
-        error: error.message || "Unknown error occurred during token refresh", 
-        timestamp: new Date().toISOString() 
-      }, 
-      { status: 500 }
-    )
+      provider_stats: stats.providerStats,
+     });
+  } catch (e) {
+    const error = e as Error;
+    console.error(`Token refresh cron job failed: ${error.message}`, { error });
+    return NextResponse.json({ message: "Token refresh failed", error: error.message }, { status: 500 });
   }
 }
