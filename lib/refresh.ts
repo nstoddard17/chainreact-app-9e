@@ -21,7 +21,7 @@ export async function refreshTokenIfNeeded(integration: Integration): Promise<Ex
   // Check if the token needs refreshing
   const needsRefresh = TokenRefreshService.shouldRefreshToken(integration, {
     accessTokenExpiryThreshold: 30, // 30 minutes for access tokens
-    refreshTokenExpiryThreshold: 60, // 60 minutes for refresh tokens
+    refreshTokenExpiryThreshold: 30, // 30 minutes for refresh tokens
   })
 
   if (!needsRefresh.shouldRefresh) {

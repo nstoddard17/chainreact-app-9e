@@ -12,7 +12,7 @@
  *   cd /path/to/chainreact && node scripts/scheduled-token-refresh.js
  * 
  * Options:
- *   --limit NUMBER          Maximum tokens to refresh (default: 200)
+ *   --limit NUMBER          Maximum tokens to refresh (default: 500)
  *   --provider PROVIDER_ID  Only refresh tokens for specific provider
  *   --dry-run               Don't update the database, just simulate
  *   --help                  Show this help message
@@ -28,7 +28,7 @@ process.env.NEXT_RUNTIME = 'nodejs';
 // Parse command line arguments
 const args = process.argv.slice(2);
 const options = {
-  limit: 200,
+  limit: 500,
   provider: null,
   dryRun: false,
 };
@@ -63,7 +63,7 @@ ChainReact Scheduled Token Refresh Script
 Usage: node scripts/scheduled-token-refresh.js [options]
 
 Options:
-  --limit NUMBER          Maximum tokens to refresh (default: 200)
+  --limit NUMBER          Maximum tokens to refresh (default: 500)
   --provider PROVIDER_ID  Only refresh tokens for specific provider
   --dry-run               Don't update the database, just simulate
   --help                  Show this help message
@@ -88,9 +88,9 @@ async function main() {
       onlyProvider: options.provider,
       // Default thresholds:
       // - Refresh access tokens that expire within 30 minutes
-      // - Refresh refresh tokens that expire within 60 minutes
+      // - Refresh refresh tokens that expire within 30 minutes
       accessTokenExpiryThreshold: 30,
-      refreshTokenExpiryThreshold: 60,
+      refreshTokenExpiryThreshold: 30,
     });
     
     // Calculate success rate
