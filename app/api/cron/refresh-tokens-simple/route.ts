@@ -34,6 +34,7 @@ export async function GET(request: NextRequest) {
   let statusFixedCount = 0
   let decryptionErrors = 0
   let invalidTokens = 0
+  let autoMarkedAsNeedsReauth = 0
 
   try {
     // Check for Vercel cron job header
@@ -250,88 +251,54 @@ export async function GET(request: NextRequest) {
           }
         }
         
+        // Skip refresh attempt if no refresh token available
+        if (!integration.refresh_token) {
+          skipped++
+          console.log(`⏭️ [${jobId}] Skipped ${integration.provider}: No refresh token available`)
+          continue
+        }
+        
         // Check for potentially corrupted refresh tokens before attempting to decrypt
-        if (integration.refresh_token) {
-          // Check if refresh token is likely corrupted (not properly encrypted)
-          const refreshTokenLength = integration.refresh_token.length
-          const isLikelyCorrupted = 
-            refreshTokenLength < 20 || // Too short to be a valid encrypted token
-            integration.refresh_token === 'null' || 
-            integration.refresh_token === 'undefined' || 
-            integration.refresh_token.trim() === ''
+        const refreshTokenLength = integration.refresh_token.length
+        const isLikelyCorrupted = 
+          refreshTokenLength < 20 || // Too short to be a valid encrypted token
+          integration.refresh_token === 'null' || 
+          integration.refresh_token === 'undefined' || 
+          integration.refresh_token.trim() === ''
+        
+        if (isLikelyCorrupted) {
+          console.log(`🔧 [${jobId}] Integration ${integration.provider} has an invalid refresh token - marking as needs_reauthorization`)
           
-          if (isLikelyCorrupted) {
-            console.log(`🔧 [${jobId}] Integration ${integration.provider} has an invalid refresh token - marking as needs_reauthorization`)
-            
-            const { error: updateError } = await supabase
-              .from("integrations")
-              .update({
-                status: "needs_reauthorization",
-                updated_at: new Date().toISOString(),
-                disconnect_reason: "Invalid refresh token detected",
-              })
-              .eq("id", integration.id)
+          const { error: updateError } = await supabase
+            .from("integrations")
+            .update({
+              status: "needs_reauthorization",
+              updated_at: new Date().toISOString(),
+              disconnect_reason: "Invalid refresh token detected",
+            })
+            .eq("id", integration.id)
 
-            if (updateError) {
-              console.error(`❌ [${jobId}] Failed to update status for ${integration.provider}:`, updateError)
-              failed++
-              errors.push({ 
-                provider: integration.provider, 
-                userId: integration.user_id, 
-                error: `Failed to mark as needs_reauthorization: ${updateError.message}` 
-              })
-            } else {
-              needsReauth++
-              invalidTokens++
-              console.log(`✅ [${jobId}] Marked ${integration.provider} as needs_reauthorization due to invalid token`)
-            }
-            continue // Skip the refresh attempt
-          }
-          
-          // Try to decrypt the token to validate it before passing to refreshTokenIfNeeded
-          try {
-            const decryptedToken = decrypt(integration.refresh_token, encryptionKey)
-            if (!decryptedToken || decryptedToken.length < 10) {
-              throw new Error("Decryption resulted in invalid token")
-            }
-            // Token decrypted successfully, continue with refresh
-          } catch (decryptError: any) {
-            console.error(`❌ [${jobId}] Decryption error for ${integration.provider}:`, decryptError.message)
-            
-            // Mark as needs_reauthorization
-            const { error: updateError } = await supabase
-              .from("integrations")
-              .update({
-                status: "needs_reauthorization",
-                updated_at: new Date().toISOString(),
-                disconnect_reason: `Token decryption error: ${decryptError.message}`,
-                consecutive_failures: (integration.consecutive_failures || 0) + 1,
-                last_failure_at: new Date().toISOString(),
-              })
-              .eq("id", integration.id)
-            
-            if (updateError) {
-              console.error(`❌ [${jobId}] Failed to update status for ${integration.provider}:`, updateError)
-            } else {
-              needsReauth++
-              decryptionErrors++
-              console.log(`✅ [${jobId}] Marked ${integration.provider} as needs_reauthorization due to decryption error`)
-            }
-            
-            // Record the error
+          if (updateError) {
+            console.error(`❌ [${jobId}] Failed to update status for ${integration.provider}:`, updateError)
             failed++
             errors.push({ 
               provider: integration.provider, 
               userId: integration.user_id, 
-              error: `Decryption error: ${decryptError.message}` 
+              error: `Failed to mark as needs_reauthorization: ${updateError.message}` 
             })
-            
-            continue // Skip this integration
+          } else {
+            needsReauth++
+            invalidTokens++
+            autoMarkedAsNeedsReauth++
+            console.log(`✅ [${jobId}] Marked ${integration.provider} as needs_reauthorization due to invalid token`)
           }
+          continue // Skip the refresh attempt
         }
         
-        // If we get here, the token is valid and can be decrypted
-        // Now attempt the actual refresh
+        // Bypass the pre-validation decryption check and let refreshTokenIfNeeded handle it
+        // This avoids double decryption attempts which could be causing issues
+        
+        // If we get here, attempt the actual refresh
         try {
           const result = await refreshTokenIfNeeded(integration)
           
@@ -375,8 +342,30 @@ export async function GET(request: NextRequest) {
             })
             console.warn(`⚠️ [${jobId}] Failed ${integration.provider}: ${result.message}`)
             
+            // Check for decryption errors
+            if (result.message && result.message.includes("decrypt")) {
+              decryptionErrors++
+              
+              // Mark as needs_reauthorization for decryption errors
+              const { error: updateError } = await supabase
+                .from("integrations")
+                .update({
+                  status: "needs_reauthorization",
+                  updated_at: new Date().toISOString(),
+                  disconnect_reason: `Token decryption error: ${result.message}`,
+                  consecutive_failures: (integration.consecutive_failures || 0) + 1,
+                  last_failure_at: new Date().toISOString(),
+                })
+                .eq("id", integration.id)
+              
+              if (!updateError) {
+                needsReauth++
+                autoMarkedAsNeedsReauth++
+                console.log(`✅ [${jobId}] Marked ${integration.provider} as needs_reauthorization due to decryption error`)
+              }
+            }
             // Update status based on result
-            if (result.statusUpdate) {
+            else if (result.statusUpdate) {
               console.log(`🔄 [${jobId}] Updating ${integration.provider} status to ${result.statusUpdate}`)
               
               const { error: updateError } = await supabase
@@ -393,6 +382,7 @@ export async function GET(request: NextRequest) {
                 console.error(`❌ [${jobId}] Failed to update status for ${integration.provider}:`, updateError)
               } else if (result.statusUpdate === "needs_reauthorization") {
                 needsReauth++
+                autoMarkedAsNeedsReauth++
               }
             }
           }
@@ -405,15 +395,38 @@ export async function GET(request: NextRequest) {
           })
           console.error(`💥 [${jobId}] Error during refresh for ${integration.provider}:`, refreshError)
           
-          // Update the integration with failure information
-          await supabase
-            .from("integrations")
-            .update({
-              consecutive_failures: (integration.consecutive_failures || 0) + 1,
-              last_failure_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", integration.id)
+          // Check for decryption errors in the exception
+          if (refreshError.message && refreshError.message.includes("decrypt")) {
+            decryptionErrors++
+            
+            // Mark as needs_reauthorization
+            const { error: updateError } = await supabase
+              .from("integrations")
+              .update({
+                status: "needs_reauthorization",
+                updated_at: new Date().toISOString(),
+                disconnect_reason: `Token decryption error: ${refreshError.message}`,
+                consecutive_failures: (integration.consecutive_failures || 0) + 1,
+                last_failure_at: new Date().toISOString(),
+              })
+              .eq("id", integration.id)
+            
+            if (!updateError) {
+              needsReauth++
+              autoMarkedAsNeedsReauth++
+              console.log(`✅ [${jobId}] Marked ${integration.provider} as needs_reauthorization due to decryption error`)
+            }
+          } else {
+            // Update the integration with failure information
+            await supabase
+              .from("integrations")
+              .update({
+                consecutive_failures: (integration.consecutive_failures || 0) + 1,
+                last_failure_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", integration.id)
+          }
         }
       } catch (processingError: any) {
         failed++
@@ -435,6 +448,7 @@ export async function GET(request: NextRequest) {
     console.log(`   - Failed: ${failed}`)
     console.log(`   - Skipped: ${skipped}`)
     console.log(`   - Needs reauthorization: ${needsReauth}`)
+    console.log(`   - Auto-marked as needs reauth: ${autoMarkedAsNeedsReauth}`)
     console.log(`   - Status fixes: ${statusFixedCount}`)
     console.log(`   - Decryption errors: ${decryptionErrors}`)
     console.log(`   - Invalid tokens: ${invalidTokens}`)
@@ -464,6 +478,7 @@ export async function GET(request: NextRequest) {
         failed,
         skipped,
         needs_reauth: needsReauth,
+        auto_marked_needs_reauth: autoMarkedAsNeedsReauth,
         status_fixes: statusFixedCount,
         decryption_errors: decryptionErrors,
         invalid_tokens: invalidTokens,
