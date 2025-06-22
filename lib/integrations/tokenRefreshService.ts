@@ -66,10 +66,10 @@ export interface RefreshStats {
 const DEFAULT_REFRESH_OPTIONS: RefreshTokensOptions = {
   prioritizeExpiring: true,
   dryRun: false,
-  limit: 200,
+  limit: 500,
   batchSize: 50,
   accessTokenExpiryThreshold: 30, // 30 minutes
-  refreshTokenExpiryThreshold: 60, // 1 hour
+  refreshTokenExpiryThreshold: 30, // 30 minutes
 };
 
 /**
@@ -333,7 +333,8 @@ async function updateIntegrationWithRefreshResult(
   
   // If the provider returns a new scope, update it
   if (refreshResult.scope) {
-    updateData.scope = refreshResult.scope;
+    // The schema expects a string array, while providers usually return a space-delimited string.
+    updateData.scopes = refreshResult.scope.split(' ');
   }
   
   // Update refresh token if provided
