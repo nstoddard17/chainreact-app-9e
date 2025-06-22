@@ -160,6 +160,9 @@ export const integrations = {
   },
 }
 
+// Add missing integrationTable export (alias for integrations)
+export const integrationTable = integrations
+
 // Type definitions
 export interface User {
   id: string
