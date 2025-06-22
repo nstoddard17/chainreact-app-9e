@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
   try {
     // Verify state to prevent CSRF
     const { data: pkceData, error: pkceError } = await createAdminClient()
-      .from('oauth_pkce_state')
+      .from('pkce_flow')
       .select('*')
       .eq('state', state)
       .single()
@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
 
     // Clean up the state
     await createAdminClient()
-      .from('oauth_pkce_state')
+      .from('pkce_flow')
       .delete()
       .eq('state', state)
 
@@ -73,8 +73,8 @@ export async function GET(req: NextRequest) {
     const expiresAt = new Date(Date.now() + expiresIn * 1000).toISOString()
     const refreshExpiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString() // 90 days for refresh token
 
-    // Get user ID from oauth state
-    const userId = pkceData.user_id
+    // Get user ID from state data
+    const userId = JSON.parse(atob(state)).userId
 
     if (!userId) {
       return NextResponse.json({ error: 'User ID not found' }, { status: 400 })
