@@ -22,6 +22,7 @@ export interface RefreshResult {
   providerResponse?: any;
   invalidRefreshToken?: boolean;
   needsReauthorization?: boolean;
+  scope?: string;
 }
 
 /**
@@ -329,6 +330,11 @@ async function updateIntegrationWithRefreshResult(
     }
   }
   
+  // If the provider returns a new scope, update it
+  if (refreshResult.scope) {
+    updateData.scope = refreshResult.scope;
+  }
+  
   // Update refresh token if provided
   if (refreshResult.refreshToken) {
     updateData.refresh_token = refreshResult.refreshToken;
@@ -414,117 +420,115 @@ export async function refreshTokenForProvider(
   refreshToken: string,
   integration: Integration
 ): Promise<RefreshResult> {
-  // Get the OAuth configuration for this provider
   const config = getOAuthConfig(provider);
-  
+
   if (!config) {
-    return {
-      success: false,
-      error: `No OAuth configuration available for provider: ${provider}`,
-      needsReauthorization: false,
-    };
+    return { success: false, error: `No OAuth config found for provider: ${provider}` };
   }
   
-  try {
-    // Prepare the request based on the provider configuration
-    const { clientId, clientSecret } = getOAuthClientCredentials(config);
-    
-    // Standard OAuth 2.0 refresh token parameters
-    const params: Record<string, string> = {
-      grant_type: "refresh_token",
-      refresh_token: refreshToken,
-    };
-    
-    // Add client credentials based on auth method
-    if (config.refreshRequiresClientAuth) {
-      if (config.authMethod === "body") {
-        params.client_id = clientId;
-        params.client_secret = clientSecret;
-      }
+  const { clientId, clientSecret } = getOAuthClientCredentials(config);
+
+  if (!clientId || !clientSecret) {
+    return { success: false, error: `Missing client credentials for provider: ${provider}` };
+  }
+
+  const body = new URLSearchParams({
+    grant_type: "refresh_token",
+    refresh_token: refreshToken,
+  });
+
+  if (config.refreshRequiresClientAuth) {
+    if (config.authMethod === 'body') {
+      body.set("client_id", clientId);
+      body.set("client_secret", clientSecret);
     }
-    
-    // Add any provider-specific parameters
-    if (config.additionalRefreshParams) {
-      Object.entries(config.additionalRefreshParams).forEach(([key, value]) => {
-        // Handle special placeholder values
-        if (value === "PLACEHOLDER" && key === "fb_exchange_token") {
-          params[key] = integration.access_token;
-        } else {
-          params[key] = value;
+  }
+
+  // Add client_id to body if required (for providers like Twitter that need it with Basic Auth)
+  if (config.sendClientIdWithRefresh) {
+    body.set("client_id", clientId);
+  }
+
+  // Add custom parameters if they exist
+  if (config.additionalRefreshParams) {
+    Object.entries(config.additionalRefreshParams).forEach(([key, value]) => {
+      // Handle special placeholder values
+      if (value === "PLACEHOLDER" && key === "fb_exchange_token") {
+        if (integration.access_token) {
+          body.set(key, integration.access_token);
         }
-      });
-    }
-    
-    // Set up request headers
-    const headers: Record<string, string> = {
-      "Content-Type": "application/x-www-form-urlencoded",
-      "Accept": "application/json",
-    };
-    
-    // Add authorization header for basic auth
-    if (config.authMethod === "basic") {
-      const base64Credentials = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
-      headers["Authorization"] = `Basic ${base64Credentials}`;
-    } else if (config.authMethod === "header") {
-      headers["client_id"] = clientId;
-      headers["client_secret"] = clientSecret;
-    }
-    
-    // Make the request
-    const response = await fetch(config.tokenEndpoint, {
-      method: "POST",
-      headers,
-      body: new URLSearchParams(params),
+      } else {
+        body.set(key, value);
+      }
     });
+  }
+
+  // Add scope if required by the provider and available in the integration
+  if (config.sendScopeWithRefresh && integration.scope) {
+    body.set('scope', integration.scope);
+  }
+
+  // Prepare the request
+  const headers = new Headers();
+  if (config.authMethod === 'basic') {
+    const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
+    headers.set("Authorization", `Basic ${basicAuth}`);
+  } else if (config.authMethod === 'header') {
+    headers.set("Client-ID", clientId);
+    headers.set("Authorization", `Bearer ${clientSecret}`); // Example, might need adjustment
+  }
+  headers.set("Content-Type", "application/x-www-form-urlencoded");
+
+  const response = await fetch(config.tokenEndpoint, {
+    method: "POST",
+    headers,
+    body: body.toString(),
+  });
+
+  // Try to parse the response as JSON, but handle non-JSON responses gracefully
+  let data: any;
+  try {
+    data = await response.json();
+  } catch (error) {
+    // If parsing fails, the body might not be JSON. We'll use the raw text.
+    data = { error: 'Invalid JSON response', body: await response.text() };
+  }
+
+  if (!response.ok) {
+    const errorMessage = data.error_description || data.error || `HTTP ${response.status} - ${response.statusText}`;
+    console.error(
+      `Failed to refresh token for ${provider} (ID: ${integration.id}). ` +
+      `Status: ${response.status}. ` +
+      `Error: ${errorMessage}. ` +
+      `Response: ${JSON.stringify(data)}`
+    );
     
-    // Try to parse the response as JSON, but handle non-JSON responses gracefully
-    let data: any;
-    try {
-      data = await response.json();
-    } catch (error) {
-      // If parsing fails, the body might not be JSON. We'll use the raw text.
-      data = { error: 'Invalid JSON response', body: await response.text() };
-    }
+    // Check for specific error codes that indicate an invalid refresh token
+    const isInvalidGrant = data.error === 'invalid_grant';
     
-    if (!response.ok) {
-      const errorMessage = data.error_description || data.error || `HTTP ${response.status} - ${response.statusText}`;
-      console.error(
-        `Failed to refresh token for ${provider} (ID: ${integration.id}). ` +
-        `Status: ${response.status}. ` +
-        `Error: ${errorMessage}. ` +
-        `Response: ${JSON.stringify(data)}`
-      );
-      
-      // Check for specific error codes that indicate an invalid refresh token
-      const isInvalidGrant = data.error === 'invalid_grant';
-      
-      return {
-        success: false,
-        error: errorMessage,
-        statusCode: response.status,
-        providerResponse: data,
-        invalidRefreshToken: isInvalidGrant || response.status === 401,
-        needsReauthorization: isInvalidGrant || response.status === 401,
-      };
-    }
-    
-    // Handle success
-    return {
-      success: true,
-      accessToken: data.access_token,
-      refreshToken: data.refresh_token, // Some providers return a new refresh token
-      accessTokenExpiresIn: data.expires_in,
-      // Only include refresh token expiration if the provider supports it
-      refreshTokenExpiresIn: config.refreshTokenExpirationSupported ? data.refresh_token_expires_in : undefined,
-      providerResponse: data,
-    };
-  } catch (error: any) {
     return {
       success: false,
-      error: `Network error for ${provider}: ${error.message}`,
-      needsReauthorization: false,
+      error: errorMessage,
+      statusCode: response.status,
+      providerResponse: data,
+      invalidRefreshToken: isInvalidGrant || response.status === 401,
+      needsReauthorization: isInvalidGrant || response.status === 401,
     };
   }
+
+  const newAccessToken = data.access_token;
+  const newRefreshToken = data.refresh_token;
+  const expiresIn = data.expires_in;
+  const newScope = data.scope;
+
+  return {
+    success: true,
+    accessToken: newAccessToken,
+    refreshToken: newRefreshToken,
+    accessTokenExpiresIn: expiresIn,
+    scope: newScope,
+    providerResponse: data,
+  };
 }
 
 /**

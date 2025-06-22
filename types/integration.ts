@@ -2,15 +2,16 @@ export interface Integration {
   id: string;
   user_id: string;
   provider: string;
-  access_token: string;
-  refresh_token: string | null;
+  access_token: string | null;
+  refresh_token?: string | null;
   status: "connected" | "disconnected" | "expired" | "needs_reauthorization";
   scopes?: string;
-  expires_at?: string;
-  refresh_token_expires_at?: string;
+  expires_at?: string | null;
+  refresh_token_expires_at?: string | null;
+  scope?: string | null;
   created_at: string;
   updated_at: string;
-  last_token_refresh?: string;
+  last_token_refresh?: string | null;
   disconnect_reason?: string | null;
   [key: string]: any; // Allow for additional fields
 }

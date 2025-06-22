@@ -23,6 +23,8 @@ export interface OAuthProviderConfig {
   // Token refresh settings
   accessTokenExpiryBuffer: number; // Minutes before expiry to refresh
   refreshTokenExpiryBuffer?: number; // Minutes before expiry to refresh (for refresh tokens that expire)
+  sendScopeWithRefresh?: boolean; // Whether to include the scope parameter during token refresh
+  sendClientIdWithRefresh?: boolean; // Whether to also send client_id in the body during refresh
   // Custom parameters for token refresh
   additionalRefreshParams?: Record<string, string>;
   // When a refresh happens, should we update scopes in the database?
@@ -135,6 +137,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     authMethod: "body",
     refreshTokenExpirationSupported: false,
     accessTokenExpiryBuffer: 30,
+    sendScopeWithRefresh: true,
   },
   onedrive: {
     id: "onedrive",
@@ -147,6 +150,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     authMethod: "body",
     refreshTokenExpirationSupported: false,
     accessTokenExpiryBuffer: 30,
+    sendScopeWithRefresh: true,
   },
   slack: {
     id: "slack",
@@ -184,6 +188,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     revokeEndpoint: "https://api.twitter.com/2/oauth2/revoke",
     refreshRequiresClientAuth: true,
     authMethod: "basic",
+    sendClientIdWithRefresh: true,
     refreshTokenExpirationSupported: false,
     accessTokenExpiryBuffer: 15,
   },
@@ -251,6 +256,45 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     authMethod: "body",
     refreshTokenExpirationSupported: false,
     accessTokenExpiryBuffer: 15,
+  },
+  "microsoft-onenote": {
+    id: "microsoft-onenote",
+    name: "Microsoft OneNote",
+    clientIdEnv: "NEXT_PUBLIC_MICROSOFT_CLIENT_ID",
+    clientSecretEnv: "MICROSOFT_CLIENT_SECRET",
+    authEndpoint: "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+    tokenEndpoint: "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+    refreshRequiresClientAuth: true,
+    authMethod: "body",
+    refreshTokenExpirationSupported: false,
+    accessTokenExpiryBuffer: 30,
+    sendScopeWithRefresh: true,
+  },
+  "microsoft-outlook": {
+    id: "microsoft-outlook",
+    name: "Microsoft Outlook",
+    clientIdEnv: "NEXT_PUBLIC_MICROSOFT_CLIENT_ID",
+    clientSecretEnv: "MICROSOFT_CLIENT_SECRET",
+    authEndpoint: "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+    tokenEndpoint: "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+    refreshRequiresClientAuth: true,
+    authMethod: "body",
+    refreshTokenExpirationSupported: false,
+    accessTokenExpiryBuffer: 30,
+    sendScopeWithRefresh: true,
+  },
+  teams: {
+    id: "teams",
+    name: "Microsoft Teams",
+    clientIdEnv: "NEXT_PUBLIC_MICROSOFT_CLIENT_ID",
+    clientSecretEnv: "MICROSOFT_CLIENT_SECRET",
+    authEndpoint: "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+    tokenEndpoint: "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+    refreshRequiresClientAuth: true,
+    authMethod: "body",
+    refreshTokenExpirationSupported: false,
+    accessTokenExpiryBuffer: 30,
+    sendScopeWithRefresh: true,
   },
 };
 
