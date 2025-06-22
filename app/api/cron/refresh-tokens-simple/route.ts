@@ -80,7 +80,7 @@ export async function GET(request: NextRequest) {
     });
     
     // Log the outcome
-    const duration = (new Date().getTime() - (stats.endTime?.getTime() ?? new Date().getTime())) / 1000;
+    const duration = (stats.durationMs ?? 0) / 1000;
     const responseMessage = `Token refresh finished in ${duration.toFixed(2)}s. ${stats.successful} succeeded, ${stats.failed} failed.`;
     
     console.log(responseMessage, {
