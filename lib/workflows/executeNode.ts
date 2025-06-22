@@ -1,4 +1,4 @@
-import { getValidAccessToken, TokenResult } from "../integrations/getValidAccessToken"
+import { TokenRefreshService } from "../integrations/tokenRefreshService"
 import { createSupabaseServerClient } from "@/utils/supabase/server"
 import { decrypt } from "@/lib/security/encryption"
 import { getSecret } from "@/lib/secrets"
@@ -17,13 +17,49 @@ interface ActionResult {
 }
 
 async function getDecryptedAccessToken(userId: string, provider: string): Promise<string> {
-  const result: TokenResult = await getValidAccessToken(userId, provider)
-  if (!result.token?.access_token) throw new Error(`No valid access token for ${provider}`)
+  const supabase = createSupabaseServerClient()
+  
+  // Get the user's integration
+  const { data: integration, error } = await supabase
+    .from("integrations")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("provider", provider)
+    .single()
+
+  if (error || !integration) {
+    throw new Error(`No integration found for ${provider}`)
+  }
+
+  // Check if token needs refresh
+  const shouldRefresh = TokenRefreshService.shouldRefreshToken(integration, {
+    accessTokenExpiryThreshold: 5 // Refresh if expiring within 5 minutes
+  })
+
+  let accessToken = integration.access_token
+
+  if (shouldRefresh.shouldRefresh && integration.refresh_token) {
+    const refreshResult = await TokenRefreshService.refreshTokenForProvider(
+      integration.provider,
+      integration.refresh_token,
+      integration
+    )
+
+    if (refreshResult.success && refreshResult.accessToken) {
+      accessToken = refreshResult.accessToken
+    } else {
+      throw new Error(`Failed to refresh ${provider} token`)
+    }
+  }
+
+  if (!accessToken) {
+    throw new Error(`No valid access token for ${provider}`)
+  }
 
   const secret = await getSecret("encryption_key")
   if (!secret) throw new Error("Encryption secret not configured.")
 
-  return decrypt(result.token.access_token, secret)
+  return decrypt(accessToken, secret)
 }
 
 function resolveValue(value: any, input: Record<string, any>): any {

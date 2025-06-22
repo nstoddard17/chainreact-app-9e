@@ -2,6 +2,7 @@ import { type NextRequest } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createPopupResponse } from '@/lib/utils/createPopupResponse'
 import { getBaseUrl } from '@/lib/utils/getBaseUrl'
+import { prepareIntegrationData } from '@/lib/integrations/tokenUtils'
 
 export async function GET(request: NextRequest) {
   const url = new URL(request.url)
@@ -75,20 +76,15 @@ export async function GET(request: NextRequest) {
 
     const tokenData = await tokenResponse.json()
 
-    const expiresIn = tokenData.expires_in
-    const expiresAt = new Date(new Date().getTime() + expiresIn * 1000)
-
-    // Upsert the integration details
-    const integrationData = {
-      user_id: userId,
-      provider: provider,
-      access_token: tokenData.access_token,
-      refresh_token: tokenData.refresh_token,
-      scopes: tokenData.scope ? tokenData.scope.split(' ') : [],
-      status: 'connected',
-      expires_at: expiresAt.toISOString(),
-      updated_at: new Date().toISOString(),
-    }
+    // Prepare integration data with encrypted tokens
+    const integrationData = await prepareIntegrationData(
+      userId,
+      provider,
+      tokenData.access_token,
+      tokenData.refresh_token,
+      tokenData.scope ? tokenData.scope.split(' ') : [],
+      tokenData.expires_in
+    )
 
     const { error: upsertError } = await supabase.from('integrations').upsert(integrationData, {
       onConflict: 'user_id, provider',

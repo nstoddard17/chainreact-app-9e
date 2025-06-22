@@ -1,4 +1,4 @@
-import { getValidAccessToken, TokenResult } from "@/lib/integrations/getValidAccessToken"
+import { TokenRefreshService } from "@/lib/integrations/tokenRefreshService"
 import { createSupabaseServerClient } from "@/utils/supabase/server"
 import { TokenAuditLogger } from "../integrations/TokenAuditLogger"
 import { decrypt } from "@/lib/security/encryption"
@@ -54,14 +54,44 @@ export class WorkflowExecutor {
         }
       }
 
-      const requiredIntegrations = workflow.nodes
+      const requiredIntegrations: string[] = workflow.nodes
         .map((node: any) => node.data.providerId)
         .filter((providerId: any): providerId is string => !!providerId)
 
       const integrationResults = await Promise.all(
-        [...new Set(requiredIntegrations)].map((provider: string) =>
-          getValidAccessToken(context.userId, provider)
-        )
+        [...new Set(requiredIntegrations)].map(async (provider: string) => {
+          const { data: integration, error } = await supabase
+            .from("integrations")
+            .select("*")
+            .eq("user_id", context.userId)
+            .eq("provider", provider)
+            .single()
+
+          if (error || !integration) {
+            return { valid: false, requiresReauth: true, provider }
+          }
+
+          // Check if token needs refresh
+          const shouldRefresh = TokenRefreshService.shouldRefreshToken(integration, {
+            accessTokenExpiryThreshold: 5
+          })
+
+          if (shouldRefresh.shouldRefresh && integration.refresh_token) {
+            const refreshResult = await TokenRefreshService.refreshTokenForProvider(
+              integration.provider,
+              integration.refresh_token,
+              integration
+            )
+
+            if (refreshResult.success) {
+              return { valid: true, requiresReauth: false, provider }
+            } else {
+              return { valid: false, requiresReauth: true, provider }
+            }
+          }
+
+          return { valid: true, requiresReauth: false, provider }
+        })
       )
 
       const missingIntegrations = integrationResults
@@ -84,7 +114,7 @@ export class WorkflowExecutor {
       }
 
       executionId = await this.createExecutionRecord(context.workflowId, "running", {
-        input: context.input,
+        input: context.input || {},
       })
 
       const result = await this.traverseAndExecute(workflow, executionId, context)
@@ -121,7 +151,7 @@ export class WorkflowExecutor {
       .insert({
         workflow_id: workflowId,
         status,
-        execution_data: data || {},
+        execution_data: data ?? {},
         started_at: new Date().toISOString(),
       })
       .select()
@@ -144,7 +174,7 @@ export class WorkflowExecutor {
       updateData.completed_at = new Date().toISOString()
     }
     if (data) {
-      updateData.execution_data = data
+      updateData.execution_data = data ?? {}
     }
     const { error } = await supabase.from("workflow_executions").update(updateData).eq("id", executionId)
     if (error) throw new Error(`Failed to update execution record: ${error.message}`)
@@ -200,6 +230,7 @@ export class WorkflowExecutor {
   }
 
   private async getIntegration(integrationId: string): Promise<any> {
+    if (!integrationId) throw new Error("integrationId is required")
     const supabase = createSupabaseServerClient()
     const { data, error } = await supabase.from("integrations").select().eq("id", integrationId).single()
     if (error) throw new Error(`Failed to get integration: ${error.message}`)
