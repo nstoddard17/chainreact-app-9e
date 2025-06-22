@@ -10,6 +10,9 @@ import { db } from "@/lib/db";
 import { getOAuthConfig, getOAuthClientCredentials, OAuthProviderConfig } from "./oauthConfig";
 import fetch from 'node-fetch';
 import { getBaseUrl } from "@/lib/utils/getBaseUrl";
+import { decrypt } from "@/lib/security/encryption";
+import { getSecret } from "@/lib/secrets";
+import { encryptTokens } from "./tokenUtils";
 
 // Standard response for token refresh operations
 export interface RefreshResult {
@@ -309,57 +312,72 @@ async function updateIntegrationWithRefreshResult(
   integrationId: string,
   refreshResult: RefreshResult
 ): Promise<void> {
-  const now = new Date();
+  const { accessToken, refreshToken, accessTokenExpiresIn, scope } = refreshResult;
   
-  // Prepare the update data
-  const updateData: Record<string, any> = {
-    status: "connected",
-    last_token_refresh: now.toISOString(),
-    updated_at: now.toISOString(),
-    consecutive_failures: 0,
-    disconnect_reason: null,
-  };
+  if (!accessToken) {
+    throw new Error("Cannot update integration: No access token in refresh result");
+  }
   
-  // Update access token if provided
-  if (refreshResult.accessToken) {
-    updateData.access_token = refreshResult.accessToken;
+  try {
+    // Encrypt the new tokens
+    let encryptedAccessToken = accessToken;
+    let encryptedRefreshToken = refreshToken || undefined;
     
-    // Calculate new access token expiration time if provided
-    if (refreshResult.accessTokenExpiresIn) {
-      const expiryDate = new Date();
-      expiryDate.setSeconds(expiryDate.getSeconds() + refreshResult.accessTokenExpiresIn);
-      updateData.expires_at = expiryDate.toISOString();
+    try {
+      const { encryptedAccessToken: newEncryptedAccessToken, encryptedRefreshToken: newEncryptedRefreshToken } = 
+        await encryptTokens(accessToken, refreshToken);
+      
+      encryptedAccessToken = newEncryptedAccessToken;
+      encryptedRefreshToken = newEncryptedRefreshToken || undefined;
+      console.log(`🔐 Encrypted new tokens for integration ID: ${integrationId}`);
+    } catch (error: any) {
+      console.error(`❌ Failed to encrypt new tokens for integration ID: ${integrationId}:`, error);
+      // Continue with unencrypted tokens as fallback
     }
-  }
-  
-  // If the provider returns a new scope, update it
-  if (refreshResult.scope) {
-    // The schema expects a string array, while providers usually return a space-delimited string.
-    updateData.scopes = refreshResult.scope.split(' ');
-  }
-  
-  // Update refresh token if provided
-  if (refreshResult.refreshToken) {
-    updateData.refresh_token = refreshResult.refreshToken;
     
-    // Calculate new refresh token expiration time if provided
-    if (refreshResult.refreshTokenExpiresIn) {
-      const newRefreshTokenExpiresAt = new Date();
-      newRefreshTokenExpiresAt.setSeconds(
-        newRefreshTokenExpiresAt.getSeconds() + refreshResult.refreshTokenExpiresIn
-      );
-      updateData.refresh_token_expires_at = newRefreshTokenExpiresAt.toISOString();
+    // Calculate the new expiration date
+    const now = new Date();
+    let expiresAt: Date | null = null;
+    
+    if (accessTokenExpiresIn) {
+      expiresAt = new Date(now.getTime() + accessTokenExpiresIn * 1000);
     }
-  }
-  
-  // Update the database
-  const { error } = await db
-    .from("integrations")
-    .update(updateData)
-    .eq("id", integrationId);
-  
-  if (error) {
-    console.error(`Error updating integration ${integrationId}:`, error.message);
+    
+    // Prepare the update data
+    const updateData: Record<string, any> = {
+      access_token: encryptedAccessToken,
+      updated_at: now.toISOString(),
+      last_refresh_attempt: now.toISOString(),
+      last_refresh_success: now.toISOString(),
+      consecutive_failures: 0,
+      status: "connected",
+    };
+    
+    if (expiresAt) {
+      updateData.expires_at = expiresAt.toISOString();
+    }
+    
+    if (encryptedRefreshToken) {
+      updateData.refresh_token = encryptedRefreshToken;
+    }
+    
+    if (scope) {
+      updateData.scope = scope;
+    }
+    
+    // Update the integration in the database
+    const { error } = await db
+      .from("integrations")
+      .update(updateData)
+      .eq("id", integrationId);
+    
+    if (error) {
+      throw error;
+    }
+    
+    console.log(`✅ Updated tokens for integration ID: ${integrationId}`);
+  } catch (error: any) {
+    console.error(`❌ Failed to update tokens for integration ID: ${integrationId}:`, error);
     throw error;
   }
 }
@@ -425,205 +443,237 @@ export async function refreshTokenForProvider(
 ): Promise<RefreshResult> {
   console.log(`🔄 Starting token refresh for ${provider} (ID: ${integration.id})`);
   
-  const config = getOAuthConfig(provider);
-
-  if (!config) {
-    console.error(`❌ No OAuth config found for provider: ${provider}`);
-    return { success: false, error: `No OAuth config found for provider: ${provider}` };
-  }
-  
-  console.log(`✅ Found OAuth config for ${provider}: ${config.id}`);
-  
-  const { clientId, clientSecret } = getOAuthClientCredentials(config);
-
-  if (!clientId || !clientSecret) {
-    console.error(`❌ Missing client credentials for provider: ${provider}`);
-    return { success: false, error: `Missing client credentials for provider: ${provider}` };
-  }
-  
-  console.log(`✅ Got client credentials for ${provider}`);
-
-  const body = new URLSearchParams({
-    grant_type: "refresh_token",
-    refresh_token: refreshToken,
-  });
-
-  if (config.refreshRequiresClientAuth) {
-    if (config.authMethod === 'body') {
-      body.set("client_id", clientId);
-      body.set("client_secret", clientSecret);
-      console.log(`✅ Added client auth to body for ${provider}`);
-    }
-  }
-
-  // Add client_id to body if required (for providers like Twitter that need it with Basic Auth)
-  if (config.sendClientIdWithRefresh) {
-    body.set("client_id", clientId);
-  }
-
-  // Add custom parameters if they exist
-  if (config.additionalRefreshParams) {
-    Object.entries(config.additionalRefreshParams).forEach(([key, value]) => {
-      // Handle special placeholder values
-      if (value === "PLACEHOLDER" && key === "fb_exchange_token") {
-        if (integration.access_token) {
-          body.set(key, integration.access_token);
-        }
-      } else {
-        body.set(key, value);
-      }
-    });
-  }
-
-  // Determine the scope string from integration.scope or integration.scopes
-  let scopeString: string | undefined = undefined;
-  if (integration.scope) {
-    scopeString = integration.scope;
-  } else if (integration.scopes) {
-    // Handle both string and array types for scopes
-    if (Array.isArray(integration.scopes)) {
-      scopeString = integration.scopes.join(' ');
-    } else if (typeof integration.scopes === 'string') {
-      scopeString = integration.scopes;
-    }
-  }
-  
-  // Add scope if required by the provider and available in the integration
-  if (config.sendScopeWithRefresh && scopeString) {
-    body.set('scope', scopeString);
-    console.log(`✅ Added scope to body for ${provider}: ${scopeString}`);
-  }
-
-  // HACK: Force add redirect_uri for all Microsoft providers to fix refresh issues
-  if (provider.startsWith("microsoft") || provider === 'onedrive' || provider === 'teams') {
-    const baseUrl = getBaseUrl();
-    // Make sure we're using the correct callback path for each provider
-    let redirectPath = `/api/integrations/${provider}/callback`;
-    
-    // For Microsoft providers, ensure we're using the correct callback URL
-    // This is crucial as Microsoft is very strict about the redirect URI
-    if (config.redirectUriPath) {
-      redirectPath = config.redirectUriPath;
-    }
-    
-    const redirectUri = `${baseUrl}${redirectPath}`;
-    body.set('redirect_uri', redirectUri);
-    console.log(`✅ Added redirect_uri to body for ${provider}: ${redirectUri}`);
-  }
-
-  // Special handling for Airtable
-  if (provider === 'airtable') {
-    // Airtable requires redirect_uri in refresh token requests
-    const baseUrl = getBaseUrl();
-    const redirectUri = `${baseUrl}/api/integrations/airtable/callback`;
-    body.set('redirect_uri', redirectUri);
-    console.log(`✅ Added redirect_uri to body for Airtable: ${redirectUri}`);
-    
-    // Ensure we're using the correct grant_type for Airtable
-    body.set('grant_type', 'refresh_token');
-    
-    // Log the refresh token (first few chars) to help debug
-    if (refreshToken) {
-      console.log(`🔄 Airtable refresh token starts with: ${refreshToken.substring(0, 10)}...`);
-    } else {
-      console.error(`❌ Airtable refresh token is empty or undefined`);
-    }
-  }
-
-  // Prepare the request
-  const headers = new Headers();
-  if (config.authMethod === 'basic') {
-    const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
-    headers.set("Authorization", `Basic ${basicAuth}`);
-    console.log(`✅ Added Basic auth header for ${provider}`);
-  } else if (config.authMethod === 'header') {
-    headers.set("Client-ID", clientId);
-    headers.set("Authorization", `Bearer ${clientSecret}`);
-    console.log(`✅ Added header auth for ${provider}`);
-  }
-  headers.set("Content-Type", "application/x-www-form-urlencoded");
-
-  console.log(`🔄 Sending refresh request to ${config.tokenEndpoint} for ${provider}`);
-  console.log(`🔄 Request body: ${body.toString()}`);
-
-  const response = await fetch(config.tokenEndpoint, {
-    method: "POST",
-    headers,
-    body: body.toString(),
-  });
-
-  console.log(`🔄 Received response from ${provider}: ${response.status} ${response.statusText}`);
-
-  // Try to parse the response as JSON, but handle non-JSON responses gracefully
-  let data: any;
   try {
-    data = await response.json();
-    console.log(`✅ Parsed JSON response from ${provider}`);
-  } catch (error) {
-    // If parsing fails, the body might not be JSON. We'll use the raw text.
-    const rawText = await response.text();
-    console.error(`❌ Failed to parse JSON response from ${provider}: ${rawText}`);
-    data = { error: 'Invalid JSON response', body: rawText };
-  }
+    // Decrypt the refresh token if it appears to be encrypted
+    let decryptedRefreshToken = refreshToken;
+    if (refreshToken.includes(':')) {
+      try {
+        const secret = await getSecret("encryption_key");
+        if (!secret) {
+          throw new Error('Encryption secret is not configured');
+        }
+        
+        console.log(`🔐 Decrypting refresh token for ${provider} (ID: ${integration.id})`);
+        decryptedRefreshToken = decrypt(refreshToken, secret);
+      } catch (error: any) {
+        console.error(`❌ Failed to decrypt refresh token for ${provider} (ID: ${integration.id}):`, error);
+        return { 
+          success: false, 
+          error: `Failed to decrypt refresh token: ${error.message}` 
+        };
+      }
+    } else {
+      console.log(`⚠️ Refresh token for ${provider} (ID: ${integration.id}) does not appear to be encrypted`);
+    }
+  
+    const config = getOAuthConfig(provider);
 
-  if (!response.ok) {
-    const errorMessage = data.error_description || data.error || `HTTP ${response.status} - ${response.statusText}`;
-    console.error(
-      `Failed to refresh token for ${provider} (ID: ${integration.id}). ` +
-      `Status: ${response.status}. ` +
-      `Error: ${errorMessage}. ` +
-      `Response: ${JSON.stringify(data)}`
-    );
+    if (!config) {
+      console.error(`❌ No OAuth config found for provider: ${provider}`);
+      return { success: false, error: `No OAuth config found for provider: ${provider}` };
+    }
     
-    // Check for specific error codes that indicate an invalid refresh token
-    const isInvalidGrant = data.error === 'invalid_grant';
-    const isInvalidOrExpiredToken = isInvalidGrant || response.status === 401;
+    console.log(`✅ Found OAuth config for ${provider}: ${config.id}`);
     
-    // Provider-specific error handling
-    let finalErrorMessage = errorMessage;
-    let needsReauth = isInvalidOrExpiredToken;
+    const { clientId, clientSecret } = getOAuthClientCredentials(config);
+
+    if (!clientId || !clientSecret) {
+      console.error(`❌ Missing client credentials for provider: ${provider}`);
+      return { success: false, error: `Missing client credentials for provider: ${provider}` };
+    }
     
-    // Special handling for Airtable errors
+    console.log(`✅ Got client credentials for ${provider}`);
+
+    const body = new URLSearchParams({
+      grant_type: "refresh_token",
+      refresh_token: decryptedRefreshToken,
+    });
+
+    if (config.refreshRequiresClientAuth) {
+      if (config.authMethod === 'body') {
+        body.set("client_id", clientId);
+        body.set("client_secret", clientSecret);
+        console.log(`✅ Added client auth to body for ${provider}`);
+      }
+    }
+
+    // Add client_id to body if required (for providers like Twitter that need it with Basic Auth)
+    if (config.sendClientIdWithRefresh) {
+      body.set("client_id", clientId);
+    }
+
+    // Add custom parameters if they exist
+    if (config.additionalRefreshParams) {
+      Object.entries(config.additionalRefreshParams).forEach(([key, value]) => {
+        // Handle special placeholder values
+        if (value === "PLACEHOLDER" && key === "fb_exchange_token") {
+          if (integration.access_token) {
+            body.set(key, integration.access_token);
+          }
+        } else {
+          body.set(key, value);
+        }
+      });
+    }
+
+    // Determine the scope string from integration.scope or integration.scopes
+    let scopeString: string | undefined = undefined;
+    if (integration.scope) {
+      scopeString = integration.scope;
+    } else if (integration.scopes) {
+      // Handle both string and array types for scopes
+      if (Array.isArray(integration.scopes)) {
+        scopeString = integration.scopes.join(' ');
+      } else if (typeof integration.scopes === 'string') {
+        scopeString = integration.scopes;
+      }
+    }
+    
+    // Add scope if required by the provider and available in the integration
+    if (config.sendScopeWithRefresh && scopeString) {
+      body.set('scope', scopeString);
+      console.log(`✅ Added scope to body for ${provider}: ${scopeString}`);
+    }
+
+    // HACK: Force add redirect_uri for all Microsoft providers to fix refresh issues
+    if (provider.startsWith("microsoft") || provider === 'onedrive' || provider === 'teams') {
+      const baseUrl = getBaseUrl();
+      // Make sure we're using the correct callback path for each provider
+      let redirectPath = `/api/integrations/${provider}/callback`;
+      
+      // For Microsoft providers, ensure we're using the correct callback URL
+      // This is crucial as Microsoft is very strict about the redirect URI
+      if (config.redirectUriPath) {
+        redirectPath = config.redirectUriPath;
+      }
+      
+      const redirectUri = `${baseUrl}${redirectPath}`;
+      body.set('redirect_uri', redirectUri);
+      console.log(`✅ Added redirect_uri to body for ${provider}: ${redirectUri}`);
+    }
+
+    // Special handling for Airtable
     if (provider === 'airtable') {
-      console.log(`🔄 Airtable error details: ${JSON.stringify(data)}`);
-      if (data.error === 'invalid_grant') {
-        finalErrorMessage = "Airtable refresh token expired or invalid. User must re-authorize.";
-        needsReauth = true;
+      // Airtable requires redirect_uri in refresh token requests
+      const baseUrl = getBaseUrl();
+      const redirectUri = `${baseUrl}/api/integrations/airtable/callback`;
+      body.set('redirect_uri', redirectUri);
+      console.log(`✅ Added redirect_uri to body for Airtable: ${redirectUri}`);
+      
+      // Ensure we're using the correct grant_type for Airtable
+      body.set('grant_type', 'refresh_token');
+      
+      // Log the refresh token (first few chars) to help debug
+      if (decryptedRefreshToken) {
+        console.log(`🔄 Airtable refresh token starts with: ${decryptedRefreshToken.substring(0, 10)}...`);
+      } else {
+        console.error(`❌ Airtable refresh token is empty or undefined`);
       }
     }
-    
-    // Special handling for Microsoft-related providers (Teams, OneDrive)
-    if (provider === 'teams' || provider === 'onedrive' || provider.startsWith('microsoft')) {
-      console.log(`🔄 Microsoft error details: ${JSON.stringify(data)}`);
-      if (data.error === 'invalid_grant') {
-        finalErrorMessage = `${provider} refresh token expired or invalid. User must re-authorize.`;
-        needsReauth = true;
-      }
+
+    // Prepare the request
+    const headers = new Headers();
+    if (config.authMethod === 'basic') {
+      const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
+      headers.set("Authorization", `Basic ${basicAuth}`);
+      console.log(`✅ Added Basic auth header for ${provider}`);
+    } else if (config.authMethod === 'header') {
+      headers.set("Client-ID", clientId);
+      headers.set("Authorization", `Bearer ${clientSecret}`);
+      console.log(`✅ Added header auth for ${provider}`);
     }
-    
+    headers.set("Content-Type", "application/x-www-form-urlencoded");
+
+    console.log(`🔄 Sending refresh request to ${config.tokenEndpoint} for ${provider}`);
+    console.log(`🔄 Request body: ${body.toString()}`);
+
+    const response = await fetch(config.tokenEndpoint, {
+      method: "POST",
+      headers,
+      body: body.toString(),
+    });
+
+    console.log(`🔄 Received response from ${provider}: ${response.status} ${response.statusText}`);
+
+    // Try to parse the response as JSON, but handle non-JSON responses gracefully
+    let data: any;
+    try {
+      data = await response.json();
+      console.log(`✅ Parsed JSON response from ${provider}`);
+    } catch (error) {
+      // If parsing fails, the body might not be JSON. We'll use the raw text.
+      const rawText = await response.text();
+      console.error(`❌ Failed to parse JSON response from ${provider}: ${rawText}`);
+      data = { error: 'Invalid JSON response', body: rawText };
+    }
+
+    if (!response.ok) {
+      const errorMessage = data.error_description || data.error || `HTTP ${response.status} - ${response.statusText}`;
+      console.error(
+        `Failed to refresh token for ${provider} (ID: ${integration.id}). ` +
+        `Status: ${response.status}. ` +
+        `Error: ${errorMessage}. ` +
+        `Response: ${JSON.stringify(data)}`
+      );
+      
+      // Check for specific error codes that indicate an invalid refresh token
+      const isInvalidGrant = data.error === 'invalid_grant';
+      const isInvalidOrExpiredToken = isInvalidGrant || response.status === 401;
+      
+      // Provider-specific error handling
+      let finalErrorMessage = errorMessage;
+      let needsReauth = isInvalidOrExpiredToken;
+      
+      // Special handling for Airtable errors
+      if (provider === 'airtable') {
+        console.log(`🔄 Airtable error details: ${JSON.stringify(data)}`);
+        if (data.error === 'invalid_grant') {
+          finalErrorMessage = "Airtable refresh token expired or invalid. User must re-authorize.";
+          needsReauth = true;
+        }
+      }
+      
+      // Special handling for Microsoft-related providers (Teams, OneDrive)
+      if (provider === 'teams' || provider === 'onedrive' || provider.startsWith('microsoft')) {
+        console.log(`🔄 Microsoft error details: ${JSON.stringify(data)}`);
+        if (data.error === 'invalid_grant') {
+          finalErrorMessage = `${provider} refresh token expired or invalid. User must re-authorize.`;
+          needsReauth = true;
+        }
+      }
+      
+      return {
+        success: false,
+        error: finalErrorMessage,
+        statusCode: response.status,
+        providerResponse: data,
+        invalidRefreshToken: needsReauth,
+        needsReauthorization: needsReauth,
+      };
+    }
+
+    const newAccessToken = data.access_token;
+    const newRefreshToken = data.refresh_token;
+    const expiresIn = data.expires_in;
+    const newScope = data.scope;
+
+    return {
+      success: true,
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken,
+      accessTokenExpiresIn: expiresIn,
+      scope: newScope,
+      providerResponse: data,
+    };
+  } catch (error: any) {
+    console.error("Error during token refresh:", error);
     return {
       success: false,
-      error: finalErrorMessage,
-      statusCode: response.status,
-      providerResponse: data,
-      invalidRefreshToken: needsReauth,
-      needsReauthorization: needsReauth,
+      error: `Unexpected error during token refresh: ${error.message || 'Unknown error'}`,
+      statusCode: 500,
+      needsReauthorization: false,
     };
   }
-
-  const newAccessToken = data.access_token;
-  const newRefreshToken = data.refresh_token;
-  const expiresIn = data.expires_in;
-  const newScope = data.scope;
-
-  return {
-    success: true,
-    accessToken: newAccessToken,
-    refreshToken: newRefreshToken,
-    accessTokenExpiresIn: expiresIn,
-    scope: newScope,
-    providerResponse: data,
-  };
 }
 
 /**

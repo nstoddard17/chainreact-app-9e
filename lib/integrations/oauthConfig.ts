@@ -362,7 +362,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     authEndpoint: "https://airtable.com/oauth2/v1/authorize",
     tokenEndpoint: "https://airtable.com/oauth2/v1/token",
     refreshRequiresClientAuth: true,
-    authMethod: "body",
+    authMethod: "basic",
     refreshTokenExpirationSupported: false,
     accessTokenExpiryBuffer: 30,
     sendRedirectUriWithRefresh: true,
