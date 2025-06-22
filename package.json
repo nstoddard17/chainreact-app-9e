@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "refresh-tokens": "node scripts/scheduled-token-refresh.js",
+    "refresh-tokens:dry-run": "node scripts/scheduled-token-refresh.js --dry-run"
   },
   "dependencies": {
     "@ai-sdk/openai": "latest",
@@ -70,6 +72,7 @@
     "cmdk": "latest",
     "crypto": "latest",
     "date-fns": "4.1.0",
+    "dotenv": "^16.3.1",
     "drizzle-orm": "latest",
     "embla-carousel-react": "latest",
     "expo-sqlite": "latest",
@@ -84,6 +87,7 @@
     "mysql2": "latest",
     "next": "15.2.4",
     "next-themes": "latest",
+    "node-fetch": "^2.7.0",
     "openai": "latest",
     "pg": "latest",
     "postgres": "latest",
