@@ -10,8 +10,8 @@ export interface Integration {
   refresh_token_expires_at?: string;
   created_at: string;
   updated_at: string;
-  last_refreshed_at?: string;
-  last_error?: string | null;
+  last_token_refresh?: string;
+  disconnect_reason?: string | null;
   [key: string]: any; // Allow for additional fields
 }
 

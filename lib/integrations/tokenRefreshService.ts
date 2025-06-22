@@ -192,23 +192,28 @@ export async function refreshTokens(options: RefreshTokensOptions = {}): Promise
           // Decrypt the refresh token
           let decryptedRefreshToken: string;
           try {
+            if (!integration.refresh_token) throw new Error("Refresh token is null or undefined");
             decryptedRefreshToken = decrypt(integration.refresh_token, encryptionKey);
           } catch (decryptError: any) {
-            console.error(`Decryption error for ${integration.provider} (ID: ${integration.id}): ${decryptError.message}`);
-            stats.failed++;
-            stats.providerStats[integration.provider].failed++;
-            stats.errors["decryption_error"] = (stats.errors["decryption_error"] || 0) + 1;
-            
-            // Update integration with error details
-            if (!config.dryRun) {
-              await updateIntegrationWithError(
-                integration.id, 
-                `Decryption error: ${decryptError.message}`,
-                { status: "needs_reauthorization" }
-              );
+            if (decryptError.message.includes('Invalid encrypted text format') || decryptError.message.includes('Failed to decrypt data')) {
+              console.warn(`Token for ${integration.provider} (ID: ${integration.id}) appears to be unencrypted. Proceeding with unencrypted token.`);
+              decryptedRefreshToken = integration.refresh_token!;
+            } else {
+              console.error(`Decryption error for ${integration.provider} (ID: ${integration.id}): ${decryptError.message}`);
+              stats.failed++;
+              stats.providerStats[integration.provider].failed++;
+              stats.errors["decryption_error"] = (stats.errors["decryption_error"] || 0) + 1;
+              
+              // Update integration with error details
+              if (!config.dryRun) {
+                await updateIntegrationWithError(
+                  integration.id, 
+                  `Decryption error: ${decryptError.message}`,
+                  { status: "needs_reauthorization" }
+                );
+              }
+              return;
             }
-            
-            return;
           }
           
           // Refresh the token
@@ -339,7 +344,7 @@ async function updateIntegrationWithRefreshResult(
     last_token_refresh: now.toISOString(),
     updated_at: now.toISOString(),
     consecutive_failures: 0,
-    last_failure_reason: null,
+    disconnect_reason: null,
   };
   
   // Update access token if provided
@@ -407,7 +412,7 @@ async function updateIntegrationWithError(
     // Prepare the update data
     const updateData: Record<string, any> = {
       consecutive_failures: consecutiveFailures,
-      last_failure_reason: errorMessage,
+      disconnect_reason: errorMessage,
       updated_at: new Date().toISOString(),
       ...additionalData
     };
