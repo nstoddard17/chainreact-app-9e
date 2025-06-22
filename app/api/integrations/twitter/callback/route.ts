@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { encrypt } from '@/lib/security/encryption'
+import { getBaseUrl } from '@/lib/utils/getBaseUrl'
 
 export async function GET(req: NextRequest) {
   const searchParams = req.nextUrl.searchParams
@@ -31,12 +32,15 @@ export async function GET(req: NextRequest) {
       .eq('state', state)
 
     // Exchange the code for a token
-    const clientId = process.env.TWITTER_CLIENT_ID
+    const clientId = process.env.NEXT_PUBLIC_TWITTER_CLIENT_ID
     const clientSecret = process.env.TWITTER_CLIENT_SECRET
-    const redirectUri = process.env.TWITTER_REDIRECT_URI
+    const baseUrl = getBaseUrl()
+    const redirectUri = `${baseUrl}/api/integrations/twitter/callback`
 
-    if (!clientId || !clientSecret || !redirectUri) {
+    if (!clientId || !clientSecret) {
       console.error('Twitter OAuth credentials not configured')
+      console.error('Client ID present:', !!clientId)
+      console.error('Client Secret present:', !!clientSecret)
       return NextResponse.json({ error: 'OAuth configuration error' }, { status: 500 })
     }
 
