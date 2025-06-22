@@ -45,18 +45,26 @@ export async function GET(req: NextRequest) {
     }
 
     const tokenEndpoint = 'https://api.twitter.com/2/oauth2/token'
+    
+    // Create Basic Auth header
+    const authHeader = `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`
+    
     const params = new URLSearchParams()
-    params.append('client_id', clientId)
-    params.append('client_secret', clientSecret)
     params.append('code', code)
     params.append('grant_type', 'authorization_code')
     params.append('redirect_uri', redirectUri)
     params.append('code_verifier', pkceData.code_verifier)
+    
+    console.log('Token exchange params:', {
+      code_verifier: pkceData.code_verifier,
+      redirect_uri: redirectUri
+    })
 
     const tokenResponse = await fetch(tokenEndpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
+        'Authorization': authHeader
       },
       body: params,
     })
