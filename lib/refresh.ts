@@ -1,8 +1,6 @@
 import { db } from "@/lib/db"
 import { Integration } from "@/types/integration"
 import { TokenRefreshService, RefreshResult } from "@/lib/integrations/tokenRefreshService"
-import { decrypt } from "@/lib/security/encryption"
-import { getSecret } from "@/lib/secrets"
 
 interface ExtendedRefreshResult extends RefreshResult {
   message?: string;
@@ -35,19 +33,10 @@ export async function refreshTokenIfNeeded(integration: Integration): Promise<Ex
 
   // Token needs refreshing
   try {
-    // Get the encryption key
-    const encryptionKey = await getSecret("encryption_key") || process.env.ENCRYPTION_KEY
-    if (!encryptionKey) {
-      throw new Error("Missing encryption key")
-    }
-
-    // Decrypt the refresh token
-    const decryptedRefreshToken = decrypt(integration.refresh_token, encryptionKey)
-
     // Call the new token refresh service
     const result = await TokenRefreshService.refreshTokenForProvider(
       integration.provider,
-      decryptedRefreshToken,
+      integration.refresh_token,
       integration
     )
 
@@ -69,10 +58,9 @@ export async function refreshTokenIfNeeded(integration: Integration): Promise<Ex
         updateData.expires_at = expiryDate.toISOString()
       }
 
-      // If we got a new refresh token, encrypt and store it
+      // If we got a new refresh token, store it
       if (result.refreshToken) {
-        const { encrypt } = await import("@/lib/security/encryption")
-        updateData.refresh_token = encrypt(result.refreshToken, encryptionKey)
+        updateData.refresh_token = result.refreshToken
 
         // If there's a refresh token expiration provided, calculate and set it
         if (result.refreshTokenExpiresIn) {

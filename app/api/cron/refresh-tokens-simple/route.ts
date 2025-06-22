@@ -44,11 +44,16 @@ export async function GET(request: Request) {
       refreshTokenExpiryThreshold: cleanupMode ? 43200 : 60, // 30 days in cleanup mode
     })
     
-    // Calculate success rate
-    const successRate = stats.processed > 0 
-      ? Math.round((stats.successful / stats.processed) * 100) 
-      : 0
-      
+    // Log the outcome
+    const duration = (new Date().getTime() - stats.startTime.getTime()) / 1000;
+    const successRate = stats.processed > 0 ? (stats.successful / stats.processed) * 100 : 100;
+
+    console.log(`Token refresh completed in ${duration.toFixed(2)}s. ` +
+      `Success rate: ${successRate.toFixed(0)}%. ` +
+      `Total processed: ${stats.processed}, Succeeded: ${stats.successful}, ` +
+      `Failed: ${stats.failed}, Skipped: ${stats.skipped}.`
+    );
+    
     // Format the response
     const response = {
       timestamp: new Date().toISOString(),
@@ -70,8 +75,6 @@ export async function GET(request: Request) {
         includeInactive,
       },
     }
-    
-    console.log(`Token refresh completed with ${successRate}% success rate`)
     
     return NextResponse.json(response)
   } catch (error: any) {
