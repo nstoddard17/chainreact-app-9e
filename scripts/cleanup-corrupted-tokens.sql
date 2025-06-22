@@ -57,6 +57,40 @@ INSERT INTO token_cleanup_log (integration_id, provider, user_id, old_status, re
 SELECT id, provider, user_id, status, 'Invalid token format'
 FROM updated_integrations;
 
+-- Update specific providers with known issues (based on logs)
+WITH updated_integrations AS (
+  UPDATE integrations
+  SET 
+    status = 'needs_reauthorization',
+    updated_at = NOW(),
+    disconnect_reason = 'Token cleanup: Known problematic provider'
+  WHERE 
+    provider IN ('box', 'youtube-studio', 'discord')
+    AND refresh_token IS NOT NULL
+    AND status != 'needs_reauthorization'
+  RETURNING id, provider, user_id, status
+)
+INSERT INTO token_cleanup_log (integration_id, provider, user_id, old_status, reason)
+SELECT id, provider, user_id, status, 'Known problematic provider'
+FROM updated_integrations;
+
+-- Update integrations with specific token lengths that are causing issues
+WITH updated_integrations AS (
+  UPDATE integrations
+  SET 
+    status = 'needs_reauthorization',
+    updated_at = NOW(),
+    disconnect_reason = 'Token cleanup: Problematic token length'
+  WHERE 
+    refresh_token IS NOT NULL
+    AND (LENGTH(refresh_token) = 29 OR LENGTH(refresh_token) = 56)
+    AND status != 'needs_reauthorization'
+  RETURNING id, provider, user_id, status
+)
+INSERT INTO token_cleanup_log (integration_id, provider, user_id, old_status, reason)
+SELECT id, provider, user_id, status, 'Problematic token length (29 or 56 chars)'
+FROM updated_integrations;
+
 -- Step 3: Create notifications for affected users
 -- Note: This assumes you have a function called create_token_expiry_notification
 -- If you don't have this function, you can comment out this section
