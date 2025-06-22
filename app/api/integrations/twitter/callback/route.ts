@@ -1,7 +1,6 @@
-```ts file="app/api/integrations/teams/callback/route.ts"
-[v0-no-op-code-block-prefix]import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-import { getAuthSession } from '@/lib/auth'
+import { NextRequest, NextResponse } from 'next/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { encrypt } from '@/lib/security/encryption'
 
 export async function GET(req: NextRequest) {
   const searchParams = req.nextUrl.searchParams
@@ -12,48 +11,43 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Missing code or state' }, { status: 400 })
   }
 
-  const session = await getAuthSession()
-
-  if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
   try {
-    // Verify state (CSRF protection)
-    const storedState = await db.oAuthState.findUnique({
-      where: {
-        id: state,
-      },
-    })
+    // Verify state to prevent CSRF
+    const { data: pkceData, error: pkceError } = await createAdminClient()
+      .from('oauth_pkce_state')
+      .select('*')
+      .eq('state', state)
+      .single()
 
-    if (!storedState) {
+    if (pkceError || !pkceData) {
+      console.error('Invalid state or PKCE lookup error:', pkceError)
       return NextResponse.json({ error: 'Invalid state' }, { status: 400 })
     }
 
-    await db.oAuthState.delete({
-      where: {
-        id: state,
-      },
-    })
+    // Clean up the state
+    await createAdminClient()
+      .from('oauth_pkce_state')
+      .delete()
+      .eq('state', state)
 
-    // Exchange code for token
-    const clientId = process.env.TEAMS_CLIENT_ID
-    const clientSecret = process.env.TEAMS_CLIENT_SECRET
-    const redirectUri = process.env.TEAMS_REDIRECT_URI
+    // Exchange the code for a token
+    const clientId = process.env.TWITTER_CLIENT_ID
+    const clientSecret = process.env.TWITTER_CLIENT_SECRET
+    const redirectUri = process.env.TWITTER_REDIRECT_URI
 
     if (!clientId || !clientSecret || !redirectUri) {
-      console.error('Missing Teams OAuth credentials')
-      return NextResponse.json({ error: 'Missing Teams OAuth credentials' }, { status: 500 })
+      console.error('Twitter OAuth credentials not configured')
+      return NextResponse.json({ error: 'OAuth configuration error' }, { status: 500 })
     }
 
-    const tokenEndpoint = 'https://login.microsoftonline.com/common/oauth2/v2.0/token'
-
+    const tokenEndpoint = 'https://api.twitter.com/2/oauth2/token'
     const params = new URLSearchParams()
     params.append('client_id', clientId)
     params.append('client_secret', clientSecret)
-    params.append('grant_type', 'authorization_code')
     params.append('code', code)
+    params.append('grant_type', 'authorization_code')
     params.append('redirect_uri', redirectUri)
+    params.append('code_verifier', pkceData.code_verifier)
 
     const tokenResponse = await fetch(tokenEndpoint, {
       method: 'POST',
@@ -64,45 +58,63 @@ export async function GET(req: NextRequest) {
     })
 
     if (!tokenResponse.ok) {
-      console.error('Failed to retrieve token:', tokenResponse.status, await tokenResponse.text())
+      console.error('Twitter token exchange failed:', tokenResponse.status)
+      const errorText = await tokenResponse.text()
+      console.error('Error details:', errorText)
       return NextResponse.json({ error: 'Failed to retrieve token' }, { status: 500 })
     }
 
     const tokenData = await tokenResponse.json()
-
     const accessToken = tokenData.access_token
     const refreshToken = tokenData.refresh_token
 
-    if (!accessToken || !refreshToken) {
-      console.error('Missing access token or refresh token')
-      return NextResponse.json({ error: 'Missing access token or refresh token' }, { status: 500 })
+    // Set expiry times
+    const expiresIn = tokenData.expires_in || 7200 // Default to 2 hours if not provided
+    const expiresAt = new Date(Date.now() + expiresIn * 1000).toISOString()
+    const refreshExpiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString() // 90 days for refresh token
+
+    // Get user ID from oauth state
+    const userId = pkceData.user_id
+
+    if (!userId) {
+      return NextResponse.json({ error: 'User ID not found' }, { status: 400 })
     }
 
-    // After getting tokenData
-    const expiresIn = tokenData.expires_in
-    const refreshExpiresIn = tokenData.refresh_expires_in || (90 * 24 * 60 * 60) // 90 days default for Microsoft
-    const expiresAt = expiresIn ? new Date(Date.now() + expiresIn * 1000) : null
-    const refreshTokenExpiresAt = new Date(Date.now() + refreshExpiresIn * 1000)
-
-    // Store tokens in database
-    const integrationData = {
-      access_token: accessToken,
-      refresh_token: refreshToken,
-      expires_at: expiresAt?.toISOString() || null,
-      refresh_token_expires_at: refreshTokenExpiresAt.toISOString(),
+    const encryptionKey = process.env.ENCRYPTION_KEY
+    if (!encryptionKey) {
+      return NextResponse.json({ error: 'Encryption key not configured' }, { status: 500 })
     }
 
-    await db.integration.create({
-      data: {
-        userId: session.user.id,
-        type: 'microsoft-teams',
-        data: integrationData,
-      },
+    // Store the integration
+    const supabase = createAdminClient()
+    const { error } = await supabase.from('integrations').upsert({
+      user_id: userId,
+      provider: 'twitter',
+      access_token: encrypt(accessToken, encryptionKey),
+      refresh_token: refreshToken ? encrypt(refreshToken, encryptionKey) : null,
+      expires_at: expiresAt,
+      refresh_token_expires_at: refreshExpiresAt,
+      is_active: true,
+      status: 'connected',
+      updated_at: new Date().toISOString(),
     })
 
-    return NextResponse.json({ message: 'Teams integration successful' }, { status: 200 })
+    if (error) {
+      console.error('Error storing Twitter integration:', error)
+      return NextResponse.json({ error: 'Failed to store integration' }, { status: 500 })
+    }
+
+    // Return success response with close window script
+    return new Response(
+      `<html><body><script>window.opener.postMessage("twitter-auth-success", "*");window.close();</script></body></html>`,
+      {
+        headers: {
+          'Content-Type': 'text/html',
+        },
+      }
+    )
   } catch (error) {
-    console.error('Teams integration error:', error)
-    return NextResponse.json({ error: 'Teams integration failed' }, { status: 500 })
+    console.error('Twitter integration error:', error)
+    return NextResponse.json({ error: 'Twitter integration failed' }, { status: 500 })
   }
 }

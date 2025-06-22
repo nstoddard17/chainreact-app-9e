@@ -1,187 +1,164 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { createClient } from "@supabase/supabase-js"
-import { getBaseUrl } from "@/lib/utils/getBaseUrl"
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-if (!supabaseUrl || !supabaseServiceRoleKey) {
-  throw new Error("Missing Supabase URL or service role key")
-}
-
-const supabase = createClient(supabaseUrl, supabaseServiceRoleKey)
-
-function createPopupResponse(
-  type: "success" | "error",
-  provider: string,
-  message: string,
-  baseUrl: string,
-) {
-  const title = type === "success" ? `${provider} Connection Successful` : `${provider} Connection Failed`
-  const header = type === "success" ? `${provider} Connected!` : `Error Connecting ${provider}`
-  const status = type === "success" ? 200 : 500
-  const script = `
-    <script>
-      if (window.opener) {
-        window.opener.postMessage({
-          type: 'oauth-${type}',
-          provider: '${provider}',
-          message: '${message}'
-        }, '${baseUrl}');
-      }
-      setTimeout(() => window.close(), 1000);
-    </script>
-  `
-  const html = `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <title>${title}</title>
-        <style>
-          body { 
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            height: 100vh; 
-            margin: 0;
-            background: ${type === "success" ? "linear-gradient(135deg, #24c6dc 0%, #514a9d 100%)" : "linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%)"};
-            color: white;
-          }
-          .container { 
-            text-align: center; 
-            padding: 2rem;
-            background: rgba(255,255,255,0.1);
-            border-radius: 12px;
-            backdrop-filter: blur(10px);
-          }
-          .icon { font-size: 3rem; margin-bottom: 1rem; }
-          h1 { margin: 0 0 0.5rem 0; font-size: 1.5rem; }
-          p { margin: 0.5rem 0; opacity: 0.9; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="icon">${type === "success" ? "✅" : "❌"}</div>
-          <h1>${header}</h1>
-          <p>${message}</p>
-          <p>This window will close automatically...</p>
-        </div>
-        ${script}
-      </body>
-    </html>
-  `
-  return new Response(html, { status, headers: { "Content-Type": "text/html" } })
-}
+import { type NextRequest, NextResponse } from 'next/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { createPopupResponse } from '@/lib/utils/createPopupResponse'
+import { getBaseUrl } from '@/lib/utils/getBaseUrl'
+import { encrypt } from '@/lib/security/encryption'
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url)
-  const code = searchParams.get("code")
-  const state = searchParams.get("state")
-  const error = searchParams.get("error")
-  const errorDescription = searchParams.get("error_description")
+  const url = new URL(request.url)
+  const code = url.searchParams.get('code')
+  const state = url.searchParams.get('state')
+  const error = url.searchParams.get('error')
+  const errorDescription = url.searchParams.get('error_description')
+  
   const baseUrl = getBaseUrl()
+  const provider = 'notion'
 
+  // Handle OAuth errors
   if (error) {
     console.error(`Notion OAuth error: ${error} - ${errorDescription}`)
-    return createPopupResponse(
-      "error",
-      "notion",
-      errorDescription || "An unknown error occurred.",
-      baseUrl,
-    )
+    return createPopupResponse('error', provider, errorDescription || 'Authorization failed', baseUrl)
   }
 
   if (!code || !state) {
-    console.error("Missing code or state in Notion callback")
-    return createPopupResponse(
-      "error",
-      "notion",
-      "Authorization code or state parameter is missing.",
-      baseUrl,
-    )
+    return createPopupResponse('error', provider, 'Missing code or state parameter', baseUrl)
   }
 
   try {
-    const stateData = JSON.parse(atob(state))
-    const { userId } = stateData
+    // Verify state parameter to prevent CSRF
+    const { data: pkceData, error: pkceError } = await createAdminClient()
+      .from('oauth_pkce_state')
+      .select('*')
+      .eq('state', state)
+      .single()
 
-    if (!userId) {
-      console.error("Missing userId in Notion state")
-      return createPopupResponse("error", "notion", "User ID is missing from state.", baseUrl)
+    if (pkceError || !pkceData) {
+      console.error('Invalid state or PKCE lookup error:', pkceError)
+      return createPopupResponse('error', provider, 'Invalid state parameter', baseUrl)
     }
 
-    const clientId = process.env.NEXT_PUBLIC_NOTION_CLIENT_ID
+    const userId = pkceData.user_id
+    
+    if (!userId) {
+      return createPopupResponse('error', provider, 'User ID not found', baseUrl)
+    }
+
+    // Clean up the state
+    await createAdminClient()
+      .from('oauth_pkce_state')
+      .delete()
+      .eq('state', state)
+
+    // Get Notion OAuth credentials
+    const clientId = process.env.NOTION_CLIENT_ID
     const clientSecret = process.env.NOTION_CLIENT_SECRET
+    const redirectUri = `${baseUrl}/api/integrations/notion/callback`
 
     if (!clientId || !clientSecret) {
-      throw new Error("Notion client ID or secret not configured")
+      console.error('Notion OAuth credentials not configured')
+      return createPopupResponse('error', provider, 'Integration configuration error', baseUrl)
     }
-    const encoded = Buffer.from(`${clientId}:${clientSecret}`).toString("base64")
 
-    const tokenResponse = await fetch("https://api.notion.com/v1/oauth/token", {
-      method: "POST",
+    // Exchange code for access token
+    const tokenResponse = await fetch('https://api.notion.com/v1/oauth/token', {
+      method: 'POST',
       headers: {
-        "Content-Type": "application/json",
-        Authorization: `Basic ${encoded}`,
+        'Content-Type': 'application/json',
+        'Authorization': `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`,
       },
       body: JSON.stringify({
-        grant_type: "authorization_code",
+        grant_type: 'authorization_code',
         code,
-        redirect_uri: `${baseUrl}/api/integrations/notion/callback`,
+        redirect_uri: redirectUri,
       }),
     })
 
     if (!tokenResponse.ok) {
-      const errorData = await tokenResponse.json()
-      throw new Error(`Notion token exchange failed: ${errorData.error}`)
+      const errorText = await tokenResponse.text()
+      console.error('Notion token exchange failed:', tokenResponse.status, errorText)
+      return createPopupResponse('error', provider, 'Failed to retrieve access token', baseUrl)
     }
 
     const tokenData = await tokenResponse.json()
+    
+    // Notion tokens don't expire by default
+    // We'll set a nominal expiration for safety
+    const expiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000) // 1 year
+    
+    // Get workspace details from token data
+    const workspaceId = tokenData.workspace_id
+    const workspaceName = tokenData.workspace_name
+    const workspaceIcon = tokenData.workspace_icon
+    const botId = tokenData.bot_id
 
-    const expiresIn = tokenData.expires_in
-    const expiresAt = expiresIn ? new Date(new Date().getTime() + expiresIn * 1000) : null
+    const encryptionKey = process.env.ENCRYPTION_KEY
 
-    const integrationData = {
-      user_id: userId,
-      provider: "notion",
-      provider_user_id: tokenData.owner.user.id,
-      access_token: tokenData.access_token,
-      refresh_token: tokenData.refresh_token,
-      scopes: '{content:read,content:update,content:insert,comments:read,comments:insert,users:read}',
-      status: "connected",
-      expires_at: expiresAt ? expiresAt.toISOString() : null,
-      updated_at: new Date().toISOString(),
-      metadata: {
-        workspace_id: tokenData.workspace_id,
-        workspace_name: tokenData.workspace_name,
-        workspace_icon: tokenData.workspace_icon,
-        bot_id: tokenData.bot_id,
-        owner: tokenData.owner,
-      },
+    if (!encryptionKey) {
+      return createPopupResponse('error', provider, 'Encryption key not configured', baseUrl)
     }
 
-    const { error: upsertError } = await supabase.from("integrations").upsert(integrationData, {
-      onConflict: "user_id, provider",
+    // Attempt to fetch user information if not included in token response
+    let userInfo = {}
+    if (tokenData.access_token) {
+      try {
+        const usersResponse = await fetch('https://api.notion.com/v1/users', {
+          headers: {
+            'Authorization': `Bearer ${tokenData.access_token}`,
+            'Notion-Version': '2022-06-28'
+          }
+        })
+        
+        if (usersResponse.ok) {
+          const usersData = await usersResponse.json()
+          if (usersData.results && usersData.results.length > 0) {
+            // Find the bot user
+            const botUser = usersData.results.find((user: any) => user.type === 'bot' && user.bot?.owner?.type === 'workspace')
+            if (botUser) {
+              userInfo = {
+                bot_owner: botUser.bot?.owner?.workspace
+              }
+            }
+          }
+        } else {
+          console.warn('Failed to fetch Notion users:', await usersResponse.text())
+        }
+      } catch (userError) {
+        console.warn('Error fetching Notion users:', userError)
+      }
+    }
+
+    // Store the integration data
+    const supabase = createAdminClient()
+    const { error: upsertError } = await supabase.from('integrations').upsert({
+      user_id: userId,
+      provider,
+      access_token: encrypt(tokenData.access_token, encryptionKey),
+      refresh_token: null, // Notion doesn't provide refresh tokens
+      expires_at: expiresAt.toISOString(),
+      status: 'connected',
+      is_active: true,
+      updated_at: new Date().toISOString(),
+      metadata: {
+        workspace_id: workspaceId,
+        workspace_name: workspaceName,
+        workspace_icon: workspaceIcon,
+        bot_id: botId,
+        owner_type: tokenData.owner?.type,
+        user_info: userInfo,
+        duplicate_template_privileges: tokenData.duplicated_template_id ? true : false
+      }
+    }, {
+      onConflict: 'user_id, provider',
     })
 
     if (upsertError) {
-      throw new Error(`Failed to save Notion integration: ${upsertError.message}`)
+      console.error('Failed to save Notion integration:', upsertError)
+      return createPopupResponse('error', provider, 'Failed to store integration data', baseUrl)
     }
 
-    return createPopupResponse(
-      "success",
-      "notion",
-      "Notion account connected successfully.",
-      baseUrl,
-    )
-  } catch (e: any) {
-    console.error("Notion callback error:", e)
-    return createPopupResponse(
-      "error",
-      "notion",
-      e.message || "An unexpected error occurred.",
-      baseUrl,
-    )
+    return createPopupResponse('success', provider, 'Notion connected successfully!', baseUrl)
+  } catch (error) {
+    console.error('Notion callback error:', error)
+    return createPopupResponse('error', provider, 'An unexpected error occurred', baseUrl)
   }
 }

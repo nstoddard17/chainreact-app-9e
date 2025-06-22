@@ -1,130 +1,173 @@
-import { type NextRequest } from "next/server"
-import { createClient } from "@supabase/supabase-js"
-import { getBaseUrl } from "@/lib/utils/getBaseUrl"
-import { createPopupResponse } from "@/lib/utils/createPopupResponse"
-import { TokenAuditLogger } from "@/lib/integrations/TokenAuditLogger"
+import { type NextRequest, NextResponse } from 'next/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { createPopupResponse } from '@/lib/utils/createPopupResponse'
+import { getBaseUrl } from '@/lib/utils/getBaseUrl'
+import { encrypt } from '@/lib/security/encryption'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-if (!supabaseUrl || !supabaseServiceRoleKey) {
-  throw new Error("Missing Supabase URL or service role key")
+interface BlackbaudTokenResponse {
+  access_token: string;
+  refresh_token?: string;
+  expires_in: number;
+  token_type: string;
 }
 
-const supabase = createClient(supabaseUrl, supabaseServiceRoleKey)
-
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url)
-  const code = searchParams.get("code")
-  const state = searchParams.get("state")
-  const error = searchParams.get("error")
-  const errorDescription = searchParams.get("error_description")
-
+  const url = new URL(request.url)
+  const code = url.searchParams.get('code')
+  const state = url.searchParams.get('state')
+  const error = url.searchParams.get('error')
+  const errorDescription = url.searchParams.get('error_description')
+  
   const baseUrl = getBaseUrl()
+  const provider = 'blackbaud'
 
+  // Handle OAuth errors
   if (error) {
     console.error(`Blackbaud OAuth error: ${error} - ${errorDescription}`)
-    return createPopupResponse("error", "blackbaud", errorDescription || "An unknown error occurred.", baseUrl)
+    return createPopupResponse('error', provider, errorDescription || 'Authorization failed', baseUrl)
   }
 
   if (!code || !state) {
-    return createPopupResponse(
-      "error",
-      "blackbaud",
-      "Authorization code or state parameter is missing.",
-      baseUrl,
-    )
+    return createPopupResponse('error', provider, 'Missing code or state parameter', baseUrl)
   }
 
   try {
-    const stateData = JSON.parse(atob(state))
-    const { userId } = stateData
+    // Verify state parameter to prevent CSRF
+    const { data: pkceData, error: pkceError } = await createAdminClient()
+      .from('oauth_pkce_state')
+      .select('*')
+      .eq('state', state)
+      .single()
 
-    if (!userId) {
-      throw new Error("User ID not found in state")
+    if (pkceError || !pkceData) {
+      console.error('Invalid state or PKCE lookup error:', pkceError)
+      return createPopupResponse('error', provider, 'Invalid state parameter', baseUrl)
     }
 
-    const clientId = process.env.NEXT_PUBLIC_BLACKBAUD_CLIENT_ID
+    const userId = pkceData.user_id
+    
+    if (!userId) {
+      return createPopupResponse('error', provider, 'User ID not found', baseUrl)
+    }
+
+    // Clean up the state
+    await createAdminClient()
+      .from('oauth_pkce_state')
+      .delete()
+      .eq('state', state)
+
+    // Get Blackbaud OAuth credentials
+    const clientId = process.env.BLACKBAUD_CLIENT_ID
     const clientSecret = process.env.BLACKBAUD_CLIENT_SECRET
+    const redirectUri = `${baseUrl}/api/integrations/blackbaud/callback`
 
     if (!clientId || !clientSecret) {
-      throw new Error("Blackbaud client ID or secret not configured")
+      console.error('Blackbaud OAuth credentials not configured')
+      return createPopupResponse('error', provider, 'Integration configuration error', baseUrl)
     }
-    
-    const authHeader = `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`
 
-    const tokenResponse = await fetch("https://oauth2.sky.blackbaud.com/token", {
-      method: "POST",
+    // Exchange code for access token
+    const tokenEndpoint = 'https://oauth2.sky.blackbaud.com/token'
+    const tokenResponse = await fetch(tokenEndpoint, {
+      method: 'POST',
       headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        "Authorization": authHeader,
+        'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: new URLSearchParams({
+        grant_type: 'authorization_code',
         code,
-        grant_type: "authorization_code",
-        redirect_uri: `${baseUrl}/api/integrations/blackbaud/callback`,
+        redirect_uri: redirectUri,
+        client_id: clientId,
+        client_secret: clientSecret,
       }),
     })
 
     if (!tokenResponse.ok) {
-      const errorData = await tokenResponse.json()
-      throw new Error(`Blackbaud token exchange failed: ${errorData.error_description || errorData.error}`)
+      const errorText = await tokenResponse.text()
+      console.error('Blackbaud token exchange failed:', tokenResponse.status, errorText)
+      return createPopupResponse('error', provider, 'Failed to retrieve access token', baseUrl)
     }
 
-    const tokenData = await tokenResponse.json()
+    const tokenData: BlackbaudTokenResponse = await tokenResponse.json()
     
-    const expiresIn = tokenData.expires_in // Typically in seconds
-    const expiresAt = expiresIn ? new Date(new Date().getTime() + expiresIn * 1000) : null
+    // Extract and handle token expiration
+    const expiresIn = tokenData.expires_in || 3600 // Default to 1 hour if not provided
+    const expiresAt = new Date(Date.now() + expiresIn * 1000)
+    
+    // Blackbaud refresh tokens are typically valid for 60 days
+    const refreshExpiresAt = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000)
 
-    const userResponse = await fetch("https://api.sky.blackbaud.com/constituent/v1/constituents/me", {
-        headers: {
-            "Authorization": `Bearer ${tokenData.access_token}`,
-            "Bb-Api-Subscription-Key": process.env.BLACKBAUD_SUBSCRIPTION_KEY!,
+    // Fetch subscription key if available
+    let subscriptionKey = null
+    try {
+      const { data: configData } = await createAdminClient()
+        .from('integration_configs')
+        .select('config')
+        .eq('provider', provider)
+        .single()
+        
+      subscriptionKey = configData?.config?.subscription_key
+    } catch (configError) {
+      console.warn('Could not fetch Blackbaud subscription key:', configError)
+    }
+
+    // Optional: Fetch additional account data
+    let accountInfo = {}
+    
+    if (tokenData.access_token && subscriptionKey) {
+      try {
+        const meResponse = await fetch('https://api.sky.blackbaud.com/users/v1/me', {
+          headers: {
+            'Authorization': `Bearer ${tokenData.access_token}`,
+            'bb-api-subscription-key': subscriptionKey
+          }
+        })
+        
+        if (meResponse.ok) {
+          accountInfo = await meResponse.json()
+        } else {
+          console.warn('Could not fetch Blackbaud user info:', await meResponse.text())
         }
-    });
-
-    if(!userResponse.ok) {
-        throw new Error("Failed to fetch Blackbaud user info");
+      } catch (accountError) {
+        console.warn('Error fetching Blackbaud user info:', accountError)
+      }
     }
 
-    const userData = await userResponse.json();
+    const encryptionKey = process.env.ENCRYPTION_KEY
 
-    const integrationData = {
+    if (!encryptionKey) {
+      return createPopupResponse('error', provider, 'Encryption key not configured', baseUrl)
+    }
+
+    // Store the integration data
+    const supabase = createAdminClient()
+    const { error: upsertError } = await supabase.from('integrations').upsert({
       user_id: userId,
-      provider: "blackbaud",
-      provider_user_id: userData.id,
-      access_token: tokenData.access_token,
-      refresh_token: tokenData.refresh_token,
-      expires_at: expiresAt ? expiresAt.toISOString() : null,
-      scopes: tokenData.scope ? tokenData.scope.split(" ") : [],
-      status: "connected",
+      provider,
+      access_token: encrypt(tokenData.access_token, encryptionKey),
+      refresh_token: tokenData.refresh_token ? encrypt(tokenData.refresh_token, encryptionKey) : null,
+      expires_at: expiresAt.toISOString(),
+      refresh_token_expires_at: refreshExpiresAt.toISOString(),
+      status: 'connected',
+      is_active: true,
       updated_at: new Date().toISOString(),
-    }
-
-    const { error: upsertError } = await supabase.from("integrations").upsert(integrationData, {
-      onConflict: "user_id, provider",
+      metadata: {
+        account_info: accountInfo,
+        subscription_key: subscriptionKey,
+        token_type: tokenData.token_type
+      }
+    }, {
+      onConflict: 'user_id, provider',
     })
 
     if (upsertError) {
-      throw new Error(`Failed to save Blackbaud integration: ${upsertError.message}`)
+      console.error('Failed to save Blackbaud integration:', upsertError)
+      return createPopupResponse('error', provider, 'Failed to store integration data', baseUrl)
     }
 
-    // Log the successful integration connection
-    try {
-      await TokenAuditLogger.logEvent(
-        integrationData.user_id, // Using user_id as integration_id for now
-        userId,
-        "blackbaud",
-        "connect",
-        { method: "oauth", provider_user_id: userData.id }
-      )
-    } catch (auditError) {
-      console.warn("Failed to log Blackbaud integration:", auditError)
-    }
-
-    return createPopupResponse("success", "blackbaud", "Blackbaud account connected successfully.", baseUrl)
-  } catch (e: any) {
-    console.error("Blackbaud callback error:", e)
-    return createPopupResponse("error", "blackbaud", e.message || "An unexpected error occurred.", baseUrl)
+    return createPopupResponse('success', provider, 'Blackbaud connected successfully!', baseUrl)
+  } catch (error) {
+    console.error('Blackbaud callback error:', error)
+    return createPopupResponse('error', provider, 'An unexpected error occurred', baseUrl)
   }
 }

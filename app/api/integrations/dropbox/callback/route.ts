@@ -1,231 +1,153 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { createClient } from "@supabase/supabase-js"
-import { getBaseUrl } from "@/lib/utils/getBaseUrl"
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-if (!supabaseUrl || !supabaseServiceRoleKey) {
-  throw new Error("Missing Supabase URL or service role key")
-}
-
-const supabase = createClient(supabaseUrl, supabaseServiceRoleKey)
+import { type NextRequest, NextResponse } from 'next/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { createPopupResponse } from '@/lib/utils/createPopupResponse'
+import { getBaseUrl } from '@/lib/utils/getBaseUrl'
+import { encrypt } from '@/lib/security/encryption'
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url)
-  const code = searchParams.get("code")
-  const state = searchParams.get("state")
-  const error = searchParams.get("error")
-  const errorDescription = searchParams.get("error_description")
-
+  const url = new URL(request.url)
+  const code = url.searchParams.get('code')
+  const state = url.searchParams.get('state')
+  const error = url.searchParams.get('error')
+  const errorDescription = url.searchParams.get('error_description')
+  
   const baseUrl = getBaseUrl()
+  const provider = 'dropbox'
 
+  // Handle OAuth errors
   if (error) {
     console.error(`Dropbox OAuth error: ${error} - ${errorDescription}`)
-    const errorHtml = `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>Dropbox Connection Failed</title>
-            <style>
-              body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; text-align: center; }
-              .container { max-width: 500px; padding: 20px; border: 1px solid #ccc; border-radius: 8px; }
-              h1 { color: #dc3545; }
-              p { color: #666; }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <h1>Dropbox Connection Failed</h1>
-              <p>${errorDescription || "An unknown error occurred."}</p>
-              <p>Please try again or contact support if the problem persists.</p>
-              <script>
-                if (window.opener) {
-                  window.opener.postMessage({
-                    type: 'oauth-error',
-                    provider: 'dropbox',
-                    error: '${error}',
-                    errorDescription: '${errorDescription || "An unknown error occurred."}'
-                  }, '${baseUrl}');
-                  setTimeout(() => window.close(), 1000);
-                }
-              </script>
-            </div>
-          </body>
-        </html>
-      `
-    return new Response(errorHtml, {
-      headers: { "Content-Type": "text/html" },
-      status: 400,
-    })
+    return createPopupResponse('error', provider, errorDescription || 'Authorization failed', baseUrl)
   }
 
   if (!code || !state) {
-    console.error("Missing code or state in Dropbox callback")
-    const errorHtml = `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>Dropbox Connection Failed</title>
-             <style>
-              body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; text-align: center; }
-              .container { max-width: 500px; padding: 20px; border: 1px solid #ccc; border-radius: 8px; }
-              h1 { color: #dc3545; }
-              p { color: #666; }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <h1>Dropbox Connection Failed</h1>
-              <p>Authorization code or state parameter is missing.</p>
-              <p>Please try again or contact support if the problem persists.</p>
-               <script>
-                if (window.opener) {
-                  window.opener.postMessage({
-                    type: 'oauth-error',
-                    provider: 'dropbox',
-                    error: 'Missing code or state'
-                  }, '${baseUrl}');
-                  setTimeout(() => window.close(), 1000);
-                }
-              </script>
-            </div>
-          </body>
-        </html>
-      `
-    return new Response(errorHtml, {
-      headers: { "Content-Type": "text/html" },
-      status: 400,
-    })
+    return createPopupResponse('error', provider, 'Missing code or state parameter', baseUrl)
   }
 
   try {
-    const stateData = JSON.parse(atob(state))
-    const { userId } = stateData
+    // Verify state parameter to prevent CSRF
+    const { data: pkceData, error: pkceError } = await createAdminClient()
+      .from('oauth_pkce_state')
+      .select('*')
+      .eq('state', state)
+      .single()
 
-    if (!userId) {
-      console.error("Missing userId in Dropbox state")
-      // Handle error: show an error page and inform the user
-      return new Response("User ID is missing from state", { status: 400 })
+    if (pkceError || !pkceData) {
+      console.error('Invalid state or PKCE lookup error:', pkceError)
+      return createPopupResponse('error', provider, 'Invalid state parameter', baseUrl)
     }
 
-    const clientId = process.env.NEXT_PUBLIC_DROPBOX_CLIENT_ID
+    const userId = pkceData.user_id
+    
+    if (!userId) {
+      return createPopupResponse('error', provider, 'User ID not found', baseUrl)
+    }
+
+    // Clean up the state
+    await createAdminClient()
+      .from('oauth_pkce_state')
+      .delete()
+      .eq('state', state)
+
+    // Get Dropbox OAuth credentials
+    const clientId = process.env.DROPBOX_CLIENT_ID
     const clientSecret = process.env.DROPBOX_CLIENT_SECRET
+    const redirectUri = `${baseUrl}/api/integrations/dropbox/callback`
 
     if (!clientId || !clientSecret) {
-      throw new Error("Dropbox client ID or secret not configured")
+      console.error('Dropbox OAuth credentials not configured')
+      return createPopupResponse('error', provider, 'Integration configuration error', baseUrl)
     }
 
-    const tokenResponse = await fetch("https://api.dropboxapi.com/oauth2/token", {
-      method: "POST",
+    // Exchange code for access token
+    const tokenResponse = await fetch('https://api.dropboxapi.com/oauth2/token', {
+      method: 'POST',
       headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        Authorization: `Basic ${btoa(`${clientId}:${clientSecret}`)}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: new URLSearchParams({
         code,
-        grant_type: "authorization_code",
-        redirect_uri: `${baseUrl}/api/integrations/dropbox/callback`,
+        grant_type: 'authorization_code',
+        client_id: clientId,
+        client_secret: clientSecret,
+        redirect_uri: redirectUri,
       }),
     })
 
     if (!tokenResponse.ok) {
-      const errorData = await tokenResponse.json()
-      throw new Error(`Dropbox token exchange failed: ${errorData.error_description}`)
+      const errorText = await tokenResponse.text()
+      console.error('Dropbox token exchange failed:', tokenResponse.status, errorText)
+      return createPopupResponse('error', provider, 'Failed to retrieve access token', baseUrl)
     }
 
     const tokenData = await tokenResponse.json()
-
-    const expiresIn = tokenData.expires_in // Typically in seconds
-    const expiresAt = expiresIn ? new Date(new Date().getTime() + expiresIn * 1000) : null
-
-    const integrationData = {
-      user_id: userId,
-      provider: "dropbox",
-      provider_user_id: tokenData.account_id,
-      access_token: tokenData.access_token,
-      refresh_token: tokenData.refresh_token,
-      expires_at: expiresAt ? expiresAt.toISOString() : null,
-      scopes: tokenData.scope ? tokenData.scope.split(' ') : [],
-      status: "connected",
-      updated_at: new Date().toISOString(),
+    
+    // Extract token expiration time
+    // Dropbox access tokens typically expire in 4 hours (14400 seconds)
+    const expiresIn = tokenData.expires_in || 14400
+    const expiresAt = new Date(Date.now() + expiresIn * 1000)
+    
+    // Get user account information
+    let accountInfo = {}
+    if (tokenData.access_token) {
+      try {
+        const accountResponse = await fetch('https://api.dropboxapi.com/2/users/get_current_account', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${tokenData.access_token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(null)
+        })
+        
+        if (accountResponse.ok) {
+          accountInfo = await accountResponse.json()
+        } else {
+          console.warn('Could not fetch Dropbox account information:', await accountResponse.text())
+        }
+      } catch (accountError) {
+        console.warn('Error fetching Dropbox account information:', accountError)
+      }
     }
 
-    const { error: upsertError } = await supabase.from("integrations").upsert(integrationData, {
-      onConflict: "user_id, provider",
+    const encryptionKey = process.env.ENCRYPTION_KEY
+
+    if (!encryptionKey) {
+      return createPopupResponse('error', provider, 'Encryption key not configured', baseUrl)
+    }
+
+    // Store the integration data
+    const supabase = createAdminClient()
+    const { error: upsertError } = await supabase.from('integrations').upsert({
+      user_id: userId,
+      provider,
+      access_token: encrypt(tokenData.access_token, encryptionKey),
+      refresh_token: tokenData.refresh_token ? encrypt(tokenData.refresh_token, encryptionKey) : null,
+      expires_at: expiresAt.toISOString(),
+      refresh_token_expires_at: tokenData.refresh_token ? null : undefined, // Dropbox refresh tokens don't expire
+      status: 'connected',
+      is_active: true,
+      updated_at: new Date().toISOString(),
+      metadata: {
+        account_id: tokenData.account_id || (accountInfo as any).account_id,
+        account_info: accountInfo,
+        token_type: tokenData.token_type,
+        scope: tokenData.scope,
+        uid: tokenData.uid,
+        team_id: tokenData.team_id
+      }
+    }, {
+      onConflict: 'user_id, provider',
     })
 
     if (upsertError) {
-      throw new Error(`Failed to save Dropbox integration: ${upsertError.message}`)
+      console.error('Failed to save Dropbox integration:', upsertError)
+      return createPopupResponse('error', provider, 'Failed to store integration data', baseUrl)
     }
 
-    const successHtml = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Dropbox Connection Successful</title>
-           <style>
-              body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; text-align: center; }
-              .container { max-width: 500px; padding: 20px; border: 1px solid #ccc; border-radius: 8px; }
-              h1 { color: #28a745; }
-              p { color: #666; }
-            </style>
-        </head>
-        <body>
-          <div class="container">
-            <h1>Dropbox Connection Successful</h1>
-            <p>You can now close this window.</p>
-          </div>
-          <script>
-            if (window.opener) {
-              window.opener.postMessage({ type: 'oauth-success', provider: 'dropbox' }, '${baseUrl}');
-              setTimeout(() => window.close(), 1000);
-            }
-          </script>
-        </body>
-      </html>
-    `
-
-    return new Response(successHtml, {
-      headers: { "Content-Type": "text/html" },
-    })
-  } catch (e: any) {
-    console.error("Dropbox callback error:", e)
-    const errorHtml = `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>Dropbox Connection Failed</title>
-            <style>
-              body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; text-align: center; }
-              .container { max-width: 500px; padding: 20px; border: 1px solid #ccc; border-radius: 8px; }
-              h1 { color: #dc3545; }
-              p { color: #666; }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-               <h1>Dropbox Connection Failed</h1>
-              <p>${e.message || "An unexpected error occurred."}</p>
-               <p>Please try again or contact support if the problem persists.</p>
-              <script>
-                if (window.opener) {
-                  window.opener.postMessage({
-                    type: 'oauth-error',
-                    provider: 'dropbox',
-                    error: 'Callback processing failed',
-                    errorDescription: '${e.message || "An unexpected error occurred."}'
-                  }, '${baseUrl}');
-                  setTimeout(() => window.close(), 1000);
-                }
-              </script>
-            </div>
-          </body>
-        </html>
-      `
-    return new Response(errorHtml, {
-      headers: { "Content-Type": "text/html" },
-      status: 500,
-    })
+    return createPopupResponse('success', provider, 'Dropbox connected successfully!', baseUrl)
+  } catch (error) {
+    console.error('Dropbox callback error:', error)
+    return createPopupResponse('error', provider, 'An unexpected error occurred', baseUrl)
   }
 }

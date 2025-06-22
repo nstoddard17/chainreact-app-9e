@@ -1,135 +1,155 @@
-import { type NextRequest } from "next/server"
-import { createClient } from "@supabase/supabase-js"
-import { getBaseUrl } from "@/lib/utils/getBaseUrl"
-import { createPopupResponse } from "@/lib/utils/createPopupResponse"
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-if (!supabaseUrl || !supabaseServiceRoleKey) {
-  throw new Error("Missing Supabase URL or service role key")
-}
-
-const supabase = createClient(supabaseUrl, supabaseServiceRoleKey)
+import { type NextRequest, NextResponse } from 'next/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { createPopupResponse } from '@/lib/utils/createPopupResponse'
+import { getBaseUrl } from '@/lib/utils/getBaseUrl'
+import { encrypt } from '@/lib/security/encryption'
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url)
-  const code = searchParams.get("code")
-  const state = searchParams.get("state")
-  const error = searchParams.get("error")
-  const errorDescription = searchParams.get("error_description")
-
+  const url = new URL(request.url)
+  const code = url.searchParams.get('code')
+  const state = url.searchParams.get('state')
+  const error = url.searchParams.get('error')
+  const errorDescription = url.searchParams.get('error_description')
+  
   const baseUrl = getBaseUrl()
+  const provider = 'gumroad'
 
+  // Handle OAuth errors
   if (error) {
     console.error(`Gumroad OAuth error: ${error} - ${errorDescription}`)
-    return createPopupResponse(
-      "error",
-      "gumroad",
-      errorDescription || "An unknown error occurred.",
-      baseUrl,
-    )
+    return createPopupResponse('error', provider, errorDescription || 'Authorization failed', baseUrl)
   }
 
   if (!code || !state) {
-    return createPopupResponse(
-      "error",
-      "gumroad",
-      "Authorization code or state parameter is missing.",
-      baseUrl,
-    )
+    return createPopupResponse('error', provider, 'Missing code or state parameter', baseUrl)
   }
 
   try {
-    const stateData = JSON.parse(atob(state))
-    const { userId } = stateData
+    // Verify state parameter to prevent CSRF
+    const { data: pkceData, error: pkceError } = await createAdminClient()
+      .from('oauth_pkce_state')
+      .select('*')
+      .eq('state', state)
+      .single()
 
-    if (!userId) {
-      throw new Error("User ID not found in state")
+    if (pkceError || !pkceData) {
+      console.error('Invalid state or PKCE lookup error:', pkceError)
+      return createPopupResponse('error', provider, 'Invalid state parameter', baseUrl)
     }
 
-    const clientId = process.env.NEXT_PUBLIC_GUMROAD_CLIENT_ID
+    const userId = pkceData.user_id
+    
+    if (!userId) {
+      return createPopupResponse('error', provider, 'User ID not found', baseUrl)
+    }
+
+    // Clean up the state
+    await createAdminClient()
+      .from('oauth_pkce_state')
+      .delete()
+      .eq('state', state)
+
+    // Get Gumroad OAuth credentials
+    const clientId = process.env.GUMROAD_CLIENT_ID
     const clientSecret = process.env.GUMROAD_CLIENT_SECRET
+    const redirectUri = `${baseUrl}/api/integrations/gumroad/callback`
 
     if (!clientId || !clientSecret) {
-      throw new Error("Gumroad client ID or secret not configured")
+      console.error('Gumroad OAuth credentials not configured')
+      return createPopupResponse('error', provider, 'Integration configuration error', baseUrl)
     }
 
-    // Exchange authorization code for access token
-    const tokenResponse = await fetch("https://gumroad.com/oauth/token", {
-      method: "POST",
+    // Exchange code for access token
+    // Gumroad API endpoint for token exchange
+    const tokenEndpoint = 'https://api.gumroad.com/oauth/token'
+    const tokenResponse = await fetch(tokenEndpoint, {
+      method: 'POST',
       headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
+        'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: new URLSearchParams({
         client_id: clientId,
         client_secret: clientSecret,
         code,
-        grant_type: "authorization_code",
-        redirect_uri: `${baseUrl}/api/integrations/gumroad/callback`,
+        redirect_uri: redirectUri,
+        grant_type: 'authorization_code',
       }),
     })
 
     if (!tokenResponse.ok) {
-      const errorData = await tokenResponse.json()
-      throw new Error(
-        `Gumroad token exchange failed: ${errorData.error_description || errorData.error}`,
-      )
+      const errorText = await tokenResponse.text()
+      console.error('Gumroad token exchange failed:', tokenResponse.status, errorText)
+      return createPopupResponse('error', provider, 'Failed to retrieve access token', baseUrl)
     }
 
     const tokenData = await tokenResponse.json()
+    
+    // Gumroad access tokens don't expire by default
+    // We'll set a nominal expiration for safety
+    const expiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000) // 1 year
+    
+    // Fetch user profile info
+    let profileData = {}
+    if (tokenData.access_token) {
+      try {
+        const meResponse = await fetch('https://api.gumroad.com/v2/user', {
+          headers: {
+            'Authorization': `Bearer ${tokenData.access_token}`
+          }
+        })
+        
+        if (meResponse.ok) {
+          const meData = await meResponse.json()
+          if (meData.success && meData.user) {
+            profileData = {
+              name: meData.user.name,
+              email: meData.user.email,
+              bio: meData.user.bio,
+              user_id: meData.user.user_id,
+              twitter_handle: meData.user.twitter_handle
+            }
+          }
+        } else {
+          console.warn('Failed to fetch Gumroad user profile:', await meResponse.text())
+        }
+      } catch (profileError) {
+        console.warn('Error fetching Gumroad profile:', profileError)
+      }
+    }
 
-    // Get user information using the access token
-    const userResponse = await fetch("https://api.gumroad.com/v2/user", {
-      headers: {
-        Authorization: `Bearer ${tokenData.access_token}`,
-      },
+    const encryptionKey = process.env.ENCRYPTION_KEY
+
+    if (!encryptionKey) {
+      return createPopupResponse('error', provider, 'Encryption key not configured', baseUrl)
+    }
+
+    // Store the integration data
+    const supabase = createAdminClient()
+    const { error: upsertError } = await supabase.from('integrations').upsert({
+      user_id: userId,
+      provider,
+      access_token: encrypt(tokenData.access_token, encryptionKey),
+      refresh_token: null, // Gumroad doesn't provide refresh tokens
+      expires_at: expiresAt.toISOString(),
+      status: 'connected',
+      is_active: true,
+      updated_at: new Date().toISOString(),
+      metadata: {
+        profile: profileData,
+        token_type: tokenData.token_type
+      }
+    }, {
+      onConflict: 'user_id, provider',
     })
 
-    if (!userResponse.ok) {
-      throw new Error("Failed to get Gumroad user info")
+    if (upsertError) {
+      console.error('Failed to save Gumroad integration:', upsertError)
+      return createPopupResponse('error', provider, 'Failed to store integration data', baseUrl)
     }
 
-    const userData = await userResponse.json()
-
-    const expiresIn = tokenData.expires_in
-    const expiresAt = expiresIn ? new Date(new Date().getTime() + expiresIn * 1000) : null
-
-    const integrationData = {
-      user_id: userId,
-      provider: "gumroad",
-      provider_user_id: userData.id || null,
-      access_token: tokenData.access_token,
-      refresh_token: tokenData.refresh_token || null,
-      expires_at: expiresAt ? expiresAt.toISOString() : null,
-      scopes: ["view_profile", "edit_products", "view_sales", "mark_sales_as_shipped", "refund_sales"],
-      status: "connected",
-      updated_at: new Date().toISOString(),
-    }
-
-    // Insert or update the integration
-    const { error: insertError } = await supabase
-      .from("integrations")
-      .upsert(integrationData, { onConflict: "user_id,provider" })
-
-    if (insertError) {
-      console.error("Failed to save Gumroad integration:", insertError)
-      throw new Error("Failed to save integration data")
-    }
-
-    return createPopupResponse(
-      "success",
-      "gumroad",
-      "Successfully connected to Gumroad!",
-      baseUrl,
-    )
-  } catch (error: any) {
-    console.error("Gumroad OAuth callback error:", error)
-    return createPopupResponse(
-      "error",
-      "gumroad",
-      error.message || "An unexpected error occurred.",
-      baseUrl,
-    )
+    return createPopupResponse('success', provider, 'Gumroad connected successfully!', baseUrl)
+  } catch (error) {
+    console.error('Gumroad callback error:', error)
+    return createPopupResponse('error', provider, 'An unexpected error occurred', baseUrl)
   }
 }

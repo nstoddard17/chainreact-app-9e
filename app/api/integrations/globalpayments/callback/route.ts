@@ -1,130 +1,149 @@
-import { type NextRequest } from "next/server"
-import { createClient } from "@supabase/supabase-js"
-import { getBaseUrl } from "@/lib/utils/getBaseUrl"
-import { createPopupResponse } from "@/lib/utils/createPopupResponse"
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-if (!supabaseUrl || !supabaseServiceRoleKey) {
-  throw new Error("Missing Supabase URL or service role key")
-}
-
-const supabase = createClient(supabaseUrl, supabaseServiceRoleKey)
+import { type NextRequest, NextResponse } from 'next/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { createPopupResponse } from '@/lib/utils/createPopupResponse'
+import { getBaseUrl } from '@/lib/utils/getBaseUrl'
+import { encrypt } from '@/lib/security/encryption'
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url)
-  const code = searchParams.get("code")
-  const state = searchParams.get("state")
-  const error = searchParams.get("error")
-  const errorDescription = searchParams.get("error_description")
-
+  const url = new URL(request.url)
+  const code = url.searchParams.get('code')
+  const state = url.searchParams.get('state')
+  const error = url.searchParams.get('error')
+  const errorDescription = url.searchParams.get('error_description')
+  
   const baseUrl = getBaseUrl()
+  const provider = 'globalpayments'
 
+  // Handle OAuth errors
   if (error) {
     console.error(`GlobalPayments OAuth error: ${error} - ${errorDescription}`)
-    return createPopupResponse(
-      "error",
-      "globalpayments",
-      errorDescription || "An unknown error occurred.",
-      baseUrl,
-    )
+    return createPopupResponse('error', provider, errorDescription || 'Authorization failed', baseUrl)
   }
 
   if (!code || !state) {
-    return createPopupResponse(
-      "error",
-      "globalpayments",
-      "Authorization code or state parameter is missing.",
-      baseUrl,
-    )
+    return createPopupResponse('error', provider, 'Missing code or state parameter', baseUrl)
   }
 
   try {
-    const stateData = JSON.parse(atob(state))
-    const { userId } = stateData
+    // Verify state parameter to prevent CSRF
+    const { data: pkceData, error: pkceError } = await createAdminClient()
+      .from('oauth_pkce_state')
+      .select('*')
+      .eq('state', state)
+      .single()
 
-    if (!userId) {
-      throw new Error("User ID not found in state")
+    if (pkceError || !pkceData) {
+      console.error('Invalid state or PKCE lookup error:', pkceError)
+      return createPopupResponse('error', provider, 'Invalid state parameter', baseUrl)
     }
 
-    const clientId = process.env.NEXT_PUBLIC_GLOBALPAYMENTS_CLIENT_ID
+    const userId = pkceData.user_id
+    
+    if (!userId) {
+      return createPopupResponse('error', provider, 'User ID not found', baseUrl)
+    }
+
+    // Clean up the state
+    await createAdminClient()
+      .from('oauth_pkce_state')
+      .delete()
+      .eq('state', state)
+
+    // Get GlobalPayments OAuth credentials
+    const clientId = process.env.GLOBALPAYMENTS_CLIENT_ID
     const clientSecret = process.env.GLOBALPAYMENTS_CLIENT_SECRET
+    const redirectUri = `${baseUrl}/api/integrations/globalpayments/callback`
 
     if (!clientId || !clientSecret) {
-      throw new Error("GlobalPayments client ID or secret not configured")
+      console.error('GlobalPayments OAuth credentials not configured')
+      return createPopupResponse('error', provider, 'Integration configuration error', baseUrl)
     }
 
-    const tokenResponse = await fetch("https://api.globalpayments.com/oauth/token", {
-      method: "POST",
+    // Exchange code for access token
+    // GlobalPayments OAuth token endpoint
+    const tokenEndpoint = 'https://apis.globalpay.com/ucp/oauth2/token'
+    const tokenResponse = await fetch(tokenEndpoint, {
+      method: 'POST',
       headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Authorization': `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`
       },
       body: new URLSearchParams({
-        client_id: clientId,
-        client_secret: clientSecret,
+        grant_type: 'authorization_code',
         code,
-        grant_type: "authorization_code",
-        redirect_uri: `${baseUrl}/api/integrations/globalpayments/callback`,
+        redirect_uri: redirectUri,
       }),
     })
 
     if (!tokenResponse.ok) {
-      const errorData = await tokenResponse.json()
-      throw new Error(
-        `GlobalPayments token exchange failed: ${errorData.error_description || errorData.error}`,
-      )
+      const errorText = await tokenResponse.text()
+      console.error('GlobalPayments token exchange failed:', tokenResponse.status, errorText)
+      return createPopupResponse('error', provider, 'Failed to retrieve access token', baseUrl)
     }
 
     const tokenData = await tokenResponse.json()
+    
+    // Extract and handle token expiration
+    const expiresIn = tokenData.expires_in || 3600 // Default to 1 hour
+    const expiresAt = new Date(Date.now() + expiresIn * 1000)
+    const refreshExpiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000) // 90 days default
 
-    // Assuming a /me or similar endpoint exists to get the user's ID
-    const userResponse = await fetch("https://api.globalpayments.com/v1/users/me", {
-      headers: {
-        Authorization: `Bearer ${tokenData.access_token}`,
-      },
-    })
-
-    if (!userResponse.ok) {
-      throw new Error("Failed to get GlobalPayments user info")
+    // Fetch account info if possible to store additional data
+    let accountData = {}
+    
+    if (tokenData.access_token) {
+      try {
+        const accountResponse = await fetch('https://apis.globalpay.com/ucp/accounts', {
+          headers: {
+            'Authorization': `Bearer ${tokenData.access_token}`
+          }
+        })
+        
+        if (accountResponse.ok) {
+          accountData = await accountResponse.json()
+        } else {
+          console.warn('Could not fetch GlobalPayments account data:', await accountResponse.text())
+        }
+      } catch (accountError) {
+        console.warn('Error fetching GlobalPayments account data:', accountError)
+      }
     }
-    const userData = await userResponse.json()
 
-    const integrationData = {
+    const encryptionKey = process.env.ENCRYPTION_KEY
+
+    if (!encryptionKey) {
+      return createPopupResponse('error', provider, 'Encryption key not configured', baseUrl)
+    }
+
+    // Store the integration data
+    const supabase = createAdminClient()
+    const { error: upsertError } = await supabase.from('integrations').upsert({
       user_id: userId,
-      provider: "globalpayments",
-      provider_user_id: userData.id,
-      access_token: tokenData.access_token,
-      refresh_token: tokenData.refresh_token,
-      expires_at: tokenData.expires_in
-        ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString()
-        : null,
-      scopes: tokenData.scope ? tokenData.scope.split(" ") : [],
-      status: "connected",
+      provider,
+      access_token: encrypt(tokenData.access_token, encryptionKey),
+      refresh_token: tokenData.refresh_token ? encrypt(tokenData.refresh_token, encryptionKey) : null,
+      expires_at: expiresAt.toISOString(),
+      refresh_token_expires_at: refreshExpiresAt.toISOString(),
+      status: 'connected',
+      is_active: true,
+      scopes: tokenData.scope ? tokenData.scope.split(' ') : [],
       updated_at: new Date().toISOString(),
-    }
-
-    const { error: upsertError } = await supabase.from("integrations").upsert(integrationData, {
-      onConflict: "user_id, provider",
+      metadata: {
+        account_info: accountData,
+        token_type: tokenData.token_type
+      }
+    }, {
+      onConflict: 'user_id, provider',
     })
 
     if (upsertError) {
-      throw new Error(`Failed to save GlobalPayments integration: ${upsertError.message}`)
+      console.error('Failed to save GlobalPayments integration:', upsertError)
+      return createPopupResponse('error', provider, 'Failed to store integration data', baseUrl)
     }
 
-    return createPopupResponse(
-      "success",
-      "globalpayments",
-      "GlobalPayments account connected successfully.",
-      baseUrl,
-    )
-  } catch (e: any) {
-    console.error("GlobalPayments callback error:", e)
-    return createPopupResponse(
-      "error",
-      "globalpayments",
-      e.message || "An unexpected error occurred.",
-      baseUrl,
-    )
+    return createPopupResponse('success', provider, 'GlobalPayments connected successfully!', baseUrl)
+  } catch (error) {
+    console.error('GlobalPayments callback error:', error)
+    return createPopupResponse('error', provider, 'An unexpected error occurred', baseUrl)
   }
 }

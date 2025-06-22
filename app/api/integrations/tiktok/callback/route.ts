@@ -1,234 +1,169 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { createClient } from "@supabase/supabase-js"
-import { getBaseUrl } from "@/lib/utils/getBaseUrl"
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-if (!supabaseUrl || !supabaseServiceRoleKey) {
-  throw new Error("Missing Supabase URL or service role key")
-}
-
-const supabase = createClient(supabaseUrl, supabaseServiceRoleKey)
+import { type NextRequest, NextResponse } from 'next/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { createPopupResponse } from '@/lib/utils/createPopupResponse'
+import { getBaseUrl } from '@/lib/utils/getBaseUrl'
+import { encrypt } from '@/lib/security/encryption'
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url)
-  const code = searchParams.get("code")
-  const state = searchParams.get("state")
-  const error = searchParams.get("error")
-  const errorDescription = searchParams.get("error_description")
-
+  const url = new URL(request.url)
+  const code = url.searchParams.get('code')
+  const state = url.searchParams.get('state')
+  const error = url.searchParams.get('error')
+  const errorDescription = url.searchParams.get('error_description')
+  
   const baseUrl = getBaseUrl()
+  const provider = 'tiktok'
 
+  // Handle OAuth errors
   if (error) {
     console.error(`TikTok OAuth error: ${error} - ${errorDescription}`)
-    const errorHtml = `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>TikTok Connection Failed</title>
-            <style>
-              body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; text-align: center; }
-              .container { max-width: 500px; padding: 20px; border: 1px solid #ccc; border-radius: 8px; }
-              h1 { color: #dc3545; }
-              p { color: #666; }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <h1>TikTok Connection Failed</h1>
-              <p>${errorDescription || "An unknown error occurred."}</p>
-              <p>Please try again or contact support if the problem persists.</p>
-              <script>
-                if (window.opener) {
-                  window.opener.postMessage({
-                    type: 'oauth-error',
-                    provider: 'tiktok',
-                    error: '${error}',
-                    errorDescription: '${errorDescription || "An unknown error occurred."}'
-                  }, '${baseUrl}');
-                  setTimeout(() => window.close(), 1000);
-                }
-              </script>
-            </div>
-          </body>
-        </html>
-      `
-    return new Response(errorHtml, {
-      headers: { "Content-Type": "text/html" },
-      status: 400,
-    })
+    return createPopupResponse('error', provider, errorDescription || 'Authorization failed', baseUrl)
   }
 
   if (!code || !state) {
-    console.error("Missing code or state in TikTok callback")
-    const errorHtml = `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>TikTok Connection Failed</title>
-             <style>
-              body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; text-align: center; }
-              .container { max-width: 500px; padding: 20px; border: 1px solid #ccc; border-radius: 8px; }
-              h1 { color: #dc3545; }
-              p { color: #666; }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <h1>TikTok Connection Failed</h1>
-              <p>Authorization code or state parameter is missing.</p>
-              <p>Please try again or contact support if the problem persists.</p>
-               <script>
-                if (window.opener) {
-                  window.opener.postMessage({
-                    type: 'oauth-error',
-                    provider: 'tiktok',
-                    error: 'Missing code or state'
-                  }, '${baseUrl}');
-                  setTimeout(() => window.close(), 1000);
-                }
-              </script>
-            </div>
-          </body>
-        </html>
-      `
-    return new Response(errorHtml, {
-      headers: { "Content-Type": "text/html" },
-      status: 400,
-    })
+    return createPopupResponse('error', provider, 'Missing code or state parameter', baseUrl)
   }
 
   try {
-    const stateData = JSON.parse(atob(state))
-    const { userId } = stateData
+    // Verify state parameter to prevent CSRF
+    const { data: pkceData, error: pkceError } = await createAdminClient()
+      .from('oauth_pkce_state')
+      .select('*')
+      .eq('state', state)
+      .single()
 
+    if (pkceError || !pkceData) {
+      console.error('Invalid state or PKCE lookup error:', pkceError)
+      return createPopupResponse('error', provider, 'Invalid state parameter', baseUrl)
+    }
+
+    const userId = pkceData.user_id
+    
     if (!userId) {
-      console.error("Missing userId in TikTok state")
-      // Handle error: show an error page and inform the user
-      return new Response("User ID is missing from state", { status: 400 })
+      return createPopupResponse('error', provider, 'User ID not found', baseUrl)
     }
 
-    const clientId = process.env.NEXT_PUBLIC_TIKTOK_CLIENT_ID
+    // Clean up the state
+    await createAdminClient()
+      .from('oauth_pkce_state')
+      .delete()
+      .eq('state', state)
+
+    // Get TikTok OAuth credentials
+    const clientKey = process.env.TIKTOK_CLIENT_KEY
     const clientSecret = process.env.TIKTOK_CLIENT_SECRET
+    const redirectUri = `${baseUrl}/api/integrations/tiktok/callback`
 
-    if (!clientId || !clientSecret) {
-      throw new Error("TikTok client ID or secret not configured")
+    if (!clientKey || !clientSecret) {
+      console.error('TikTok OAuth credentials not configured')
+      return createPopupResponse('error', provider, 'Integration configuration error', baseUrl)
     }
 
-    const tokenResponse = await fetch("https://open-api.tiktok.com/oauth/access_token/", {
-      method: "POST",
+    // Exchange code for access token
+    const tokenResponse = await fetch('https://open-api.tiktok.com/oauth/access_token/', {
+      method: 'POST',
       headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
+        'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: new URLSearchParams({
-        client_key: clientId,
+        client_key: clientKey,
         client_secret: clientSecret,
         code,
-        grant_type: "authorization_code",
-        redirect_uri: `${baseUrl}/api/integrations/tiktok/callback`,
+        grant_type: 'authorization_code',
+        redirect_uri: redirectUri,
       }),
     })
 
     if (!tokenResponse.ok) {
-      const errorData = await tokenResponse.json()
-      throw new Error(`TikTok token exchange failed: ${errorData.error_description}`)
+      const errorText = await tokenResponse.text()
+      console.error('TikTok token exchange failed:', tokenResponse.status, errorText)
+      return createPopupResponse('error', provider, 'Failed to retrieve access token', baseUrl)
     }
 
-    const tokenData = await tokenResponse.json()
-    const expiresIn = tokenData.data.expires_in
-    const expiresAt = expiresIn ? new Date(new Date().getTime() + expiresIn * 1000) : null
+    // TikTok returns data in a nested format
+    const responseData = await tokenResponse.json()
+    
+    if (!responseData.data || responseData.error_code !== 0) {
+      console.error('TikTok token exchange error:', responseData)
+      return createPopupResponse('error', provider, `TikTok error: ${responseData.error_code} - ${responseData.description}`, baseUrl)
+    }
+    
+    const tokenData = responseData.data
+    
+    // TikTok access tokens typically expire in 24 hours (86400 seconds)
+    const expiresIn = tokenData.expires_in || 86400
+    const expiresAt = new Date(Date.now() + expiresIn * 1000)
+    
+    // TikTok refresh tokens are valid for 30 days
+    const refreshExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
 
-    const integrationData = {
+    // Fetch user information
+    let userInfo = {
+      open_id: tokenData.open_id,
+      scope: tokenData.scope,
+    }
+    
+    // Optionally fetch additional user data
+    if (tokenData.access_token && tokenData.open_id) {
+      try {
+        const userResponse = await fetch('https://open-api.tiktok.com/user/info/?fields=open_id,union_id,avatar_url,display_name', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${tokenData.access_token}`,
+          }
+        })
+        
+        if (userResponse.ok) {
+          const userData = await userResponse.json()
+          if (userData.data && userData.data.user) {
+            userInfo = {
+              ...userInfo,
+              ...userData.data.user
+            }
+          }
+        } else {
+          console.warn('Could not fetch TikTok user information:', await userResponse.text())
+        }
+      } catch (userError) {
+        console.warn('Error fetching TikTok user information:', userError)
+      }
+    }
+
+    const encryptionKey = process.env.ENCRYPTION_KEY
+
+    if (!encryptionKey) {
+      return createPopupResponse('error', provider, 'Encryption key not configured', baseUrl)
+    }
+
+    // Store the integration data
+    const supabase = createAdminClient()
+    const { error: upsertError } = await supabase.from('integrations').upsert({
       user_id: userId,
-      provider: 'tiktok',
-      access_token: tokenData.data.access_token,
-      refresh_token: tokenData.data.refresh_token,
-      scopes: tokenData.data.scope.split(','),
+      provider,
+      access_token: encrypt(tokenData.access_token, encryptionKey),
+      refresh_token: tokenData.refresh_token ? encrypt(tokenData.refresh_token, encryptionKey) : null,
+      expires_at: expiresAt.toISOString(),
+      refresh_token_expires_at: tokenData.refresh_token ? refreshExpiresAt.toISOString() : undefined,
       status: 'connected',
-      expires_at: expiresAt ? expiresAt.toISOString() : null,
+      is_active: true,
       updated_at: new Date().toISOString(),
       metadata: {
-        open_id: tokenData.data.open_id,
-        refresh_expires_in: tokenData.data.refresh_expires_in,
-      },
-    }
-
-    const { error: upsertError } = await supabase.from('integrations').upsert(integrationData, {
+        open_id: tokenData.open_id,
+        user_info: userInfo,
+        scope: tokenData.scope
+      }
+    }, {
       onConflict: 'user_id, provider',
     })
 
     if (upsertError) {
-      throw new Error(`Failed to save TikTok integration: ${upsertError.message}`)
+      console.error('Failed to save TikTok integration:', upsertError)
+      return createPopupResponse('error', provider, 'Failed to store integration data', baseUrl)
     }
 
-    const successHtml = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>TikTok Connection Successful</title>
-           <style>
-              body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; text-align: center; }
-              .container { max-width: 500px; padding: 20px; border: 1px solid #ccc; border-radius: 8px; }
-              h1 { color: #28a745; }
-              p { color: #666; }
-            </style>
-        </head>
-        <body>
-          <div class="container">
-            <h1>TikTok Connection Successful</h1>
-            <p>You can now close this window.</p>
-          </div>
-          <script>
-            if (window.opener) {
-              window.opener.postMessage({ type: 'oauth-success', provider: 'tiktok' }, '${baseUrl}');
-              setTimeout(() => window.close(), 1000);
-            }
-          </script>
-        </body>
-      </html>
-    `
-
-    return new Response(successHtml, {
-      headers: { "Content-Type": "text/html" },
-    })
-  } catch (e: any) {
-    console.error("TikTok callback error:", e)
-    const errorHtml = `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>TikTok Connection Failed</title>
-            <style>
-              body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; text-align: center; }
-              .container { max-width: 500px; padding: 20px; border: 1px solid #ccc; border-radius: 8px; }
-              h1 { color: #dc3545; }
-              p { color: #666; }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-               <h1>TikTok Connection Failed</h1>
-              <p>${e.message || "An unexpected error occurred."}</p>
-               <p>Please try again or contact support if the problem persists.</p>
-              <script>
-                if (window.opener) {
-                  window.opener.postMessage({
-                    type: 'oauth-error',
-                    provider: 'tiktok',
-                    error: 'Callback processing failed',
-                    errorDescription: '${e.message || "An unexpected error occurred."}'
-                  }, '${baseUrl}');
-                  setTimeout(() => window.close(), 1000);
-                }
-              </script>
-            </div>
-          </body>
-        </html>
-      `
-    return new Response(errorHtml, {
-      headers: { "Content-Type": "text/html" },
-      status: 500,
-    })
+    return createPopupResponse('success', provider, 'TikTok connected successfully!', baseUrl)
+  } catch (error) {
+    console.error('TikTok callback error:', error)
+    return createPopupResponse('error', provider, 'An unexpected error occurred', baseUrl)
   }
 }
