@@ -8,8 +8,6 @@
 import { Integration } from "@/types/integration";
 import { db } from "@/lib/db";
 import { getOAuthConfig, getOAuthClientCredentials, OAuthProviderConfig } from "./oauthConfig";
-import { encrypt, decrypt } from "@/lib/security/encryption";
-import { getSecret } from "@/lib/secrets";
 import fetch from 'node-fetch';
 
 // Standard response for token refresh operations
@@ -96,12 +94,6 @@ export async function refreshTokens(options: RefreshTokensOptions = {}): Promise
   };
 
   try {
-    // Get the encryption key
-    const encryptionKey = await getSecret("encryption_key") || process.env.ENCRYPTION_KEY;
-    if (!encryptionKey) {
-      throw new Error("Missing encryption key");
-    }
-    
     // Build the query to get integrations with refresh tokens
     let query = db
       .from("integrations")
@@ -189,37 +181,16 @@ export async function refreshTokens(options: RefreshTokensOptions = {}): Promise
           
           console.log(`Refreshing token for ${integration.provider} (ID: ${integration.id}): ${needsRefresh.reason}`);
           
-          // Decrypt the refresh token
-          let decryptedRefreshToken: string;
-          try {
-            if (!integration.refresh_token) throw new Error("Refresh token is null or undefined");
-            decryptedRefreshToken = decrypt(integration.refresh_token, encryptionKey);
-          } catch (decryptError: any) {
-            if (decryptError.message.includes('Invalid encrypted text format') || decryptError.message.includes('Failed to decrypt data')) {
-              console.warn(`Token for ${integration.provider} (ID: ${integration.id}) appears to be unencrypted. Proceeding with unencrypted token.`);
-              decryptedRefreshToken = integration.refresh_token!;
-            } else {
-              console.error(`Decryption error for ${integration.provider} (ID: ${integration.id}): ${decryptError.message}`);
-              stats.failed++;
-              stats.providerStats[integration.provider].failed++;
-              stats.errors["decryption_error"] = (stats.errors["decryption_error"] || 0) + 1;
-              
-              // Update integration with error details
-              if (!config.dryRun) {
-                await updateIntegrationWithError(
-                  integration.id, 
-                  `Decryption error: ${decryptError.message}`,
-                  { status: "needs_reauthorization" }
-                );
-              }
-              return;
-            }
+          if (!integration.refresh_token) {
+            console.error(`Skipping refresh for ${integration.provider} (ID: ${integration.id}): Refresh token is null.`);
+            stats.skipped++;
+            return;
           }
           
           // Refresh the token
           const refreshResult = await refreshTokenForProvider(
             integration.provider,
-            decryptedRefreshToken,
+            integration.refresh_token,
             integration
           );
           
@@ -229,7 +200,7 @@ export async function refreshTokens(options: RefreshTokensOptions = {}): Promise
             
             if (!config.dryRun) {
               // Update the token in the database
-              await updateIntegrationWithRefreshResult(integration.id, refreshResult, encryptionKey);
+              await updateIntegrationWithRefreshResult(integration.id, refreshResult);
             }
           } else {
             stats.failed++;
@@ -333,8 +304,7 @@ export function shouldRefreshToken(
  */
 async function updateIntegrationWithRefreshResult(
   integrationId: string,
-  refreshResult: RefreshResult,
-  encryptionKey: string
+  refreshResult: RefreshResult
 ): Promise<void> {
   const now = new Date();
   
@@ -361,7 +331,7 @@ async function updateIntegrationWithRefreshResult(
   
   // Update refresh token if provided
   if (refreshResult.refreshToken) {
-    updateData.refresh_token = encrypt(refreshResult.refreshToken, encryptionKey);
+    updateData.refresh_token = refreshResult.refreshToken;
     
     // Calculate new refresh token expiration time if provided
     if (refreshResult.refreshTokenExpiresIn) {
