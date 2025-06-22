@@ -1,128 +1,162 @@
-import { type NextRequest } from "next/server"
-import { createClient } from "@supabase/supabase-js"
-import { getBaseUrl } from "@/lib/utils/getBaseUrl"
-import { createPopupResponse } from "@/lib/utils/createPopupResponse"
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-if (!supabaseUrl || !supabaseServiceRoleKey) {
-  throw new Error("Missing Supabase URL or service role key")
-}
-
-const supabase = createClient(supabaseUrl, supabaseServiceRoleKey)
+import { type NextRequest, NextResponse } from 'next/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { createPopupResponse } from '@/lib/utils/createPopupResponse'
+import { getBaseUrl } from '@/lib/utils/getBaseUrl'
+import { encrypt } from '@/lib/security/encryption'
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url)
-  const code = searchParams.get("code")
-  const state = searchParams.get("state")
-  const error = searchParams.get("error")
-  const errorDescription = searchParams.get("error_description")
-
+  const url = new URL(request.url)
+  const code = url.searchParams.get('code')
+  const state = url.searchParams.get('state')
+  const error = url.searchParams.get('error')
+  const errorDescription = url.searchParams.get('error_description')
+  
   const baseUrl = getBaseUrl()
+  const provider = 'youtube-studio'
 
+  // Handle OAuth errors
   if (error) {
     console.error(`YouTube Studio OAuth error: ${error} - ${errorDescription}`)
-    return createPopupResponse(
-      "error",
-      "youtube-studio",
-      errorDescription || "An unknown error occurred.",
-      baseUrl,
-    )
+    return createPopupResponse('error', provider, errorDescription || 'Authorization failed', baseUrl)
   }
 
   if (!code || !state) {
-    return createPopupResponse(
-      "error",
-      "youtube-studio",
-      "Authorization code or state parameter is missing.",
-      baseUrl,
-    )
+    return createPopupResponse('error', provider, 'Missing code or state parameter', baseUrl)
   }
 
   try {
-    const stateData = JSON.parse(atob(state))
-    const { userId } = stateData
+    // Verify state parameter to prevent CSRF
+    const { data: pkceData, error: pkceError } = await createAdminClient()
+      .from('oauth_pkce_state')
+      .select('*')
+      .eq('state', state)
+      .single()
 
-    if (!userId) {
-      throw new Error("User ID not found in state")
+    if (pkceError || !pkceData) {
+      console.error('Invalid state or PKCE lookup error:', pkceError)
+      return createPopupResponse('error', provider, 'Invalid state parameter', baseUrl)
     }
 
-    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
+    const userId = pkceData.user_id
+    
+    if (!userId) {
+      return createPopupResponse('error', provider, 'User ID not found', baseUrl)
+    }
+
+    // Clean up the state
+    await createAdminClient()
+      .from('oauth_pkce_state')
+      .delete()
+      .eq('state', state)
+
+    // Get YouTube Studio (Google) OAuth credentials
+    const clientId = process.env.GOOGLE_CLIENT_ID
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET
+    const redirectUri = `${baseUrl}/api/integrations/youtube-studio/callback`
 
     if (!clientId || !clientSecret) {
-      throw new Error("Google client ID or secret not configured")
+      console.error('Google OAuth credentials not configured')
+      return createPopupResponse('error', provider, 'Integration configuration error', baseUrl)
     }
 
-    const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
-      method: "POST",
+    // Exchange code for access token
+    const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
       headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
+        'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: new URLSearchParams({
+        code,
         client_id: clientId,
         client_secret: clientSecret,
-        code,
-        grant_type: "authorization_code",
-        redirect_uri: `${baseUrl}/api/integrations/youtube-studio/callback`,
+        redirect_uri: redirectUri,
+        grant_type: 'authorization_code',
       }),
     })
 
     if (!tokenResponse.ok) {
-      const errorData = await tokenResponse.json()
-      throw new Error(`Google token exchange failed: ${errorData.error_description}`)
+      const errorText = await tokenResponse.text()
+      console.error('YouTube Studio token exchange failed:', tokenResponse.status, errorText)
+      return createPopupResponse('error', provider, 'Failed to retrieve access token', baseUrl)
     }
 
     const tokenData = await tokenResponse.json()
+    
+    // Extract and handle token expiration
+    const expiresIn = tokenData.expires_in || 3600 // Default to 1 hour if not provided
+    const expiresAt = new Date(Date.now() + expiresIn * 1000)
+    
+    // Google refresh tokens don't expire unless revoked or not used for 6 months
+    // We'll set a nominal expiration of 6 months
+    const refreshExpiresAt = new Date(Date.now() + 180 * 24 * 60 * 60 * 1000)
 
-    const userResponse = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
-      headers: {
-        Authorization: `Bearer ${tokenData.access_token}`,
-      },
-    })
+    // Get user's channel information
+    let channelInfo = {}
+    if (tokenData.access_token) {
+      try {
+        // Get user's YouTube channel information
+        const youtubeResponse = await fetch(
+          'https://youtube.googleapis.com/youtube/v3/channels?part=snippet&mine=true',
+          {
+            headers: {
+              Authorization: `Bearer ${tokenData.access_token}`,
+            },
+          }
+        )
 
-    if (!userResponse.ok) {
-      throw new Error("Failed to get Google user info")
+        if (youtubeResponse.ok) {
+          const youtubeData = await youtubeResponse.json()
+          if (youtubeData.items && youtubeData.items.length > 0) {
+            const channel = youtubeData.items[0]
+            channelInfo = {
+              id: channel.id,
+              title: channel.snippet.title,
+              thumbnail: channel.snippet.thumbnails?.default?.url,
+            }
+          }
+        } else {
+          console.warn('Failed to fetch YouTube channel:', await youtubeResponse.text())
+        }
+      } catch (profileError) {
+        console.warn('Error fetching YouTube channel:', profileError)
+      }
     }
 
-    const userData = await userResponse.json()
+    const encryptionKey = process.env.ENCRYPTION_KEY
 
-    const integrationData = {
+    if (!encryptionKey) {
+      return createPopupResponse('error', provider, 'Encryption key not configured', baseUrl)
+    }
+
+    // Store the integration data
+    const supabase = createAdminClient()
+    const { error: upsertError } = await supabase.from('integrations').upsert({
       user_id: userId,
-      provider: "youtube-studio",
-      provider_user_id: userData.id,
-      access_token: tokenData.access_token,
-      refresh_token: tokenData.refresh_token,
-      expires_at: tokenData.expires_in
-        ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString()
-        : null,
-      scopes: tokenData.scope.split(" "),
-      status: "connected",
+      provider,
+      access_token: encrypt(tokenData.access_token, encryptionKey),
+      refresh_token: tokenData.refresh_token ? encrypt(tokenData.refresh_token, encryptionKey) : null,
+      expires_at: expiresAt.toISOString(),
+      refresh_token_expires_at: refreshExpiresAt.toISOString(),
+      status: 'connected',
+      is_active: true,
+      scopes: tokenData.scope ? tokenData.scope.split(' ') : [],
       updated_at: new Date().toISOString(),
-    }
-
-    const { error: upsertError } = await supabase.from("integrations").upsert(integrationData, {
-      onConflict: "user_id, provider",
+      metadata: {
+        channel_info: channelInfo,
+        token_type: tokenData.token_type
+      }
+    }, {
+      onConflict: 'user_id, provider',
     })
 
     if (upsertError) {
-      throw new Error(`Failed to save YouTube Studio integration: ${upsertError.message}`)
+      console.error('Failed to save YouTube Studio integration:', upsertError)
+      return createPopupResponse('error', provider, 'Failed to store integration data', baseUrl)
     }
 
-    return createPopupResponse(
-      "success",
-      "youtube-studio",
-      "YouTube Studio account connected successfully.",
-      baseUrl,
-    )
-  } catch (e: any) {
-    console.error("YouTube Studio callback error:", e)
-    return createPopupResponse(
-      "error",
-      "youtube-studio",
-      e.message || "An unexpected error occurred.",
-      baseUrl,
-    )
+    return createPopupResponse('success', provider, 'YouTube Studio connected successfully!', baseUrl)
+  } catch (error) {
+    console.error('YouTube Studio callback error:', error)
+    return createPopupResponse('error', provider, 'An unexpected error occurred', baseUrl)
   }
 }

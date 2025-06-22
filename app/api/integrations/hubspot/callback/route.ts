@@ -1,249 +1,153 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { createClient } from "@supabase/supabase-js"
-import { getBaseUrl } from "@/lib/utils/getBaseUrl"
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-if (!supabaseUrl || !supabaseServiceRoleKey) {
-  throw new Error("Missing Supabase URL or service role key")
-}
-
-const supabase = createClient(supabaseUrl, supabaseServiceRoleKey)
-
-function createPopupResponse(
-  type: "success" | "error",
-  provider: string,
-  message: string,
-  baseUrl: string,
-) {
-  const title = type === "success" ? `${provider} Connection Successful` : `${provider} Connection Failed`
-  const header = type === "success" ? `${provider} Connected!` : `Error Connecting ${provider}`
-  const status = type === "success" ? 200 : 500
-  const script = `
-    <script>
-      if (window.opener) {
-        window.opener.postMessage({
-          type: 'oauth-${type}',
-          provider: '${provider}',
-          message: '${message}'
-        }, '${baseUrl}');
-      }
-      setTimeout(() => window.close(), 1000);
-    </script>
-  `
-  const html = `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <title>${title}</title>
-        <style>
-          body { 
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            height: 100vh; 
-            margin: 0;
-            background: ${type === "success" ? "linear-gradient(135deg, #24c6dc 0%, #514a9d 100%)" : "linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%)"};
-            color: white;
-          }
-          .container { 
-            text-align: center; 
-            padding: 2rem;
-            background: rgba(255,255,255,0.1);
-            border-radius: 12px;
-            backdrop-filter: blur(10px);
-          }
-          .icon { font-size: 3rem; margin-bottom: 1rem; }
-          h1 { margin: 0 0 0.5rem 0; font-size: 1.5rem; }
-          p { margin: 0.5rem 0; opacity: 0.9; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="icon">${type === "success" ? "✅" : "❌"}</div>
-          <h1>${header}</h1>
-          <p>${message}</p>
-          <p>This window will close automatically...</p>
-        </div>
-        ${script}
-      </body>
-    </html>
-  `
-  return new Response(html, { status, headers: { "Content-Type": "text/html" } })
-}
+import { type NextRequest, NextResponse } from 'next/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { createPopupResponse } from '@/lib/utils/createPopupResponse'
+import { getBaseUrl } from '@/lib/utils/getBaseUrl'
+import { encrypt } from '@/lib/security/encryption'
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url)
-  const code = searchParams.get("code")
-  const state = searchParams.get("state")
-  const error = searchParams.get("error")
-  const errorDescription = searchParams.get("error_description")
+  const url = new URL(request.url)
+  const code = url.searchParams.get('code')
+  const state = url.searchParams.get('state')
+  const error = url.searchParams.get('error')
+  const errorDescription = url.searchParams.get('error_description')
+  
   const baseUrl = getBaseUrl()
+  const provider = 'hubspot'
 
+  // Handle OAuth errors
   if (error) {
     console.error(`HubSpot OAuth error: ${error} - ${errorDescription}`)
-    return createPopupResponse(
-      "error",
-      "hubspot",
-      errorDescription || "An unknown error occurred.",
-      baseUrl,
-    )
+    return createPopupResponse('error', provider, errorDescription || 'Authorization failed', baseUrl)
   }
 
   if (!code || !state) {
-    console.error("Missing code or state in HubSpot callback")
-    return createPopupResponse(
-      "error",
-      "hubspot",
-      "Authorization code or state parameter is missing.",
-      baseUrl,
-    )
+    return createPopupResponse('error', provider, 'Missing code or state parameter', baseUrl)
   }
 
   try {
-    const stateData = JSON.parse(atob(state))
-    const { userId } = stateData
+    // Verify state parameter to prevent CSRF
+    const { data: pkceData, error: pkceError } = await createAdminClient()
+      .from('oauth_pkce_state')
+      .select('*')
+      .eq('state', state)
+      .single()
 
-    if (!userId) {
-      console.error("Missing userId in HubSpot state")
-      return createPopupResponse("error", "hubspot", "User ID is missing from state.", baseUrl)
+    if (pkceError || !pkceData) {
+      console.error('Invalid state or PKCE lookup error:', pkceError)
+      return createPopupResponse('error', provider, 'Invalid state parameter', baseUrl)
     }
 
-    // Extract requested scopes from state if they were included
-    const requestedScopes = stateData.scopes || []
-    console.log('🔍 Requested HubSpot scopes from state:', requestedScopes)
+    const userId = pkceData.user_id
+    
+    if (!userId) {
+      return createPopupResponse('error', provider, 'User ID not found', baseUrl)
+    }
 
-    const clientId = process.env.NEXT_PUBLIC_HUBSPOT_CLIENT_ID
+    // Clean up the state
+    await createAdminClient()
+      .from('oauth_pkce_state')
+      .delete()
+      .eq('state', state)
+
+    // Get HubSpot OAuth credentials
+    const clientId = process.env.HUBSPOT_CLIENT_ID
     const clientSecret = process.env.HUBSPOT_CLIENT_SECRET
+    const redirectUri = `${baseUrl}/api/integrations/hubspot/callback`
 
     if (!clientId || !clientSecret) {
-      throw new Error("HubSpot client ID or secret not configured")
+      console.error('HubSpot OAuth credentials not configured')
+      return createPopupResponse('error', provider, 'Integration configuration error', baseUrl)
     }
 
-    const tokenResponse = await fetch("https://api.hubapi.com/oauth/v1/token", {
-      method: "POST",
+    // Exchange code for access token
+    const tokenResponse = await fetch('https://api.hubapi.com/oauth/v1/token', {
+      method: 'POST',
       headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
+        'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: new URLSearchParams({
+        grant_type: 'authorization_code',
         client_id: clientId,
         client_secret: clientSecret,
+        redirect_uri: redirectUri,
         code,
-        grant_type: "authorization_code",
-        redirect_uri: `${baseUrl}/api/integrations/hubspot/callback`,
       }),
     })
 
     if (!tokenResponse.ok) {
-      const errorData = await tokenResponse.json()
-      throw new Error(`HubSpot token exchange failed: ${errorData.message}`)
+      const errorText = await tokenResponse.text()
+      console.error('HubSpot token exchange failed:', tokenResponse.status, errorText)
+      return createPopupResponse('error', provider, 'Failed to retrieve access token', baseUrl)
     }
 
     const tokenData = await tokenResponse.json()
-
-    // Debug logging to see what HubSpot actually returns
-    console.log('🔍 HubSpot complete token response:', JSON.stringify(tokenData, null, 2))
-    console.log('🔍 HubSpot token response fields:', {
-      expires_in: tokenData.expires_in,
-      expires_in_hours: tokenData.expires_in ? Math.round(tokenData.expires_in / 3600 * 100) / 100 : 'N/A',
-      has_refresh_token: !!tokenData.refresh_token,
-      scope: tokenData.scope,
-      scopes: tokenData.scopes,
-      token_type: tokenData.token_type
-    })
     
-    // Extract scopes - HubSpot might return them in different formats
-    let extractedScopes: string[] = []
-    if (tokenData.scopes && Array.isArray(tokenData.scopes)) {
-      // If scopes is already an array
-      extractedScopes = tokenData.scopes
-    } else if (tokenData.scopes && typeof tokenData.scopes === 'string') {
-      // If scopes is a string
-      extractedScopes = tokenData.scopes.split(' ')
-    } else if (tokenData.scope && typeof tokenData.scope === 'string') {
-      // If using 'scope' (singular) as a string
-      extractedScopes = tokenData.scope.split(' ')
-    }
+    // Extract token expiration time
+    const expiresIn = tokenData.expires_in || 21600 // Default to 6 hours if not specified
+    const expiresAt = new Date(Date.now() + expiresIn * 1000)
     
-    // If no scopes found in token response, try to fetch them from the API
-    if (extractedScopes.length === 0) {
+    // HubSpot refresh tokens don't expire by default unless revoked
+    // But we'll set a nominal expiration for safety
+    const refreshExpiresAt = new Date(Date.now() + 180 * 24 * 60 * 60 * 1000) // 180 days
+    
+    // Get HubSpot account information
+    let accountInfo = {}
+    if (tokenData.access_token) {
       try {
-        console.log('🔍 No scopes found in token response, attempting to fetch from API...')
-        // Try to get scopes from the OAuth info endpoint
-        const scopesResponse = await fetch('https://api.hubapi.com/oauth/v1/access-tokens/' + tokenData.access_token, {
+        // Get the HubSpot account details
+        const accountResponse = await fetch('https://api.hubapi.com/integrations/v1/me', {
           headers: {
-            Authorization: `Bearer ${tokenData.access_token}`
-          }
+            Authorization: `Bearer ${tokenData.access_token}`,
+          },
         })
-        
-        if (scopesResponse.ok) {
-          const scopesData = await scopesResponse.json()
-          console.log('🔍 HubSpot scopes API response:', JSON.stringify(scopesData, null, 2))
-          
-          if (scopesData.scopes && Array.isArray(scopesData.scopes)) {
-            extractedScopes = scopesData.scopes
-          } else if (scopesData.scope && typeof scopesData.scope === 'string') {
-            extractedScopes = scopesData.scope.split(' ')
-          }
+
+        if (accountResponse.ok) {
+          accountInfo = await accountResponse.json()
         } else {
-          console.warn('Failed to fetch HubSpot scopes from API:', await scopesResponse.text())
+          console.warn('Could not fetch HubSpot account information:', await accountResponse.text())
         }
-      } catch (error) {
-        console.warn('Error fetching HubSpot scopes:', error)
+      } catch (accountError) {
+        console.warn('Error fetching HubSpot account information:', accountError)
       }
     }
-    
-    // If we still don't have scopes, use the requested scopes from the state as a fallback
-    if (extractedScopes.length === 0 && requestedScopes.length > 0) {
-      console.log('🔍 Using requested scopes as fallback:', requestedScopes)
-      extractedScopes = requestedScopes
-    }
-    
-    // If we still don't have scopes, use default HubSpot scopes
-    if (extractedScopes.length === 0) {
-      console.log('🔍 Using default HubSpot scopes as last resort')
-      extractedScopes = ["crm.objects.contacts.read", "crm.objects.contacts.write", "oauth"]
-    }
-    
-    console.log('🔍 Final HubSpot scopes:', extractedScopes)
 
-    const integrationData = {
+    const encryptionKey = process.env.ENCRYPTION_KEY
+
+    if (!encryptionKey) {
+      return createPopupResponse('error', provider, 'Encryption key not configured', baseUrl)
+    }
+
+    // Store the integration data
+    const supabase = createAdminClient()
+    const { error: upsertError } = await supabase.from('integrations').upsert({
       user_id: userId,
-      provider: "hubspot",
-      provider_user_id: null, // HubSpot doesn't provide user id in token response
-      access_token: tokenData.access_token,
-      refresh_token: tokenData.refresh_token,
-      expires_at: tokenData.expires_in
-        ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString()
-        : null,
-      scopes: extractedScopes,
-      status: "connected",
+      provider,
+      access_token: encrypt(tokenData.access_token, encryptionKey),
+      refresh_token: tokenData.refresh_token ? encrypt(tokenData.refresh_token, encryptionKey) : null,
+      expires_at: expiresAt.toISOString(),
+      refresh_token_expires_at: refreshExpiresAt.toISOString(),
+      status: 'connected',
+      is_active: true,
       updated_at: new Date().toISOString(),
-    }
-
-    const { error: upsertError } = await supabase.from("integrations").upsert(integrationData, {
-      onConflict: "user_id, provider",
+      metadata: {
+        hub_id: tokenData.hub_id,
+        hub_domain: tokenData.hub_domain,
+        account_info: accountInfo,
+        token_type: tokenData.token_type,
+        scopes: tokenData.scope ? tokenData.scope.split(' ') : []
+      }
+    }, {
+      onConflict: 'user_id, provider',
     })
 
     if (upsertError) {
-      throw new Error(`Failed to save HubSpot integration: ${upsertError.message}`)
+      console.error('Failed to save HubSpot integration:', upsertError)
+      return createPopupResponse('error', provider, 'Failed to store integration data', baseUrl)
     }
 
-    return createPopupResponse(
-      "success",
-      "hubspot",
-      "HubSpot account connected successfully.",
-      baseUrl,
-    )
-  } catch (e: any) {
-    console.error("HubSpot callback error:", e)
-    return createPopupResponse(
-      "error",
-      "hubspot",
-      e.message || "An unexpected error occurred.",
-      baseUrl,
-    )
+    return createPopupResponse('success', provider, 'HubSpot connected successfully!', baseUrl)
+  } catch (error) {
+    console.error('HubSpot callback error:', error)
+    return createPopupResponse('error', provider, 'An unexpected error occurred', baseUrl)
   }
 }

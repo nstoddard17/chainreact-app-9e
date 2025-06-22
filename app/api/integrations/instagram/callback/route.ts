@@ -1,241 +1,146 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { createClient } from "@supabase/supabase-js"
-import { getBaseUrl } from "@/lib/utils/getBaseUrl"
+import { type NextRequest, NextResponse } from 'next/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { createPopupResponse } from '@/lib/utils/createPopupResponse'
+import { getBaseUrl } from '@/lib/utils/getBaseUrl'
+import { encrypt } from '@/lib/security/encryption'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-if (!supabaseUrl || !supabaseServiceRoleKey) {
-  throw new Error("Missing Supabase URL or service role key")
+interface InstagramProfile {
+  id?: string;
+  username?: string;
 }
 
-const supabase = createClient(supabaseUrl, supabaseServiceRoleKey)
-
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url)
-  const code = searchParams.get("code")
-  const state = searchParams.get("state")
-  const error = searchParams.get("error")
-  const errorDescription = searchParams.get("error_description")
-
+  const url = new URL(request.url)
+  const code = url.searchParams.get('code')
+  const state = url.searchParams.get('state')
+  const error = url.searchParams.get('error')
+  const errorReason = url.searchParams.get('error_reason')
+  const errorDescription = url.searchParams.get('error_description')
+  
   const baseUrl = getBaseUrl()
+  const provider = 'instagram'
 
+  // Handle OAuth errors
   if (error) {
-    console.error(`Instagram OAuth error: ${error} - ${errorDescription}`)
-    const errorHtml = `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>Instagram Connection Failed</title>
-            <style>
-              body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; text-align: center; }
-              .container { max-width: 500px; padding: 20px; border: 1px solid #ccc; border-radius: 8px; }
-              h1 { color: #dc3545; }
-              p { color: #666; }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <h1>Instagram Connection Failed</h1>
-              <p>${errorDescription || "An unknown error occurred."}</p>
-              <p>Please try again or contact support if the problem persists.</p>
-              <script>
-                if (window.opener) {
-                  window.opener.postMessage({
-                    type: 'oauth-error',
-                    provider: 'instagram',
-                    error: '${error}',
-                    errorDescription: '${errorDescription || "An unknown error occurred."}'
-                  }, '${baseUrl}');
-                  setTimeout(() => window.close(), 1000);
-                }
-              </script>
-            </div>
-          </body>
-        </html>
-      `
-    return new Response(errorHtml, {
-      headers: { "Content-Type": "text/html" },
-      status: 400,
-    })
+    console.error(`Instagram OAuth error: ${error} - ${errorReason} - ${errorDescription}`)
+    return createPopupResponse('error', provider, errorDescription || 'Authorization failed', baseUrl)
   }
 
   if (!code || !state) {
-    console.error("Missing code or state in Instagram callback")
-    const errorHtml = `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>Instagram Connection Failed</title>
-             <style>
-              body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; text-align: center; }
-              .container { max-width: 500px; padding: 20px; border: 1px solid #ccc; border-radius: 8px; }
-              h1 { color: #dc3545; }
-              p { color: #666; }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <h1>Instagram Connection Failed</h1>
-              <p>Authorization code or state parameter is missing.</p>
-              <p>Please try again or contact support if the problem persists.</p>
-               <script>
-                if (window.opener) {
-                  window.opener.postMessage({
-                    type: 'oauth-error',
-                    provider: 'instagram',
-                    error: 'Missing code or state'
-                  }, '${baseUrl}');
-                  setTimeout(() => window.close(), 1000);
-                }
-              </script>
-            </div>
-          </body>
-        </html>
-      `
-    return new Response(errorHtml, {
-      headers: { "Content-Type": "text/html" },
-      status: 400,
-    })
+    return createPopupResponse('error', provider, 'Missing code or state parameter', baseUrl)
   }
 
   try {
-    const stateData = JSON.parse(atob(state))
-    const { userId } = stateData
+    // Verify state parameter to prevent CSRF
+    const { data: pkceData, error: pkceError } = await createAdminClient()
+      .from('oauth_pkce_state')
+      .select('*')
+      .eq('state', state)
+      .single()
 
-    if (!userId) {
-      console.error("Missing userId in Instagram state")
-      // Handle error: show an error page and inform the user
-      return new Response("User ID is missing from state", { status: 400 })
+    if (pkceError || !pkceData) {
+      console.error('Invalid state or PKCE lookup error:', pkceError)
+      return createPopupResponse('error', provider, 'Invalid state parameter', baseUrl)
     }
 
-    const clientId = process.env.NEXT_PUBLIC_INSTAGRAM_CLIENT_ID
+    const userId = pkceData.user_id
+    
+    if (!userId) {
+      return createPopupResponse('error', provider, 'User ID not found', baseUrl)
+    }
+
+    // Clean up the state
+    await createAdminClient()
+      .from('oauth_pkce_state')
+      .delete()
+      .eq('state', state)
+
+    // Get Instagram OAuth credentials
+    const clientId = process.env.INSTAGRAM_CLIENT_ID
     const clientSecret = process.env.INSTAGRAM_CLIENT_SECRET
+    const redirectUri = `${baseUrl}/api/integrations/instagram/callback`
 
     if (!clientId || !clientSecret) {
-      throw new Error("Instagram client ID or secret not configured")
+      console.error('Instagram OAuth credentials not configured')
+      return createPopupResponse('error', provider, 'Integration configuration error', baseUrl)
     }
 
-    const tokenResponse = await fetch("https://api.instagram.com/oauth/access_token", {
-      method: "POST",
+    // Exchange code for access token
+    // Instagram uses Facebook's OAuth API for token exchange
+    const tokenResponse = await fetch('https://api.instagram.com/oauth/access_token', {
+      method: 'POST',
       headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
+        'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: new URLSearchParams({
         client_id: clientId,
         client_secret: clientSecret,
+        grant_type: 'authorization_code',
+        redirect_uri: redirectUri,
         code,
-        grant_type: "authorization_code",
-        redirect_uri: `${baseUrl}/api/integrations/instagram/callback`,
       }),
     })
 
     if (!tokenResponse.ok) {
-      const errorData = await tokenResponse.json()
-      throw new Error(`Instagram token exchange failed: ${errorData.error_description}`)
+      const errorText = await tokenResponse.text()
+      console.error('Instagram token exchange failed:', tokenResponse.status, errorText)
+      return createPopupResponse('error', provider, 'Failed to retrieve access token', baseUrl)
     }
 
     const tokenData = await tokenResponse.json()
+    
+    // Instagram tokens are typically long-lived (60 days)
+    // Default to 60 days if not specified
+    const expiresIn = tokenData.expires_in || 60 * 24 * 60 * 60
+    const expiresAt = new Date(Date.now() + expiresIn * 1000)
 
-    const expiresIn = tokenData.expires_in
-    const expiresAt = expiresIn ? new Date(new Date().getTime() + expiresIn * 1000) : null
-
-    // Get user info
-    const userResponse = await fetch(`https://graph.instagram.com/me?fields=id,username&access_token=${tokenData.access_token}`)
-
-    if (!userResponse.ok) {
-      throw new Error("Failed to get Instagram user info")
+    // Get user info to store additional details
+    let profileData: InstagramProfile = {}
+    
+    try {
+      const profileResponse = await fetch(`https://graph.instagram.com/me?fields=id,username&access_token=${tokenData.access_token}`)
+      if (profileResponse.ok) {
+        profileData = await profileResponse.json() as InstagramProfile
+      } else {
+        console.warn('Could not fetch Instagram profile:', await profileResponse.text())
+      }
+    } catch (profileError) {
+      console.warn('Error fetching Instagram profile:', profileError)
     }
 
-    const userData = await userResponse.json()
+    const encryptionKey = process.env.ENCRYPTION_KEY
 
-    const integrationData = {
+    if (!encryptionKey) {
+      return createPopupResponse('error', provider, 'Encryption key not configured', baseUrl)
+    }
+
+    // Store the integration data
+    const supabase = createAdminClient()
+    const { error: upsertError } = await supabase.from('integrations').upsert({
       user_id: userId,
-      provider: "instagram",
-      provider_user_id: userData.id,
-      access_token: tokenData.access_token,
-      refresh_token: tokenData.refresh_token,
-      scopes: tokenData.scope.split(' '),
-      status: "connected",
-      expires_at: expiresAt ? expiresAt.toISOString() : null,
+      provider,
+      access_token: encrypt(tokenData.access_token, encryptionKey),
+      refresh_token: null, // Instagram basic display API doesn't provide refresh tokens
+      expires_at: expiresAt.toISOString(),
+      status: 'connected',
+      is_active: true,
       updated_at: new Date().toISOString(),
-    }
-
-    const { error: upsertError } = await supabase.from("integrations").upsert(integrationData, {
-      onConflict: "user_id, provider",
+      metadata: {
+        user_id: tokenData.user_id || profileData.id,
+        username: profileData.username
+      }
+    }, {
+      onConflict: 'user_id, provider',
     })
 
     if (upsertError) {
-      throw new Error(`Failed to save Instagram integration: ${upsertError.message}`)
+      console.error('Failed to save Instagram integration:', upsertError)
+      return createPopupResponse('error', provider, 'Failed to store integration data', baseUrl)
     }
 
-    const successHtml = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Instagram Connection Successful</title>
-           <style>
-              body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; text-align: center; }
-              .container { max-width: 500px; padding: 20px; border: 1px solid #ccc; border-radius: 8px; }
-              h1 { color: #28a745; }
-              p { color: #666; }
-            </style>
-        </head>
-        <body>
-          <div class="container">
-            <h1>Instagram Connection Successful</h1>
-            <p>You can now close this window.</p>
-          </div>
-          <script>
-            if (window.opener) {
-              window.opener.postMessage({ type: 'oauth-success', provider: 'instagram' }, '${baseUrl}');
-              setTimeout(() => window.close(), 1000);
-            }
-          </script>
-        </body>
-      </html>
-    `
-
-    return new Response(successHtml, {
-      headers: { "Content-Type": "text/html" },
-    })
-  } catch (e: any) {
-    console.error("Instagram callback error:", e)
-    const errorHtml = `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>Instagram Connection Failed</title>
-            <style>
-              body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; text-align: center; }
-              .container { max-width: 500px; padding: 20px; border: 1px solid #ccc; border-radius: 8px; }
-              h1 { color: #dc3545; }
-              p { color: #666; }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-               <h1>Instagram Connection Failed</h1>
-              <p>${e.message || "An unexpected error occurred."}</p>
-               <p>Please try again or contact support if the problem persists.</p>
-              <script>
-                if (window.opener) {
-                  window.opener.postMessage({
-                    type: 'oauth-error',
-                    provider: 'instagram',
-                    error: 'Callback processing failed',
-                    errorDescription: '${e.message || "An unexpected error occurred."}'
-                  }, '${baseUrl}');
-                  setTimeout(() => window.close(), 1000);
-                }
-              </script>
-            </div>
-          </body>
-        </html>
-      `
-    return new Response(errorHtml, {
-      headers: { "Content-Type": "text/html" },
-      status: 500,
-    })
+    return createPopupResponse('success', provider, 'Instagram connected successfully!', baseUrl)
+  } catch (error) {
+    console.error('Instagram callback error:', error)
+    return createPopupResponse('error', provider, 'An unexpected error occurred', baseUrl)
   }
 }

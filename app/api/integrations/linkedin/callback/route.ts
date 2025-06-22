@@ -1,140 +1,139 @@
-import { type NextRequest } from "next/server"
-import { createClient } from "@supabase/supabase-js"
-import { getBaseUrl } from "@/lib/utils/getBaseUrl"
-import { createPopupResponse } from "@/lib/utils/createPopupResponse"
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-if (!supabaseUrl || !supabaseServiceRoleKey) {
-  throw new Error("Missing Supabase URL or service role key")
-}
-
-const supabase = createClient(supabaseUrl, supabaseServiceRoleKey)
+import { type NextRequest, NextResponse } from 'next/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { createPopupResponse } from '@/lib/utils/createPopupResponse'
+import { getBaseUrl } from '@/lib/utils/getBaseUrl'
+import { encrypt } from '@/lib/security/encryption'
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url)
-  const code = searchParams.get("code")
-  const state = searchParams.get("state")
-  const error = searchParams.get("error")
-  const errorDescription = searchParams.get("error_description")
-
+  const url = new URL(request.url)
+  const code = url.searchParams.get('code')
+  const state = url.searchParams.get('state')
+  const error = url.searchParams.get('error')
+  const errorDescription = url.searchParams.get('error_description')
+  
   const baseUrl = getBaseUrl()
+  const provider = 'linkedin'
 
+  // Handle OAuth errors
   if (error) {
     console.error(`LinkedIn OAuth error: ${error} - ${errorDescription}`)
-    return createPopupResponse(
-      "error",
-      "linkedin",
-      errorDescription || "An unknown error occurred.",
-      baseUrl,
-    )
+    return createPopupResponse('error', provider, errorDescription || 'Authorization failed', baseUrl)
   }
 
   if (!code || !state) {
-    console.error("Missing code or state in LinkedIn callback")
-    return createPopupResponse(
-      "error",
-      "linkedin",
-      "Authorization code or state parameter is missing.",
-      baseUrl,
-    )
+    return createPopupResponse('error', provider, 'Missing code or state parameter', baseUrl)
   }
 
   try {
-    const stateData = JSON.parse(atob(state))
-    const { userId } = stateData
+    // Verify state parameter to prevent CSRF
+    const { data: pkceData, error: pkceError } = await createAdminClient()
+      .from('oauth_pkce_state')
+      .select('*')
+      .eq('state', state)
+      .single()
 
-    if (!userId) {
-      throw new Error("User ID is missing from state")
+    if (pkceError || !pkceData) {
+      console.error('Invalid state or PKCE lookup error:', pkceError)
+      return createPopupResponse('error', provider, 'Invalid state parameter', baseUrl)
     }
 
-    const clientId = process.env.NEXT_PUBLIC_LINKEDIN_CLIENT_ID
+    const userId = pkceData.user_id
+    
+    if (!userId) {
+      return createPopupResponse('error', provider, 'User ID not found', baseUrl)
+    }
+
+    // Clean up the state
+    await createAdminClient()
+      .from('oauth_pkce_state')
+      .delete()
+      .eq('state', state)
+
+    // Get LinkedIn OAuth credentials
+    const clientId = process.env.LINKEDIN_CLIENT_ID
     const clientSecret = process.env.LINKEDIN_CLIENT_SECRET
+    const redirectUri = `${baseUrl}/api/integrations/linkedin/callback`
 
     if (!clientId || !clientSecret) {
-      throw new Error("LinkedIn client ID or secret not configured")
+      console.error('LinkedIn OAuth credentials not configured')
+      return createPopupResponse('error', provider, 'Integration configuration error', baseUrl)
     }
 
-    const tokenResponse = await fetch("https://www.linkedin.com/oauth/v2/accessToken", {
-      method: "POST",
+    // Exchange code for access token
+    const tokenResponse = await fetch('https://www.linkedin.com/oauth/v2/accessToken', {
+      method: 'POST',
       headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
+        'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        code,
+        redirect_uri: redirectUri,
         client_id: clientId,
         client_secret: clientSecret,
-        code,
-        grant_type: "authorization_code",
-        redirect_uri: `${baseUrl}/api/integrations/linkedin/callback`,
       }),
     })
 
     if (!tokenResponse.ok) {
-      const errorData = await tokenResponse.json()
-      throw new Error(`LinkedIn token exchange failed: ${errorData.error_description || "Unknown error"}`)
+      const errorText = await tokenResponse.text()
+      console.error('LinkedIn token exchange failed:', tokenResponse.status, errorText)
+      return createPopupResponse('error', provider, 'Failed to retrieve access token', baseUrl)
     }
 
     const tokenData = await tokenResponse.json()
-
-    const expiresIn = tokenData.expires_in
-    const expiresAt = expiresIn ? new Date(new Date().getTime() + expiresIn * 1000) : null
-
-    // Get user info from OpenID userinfo endpoint
-    console.log('LinkedIn: Attempting to get user info with token:', tokenData.access_token ? 'TOKEN_PRESENT' : 'NO_TOKEN')
     
-    const userResponse = await fetch("https://api.linkedin.com/v2/userinfo", {
+    // LinkedIn tokens typically expire in 60 days (5184000 seconds)
+    const expiresIn = tokenData.expires_in || 5184000
+    const expiresAt = new Date(Date.now() + expiresIn * 1000)
+
+    // Fetch user profile to get additional data
+    const profileResponse = await fetch('https://api.linkedin.com/v2/me', {
       headers: {
         Authorization: `Bearer ${tokenData.access_token}`,
       },
     })
 
-    console.log('LinkedIn user info response status:', userResponse.status)
-    console.log('LinkedIn user info response headers:', Object.fromEntries(userResponse.headers.entries()))
-
-    if (!userResponse.ok) {
-      const errorText = await userResponse.text()
-      console.error('LinkedIn user info error response:', errorText)
-      throw new Error(`Failed to get LinkedIn user info: ${userResponse.status} ${errorText}`)
+    if (!profileResponse.ok) {
+      console.error('Failed to fetch LinkedIn profile:', await profileResponse.text())
     }
 
-    const userData = await userResponse.json()
-    console.log('LinkedIn user info structure:', Object.keys(userData))
+    const profileData = profileResponse.ok ? await profileResponse.json() : {}
+    const encryptionKey = process.env.ENCRYPTION_KEY
 
-    // With OpenID profile, we already have the email in the userinfo response
-    // No need for a separate email fetch
+    if (!encryptionKey) {
+      return createPopupResponse('error', provider, 'Encryption key not configured', baseUrl)
+    }
 
-    const integrationData = {
+    // Store the integration data
+    const supabase = createAdminClient()
+    const { error: upsertError } = await supabase.from('integrations').upsert({
       user_id: userId,
-      provider: "linkedin",
-      provider_user_id: userData.sub || userData.id,
-      access_token: tokenData.access_token,
-      refresh_token: tokenData.refresh_token,
-      expires_at: expiresAt ? expiresAt.toISOString() : null,
-      scopes: tokenData.scope ? tokenData.scope.split(" ") : [],
-      status: "connected",
+      provider,
+      access_token: encrypt(tokenData.access_token, encryptionKey),
+      refresh_token: tokenData.refresh_token ? encrypt(tokenData.refresh_token, encryptionKey) : null, // LinkedIn may not provide refresh tokens
+      expires_at: expiresAt.toISOString(),
+      status: 'connected',
+      is_active: true,
+      scopes: tokenData.scope ? tokenData.scope.split(' ') : [],
       updated_at: new Date().toISOString(),
       metadata: {
-        name: userData.name,
-        email: userData.email,
-        picture: userData.picture,
-        given_name: userData.given_name,
-        family_name: userData.family_name
+        profile_id: profileData.id,
+        name: profileData.localizedFirstName && profileData.localizedLastName 
+          ? `${profileData.localizedFirstName} ${profileData.localizedLastName}`
+          : undefined
       }
-    }
-
-    const { error: upsertError } = await supabase.from("integrations").upsert(integrationData, {
-      onConflict: "user_id, provider",
+    }, {
+      onConflict: 'user_id, provider',
     })
 
     if (upsertError) {
-      console.error("Supabase upsert error:", upsertError)
-      throw new Error(`Failed to save LinkedIn integration: ${upsertError.message}`)
+      console.error('Failed to save LinkedIn integration:', upsertError)
+      return createPopupResponse('error', provider, 'Failed to store integration data', baseUrl)
     }
 
-    return createPopupResponse("success", "linkedin", "Successfully connected to LinkedIn.", baseUrl)
-  } catch (e: any) {
-    console.error("LinkedIn callback error:", e)
-    return createPopupResponse("error", "linkedin", e.message || "An unexpected error occurred.", baseUrl)
+    return createPopupResponse('success', provider, 'LinkedIn connected successfully!', baseUrl)
+  } catch (error) {
+    console.error('LinkedIn callback error:', error)
+    return createPopupResponse('error', provider, 'An unexpected error occurred', baseUrl)
   }
 }
