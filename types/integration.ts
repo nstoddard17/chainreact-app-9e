@@ -6,7 +6,7 @@ export interface Integration {
   refresh_token: string | null;
   status: 'active' | 'needs_reauthorization' | 'error' | string;
   scopes?: string;
-  access_token_expires_at?: string;
+  expires_at?: string;
   refresh_token_expires_at?: string;
   created_at: string;
   updated_at: string;

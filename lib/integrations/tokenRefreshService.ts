@@ -129,9 +129,9 @@ export async function refreshTokens(options: RefreshTokensOptions = {}): Promise
     
     // Order by priority if requested
     if (config.prioritizeExpiring) {
-      // First order by access_token_expires_at, then by refresh_token_expires_at
-      query = query.order("access_token_expires_at", { ascending: true, nullsLast: true })
-                   .order("refresh_token_expires_at", { ascending: true, nullsLast: true });
+      // First order by expires_at (nulls first), then by refresh_token_expires_at (nulls first)
+      query = query.order("expires_at", { ascending: true, nullsFirst: false })
+                   .order("refresh_token_expires_at", { ascending: true, nullsFirst: false });
     }
     
     // Limit the number of tokens to process
@@ -291,8 +291,8 @@ export function shouldRefreshToken(
   const refreshThreshold = options.refreshTokenExpiryThreshold || 60; // Default 60 minutes
   
   // Check access token expiration
-  if (integration.access_token_expires_at) {
-    const expiresAt = new Date(integration.access_token_expires_at);
+  if (integration.expires_at) {
+    const expiresAt = new Date(integration.expires_at);
     const minutesUntilExpiration = (expiresAt.getTime() - now.getTime()) / (1000 * 60);
     
     if (minutesUntilExpiration < accessThreshold) {
@@ -348,11 +348,9 @@ async function updateIntegrationWithRefreshResult(
     
     // Calculate new access token expiration time if provided
     if (refreshResult.accessTokenExpiresIn) {
-      const newAccessTokenExpiresAt = new Date();
-      newAccessTokenExpiresAt.setSeconds(
-        newAccessTokenExpiresAt.getSeconds() + refreshResult.accessTokenExpiresIn
-      );
-      updateData.access_token_expires_at = newAccessTokenExpiresAt.toISOString();
+      const expiryDate = new Date();
+      expiryDate.setSeconds(expiryDate.getSeconds() + refreshResult.accessTokenExpiresIn);
+      updateData.expires_at = expiryDate.toISOString();
     }
   }
   
@@ -574,11 +572,11 @@ export async function getTokensNeedingRefresh(options: {
   // Get tokens where either:
   // 1. Access token expires soon or has no expiry
   // 2. Refresh token expires soon
-  query = query.or(`access_token_expires_at.lt.${accessExpiryThreshold.toISOString()},access_token_expires_at.is.null,refresh_token_expires_at.lt.${refreshExpiryThreshold.toISOString()}`);
+  query = query.or(`expires_at.lt.${accessExpiryThreshold.toISOString()},expires_at.is.null,refresh_token_expires_at.lt.${refreshExpiryThreshold.toISOString()}`);
   
   // Order by expiration time
-  query = query.order("access_token_expires_at", { ascending: true, nullsLast: true })
-               .order("refresh_token_expires_at", { ascending: true, nullsLast: true });
+  query = query.order("expires_at", { ascending: true, nullsFirst: false })
+               .order("refresh_token_expires_at", { ascending: true, nullsFirst: false });
   
   // Limit the number of results
   if (options.limit) {

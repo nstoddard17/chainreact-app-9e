@@ -44,7 +44,7 @@ The system relies on the following fields in the `integrations` table:
 - `provider`: OAuth provider name (e.g., "google", "github")
 - `access_token`: Current access token (required)
 - `refresh_token`: Refresh token (if available)
-- `access_token_expires_at`: ISO timestamp when the access token expires
+- `expires_at`: ISO timestamp when the access token expires
 - `refresh_token_expires_at`: ISO timestamp when the refresh token expires (if applicable)
 - `status`: Current status of the integration ("active", "needs_reauthorization", etc.)
 - `consecutive_failures`: Count of consecutive token refresh failures

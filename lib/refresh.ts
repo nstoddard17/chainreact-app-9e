@@ -66,7 +66,7 @@ export async function refreshTokenIfNeeded(integration: Integration): Promise<Ex
       if (result.accessTokenExpiresIn) {
         const expiryDate = new Date()
         expiryDate.setSeconds(expiryDate.getSeconds() + result.accessTokenExpiresIn)
-        updateData.access_token_expires_at = expiryDate.toISOString()
+        updateData.expires_at = expiryDate.toISOString()
       }
 
       // If we got a new refresh token, encrypt and store it
