@@ -423,17 +423,25 @@ export async function refreshTokenForProvider(
   refreshToken: string,
   integration: Integration
 ): Promise<RefreshResult> {
+  console.log(`🔄 Starting token refresh for ${provider} (ID: ${integration.id})`);
+  
   const config = getOAuthConfig(provider);
 
   if (!config) {
+    console.error(`❌ No OAuth config found for provider: ${provider}`);
     return { success: false, error: `No OAuth config found for provider: ${provider}` };
   }
+  
+  console.log(`✅ Found OAuth config for ${provider}: ${config.id}`);
   
   const { clientId, clientSecret } = getOAuthClientCredentials(config);
 
   if (!clientId || !clientSecret) {
+    console.error(`❌ Missing client credentials for provider: ${provider}`);
     return { success: false, error: `Missing client credentials for provider: ${provider}` };
   }
+  
+  console.log(`✅ Got client credentials for ${provider}`);
 
   const body = new URLSearchParams({
     grant_type: "refresh_token",
@@ -444,6 +452,7 @@ export async function refreshTokenForProvider(
     if (config.authMethod === 'body') {
       body.set("client_id", clientId);
       body.set("client_secret", clientSecret);
+      console.log(`✅ Added client auth to body for ${provider}`);
     }
   }
 
@@ -482,13 +491,43 @@ export async function refreshTokenForProvider(
   // Add scope if required by the provider and available in the integration
   if (config.sendScopeWithRefresh && scopeString) {
     body.set('scope', scopeString);
+    console.log(`✅ Added scope to body for ${provider}: ${scopeString}`);
   }
 
   // HACK: Force add redirect_uri for all Microsoft providers to fix refresh issues
   if (provider.startsWith("microsoft") || provider === 'onedrive' || provider === 'teams') {
     const baseUrl = getBaseUrl();
-    const redirectUri = `${baseUrl}/api/integrations/${provider}/callback`;
+    // Make sure we're using the correct callback path for each provider
+    let redirectPath = `/api/integrations/${provider}/callback`;
+    
+    // For Microsoft providers, ensure we're using the correct callback URL
+    // This is crucial as Microsoft is very strict about the redirect URI
+    if (config.redirectUriPath) {
+      redirectPath = config.redirectUriPath;
+    }
+    
+    const redirectUri = `${baseUrl}${redirectPath}`;
     body.set('redirect_uri', redirectUri);
+    console.log(`✅ Added redirect_uri to body for ${provider}: ${redirectUri}`);
+  }
+
+  // Special handling for Airtable
+  if (provider === 'airtable') {
+    // Airtable requires redirect_uri in refresh token requests
+    const baseUrl = getBaseUrl();
+    const redirectUri = `${baseUrl}/api/integrations/airtable/callback`;
+    body.set('redirect_uri', redirectUri);
+    console.log(`✅ Added redirect_uri to body for Airtable: ${redirectUri}`);
+    
+    // Ensure we're using the correct grant_type for Airtable
+    body.set('grant_type', 'refresh_token');
+    
+    // Log the refresh token (first few chars) to help debug
+    if (refreshToken) {
+      console.log(`🔄 Airtable refresh token starts with: ${refreshToken.substring(0, 10)}...`);
+    } else {
+      console.error(`❌ Airtable refresh token is empty or undefined`);
+    }
   }
 
   // Prepare the request
@@ -496,11 +535,16 @@ export async function refreshTokenForProvider(
   if (config.authMethod === 'basic') {
     const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
     headers.set("Authorization", `Basic ${basicAuth}`);
+    console.log(`✅ Added Basic auth header for ${provider}`);
   } else if (config.authMethod === 'header') {
     headers.set("Client-ID", clientId);
-    headers.set("Authorization", `Bearer ${clientSecret}`); // Example, might need adjustment
+    headers.set("Authorization", `Bearer ${clientSecret}`);
+    console.log(`✅ Added header auth for ${provider}`);
   }
   headers.set("Content-Type", "application/x-www-form-urlencoded");
+
+  console.log(`🔄 Sending refresh request to ${config.tokenEndpoint} for ${provider}`);
+  console.log(`🔄 Request body: ${body.toString()}`);
 
   const response = await fetch(config.tokenEndpoint, {
     method: "POST",
@@ -508,13 +552,18 @@ export async function refreshTokenForProvider(
     body: body.toString(),
   });
 
+  console.log(`🔄 Received response from ${provider}: ${response.status} ${response.statusText}`);
+
   // Try to parse the response as JSON, but handle non-JSON responses gracefully
   let data: any;
   try {
     data = await response.json();
+    console.log(`✅ Parsed JSON response from ${provider}`);
   } catch (error) {
     // If parsing fails, the body might not be JSON. We'll use the raw text.
-    data = { error: 'Invalid JSON response', body: await response.text() };
+    const rawText = await response.text();
+    console.error(`❌ Failed to parse JSON response from ${provider}: ${rawText}`);
+    data = { error: 'Invalid JSON response', body: rawText };
   }
 
   if (!response.ok) {
@@ -530,18 +579,35 @@ export async function refreshTokenForProvider(
     const isInvalidGrant = data.error === 'invalid_grant';
     const isInvalidOrExpiredToken = isInvalidGrant || response.status === 401;
     
-    // Set a specific error message for invalid/expired refresh tokens
-    const finalErrorMessage = isInvalidOrExpiredToken 
-      ? "Refresh token expired. User must re-authorize."
-      : errorMessage;
+    // Provider-specific error handling
+    let finalErrorMessage = errorMessage;
+    let needsReauth = isInvalidOrExpiredToken;
+    
+    // Special handling for Airtable errors
+    if (provider === 'airtable') {
+      console.log(`🔄 Airtable error details: ${JSON.stringify(data)}`);
+      if (data.error === 'invalid_grant') {
+        finalErrorMessage = "Airtable refresh token expired or invalid. User must re-authorize.";
+        needsReauth = true;
+      }
+    }
+    
+    // Special handling for Microsoft-related providers (Teams, OneDrive)
+    if (provider === 'teams' || provider === 'onedrive' || provider.startsWith('microsoft')) {
+      console.log(`🔄 Microsoft error details: ${JSON.stringify(data)}`);
+      if (data.error === 'invalid_grant') {
+        finalErrorMessage = `${provider} refresh token expired or invalid. User must re-authorize.`;
+        needsReauth = true;
+      }
+    }
     
     return {
       success: false,
       error: finalErrorMessage,
       statusCode: response.status,
       providerResponse: data,
-      invalidRefreshToken: isInvalidOrExpiredToken,
-      needsReauthorization: isInvalidOrExpiredToken,
+      invalidRefreshToken: needsReauth,
+      needsReauthorization: needsReauth,
     };
   }
 

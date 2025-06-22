@@ -517,16 +517,24 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
  */
 export function getOAuthConfig(provider: string): OAuthProviderConfig | undefined {
   // Handle Google service-specific aliases
-  if (provider.startsWith("google-") || provider === "gmail" || provider === "youtube") {
+  if (provider.startsWith("google-") || provider === "gmail" || provider === "youtube" || provider === "youtube-studio") {
     return OAUTH_PROVIDERS["google"];
   }
   
   // Handle Microsoft service-specific aliases
-  if (provider === "teams" || provider === "onedrive" || provider === "microsoft-outlook") {
+  if (provider === "teams" || provider === "onedrive" || provider === "microsoft-outlook" || provider === "microsoft-onenote") {
+    console.log(`🔄 Using Microsoft OAuth config for ${provider}`);
     return OAUTH_PROVIDERS["microsoft"];
   }
   
-  return OAUTH_PROVIDERS[provider.toLowerCase()];
+  const config = OAUTH_PROVIDERS[provider.toLowerCase()];
+  if (config) {
+    console.log(`🔄 Found OAuth config for ${provider}: ${config.id}`);
+    return config;
+  }
+  
+  console.error(`❌ No OAuth config found for provider: ${provider}`);
+  return undefined;
 }
 
 /**
