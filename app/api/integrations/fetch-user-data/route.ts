@@ -180,15 +180,19 @@ async function validateAndRefreshToken(integration: any): Promise<{
         console.log(`🔄 Token expiring soon for ${integration.provider}, attempting refresh...`)
 
         if (integration.refresh_token) {
-          const { refreshTokenIfNeeded } = await import("@/lib/integrations/tokenRefresher")
-          const refreshResult = await refreshTokenIfNeeded(integration)
+          const { TokenRefreshService } = await import("@/lib/integrations/tokenRefreshService")
+          const refreshResult = await TokenRefreshService.refreshTokenForProvider(
+            integration.provider,
+            integration.refresh_token,
+            integration
+          )
 
-          if (refreshResult.success && refreshResult.newToken) {
+          if (refreshResult.success && refreshResult.accessToken) {
             return {
               success: true,
-              token: refreshResult.newToken,
+              token: refreshResult.accessToken,
             }
-          } else if (refreshResult.requiresReconnect) {
+          } else if (refreshResult.needsReauthorization) {
             return {
               success: false,
               error: `${integration.provider} authentication expired. Please reconnect your account.`,
