@@ -43,6 +43,13 @@ async function cleanupCorruptedTokens() {
   let corrupted = 0;
   let fixed = 0;
   let errors = 0;
+  let byProvider: Record<string, number> = {};
+  
+  // Known problematic providers based on logs
+  const knownProblematicProviders = ['box', 'youtube-studio', 'discord'];
+  
+  // Known problematic token lengths
+  const problematicLengths = [29, 56];
   
   // Process each integration
   for (const integration of integrations || []) {
@@ -53,49 +60,82 @@ async function cleanupCorruptedTokens() {
     }
     
     try {
+      let isCorrupted = false;
+      let reason = '';
+      
+      // Check for known problematic providers
+      if (knownProblematicProviders.includes(integration.provider)) {
+        isCorrupted = true;
+        reason = `Known problematic provider: ${integration.provider}`;
+      }
+      
+      // Check for problematic token lengths
+      if (integration.refresh_token && problematicLengths.includes(integration.refresh_token.length)) {
+        isCorrupted = true;
+        reason = `Problematic token length: ${integration.refresh_token.length}`;
+      }
+      
       // Try to decrypt the refresh token
-      try {
-        const decryptedToken = decrypt(integration.refresh_token, secret);
+      if (!isCorrupted) {
+        try {
+          const decryptedToken = decrypt(integration.refresh_token, secret);
+          
+          // If decryption succeeded and token looks valid, continue to next integration
+          if (decryptedToken && decryptedToken.length >= 10) {
+            continue;
+          }
+          
+          // If we got here, the token decrypted but is invalid
+          isCorrupted = true;
+          reason = 'Token decrypted but is invalid or too short';
+        } catch (decryptError) {
+          // Decryption failed, token is corrupted
+          isCorrupted = true;
+          reason = `Decryption error: ${(decryptError as Error).message}`;
+        }
+      }
+      
+      // If token is corrupted, mark it for reauthorization
+      if (isCorrupted) {
+        corrupted++;
         
-        // If decryption succeeded and token looks valid, continue to next integration
-        if (decryptedToken && decryptedToken.length >= 10) {
+        // Track by provider
+        byProvider[integration.provider] = (byProvider[integration.provider] || 0) + 1;
+        
+        console.log(`⚠️ Integration ${integration.id} (${integration.provider}) has a corrupted token: ${reason}`);
+        
+        // Skip if already marked as needs_reauthorization
+        if (integration.status === 'needs_reauthorization') {
+          console.log(`ℹ️ Integration ${integration.id} is already marked as needs_reauthorization`);
           continue;
         }
         
-        // If we got here, the token decrypted but is invalid
-        corrupted++;
-        console.log(`⚠️ Integration ${integration.id} (${integration.provider}) has an invalid token`);
-      } catch (decryptError) {
-        // Decryption failed, token is corrupted
-        corrupted++;
-        console.log(`⚠️ Integration ${integration.id} (${integration.provider}) has a corrupted token: ${(decryptError as Error).message}`);
-      }
-      
-      // Mark the integration as needing reauthorization
-      const { error: updateError } = await supabase
-        .from("integrations")
-        .update({
-          status: "needs_reauthorization",
-          updated_at: new Date().toISOString(),
-          disconnect_reason: "Token cleanup: Corrupted refresh token",
-        })
-        .eq("id", integration.id);
-      
-      if (updateError) {
-        console.error(`❌ Failed to update integration ${integration.id}:`, updateError);
-        errors++;
-      } else {
-        fixed++;
-        console.log(`✅ Fixed integration ${integration.id} (${integration.provider})`);
+        // Mark the integration as needing reauthorization
+        const { error: updateError } = await supabase
+          .from("integrations")
+          .update({
+            status: "needs_reauthorization",
+            updated_at: new Date().toISOString(),
+            disconnect_reason: `Token cleanup: ${reason}`,
+          })
+          .eq("id", integration.id);
         
-        // Create notification for user
-        try {
-          await supabase.rpc("create_token_expiry_notification", {
-            p_user_id: integration.user_id,
-            p_provider: integration.provider,
-          });
-        } catch (notifError) {
-          console.error(`Failed to create notification for ${integration.provider}:`, notifError);
+        if (updateError) {
+          console.error(`❌ Failed to update integration ${integration.id}:`, updateError);
+          errors++;
+        } else {
+          fixed++;
+          console.log(`✅ Fixed integration ${integration.id} (${integration.provider})`);
+          
+          // Create notification for user
+          try {
+            await supabase.rpc("create_token_expiry_notification", {
+              p_user_id: integration.user_id,
+              p_provider: integration.provider,
+            });
+          } catch (notifError) {
+            console.error(`Failed to create notification for ${integration.provider}:`, notifError);
+          }
         }
       }
     } catch (error) {
@@ -111,6 +151,14 @@ async function cleanupCorruptedTokens() {
   console.log(`   - Corrupted tokens found: ${corrupted}`);
   console.log(`   - Successfully fixed: ${fixed}`);
   console.log(`   - Errors: ${errors}`);
+  
+  // Print breakdown by provider
+  console.log(`\n📊 Breakdown by provider:`);
+  Object.entries(byProvider)
+    .sort((a, b) => b[1] - a[1])
+    .forEach(([provider, count]) => {
+      console.log(`   - ${provider}: ${count}`);
+    });
 }
 
 // Run the cleanup function
