@@ -6,41 +6,6 @@ import { refreshTokenForProvider } from "@/lib/integrations/tokenRefreshService"
 export const dynamic = "force-dynamic"
 export const maxDuration = 300
 
-/**
- * @swagger
- * /api/cron/refresh-tokens-simple:
- *   get:
- *     summary: Refreshes expiring OAuth tokens for all integrations.
- *     description: |
- *       This endpoint queries all integrations, identifies tokens that are expiring soon, and refreshes them.
- *       - By default, processes all integrations with no limit.
- *       - Access tokens expiring in the next 30 minutes are refreshed.
- *       - Refresh tokens expiring in the next 30 minutes are refreshed.
- *       - The `cleanupMode=true` parameter can be used to run a less frequent, deeper check (e.g., once a day)
- *         for tokens with longer expiration windows (30 days for refresh tokens).
- *     parameters:
- *       - name: cleanupMode
- *         in: query
- *         required: false
- *         schema:
- *           type: boolean
- *         description: If true, uses a 30-day look-behind for refresh tokens and 48 hours for access tokens.
- *       - name: provider
- *         in: query
- *         required: false
- *         schema:
- *           type: string
- *         description: If provided, only refreshes tokens for the specified provider.
- *       - name: includeInactive
- *         in: query
- *         required: false
- *         schema:
- *           type: boolean
- *         description: If true, also attempts to refresh tokens for inactive integrations.
- *     responses:
- *       200:
- *         description: Token refresh process completed.
- */
 export async function GET(request: NextRequest) {
   const jobId = `token-refresh-${Date.now()}`
   const startTime = Date.now()
@@ -101,11 +66,13 @@ export async function GET(request: NextRequest) {
       query = query.eq("provider", provider)
     }
 
-    // Get tokens where either:
+    // Get tokens where:
     // 1. Access token expires soon or has no expiry
-    // 2. Refresh token expires soon
+    // 2. Refresh token expires within 30 minutes (if refresh_token_expires_at is set)
+    const refreshExpiryThresholdNew = new Date(now.getTime() + 30 * 60 * 1000) // 30 minutes for refresh tokens
+
     query = query.or(
-      `expires_at.lt.${accessExpiryThreshold.toISOString()},expires_at.is.null,refresh_token_expires_at.lt.${refreshExpiryThreshold.toISOString()}`,
+      `expires_at.lt.${accessExpiryThreshold.toISOString()},expires_at.is.null,refresh_token_expires_at.lt.${refreshExpiryThresholdNew.toISOString()}`,
     )
 
     // Order by expiration time
@@ -288,16 +255,26 @@ export async function GET(request: NextRequest) {
   }
 }
 
-/**
- * Determines if a token should be refreshed based on expiration times
- */
 function shouldRefreshToken(
   integration: any,
   options: { accessTokenExpiryThreshold?: number; refreshTokenExpiryThreshold?: number },
 ): { shouldRefresh: boolean; reason: string } {
   const now = new Date()
   const accessThreshold = options.accessTokenExpiryThreshold || 30 // Default 30 minutes
-  const refreshThreshold = options.refreshTokenExpiryThreshold || 60 // Default 60 minutes
+  const refreshThreshold = 30 // Always 30 minutes for refresh tokens
+
+  // Check refresh token expiration first (highest priority)
+  if (integration.refresh_token_expires_at) {
+    const refreshExpiresAt = new Date(integration.refresh_token_expires_at)
+    const minutesUntilRefreshExpiration = (refreshExpiresAt.getTime() - now.getTime()) / (1000 * 60)
+
+    if (minutesUntilRefreshExpiration <= refreshThreshold) {
+      return {
+        shouldRefresh: true,
+        reason: `Refresh token expires in ${Math.max(0, Math.round(minutesUntilRefreshExpiration))} minutes`,
+      }
+    }
+  }
 
   // Check access token expiration
   if (integration.expires_at) {
@@ -315,52 +292,42 @@ function shouldRefreshToken(
     return { shouldRefresh: true, reason: "No access token expiration set" }
   }
 
-  // Check refresh token expiration if applicable
-  if (integration.refresh_token_expires_at) {
-    const refreshExpiresAt = new Date(integration.refresh_token_expires_at)
-    const minutesUntilRefreshExpiration = (refreshExpiresAt.getTime() - now.getTime()) / (1000 * 60)
-
-    if (minutesUntilRefreshExpiration <= refreshThreshold) {
-      return {
-        shouldRefresh: true,
-        reason: `Refresh token expires in ${Math.max(0, Math.round(minutesUntilRefreshExpiration))} minutes`,
-      }
-    }
-  }
-
   // No refresh needed
   return { shouldRefresh: false, reason: "Tokens are still valid" }
 }
 
-/**
- * Update an integration with a successful refresh result
- */
 async function updateIntegrationWithRefreshResult(
   supabase: any,
   integrationId: string,
   refreshResult: any,
 ): Promise<void> {
-  const { accessToken, refreshToken, accessTokenExpiresIn, scope } = refreshResult
+  const { accessToken, refreshToken, accessTokenExpiresIn, refreshTokenExpiresIn, scope } = refreshResult
 
   if (!accessToken) {
     throw new Error("Cannot update integration: No access token in refresh result")
   }
 
   try {
-    // Calculate the new expiration date
+    // Calculate the new expiration dates
     const now = new Date()
     let expiresAt: Date | null = null
+    let refreshTokenExpiresAt: Date | null = null
 
     if (accessTokenExpiresIn) {
       expiresAt = new Date(now.getTime() + accessTokenExpiresIn * 1000)
     }
 
-    // Prepare the update data
+    if (refreshTokenExpiresIn) {
+      refreshTokenExpiresAt = new Date(now.getTime() + refreshTokenExpiresIn * 1000)
+    }
+
+    // Prepare the update data - including all tracking columns
     const updateData: Record<string, any> = {
       access_token: accessToken,
       updated_at: now.toISOString(),
       last_refresh_attempt: now.toISOString(),
       last_refresh_success: now.toISOString(),
+      last_token_refresh: now.toISOString(),
       consecutive_failures: 0,
       status: "connected",
     }
@@ -371,6 +338,10 @@ async function updateIntegrationWithRefreshResult(
 
     if (refreshToken) {
       updateData.refresh_token = refreshToken
+    }
+
+    if (refreshTokenExpiresAt) {
+      updateData.refresh_token_expires_at = refreshTokenExpiresAt.toISOString()
     }
 
     if (scope) {
@@ -391,9 +362,6 @@ async function updateIntegrationWithRefreshResult(
   }
 }
 
-/**
- * Update an integration with an error from token refresh
- */
 async function updateIntegrationWithError(
   supabase: any,
   integrationId: string,
@@ -401,7 +369,7 @@ async function updateIntegrationWithError(
   additionalData: Record<string, any> = {},
 ): Promise<void> {
   try {
-    // Get the current integration data
+    // Get the current integration data to increment failure counter
     const { data: integration, error: fetchError } = await supabase
       .from("integrations")
       .select("consecutive_failures")
@@ -410,24 +378,46 @@ async function updateIntegrationWithError(
 
     if (fetchError) {
       console.error(`Error fetching integration ${integrationId}:`, fetchError.message)
-      throw fetchError
     }
 
     // Increment the failure counter
     const consecutiveFailures = (integration?.consecutive_failures || 0) + 1
+    const now = new Date()
 
-    // Prepare the update data
+    // Prepare the update data with all tracking columns
     const updateData: Record<string, any> = {
       consecutive_failures: consecutiveFailures,
       disconnect_reason: errorMessage,
-      updated_at: new Date().toISOString(),
-      last_refresh_attempt: new Date().toISOString(),
+      updated_at: now.toISOString(),
+      last_refresh_attempt: now.toISOString(),
+      last_failure_at: now.toISOString(),
       ...additionalData,
     }
 
     // If there are too many consecutive failures, mark as needing reauthorization
     if (consecutiveFailures >= 3 && !additionalData.status) {
       updateData.status = "needs_reauthorization"
+      updateData.disconnected_at = now.toISOString()
+    }
+
+    // Add metadata with error information
+    try {
+      const { data: currentIntegration } = await supabase
+        .from("integrations")
+        .select("metadata")
+        .eq("id", integrationId)
+        .single()
+
+      if (currentIntegration) {
+        const currentMetadata = currentIntegration.metadata || {}
+        updateData.metadata = {
+          ...currentMetadata,
+          last_error: errorMessage,
+          last_error_at: now.toISOString(),
+        }
+      }
+    } catch (metadataError) {
+      console.log(`Note: metadata column not available for integration ${integrationId}`)
     }
 
     // Update the database
@@ -435,6 +425,10 @@ async function updateIntegrationWithError(
 
     if (updateError) {
       console.error(`Error updating integration ${integrationId} with error:`, updateError.message)
+    } else {
+      console.log(
+        `✅ Updated integration ${integrationId} with error status (${consecutiveFailures} consecutive failures)`,
+      )
     }
   } catch (error) {
     console.error(`Unexpected error updating integration ${integrationId} with error:`, error)
