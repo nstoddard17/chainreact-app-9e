@@ -345,7 +345,8 @@ async function updateIntegrationWithRefreshResult(
     }
 
     if (scope) {
-      updateData.scope = scope
+      // Convert scope string to array format for scopes column
+      updateData.scopes = scope.split(" ")
     }
 
     // Update the integration in the database
