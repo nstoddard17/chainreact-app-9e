@@ -1,107 +1,93 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-import { getAuthSession } from '@/lib/auth'
+import type { NextRequest } from "next/server"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { createPopupResponse } from "@/lib/utils/createPopupResponse"
+import { getBaseUrl } from "@/lib/utils/getBaseUrl"
+import { prepareIntegrationData } from "@/lib/integrations/tokenUtils"
 
-export async function GET(req: NextRequest) {
-  const searchParams = req.nextUrl.searchParams
-  const code = searchParams.get('code')
-  const state = searchParams.get('state')
+export async function GET(request: NextRequest) {
+  const url = new URL(request.url)
+  const code = url.searchParams.get("code")
+  const state = url.searchParams.get("state")
+  const error = url.searchParams.get("error")
+  const errorDescription = url.searchParams.get("error_description")
 
-  if (!code || !state) {
-    return NextResponse.json({ error: 'Missing code or state' }, { status: 400 })
+  const baseUrl = getBaseUrl()
+  const provider = "teams"
+
+  if (error) {
+    const message = errorDescription || error
+    console.error(`Error with Teams OAuth: ${message}`)
+    return createPopupResponse("error", provider, `OAuth Error: ${message}`, baseUrl)
   }
 
-  const session = await getAuthSession()
-
-  if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!code || !state) {
+    return createPopupResponse("error", provider, "No code or state provided for Teams OAuth.", baseUrl)
   }
 
   try {
-    // Verify state (CSRF protection)
-    const storedState = await db.oAuthState.findUnique({
-      where: {
-        id: state,
-      },
-    })
-
-    if (!storedState) {
-      return NextResponse.json({ error: 'Invalid state' }, { status: 400 })
+    const { userId } = JSON.parse(atob(state))
+    if (!userId) {
+      throw new Error("Missing userId in Teams state")
     }
 
-    await db.oAuthState.delete({
-      where: {
-        id: state,
-      },
-    })
+    const supabase = createAdminClient()
 
-    // Exchange code for token
-    const clientId = process.env.TEAMS_CLIENT_ID
-    const clientSecret = process.env.TEAMS_CLIENT_SECRET
-    const redirectUri = process.env.TEAMS_REDIRECT_URI
+    const clientId = process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID
+    const clientSecret = process.env.MICROSOFT_CLIENT_SECRET
+    const redirectUri = `${baseUrl}/api/integrations/teams/callback`
 
-    if (!clientId || !clientSecret || !redirectUri) {
-      console.error('Missing Teams OAuth credentials')
-      return NextResponse.json({ error: 'Missing Teams OAuth credentials' }, { status: 500 })
+    if (!clientId || !clientSecret) {
+      throw new Error("Microsoft client ID or secret not configured")
     }
 
-    const tokenEndpoint = 'https://login.microsoftonline.com/common/oauth2/v2.0/token'
-
-    const params = new URLSearchParams()
-    params.append('client_id', clientId)
-    params.append('client_secret', clientSecret)
-    params.append('grant_type', 'authorization_code')
-    params.append('code', code)
-    params.append('redirect_uri', redirectUri)
-
-    const tokenResponse = await fetch(tokenEndpoint, {
-      method: 'POST',
+    const tokenResponse = await fetch("https://login.microsoftonline.com/common/oauth2/v2.0/token", {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
+        "Content-Type": "application/x-www-form-urlencoded",
       },
-      body: params,
+      body: new URLSearchParams({
+        client_id: clientId,
+        client_secret: clientSecret,
+        code,
+        redirect_uri: redirectUri,
+        grant_type: "authorization_code",
+        scope: "offline_access User.Read Team.ReadBasic.All Channel.ReadBasic.All",
+      }),
     })
 
     if (!tokenResponse.ok) {
-      console.error('Failed to retrieve token:', tokenResponse.status, await tokenResponse.text())
-      return NextResponse.json({ error: 'Failed to retrieve token' }, { status: 500 })
+      const errorData = await tokenResponse.json()
+      throw new Error(`Microsoft token exchange failed: ${errorData.error_description}`)
     }
 
     const tokenData = await tokenResponse.json()
 
-    const accessToken = tokenData.access_token
-    const refreshToken = tokenData.refresh_token
-
-    if (!accessToken || !refreshToken) {
-      console.error('Missing access token or refresh token')
-      return NextResponse.json({ error: 'Missing access token or refresh token' }, { status: 500 })
-    }
-
-    // After getting tokenData
-    const expiresIn = tokenData.expires_in
-    const refreshExpiresIn = tokenData.refresh_expires_in || (90 * 24 * 60 * 60) // 90 days default for Microsoft
-    const expiresAt = expiresIn ? new Date(Date.now() + expiresIn * 1000) : null
+    // Calculate refresh token expiration (Microsoft default is 90 days)
+    const refreshExpiresIn = tokenData.refresh_expires_in || 90 * 24 * 60 * 60 // 90 days in seconds
     const refreshTokenExpiresAt = new Date(Date.now() + refreshExpiresIn * 1000)
 
-    // Store tokens in database
-    const integrationData = {
-      access_token: accessToken,
-      refresh_token: refreshToken,
-      expires_at: expiresAt?.toISOString() || null,
-      refresh_token_expires_at: refreshTokenExpiresAt.toISOString(),
-    }
+    // Prepare integration data with encrypted tokens
+    const integrationData = await prepareIntegrationData(
+      userId,
+      provider,
+      tokenData.access_token,
+      tokenData.refresh_token,
+      tokenData.scope ? tokenData.scope.split(" ") : [],
+      tokenData.expires_in,
+      refreshTokenExpiresAt,
+    )
 
-    await db.integration.create({
-      data: {
-        userId: session.user.id,
-        type: 'microsoft-teams',
-        data: integrationData,
-      },
+    const { error: upsertError } = await supabase.from("integrations").upsert(integrationData, {
+      onConflict: "user_id, provider",
     })
 
-    return NextResponse.json({ message: 'Teams integration successful' }, { status: 200 })
-  } catch (error) {
-    console.error('Teams integration error:', error)
-    return NextResponse.json({ error: 'Teams integration failed' }, { status: 500 })
+    if (upsertError) {
+      throw new Error(`Failed to save Teams integration: ${upsertError.message}`)
+    }
+
+    return createPopupResponse("success", provider, "You can now close this window.", baseUrl)
+  } catch (e: any) {
+    console.error("Teams callback error:", e)
+    return createPopupResponse("error", provider, e.message || "An unexpected error occurred.", baseUrl)
   }
 }
