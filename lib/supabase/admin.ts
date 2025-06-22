@@ -17,3 +17,6 @@ export const createAdminClient = () => {
     },
   })
 }
+
+// Helper function to get an admin supabase client
+export const getAdminSupabaseClient = () => createAdminClient()
