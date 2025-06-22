@@ -97,19 +97,51 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Encryption key not configured' }, { status: 500 })
     }
 
-    // Store the integration
     const supabase = createAdminClient()
-    const { error } = await supabase.from('integrations').upsert({
-      user_id: userId,
-      provider: 'twitter',
-      access_token: encrypt(accessToken, encryptionKey),
-      refresh_token: refreshToken ? encrypt(refreshToken, encryptionKey) : null,
-      expires_at: expiresAt,
-      refresh_token_expires_at: refreshExpiresAt,
-      is_active: true,
-      status: 'connected',
-      updated_at: new Date().toISOString(),
-    })
+    
+    // First check if the integration already exists
+    const { data: existingIntegration } = await supabase
+      .from('integrations')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('provider', 'twitter')
+      .single();
+      
+    let error;
+    
+    if (existingIntegration) {
+      // Update existing integration
+      const { error: updateError } = await supabase
+        .from('integrations')
+        .update({
+          access_token: encrypt(accessToken, encryptionKey),
+          refresh_token: refreshToken ? encrypt(refreshToken, encryptionKey) : null,
+          expires_at: expiresAt,
+          refresh_token_expires_at: refreshExpiresAt,
+          is_active: true,
+          status: 'connected',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('user_id', userId)
+        .eq('provider', 'twitter');
+        
+      error = updateError;
+    } else {
+      // Insert new integration
+      const { error: insertError } = await supabase.from('integrations').insert({
+        user_id: userId,
+        provider: 'twitter',
+        access_token: encrypt(accessToken, encryptionKey),
+        refresh_token: refreshToken ? encrypt(refreshToken, encryptionKey) : null,
+        expires_at: expiresAt,
+        refresh_token_expires_at: refreshExpiresAt,
+        is_active: true,
+        status: 'connected',
+        updated_at: new Date().toISOString(),
+      });
+      
+      error = insertError;
+    }
 
     if (error) {
       console.error('Error storing Twitter integration:', error)
