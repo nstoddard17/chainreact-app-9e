@@ -111,6 +111,10 @@ export async function GET(request: NextRequest) {
       return createPopupResponse("error", "hubspot", "User ID is missing from state.", baseUrl)
     }
 
+    // Extract requested scopes from state if they were included
+    const requestedScopes = stateData.scopes || []
+    console.log('🔍 Requested HubSpot scopes from state:', requestedScopes)
+
     const clientId = process.env.NEXT_PUBLIC_HUBSPOT_CLIENT_ID
     const clientSecret = process.env.HUBSPOT_CLIENT_SECRET
 
@@ -140,13 +144,70 @@ export async function GET(request: NextRequest) {
     const tokenData = await tokenResponse.json()
 
     // Debug logging to see what HubSpot actually returns
-    console.log('🔍 HubSpot initial token response:', {
+    console.log('🔍 HubSpot complete token response:', JSON.stringify(tokenData, null, 2))
+    console.log('🔍 HubSpot token response fields:', {
       expires_in: tokenData.expires_in,
       expires_in_hours: tokenData.expires_in ? Math.round(tokenData.expires_in / 3600 * 100) / 100 : 'N/A',
       has_refresh_token: !!tokenData.refresh_token,
+      scope: tokenData.scope,
       scopes: tokenData.scopes,
       token_type: tokenData.token_type
     })
+    
+    // Extract scopes - HubSpot might return them in different formats
+    let extractedScopes: string[] = []
+    if (tokenData.scopes && Array.isArray(tokenData.scopes)) {
+      // If scopes is already an array
+      extractedScopes = tokenData.scopes
+    } else if (tokenData.scopes && typeof tokenData.scopes === 'string') {
+      // If scopes is a string
+      extractedScopes = tokenData.scopes.split(' ')
+    } else if (tokenData.scope && typeof tokenData.scope === 'string') {
+      // If using 'scope' (singular) as a string
+      extractedScopes = tokenData.scope.split(' ')
+    }
+    
+    // If no scopes found in token response, try to fetch them from the API
+    if (extractedScopes.length === 0) {
+      try {
+        console.log('🔍 No scopes found in token response, attempting to fetch from API...')
+        // Try to get scopes from the OAuth info endpoint
+        const scopesResponse = await fetch('https://api.hubapi.com/oauth/v1/access-tokens/' + tokenData.access_token, {
+          headers: {
+            Authorization: `Bearer ${tokenData.access_token}`
+          }
+        })
+        
+        if (scopesResponse.ok) {
+          const scopesData = await scopesResponse.json()
+          console.log('🔍 HubSpot scopes API response:', JSON.stringify(scopesData, null, 2))
+          
+          if (scopesData.scopes && Array.isArray(scopesData.scopes)) {
+            extractedScopes = scopesData.scopes
+          } else if (scopesData.scope && typeof scopesData.scope === 'string') {
+            extractedScopes = scopesData.scope.split(' ')
+          }
+        } else {
+          console.warn('Failed to fetch HubSpot scopes from API:', await scopesResponse.text())
+        }
+      } catch (error) {
+        console.warn('Error fetching HubSpot scopes:', error)
+      }
+    }
+    
+    // If we still don't have scopes, use the requested scopes from the state as a fallback
+    if (extractedScopes.length === 0 && requestedScopes.length > 0) {
+      console.log('🔍 Using requested scopes as fallback:', requestedScopes)
+      extractedScopes = requestedScopes
+    }
+    
+    // If we still don't have scopes, use default HubSpot scopes
+    if (extractedScopes.length === 0) {
+      console.log('🔍 Using default HubSpot scopes as last resort')
+      extractedScopes = ["crm.objects.contacts.read", "crm.objects.contacts.write", "oauth"]
+    }
+    
+    console.log('🔍 Final HubSpot scopes:', extractedScopes)
 
     const integrationData = {
       user_id: userId,
@@ -157,7 +218,7 @@ export async function GET(request: NextRequest) {
       expires_at: tokenData.expires_in
         ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString()
         : null,
-      scopes: tokenData.scope ? tokenData.scope.split(" ") : [],
+      scopes: extractedScopes,
       status: "connected",
       updated_at: new Date().toISOString(),
     }

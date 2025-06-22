@@ -473,11 +473,25 @@ function generateHubSpotAuthUrl(state: string): string {
   if (!clientId) throw new Error("Hubspot client ID not configured")
   const baseUrl = getBaseUrl()
 
+  // Define the scopes we want to request
+  const hubspotScopes = ["crm.objects.companies.read", "crm.objects.companies.write", 
+                         "crm.objects.contacts.read", "crm.objects.contacts.write", 
+                         "crm.objects.deals.read", "crm.objects.deals.write", "oauth"]
+  
+  // Add scopes to state object
+  try {
+    const stateObj = JSON.parse(atob(state))
+    stateObj.scopes = hubspotScopes
+    state = btoa(JSON.stringify(stateObj))
+  } catch (e) {
+    console.error("Failed to add scopes to HubSpot state:", e)
+  }
+
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: `${baseUrl}/api/integrations/hubspot/callback`,
     response_type: "code",
-    scope: "crm.objects.companies.read crm.objects.companies.write crm.objects.contacts.read crm.objects.contacts.write crm.objects.deals.read crm.objects.deals.write oauth",
+    scope: hubspotScopes.join(" "),
     access_type: "offline",
     state,
   })
