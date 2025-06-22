@@ -52,6 +52,7 @@ export const integrations = {
     access_token: "access_token",
     refresh_token: "refresh_token",
     expires_at: "expires_at",
+    refresh_token_expires_at: "refresh_token_expires_at",
     scopes: "scopes",
     metadata: "metadata",
     status: "status",
@@ -60,7 +61,7 @@ export const integrations = {
     is_active: "is_active",
     last_token_refresh: "last_token_refresh",
     consecutive_failures: "consecutive_failures",
-    last_failure_at: "last_failure_at",
+    last_failure_reason: "last_failure_reason",
     disconnected_at: "disconnected_at",
     disconnect_reason: "disconnect_reason",
   },
@@ -109,6 +110,7 @@ export interface Integration {
   access_token?: string
   refresh_token?: string
   expires_at?: string
+  refresh_token_expires_at?: string
   scopes?: string[]
   metadata?: Record<string, any>
   status?: "connected" | "disconnected" | "expired" | "needs_reauthorization"
@@ -117,7 +119,7 @@ export interface Integration {
   is_active?: boolean
   last_token_refresh?: string
   consecutive_failures?: number
-  last_failure_at?: string
+  last_failure_reason?: string
   disconnected_at?: string
   disconnect_reason?: string
 } 
