@@ -274,7 +274,7 @@ export function shouldRefreshToken(
     const expiresAt = new Date(integration.expires_at);
     const minutesUntilExpiration = (expiresAt.getTime() - now.getTime()) / (1000 * 60);
     
-    if (minutesUntilExpiration < accessThreshold) {
+    if (minutesUntilExpiration <= accessThreshold) {
       return { 
         shouldRefresh: true, 
         reason: `Access token expires in ${Math.max(0, Math.round(minutesUntilExpiration))} minutes`
@@ -290,7 +290,7 @@ export function shouldRefreshToken(
     const refreshExpiresAt = new Date(integration.refresh_token_expires_at);
     const minutesUntilRefreshExpiration = (refreshExpiresAt.getTime() - now.getTime()) / (1000 * 60);
     
-    if (minutesUntilRefreshExpiration < refreshThreshold) {
+    if (minutesUntilRefreshExpiration <= refreshThreshold) {
       return { 
         shouldRefresh: true, 
         reason: `Refresh token expires in ${Math.max(0, Math.round(minutesUntilRefreshExpiration))} minutes`

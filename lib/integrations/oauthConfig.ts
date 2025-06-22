@@ -49,6 +49,8 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     authMethod: "body",
     refreshTokenExpirationSupported: false, // Google refresh tokens don't expire unless revoked
     accessTokenExpiryBuffer: 30, // Refresh 30 minutes before expiry
+    sendRedirectUriWithRefresh: true,
+    redirectUriPath: "/api/integrations/google/callback",
   },
   gmail: {
     id: "gmail",
@@ -62,6 +64,8 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     authMethod: "body",
     refreshTokenExpirationSupported: false,
     accessTokenExpiryBuffer: 30,
+    sendRedirectUriWithRefresh: true,
+    redirectUriPath: "/api/integrations/gmail/callback",
   },
   "google-calendar": {
     id: "google-calendar",
@@ -75,6 +79,8 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     authMethod: "body", 
     refreshTokenExpirationSupported: false,
     accessTokenExpiryBuffer: 30,
+    sendRedirectUriWithRefresh: true,
+    redirectUriPath: "/api/integrations/google-calendar/callback",
   },
   "google-drive": {
     id: "google-drive",
@@ -88,6 +94,8 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     authMethod: "body",
     refreshTokenExpirationSupported: false,
     accessTokenExpiryBuffer: 30,
+    sendRedirectUriWithRefresh: true,
+    redirectUriPath: "/api/integrations/google-drive/callback",
   },
   "google-sheets": {
     id: "google-sheets",
@@ -101,6 +109,8 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     authMethod: "body",
     refreshTokenExpirationSupported: false,
     accessTokenExpiryBuffer: 30,
+    sendRedirectUriWithRefresh: true,
+    redirectUriPath: "/api/integrations/google-sheets/callback",
   },
   "google-docs": {
     id: "google-docs",
@@ -114,6 +124,8 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     authMethod: "body",
     refreshTokenExpirationSupported: false,
     accessTokenExpiryBuffer: 30,
+    sendRedirectUriWithRefresh: true,
+    redirectUriPath: "/api/integrations/google-docs/callback",
   },
   github: {
     id: "github",
@@ -127,6 +139,8 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     refreshTokenExpirationSupported: true,
     accessTokenExpiryBuffer: 30,
     refreshTokenExpiryBuffer: 60, // Refresh 1 hour before expiry
+    sendRedirectUriWithRefresh: true,
+    redirectUriPath: "/api/integrations/github/callback",
   },
   microsoft: {
     id: "microsoft",
@@ -172,7 +186,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     accessTokenExpiryBuffer: 15, // Refresh 15 minutes before expiry
     sendScopeWithRefresh: true,
     sendRedirectUriWithRefresh: true,
-    redirectUriPath: "/api/integrations/microsoft-onenote/callback",
+    redirectUriPath: "/api/integrations/slack/callback",
   },
   dropbox: {
     id: "dropbox",
@@ -186,6 +200,8 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     authMethod: "basic",
     refreshTokenExpirationSupported: false,
     accessTokenExpiryBuffer: 15,
+    sendRedirectUriWithRefresh: true,
+    redirectUriPath: "/api/integrations/dropbox/callback",
   },
   twitter: {
     id: "twitter",
@@ -202,7 +218,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     accessTokenExpiryBuffer: 30,
     sendScopeWithRefresh: true,
     sendRedirectUriWithRefresh: true,
-    redirectUriPath: "/api/integrations/microsoft-onenote/callback",
+    redirectUriPath: "/api/integrations/twitter/callback",
   },
   facebook: {
     id: "facebook",
@@ -220,6 +236,8 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
       grant_type: "fb_exchange_token",
       fb_exchange_token: "PLACEHOLDER", // Will be replaced with the actual token
     },
+    sendRedirectUriWithRefresh: true,
+    redirectUriPath: "/api/integrations/facebook/callback",
   },
   linkedin: {
     id: "linkedin",
@@ -232,6 +250,8 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     authMethod: "body",
     refreshTokenExpirationSupported: false,
     accessTokenExpiryBuffer: 15,
+    sendRedirectUriWithRefresh: true,
+    redirectUriPath: "/api/integrations/linkedin/callback",
   },
   discord: {
     id: "discord",
@@ -244,6 +264,8 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     authMethod: "body",
     refreshTokenExpirationSupported: false,
     accessTokenExpiryBuffer: 15,
+    sendRedirectUriWithRefresh: true,
+    redirectUriPath: "/api/integrations/discord/callback",
   },
   spotify: {
     id: "spotify",
@@ -256,6 +278,8 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     authMethod: "basic",
     refreshTokenExpirationSupported: false,
     accessTokenExpiryBuffer: 15,
+    sendRedirectUriWithRefresh: true,
+    redirectUriPath: "/api/integrations/spotify/callback",
   },
   trello: {
     id: "trello",
@@ -268,6 +292,8 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     authMethod: "body",
     refreshTokenExpirationSupported: false,
     accessTokenExpiryBuffer: 15,
+    sendRedirectUriWithRefresh: true,
+    redirectUriPath: "/api/integrations/trello/callback",
   },
   "microsoft-onenote": {
     id: "microsoft-onenote",
