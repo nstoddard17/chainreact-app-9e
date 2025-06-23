@@ -121,7 +121,15 @@ const useWorkflowBuilderState = () => {
 
   const nodeNeedsConfiguration = (nodeComponent: NodeComponent): boolean => {
     // Check if the node has configuration fields that require user input
-    return !!(nodeComponent.config && Object.keys(nodeComponent.config).length > 0)
+    const hasConfigFields = !!(nodeComponent.config && Object.keys(nodeComponent.config).length > 0);
+    const hasRequiredFields = !!(nodeComponent.requiredFields && nodeComponent.requiredFields.length > 0);
+    const hasConfigSchema = !!(nodeComponent.configSchema);
+    const hasSettings = !!(nodeComponent.settings && Object.keys(nodeComponent.settings).length > 0);
+    
+    // Node needs configuration if it has any configuration properties
+    const needsConfig = hasConfigFields || hasRequiredFields || hasConfigSchema || hasSettings;
+    
+    return needsConfig;
   }
 
   const handleChangeTrigger = useCallback(() => {
@@ -307,14 +315,14 @@ const useWorkflowBuilderState = () => {
   }, [currentWorkflow, fitView, handleAddActionClick, handleConfigureNode, handleDeleteNode, setCurrentWorkflow, setEdges, setNodes, workflowId])
 
   const handleTriggerSelect = (integration: IntegrationInfo, trigger: NodeComponent) => {
-    console.log("Trigger selected:", trigger);
-    
     if (nodeNeedsConfiguration(trigger)) {
       // Store the pending trigger info and open configuration
       setPendingNode({ type: 'trigger', integration, nodeComponent: trigger });
+      const integrationConfig = INTEGRATION_CONFIGS[integration.id as keyof typeof INTEGRATION_CONFIGS] || integration;
+      
       setConfiguringNode({ 
         id: 'pending-trigger', 
-        integration: INTEGRATION_CONFIGS[integration.id as keyof typeof INTEGRATION_CONFIGS] || integration, 
+        integration: integrationConfig, 
         nodeComponent: trigger, 
         config: {} 
       });
@@ -379,9 +387,11 @@ const useWorkflowBuilderState = () => {
     if (nodeNeedsConfiguration(action)) {
       // Store the pending action info and open configuration
       setPendingNode({ type: 'action', integration, nodeComponent: action, sourceNodeInfo: sourceAddNode });
+      const integrationConfig = INTEGRATION_CONFIGS[integration.id as keyof typeof INTEGRATION_CONFIGS] || integration;
+      
       setConfiguringNode({ 
         id: 'pending-action', 
-        integration: INTEGRATION_CONFIGS[integration.id as keyof typeof INTEGRATION_CONFIGS] || integration, 
+        integration: integrationConfig, 
         nodeComponent: action, 
         config: {} 
       });
@@ -912,17 +922,19 @@ function WorkflowBuilderContent() {
         </DialogContent>
       </Dialog>
 
-      {configuringNode && <ConfigurationModal
-        isOpen={!!configuringNode}
-        onClose={() => {
-          setConfiguringNode(null);
-          setPendingNode(null);
-        }}
-        onSave={(config) => handleSaveConfiguration(configuringNode, config)}
-        nodeInfo={configuringNode.nodeComponent}
-        integrationName={configuringNode.integration.name}
-        initialData={configuringNode.config}
-      />}
+      {configuringNode && (
+        <ConfigurationModal
+          isOpen={!!configuringNode}
+          onClose={() => {
+            setConfiguringNode(null);
+            setPendingNode(null);
+          }}
+          onSave={(config) => handleSaveConfiguration(configuringNode, config)}
+          nodeInfo={configuringNode.nodeComponent}
+          integrationName={configuringNode.integration.name}
+          initialData={configuringNode.config}
+        />
+      )}
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={!!deletingNode} onOpenChange={(open) => !open && setDeletingNode(null)}>
