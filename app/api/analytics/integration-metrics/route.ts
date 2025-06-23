@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
+import type { Integration } from "@/types/integration"
 
 export async function GET() {
   try {
@@ -29,98 +30,102 @@ export async function GET() {
 
     // Calculate metrics and update expired integrations
     const now = new Date()
-    const tenMinutesFromNow = new Date(now.getTime() + 10 * 60 * 1000)
-    const tenMinutesMs = 10 * 60 * 1000 // 10 minutes in milliseconds
+    const tenMinutesMs = 10 * 60 * 1000
 
     const metrics = {
       connected: 0,
       expiring: 0, // expiring within the next 10 minutes
       expired: 0,
       disconnected: 0,
-      total: integrations?.length || 0
+      total: integrations?.length || 0,
     }
 
-    // Track integrations that need status updates
-    const integrationsToUpdate = [];
-    const expiringIntegrations = []; // For debugging
+    const integrationsToUpdate: {
+      id: string
+      provider: string
+      oldStatus: string
+      newStatus: string
+    }[] = []
 
     for (const integration of integrations || []) {
-      // First determine actual status based on expiry dates
-      let actualStatus = integration.status;
-      
-      // Check if integration is expired based on expires_at date
+      let effectiveStatus = integration.status
+      let needsUpdate = false
+
+      // Determine the most accurate status, with time-based expiry taking precedence.
       if (integration.expires_at) {
-        const expiresAt = new Date(integration.expires_at);
-        const timeUntilExpiry = expiresAt.getTime() - now.getTime();
-        
-        if (expiresAt <= now && integration.status === "connected") {
-          // Token is expired but status doesn't reflect that
-          actualStatus = "expired";
-          integrationsToUpdate.push({
-            id: integration.id,
-            provider: integration.provider,
-            oldStatus: integration.status,
-            newStatus: "expired"
-          });
-        }
-        
-        // Track expiring integrations for debugging
-        if (timeUntilExpiry > 0 && timeUntilExpiry < tenMinutesMs) {
-          expiringIntegrations.push({
-            id: integration.id,
-            provider: integration.provider,
-            expires_at: integration.expires_at,
-            timeUntilExpiry: timeUntilExpiry
-          });
+        const expiresAt = new Date(integration.expires_at)
+        if (expiresAt <= now) {
+          if (integration.status !== "expired" && integration.status !== "needs_reauthorization") {
+            effectiveStatus = "expired"
+            needsUpdate = true
+          }
         }
       }
       
-      // Update metrics based on actual status or expire date
-      if (integration.status === "disconnected" || actualStatus === "disconnected") {
-        metrics.disconnected++;
-      } else if (integration.status === "expired" || integration.status === "needs_reauthorization" || actualStatus === "expired") {
-        metrics.expired++;
+      // Now, categorize based on the effective status.
+      if (effectiveStatus === "disconnected") {
+        metrics.disconnected++
+      } else if (effectiveStatus === "expired" || effectiveStatus === "needs_reauthorization") {
+        metrics.expired++
       } else if (integration.expires_at) {
-        const expiresAt = new Date(integration.expires_at);
-        const timeUntilExpiry = expiresAt.getTime() - now.getTime();
+        const expiresAt = new Date(integration.expires_at)
+        const timeUntilExpiry = expiresAt.getTime() - now.getTime()
         
-        if (expiresAt <= now) {
-          metrics.expired++;
-        } else if (timeUntilExpiry < tenMinutesMs) { // Use consistent calculation
-          metrics.expiring++;
+        if (timeUntilExpiry > 0 && timeUntilExpiry < tenMinutesMs) {
+          metrics.expiring++
         } else {
-          metrics.connected++;
+          metrics.connected++
         }
       } else {
-        metrics.connected++;
+        metrics.connected++
+      }
+
+      if (needsUpdate) {
+        integrationsToUpdate.push({
+          id: integration.id,
+          provider: integration.provider,
+          oldStatus: integration.status,
+          newStatus: effectiveStatus,
+        })
       }
     }
     
-    // Log expiring integrations for debugging
-    if (expiringIntegrations.length > 0) {
-      console.log(`Found ${expiringIntegrations.length} expiring integrations:`);
-      console.log(JSON.stringify(expiringIntegrations, null, 2));
+    // Log expiring integrations for debugging (can be removed in production)
+    const expiringForDebug = integrations.filter((i: Integration) => {
+      if(i.expires_at) {
+        const expiresAt = new Date(i.expires_at);
+        const timeUntilExpiry = expiresAt.getTime() - now.getTime();
+        return timeUntilExpiry > 0 && timeUntilExpiry < tenMinutesMs;
+      }
+      return false;
+    });
+
+    if (expiringForDebug.length > 0) {
+      console.log(`Found ${expiringForDebug.length} expiring integrations:`, expiringForDebug.map((e: Integration) => e.provider));
     }
 
+
     // Update expired integrations in the database
-    let updatedCount = 0;
+    let updatedCount = 0
     if (integrationsToUpdate.length > 0) {
-      console.log(`Found ${integrationsToUpdate.length} integrations with outdated status that need updating`);
-      
+      console.log(
+        `Found ${integrationsToUpdate.length} integrations with outdated status that need updating`,
+      )
+
       for (const item of integrationsToUpdate) {
         const { error: updateError } = await supabase
           .from("integrations")
           .update({
             status: item.newStatus,
-            updated_at: now.toISOString()
+            updated_at: now.toISOString(),
           })
-          .eq("id", item.id);
-        
+          .eq("id", item.id)
+
         if (updateError) {
-          console.error(`Failed to update integration ${item.id} (${item.provider}):`, updateError);
+          console.error(`Failed to update integration ${item.id} (${item.provider}):`, updateError)
         } else {
-          updatedCount++;
-          console.log(`✅ Updated ${item.provider} status from ${item.oldStatus} to ${item.newStatus}`);
+          updatedCount++
+          console.log(`✅ Updated ${item.provider} status from ${item.oldStatus} to ${item.newStatus}`)
         }
       }
     }
