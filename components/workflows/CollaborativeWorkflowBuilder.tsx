@@ -414,8 +414,20 @@ const useWorkflowBuilderState = () => {
       .filter(int => {
         const searchLower = searchQuery.toLowerCase();
         if (searchLower === "") return true;
-        return int.name.toLowerCase().includes(searchLower) ||
-               int.triggers.some(t => t.name && t.name.toLowerCase().includes(searchLower));
+        
+        // Search in integration name, description, and category
+        const integrationMatches = int.name.toLowerCase().includes(searchLower) ||
+                                 int.description.toLowerCase().includes(searchLower) ||
+                                 int.category.toLowerCase().includes(searchLower);
+        
+        // Search in trigger names, descriptions, and types
+        const triggerMatches = int.triggers.some(t => 
+          (t.name && t.name.toLowerCase().includes(searchLower)) ||
+          (t.description && t.description.toLowerCase().includes(searchLower)) ||
+          (t.type && t.type.toLowerCase().includes(searchLower))
+        );
+        
+        return integrationMatches || triggerMatches;
       });
   }, [availableIntegrations, searchQuery, filterCategory, showInstalledOnly]);
   
@@ -425,9 +437,11 @@ const useWorkflowBuilderState = () => {
     const searchLower = searchQuery.toLowerCase();
     if (!searchLower) return selectedIntegration.triggers;
 
-    return selectedIntegration.triggers.filter(
-      (trigger) => trigger.name && trigger.name.toLowerCase().includes(searchLower)
-    );
+    return selectedIntegration.triggers.filter((trigger) => {
+      return (trigger.name && trigger.name.toLowerCase().includes(searchLower)) ||
+             (trigger.description && trigger.description.toLowerCase().includes(searchLower)) ||
+             (trigger.type && trigger.type.toLowerCase().includes(searchLower));
+    });
   }, [selectedIntegration, searchQuery]);
 
   return {
@@ -663,26 +677,65 @@ function WorkflowBuilderContent() {
             <DialogTitle className="text-2xl font-bold">Choose an Action</DialogTitle>
             <DialogDescription className="text-base">Select an action to add to your workflow</DialogDescription>
           </DialogHeader>
+          
+          <div className="mb-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <Input 
+                placeholder="Search actions..."
+                className="pl-10"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-6 overflow-y-auto max-h-[60vh] p-2">
-            {availableIntegrations.map((integration) => 
-              integration.actions.length > 0 && integration.actions.map((action) => (
-                <button
-                  key={`${integration.id}-${action.type}`}
-                  className="flex flex-col items-center p-6 border rounded-lg hover:border-blue-500 hover:ring-1 hover:ring-blue-200 transition-all cursor-pointer relative"
-                  onClick={() => {
-                    console.log(`Selected action: ${integration.id}-${action.type}`);
-                    handleActionSelect(integration, action);
-                    setShowActionDialog(false);
-                  }}
-                >
-                  <div className="w-20 h-20 flex items-center justify-center rounded-full bg-gray-50 mb-3">
-                    {renderLogo(integration.id, integration.name)}
-                  </div>
-                  <div className="font-medium text-center text-base">{integration.name}</div>
-                  <div className="text-sm text-gray-500 text-center mt-1">{action.name}</div>
-                </button>
-              ))
-            )}
+            {availableIntegrations
+              .filter((integration) => {
+                if (integration.actions.length === 0) return false;
+                if (!searchQuery) return true;
+                
+                const searchLower = searchQuery.toLowerCase();
+                const integrationMatches = integration.name.toLowerCase().includes(searchLower) ||
+                                         integration.description.toLowerCase().includes(searchLower) ||
+                                         integration.category.toLowerCase().includes(searchLower);
+                
+                const actionMatches = integration.actions.some(action => 
+                  (action.name && action.name.toLowerCase().includes(searchLower)) ||
+                  (action.description && action.description.toLowerCase().includes(searchLower)) ||
+                  (action.type && action.type.toLowerCase().includes(searchLower))
+                );
+                
+                return integrationMatches || actionMatches;
+              })
+              .map((integration) => 
+                integration.actions
+                  .filter((action) => {
+                    if (!searchQuery) return true;
+                    const searchLower = searchQuery.toLowerCase();
+                    return (action.name && action.name.toLowerCase().includes(searchLower)) ||
+                           (action.description && action.description.toLowerCase().includes(searchLower)) ||
+                           (action.type && action.type.toLowerCase().includes(searchLower));
+                  })
+                  .map((action) => (
+                    <button
+                      key={`${integration.id}-${action.type}`}
+                      className="flex flex-col items-center p-6 border rounded-lg hover:border-blue-500 hover:ring-1 hover:ring-blue-200 transition-all cursor-pointer relative"
+                      onClick={() => {
+                        console.log(`Selected action: ${integration.id}-${action.type}`);
+                        handleActionSelect(integration, action);
+                        setShowActionDialog(false);
+                      }}
+                    >
+                      <div className="w-20 h-20 flex items-center justify-center rounded-full bg-gray-50 mb-3">
+                        {renderLogo(integration.id, integration.name)}
+                      </div>
+                      <div className="font-medium text-center text-base">{integration.name}</div>
+                      <div className="text-sm text-gray-500 text-center mt-1">{action.name}</div>
+                    </button>
+                  ))
+              )}
           </div>
           <DialogFooter className="mt-6">
             <Button type="button" variant="outline" size="lg" className="px-6" onClick={() => setShowActionDialog(false)}>
