@@ -107,6 +107,7 @@ const useWorkflowBuilderState = () => {
   const [showActionDialog, setShowActionDialog] = useState(false)
   const [selectedIntegration, setSelectedIntegration] = useState<IntegrationInfo | null>(null)
   const [selectedTrigger, setSelectedTrigger] = useState<NodeComponent | null>(null)
+  const [selectedAction, setSelectedAction] = useState<NodeComponent | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [filterCategory, setFilterCategory] = useState("all")
   const [showInstalledOnly, setShowInstalledOnly] = useState(false)
@@ -131,6 +132,9 @@ const useWorkflowBuilderState = () => {
 
   const handleAddActionClick = useCallback((nodeId: string, parentId: string) => {
     setSourceAddNode({ id: nodeId, parentId })
+    setSelectedIntegration(null)
+    setSelectedAction(null)
+    setSearchQuery("")
     setShowActionDialog(true)
   }, [])
 
@@ -449,7 +453,7 @@ const useWorkflowBuilderState = () => {
     setShowTriggerDialog, showActionDialog, setShowActionDialog, handleTriggerSelect, handleActionSelect, selectedIntegration, setSelectedIntegration,
     availableIntegrations, renderLogo, getWorkflowStatus, currentWorkflow, isExecuting, executionEvents,
     configuringNode, setConfiguringNode, handleSaveConfiguration, collaborators,
-    selectedTrigger, setSelectedTrigger, searchQuery, setSearchQuery, filterCategory, setFilterCategory, showInstalledOnly, setShowInstalledOnly,
+    selectedTrigger, setSelectedTrigger, selectedAction, setSelectedAction, searchQuery, setSearchQuery, filterCategory, setFilterCategory, showInstalledOnly, setShowInstalledOnly,
     filteredIntegrations, displayedTriggers
   }
 }
@@ -470,7 +474,7 @@ function WorkflowBuilderContent() {
     showTriggerDialog, setShowTriggerDialog, showActionDialog, setShowActionDialog, handleTriggerSelect, handleActionSelect, selectedIntegration, setSelectedIntegration,
     availableIntegrations, renderLogo, getWorkflowStatus, currentWorkflow, isExecuting, executionEvents,
     configuringNode, setConfiguringNode, handleSaveConfiguration, collaborators,
-    selectedTrigger, setSelectedTrigger, searchQuery, setSearchQuery, filterCategory, setFilterCategory, showInstalledOnly, setShowInstalledOnly,
+    selectedTrigger, setSelectedTrigger, selectedAction, setSelectedAction, searchQuery, setSearchQuery, filterCategory, setFilterCategory, showInstalledOnly, setShowInstalledOnly,
     filteredIntegrations, displayedTriggers
   } = useWorkflowBuilderState()
 
@@ -493,6 +497,31 @@ function WorkflowBuilderContent() {
   }
   return (
     <div style={{ height: "calc(100vh - 65px)", position: "relative" }}>
+      {/* Top UI - Always visible */}
+      <div className="absolute top-0 left-0 right-0 z-10 pointer-events-none">
+        <div className="flex justify-between items-start p-4 pointer-events-auto">
+          <div className="flex items-center space-x-4">
+            <Button variant="ghost" size="icon" onClick={() => router.push("/workflows")}><ArrowLeft className="w-5 h-5" /></Button>
+            <Input value={workflowName} onChange={(e) => setWorkflowName(e.target.value)} onBlur={handleSave} className="text-xl font-semibold !border-none !outline-none !ring-0 p-0 bg-transparent" style={{ boxShadow: "none" }} />
+          </div>
+          <div className="flex items-center space-x-2">
+            <Badge variant={getWorkflowStatus().variant}>{getWorkflowStatus().text}</Badge>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild><Button onClick={handleSave} disabled={isSaving || isExecuting} variant="secondary">{isSaving ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Save className="w-5 h-5 mr-2" />}Save</Button></TooltipTrigger>
+                <TooltipContent><p>Save your workflow</p></TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild><Button onClick={handleExecute} disabled={isSaving || isExecuting} variant="default">{isExecuting ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Play className="w-5 h-5 mr-2" />}Execute</Button></TooltipTrigger>
+                <TooltipContent><p>Execute the workflow</p></TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+        </div>
+      </div>
+
       {nodes.length === 0 ? (
         // Empty state outside of ReactFlow
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-background p-4">
@@ -539,28 +568,6 @@ function WorkflowBuilderContent() {
           <Controls className="left-4 bottom-4 top-auto" />
           <CollaboratorCursors collaborators={collaborators || []} />
           {isExecuting && executionEvents.length > 0 && <ExecutionMonitor events={executionEvents} />}
-          
-          <Panel position="top-left" className="p-4">
-            <div className="flex items-center space-x-4">
-              <Button variant="ghost" size="icon" onClick={() => router.push("/workflows")}><ArrowLeft className="w-5 h-5" /></Button>
-              <Input value={workflowName} onChange={(e) => setWorkflowName(e.target.value)} onBlur={handleSave} className="text-xl font-semibold !border-none !outline-none !ring-0 p-0 bg-transparent" style={{ boxShadow: "none" }} />
-            </div>
-          </Panel>
-          <Panel position="top-right" className="p-4 flex items-center space-x-2">
-            <Badge variant={getWorkflowStatus().variant}>{getWorkflowStatus().text}</Badge>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild><Button onClick={handleSave} disabled={isSaving || isExecuting} variant="secondary">{isSaving ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Save className="w-5 h-5 mr-2" />}Save</Button></TooltipTrigger>
-                <TooltipContent><p>Save your workflow</p></TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild><Button onClick={handleExecute} disabled={isSaving || isExecuting} variant="default">{isExecuting ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Play className="w-5 h-5 mr-2" />}Execute</Button></TooltipTrigger>
-                <TooltipContent><p>Execute the workflow</p></TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </Panel>
         </ReactFlow>
       )}
 
@@ -672,76 +679,145 @@ function WorkflowBuilderContent() {
       </Dialog>
 
       <Dialog open={showActionDialog} onOpenChange={setShowActionDialog}>
-        <DialogContent className="max-w-3xl p-6">
-          <DialogHeader className="mb-4">
-            <DialogTitle className="text-2xl font-bold">Choose an Action</DialogTitle>
-            <DialogDescription className="text-base">Select an action to add to your workflow</DialogDescription>
+        <DialogContent className="max-w-4xl h-[75vh] flex flex-col p-0 bg-white rounded-lg shadow-2xl">
+          <DialogHeader className="p-6 pb-4 border-b">
+            <DialogTitle className="text-xl font-bold">Select an Action</DialogTitle>
+            <DialogDescription>Choose an integration and an action to add to your workflow.</DialogDescription>
           </DialogHeader>
           
-          <div className="mb-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <Input 
-                placeholder="Search actions..."
-                className="pl-10"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
+          <div className="px-6 py-4 border-b">
+            <div className="flex items-center space-x-4">
+              <div className="relative flex-grow">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <Input 
+                  placeholder="Search integrations or actions..."
+                  className="pl-10"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+              <Select value={filterCategory} onValueChange={setFilterCategory}>
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Filter by category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map(cat => (
+                    <SelectItem key={cat} value={cat}>{cat === 'all' ? 'All Categories' : cat}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <div className="flex items-center space-x-2">
+                <Checkbox id="installed-apps-actions" checked={showInstalledOnly} onCheckedChange={(checked) => setShowInstalledOnly(Boolean(checked))} />
+                <Label htmlFor="installed-apps-actions" className="whitespace-nowrap">Show only installed apps</Label>
+              </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-6 overflow-y-auto max-h-[60vh] p-2">
-            {availableIntegrations
-              .filter((integration) => {
-                if (integration.actions.length === 0) return false;
-                if (!searchQuery) return true;
-                
-                const searchLower = searchQuery.toLowerCase();
-                const integrationMatches = integration.name.toLowerCase().includes(searchLower) ||
-                                         integration.description.toLowerCase().includes(searchLower) ||
-                                         integration.category.toLowerCase().includes(searchLower);
-                
-                const actionMatches = integration.actions.some(action => 
-                  (action.name && action.name.toLowerCase().includes(searchLower)) ||
-                  (action.description && action.description.toLowerCase().includes(searchLower)) ||
-                  (action.type && action.type.toLowerCase().includes(searchLower))
-                );
-                
-                return integrationMatches || actionMatches;
-              })
-              .map((integration) => 
-                integration.actions
-                  .filter((action) => {
-                    if (!searchQuery) return true;
-                    const searchLower = searchQuery.toLowerCase();
-                    return (action.name && action.name.toLowerCase().includes(searchLower)) ||
-                           (action.description && action.description.toLowerCase().includes(searchLower)) ||
-                           (action.type && action.type.toLowerCase().includes(searchLower));
-                  })
-                  .map((action) => (
-                    <button
-                      key={`${integration.id}-${action.type}`}
-                      className="flex flex-col items-center p-6 border rounded-lg hover:border-blue-500 hover:ring-1 hover:ring-blue-200 transition-all cursor-pointer relative"
-                      onClick={() => {
-                        console.log(`Selected action: ${integration.id}-${action.type}`);
-                        handleActionSelect(integration, action);
-                        setShowActionDialog(false);
-                      }}
-                    >
-                      <div className="w-20 h-20 flex items-center justify-center rounded-full bg-gray-50 mb-3">
-                        {renderLogo(integration.id, integration.name)}
-                      </div>
-                      <div className="font-medium text-center text-base">{integration.name}</div>
-                      <div className="text-sm text-gray-500 text-center mt-1">{action.name}</div>
-                    </button>
-                  ))
-              )}
+          <div className="flex-grow flex min-h-0 overflow-hidden">
+            <ScrollArea className="w-1/3 border-r">
+              <div className="py-2 px-3">
+              {availableIntegrations
+                .filter(int => int.actions.length > 0)
+                .filter(int => {
+                  if (showInstalledOnly) {
+                    return true; 
+                  }
+                  return true;
+                })
+                .filter(int => {
+                  if (filterCategory === 'all') return true;
+                  return int.category === filterCategory;
+                })
+                .filter(int => {
+                  const searchLower = searchQuery.toLowerCase();
+                  if (searchLower === "") return true;
+                  
+                  const integrationMatches = int.name.toLowerCase().includes(searchLower) ||
+                                           int.description.toLowerCase().includes(searchLower) ||
+                                           int.category.toLowerCase().includes(searchLower);
+                  
+                  const actionMatches = int.actions.some(a => 
+                    (a.name && a.name.toLowerCase().includes(searchLower)) ||
+                    (a.description && a.description.toLowerCase().includes(searchLower)) ||
+                    (a.type && a.type.toLowerCase().includes(searchLower))
+                  );
+                  
+                  return integrationMatches || actionMatches;
+                })
+                .map((integration) => (
+                <div
+                  key={integration.id}
+                  className={`flex items-center p-3 rounded-md cursor-pointer ${selectedIntegration?.id === integration.id ? 'bg-blue-50 ring-1 ring-blue-200' : 'hover:bg-gray-50'}`}
+                  onClick={() => setSelectedIntegration(integration)}
+                >
+                  {renderLogo(integration.id, integration.name)}
+                  <span className="font-semibold ml-4 flex-grow">{integration.name}</span>
+                  <ChevronRight className="w-5 h-5 text-gray-400" />
+                </div>
+              ))}
+              </div>
+            </ScrollArea>
+            <div className="w-2/3 h-full">
+              <ScrollArea className="h-full">
+                <div className="p-6">
+                {selectedIntegration ? (
+                  <div>
+                    <h3 className="font-semibold text-lg mb-6">Actions for {selectedIntegration.name}</h3>
+                    <div className="grid grid-cols-1 gap-4">
+                      {selectedIntegration.actions
+                        .filter((action) => {
+                          if (!searchQuery) return true;
+                          const searchLower = searchQuery.toLowerCase();
+                          return (action.name && action.name.toLowerCase().includes(searchLower)) ||
+                                 (action.description && action.description.toLowerCase().includes(searchLower)) ||
+                                 (action.type && action.type.toLowerCase().includes(searchLower));
+                        })
+                        .map((action) => (
+                                                 <div
+                           key={action.type}
+                           className={`p-4 border rounded-lg cursor-pointer transition-all ${selectedAction?.type === action.type ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-500' : 'hover:border-gray-300 hover:shadow-sm'}`}
+                           onClick={() => setSelectedAction(action)}
+                         >
+                           <p className="font-medium">{action.name}</p>
+                           <p className="text-sm text-gray-500 mt-1">{action.description}</p>
+                         </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center h-full text-gray-500">
+                    <p>Select an integration to see its actions</p>
+                  </div>
+                )}
+                </div>
+              </ScrollArea>
+            </div>
           </div>
-          <DialogFooter className="mt-6">
-            <Button type="button" variant="outline" size="lg" className="px-6" onClick={() => setShowActionDialog(false)}>
-              Cancel
-            </Button>
-          </DialogFooter>
+          
+          <div className="p-4 border-t bg-gray-50 flex justify-between items-center">
+            <div>
+              {selectedIntegration && (
+                <div className="text-sm text-gray-600">
+                  <span className="font-medium">Integration:</span> {selectedIntegration.name}
+                  {selectedAction && <span className="ml-4"><span className="font-medium">Action:</span> {selectedAction.name}</span>}
+                </div>
+              )}
+            </div>
+            <div className="flex space-x-2">
+              <Button variant="outline" onClick={() => setShowActionDialog(false)}>Cancel</Button>
+              <Button 
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+                disabled={!selectedAction || !selectedIntegration}
+                onClick={() => {
+                  if (selectedIntegration && selectedAction) {
+                    handleActionSelect(selectedIntegration, selectedAction)
+                  }
+                }}
+              >
+                Continue →
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 
