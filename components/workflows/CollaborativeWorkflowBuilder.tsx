@@ -114,6 +114,7 @@ const useWorkflowBuilderState = () => {
   const [sourceAddNode, setSourceAddNode] = useState<{ id: string; parentId: string } | null>(null)
   const [configuringNode, setConfiguringNode] = useState<{ id: string; integration: any; nodeComponent: NodeComponent; config: Record<string, any> } | null>(null)
   const [pendingNode, setPendingNode] = useState<{ type: 'trigger' | 'action'; integration: IntegrationInfo; nodeComponent: NodeComponent; sourceNodeInfo?: { id: string; parentId: string } } | null>(null)
+  const [deletingNode, setDeletingNode] = useState<{ id: string; name: string } | null>(null)
 
   const { toast } = useToast()
   const availableIntegrations = useMemo(() => getIntegrationsFromNodes(), [])
@@ -122,6 +123,16 @@ const useWorkflowBuilderState = () => {
     // Check if the node has configuration fields that require user input
     return !!(nodeComponent.config && Object.keys(nodeComponent.config).length > 0)
   }
+
+  const handleChangeTrigger = useCallback(() => {
+    // Clear the current workflow and open trigger selection
+    setNodes([])
+    setEdges([])
+    setSelectedIntegration(null);
+    setSelectedTrigger(null);
+    setSearchQuery("");
+    setShowTriggerDialog(true);
+  }, [setNodes, setEdges, setSelectedIntegration, setSelectedTrigger, setSearchQuery, setShowTriggerDialog])
 
   const handleConfigureNode = useCallback((nodeId: string) => {
     const nodeToConfigure = getNodes().find((n) => n.id === nodeId)
@@ -208,6 +219,26 @@ const useWorkflowBuilderState = () => {
     setTimeout(recalculateLayout, 50)
   }, [getNodes, getEdges, setNodes, setEdges, recalculateLayout])
 
+  const handleDeleteNodeWithConfirmation = useCallback((nodeId: string) => {
+    const nodeToDelete = getNodes().find((n) => n.id === nodeId)
+    if (!nodeToDelete) return
+    
+    if (nodeToDelete.data.isTrigger) {
+      // For trigger nodes, we don't delete but change trigger instead
+      handleChangeTrigger()
+      return
+    }
+    
+    // For non-trigger nodes, show confirmation dialog
+    setDeletingNode({ id: nodeId, name: (nodeToDelete.data.name as string) || 'this node' })
+  }, [getNodes, handleChangeTrigger])
+
+  const confirmDeleteNode = useCallback(() => {
+    if (!deletingNode) return
+    handleDeleteNode(deletingNode.id)
+    setDeletingNode(null)
+  }, [deletingNode, handleDeleteNode])
+
   const onConnect = useCallback((params: Edge | Connection) => setEdges((eds: Edge[]) => addEdge(params, eds)), [setEdges])
 
   useEffect(() => {
@@ -232,8 +263,12 @@ const useWorkflowBuilderState = () => {
       const customNodes: Node[] = (currentWorkflow.nodes || []).map((node: WorkflowNode) => ({
         id: node.id, type: "custom", position: node.position,
         data: {
-            ...node.data, name: node.data.label, onConfigure: handleConfigureNode,
-            onDelete: handleDeleteNode, providerId: node.data.type.split('-')[0]
+            ...node.data, 
+            name: node.data.label, 
+            onConfigure: handleConfigureNode,
+            onDelete: handleDeleteNodeWithConfirmation,
+            onChangeTrigger: node.data.type.includes('trigger') ? handleChangeTrigger : undefined,
+            providerId: node.data.type.split('-')[0]
         },
       }))
 
@@ -300,7 +335,8 @@ const useWorkflowBuilderState = () => {
         name: trigger.name,
         isTrigger: true,
         onConfigure: handleConfigureNode,
-        onDelete: handleDeleteNode,
+        onDelete: handleDeleteNodeWithConfirmation,
+        onChangeTrigger: handleChangeTrigger,
         providerId: integration.id,
         config
       }
@@ -362,7 +398,7 @@ const useWorkflowBuilderState = () => {
     const newNodeId = `node-${Date.now()}`
     const newActionNode: Node = {
       id: newNodeId, type: "custom", position: { x: parentNode.position.x, y: parentNode.position.y + 120 },
-      data: { ...action, name: action.name, onConfigure: handleConfigureNode, onDelete: handleDeleteNode, providerId: integration.id, config },
+      data: { ...action, name: action.name, onConfigure: handleConfigureNode, onDelete: handleDeleteNodeWithConfirmation, providerId: integration.id, config },
     }
     const newAddActionId = `add-action-${Date.now()}`
     const newAddActionNode: Node = {
@@ -511,7 +547,7 @@ const useWorkflowBuilderState = () => {
     availableIntegrations, renderLogo, getWorkflowStatus, currentWorkflow, isExecuting, executionEvents,
     configuringNode, setConfiguringNode, handleSaveConfiguration, collaborators, pendingNode, setPendingNode,
     selectedTrigger, setSelectedTrigger, selectedAction, setSelectedAction, searchQuery, setSearchQuery, filterCategory, setFilterCategory, showInstalledOnly, setShowInstalledOnly,
-    filteredIntegrations, displayedTriggers
+    filteredIntegrations, displayedTriggers, deletingNode, setDeletingNode, confirmDeleteNode
   }
 }
 
@@ -532,7 +568,7 @@ function WorkflowBuilderContent() {
     availableIntegrations, renderLogo, getWorkflowStatus, currentWorkflow, isExecuting, executionEvents,
     configuringNode, setConfiguringNode, handleSaveConfiguration, collaborators, pendingNode, setPendingNode,
     selectedTrigger, setSelectedTrigger, selectedAction, setSelectedAction, searchQuery, setSearchQuery, filterCategory, setFilterCategory, showInstalledOnly, setShowInstalledOnly,
-    filteredIntegrations, displayedTriggers
+    filteredIntegrations, displayedTriggers, deletingNode, setDeletingNode, confirmDeleteNode
   } = useWorkflowBuilderState()
 
   const categories = useMemo(() => {
@@ -887,6 +923,26 @@ function WorkflowBuilderContent() {
         integrationName={configuringNode.integration.name}
         initialData={configuringNode.config}
       />}
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!deletingNode} onOpenChange={(open) => !open && setDeletingNode(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete Node</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete "{deletingNode?.name}"? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex justify-end space-x-2">
+            <Button variant="outline" onClick={() => setDeletingNode(null)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={confirmDeleteNode}>
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
