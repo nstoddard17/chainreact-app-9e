@@ -29,11 +29,11 @@ import {
 export interface ConfigField {
   name: string
   label: string
-  type: "string" | "number" | "boolean" | "select" | "textarea" | "text" | "email" | "password"
+  type: "string" | "number" | "boolean" | "select" | "textarea" | "text" | "email" | "password" | "email-autocomplete"
   required?: boolean
   placeholder?: string
   options?: { value: string; label: string }[] | string[]
-  dynamic?: "slack-channels" | "google-contacts" | "google-calendars" | "google-drive-folders" | "google-drive-files"
+  dynamic?: "slack-channels" | "google-contacts" | "google-calendars" | "google-drive-folders" | "google-drive-files" | "gmail-recent-recipients" | "gmail-enhanced-recipients" | "gmail-contact-groups"
   [key: string]: any
 }
 
@@ -197,12 +197,13 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
       {
         name: "to",
         label: "To",
-        type: "select",
+        type: "email-autocomplete",
         required: true,
-        dynamic: "google-contacts",
+        dynamic: "gmail-enhanced-recipients",
+        placeholder: "Enter recipient email addresses...",
       },
-      { name: "cc", label: "CC", type: "email", placeholder: "optional: cc@example.com" },
-      { name: "bcc", label: "BCC", type: "email", placeholder: "optional: bcc@example.com" },
+      { name: "cc", label: "CC", type: "email-autocomplete", placeholder: "optional: cc@example.com", dynamic: "gmail-enhanced-recipients" },
+      { name: "bcc", label: "BCC", type: "email-autocomplete", placeholder: "optional: bcc@example.com", dynamic: "gmail-enhanced-recipients" },
       { name: "subject", label: "Subject", type: "text", placeholder: "Your email subject", required: true },
       { name: "body", label: "Body", type: "textarea", placeholder: "Your email body", required: true },
       { name: "attachment", label: "Attachment URL", type: "text", placeholder: "Optional: URL to a file" },

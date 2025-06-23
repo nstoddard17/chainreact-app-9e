@@ -66,6 +66,23 @@ export const integrations = {
   },
 }
 
+export const emailFrequencyCache = {
+  tableName: "email_frequency_cache",
+  columns: {
+    id: "id",
+    user_id: "user_id",
+    email: "email",
+    name: "name",
+    frequency: "frequency",
+    last_used: "last_used",
+    source: "source",
+    integration_id: "integration_id",
+    metadata: "metadata",
+    created_at: "created_at",
+    updated_at: "updated_at",
+  },
+}
+
 // Type definitions
 export interface User {
   id: string
@@ -120,4 +137,18 @@ export interface Integration {
   consecutive_failures?: number
   disconnected_at?: string
   disconnect_reason?: string
+}
+
+export interface EmailFrequencyCache {
+  id: string
+  user_id: string
+  email: string
+  name?: string
+  frequency: number
+  last_used: string
+  source: string
+  integration_id?: string
+  metadata?: Record<string, any>
+  created_at: string
+  updated_at: string
 }

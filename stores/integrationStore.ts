@@ -544,6 +544,15 @@ export const useIntegrationStore = create<IntegrationStore>()(
           case "gmail":
             url = "/api/integrations/gmail/load-data"
             break
+          case "gmail-recent-recipients":
+            url = "/api/integrations/gmail/recent-recipients"
+            break
+          case "gmail-enhanced-recipients":
+            url = "/api/integrations/gmail/enhanced-recipients"
+            break
+          case "gmail-contact-groups":
+            url = "/api/integrations/gmail/contact-groups"
+            break
           case "google-calendar":
             url = "/api/integrations/google-calendar/load-data"
             break
