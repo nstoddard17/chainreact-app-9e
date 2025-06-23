@@ -24,6 +24,7 @@ import "@xyflow/react/dist/style.css"
 
 import { useWorkflowStore, type Workflow, type WorkflowNode, type WorkflowConnection } from "@/stores/workflowStore"
 import { useCollaborationStore } from "@/stores/collaborationStore"
+import { useIntegrationStore } from "@/stores/integrationStore"
 import ConfigurationModal from "./ConfigurationModal"
 import CustomNode from "./CustomNode"
 import { AddActionNode } from "./AddActionNode"
@@ -87,6 +88,8 @@ const nodeTypes: NodeTypes = {
   addAction: AddActionNode as React.ComponentType<NodeProps>,
 }
 
+
+
 const useWorkflowBuilderState = () => {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -94,6 +97,7 @@ const useWorkflowBuilderState = () => {
 
   const { currentWorkflow, setCurrentWorkflow, fetchWorkflows, workflows, updateWorkflow } = useWorkflowStore()
   const { joinCollaboration, leaveCollaboration, collaborators } = useCollaborationStore()
+  const { integrations, getConnectedProviders, fetchIntegrations } = useIntegrationStore()
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
@@ -110,7 +114,7 @@ const useWorkflowBuilderState = () => {
   const [selectedAction, setSelectedAction] = useState<NodeComponent | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [filterCategory, setFilterCategory] = useState("all")
-  const [showInstalledOnly, setShowInstalledOnly] = useState(false)
+  const [showConnectedOnly, setShowConnectedOnly] = useState(true)
   const [sourceAddNode, setSourceAddNode] = useState<{ id: string; parentId: string } | null>(null)
   const [configuringNode, setConfiguringNode] = useState<{ id: string; integration: any; nodeComponent: NodeComponent; config: Record<string, any> } | null>(null)
   const [pendingNode, setPendingNode] = useState<{ type: 'trigger' | 'action'; integration: IntegrationInfo; nodeComponent: NodeComponent; sourceNodeInfo?: { id: string; parentId: string } } | null>(null)
@@ -132,15 +136,30 @@ const useWorkflowBuilderState = () => {
     return needsConfig;
   }
 
+  const isIntegrationConnected = useCallback((integrationId: string): boolean => {
+    // Use the integration store to check if this integration is connected
+    const connectedProviders = getConnectedProviders();
+    return connectedProviders.includes(integrationId);
+  }, [getConnectedProviders])
+
+
+
   const handleChangeTrigger = useCallback(() => {
-    // Clear the current workflow and open trigger selection
-    setNodes([])
-    setEdges([])
+    // Store existing action nodes (non-trigger nodes) to preserve them
+    const currentNodes = getNodes();
+    const actionNodes = currentNodes.filter(node => 
+      node.type === 'custom' && !node.data.isTrigger
+    );
+    
+    // Store the action nodes temporarily in state so we can restore them after trigger selection
+    // We'll use a ref or state to store these
+    sessionStorage.setItem('preservedActionNodes', JSON.stringify(actionNodes));
+    
     setSelectedIntegration(null);
     setSelectedTrigger(null);
     setSearchQuery("");
     setShowTriggerDialog(true);
-  }, [setNodes, setEdges, setSelectedIntegration, setSelectedTrigger, setSearchQuery, setShowTriggerDialog])
+  }, [getNodes, setSelectedIntegration, setSelectedTrigger, setSearchQuery, setShowTriggerDialog])
 
   const handleConfigureNode = useCallback((nodeId: string) => {
     const nodeToConfigure = getNodes().find((n) => n.id === nodeId)
@@ -259,6 +278,11 @@ const useWorkflowBuilderState = () => {
   }, [fetchWorkflows, workflows.length])
 
   useEffect(() => {
+    // Fetch integrations to ensure we have up-to-date connection status
+    fetchIntegrations()
+  }, [fetchIntegrations])
+
+  useEffect(() => {
     if (workflowId && workflows.length > 0 && !currentWorkflow) {
       const foundWorkflow = workflows.find((w) => w.id === workflowId)
       if (foundWorkflow) setCurrentWorkflow(foundWorkflow)
@@ -350,29 +374,101 @@ const useWorkflowBuilderState = () => {
       }
     };
     
-    const addActionNode: Node = {
-      id: "add-action-1",
-      type: "addAction",
-      position: { x: 400, y: 220 },
-      data: {
-        parentId: "trigger",
-        onClick: () => handleAddActionClick("add-action-1", "trigger")
-      }
-    };
+    // Check if we have preserved action nodes from a trigger change
+    const preservedActionNodesJson = sessionStorage.getItem('preservedActionNodes');
+    let allNodes: Node[] = [triggerNode];
+    let allEdges: Edge[] = [];
     
-    setNodes([triggerNode, addActionNode]);
-    
-    setEdges([{
-      id: "trigger-add-action-1",
-      source: "trigger",
-      target: "add-action-1",
-      animated: false,
-      style: {
-        stroke: "#d1d5db",
-        strokeWidth: 1,
-        strokeDasharray: "5,5"
+    if (preservedActionNodesJson) {
+      // Restore preserved action nodes
+      const preservedActionNodes: Node[] = JSON.parse(preservedActionNodesJson);
+      
+      // Update the preserved nodes to have the correct handlers
+      const restoredActionNodes = preservedActionNodes.map(node => ({
+        ...node,
+        data: {
+          ...node.data,
+          onConfigure: handleConfigureNode,
+          onDelete: handleDeleteNodeWithConfirmation
+        }
+      }));
+      
+      allNodes = [triggerNode, ...restoredActionNodes];
+      
+      // Create edges to connect trigger to first action node and between action nodes
+      if (restoredActionNodes.length > 0) {
+        // Connect trigger to first action node
+        allEdges.push({
+          id: `trigger-${restoredActionNodes[0].id}`,
+          source: "trigger",
+          target: restoredActionNodes[0].id,
+          animated: false,
+          style: { stroke: "#d1d5db", strokeWidth: 1 }
+        });
+        
+        // Connect action nodes to each other
+        for (let i = 0; i < restoredActionNodes.length - 1; i++) {
+          allEdges.push({
+            id: `${restoredActionNodes[i].id}-${restoredActionNodes[i + 1].id}`,
+            source: restoredActionNodes[i].id,
+            target: restoredActionNodes[i + 1].id,
+            animated: false,
+            style: { stroke: "#d1d5db", strokeWidth: 1 }
+          });
+        }
       }
-    }]);
+      
+      // Add the "add action" node after the last action node
+      const lastActionNode = restoredActionNodes[restoredActionNodes.length - 1];
+      const addActionNode: Node = {
+        id: `add-action-${Date.now()}`,
+        type: "addAction",
+        position: { x: lastActionNode.position.x, y: lastActionNode.position.y + 120 },
+        data: {
+          parentId: lastActionNode.id,
+          onClick: () => handleAddActionClick(`add-action-${Date.now()}`, lastActionNode.id)
+        }
+      };
+      
+      allNodes.push(addActionNode);
+      allEdges.push({
+        id: `${lastActionNode.id}-${addActionNode.id}`,
+        source: lastActionNode.id,
+        target: addActionNode.id,
+        animated: false,
+        style: { stroke: "#d1d5db", strokeWidth: 1, strokeDasharray: "5,5" }
+      });
+      
+      // Clear the preserved nodes from session storage
+      sessionStorage.removeItem('preservedActionNodes');
+    } else {
+      // No preserved nodes, create new workflow with just trigger and add action node
+      const addActionNode: Node = {
+        id: "add-action-1",
+        type: "addAction",
+        position: { x: 400, y: 220 },
+        data: {
+          parentId: "trigger",
+          onClick: () => handleAddActionClick("add-action-1", "trigger")
+        }
+      };
+      
+      allNodes.push(addActionNode);
+      allEdges.push({
+        id: "trigger-add-action-1",
+        source: "trigger",
+        target: "add-action-1",
+        animated: false,
+        style: {
+          stroke: "#d1d5db",
+          strokeWidth: 1,
+          strokeDasharray: "5,5"
+        }
+      });
+    }
+    
+    setNodes(allNodes);
+    setEdges(allEdges);
     
     setShowTriggerDialog(false);
     setSelectedIntegration(null);
@@ -507,10 +603,8 @@ const useWorkflowBuilderState = () => {
     return availableIntegrations
       .filter(int => int.triggers.length > 0)
       .filter(int => {
-        if (showInstalledOnly) {
-          // Placeholder for installed app logic
-          // This would need a way to know which integrations the user has installed/connected.
-          return true; 
+        if (showConnectedOnly) {
+          return isIntegrationConnected(int.id);
         }
         return true;
       })
@@ -536,7 +630,7 @@ const useWorkflowBuilderState = () => {
         
         return integrationMatches || triggerMatches;
       });
-  }, [availableIntegrations, searchQuery, filterCategory, showInstalledOnly]);
+  }, [availableIntegrations, searchQuery, filterCategory, showConnectedOnly]);
   
   const displayedTriggers = useMemo(() => {
     if (!selectedIntegration) return [];
@@ -556,8 +650,8 @@ const useWorkflowBuilderState = () => {
     setShowTriggerDialog, showActionDialog, setShowActionDialog, handleTriggerSelect, handleActionSelect, selectedIntegration, setSelectedIntegration,
     availableIntegrations, renderLogo, getWorkflowStatus, currentWorkflow, isExecuting, executionEvents,
     configuringNode, setConfiguringNode, handleSaveConfiguration, collaborators, pendingNode, setPendingNode,
-    selectedTrigger, setSelectedTrigger, selectedAction, setSelectedAction, searchQuery, setSearchQuery, filterCategory, setFilterCategory, showInstalledOnly, setShowInstalledOnly,
-    filteredIntegrations, displayedTriggers, deletingNode, setDeletingNode, confirmDeleteNode
+    selectedTrigger, setSelectedTrigger, selectedAction, setSelectedAction, searchQuery, setSearchQuery, filterCategory, setFilterCategory, showConnectedOnly, setShowConnectedOnly,
+    filteredIntegrations, displayedTriggers, deletingNode, setDeletingNode, confirmDeleteNode, isIntegrationConnected
   }
 }
 
@@ -577,8 +671,8 @@ function WorkflowBuilderContent() {
     showTriggerDialog, setShowTriggerDialog, showActionDialog, setShowActionDialog, handleTriggerSelect, handleActionSelect, selectedIntegration, setSelectedIntegration,
     availableIntegrations, renderLogo, getWorkflowStatus, currentWorkflow, isExecuting, executionEvents,
     configuringNode, setConfiguringNode, handleSaveConfiguration, collaborators, pendingNode, setPendingNode,
-    selectedTrigger, setSelectedTrigger, selectedAction, setSelectedAction, searchQuery, setSearchQuery, filterCategory, setFilterCategory, showInstalledOnly, setShowInstalledOnly,
-    filteredIntegrations, displayedTriggers, deletingNode, setDeletingNode, confirmDeleteNode
+    selectedTrigger, setSelectedTrigger, selectedAction, setSelectedAction, searchQuery, setSearchQuery, filterCategory, setFilterCategory, showConnectedOnly, setShowConnectedOnly,
+    filteredIntegrations, displayedTriggers, deletingNode, setDeletingNode, confirmDeleteNode, isIntegrationConnected
   } = useWorkflowBuilderState()
 
   const categories = useMemo(() => {
@@ -703,8 +797,8 @@ function WorkflowBuilderContent() {
                 </SelectContent>
               </Select>
               <div className="flex items-center space-x-2">
-                <Checkbox id="installed-apps" checked={showInstalledOnly} onCheckedChange={(checked) => setShowInstalledOnly(Boolean(checked))} />
-                <Label htmlFor="installed-apps" className="whitespace-nowrap">Show only installed apps</Label>
+                <Checkbox id="connected-apps" checked={showConnectedOnly} onCheckedChange={(checked) => setShowConnectedOnly(Boolean(checked))} />
+                <Label htmlFor="connected-apps" className="whitespace-nowrap">Show only connected apps</Label>
               </div>
             </div>
           </div>
@@ -808,10 +902,10 @@ function WorkflowBuilderContent() {
                   ))}
                 </SelectContent>
               </Select>
-              <div className="flex items-center space-x-2">
-                <Checkbox id="installed-apps-actions" checked={showInstalledOnly} onCheckedChange={(checked) => setShowInstalledOnly(Boolean(checked))} />
-                <Label htmlFor="installed-apps-actions" className="whitespace-nowrap">Show only installed apps</Label>
-              </div>
+                             <div className="flex items-center space-x-2">
+                 <Checkbox id="connected-apps-actions" checked={showConnectedOnly} onCheckedChange={(checked) => setShowConnectedOnly(Boolean(checked))} />
+                 <Label htmlFor="connected-apps-actions" className="whitespace-nowrap">Show only connected apps</Label>
+               </div>
             </div>
           </div>
 
@@ -820,12 +914,12 @@ function WorkflowBuilderContent() {
               <div className="py-2 px-3">
               {availableIntegrations
                 .filter(int => int.actions.length > 0)
-                .filter(int => {
-                  if (showInstalledOnly) {
-                    return true; 
-                  }
-                  return true;
-                })
+                                 .filter(int => {
+                   if (showConnectedOnly) {
+                     return isIntegrationConnected(int.id);
+                   }
+                   return true;
+                 })
                 .filter(int => {
                   if (filterCategory === 'all') return true;
                   return int.category === filterCategory;
