@@ -5,23 +5,31 @@ import { EmailCacheService } from "@/lib/services/emailCacheService"
 import { cookies } from "next/headers"
 
 export async function POST(req: Request) {
-  cookies()
-  const supabase = createSupabaseRouteHandlerClient()
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
-
-  const { integrationId } = await req.json()
-
-  if (!integrationId) {
-    return NextResponse.json({ error: "Integration ID is required" }, { status: 400 })
-  }
-
+  console.log("🔄 Enhanced recipients API called")
+  
   try {
+    cookies()
+    const supabase = createSupabaseRouteHandlerClient()
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
+
+    if (!session) {
+      console.log("❌ No session found")
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    console.log("✅ Session found for user:", session.user.id)
+
+    const { integrationId } = await req.json()
+
+    if (!integrationId) {
+      console.log("❌ No integration ID provided")
+      return NextResponse.json({ error: "Integration ID is required" }, { status: 400 })
+    }
+
+    console.log("🔍 Looking for integration:", integrationId)
+
     const { data: integration, error } = await supabase
       .from("integrations")
       .select("access_token")
@@ -30,28 +38,49 @@ export async function POST(req: Request) {
       .single()
 
     if (error || !integration) {
+      console.log("❌ Integration not found:", error)
       return NextResponse.json({ error: "Integration not found" }, { status: 404 })
     }
 
+    console.log("✅ Integration found, fetching enhanced recipients...")
+
     const enhancedRecipients = await getEnhancedEmailRecipients(integration.access_token, integrationId)
+    
+    console.log("✅ Enhanced recipients fetched:", enhancedRecipients.length)
+    
     return NextResponse.json(enhancedRecipients)
   } catch (error) {
-    console.error("Failed to load enhanced recipients:", error)
-    return NextResponse.json({ error: "Failed to load enhanced recipients" }, { status: 500 })
+    console.error("❌ Failed to load enhanced recipients:", error)
+    console.error("❌ Error stack:", error instanceof Error ? error.stack : 'No stack trace')
+    return NextResponse.json({ 
+      error: "Failed to load enhanced recipients", 
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 })
   }
 }
 
 async function getEnhancedEmailRecipients(accessToken: string, integrationId: string) {
   try {
-    // Initialize cache service
-    const emailCache = new EmailCacheService(true) // server-side
+    console.log("🔄 Starting enhanced email recipients fetch...")
     
     // Fetch all data sources in parallel
+    console.log("🔄 Fetching data from multiple sources...")
     const [recentRecipients, googleContacts, contactGroups] = await Promise.all([
-      getGmailRecentRecipients(accessToken),
-      getEnhancedGoogleContacts(accessToken),
-      getGmailContactGroups(accessToken)
+      getGmailRecentRecipients(accessToken).catch(error => {
+        console.warn("⚠️ Failed to get recent recipients:", error)
+        return []
+      }),
+      getEnhancedGoogleContacts(accessToken).catch(error => {
+        console.warn("⚠️ Failed to get Google contacts:", error)
+        return []
+      }),
+      getGmailContactGroups(accessToken).catch(error => {
+        console.warn("⚠️ Failed to get contact groups:", error)
+        return []
+      })
     ])
+
+    console.log("✅ Data fetched - Recent:", recentRecipients.length, "Contacts:", googleContacts.length, "Groups:", contactGroups.length)
 
     // Create a comprehensive contact database with alias handling
     const contactDatabase = new Map<string, any>()
@@ -146,50 +175,45 @@ async function getEnhancedEmailRecipients(accessToken: string, integrationId: st
         return a.label.localeCompare(b.label)
       })
 
-    // 5. Get cached email frequencies and merge
-    const cachedSuggestions = individualContacts.map(contact => ({
-      value: contact.email,
-      label: contact.label,
-      email: contact.email,
-      name: contact.name,
-      type: contact.type,
-      frequency: contact.frequency,
-      source: 'gmail',
-      photo: contact.photo,
-      aliases: contact.aliases
-    }))
+    // 5. For now, skip the email cache to isolate the issue
+    console.log("⚠️ Skipping email cache for debugging - using fresh data only")
     
-    const mergedWithCache = await emailCache.getMergedEmailSuggestions(
-      cachedSuggestions, 
-      'gmail', 
-      50
-    )
-    
-    // 6. Track recent recipients in cache (async, don't wait)
-    const emailsToCache = recentRecipients.map(recipient => ({
-      email: recipient.email,
-      name: recipient.name,
-      source: 'gmail',
-      integrationId: integrationId,
-      metadata: { frequency: recipient.frequency }
-    }))
-    
-    // Track in background (don't await to avoid slowing down response)
-    emailCache.trackMultipleEmails(emailsToCache).catch(error => 
-      console.error('Failed to cache emails:', error)
-    )
-    
-    // 7. Combine cached individual contacts and groups
+    // 6. Combine individual contacts and groups
     const allRecipients = [
       ...groupEntries,
-      ...mergedWithCache
+      ...individualContacts
     ]
 
+    console.log("✅ Final recipients count:", allRecipients.length)
+    
+    // 7. Try to initialize cache in background for future requests (don't block)
+    try {
+      const emailCache = new EmailCacheService(true)
+      
+      // Track recent recipients in cache (async, don't wait)
+      const emailsToCache = recentRecipients.map(recipient => ({
+        email: recipient.email,
+        name: recipient.name,
+        source: 'gmail',
+        integrationId: integrationId,
+        metadata: { frequency: recipient.frequency }
+      }))
+      
+      // Track in background (don't await to avoid slowing down response)
+      emailCache.trackMultipleEmails(emailsToCache).catch(error => 
+        console.error('Failed to cache emails:', error)
+      )
+      console.log("✅ Background email caching initiated")
+    } catch (cacheError) {
+      console.warn("⚠️ Failed to initialize background caching:", cacheError)
+    }
+    
     return allRecipients
 
   } catch (error) {
-    console.error("Failed to get enhanced email recipients:", error)
-    throw new Error("Failed to get enhanced email recipients")
+    console.error("❌ Failed to get enhanced email recipients:", error)
+    console.error("❌ Error details:", error instanceof Error ? error.message : error)
+    throw new Error(`Failed to get enhanced email recipients: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
 }
 
