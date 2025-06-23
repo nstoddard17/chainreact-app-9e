@@ -585,7 +585,7 @@ function WorkflowBuilderContent() {
             </div>
           </div>
 
-          <div className="flex-grow flex min-h-0">
+          <div className="flex-grow flex min-h-0 overflow-hidden">
             <ScrollArea className="w-1/3 border-r">
               <div className="p-2">
               {filteredIntegrations.map((integration) => (
