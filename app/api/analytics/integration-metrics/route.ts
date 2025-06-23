@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 import type { Integration } from "@/types/integration"
+import { detectAvailableIntegrations } from "@/lib/integrations/availableIntegrations"
 
 export async function GET() {
   try {
@@ -28,6 +29,9 @@ export async function GET() {
       return NextResponse.json({ error: integrationsError.message }, { status: 500 })
     }
 
+    const availableIntegrations = detectAvailableIntegrations()
+    const configuredProviders = new Set(integrations.map((i: Integration) => i.provider))
+
     // Calculate metrics and update expired integrations
     const now = new Date()
     const tenMinutesMs = 10 * 60 * 1000
@@ -37,7 +41,7 @@ export async function GET() {
       expiring: 0, // expiring within the next 10 minutes
       expired: 0,
       disconnected: 0,
-      total: integrations?.length || 0,
+      total: availableIntegrations.length || 0,
     }
 
     const integrationsToUpdate: {
@@ -90,6 +94,9 @@ export async function GET() {
       }
     }
     
+    const configuredCount = metrics.connected + metrics.expiring + metrics.expired
+    metrics.disconnected = availableIntegrations.length - configuredCount
+    
     // Log expiring integrations for debugging (can be removed in production)
     const expiringForDebug = integrations.filter((i: Integration) => {
       if(i.expires_at) {
@@ -103,7 +110,6 @@ export async function GET() {
     if (expiringForDebug.length > 0) {
       console.log(`Found ${expiringForDebug.length} expiring integrations:`, expiringForDebug.map((e: Integration) => e.provider));
     }
-
 
     // Update expired integrations in the database
     let updatedCount = 0
