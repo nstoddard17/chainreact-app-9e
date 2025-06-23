@@ -624,11 +624,10 @@ function WorkflowBuilderContent() {
             </ScrollArea>
             <div className="w-2/3 h-full">
               <ScrollArea className="h-full">
-                <div className="p-6">
+                <div className="p-4">
                 {selectedIntegration ? (
-                  <div>
-                    <h3 className="font-semibold text-lg mb-6">Triggers for {selectedIntegration.name}</h3>
-                    <div className="grid grid-cols-1 gap-4">
+                  <div className="h-full max-h-[400px] overflow-y-auto">
+                    <div className="grid grid-cols-1 gap-3">
                       {displayedTriggers.map((trigger) => (
                         <div
                           key={trigger.type}
@@ -759,11 +758,10 @@ function WorkflowBuilderContent() {
             </ScrollArea>
             <div className="w-2/3 h-full">
               <ScrollArea className="h-full">
-                <div className="p-6">
+                                <div className="p-4">
                 {selectedIntegration ? (
-                  <div>
-                    <h3 className="font-semibold text-lg mb-6">Actions for {selectedIntegration.name}</h3>
-                    <div className="grid grid-cols-1 gap-4">
+                  <div className="h-full max-h-[400px] overflow-y-auto">
+                    <div className="grid grid-cols-1 gap-3">
                       {selectedIntegration.actions
                         .filter((action) => {
                           if (!searchQuery) return true;
@@ -773,7 +771,7 @@ function WorkflowBuilderContent() {
                                  (action.type && action.type.toLowerCase().includes(searchLower));
                         })
                         .map((action) => (
-                                                 <div
+                         <div
                            key={action.type}
                            className={`p-4 border rounded-lg cursor-pointer transition-all ${selectedAction?.type === action.type ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-500' : 'hover:border-gray-300 hover:shadow-sm'}`}
                            onClick={() => setSelectedAction(action)}
@@ -781,7 +779,7 @@ function WorkflowBuilderContent() {
                            <p className="font-medium">{action.name}</p>
                            <p className="text-sm text-gray-500 mt-1">{action.description}</p>
                          </div>
-                      ))}
+                       ))}
                     </div>
                   </div>
                 ) : (
