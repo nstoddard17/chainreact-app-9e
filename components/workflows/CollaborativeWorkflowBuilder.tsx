@@ -396,41 +396,6 @@ const useWorkflowBuilderState = () => {
     />
   }
 
-  return {
-    nodes, edges, onNodesChange, onEdgesChange, onConnect, workflowName, setWorkflowName, isSaving, handleSave, handleExecute, showTriggerDialog,
-    setShowTriggerDialog, showActionDialog, setShowActionDialog, handleTriggerSelect, handleActionSelect, selectedIntegration, setSelectedIntegration,
-    availableIntegrations, renderLogo, getWorkflowStatus, currentWorkflow, isExecuting, executionEvents,
-    configuringNode, setConfiguringNode, handleSaveConfiguration, collaborators,
-    selectedTrigger, setSelectedTrigger, searchQuery, setSearchQuery, filterCategory, setFilterCategory, showInstalledOnly, setShowInstalledOnly
-  }
-}
-
-export default function CollaborativeWorkflowBuilder() {
-  return (
-    <div className="w-full h-full bg-background">
-      <ReactFlowProvider><WorkflowBuilderContent /></ReactFlowProvider>
-    </div>
-  )
-}
-
-function WorkflowBuilderContent() {
-  const router = useRouter()
-  
-  const {
-    nodes, edges, onNodesChange, onEdgesChange, onConnect, workflowName, setWorkflowName, isSaving, handleSave, handleExecute, 
-    showTriggerDialog, setShowTriggerDialog, showActionDialog, setShowActionDialog, handleTriggerSelect, handleActionSelect, selectedIntegration, setSelectedIntegration,
-    availableIntegrations, renderLogo, getWorkflowStatus, currentWorkflow, isExecuting, executionEvents,
-    configuringNode, setConfiguringNode, handleSaveConfiguration, collaborators,
-    selectedTrigger, setSelectedTrigger, searchQuery, setSearchQuery, filterCategory, setFilterCategory, showInstalledOnly, setShowInstalledOnly
-  } = useWorkflowBuilderState()
-
-  const categories = useMemo(() => {
-    const allCategories = availableIntegrations
-      .filter(int => int.triggers.length > 0)
-      .map(int => int.category);
-    return ['all', ...Array.from(new Set(allCategories))];
-  }, [availableIntegrations]);
-
   const filteredIntegrations = useMemo(() => {
     return availableIntegrations
       .filter(int => int.triggers.length > 0)
@@ -454,6 +419,54 @@ function WorkflowBuilderContent() {
       });
   }, [availableIntegrations, searchQuery, filterCategory, showInstalledOnly]);
   
+  const displayedTriggers = useMemo(() => {
+    if (!selectedIntegration) return [];
+
+    const searchLower = searchQuery.toLowerCase();
+    if (!searchLower) return selectedIntegration.triggers;
+
+    return selectedIntegration.triggers.filter(
+      (trigger) => trigger.name && trigger.name.toLowerCase().includes(searchLower)
+    );
+  }, [selectedIntegration, searchQuery]);
+
+  return {
+    nodes, edges, onNodesChange, onEdgesChange, onConnect, workflowName, setWorkflowName, isSaving, handleSave, handleExecute, showTriggerDialog,
+    setShowTriggerDialog, showActionDialog, setShowActionDialog, handleTriggerSelect, handleActionSelect, selectedIntegration, setSelectedIntegration,
+    availableIntegrations, renderLogo, getWorkflowStatus, currentWorkflow, isExecuting, executionEvents,
+    configuringNode, setConfiguringNode, handleSaveConfiguration, collaborators,
+    selectedTrigger, setSelectedTrigger, searchQuery, setSearchQuery, filterCategory, setFilterCategory, showInstalledOnly, setShowInstalledOnly,
+    filteredIntegrations, displayedTriggers
+  }
+}
+
+export default function CollaborativeWorkflowBuilder() {
+  return (
+    <div className="w-full h-full bg-background">
+      <ReactFlowProvider><WorkflowBuilderContent /></ReactFlowProvider>
+    </div>
+  )
+}
+
+function WorkflowBuilderContent() {
+  const router = useRouter()
+  
+  const {
+    nodes, edges, onNodesChange, onEdgesChange, onConnect, workflowName, setWorkflowName, isSaving, handleSave, handleExecute, 
+    showTriggerDialog, setShowTriggerDialog, showActionDialog, setShowActionDialog, handleTriggerSelect, handleActionSelect, selectedIntegration, setSelectedIntegration,
+    availableIntegrations, renderLogo, getWorkflowStatus, currentWorkflow, isExecuting, executionEvents,
+    configuringNode, setConfiguringNode, handleSaveConfiguration, collaborators,
+    selectedTrigger, setSelectedTrigger, searchQuery, setSearchQuery, filterCategory, setFilterCategory, showInstalledOnly, setShowInstalledOnly,
+    filteredIntegrations, displayedTriggers
+  } = useWorkflowBuilderState()
+
+  const categories = useMemo(() => {
+    const allCategories = availableIntegrations
+      .filter(int => int.triggers.length > 0)
+      .map(int => int.category);
+    return ['all', ...Array.from(new Set(allCategories))];
+  }, [availableIntegrations]);
+
   const handleOpenTriggerDialog = () => {
     setSelectedIntegration(null);
     setSelectedTrigger(null);
@@ -594,7 +607,7 @@ function WorkflowBuilderContent() {
                 <div>
                   <h3 className="font-semibold text-lg mb-4">Triggers for {selectedIntegration.name}</h3>
                   <div className="space-y-2">
-                    {selectedIntegration.triggers.map((trigger) => (
+                    {displayedTriggers.map((trigger) => (
                       <div
                         key={trigger.type}
                         className={`p-4 border rounded-lg cursor-pointer ${selectedTrigger?.type === trigger.type ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-500' : 'hover:border-gray-300'}`}
