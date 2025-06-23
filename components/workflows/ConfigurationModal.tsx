@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { ConfigField, NodeComponent } from "@/lib/workflows/availableNodes"
 import { useIntegrationStore } from "@/stores/integrationStore"
 import { Combobox } from "@/components/ui/combobox"
+import { EmailAutocomplete } from "@/components/ui/email-autocomplete"
 
 interface ConfigurationModalProps {
   isOpen: boolean
@@ -78,6 +79,53 @@ export default function ConfigurationModal({
               newOptions[field.name] = data.map((c: any) => ({
                 value: c.email,
                 label: `${c.name} (${c.email})`,
+              }))
+            }
+          } else if (field.dynamic === "gmail-recent-recipients") {
+            const data = await loadIntegrationData(
+              "gmail-recent-recipients",
+              integration.id,
+            )
+            if (data) {
+              newOptions[field.name] = data.map((recipient: any) => ({
+                value: recipient.email,
+                label: recipient.label,
+                email: recipient.email,
+                name: recipient.name,
+              }))
+            }
+          } else if (field.dynamic === "gmail-enhanced-recipients") {
+            const data = await loadIntegrationData(
+              "gmail-enhanced-recipients",
+              integration.id,
+            )
+            if (data) {
+              newOptions[field.name] = data.map((recipient: any) => ({
+                value: recipient.value,
+                label: recipient.label,
+                email: recipient.email,
+                name: recipient.name,
+                type: recipient.type,
+                isGroup: recipient.isGroup,
+                groupId: recipient.groupId,
+                members: recipient.members,
+              }))
+            }
+          } else if (field.dynamic === "gmail-contact-groups") {
+            const data = await loadIntegrationData(
+              "gmail-contact-groups",
+              integration.id,
+            )
+            if (data) {
+              newOptions[field.name] = data.map((group: any) => ({
+                value: `@${group.name}`,
+                label: `📧 ${group.name} (${group.memberCount} members)`,
+                email: `@${group.name}`,
+                name: group.name,
+                type: 'contact_group',
+                isGroup: true,
+                groupId: group.id,
+                members: group.emails,
               }))
             }
           } else if (field.dynamic === "google-calendars") {
@@ -200,6 +248,24 @@ export default function ConfigurationModal({
             onChange={handleChange}
             placeholder={field.placeholder}
             required={field.required}
+          />
+        )
+      case "email-autocomplete":
+        const emailOptions = dynamicOptions[field.name] || []
+        const emailSuggestions = emailOptions.map((opt: any) => ({
+          value: opt.value,
+          label: opt.label,
+          email: opt.email || opt.value,
+          name: opt.name
+        }))
+        return (
+          <EmailAutocomplete
+            value={value}
+            onChange={handleSelectChange}
+            suggestions={emailSuggestions}
+            placeholder={field.placeholder}
+            disabled={loadingDynamic}
+            multiple={field.name === "to"} // Allow multiple recipients for "to" field
           />
         )
       default:

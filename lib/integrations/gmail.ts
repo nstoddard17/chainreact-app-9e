@@ -124,3 +124,65 @@ export async function getGoogleContacts(accessToken: string) {
     throw new Error("Failed to get Google contacts")
   }
 }
+
+export async function getEnhancedGoogleContacts(accessToken: string) {
+  const oauth2Client = new google.auth.OAuth2()
+  oauth2Client.setCredentials({ access_token: accessToken })
+
+  const people = google.people({ version: "v1", auth: oauth2Client })
+
+  try {
+    const response = await people.people.connections.list({
+      resourceName: "people/me",
+      personFields: "names,emailAddresses,photos",
+      pageSize: 500, // Get more contacts
+    })
+
+    const contacts =
+      response.data.connections
+        ?.map((person) => {
+          const names = person.names || []
+          const emailAddresses = person.emailAddresses || []
+          const photos = person.photos || []
+
+          const primaryName = names.find((name) => name.metadata?.primary)
+          const displayName = primaryName?.displayName || 
+                             names[0]?.displayName || 
+                             'Unknown Contact'
+
+          // Get all email addresses for this contact (to handle aliases)
+          const emails = emailAddresses
+            .filter((email) => email.value && isValidContactEmail(email.value))
+            .map((email) => ({
+              email: email.value!,
+              isPrimary: email.metadata?.primary || false,
+              type: email.type || 'other'
+            }))
+
+          if (emails.length === 0) return null
+
+          const primaryEmail = emails.find(e => e.isPrimary) || emails[0]
+          const photo = photos.find(p => p.metadata?.primary)?.url
+
+          return {
+            name: displayName,
+            email: primaryEmail.email,
+            allEmails: emails.map(e => e.email), // For alias detection
+            photo: photo,
+            type: 'google_contact',
+            aliases: emails.length > 1 ? emails.slice(1).map(e => e.email) : []
+          }
+        })
+        .filter((contact) => contact !== null) || []
+
+    return contacts
+  } catch (error) {
+    console.error("Failed to get enhanced Google contacts:", error)
+    throw new Error("Failed to get enhanced Google contacts")
+  }
+}
+
+function isValidContactEmail(email: string): boolean {
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
+  return emailRegex.test(email.trim())
+}

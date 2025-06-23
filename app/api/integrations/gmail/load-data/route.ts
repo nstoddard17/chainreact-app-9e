@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
-import { getGoogleContacts } from "@/lib/integrations/gmail"
+import { getGoogleContacts, getEnhancedGoogleContacts } from "@/lib/integrations/gmail"
 import { cookies } from "next/headers"
 
 export async function POST(req: Request) {
@@ -32,7 +32,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Integration not found" }, { status: 404 })
     }
 
-    const contacts = await getGoogleContacts(integration.access_token)
+    const contacts = await getEnhancedGoogleContacts(integration.access_token)
     return NextResponse.json(contacts)
   } catch (error) {
     return NextResponse.json({ error: "Failed to load contacts" }, { status: 500 })

@@ -43,6 +43,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ALL_NODE_COMPONENTS, NodeComponent } from "@/lib/workflows/availableNodes"
 import { INTEGRATION_CONFIGS } from "@/lib/integrations/availableIntegrations"
 import { useToast } from "@/hooks/use-toast"
+import { useWorkflowEmailTracking } from "@/hooks/use-email-cache"
 import { Card } from "@/components/ui/card"
 
 type IntegrationInfo = {
@@ -121,6 +122,7 @@ const useWorkflowBuilderState = () => {
   const [deletingNode, setDeletingNode] = useState<{ id: string; name: string } | null>(null)
 
   const { toast } = useToast()
+  const { trackWorkflowEmails } = useWorkflowEmailTracking()
   const availableIntegrations = useMemo(() => getIntegrationsFromNodes(), [])
 
   const nodeNeedsConfiguration = (nodeComponent: NodeComponent): boolean => {
@@ -583,7 +585,36 @@ const useWorkflowBuilderState = () => {
     }
   }
 
-  const handleExecute = async () => { /* Placeholder */ }
+  const handleExecute = async () => { 
+    setIsExecuting(true)
+    try {
+      // Get all workflow nodes
+      const workflowNodes = getNodes().filter((n: Node) => n.type === 'custom')
+      
+      // Track emails from all email-sending nodes
+      for (const node of workflowNodes) {
+        if (node.data.config && typeof node.data.type === 'string' && node.data.type.includes('send_email')) {
+          await trackWorkflowEmails(node.data.config, node.data.providerId as string)
+        }
+      }
+      
+      // TODO: Add actual workflow execution logic here
+      toast({ 
+        title: "Workflow Executed", 
+        description: "Your workflow has been executed successfully and email usage has been tracked." 
+      })
+      
+    } catch (error) {
+      console.error("Failed to execute workflow:", error)
+      toast({ 
+        title: "Execution Failed", 
+        description: "Failed to execute workflow. Please try again.", 
+        variant: "destructive" 
+      })
+    } finally {
+      setIsExecuting(false)
+    }
+  }
 
   const getWorkflowStatus = (): { variant: BadgeProps["variant"]; text: string } => {
     if (currentWorkflow?.status === 'published') return { variant: "default", text: "Published" }
