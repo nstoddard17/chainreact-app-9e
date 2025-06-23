@@ -32,10 +32,13 @@ import { ExecutionMonitor, type ExecutionEvent } from "./ExecutionMonitor"
 import { Button } from "@/components/ui/button"
 import { Badge, type BadgeProps } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { Save, Loader2, Play, ArrowLeft, Plus } from "lucide-react"
+import { Save, Loader2, Play, ArrowLeft, Plus, Search, ChevronRight } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ALL_NODE_COMPONENTS, NodeComponent } from "@/lib/workflows/availableNodes"
 import { INTEGRATION_CONFIGS } from "@/lib/integrations/availableIntegrations"
 import { useToast } from "@/hooks/use-toast"
@@ -92,8 +95,8 @@ const useWorkflowBuilderState = () => {
   const { currentWorkflow, setCurrentWorkflow, fetchWorkflows, workflows, updateWorkflow } = useWorkflowStore()
   const { joinCollaboration, leaveCollaboration, collaborators } = useCollaborationStore()
 
-  const [nodes, setNodes, onNodesChange] = useNodesState<any>([])
-  const [edges, setEdges, onEdgesChange] = useEdgesState<any>([])
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
   const { fitView, getNodes, getEdges } = useReactFlow()
 
   const [isSaving, setIsSaving] = useState(false)
@@ -103,6 +106,10 @@ const useWorkflowBuilderState = () => {
   const [showTriggerDialog, setShowTriggerDialog] = useState(false)
   const [showActionDialog, setShowActionDialog] = useState(false)
   const [selectedIntegration, setSelectedIntegration] = useState<IntegrationInfo | null>(null)
+  const [selectedTrigger, setSelectedTrigger] = useState<NodeComponent | null>(null)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [filterCategory, setFilterCategory] = useState("all")
+  const [showInstalledOnly, setShowInstalledOnly] = useState(false)
   const [sourceAddNode, setSourceAddNode] = useState<{ id: string; parentId: string } | null>(null)
   const [configuringNode, setConfiguringNode] = useState<{ id: string; integration: any; nodeComponent: NodeComponent; config: Record<string, any> } | null>(null)
 
@@ -129,16 +136,16 @@ const useWorkflowBuilderState = () => {
 
   const recalculateLayout = useCallback(() => {
     const nodeList = getNodes()
-      .filter((n) => n.type === "custom" || n.type === "addAction")
-      .sort((a, b) => a.position.y - b.position.y)
+      .filter((n: Node) => n.type === "custom" || n.type === "addAction")
+      .sort((a: Node, b: Node) => a.position.y - b.position.y)
     if (nodeList.length === 0) return
 
-    const triggerNode = nodeList.find((n) => n.data?.isTrigger)
+    const triggerNode = nodeList.find((n: Node) => n.data?.isTrigger)
     const basePosition = triggerNode ? { x: triggerNode.position.x, y: triggerNode.position.y } : { x: 400, y: 100 }
     const verticalGap = 120
     let currentY = basePosition.y
     const newNodes = getNodes()
-      .map((n) => {
+      .map((n: Node) => {
         if (n.type === "custom" || n.type === "addAction") {
           const newY = currentY
           currentY += verticalGap
@@ -146,10 +153,10 @@ const useWorkflowBuilderState = () => {
         }
         return n
       })
-      .sort((a, b) => a.position.y - b.position.y)
+      .sort((a: Node, b: Node) => a.position.y - b.position.y)
     let runningNodes = newNodes
-      .filter((n) => n.type === "custom" || n.type === "addAction")
-      .sort((a, b) => a.position.y - b.position.y)
+      .filter((n: Node) => n.type === "custom" || n.type === "addAction")
+      .sort((a: Node, b: Node) => a.position.y - b.position.y)
     const newEdges: Edge[] = []
     for (let i = 0; i < runningNodes.length - 1; i++) {
       const source = runningNodes[i]
@@ -175,23 +182,23 @@ const useWorkflowBuilderState = () => {
   const handleDeleteNode = useCallback((nodeId: string) => {
     const nodeToRemove = getNodes().find((n) => n.id === nodeId)
     if (!nodeToRemove) return
-    if (nodeToRemove.data.isTrigger || getNodes().filter((n) => n.type === "custom").length <= 1) {
+    if (nodeToRemove.data.isTrigger || getNodes().filter((n: Node) => n.type === "custom").length <= 1) {
       setNodes([])
       setEdges([])
       return
     }
-    setNodes((prevNodes) => prevNodes.filter((n) => n.id !== nodeId))
-    setEdges((prevEdges) => prevEdges.filter((e) => e.source !== nodeId && e.target !== nodeId))
+    setNodes((prevNodes: Node[]) => prevNodes.filter((n: Node) => n.id !== nodeId))
+    setEdges((prevEdges: Edge[]) => prevEdges.filter((e: Edge) => e.source !== nodeId && e.target !== nodeId))
     if (nodeToRemove.type === "custom") {
       const edgeToNode = getEdges().find((e) => e.target === nodeId)
       if (edgeToNode) {
-        setNodes((prevNodes) => prevNodes.filter((n) => !(n.type === "addAction" && n.id === edgeToNode.source)))
+        setNodes((prevNodes: Node[]) => prevNodes.filter((n: Node) => !(n.type === "addAction" && n.id === edgeToNode.source)))
       }
     }
     setTimeout(recalculateLayout, 50)
   }, [getNodes, getEdges, setNodes, setEdges, recalculateLayout])
 
-  const onConnect = useCallback((params: Edge | Connection) => setEdges((eds) => addEdge(params, eds)), [setEdges])
+  const onConnect = useCallback((params: Edge | Connection) => setEdges((eds: Edge[]) => addEdge(params, eds)), [setEdges])
 
   useEffect(() => {
     if (workflowId) joinCollaboration(workflowId)
@@ -220,7 +227,7 @@ const useWorkflowBuilderState = () => {
         },
       }))
 
-      let allNodes = [...customNodes]
+      let allNodes: Node[] = [...customNodes]
       const lastNode = customNodes.length > 0 ? customNodes.sort((a,b) => b.position.y - a.position.y)[0] : null
       
       if(lastNode) {
@@ -257,7 +264,7 @@ const useWorkflowBuilderState = () => {
   const handleTriggerSelect = (integration: IntegrationInfo, trigger: NodeComponent) => {
     console.log("Trigger selected:", trigger);
     // Direct approach to add the trigger node
-    const triggerNode = {
+    const triggerNode: Node = {
       id: "trigger",
       type: "custom",
       position: { x: 400, y: 100 },
@@ -266,11 +273,12 @@ const useWorkflowBuilderState = () => {
         name: trigger.name,
         isTrigger: true,
         onConfigure: handleConfigureNode,
-        onDelete: handleDeleteNode
+        onDelete: handleDeleteNode,
+        providerId: integration.id
       }
     };
     
-    const addActionNode = {
+    const addActionNode: Node = {
       id: "add-action-1",
       type: "addAction",
       position: { x: 400, y: 220 },
@@ -295,6 +303,9 @@ const useWorkflowBuilderState = () => {
     }]);
     
     setShowTriggerDialog(false);
+    setSelectedIntegration(null);
+    setSelectedTrigger(null);
+    setSearchQuery("");
     setTimeout(() => fitView({ padding: 0.5 }), 100);
   }
 
@@ -312,9 +323,9 @@ const useWorkflowBuilderState = () => {
       id: newAddActionId, type: "addAction", position: { x: parentNode.position.x, y: parentNode.position.y + 240 },
       data: { parentId: newNodeId, onClick: () => handleAddActionClick(newAddActionId, newNodeId) },
     }
-    setNodes((prevNodes) => [...prevNodes.filter((n) => n.id !== sourceAddNode.id), newActionNode, newAddActionNode])
-    setEdges((prevEdges) => [
-      ...prevEdges.filter(e => e.target !== sourceAddNode.id),
+    setNodes((prevNodes: Node[]) => [...prevNodes.filter((n: Node) => n.id !== sourceAddNode.id), newActionNode, newAddActionNode])
+    setEdges((prevEdges: Edge[]) => [
+      ...prevEdges.filter((e: Edge) => e.target !== sourceAddNode.id),
       {
         id: `${parentNode.id}-${newNodeId}`,
         source: parentNode.id,
@@ -343,14 +354,14 @@ const useWorkflowBuilderState = () => {
   const handleSave = async () => {
     if (!currentWorkflow) return
     setIsSaving(true)
-    const reactFlowNodes = getNodes().filter(n => n.type === 'custom')
-    const reactFlowEdges = getEdges().filter(e => reactFlowNodes.some(n => n.id === e.source) && reactFlowNodes.some(n => n.id === e.target))
+    const reactFlowNodes = getNodes().filter((n: Node) => n.type === 'custom')
+    const reactFlowEdges = getEdges().filter((e: Edge) => reactFlowNodes.some((n: Node) => n.id === e.source) && reactFlowNodes.some((n: Node) => n.id === e.target))
 
-    const mappedNodes: WorkflowNode[] = reactFlowNodes.map((n) => ({
+    const mappedNodes: WorkflowNode[] = reactFlowNodes.map((n: Node) => ({
       id: n.id, type: 'custom', position: n.position,
       data: { label: n.data.name as string, type: n.data.type as string, config: n.data.config || {} },
     }))
-    const mappedConnections: WorkflowConnection[] = reactFlowEdges.map((e) => ({
+    const mappedConnections: WorkflowConnection[] = reactFlowEdges.map((e: Edge) => ({
       id: e.id, source: e.source, target: e.target,
       sourceHandle: e.sourceHandle ?? undefined, targetHandle: e.targetHandle ?? undefined,
     }))
@@ -390,6 +401,7 @@ const useWorkflowBuilderState = () => {
     setShowTriggerDialog, showActionDialog, setShowActionDialog, handleTriggerSelect, handleActionSelect, selectedIntegration, setSelectedIntegration,
     availableIntegrations, renderLogo, getWorkflowStatus, currentWorkflow, isExecuting, executionEvents,
     configuringNode, setConfiguringNode, handleSaveConfiguration, collaborators,
+    selectedTrigger, setSelectedTrigger, searchQuery, setSearchQuery, filterCategory, setFilterCategory, showInstalledOnly, setShowInstalledOnly
   }
 }
 
@@ -403,27 +415,51 @@ export default function CollaborativeWorkflowBuilder() {
 
 function WorkflowBuilderContent() {
   const router = useRouter()
-  const [showTriggerDialog, setShowTriggerDialog] = useState(false);
   
   const {
     nodes, edges, onNodesChange, onEdgesChange, onConnect, workflowName, setWorkflowName, isSaving, handleSave, handleExecute, 
-    showActionDialog, setShowActionDialog, handleTriggerSelect, handleActionSelect, selectedIntegration, setSelectedIntegration,
+    showTriggerDialog, setShowTriggerDialog, showActionDialog, setShowActionDialog, handleTriggerSelect, handleActionSelect, selectedIntegration, setSelectedIntegration,
     availableIntegrations, renderLogo, getWorkflowStatus, currentWorkflow, isExecuting, executionEvents,
-    configuringNode, setConfiguringNode, handleSaveConfiguration, collaborators
+    configuringNode, setConfiguringNode, handleSaveConfiguration, collaborators,
+    selectedTrigger, setSelectedTrigger, searchQuery, setSearchQuery, filterCategory, setFilterCategory, showInstalledOnly, setShowInstalledOnly
   } = useWorkflowBuilderState()
-  
-  console.log("Debug WorkflowBuilderContent:", {
-    showTriggerDialog,
-    availableIntegrations,
-    handleTriggerSelect: !!handleTriggerSelect,
-    currentWorkflow
-  });
 
-  const onTriggerSelect = (integration: IntegrationInfo, trigger: NodeComponent) => {
-    console.log("Trigger selected in onTriggerSelect:", integration, trigger);
-    handleTriggerSelect(integration, trigger);
-    setShowTriggerDialog(false);
-  };
+  const categories = useMemo(() => {
+    const allCategories = availableIntegrations
+      .filter(int => int.triggers.length > 0)
+      .map(int => int.category);
+    return ['all', ...Array.from(new Set(allCategories))];
+  }, [availableIntegrations]);
+
+  const filteredIntegrations = useMemo(() => {
+    return availableIntegrations
+      .filter(int => int.triggers.length > 0)
+      .filter(int => {
+        if (showInstalledOnly) {
+          // Placeholder for installed app logic
+          // This would need a way to know which integrations the user has installed/connected.
+          return true; 
+        }
+        return true;
+      })
+      .filter(int => {
+        if (filterCategory === 'all') return true;
+        return int.category === filterCategory;
+      })
+      .filter(int => {
+        const searchLower = searchQuery.toLowerCase();
+        if (searchLower === "") return true;
+        return int.name.toLowerCase().includes(searchLower) ||
+               int.triggers.some(t => t.name.toLowerCase().includes(searchLower));
+      });
+  }, [availableIntegrations, searchQuery, filterCategory, showInstalledOnly]);
+  
+  const handleOpenTriggerDialog = () => {
+    setSelectedIntegration(null);
+    setSelectedTrigger(null);
+    setSearchQuery("");
+    setShowTriggerDialog(true);
+  }
 
   if (!currentWorkflow) {
     return <div className="flex items-center justify-center h-full"><Loader2 className="w-8 h-8 animate-spin" /></div>
@@ -436,10 +472,7 @@ function WorkflowBuilderContent() {
           <div className="text-center max-w-md flex flex-col items-center">
             <div 
               className="w-20 h-20 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center mb-6 cursor-pointer hover:border-gray-400 hover:shadow-sm transition-all"
-              onClick={() => {
-                console.log("Plus button clicked");
-                setShowTriggerDialog(true);
-              }}
+              onClick={handleOpenTriggerDialog}
             >
               <Plus className="h-10 w-10 text-gray-400 hover:text-gray-500" />
             </div>
@@ -449,10 +482,7 @@ function WorkflowBuilderContent() {
               your workflow
             </p>
             <button 
-              onClick={() => {
-                console.log("Choose trigger button clicked");
-                setShowTriggerDialog(true);
-              }}
+              onClick={handleOpenTriggerDialog}
               className="bg-gray-900 text-white px-8 py-3 rounded-md hover:bg-gray-800 transition-colors font-medium text-lg shadow-sm hover:shadow"
             >
               Choose a trigger
@@ -507,38 +537,107 @@ function WorkflowBuilderContent() {
         </ReactFlow>
       )}
 
-      {/* Move dialogs outside of conditional rendering */}
       <Dialog open={showTriggerDialog} onOpenChange={setShowTriggerDialog}>
-        <DialogContent className="max-w-3xl p-6">
-          <DialogHeader className="mb-4">
-            <DialogTitle className="text-2xl font-bold">Choose a Trigger</DialogTitle>
-            <DialogDescription className="text-base">Select a trigger to start your workflow</DialogDescription>
+        <DialogContent className="max-w-4xl h-[70vh] flex flex-col p-0 bg-white rounded-lg shadow-2xl">
+          <DialogHeader className="p-6 pb-4 border-b">
+            <DialogTitle className="text-xl font-bold">Select a Trigger</DialogTitle>
+            <DialogDescription>Choose an integration and a trigger to start your workflow.</DialogDescription>
           </DialogHeader>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-6 overflow-y-auto max-h-[60vh] p-2">
-            {availableIntegrations.map((integration) => 
-              integration.triggers.length > 0 && integration.triggers.map((trigger) => (
-                <button
-                  key={`${integration.id}-${trigger.type}`}
-                  className="flex flex-col items-center p-6 border rounded-lg hover:border-blue-500 hover:ring-1 hover:ring-blue-200 transition-all cursor-pointer relative"
-                  onClick={() => {
-                    console.log(`Selected trigger: ${integration.id}-${trigger.type}`);
-                    handleTriggerSelect(integration, trigger);
-                    setShowTriggerDialog(false);
-                  }}
-                >
-                  <div className="w-20 h-20 flex items-center justify-center rounded-full bg-gray-50 mb-3">
-                    {renderLogo(integration.id, integration.name)}
-                  </div>
-                  <div className="font-medium text-center text-base">{integration.name}</div>
-                  <div className="text-sm text-gray-500 text-center mt-1">{trigger.name}</div>
-                </button>
-              ))
-            )}
+          
+          <div className="px-6 py-4 border-b">
+            <div className="flex items-center space-x-4">
+              <div className="relative flex-grow">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <Input 
+                  placeholder="Search integrations or triggers..."
+                  className="pl-10"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+              <Select value={filterCategory} onValueChange={setFilterCategory}>
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Filter by category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map(cat => (
+                    <SelectItem key={cat} value={cat}>{cat === 'all' ? 'All Categories' : cat}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <div className="flex items-center space-x-2">
+                <Checkbox id="installed-apps" checked={showInstalledOnly} onCheckedChange={(checked) => setShowInstalledOnly(Boolean(checked))} />
+                <Label htmlFor="installed-apps" className="whitespace-nowrap">Show only installed apps</Label>
+              </div>
+            </div>
           </div>
-          <DialogFooter className="mt-6">
-            <Button type="button" variant="outline" size="lg" className="px-6" onClick={() => setShowTriggerDialog(false)}>
-              Cancel
-            </Button>
+
+          <div className="flex-grow flex min-h-0">
+            <ScrollArea className="w-1/3 border-r">
+              <div className="p-2">
+              {filteredIntegrations.map((integration) => (
+                <div
+                  key={integration.id}
+                  className={`flex items-center p-3 rounded-md cursor-pointer ${selectedIntegration?.id === integration.id ? 'bg-blue-50' : 'hover:bg-gray-50'}`}
+                  onClick={() => setSelectedIntegration(integration)}
+                >
+                  {renderLogo(integration.id, integration.name)}
+                  <span className="font-semibold ml-4 flex-grow">{integration.name}</span>
+                  <ChevronRight className="w-5 h-5 text-gray-400" />
+                </div>
+              ))}
+              </div>
+            </ScrollArea>
+            <ScrollArea className="w-2/3">
+              <div className="p-4">
+              {selectedIntegration ? (
+                <div>
+                  <h3 className="font-semibold text-lg mb-4">Triggers for {selectedIntegration.name}</h3>
+                  <div className="space-y-2">
+                    {selectedIntegration.triggers.map((trigger) => (
+                      <div
+                        key={trigger.type}
+                        className={`p-4 border rounded-lg cursor-pointer ${selectedTrigger?.type === trigger.type ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-500' : 'hover:border-gray-300'}`}
+                        onClick={() => setSelectedTrigger(trigger)}
+                      >
+                        <p className="font-medium">{trigger.name}</p>
+                        <p className="text-sm text-gray-500">{trigger.description}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center h-full text-gray-500">
+                  <p>Select an integration to see its triggers</p>
+                </div>
+              )}
+              </div>
+            </ScrollArea>
+          </div>
+          
+          <DialogFooter className="p-4 border-t bg-gray-50 flex justify-between items-center">
+            <div>
+              {selectedIntegration && (
+                <div className="text-sm text-gray-600">
+                  <span className="font-medium">Integration:</span> {selectedIntegration.name}
+                  {selectedTrigger && <span className="ml-4"><span className="font-medium">Trigger:</span> {selectedTrigger.name}</span>}
+                </div>
+              )}
+            </div>
+            <div className="flex space-x-2">
+              <Button variant="outline" onClick={() => setShowTriggerDialog(false)}>Cancel</Button>
+              <Button 
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+                disabled={!selectedTrigger || !selectedIntegration}
+                onClick={() => {
+                  if (selectedIntegration && selectedTrigger) {
+                    handleTriggerSelect(selectedIntegration, selectedTrigger)
+                  }
+                }}
+              >
+                Continue →
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
