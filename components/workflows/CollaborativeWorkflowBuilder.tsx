@@ -113,9 +113,15 @@ const useWorkflowBuilderState = () => {
   const [showInstalledOnly, setShowInstalledOnly] = useState(false)
   const [sourceAddNode, setSourceAddNode] = useState<{ id: string; parentId: string } | null>(null)
   const [configuringNode, setConfiguringNode] = useState<{ id: string; integration: any; nodeComponent: NodeComponent; config: Record<string, any> } | null>(null)
+  const [pendingNode, setPendingNode] = useState<{ type: 'trigger' | 'action'; integration: IntegrationInfo; nodeComponent: NodeComponent; sourceNodeInfo?: { id: string; parentId: string } } | null>(null)
 
   const { toast } = useToast()
   const availableIntegrations = useMemo(() => getIntegrationsFromNodes(), [])
+
+  const nodeNeedsConfiguration = (nodeComponent: NodeComponent): boolean => {
+    // Check if the node has configuration fields that require user input
+    return !!(nodeComponent.config && Object.keys(nodeComponent.config).length > 0)
+  }
 
   const handleConfigureNode = useCallback((nodeId: string) => {
     const nodeToConfigure = getNodes().find((n) => n.id === nodeId)
@@ -267,7 +273,24 @@ const useWorkflowBuilderState = () => {
 
   const handleTriggerSelect = (integration: IntegrationInfo, trigger: NodeComponent) => {
     console.log("Trigger selected:", trigger);
-    // Direct approach to add the trigger node
+    
+    if (nodeNeedsConfiguration(trigger)) {
+      // Store the pending trigger info and open configuration
+      setPendingNode({ type: 'trigger', integration, nodeComponent: trigger });
+      setConfiguringNode({ 
+        id: 'pending-trigger', 
+        integration: INTEGRATION_CONFIGS[integration.id as keyof typeof INTEGRATION_CONFIGS] || integration, 
+        nodeComponent: trigger, 
+        config: {} 
+      });
+      setShowTriggerDialog(false);
+    } else {
+      // Add trigger directly if no configuration needed
+      addTriggerToWorkflow(integration, trigger, {});
+    }
+  }
+
+  const addTriggerToWorkflow = (integration: IntegrationInfo, trigger: NodeComponent, config: Record<string, any>) => {
     const triggerNode: Node = {
       id: "trigger",
       type: "custom",
@@ -278,7 +301,8 @@ const useWorkflowBuilderState = () => {
         isTrigger: true,
         onConfigure: handleConfigureNode,
         onDelete: handleDeleteNode,
-        providerId: integration.id
+        providerId: integration.id,
+        config
       }
     };
     
@@ -315,21 +339,39 @@ const useWorkflowBuilderState = () => {
 
   const handleActionSelect = (integration: IntegrationInfo, action: NodeComponent) => {
     if (!sourceAddNode) return
-    const parentNode = getNodes().find((n) => n.id === sourceAddNode.parentId)
+    
+    if (nodeNeedsConfiguration(action)) {
+      // Store the pending action info and open configuration
+      setPendingNode({ type: 'action', integration, nodeComponent: action, sourceNodeInfo: sourceAddNode });
+      setConfiguringNode({ 
+        id: 'pending-action', 
+        integration: INTEGRATION_CONFIGS[integration.id as keyof typeof INTEGRATION_CONFIGS] || integration, 
+        nodeComponent: action, 
+        config: {} 
+      });
+      setShowActionDialog(false);
+    } else {
+      // Add action directly if no configuration needed
+      addActionToWorkflow(integration, action, {}, sourceAddNode);
+    }
+  }
+
+  const addActionToWorkflow = (integration: IntegrationInfo, action: NodeComponent, config: Record<string, any>, sourceNodeInfo: { id: string; parentId: string }) => {
+    const parentNode = getNodes().find((n) => n.id === sourceNodeInfo.parentId)
     if (!parentNode) return
     const newNodeId = `node-${Date.now()}`
     const newActionNode: Node = {
       id: newNodeId, type: "custom", position: { x: parentNode.position.x, y: parentNode.position.y + 120 },
-      data: { ...action, name: action.name, onConfigure: handleConfigureNode, onDelete: handleDeleteNode },
+      data: { ...action, name: action.name, onConfigure: handleConfigureNode, onDelete: handleDeleteNode, providerId: integration.id, config },
     }
     const newAddActionId = `add-action-${Date.now()}`
     const newAddActionNode: Node = {
       id: newAddActionId, type: "addAction", position: { x: parentNode.position.x, y: parentNode.position.y + 240 },
       data: { parentId: newNodeId, onClick: () => handleAddActionClick(newAddActionId, newNodeId) },
     }
-    setNodes((prevNodes: Node[]) => [...prevNodes.filter((n: Node) => n.id !== sourceAddNode.id), newActionNode, newAddActionNode])
+    setNodes((prevNodes: Node[]) => [...prevNodes.filter((n: Node) => n.id !== sourceNodeInfo.id), newActionNode, newAddActionNode])
     setEdges((prevEdges: Edge[]) => [
-      ...prevEdges.filter((e: Edge) => e.target !== sourceAddNode.id),
+      ...prevEdges.filter((e: Edge) => e.target !== sourceNodeInfo.id),
       {
         id: `${parentNode.id}-${newNodeId}`,
         source: parentNode.id,
@@ -350,9 +392,24 @@ const useWorkflowBuilderState = () => {
   }
 
   const handleSaveConfiguration = (context: { id: string }, newConfig: Record<string, any>) => {
-    setNodes((nds) => nds.map((node) => (node.id === context.id ? { ...node, data: { ...node.data, config: newConfig } } : node)))
-    toast({ title: "Configuration Saved", description: "Your node configuration has been updated." })
-    setConfiguringNode(null)
+    if (context.id === 'pending-trigger' && pendingNode?.type === 'trigger') {
+      // Add trigger to workflow with configuration
+      addTriggerToWorkflow(pendingNode.integration, pendingNode.nodeComponent, newConfig);
+      setPendingNode(null);
+      setConfiguringNode(null);
+      toast({ title: "Trigger Added", description: "Your trigger has been configured and added to the workflow." });
+    } else if (context.id === 'pending-action' && pendingNode?.type === 'action' && pendingNode.sourceNodeInfo) {
+      // Add action to workflow with configuration
+      addActionToWorkflow(pendingNode.integration, pendingNode.nodeComponent, newConfig, pendingNode.sourceNodeInfo);
+      setPendingNode(null);
+      setConfiguringNode(null);
+      toast({ title: "Action Added", description: "Your action has been configured and added to the workflow." });
+    } else {
+      // Handle existing node configuration updates
+      setNodes((nds) => nds.map((node) => (node.id === context.id ? { ...node, data: { ...node.data, config: newConfig } } : node)))
+      toast({ title: "Configuration Saved", description: "Your node configuration has been updated." })
+      setConfiguringNode(null)
+    }
   }
 
   const handleSave = async () => {
@@ -452,7 +509,7 @@ const useWorkflowBuilderState = () => {
     nodes, edges, onNodesChange, onEdgesChange, onConnect, workflowName, setWorkflowName, isSaving, handleSave, handleExecute, showTriggerDialog,
     setShowTriggerDialog, showActionDialog, setShowActionDialog, handleTriggerSelect, handleActionSelect, selectedIntegration, setSelectedIntegration,
     availableIntegrations, renderLogo, getWorkflowStatus, currentWorkflow, isExecuting, executionEvents,
-    configuringNode, setConfiguringNode, handleSaveConfiguration, collaborators,
+    configuringNode, setConfiguringNode, handleSaveConfiguration, collaborators, pendingNode, setPendingNode,
     selectedTrigger, setSelectedTrigger, selectedAction, setSelectedAction, searchQuery, setSearchQuery, filterCategory, setFilterCategory, showInstalledOnly, setShowInstalledOnly,
     filteredIntegrations, displayedTriggers
   }
@@ -473,7 +530,7 @@ function WorkflowBuilderContent() {
     nodes, edges, onNodesChange, onEdgesChange, onConnect, workflowName, setWorkflowName, isSaving, handleSave, handleExecute, 
     showTriggerDialog, setShowTriggerDialog, showActionDialog, setShowActionDialog, handleTriggerSelect, handleActionSelect, selectedIntegration, setSelectedIntegration,
     availableIntegrations, renderLogo, getWorkflowStatus, currentWorkflow, isExecuting, executionEvents,
-    configuringNode, setConfiguringNode, handleSaveConfiguration, collaborators,
+    configuringNode, setConfiguringNode, handleSaveConfiguration, collaborators, pendingNode, setPendingNode,
     selectedTrigger, setSelectedTrigger, selectedAction, setSelectedAction, searchQuery, setSearchQuery, filterCategory, setFilterCategory, showInstalledOnly, setShowInstalledOnly,
     filteredIntegrations, displayedTriggers
   } = useWorkflowBuilderState()
@@ -821,7 +878,10 @@ function WorkflowBuilderContent() {
 
       {configuringNode && <ConfigurationModal
         isOpen={!!configuringNode}
-        onClose={() => setConfiguringNode(null)}
+        onClose={() => {
+          setConfiguringNode(null);
+          setPendingNode(null);
+        }}
         onSave={(config) => handleSaveConfiguration(configuringNode, config)}
         nodeInfo={configuringNode.nodeComponent}
         integrationName={configuringNode.integration.name}
