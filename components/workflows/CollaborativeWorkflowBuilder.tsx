@@ -551,7 +551,7 @@ function WorkflowBuilderContent() {
       )}
 
       <Dialog open={showTriggerDialog} onOpenChange={setShowTriggerDialog}>
-        <DialogContent className="max-w-4xl h-[70vh] flex flex-col p-0 bg-white rounded-lg shadow-2xl">
+        <DialogContent className="max-w-4xl h-[75vh] flex flex-col p-0 bg-white rounded-lg shadow-2xl">
           <DialogHeader className="p-6 pb-4 border-b">
             <DialogTitle className="text-xl font-bold">Select a Trigger</DialogTitle>
             <DialogDescription>Choose an integration and a trigger to start your workflow.</DialogDescription>
@@ -587,11 +587,11 @@ function WorkflowBuilderContent() {
 
           <div className="flex-grow flex min-h-0 overflow-hidden">
             <ScrollArea className="w-1/3 border-r">
-              <div className="p-2">
+              <div className="py-2 px-3">
               {filteredIntegrations.map((integration) => (
                 <div
                   key={integration.id}
-                  className={`flex items-center p-3 rounded-md cursor-pointer ${selectedIntegration?.id === integration.id ? 'bg-blue-50' : 'hover:bg-gray-50'}`}
+                  className={`flex items-center p-3 rounded-md cursor-pointer ${selectedIntegration?.id === integration.id ? 'bg-blue-50 ring-1 ring-blue-200' : 'hover:bg-gray-50'}`}
                   onClick={() => setSelectedIntegration(integration)}
                 >
                   {renderLogo(integration.id, integration.name)}
@@ -601,30 +601,32 @@ function WorkflowBuilderContent() {
               ))}
               </div>
             </ScrollArea>
-            <div className="w-2/3 overflow-y-auto">
-              <div className="p-4">
-              {selectedIntegration ? (
-                <div>
-                  <h3 className="font-semibold text-lg mb-4">Triggers for {selectedIntegration.name}</h3>
-                  <div className="space-y-2">
-                    {displayedTriggers.map((trigger) => (
-                      <div
-                        key={trigger.type}
-                        className={`p-4 border rounded-lg cursor-pointer ${selectedTrigger?.type === trigger.type ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-500' : 'hover:border-gray-300'}`}
-                        onClick={() => setSelectedTrigger(trigger)}
-                      >
-                        <p className="font-medium">{trigger.name}</p>
-                        <p className="text-sm text-gray-500">{trigger.description}</p>
-                      </div>
-                    ))}
+            <div className="w-2/3 h-full">
+              <ScrollArea className="h-full">
+                <div className="p-6">
+                {selectedIntegration ? (
+                  <div>
+                    <h3 className="font-semibold text-lg mb-6">Triggers for {selectedIntegration.name}</h3>
+                    <div className="grid grid-cols-1 gap-4">
+                      {displayedTriggers.map((trigger) => (
+                        <div
+                          key={trigger.type}
+                          className={`p-4 border rounded-lg cursor-pointer transition-all ${selectedTrigger?.type === trigger.type ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-500' : 'hover:border-gray-300 hover:shadow-sm'}`}
+                          onClick={() => setSelectedTrigger(trigger)}
+                        >
+                          <p className="font-medium">{trigger.name}</p>
+                          <p className="text-sm text-gray-500 mt-1">{trigger.description}</p>
+                        </div>
+                      ))}
+                    </div>
                   </div>
+                ) : (
+                  <div className="flex items-center justify-center h-full text-gray-500">
+                    <p>Select an integration to see its triggers</p>
+                  </div>
+                )}
                 </div>
-              ) : (
-                <div className="flex items-center justify-center h-full text-gray-500">
-                  <p>Select an integration to see its triggers</p>
-                </div>
-              )}
-              </div>
+              </ScrollArea>
             </div>
           </div>
           
