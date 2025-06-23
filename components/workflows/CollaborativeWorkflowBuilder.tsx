@@ -601,7 +601,7 @@ function WorkflowBuilderContent() {
               ))}
               </div>
             </ScrollArea>
-            <ScrollArea className="w-2/3">
+            <div className="w-2/3 overflow-y-auto">
               <div className="p-4">
               {selectedIntegration ? (
                 <div>
@@ -625,7 +625,7 @@ function WorkflowBuilderContent() {
                 </div>
               )}
               </div>
-            </ScrollArea>
+            </div>
           </div>
           
           <DialogFooter className="p-4 border-t bg-gray-50 flex justify-between items-center">
