@@ -450,7 +450,7 @@ function WorkflowBuilderContent() {
         const searchLower = searchQuery.toLowerCase();
         if (searchLower === "") return true;
         return int.name.toLowerCase().includes(searchLower) ||
-               int.triggers.some(t => t.name.toLowerCase().includes(searchLower));
+               int.triggers.some(t => t.name && t.name.toLowerCase().includes(searchLower));
       });
   }, [availableIntegrations, searchQuery, filterCategory, showInstalledOnly]);
   
