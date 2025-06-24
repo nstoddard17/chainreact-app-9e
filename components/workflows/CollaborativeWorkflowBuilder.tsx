@@ -589,8 +589,13 @@ const useWorkflowBuilderState = () => {
   const handleExecute = async () => { 
     setIsExecuting(true)
     try {
-      // Get all workflow nodes
+      if (!currentWorkflow) {
+        throw new Error("No workflow selected")
+      }
+
+      // Get all workflow nodes and edges
       const workflowNodes = getNodes().filter((n: Node) => n.type === 'custom')
+      const workflowEdges = getEdges()
       
       // Track emails from all email-sending nodes
       for (const node of workflowNodes) {
@@ -598,18 +603,71 @@ const useWorkflowBuilderState = () => {
           await trackWorkflowEmails(node.data.config, node.data.providerId as string)
         }
       }
-      
-      // TODO: Add actual workflow execution logic here
-      toast({ 
-        title: "Workflow Executed", 
-        description: "Your workflow has been executed successfully and email usage has been tracked." 
+
+      // Prepare workflow data for execution
+      const workflowData = {
+        id: currentWorkflow.id,
+        nodes: workflowNodes.map(node => ({
+          id: node.id,
+          type: node.type,
+          data: {
+            type: node.data.type,
+            title: node.data.title,
+            description: node.data.description,
+            providerId: node.data.providerId,
+            isTrigger: node.data.isTrigger,
+            config: node.data.config || {},
+            requiredScopes: node.data.requiredScopes || []
+          },
+          position: node.position
+        })),
+        connections: workflowEdges.map(edge => ({
+          id: edge.id,
+          source: edge.source,
+          target: edge.target,
+          sourceHandle: edge.sourceHandle,
+          targetHandle: edge.targetHandle
+        }))
+      }
+
+      // Call the execution API
+      const response = await fetch("/api/workflows/execute", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          workflowId: currentWorkflow.id,
+          testMode: true,
+          inputData: {},
+          workflowData: workflowData
+        }),
       })
+
+      const result = await response.json()
+
+      if (result.success) {
+        toast({ 
+          title: "Workflow Executed Successfully!", 
+          description: `Execution completed in ${result.executionTime || 'N/A'}ms. Check the results in your integrations.` 
+        })
+        
+        // Log execution results for debugging
+        console.log("Workflow execution results:", result)
+        
+        // Update execution events if available
+        if (result.executionEvents) {
+          setExecutionEvents(result.executionEvents)
+        }
+      } else {
+        throw new Error(result.error || "Workflow execution failed")
+      }
       
     } catch (error) {
       console.error("Failed to execute workflow:", error)
       toast({ 
         title: "Execution Failed", 
-        description: "Failed to execute workflow. Please try again.", 
+        description: error instanceof Error ? error.message : "Failed to execute workflow. Please try again.", 
         variant: "destructive" 
       })
     } finally {
