@@ -242,20 +242,31 @@ export function EmailAutocomplete({
         <div className="relative">
           <Input
             ref={inputRef}
+            type="text"
             value={multiple ? inputValue : (inputValue || value)}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
-            onFocus={handleInputFocus}
+            onFocus={(e) => {
+              e.target.removeAttribute('readonly')
+              handleInputFocus()
+            }}
             onBlur={handleInputBlur}
             placeholder={isLoading ? "Loading suggestions..." : placeholder}
             disabled={disabled || isLoading}
             className="w-full pr-10"
-            autoComplete="off"
+            autoComplete="new-password"
             autoCorrect="off"
             autoCapitalize="off"
             spellCheck="false"
             data-form-type="other"
             data-lpignore="true"
+            data-1p-ignore="true"
+            data-bwignore="true"
+            data-dashlane-ignore="true"
+            name={`custom-email-field-${Math.random().toString(36).substr(2, 9)}`}
+            role="combobox"
+            aria-autocomplete="list"
+            readOnly={false}
           />
           {isLoading && (
             <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
