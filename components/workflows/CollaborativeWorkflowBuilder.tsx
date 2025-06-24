@@ -233,21 +233,105 @@ const useWorkflowBuilderState = () => {
   const handleDeleteNode = useCallback((nodeId: string) => {
     const nodeToRemove = getNodes().find((n) => n.id === nodeId)
     if (!nodeToRemove) return
-    if (nodeToRemove.data.isTrigger || getNodes().filter((n: Node) => n.type === "custom").length <= 1) {
+    
+    // If we're deleting the trigger or this is the last custom node, reset the workflow
+    const customNodes = getNodes().filter((n: Node) => n.type === "custom")
+    if (nodeToRemove.data.isTrigger || customNodes.length <= 1) {
       setNodes([])
       setEdges([])
       return
     }
+    
+    // Remove the node and all related edges
     setNodes((prevNodes: Node[]) => prevNodes.filter((n: Node) => n.id !== nodeId))
     setEdges((prevEdges: Edge[]) => prevEdges.filter((e: Edge) => e.source !== nodeId && e.target !== nodeId))
-    if (nodeToRemove.type === "custom") {
-      const edgeToNode = getEdges().find((e) => e.target === nodeId)
-      if (edgeToNode) {
-        setNodes((prevNodes: Node[]) => prevNodes.filter((n: Node) => !(n.type === "addAction" && n.id === edgeToNode.source)))
-      }
-    }
-    setTimeout(recalculateLayout, 50)
-  }, [getNodes, getEdges, setNodes, setEdges, recalculateLayout])
+    
+    // Remove any add action nodes that were connected to this node
+    setNodes((prevNodes: Node[]) => prevNodes.filter((n: Node) => 
+      !(n.type === "addAction" && n.data.parentId === nodeId)
+    ))
+    
+         // After deletion, rebuild the workflow structure properly
+     setTimeout(() => {
+       const remainingCustomNodes = getNodes().filter((n: Node) => n.type === "custom")
+       
+       if (remainingCustomNodes.length === 0) {
+         // No custom nodes left, reset everything
+         setNodes([])
+         setEdges([])
+         return
+       }
+       
+       // Remove all existing add action nodes and their edges
+       setNodes((prevNodes: Node[]) => prevNodes.filter((n: Node) => n.type !== "addAction"))
+       setEdges((prevEdges: Edge[]) => prevEdges.filter((e: Edge) => {
+         const targetNode = getNodes().find((n: Node) => n.id === e.target)
+         const sourceNode = getNodes().find((n: Node) => n.id === e.source)
+         return targetNode?.type !== "addAction" && sourceNode?.type !== "addAction"
+       }))
+       
+       // Sort remaining custom nodes by Y position to maintain proper order
+       const sortedNodes = remainingCustomNodes.sort((a, b) => a.position.y - b.position.y)
+       
+       // Rebuild edges between remaining custom nodes to maintain workflow flow
+       const newEdges: Edge[] = []
+       for (let i = 0; i < sortedNodes.length - 1; i++) {
+         const source = sortedNodes[i]
+         const target = sortedNodes[i + 1]
+         newEdges.push({
+           id: `${source.id}-${target.id}`,
+           source: source.id,
+           target: target.id,
+           animated: false,
+           style: { stroke: "#d1d5db", strokeWidth: 1 },
+           type: "straight"
+         })
+       }
+       
+       // Find the last custom node (by Y position)
+       const lastNode = sortedNodes[sortedNodes.length - 1]
+       
+       if (lastNode) {
+         // Add new add action node after the last custom node
+         const addActionId = `add-action-${Date.now()}`
+         const addActionNode: Node = {
+           id: addActionId,
+           type: "addAction",
+           position: { x: lastNode.position.x, y: lastNode.position.y + 160 },
+           data: { 
+             parentId: lastNode.id, 
+             onClick: () => handleAddActionClick(addActionId, lastNode.id) 
+           }
+         }
+         
+         setNodes((prevNodes: Node[]) => [...prevNodes, addActionNode])
+         
+         // Add edge from last node to add action button
+         newEdges.push({
+           id: `${lastNode.id}-${addActionId}`,
+           source: lastNode.id,
+           target: addActionId,
+           animated: false,
+           style: { stroke: "#d1d5db", strokeWidth: 1, strokeDasharray: "5,5" },
+           type: "straight"
+         })
+       }
+       
+       // Update edges with the new structure
+       setEdges((prevEdges: Edge[]) => {
+         // Keep existing edges between custom nodes that weren't affected
+         const existingCustomEdges = prevEdges.filter((e: Edge) => {
+           const sourceExists = sortedNodes.some(n => n.id === e.source)
+           const targetExists = sortedNodes.some(n => n.id === e.target)
+           return sourceExists && targetExists
+         })
+         return [...existingCustomEdges, ...newEdges]
+       })
+       
+       // Fit view to show the updated workflow
+       setTimeout(() => fitView({ padding: 0.5 }), 100)
+     }, 50)
+  }, [getNodes, getEdges, setNodes, setEdges, fitView, handleAddActionClick])
 
   const handleDeleteNodeWithConfirmation = useCallback((nodeId: string) => {
     const nodeToDelete = getNodes().find((n) => n.id === nodeId)
