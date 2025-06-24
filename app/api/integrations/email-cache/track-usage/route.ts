@@ -7,20 +7,29 @@ export async function POST(req: Request) {
   cookies()
   const supabase = createSupabaseRouteHandlerClient()
   const {
-    data: { session },
-  } = await supabase.auth.getSession()
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser()
 
-  if (!session) {
+  if (authError || !user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
   try {
     const { emails, source, integrationId } = await req.json()
 
+    console.log("Email tracking request:", { emails, source, integrationId })
+
     if (!emails || !Array.isArray(emails) || !source) {
       return NextResponse.json({ 
         error: "Missing required fields: emails (array), source" 
       }, { status: 400 })
+    }
+
+    // Validate integrationId if provided - should be UUID format or undefined
+    if (integrationId && (typeof integrationId !== 'string' || integrationId.includes('_'))) {
+      console.warn(`Invalid integrationId format: ${integrationId}, skipping integration tracking`)
+      // Don't fail the request, just proceed without integrationId
     }
 
     const emailCache = new EmailCacheService(true)
@@ -43,7 +52,7 @@ export async function POST(req: Request) {
             email,
             name,
             source,
-            integrationId,
+            integrationId: integrationId && !integrationId.includes('_') ? integrationId : undefined,
             metadata: { tracked_from: 'workflow_execution' }
           })
         })
@@ -53,7 +62,7 @@ export async function POST(req: Request) {
           email: emailData.email,
           name: emailData.name,
           source,
-          integrationId,
+          integrationId: integrationId && !integrationId.includes('_') ? integrationId : undefined,
           metadata: { 
             tracked_from: 'workflow_execution',
             ...emailData.metadata 
@@ -82,10 +91,11 @@ export async function GET(req: Request) {
   cookies()
   const supabase = createSupabaseRouteHandlerClient()
   const {
-    data: { session },
-  } = await supabase.auth.getSession()
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser()
 
-  if (!session) {
+  if (authError || !user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 

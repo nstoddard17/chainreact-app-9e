@@ -402,7 +402,8 @@ const useWorkflowBuilderState = () => {
               onConfigure: handleConfigureNode,
               onDelete: handleDeleteNodeWithConfirmation,
               onChangeTrigger: node.data.type.includes('trigger') ? handleChangeTrigger : undefined,
-              providerId: node.data.type.split('-')[0]
+              // Use the saved providerId directly, fallback to extracting from type if not available
+              providerId: node.data.providerId || node.data.type.split('-')[0]
           },
         }))
 
@@ -677,10 +678,10 @@ const useWorkflowBuilderState = () => {
           type: n.data.type as string, 
           config: n.data.config || {},
           // Preserve additional properties that might be needed
-          providerId: n.data.providerId,
-          isTrigger: n.data.isTrigger,
-          title: n.data.title,
-          description: n.data.description
+          providerId: n.data.providerId as string | undefined,
+          isTrigger: n.data.isTrigger as boolean | undefined,
+          title: n.data.title as string | undefined,
+          description: n.data.description as string | undefined
         },
       }))
       
@@ -735,7 +736,10 @@ const useWorkflowBuilderState = () => {
       // Track emails from all email-sending nodes
       for (const node of workflowNodes) {
         if (node.data.config && typeof node.data.type === 'string' && node.data.type.includes('send_email')) {
-          await trackWorkflowEmails(node.data.config, node.data.providerId as string)
+          // Only pass integrationId if it's a valid UUID, not a node type
+          const providerId = node.data.providerId as string | undefined
+          const integrationId = providerId && !providerId.includes('_') ? providerId : undefined
+          await trackWorkflowEmails(node.data.config, integrationId)
         }
       }
 
