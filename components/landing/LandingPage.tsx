@@ -318,13 +318,71 @@ export default function LandingPage() {
           <TaskCard className="top-1/2 right-20 w-36 hidden xl:block" />
         </div>
 
-        {/* Centered Navigation Buttons */}
-        <div className="relative z-10 pt-8 pb-4">
-          <div className="flex justify-center items-center space-x-6">
+        {/* Header Navigation */}
+        <nav className="relative z-10 px-4 sm:px-6 lg:px-8 py-6">
+          <div className="max-w-7xl mx-auto flex items-center justify-between">
+            {/* Left: Brand Logo */}
+            <div className="flex items-center">
+              <Link href="/" className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+                ChainReact
+              </Link>
+            </div>
+
+            {/* Center: Navigation Links (hidden on mobile) */}
+            <div className="hidden md:flex items-center space-x-8">
+              <Link href="#features">
+                <Button 
+                  variant="ghost" 
+                  className="button-animated text-blue-200 hover:text-white hover:bg-white/10 px-4 py-2 rounded-full transition-all duration-300"
+                >
+                  Features
+                </Button>
+              </Link>
+              <Link href="#pricing">
+                <Button 
+                  variant="ghost" 
+                  className="button-animated text-blue-200 hover:text-white hover:bg-white/10 px-4 py-2 rounded-full transition-all duration-300"
+                >
+                  Pricing
+                </Button>
+              </Link>
+            </div>
+
+            {/* Right: Auth Buttons */}
+            <div className="flex items-center space-x-4">
+              {!isAuthenticated ? (
+                <>
+                  <Link href="/auth/login">
+                    <Button 
+                      variant="ghost" 
+                      className="button-animated text-blue-200 hover:text-white hover:bg-white/10 px-6 py-2 rounded-full transition-all duration-300"
+                    >
+                      Login
+                    </Button>
+                  </Link>
+                  <Link href="/auth/register">
+                    <Button className="button-animated bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-full shadow-lg hover:shadow-xl">
+                      Sign Up
+                    </Button>
+                  </Link>
+                </>
+              ) : (
+                <Link href="/dashboard">
+                  <Button className="button-animated bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-full shadow-lg hover:shadow-xl">
+                    Dashboard
+                  </Button>
+                </Link>
+              )}
+            </div>
+          </div>
+
+          {/* Mobile Navigation Links */}
+          <div className="md:hidden mt-4 flex justify-center space-x-6">
             <Link href="#features">
               <Button 
                 variant="ghost" 
-                className="button-animated text-blue-200 hover:text-white hover:bg-white/10 px-6 py-2 rounded-full transition-all duration-300"
+                size="sm"
+                className="button-animated text-blue-200 hover:text-white hover:bg-white/10 px-4 py-2 rounded-full transition-all duration-300"
               >
                 Features
               </Button>
@@ -332,39 +390,17 @@ export default function LandingPage() {
             <Link href="#pricing">
               <Button 
                 variant="ghost" 
-                className="button-animated text-blue-200 hover:text-white hover:bg-white/10 px-6 py-2 rounded-full transition-all duration-300"
+                size="sm"
+                className="button-animated text-blue-200 hover:text-white hover:bg-white/10 px-4 py-2 rounded-full transition-all duration-300"
               >
                 Pricing
               </Button>
             </Link>
-            {!isAuthenticated ? (
-              <>
-                <Link href="/auth/login">
-                  <Button 
-                    variant="ghost" 
-                    className="button-animated text-blue-200 hover:text-white hover:bg-white/10 px-6 py-2 rounded-full transition-all duration-300"
-                  >
-                    Login
-                  </Button>
-                </Link>
-                <Link href="/auth/register">
-                  <Button className="button-animated bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-full shadow-lg hover:shadow-xl">
-                    Sign Up
-                  </Button>
-                </Link>
-              </>
-            ) : (
-              <Link href="/dashboard">
-                <Button className="button-animated bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-full shadow-lg hover:shadow-xl">
-                  Dashboard
-                </Button>
-              </Link>
-            )}
           </div>
-        </div>
+        </nav>
 
         {/* Hero Section */}
-        <section className="relative z-10 px-4 sm:px-6 lg:px-8 pt-12 pb-16 md:pt-16 md:pb-20">
+        <section className="relative z-10 px-4 sm:px-6 lg:px-8 pt-8 pb-16 md:pt-12 md:pb-20">
           <div className="max-w-4xl mx-auto text-center">
             {isAuthenticated ? (
               <>
@@ -652,6 +688,101 @@ export default function LandingPage() {
             </div>
           </section>
         )}
+
+        {/* Footer */}
+        <footer className="relative z-10 bg-slate-950/50 backdrop-blur-sm border-t border-white/10 text-white py-12">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+              <div>
+                <h3 className="text-2xl font-bold mb-4 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+                  ChainReact
+                </h3>
+                <p className="text-blue-200 mb-4">
+                  Automate your workflows with ease. Connect apps, save time, and boost productivity.
+                </p>
+              </div>
+
+              <div>
+                <h4 className="font-semibold mb-4 text-blue-300">Product</h4>
+                <ul className="space-y-2 text-blue-200">
+                  <li>
+                    <Link href="#features" className="hover:text-white transition-colors duration-200">
+                      Features
+                    </Link>
+                  </li>
+                  <li>
+                    <Link href="/integrations" className="hover:text-white transition-colors duration-200">
+                      Integrations
+                    </Link>
+                  </li>
+                  {!isAuthenticated && (
+                    <li>
+                      <Link href="#pricing" className="hover:text-white transition-colors duration-200">
+                        Pricing
+                      </Link>
+                    </li>
+                  )}
+                  <li>
+                    <Link href="/templates" className="hover:text-white transition-colors duration-200">
+                      Templates
+                    </Link>
+                  </li>
+                </ul>
+              </div>
+
+              <div>
+                <h4 className="font-semibold mb-4 text-blue-300">Company</h4>
+                <ul className="space-y-2 text-blue-200">
+                  <li>
+                    <Link href="/community" className="hover:text-white transition-colors duration-200">
+                      Community
+                    </Link>
+                  </li>
+                  <li>
+                    <Link href="/learn" className="hover:text-white transition-colors duration-200">
+                      Learn
+                    </Link>
+                  </li>
+                  <li>
+                    <Link href="/enterprise" className="hover:text-white transition-colors duration-200">
+                      Enterprise
+                    </Link>
+                  </li>
+                  <li>
+                    <Link href="/support" className="hover:text-white transition-colors duration-200">
+                      Support
+                    </Link>
+                  </li>
+                </ul>
+              </div>
+
+              <div>
+                <h4 className="font-semibold mb-4 text-blue-300">Legal</h4>
+                <ul className="space-y-2 text-blue-200">
+                  <li>
+                    <Link href="/privacy" className="hover:text-white transition-colors duration-200">
+                      Privacy Policy
+                    </Link>
+                  </li>
+                  <li>
+                    <Link href="/terms" className="hover:text-white transition-colors duration-200">
+                      Terms of Service
+                    </Link>
+                  </li>
+                  <li>
+                    <Link href="/sub-processors" className="hover:text-white transition-colors duration-200">
+                      Sub-processors
+                    </Link>
+                  </li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="border-t border-white/10 mt-8 pt-8 text-center text-blue-200">
+              <p>&copy; 2024 ChainReact. All rights reserved.</p>
+            </div>
+          </div>
+        </footer>
       </div>
     </>
   )
