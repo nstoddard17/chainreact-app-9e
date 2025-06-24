@@ -25,6 +25,7 @@ interface EmailAutocompleteProps {
   disabled?: boolean
   multiple?: boolean
   className?: string
+  isLoading?: boolean
 }
 
 export function EmailAutocomplete({
@@ -34,7 +35,8 @@ export function EmailAutocomplete({
   placeholder = "Enter email addresses...",
   disabled = false,
   multiple = false,
-  className
+  className,
+  isLoading = false
 }: EmailAutocompleteProps) {
   const [inputValue, setInputValue] = useState("")
   const [isOpen, setIsOpen] = useState(false)
@@ -237,62 +239,83 @@ export function EmailAutocomplete({
           </div>
         )}
         
-        <Input
-          ref={inputRef}
-          value={multiple ? inputValue : (inputValue || value)}
-          onChange={handleInputChange}
-          onKeyDown={handleKeyDown}
-          onFocus={handleInputFocus}
-          onBlur={handleInputBlur}
-          placeholder={placeholder}
-          disabled={disabled}
-          className="w-full"
-        />
+        <div className="relative">
+          <Input
+            ref={inputRef}
+            value={multiple ? inputValue : (inputValue || value)}
+            onChange={handleInputChange}
+            onKeyDown={handleKeyDown}
+            onFocus={handleInputFocus}
+            onBlur={handleInputBlur}
+            placeholder={isLoading ? "Loading suggestions..." : placeholder}
+            disabled={disabled || isLoading}
+            className="w-full pr-10"
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck="false"
+            data-form-type="other"
+            data-lpignore="true"
+          />
+          {isLoading && (
+            <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+              <div className="w-4 h-4 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin"></div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Suggestions dropdown */}
-      {isOpen && filteredSuggestions.length > 0 && (
+      {isOpen && (isLoading || filteredSuggestions.length > 0) && (
         <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-64 overflow-auto">
-          <ul ref={listRef} className="py-1">
-            {filteredSuggestions.map((suggestion, index) => (
-              <li key={suggestion.email}>
-                <button
-                  type="button"
-                  className={cn(
-                    "w-full px-3 py-2 text-left hover:bg-gray-50 focus:bg-gray-50 flex items-center gap-2",
-                    selectedIndex === index && "bg-blue-50"
-                  )}
-                  onMouseDown={(e) => {
-                    e.preventDefault() // Prevent input blur
-                    handleSuggestionSelect(suggestion)
-                  }}
-                  onMouseEnter={() => setSelectedIndex(index)}
-                >
-                  {suggestion.isGroup ? (
-                    <Users className="w-4 h-4 text-blue-500 flex-shrink-0" />
-                  ) : (
-                    <Mail className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-gray-900 truncate">
-                      {suggestion.name || suggestion.email}
+          {isLoading ? (
+            // Loading state in dropdown
+            <div className="flex items-center justify-center py-8 space-x-3">
+              <div className="w-5 h-5 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin"></div>
+              <span className="text-sm text-gray-500">Loading email suggestions...</span>
+            </div>
+          ) : (
+            <ul ref={listRef} className="py-1">
+              {filteredSuggestions.map((suggestion, index) => (
+                <li key={suggestion.email}>
+                  <button
+                    type="button"
+                    className={cn(
+                      "w-full px-3 py-2 text-left hover:bg-gray-50 focus:bg-gray-50 flex items-center gap-2",
+                      selectedIndex === index && "bg-blue-50"
+                    )}
+                    onMouseDown={(e) => {
+                      e.preventDefault() // Prevent input blur
+                      handleSuggestionSelect(suggestion)
+                    }}
+                    onMouseEnter={() => setSelectedIndex(index)}
+                  >
+                    {suggestion.isGroup ? (
+                      <Users className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                    ) : (
+                      <Mail className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-gray-900 truncate">
+                        {suggestion.name || suggestion.email}
+                      </div>
+                      {suggestion.name && !suggestion.isGroup && (
+                        <div className="text-xs text-gray-500 truncate">
+                          {suggestion.email}
+                        </div>
+                      )}
+                      {suggestion.isGroup && suggestion.members && (
+                        <div className="text-xs text-blue-600 truncate">
+                          {suggestion.members.length} members: {suggestion.members.slice(0, 2).map(m => m.name || m.email).join(', ')}
+                          {suggestion.members.length > 2 && '...'}
+                        </div>
+                      )}
                     </div>
-                    {suggestion.name && !suggestion.isGroup && (
-                      <div className="text-xs text-gray-500 truncate">
-                        {suggestion.email}
-                      </div>
-                    )}
-                    {suggestion.isGroup && suggestion.members && (
-                      <div className="text-xs text-blue-600 truncate">
-                        {suggestion.members.length} members: {suggestion.members.slice(0, 2).map(m => m.name || m.email).join(', ')}
-                        {suggestion.members.length > 2 && '...'}
-                      </div>
-                    )}
-                  </div>
-                </button>
-              </li>
-            ))}
-          </ul>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
     </div>
