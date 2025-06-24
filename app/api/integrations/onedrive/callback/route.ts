@@ -20,7 +20,7 @@ export const GET = async (req: NextRequest): Promise<NextResponse> => {
 
   try {
     const tokenURL = "https://login.microsoftonline.com/common/oauth2/v2.0/token"
-    const client_id = process.env.ONEDRIVE_CLIENT_ID
+    const client_id = process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID
     const client_secret = process.env.ONEDRIVE_CLIENT_SECRET
     const redirect_uri = process.env.ONEDRIVE_REDIRECT_URI
 

@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
       .eq('state', state)
 
     // Get Gumroad OAuth credentials
-    const clientId = process.env.GUMROAD_CLIENT_ID
+    const clientId = process.env.NEXT_PUBLIC_GUMROAD_CLIENT_ID
     const clientSecret = process.env.GUMROAD_CLIENT_SECRET
     const redirectUri = `${baseUrl}/api/integrations/gumroad/callback`
 

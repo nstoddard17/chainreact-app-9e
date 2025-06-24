@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
       .eq('state', state)
 
     // Get Blackbaud OAuth credentials
-    const clientId = process.env.BLACKBAUD_CLIENT_ID
+    const clientId = process.env.NEXT_PUBLIC_BLACKBAUD_CLIENT_ID
     const clientSecret = process.env.BLACKBAUD_CLIENT_SECRET
     const redirectUri = `${baseUrl}/api/integrations/blackbaud/callback`
 

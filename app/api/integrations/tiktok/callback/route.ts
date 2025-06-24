@@ -1,4 +1,4 @@
-import { type NextRequest, NextResponse } from 'next/server'
+updatedimport { type NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createPopupResponse } from '@/lib/utils/createPopupResponse'
 import { getBaseUrl } from '@/lib/utils/getBaseUrl'
@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
       .eq('state', state)
 
     // Get TikTok OAuth credentials
-    const clientKey = process.env.TIKTOK_CLIENT_KEY
+    const clientKey = process.env.NEXT_PUBLIC_TIKTOK_CLIENT_ID
     const clientSecret = process.env.TIKTOK_CLIENT_SECRET
     const redirectUri = `${baseUrl}/api/integrations/tiktok/callback`
 
