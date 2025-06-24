@@ -12,6 +12,7 @@ import { useIntegrationStore } from "@/stores/integrationStore"
 import { Combobox } from "@/components/ui/combobox"
 import { EmailAutocomplete } from "@/components/ui/email-autocomplete"
 import { ConfigurationLoadingScreen } from "@/components/ui/loading-screen"
+import { AlertCircle } from "lucide-react"
 
 interface ConfigurationModalProps {
   isOpen: boolean
@@ -31,6 +32,7 @@ export default function ConfigurationModal({
   initialData = {},
 }: ConfigurationModalProps) {
   const [config, setConfig] = useState<Record<string, any>>(initialData)
+  const [errors, setErrors] = useState<Record<string, string>>({})
   const { loadIntegrationData, getIntegrationByProvider } = useIntegrationStore()
   const [dynamicOptions, setDynamicOptions] = useState<
     Record<string, { value: string; label: string }[]>
@@ -49,6 +51,7 @@ export default function ConfigurationModal({
           {} as Record<string, any>,
         ) || {}
       setConfig(initialConfig)
+      setErrors({}) // Clear errors when opening modal
 
       // Fetch dynamic data if needed
       const fetchDynamicData = async () => {
@@ -172,23 +175,67 @@ export default function ConfigurationModal({
     return null
   }
 
+  const validateRequiredFields = (): boolean => {
+    const newErrors: Record<string, string> = {}
+    let isValid = true
+
+    if (nodeInfo.configSchema) {
+      for (const field of nodeInfo.configSchema) {
+        if (field.required) {
+          const value = config[field.name]
+          if (!value || (typeof value === 'string' && value.trim() === '')) {
+            newErrors[field.name] = `${field.label} is required`
+            isValid = false
+          }
+        }
+      }
+    }
+
+    setErrors(newErrors)
+    return isValid
+  }
+
   const handleSave = () => {
-    onSave(config)
-    onClose()
+    if (validateRequiredFields()) {
+      onSave(config)
+      onClose()
+    }
   }
 
   const renderField = (field: ConfigField) => {
     const value = config[field.name] || ""
+    const hasError = !!errors[field.name]
 
     const handleChange = (
       e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
     ) => {
-      setConfig({ ...config, [field.name]: e.target.value })
+      const newValue = e.target.value
+      setConfig({ ...config, [field.name]: newValue })
+      
+      // Clear error when user starts typing
+      if (hasError && newValue.trim() !== '') {
+        setErrors(prev => {
+          const newErrors = { ...prev }
+          delete newErrors[field.name]
+          return newErrors
+        })
+      }
     }
 
     const handleSelectChange = (newValue: string) => {
       setConfig({ ...config, [field.name]: newValue })
+      
+      // Clear error when user selects a value
+      if (hasError && newValue) {
+        setErrors(prev => {
+          const newErrors = { ...prev }
+          delete newErrors[field.name]
+          return newErrors
+        })
+      }
     }
+
+    const inputClassName = `${hasError ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`
 
     switch (field.type) {
       case "select":
@@ -211,51 +258,80 @@ export default function ConfigurationModal({
         
         if (field.dynamic) {
           return (
-            <Combobox
-              options={finalOptions}
-              value={value}
-              onChange={handleSelectChange}
-              placeholder={field.placeholder}
-              searchPlaceholder="Search or type..."
-              emptyPlaceholder={loadingDynamic ? "Loading..." : "No results found."}
-              disabled={loadingDynamic}
-            />
+            <div className="space-y-1">
+              <div className={hasError ? 'ring-2 ring-red-500 rounded-md' : ''}>
+                <Combobox
+                  options={finalOptions}
+                  value={value}
+                  onChange={handleSelectChange}
+                  placeholder={field.placeholder}
+                  searchPlaceholder="Search or type..."
+                  emptyPlaceholder={loadingDynamic ? "Loading..." : "No results found."}
+                  disabled={loadingDynamic}
+                />
+              </div>
+              {hasError && (
+                <div className="flex items-center gap-1 text-sm text-red-600">
+                  <AlertCircle className="h-4 w-4" />
+                  {errors[field.name]}
+                </div>
+              )}
+            </div>
           )
         }
 
         return (
-          <Select onValueChange={handleSelectChange} value={value} disabled={loadingDynamic}>
-            <SelectTrigger>
-              <SelectValue placeholder={field.placeholder} />
-            </SelectTrigger>
-            <SelectContent>
-              {loadingDynamic && <SelectItem value="loading" disabled>Loading...</SelectItem>}
-              {finalOptions.map((option) => (
-                <SelectItem
-                  key={option.value}
-                  value={option.value}
-                >
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="space-y-1">
+            <Select onValueChange={handleSelectChange} value={value} disabled={loadingDynamic}>
+              <SelectTrigger className={inputClassName}>
+                <SelectValue placeholder={field.placeholder} />
+              </SelectTrigger>
+              <SelectContent>
+                {loadingDynamic && <SelectItem value="loading" disabled>Loading...</SelectItem>}
+                {finalOptions.map((option) => (
+                  <SelectItem
+                    key={option.value}
+                    value={option.value}
+                  >
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {hasError && (
+              <div className="flex items-center gap-1 text-sm text-red-600">
+                <AlertCircle className="h-4 w-4" />
+                {errors[field.name]}
+              </div>
+            )}
+          </div>
         )
       case "textarea":
         return (
-          <Textarea
-            id={field.name}
-            value={value}
-            onChange={handleChange}
-            placeholder={field.placeholder}
-            required={field.required}
-            autoComplete="off"
-            autoCorrect="off"
-            autoCapitalize="off"
-            spellCheck="false"
-            data-form-type="other"
-            data-lpignore="true"
-          />
+          <div className="space-y-1">
+            <Textarea
+              id={field.name}
+              value={value}
+              onChange={handleChange}
+              placeholder={field.placeholder}
+              required={field.required}
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck="false"
+              data-form-type="other"
+              data-lpignore="true"
+              data-1p-ignore="true"
+              data-bwignore="true"
+              className={inputClassName}
+            />
+            {hasError && (
+              <div className="flex items-center gap-1 text-sm text-red-600">
+                <AlertCircle className="h-4 w-4" />
+                {errors[field.name]}
+              </div>
+            )}
+          </div>
         )
       case "email-autocomplete":
         const emailOptions = dynamicOptions[field.name] || []
@@ -270,35 +346,58 @@ export default function ConfigurationModal({
           members: opt.members
         }))
         return (
-          <EmailAutocomplete
-            value={value}
-            onChange={handleSelectChange}
-            suggestions={emailSuggestions}
-            placeholder={field.placeholder}
-            disabled={loadingDynamic}
-            isLoading={loadingDynamic}
-            multiple={field.name === "to"} // Allow multiple recipients for "to" field
-          />
+          <div className="space-y-1">
+            <EmailAutocomplete
+              value={value}
+              onChange={handleSelectChange}
+              suggestions={emailSuggestions}
+              placeholder={field.placeholder}
+              disabled={loadingDynamic}
+              isLoading={loadingDynamic}
+              multiple={field.name === "to"} // Allow multiple recipients for "to" field
+              className={inputClassName}
+            />
+            {hasError && (
+              <div className="flex items-center gap-1 text-sm text-red-600">
+                <AlertCircle className="h-4 w-4" />
+                {errors[field.name]}
+              </div>
+            )}
+          </div>
         )
       default:
         return (
-          <Input
-            id={field.name}
-            type={field.type}
-            value={value}
-            onChange={handleChange}
-            placeholder={field.placeholder}
-            required={field.required}
-            autoComplete="off"
-            autoCorrect="off"
-            autoCapitalize="off"
-            spellCheck="false"
-            data-form-type="other"
-            data-lpignore="true"
-          />
+          <div className="space-y-1">
+            <Input
+              id={field.name}
+              type={field.type}
+              value={value}
+              onChange={handleChange}
+              placeholder={field.placeholder}
+              required={field.required}
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck="false"
+              data-form-type="other"
+              data-lpignore="true"
+              data-1p-ignore="true"
+              data-bwignore="true"
+              className={inputClassName}
+            />
+            {hasError && (
+              <div className="flex items-center gap-1 text-sm text-red-600">
+                <AlertCircle className="h-4 w-4" />
+                {errors[field.name]}
+              </div>
+            )}
+          </div>
         )
     }
   }
+
+  const hasRequiredFields = nodeInfo.configSchema?.some(field => field.required) || false
+  const hasErrors = Object.keys(errors).length > 0
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -315,22 +414,35 @@ export default function ConfigurationModal({
         ) : (
           // Configuration form once data is loaded
           <>
-            <div className="space-y-4 py-4 max-h-96 overflow-y-auto">
+            <div className="space-y-4 py-4 max-h-96 overflow-y-auto pr-2" style={{ paddingRight: '8px' }}>
               {nodeInfo?.configSchema?.map((field) => (
-                <div key={field.name} className="space-y-2">
+                <div key={field.name} className="space-y-2" style={{ marginRight: '4px' }}>
                   <Label htmlFor={field.name}>
                     {field.label}
                     {field.required && <span className="text-red-500 ml-1">*</span>}
                   </Label>
-                  {renderField(field)}
+                  <div style={{ paddingRight: '4px' }}>
+                    {renderField(field)}
+                  </div>
                 </div>
               ))}
             </div>
+            
+            {hasRequiredFields && (
+              <div className="text-xs text-gray-500 px-1">
+                * Required fields must be filled out before saving
+              </div>
+            )}
+            
             <DialogFooter>
               <Button variant="outline" onClick={onClose}>
                 Cancel
               </Button>
-              <Button onClick={handleSave} disabled={loadingDynamic}>
+              <Button 
+                onClick={handleSave} 
+                disabled={loadingDynamic || hasErrors}
+                className={hasErrors ? 'opacity-50 cursor-not-allowed' : ''}
+              >
                 Save Configuration
               </Button>
             </DialogFooter>
