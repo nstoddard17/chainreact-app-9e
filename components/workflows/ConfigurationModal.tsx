@@ -11,6 +11,7 @@ import { ConfigField, NodeComponent } from "@/lib/workflows/availableNodes"
 import { useIntegrationStore } from "@/stores/integrationStore"
 import { Combobox } from "@/components/ui/combobox"
 import { EmailAutocomplete } from "@/components/ui/email-autocomplete"
+import { ConfigurationLoadingScreen } from "@/components/ui/loading-screen"
 
 interface ConfigurationModalProps {
   isOpen: boolean
@@ -248,6 +249,12 @@ export default function ConfigurationModal({
             onChange={handleChange}
             placeholder={field.placeholder}
             required={field.required}
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck="false"
+            data-form-type="other"
+            data-lpignore="true"
           />
         )
       case "email-autocomplete":
@@ -256,7 +263,11 @@ export default function ConfigurationModal({
           value: opt.value,
           label: opt.label,
           email: opt.email || opt.value,
-          name: opt.name
+          name: opt.name,
+          type: opt.type,
+          isGroup: opt.isGroup,
+          groupId: opt.groupId,
+          members: opt.members
         }))
         return (
           <EmailAutocomplete
@@ -265,6 +276,7 @@ export default function ConfigurationModal({
             suggestions={emailSuggestions}
             placeholder={field.placeholder}
             disabled={loadingDynamic}
+            isLoading={loadingDynamic}
             multiple={field.name === "to"} // Allow multiple recipients for "to" field
           />
         )
@@ -277,6 +289,12 @@ export default function ConfigurationModal({
             onChange={handleChange}
             placeholder={field.placeholder}
             required={field.required}
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck="false"
+            data-form-type="other"
+            data-lpignore="true"
           />
         )
     }
@@ -284,27 +302,40 @@ export default function ConfigurationModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent>
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>
             Configure {nodeInfo?.title} on {integrationName}
           </DialogTitle>
           <DialogDescription>{nodeInfo?.description}</DialogDescription>
         </DialogHeader>
-        <div className="space-y-4 py-4">
-          {nodeInfo?.configSchema?.map((field) => (
-            <div key={field.name} className="space-y-2">
-              <Label htmlFor={field.name}>{field.label}</Label>
-              {renderField(field)}
+        
+        {loadingDynamic ? (
+          <ConfigurationLoadingScreen integrationName={integrationName} />
+        ) : (
+          // Configuration form once data is loaded
+          <>
+            <div className="space-y-4 py-4 max-h-96 overflow-y-auto">
+              {nodeInfo?.configSchema?.map((field) => (
+                <div key={field.name} className="space-y-2">
+                  <Label htmlFor={field.name}>
+                    {field.label}
+                    {field.required && <span className="text-red-500 ml-1">*</span>}
+                  </Label>
+                  {renderField(field)}
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button onClick={handleSave}>Save</Button>
-        </DialogFooter>
+            <DialogFooter>
+              <Button variant="outline" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button onClick={handleSave} disabled={loadingDynamic}>
+                Save Configuration
+              </Button>
+            </DialogFooter>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   )

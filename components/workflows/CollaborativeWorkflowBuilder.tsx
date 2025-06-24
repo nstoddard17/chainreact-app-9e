@@ -45,6 +45,7 @@ import { INTEGRATION_CONFIGS } from "@/lib/integrations/availableIntegrations"
 import { useToast } from "@/hooks/use-toast"
 import { useWorkflowEmailTracking } from "@/hooks/use-email-cache"
 import { Card } from "@/components/ui/card"
+import { IntegrationLoadingScreen, WorkflowLoadingScreen } from "@/components/ui/loading-screen"
 
 type IntegrationInfo = {
   id: string
@@ -98,7 +99,7 @@ const useWorkflowBuilderState = () => {
 
   const { currentWorkflow, setCurrentWorkflow, fetchWorkflows, workflows, updateWorkflow } = useWorkflowStore()
   const { joinCollaboration, leaveCollaboration, collaborators } = useCollaborationStore()
-  const { integrations, getConnectedProviders, fetchIntegrations } = useIntegrationStore()
+  const { integrations, getConnectedProviders, fetchIntegrations, loading: integrationsLoading } = useIntegrationStore()
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
@@ -682,7 +683,7 @@ const useWorkflowBuilderState = () => {
     availableIntegrations, renderLogo, getWorkflowStatus, currentWorkflow, isExecuting, executionEvents,
     configuringNode, setConfiguringNode, handleSaveConfiguration, collaborators, pendingNode, setPendingNode,
     selectedTrigger, setSelectedTrigger, selectedAction, setSelectedAction, searchQuery, setSearchQuery, filterCategory, setFilterCategory, showConnectedOnly, setShowConnectedOnly,
-    filteredIntegrations, displayedTriggers, deletingNode, setDeletingNode, confirmDeleteNode, isIntegrationConnected
+    filteredIntegrations, displayedTriggers, deletingNode, setDeletingNode, confirmDeleteNode, isIntegrationConnected, integrationsLoading
   }
 }
 
@@ -703,7 +704,7 @@ function WorkflowBuilderContent() {
     availableIntegrations, renderLogo, getWorkflowStatus, currentWorkflow, isExecuting, executionEvents,
     configuringNode, setConfiguringNode, handleSaveConfiguration, collaborators, pendingNode, setPendingNode,
     selectedTrigger, setSelectedTrigger, selectedAction, setSelectedAction, searchQuery, setSearchQuery, filterCategory, setFilterCategory, showConnectedOnly, setShowConnectedOnly,
-    filteredIntegrations, displayedTriggers, deletingNode, setDeletingNode, confirmDeleteNode, isIntegrationConnected
+    filteredIntegrations, displayedTriggers, deletingNode, setDeletingNode, confirmDeleteNode, isIntegrationConnected, integrationsLoading
   } = useWorkflowBuilderState()
 
   const categories = useMemo(() => {
@@ -721,7 +722,11 @@ function WorkflowBuilderContent() {
   }
 
   if (!currentWorkflow) {
-    return <div className="flex items-center justify-center h-full"><Loader2 className="w-8 h-8 animate-spin" /></div>
+    return <WorkflowLoadingScreen />
+  }
+
+  if (integrationsLoading) {
+    return <IntegrationLoadingScreen />
   }
   return (
     <div style={{ height: "calc(100vh - 65px)", position: "relative" }}>
@@ -837,17 +842,38 @@ function WorkflowBuilderContent() {
           <div className="flex-grow flex min-h-0 overflow-hidden">
             <ScrollArea className="w-1/3 border-r">
               <div className="py-2 px-3">
-              {filteredIntegrations.map((integration) => (
-                <div
-                  key={integration.id}
-                  className={`flex items-center p-3 rounded-md cursor-pointer ${selectedIntegration?.id === integration.id ? 'bg-blue-50 ring-1 ring-blue-200' : 'hover:bg-gray-50'}`}
-                  onClick={() => setSelectedIntegration(integration)}
-                >
-                  {renderLogo(integration.id, integration.name)}
-                  <span className="font-semibold ml-4 flex-grow">{integration.name}</span>
-                  <ChevronRight className="w-5 h-5 text-gray-400" />
+              {filteredIntegrations.length === 0 && showConnectedOnly ? (
+                <div className="flex flex-col items-center justify-center py-8 text-center">
+                  <div className="text-gray-400 mb-2">
+                    <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                  </div>
+                  <p className="text-sm text-gray-500 mb-2">No connected integrations found</p>
+                  <p className="text-xs text-gray-400">Try unchecking "Show only connected apps"</p>
                 </div>
-              ))}
+              ) : filteredIntegrations.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 text-center">
+                  <div className="text-gray-400 mb-2">
+                    <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                  </div>
+                  <p className="text-sm text-gray-500">No integrations match your search</p>
+                </div>
+              ) : (
+                filteredIntegrations.map((integration) => (
+                  <div
+                    key={integration.id}
+                    className={`flex items-center p-3 rounded-md cursor-pointer ${selectedIntegration?.id === integration.id ? 'bg-blue-50 ring-1 ring-blue-200' : 'hover:bg-gray-50'}`}
+                    onClick={() => setSelectedIntegration(integration)}
+                  >
+                    {renderLogo(integration.id, integration.name)}
+                    <span className="font-semibold ml-4 flex-grow">{integration.name}</span>
+                    <ChevronRight className="w-5 h-5 text-gray-400" />
+                  </div>
+                ))
+              )}
               </div>
             </ScrollArea>
             <div className="w-2/3 h-full">
@@ -943,45 +969,73 @@ function WorkflowBuilderContent() {
           <div className="flex-grow flex min-h-0 overflow-hidden">
             <ScrollArea className="w-1/3 border-r">
               <div className="py-2 px-3">
-              {availableIntegrations
-                .filter(int => int.actions.length > 0)
-                                 .filter(int => {
-                   if (showConnectedOnly) {
-                     return isIntegrationConnected(int.id);
-                   }
-                   return true;
-                 })
-                .filter(int => {
-                  if (filterCategory === 'all') return true;
-                  return int.category === filterCategory;
-                })
-                .filter(int => {
-                  const searchLower = searchQuery.toLowerCase();
-                  if (searchLower === "") return true;
-                  
-                  const integrationMatches = int.name.toLowerCase().includes(searchLower) ||
-                                           int.description.toLowerCase().includes(searchLower) ||
-                                           int.category.toLowerCase().includes(searchLower);
-                  
-                  const actionMatches = int.actions.some(a => 
-                    (a.name && a.name.toLowerCase().includes(searchLower)) ||
-                    (a.description && a.description.toLowerCase().includes(searchLower)) ||
-                    (a.type && a.type.toLowerCase().includes(searchLower))
+              {(() => {
+                const filteredActions = availableIntegrations
+                  .filter(int => int.actions.length > 0)
+                  .filter(int => {
+                    if (showConnectedOnly) {
+                      return isIntegrationConnected(int.id);
+                    }
+                    return true;
+                  })
+                  .filter(int => {
+                    if (filterCategory === 'all') return true;
+                    return int.category === filterCategory;
+                  })
+                  .filter(int => {
+                    const searchLower = searchQuery.toLowerCase();
+                    if (searchLower === "") return true;
+                    
+                    const integrationMatches = int.name.toLowerCase().includes(searchLower) ||
+                                             int.description.toLowerCase().includes(searchLower) ||
+                                             int.category.toLowerCase().includes(searchLower);
+                    
+                    const actionMatches = int.actions.some(a => 
+                      (a.name && a.name.toLowerCase().includes(searchLower)) ||
+                      (a.description && a.description.toLowerCase().includes(searchLower)) ||
+                      (a.type && a.type.toLowerCase().includes(searchLower))
+                    );
+                    
+                    return integrationMatches || actionMatches;
+                  });
+
+                if (filteredActions.length === 0 && showConnectedOnly) {
+                  return (
+                    <div className="flex flex-col items-center justify-center py-8 text-center">
+                      <div className="text-gray-400 mb-2">
+                        <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        </svg>
+                      </div>
+                      <p className="text-sm text-gray-500 mb-2">No connected integrations found</p>
+                      <p className="text-xs text-gray-400">Try unchecking "Show only connected apps"</p>
+                    </div>
                   );
-                  
-                  return integrationMatches || actionMatches;
-                })
-                .map((integration) => (
-                <div
-                  key={integration.id}
-                  className={`flex items-center p-3 rounded-md cursor-pointer ${selectedIntegration?.id === integration.id ? 'bg-blue-50 ring-1 ring-blue-200' : 'hover:bg-gray-50'}`}
-                  onClick={() => setSelectedIntegration(integration)}
-                >
-                  {renderLogo(integration.id, integration.name)}
-                  <span className="font-semibold ml-4 flex-grow">{integration.name}</span>
-                  <ChevronRight className="w-5 h-5 text-gray-400" />
-                </div>
-              ))}
+                } else if (filteredActions.length === 0) {
+                  return (
+                    <div className="flex flex-col items-center justify-center py-8 text-center">
+                      <div className="text-gray-400 mb-2">
+                        <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                      </div>
+                      <p className="text-sm text-gray-500">No integrations match your search</p>
+                    </div>
+                  );
+                }
+
+                return filteredActions.map((integration) => (
+                  <div
+                    key={integration.id}
+                    className={`flex items-center p-3 rounded-md cursor-pointer ${selectedIntegration?.id === integration.id ? 'bg-blue-50 ring-1 ring-blue-200' : 'hover:bg-gray-50'}`}
+                    onClick={() => setSelectedIntegration(integration)}
+                  >
+                    {renderLogo(integration.id, integration.name)}
+                    <span className="font-semibold ml-4 flex-grow">{integration.name}</span>
+                    <ChevronRight className="w-5 h-5 text-gray-400" />
+                  </div>
+                ));
+              })()}
               </div>
             </ScrollArea>
             <div className="w-2/3 h-full">
