@@ -8,10 +8,11 @@ export async function POST(request: Request) {
 
   try {
     const {
-      data: { session },
-    } = await supabase.auth.getSession()
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
 
-    if (!session) {
+    if (authError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -21,12 +22,12 @@ export async function POST(request: Request) {
 
     // If no workflowData provided, try to get from database (backward compatibility)
     if (!workflow) {
-      const { data: dbWorkflow, error: workflowError } = await supabase
-        .from("workflows")
-        .select("*")
-        .eq("id", workflowId)
-        .eq("user_id", session.user.id)
-        .single()
+             const { data: dbWorkflow, error: workflowError } = await supabase
+         .from("workflows")
+         .select("*")
+         .eq("id", workflowId)
+         .eq("user_id", user.id)
+         .single()
 
       if (workflowError || !dbWorkflow) {
         return NextResponse.json({ error: "Workflow not found" }, { status: 404 })
@@ -44,7 +45,7 @@ export async function POST(request: Request) {
       .from("workflow_executions")
       .insert({
         workflow_id: workflowId,
-        user_id: session.user.id,
+        user_id: user.id,
         status: "running",
         input_data: inputData,
         started_at: new Date().toISOString(),
@@ -58,7 +59,7 @@ export async function POST(request: Request) {
 
     try {
       // Execute workflow with enhanced engine
-      const result = await executeWorkflowAdvanced(workflow, inputData, session.user.id, testMode)
+      const result = await executeWorkflowAdvanced(workflow, inputData, user.id, testMode)
 
       // Update execution with success
       await supabase
@@ -74,7 +75,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, executionId: execution.id, result })
     } catch (error: any) {
       // Handle retry logic
-      const shouldRetry = await handleExecutionError(supabase, execution.id, error, session.user.id)
+      const shouldRetry = await handleExecutionError(supabase, execution.id, error, user.id)
 
       if (!shouldRetry) {
         // Update execution with error
