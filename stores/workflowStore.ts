@@ -11,6 +11,10 @@ export interface WorkflowNode {
     label: string
     type: string
     config: Record<string, any>
+    providerId?: string
+    isTrigger?: boolean
+    title?: string
+    description?: string
   }
 }
 
