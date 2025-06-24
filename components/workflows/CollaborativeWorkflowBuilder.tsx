@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useCallback, useState, useMemo } from "react"
+import React, { useEffect, useCallback, useState, useMemo, useRef } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import {
   ReactFlow,
@@ -292,54 +292,70 @@ const useWorkflowBuilderState = () => {
     }
   }, [workflowId, workflows, currentWorkflow, setCurrentWorkflow])
 
+  // Add a ref to track if we're in a save operation
+  const isSavingRef = useRef(false)
+  
   useEffect(() => {
+    // Don't rebuild nodes if we're currently saving (to prevent visual disruption)
+    if (isSavingRef.current) {
+      return
+    }
+    
     if (currentWorkflow) {
       setWorkflowName(currentWorkflow.name)
-      const customNodes: Node[] = (currentWorkflow.nodes || []).map((node: WorkflowNode) => ({
-        id: node.id, type: "custom", position: node.position,
-        data: {
-            ...node.data, 
-            name: node.data.label, 
-            onConfigure: handleConfigureNode,
-            onDelete: handleDeleteNodeWithConfirmation,
-            onChangeTrigger: node.data.type.includes('trigger') ? handleChangeTrigger : undefined,
-            providerId: node.data.type.split('-')[0]
-        },
-      }))
+      
+      // Only rebuild nodes if we don't already have nodes (initial load) or if nodes have actually changed
+      const currentNodeIds = getNodes().filter(n => n.type === 'custom').map(n => n.id).sort()
+      const workflowNodeIds = (currentWorkflow.nodes || []).map(n => n.id).sort()
+      const nodesChanged = JSON.stringify(currentNodeIds) !== JSON.stringify(workflowNodeIds)
+      
+      if (getNodes().length === 0 || nodesChanged) {
+        const customNodes: Node[] = (currentWorkflow.nodes || []).map((node: WorkflowNode) => ({
+          id: node.id, type: "custom", position: node.position,
+          data: {
+              ...node.data, 
+              name: node.data.label, 
+              onConfigure: handleConfigureNode,
+              onDelete: handleDeleteNodeWithConfirmation,
+              onChangeTrigger: node.data.type.includes('trigger') ? handleChangeTrigger : undefined,
+              providerId: node.data.type.split('-')[0]
+          },
+        }))
 
-      let allNodes: Node[] = [...customNodes]
-      const lastNode = customNodes.length > 0 ? customNodes.sort((a,b) => b.position.y - a.position.y)[0] : null
-      
-      if(lastNode) {
-          const addActionId = `add-action-${lastNode.id}`
-          const addActionNode: Node = {
-              id: addActionId, type: 'addAction', position: { x: lastNode.position.x, y: lastNode.position.y + 160 },
-              data: { parentId: lastNode.id, onClick: () => handleAddActionClick(addActionId, lastNode.id) }
-          }
-          allNodes.push(addActionNode)
+        let allNodes: Node[] = [...customNodes]
+        const lastNode = customNodes.length > 0 ? customNodes.sort((a,b) => b.position.y - a.position.y)[0] : null
+        
+        if(lastNode) {
+            const addActionId = `add-action-${lastNode.id}`
+            const addActionNode: Node = {
+                id: addActionId, type: 'addAction', position: { x: lastNode.position.x, y: lastNode.position.y + 160 },
+                data: { parentId: lastNode.id, onClick: () => handleAddActionClick(addActionId, lastNode.id) }
+            }
+            allNodes.push(addActionNode)
+        }
+        
+        const initialEdges: Edge[] = (currentWorkflow.connections || []).map((conn: WorkflowConnection) => ({
+          id: conn.id, source: conn.source, target: conn.target,
+        }))
+        
+        if(lastNode && allNodes.find(n => n.type === 'addAction')) {
+            const addNode = allNodes.find(n => n.type === 'addAction')!
+            initialEdges.push({
+                id: `${lastNode.id}->${addNode.id}`, source: lastNode.id, target: addNode.id, animated: true,
+                style: { stroke: '#b1b1b7', strokeWidth: 2, strokeDasharray: '5,5' }, type: 'straight'
+            })
+        }
+        
+        setNodes(allNodes)
+        setEdges(initialEdges)
+        setTimeout(() => fitView({ padding: 0.2, duration: 300 }), 100)
       }
-      
-      const initialEdges: Edge[] = (currentWorkflow.connections || []).map((conn: WorkflowConnection) => ({
-        id: conn.id, source: conn.source, target: conn.target,
-      }))
-      
-      if(lastNode && allNodes.find(n => n.type === 'addAction')) {
-          const addNode = allNodes.find(n => n.type === 'addAction')!
-          initialEdges.push({
-              id: `${lastNode.id}->${addNode.id}`, source: lastNode.id, target: addNode.id, animated: true,
-              style: { stroke: '#b1b1b7', strokeWidth: 2, strokeDasharray: '5,5' }, type: 'straight'
-          })
-      }
-      
-      setNodes(allNodes)
-      setEdges(initialEdges)
-      setTimeout(() => fitView({ padding: 0.2, duration: 300 }), 100)
     } else if (!workflowId) {
       setNodes([])
       setEdges([])
       // Don't automatically show the trigger dialog, let the user click the button
     }
-  }, [currentWorkflow, fitView, handleAddActionClick, handleConfigureNode, handleDeleteNode, setCurrentWorkflow, setEdges, setNodes, workflowId])
+  }, [currentWorkflow, fitView, handleAddActionClick, handleConfigureNode, handleDeleteNode, setCurrentWorkflow, setEdges, setNodes, workflowId, getNodes])
 
   const handleTriggerSelect = (integration: IntegrationInfo, trigger: NodeComponent) => {
     if (nodeNeedsConfiguration(trigger)) {
@@ -560,29 +576,64 @@ const useWorkflowBuilderState = () => {
   const handleSave = async () => {
     if (!currentWorkflow) return
     setIsSaving(true)
-    const reactFlowNodes = getNodes().filter((n: Node) => n.type === 'custom')
-    const reactFlowEdges = getEdges().filter((e: Edge) => reactFlowNodes.some((n: Node) => n.id === e.source) && reactFlowNodes.some((n: Node) => n.id === e.target))
-
-    const mappedNodes: WorkflowNode[] = reactFlowNodes.map((n: Node) => ({
-      id: n.id, type: 'custom', position: n.position,
-      data: { label: n.data.name as string, type: n.data.type as string, config: n.data.config || {} },
-    }))
-    const mappedConnections: WorkflowConnection[] = reactFlowEdges.map((e: Edge) => ({
-      id: e.id, source: e.source, target: e.target,
-      sourceHandle: e.sourceHandle ?? undefined, targetHandle: e.targetHandle ?? undefined,
-    }))
-    const updates: Partial<Workflow> = {
-      name: workflowName, description: currentWorkflow.description,
-      nodes: mappedNodes, connections: mappedConnections, status: currentWorkflow.status,
-    }
+    isSavingRef.current = true
+    
     try {
+      // Get current nodes and edges from React Flow
+      const reactFlowNodes = getNodes().filter((n: Node) => n.type === 'custom')
+      const reactFlowEdges = getEdges().filter((e: Edge) => reactFlowNodes.some((n: Node) => n.id === e.source) && reactFlowNodes.some((n: Node) => n.id === e.target))
+
+      // Map to database format without losing React Flow properties
+      const mappedNodes: WorkflowNode[] = reactFlowNodes.map((n: Node) => ({
+        id: n.id, 
+        type: 'custom', 
+        position: n.position,
+        data: { 
+          label: n.data.name as string, 
+          type: n.data.type as string, 
+          config: n.data.config || {},
+          // Preserve additional properties that might be needed
+          providerId: n.data.providerId,
+          isTrigger: n.data.isTrigger,
+          title: n.data.title,
+          description: n.data.description
+        },
+      }))
+      
+      const mappedConnections: WorkflowConnection[] = reactFlowEdges.map((e: Edge) => ({
+        id: e.id, 
+        source: e.source, 
+        target: e.target,
+        sourceHandle: e.sourceHandle ?? undefined, 
+        targetHandle: e.targetHandle ?? undefined,
+      }))
+
+      const updates: Partial<Workflow> = {
+        name: workflowName, 
+        description: currentWorkflow.description,
+        nodes: mappedNodes, 
+        connections: mappedConnections, 
+        status: currentWorkflow.status,
+      }
+
+      // Save to database
       await updateWorkflow(currentWorkflow.id, updates)
+      
+      // Update the current workflow state with the new data but keep React Flow intact
+      setCurrentWorkflow({
+        ...currentWorkflow,
+        name: workflowName,
+        nodes: mappedNodes,
+        connections: mappedConnections
+      })
+      
       toast({ title: "Workflow Saved", description: "Your workflow has been successfully saved." })
     } catch (error) {
       console.error("Failed to save workflow:", error)
       toast({ title: "Error Saving Workflow", description: "Could not save your changes. Please try again.", variant: "destructive" })
     } finally {
       setIsSaving(false)
+      isSavingRef.current = false
     }
   }
 
