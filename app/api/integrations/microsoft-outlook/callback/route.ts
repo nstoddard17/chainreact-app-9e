@@ -5,7 +5,7 @@ import { lucia } from "@/lib/auth"
 import { generateId } from "lucia"
 
 const microsoft = {
-  clientId: process.env.MICROSOFT_CLIENT_ID ?? "",
+  clientId: process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID ?? "",
   clientSecret: process.env.MICROSOFT_CLIENT_SECRET ?? "",
   redirectUri: process.env.MICROSOFT_REDIRECT_URI ?? "",
 }
