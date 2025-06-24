@@ -37,6 +37,14 @@ export class EmailCacheService {
   }
 
   /**
+   * Check if a string is a valid UUID format
+   */
+  private isValidUUID(str: string): boolean {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+    return uuidRegex.test(str)
+  }
+
+  /**
    * Track email usage - increment frequency and update last used time
    */
   async trackEmailUsage(
@@ -49,11 +57,11 @@ export class EmailCacheService {
     } = {}
   ): Promise<void> {
     try {
-      const { data: { session } } = await this.supabase.auth.getSession()
-      if (!session?.user?.id) return
+      const { data: { user }, error: authError } = await this.supabase.auth.getUser()
+      if (authError || !user?.id) return
 
       const { name, integrationId, metadata } = options
-      const userId = session.user.id
+      const userId = user.id
 
       // Check if email already exists in cache
       const { data: existing } = await this.supabase
@@ -82,20 +90,26 @@ export class EmailCacheService {
         }
       } else {
         // Create new entry
+        const insertData: any = {
+          user_id: userId,
+          email: email.toLowerCase(),
+          name: name,
+          frequency: 1,
+          last_used: new Date().toISOString(),
+          source: source,
+          metadata: metadata,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }
+        
+        // Only include integration_id if it looks like a valid UUID
+        if (integrationId && this.isValidUUID(integrationId)) {
+          insertData.integration_id = integrationId
+        }
+        
         const { error } = await this.supabase
           .from("email_frequency_cache")
-          .insert({
-            user_id: userId,
-            email: email.toLowerCase(),
-            name: name,
-            frequency: 1,
-            last_used: new Date().toISOString(),
-            source: source,
-            integration_id: integrationId,
-            metadata: metadata,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          })
+          .insert(insertData)
 
         if (error) {
           console.error("Failed to create email frequency entry:", error)
@@ -119,8 +133,8 @@ export class EmailCacheService {
     }>
   ): Promise<void> {
     try {
-      const { data: { session } } = await this.supabase.auth.getSession()
-      if (!session?.user?.id) return
+      const { data: { user }, error: authError } = await this.supabase.auth.getUser()
+      if (authError || !user?.id) return
 
       // Process in batches to avoid overwhelming the database
       const batchSize = 10
@@ -149,13 +163,13 @@ export class EmailCacheService {
     limit: number = 50
   ): Promise<EmailSuggestion[]> {
     try {
-      const { data: { session } } = await this.supabase.auth.getSession()
-      if (!session?.user?.id) return []
+      const { data: { user }, error: authError } = await this.supabase.auth.getUser()
+      if (authError || !user?.id) return []
 
       let query = this.supabase
         .from("email_frequency_cache")
         .select("*")
-        .eq("user_id", session.user.id)
+        .eq("user_id", user.id)
         .order("frequency", { ascending: false })
         .order("last_used", { ascending: false })
         .limit(limit)
@@ -263,8 +277,8 @@ export class EmailCacheService {
    */
   async cleanupOldEntries(daysOld: number = 90): Promise<void> {
     try {
-      const { data: { session } } = await this.supabase.auth.getSession()
-      if (!session?.user?.id) return
+      const { data: { user }, error: authError } = await this.supabase.auth.getUser()
+      if (authError || !user?.id) return
 
       const cutoffDate = new Date()
       cutoffDate.setDate(cutoffDate.getDate() - daysOld)
@@ -272,7 +286,7 @@ export class EmailCacheService {
       const { error } = await this.supabase
         .from("email_frequency_cache")
         .delete()
-        .eq("user_id", session.user.id)
+        .eq("user_id", user.id)
         .lt("last_used", cutoffDate.toISOString())
         .lt("frequency", 2) // Only delete infrequently used emails
 
@@ -294,15 +308,15 @@ export class EmailCacheService {
     sourceBreakdown: Record<string, number>
   }> {
     try {
-      const { data: { session } } = await this.supabase.auth.getSession()
-      if (!session?.user?.id) {
+      const { data: { user }, error: authError } = await this.supabase.auth.getUser()
+      if (authError || !user?.id) {
         return { totalEmails: 0, totalUsage: 0, topEmails: [], sourceBreakdown: {} }
       }
 
       const { data, error } = await this.supabase
         .from("email_frequency_cache")
         .select("*")
-        .eq("user_id", session.user.id)
+        .eq("user_id", user.id)
 
       if (error) {
         console.error("Failed to get email stats:", error)
