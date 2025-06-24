@@ -15,18 +15,28 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { workflowId, testMode = false, inputData = {} } = await request.json()
+    const { workflowId, testMode = false, inputData = {}, workflowData } = await request.json()
 
-    // Get workflow
-    const { data: workflow, error: workflowError } = await supabase
-      .from("workflows")
-      .select("*")
-      .eq("id", workflowId)
-      .eq("user_id", session.user.id)
-      .single()
+    let workflow = workflowData
 
-    if (workflowError || !workflow) {
-      return NextResponse.json({ error: "Workflow not found" }, { status: 404 })
+    // If no workflowData provided, try to get from database (backward compatibility)
+    if (!workflow) {
+      const { data: dbWorkflow, error: workflowError } = await supabase
+        .from("workflows")
+        .select("*")
+        .eq("id", workflowId)
+        .eq("user_id", session.user.id)
+        .single()
+
+      if (workflowError || !dbWorkflow) {
+        return NextResponse.json({ error: "Workflow not found" }, { status: 404 })
+      }
+      workflow = dbWorkflow
+    }
+
+    // Validate workflow has required structure
+    if (!workflow.nodes || workflow.nodes.length === 0) {
+      return NextResponse.json({ error: "Workflow has no nodes to execute" }, { status: 400 })
     }
 
     // Create execution record
@@ -88,6 +98,7 @@ export async function POST(request: Request) {
 }
 
 async function executeWorkflowAdvanced(workflow: any, inputData: any, userId: string, testMode: boolean) {
+  const supabase = createSupabaseRouteHandlerClient()
   const nodes = workflow.nodes || []
   const connections = workflow.connections || []
 
@@ -116,7 +127,7 @@ async function executeWorkflowAdvanced(workflow: any, inputData: any, userId: st
 
   if (variables) {
     variables.forEach((variable: any) => {
-      executionContext.variables[variable.name] = variable.value
+      (executionContext.variables as any)[variable.name] = variable.value
     })
   }
 
@@ -163,6 +174,9 @@ async function executeNodeAdvanced(node: any, allNodes: any[], connections: any[
         break
       case "send_email":
         nodeResult = await executeSendEmailNode(node, context)
+        break
+      case "gmail_action_send_email":
+        nodeResult = await executeGmailSendEmailNode(node, context)
         break
       case "webhook_call":
         nodeResult = await executeWebhookCallNode(node, context)
@@ -948,6 +962,32 @@ async function executeSendEmailNode(node: any, context: any) {
     html: node.data.config?.html === "true",
     sent: true,
     mock: true,
+  }
+}
+
+async function executeGmailSendEmailNode(node: any, context: any) {
+  // Import the Gmail execution logic
+  const { executeAction } = await import("@/lib/workflows/executeNode")
+  
+  try {
+    const result = await executeAction({
+      node,
+      input: context.data,
+      userId: context.userId,
+      workflowId: context.workflowId
+    })
+
+    return {
+      type: "gmail_action_send_email",
+      success: result.success,
+      message: result.message,
+      output: result.output,
+      to: node.data.config?.to,
+      subject: node.data.config?.subject,
+      timestamp: new Date().toISOString(),
+    }
+  } catch (error: any) {
+    throw new Error(`Gmail send email failed: ${error.message}`)
   }
 }
 
