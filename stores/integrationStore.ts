@@ -322,6 +322,11 @@ export const useIntegrationStore = create<IntegrationStore>()(
               popup?.close()
               window.removeEventListener("message", messageHandler)
               setLoading(`connect-${providerId}`, false)
+            } else if (event.data && event.data.type === "oauth-cancelled") {
+              console.log(`🚫 OAuth cancelled for ${providerId}:`, event.data.message)
+              closedByMessage = true
+              window.removeEventListener("message", messageHandler)
+              setLoading(`connect-${providerId}`, false)
             }
           }
 

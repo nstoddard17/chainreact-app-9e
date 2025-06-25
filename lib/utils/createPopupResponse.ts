@@ -14,8 +14,30 @@ export function createPopupResponse(
   
   const script = `
     <script>
+      // Flag to track if we've already sent a response
+      window.sentResponse = false;
+      
+      // Listen for window close/navigation events
+      window.addEventListener('beforeunload', function() {
+        // Only send if we haven't already sent a success/error message
+        if (window.opener && !window.sentResponse) {
+          try {
+            window.opener.postMessage({
+              type: 'oauth-cancelled',
+              provider: '${safeProvider}',
+              message: 'Authorization cancelled'
+            }, '${baseUrl}');
+          } catch (e) {
+            console.error('Error sending cancel message:', e);
+          }
+        }
+      });
+      
       try {
         if (window.opener) {
+          // Set flag to indicate we've sent a response
+          window.sentResponse = true;
+          
           window.opener.postMessage({
               type: 'oauth-${type}',
               provider: '${safeProvider}',
