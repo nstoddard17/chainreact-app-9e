@@ -83,6 +83,26 @@ export const emailFrequencyCache = {
   },
 }
 
+export const workflowExecutions = {
+  tableName: "workflow_executions",
+  columns: {
+    id: "id",
+    workflow_id: "workflow_id",
+    user_id: "user_id",
+    status: "status",
+    input_data: "input_data",
+    output_data: "output_data",
+    error_message: "error_message",
+    started_at: "started_at",
+    completed_at: "completed_at",
+    execution_time_ms: "execution_time_ms",
+    retry_count: "retry_count",
+    metadata: "metadata",
+    created_at: "created_at",
+    updated_at: "updated_at",
+  },
+}
+
 // Type definitions
 export interface User {
   id: string
@@ -148,6 +168,23 @@ export interface EmailFrequencyCache {
   last_used: string
   source: string
   integration_id?: string
+  metadata?: Record<string, any>
+  created_at: string
+  updated_at: string
+}
+
+export interface WorkflowExecution {
+  id: string
+  workflow_id: string
+  user_id: string
+  status: "pending" | "running" | "success" | "error" | "cancelled"
+  input_data?: Record<string, any>
+  output_data?: Record<string, any>
+  error_message?: string
+  started_at: string
+  completed_at?: string
+  execution_time_ms?: number
+  retry_count: number
   metadata?: Record<string, any>
   created_at: string
   updated_at: string
