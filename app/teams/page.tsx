@@ -4,7 +4,7 @@ import { redirect } from "next/navigation"
 import TeamsContent from "@/components/teams/TeamsContent"
 
 export default async function TeamsPage() {
-  const supabase = createSupabaseServerClient()
+  const supabase = await createSupabaseServerClient()
 
   const {
     data: { session },

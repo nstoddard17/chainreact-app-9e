@@ -8,7 +8,7 @@ export const revalidate = 0
 export async function GET(request: NextRequest) {
   try {
     cookies()
-    const supabase = createSupabaseRouteHandlerClient()
+    const supabase = await createSupabaseRouteHandlerClient()
 
     // Use getUser() instead of getSession() for secure authentication
     const {

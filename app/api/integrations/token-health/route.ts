@@ -5,7 +5,7 @@ import { getTokenHealthReport, getIntegrationsNeedingAttention } from "@/lib/int
 export async function GET(request: NextRequest) {
   try {
     // Get user from session
-    const supabase = createSupabaseRouteHandlerClient()
+    const supabase = await createSupabaseRouteHandlerClient()
     const {
       data: { user },
       error: authError,

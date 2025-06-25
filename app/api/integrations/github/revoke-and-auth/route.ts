@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL("/integrations?error=missing_oauth_url", request.url))
     }
 
-    const supabase = createSupabaseRouteHandlerClient()
+    const supabase = await createSupabaseRouteHandlerClient()
     const {
       data: { user },
     } = await supabase.auth.getUser()

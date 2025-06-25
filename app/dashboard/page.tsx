@@ -4,7 +4,7 @@ import { redirect } from "next/navigation"
 import DashboardContent from "@/components/dashboard/DashboardContent"
 
 export default async function DashboardPage() {
-  const supabase = createSupabaseServerClient()
+  const supabase = await createSupabaseServerClient()
 
   const {
     data: { session },

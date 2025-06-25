@@ -3,7 +3,7 @@ import { createSupabaseRouteHandlerClient } from "../../../../utils/supabase/ser
 
 export async function GET() {
   try {
-    const supabase = createSupabaseRouteHandlerClient()
+    const supabase = await createSupabaseRouteHandlerClient()
     // Check authentication
     const {
       data: { session },

@@ -8,7 +8,7 @@ interface Props {
 }
 
 export default async function OrganizationPage({ params }: Props) {
-  const supabase = createSupabaseServerClient()
+  const supabase = await createSupabaseServerClient()
 
   const {
     data: { session },

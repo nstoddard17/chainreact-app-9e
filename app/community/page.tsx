@@ -4,7 +4,7 @@ import { redirect } from "next/navigation"
 import CommunityContent from "@/components/community/CommunityContent"
 
 export default async function CommunityPage() {
-  const supabase = createSupabaseServerClient()
+  const supabase = await createSupabaseServerClient()
 
   const {
     data: { session },

@@ -9,7 +9,7 @@ export async function POST(request: Request, { params }: { params: { id: string;
     const { commands } = body
 
     // Get the supabase client
-    const supabase = createSupabaseRouteHandlerClient()
+    const supabase = await createSupabaseRouteHandlerClient()
 
     // Validate the workflow and test suite exist
     const { data: workflow, error: workflowError } = await supabase.from("workflows").select("*").eq("id", id).single()

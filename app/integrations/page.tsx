@@ -5,7 +5,7 @@ import IntegrationsContent from "@/components/integrations/IntegrationsContent"
 import { INTEGRATION_CONFIGS } from "@/lib/integrations/availableIntegrations"
 
 export default async function IntegrationsPage() {
-  const supabase = createSupabaseServerClient()
+  const supabase = await createSupabaseServerClient()
 
   const {
     data: { session },

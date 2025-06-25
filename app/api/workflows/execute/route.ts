@@ -17,7 +17,7 @@ export async function POST(request: Request) {
   }
 
   cookies()
-  const supabase = createSupabaseRouteHandlerClient()
+  const supabase = await createSupabaseRouteHandlerClient()
 
   try {
     const {
@@ -131,7 +131,7 @@ export async function POST(request: Request) {
 }
 
 async function executeWorkflowAdvanced(workflow: any, inputData: any, userId: string, testMode: boolean) {
-  const supabase = createSupabaseRouteHandlerClient()
+  const supabase = await createSupabaseRouteHandlerClient()
   const nodes = workflow.nodes || []
   const connections = workflow.connections || []
 
@@ -504,7 +504,7 @@ async function executeVariableSetNode(node: any, context: any) {
 
   // Store in database if workflow scope
   if (scope === "workflow") {
-    const supabase = createSupabaseRouteHandlerClient()
+    const supabase = await createSupabaseRouteHandlerClient()
     await supabase.from("workflow_variables").upsert({
       workflow_id: context.workflowId,
       name: variableName,
@@ -843,7 +843,7 @@ async function executeSlackMessageNode(node: any, context: any) {
   }
 
   // Get Slack integration
-  const supabase = createSupabaseRouteHandlerClient()
+  const supabase = await createSupabaseRouteHandlerClient()
   const { data: integration } = await supabase
     .from("integrations")
     .select("*")
@@ -898,7 +898,7 @@ async function executeCalendarEventNode(node: any, context: any) {
   }
 
   // Get Google Calendar integration
-  const supabase = createSupabaseRouteHandlerClient()
+  const supabase = await createSupabaseRouteHandlerClient()
   const { data: integration } = await supabase
     .from("integrations")
     .select("*")
@@ -963,7 +963,7 @@ async function executeSheetsAppendNode(node: any, context: any) {
   }
 
   // Get Google Sheets integration
-  const supabase = createSupabaseRouteHandlerClient()
+  const supabase = await createSupabaseRouteHandlerClient()
   const { data: integration } = await supabase
     .from("integrations")
     .select("*")

@@ -18,7 +18,7 @@ interface ActionResult {
 
 async function getDecryptedAccessToken(userId: string, provider: string): Promise<string> {
   try {
-    const supabase = createSupabaseServerClient()
+    const supabase = await createSupabaseServerClient()
     
     // Get the user's integration
     const { data: integration, error } = await supabase

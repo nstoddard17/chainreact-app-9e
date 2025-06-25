@@ -5,7 +5,7 @@ import { AdvancedExecutionEngine } from "@/lib/execution/advancedExecutionEngine
 
 export async function POST(request: Request) {
   cookies()
-  const supabase = createSupabaseRouteHandlerClient()
+  const supabase = await createSupabaseRouteHandlerClient()
 
   try {
     const {

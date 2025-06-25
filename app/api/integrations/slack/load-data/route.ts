@@ -5,7 +5,7 @@ import { getSlackChannels } from "@/lib/integrations/slack"
 
 export async function POST(req: Request) {
   cookies()
-  const supabase = createSupabaseRouteHandlerClient()
+  const supabase = await createSupabaseRouteHandlerClient()
   const {
     data: { session },
   } = await supabase.auth.getSession()

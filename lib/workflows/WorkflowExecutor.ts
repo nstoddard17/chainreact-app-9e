@@ -31,7 +31,7 @@ export class WorkflowExecutor {
     let executionId
     try {
       const logger = new TokenAuditLogger()
-      const supabase = createSupabaseServerClient()
+      const supabase = await createSupabaseServerClient()
 
       const { data: workflow, error: workflowError } = await supabase
         .from("workflows")
@@ -145,7 +145,7 @@ export class WorkflowExecutor {
     status: "pending" | "running" | "completed" | "failed" | "paused",
     data?: Record<string, any>
   ): Promise<string> {
-    const supabase = createSupabaseServerClient()
+    const supabase = await createSupabaseServerClient()
     const { data: execution, error } = await supabase
       .from("workflow_executions")
       .insert({
@@ -165,7 +165,7 @@ export class WorkflowExecutor {
     status: "pending" | "running" | "completed" | "failed" | "paused",
     data?: Record<string, any>
   ): Promise<void> {
-    const supabase = createSupabaseServerClient()
+    const supabase = await createSupabaseServerClient()
     const updateData: any = {
       status,
       updated_at: new Date().toISOString(),
@@ -231,14 +231,14 @@ export class WorkflowExecutor {
 
   private async getIntegration(integrationId: string): Promise<any> {
     if (!integrationId) throw new Error("integrationId is required")
-    const supabase = createSupabaseServerClient()
+    const supabase = await createSupabaseServerClient()
     const { data, error } = await supabase.from("integrations").select().eq("id", integrationId).single()
     if (error) throw new Error(`Failed to get integration: ${error.message}`)
     return data
   }
 
   private async updateStepExecution(stepExecutionId: string, updates: Record<string, any>): Promise<void> {
-    const supabase = createSupabaseServerClient()
+    const supabase = await createSupabaseServerClient()
     await supabase.from("step_executions").update(updates).eq("id", stepExecutionId)
   }
 

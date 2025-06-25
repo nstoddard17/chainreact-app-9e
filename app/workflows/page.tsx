@@ -4,7 +4,7 @@ import { redirect } from "next/navigation"
 import WorkflowsContent from "@/components/workflows/WorkflowsContent"
 
 export default async function WorkflowsPage() {
-  const supabase = createSupabaseServerClient()
+  const supabase = await createSupabaseServerClient()
 
   const {
     data: { session },

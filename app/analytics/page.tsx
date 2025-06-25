@@ -5,7 +5,7 @@ import AnalyticsContent from "@/components/analytics/AnalyticsContent"
 
 export default async function AnalyticsPage() {
   cookies()
-  const supabase = createSupabaseServerClient()
+  const supabase = await createSupabaseServerClient()
 
   const {
     data: { session },

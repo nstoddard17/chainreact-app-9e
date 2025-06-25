@@ -8,7 +8,7 @@ import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 export async function POST(request: NextRequest) {
   try {
     cookies()
-    const supabase = createSupabaseRouteHandlerClient()
+    const supabase = await createSupabaseRouteHandlerClient()
 
     // Get authenticated user
     const {
