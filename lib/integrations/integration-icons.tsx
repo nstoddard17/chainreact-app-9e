@@ -8,7 +8,7 @@ export const integrationIcons: Record<string, string> = {
   github: '/integrations/github.svg',
   stripe: '/integrations/stripe.svg',
   youtube: '/integrations/youtube.svg',
-  teams: '/integrations/teams.svg',
+  teams: '/integrations/microsoft-teams.svg',
   onedrive: '/integrations/onedrive.svg',
   twitter: '/integrations/twitter.svg',
   facebook: '/integrations/facebook.svg',
