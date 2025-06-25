@@ -117,9 +117,10 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
           const height = 700
           const left = window.screen.width / 2 - width / 2
           const top = window.screen.height / 2 - height / 2
+          const popupName = `oauth_popup_${providerId}_${Date.now()}`
           const popup = window.open(
             data.authUrl,
-            "oauth-popup",
+            popupName,
             `width=${width},height=${height},left=${left},top=${top}`,
           )
 

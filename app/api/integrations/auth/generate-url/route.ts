@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
         break
 
       case "notion":
-        authUrl = generateNotionAuthUrl(finalState)
+        authUrl = await generateNotionAuthUrl(stateObject, supabase)
         break
 
       case "twitter":
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
         break
 
       case "linkedin":
-        authUrl = generateLinkedInAuthUrl(finalState)
+        authUrl = await generateLinkedInAuthUrl(stateObject, supabase)
         break
 
       case "facebook":
@@ -80,11 +80,11 @@ export async function POST(request: NextRequest) {
         break
 
       case "instagram":
-        authUrl = generateInstagramAuthUrl(finalState)
+        authUrl = await generateInstagramAuthUrl(stateObject, supabase)
         break
 
       case "tiktok":
-        authUrl = generateTikTokAuthUrl(finalState)
+        authUrl = await generateTikTokAuthUrl(stateObject, supabase)
         break
 
       case "trello":
@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
         break
 
       case "dropbox":
-        authUrl = generateDropboxAuthUrl(finalState)
+        authUrl = await generateDropboxAuthUrl(stateObject, supabase)
         break
 
       case "box":
@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
         break
 
       case "hubspot":
-        authUrl = generateHubSpotAuthUrl(finalState)
+        authUrl = await generateHubSpotAuthUrl(stateObject, supabase)
         break
 
       case "airtable":
@@ -284,19 +284,35 @@ function generateGoogleAuthUrl(service: string, state: string): string {
   return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`
 }
 
-function generateNotionAuthUrl(state: string): string {
+async function generateNotionAuthUrl(stateObject: any, supabase: any): Promise<string> {
   const clientId = process.env.NEXT_PUBLIC_NOTION_CLIENT_ID
   if (!clientId) throw new Error("Notion client ID not configured")
   const baseUrl = getBaseUrl()
 
-  // Note: The `owner` parameter has been intentionally omitted to ensure
-  // the user is always prompted to select a workspace.
+  // Generate PKCE challenge
+  const codeVerifier = crypto.randomBytes(32).toString("hex")
+  
+  // Convert state object to string
+  const state = btoa(JSON.stringify(stateObject))
+  
+  // Store state in database for verification in callback
+  const { error } = await supabase
+    .from("pkce_flow")
+    .insert({ 
+      state,
+      code_verifier: codeVerifier,
+      provider: "notion" 
+    })
+
+  if (error) {
+    throw new Error(`Failed to store Notion OAuth state: ${error.message}`)
+  }
+
   const params = new URLSearchParams({
     client_id: clientId,
     response_type: "code",
     redirect_uri: `${baseUrl}/api/integrations/notion/callback`,
     state,
-    owner: "user",
   })
 
   return `https://api.notion.com/v1/oauth/authorize?${params.toString()}`
@@ -335,13 +351,29 @@ async function generateTwitterAuthUrl(stateObject: any, supabase: any): Promise<
   return `https://twitter.com/i/oauth2/authorize?${params.toString()}`
 }
 
-function generateLinkedInAuthUrl(state: string): string {
+async function generateLinkedInAuthUrl(stateObject: any, supabase: any): Promise<string> {
   const clientId = process.env.NEXT_PUBLIC_LINKEDIN_CLIENT_ID
   console.log('LinkedIn Client ID:', clientId ? `${clientId.substring(0, 4)}...` : 'NOT SET')
   console.log('LinkedIn Client ID length:', clientId ? clientId.length : 0)
   
   if (!clientId) throw new Error("LinkedIn client ID not configured")
   const baseUrl = getBaseUrl()
+
+  // Convert state object to string
+  const state = btoa(JSON.stringify(stateObject))
+  
+  // Store state in database for verification in callback - UPDATED to use pkce_flow table
+  const { error } = await supabase
+    .from("pkce_flow")
+    .insert({ 
+      state, 
+      code_verifier: crypto.randomBytes(32).toString("hex"), // Add code_verifier for consistency
+      provider: "linkedin" 
+    })
+
+  if (error) {
+    throw new Error(`Failed to store LinkedIn OAuth state: ${error.message}`)
+  }
 
   const params = new URLSearchParams({
     response_type: "code",
@@ -384,10 +416,29 @@ function generateFacebookAuthUrl(state: string): string {
   return authUrl
 }
 
-function generateInstagramAuthUrl(state: string): string {
+async function generateInstagramAuthUrl(stateObject: any, supabase: any): Promise<string> {
   const clientId = process.env.NEXT_PUBLIC_INSTAGRAM_CLIENT_ID
   if (!clientId) throw new Error("Instagram client ID not configured")
   const baseUrl = getBaseUrl()
+
+  // Generate PKCE challenge
+  const codeVerifier = crypto.randomBytes(32).toString("hex")
+  
+  // Convert state object to string
+  const state = btoa(JSON.stringify(stateObject))
+  
+  // Store state in database for verification in callback
+  const { error } = await supabase
+    .from("pkce_flow")
+    .insert({ 
+      state,
+      code_verifier: codeVerifier,
+      provider: "instagram" 
+    })
+
+  if (error) {
+    throw new Error(`Failed to store Instagram OAuth state: ${error.message}`)
+  }
 
   const params = new URLSearchParams({
     client_id: clientId,
@@ -400,10 +451,29 @@ function generateInstagramAuthUrl(state: string): string {
   return `https://api.instagram.com/oauth/authorize?${params.toString()}`
 }
 
-function generateTikTokAuthUrl(state: string): string {
+async function generateTikTokAuthUrl(stateObject: any, supabase: any): Promise<string> {
   const clientId = process.env.NEXT_PUBLIC_TIKTOK_CLIENT_ID
   if (!clientId) throw new Error("TikTok client ID not configured")
   const baseUrl = getBaseUrl()
+
+  // Generate PKCE challenge
+  const codeVerifier = crypto.randomBytes(32).toString("hex")
+  
+  // Convert state object to string
+  const state = btoa(JSON.stringify(stateObject))
+  
+  // Store state in database for verification in callback - UPDATED to use pkce_flow table
+  const { error } = await supabase
+    .from("pkce_flow")
+    .insert({ 
+      state,
+      code_verifier: codeVerifier,
+      provider: "tiktok" 
+    })
+
+  if (error) {
+    throw new Error(`Failed to store TikTok OAuth state: ${error.message}`)
+  }
 
   const params = new URLSearchParams({
     client_key: clientId, // Use client_key instead of client_id for consistency
@@ -441,10 +511,29 @@ function generateTrelloAuthUrl(state: string): string {
   return `https://trello.com/1/authorize?${params.toString()}`
 }
 
-function generateDropboxAuthUrl(state: string): string {
+async function generateDropboxAuthUrl(stateObject: any, supabase: any): Promise<string> {
   const clientId = process.env.NEXT_PUBLIC_DROPBOX_CLIENT_ID
   if (!clientId) throw new Error("Dropbox client ID not configured")
   const baseUrl = getBaseUrl()
+
+  // Generate PKCE challenge
+  const codeVerifier = crypto.randomBytes(32).toString("hex")
+  
+  // Convert state object to string
+  const state = btoa(JSON.stringify(stateObject))
+  
+  // Store state in database for verification in callback
+  const { error } = await supabase
+    .from("pkce_flow")
+    .insert({ 
+      state,
+      code_verifier: codeVerifier,
+      provider: "dropbox" 
+    })
+
+  if (error) {
+    throw new Error(`Failed to store Dropbox OAuth state: ${error.message}`)
+  }
 
   const params = new URLSearchParams({
     client_id: clientId,
@@ -472,24 +561,40 @@ function generateBoxAuthUrl(state: string): string {
   return `https://app.box.com/api/oauth2/authorize?${params.toString()}`
 }
 
-function generateHubSpotAuthUrl(state: string): string {
+async function generateHubSpotAuthUrl(stateObject: any, supabase: any): Promise<string> {
   const clientId = process.env.NEXT_PUBLIC_HUBSPOT_CLIENT_ID
-  if (!clientId) throw new Error("Hubspot client ID not configured")
+  if (!clientId) throw new Error("HubSpot client ID not configured")
   const baseUrl = getBaseUrl()
 
-  // Define the scopes we want to request
-  const hubspotScopes = ["crm.objects.companies.read", "crm.objects.companies.write", 
-                         "crm.objects.contacts.read", "crm.objects.contacts.write", 
-                         "crm.objects.deals.read", "crm.objects.deals.write", "oauth"]
+  // Generate PKCE challenge
+  const codeVerifier = crypto.randomBytes(32).toString("hex")
   
-  // Add scopes to state object
-  try {
-    const stateObj = JSON.parse(atob(state))
-    stateObj.scopes = hubspotScopes
-    state = btoa(JSON.stringify(stateObj))
-  } catch (e) {
-    console.error("Failed to add scopes to HubSpot state:", e)
+  // Convert state object to string
+  const state = btoa(JSON.stringify(stateObject))
+  
+  // Store state in database for verification in callback
+  const { error } = await supabase
+    .from("pkce_flow")
+    .insert({ 
+      state,
+      code_verifier: codeVerifier,
+      provider: "hubspot" 
+    })
+
+  if (error) {
+    throw new Error(`Failed to store HubSpot OAuth state: ${error.message}`)
   }
+
+  // HubSpot scopes
+  const hubspotScopes = [
+    "crm.objects.contacts.read",
+    "crm.objects.contacts.write",
+    "crm.objects.companies.read",
+    "crm.objects.companies.write",
+    "crm.objects.deals.read",
+    "crm.objects.deals.write",
+    "content",
+  ]
 
   const params = new URLSearchParams({
     client_id: clientId,
