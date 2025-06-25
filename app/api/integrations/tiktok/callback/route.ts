@@ -108,15 +108,18 @@ export async function GET(request: NextRequest) {
       return createPopupResponse('error', provider, errorMessage, baseUrl)
     }
 
-    // TikTok returns data in a nested format
+    // Parse the response - TikTok API has inconsistent response formats
     const responseData = await tokenResponse.json()
+    console.log('TikTok token response:', responseData)
     
-    if (!responseData.data) {
-      console.error('TikTok token exchange error:', responseData)
-      return createPopupResponse('error', provider, `TikTok error: ${responseData.error?.code || 'Unknown'} - ${responseData.error?.message || 'Unknown error'}`, baseUrl)
+    // Handle both response formats: flat (direct fields) or nested (responseData.data)
+    const tokenData = responseData.data || responseData
+    
+    // Verify we have the required token data
+    if (!tokenData.access_token || !tokenData.open_id) {
+      console.error('Invalid TikTok token data:', responseData)
+      return createPopupResponse('error', provider, 'Invalid token data received from TikTok', baseUrl)
     }
-    
-    const tokenData = responseData.data
     
     // TikTok access tokens typically expire in 24 hours (86400 seconds)
     const expiresIn = tokenData.expires_in || 86400
