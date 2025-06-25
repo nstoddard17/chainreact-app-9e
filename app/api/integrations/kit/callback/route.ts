@@ -69,18 +69,18 @@ export async function GET(request: NextRequest) {
     }
 
     // Exchange code for access token
-    const tokenResponse = await fetch('https://api.kit.com/v4/oauth/token', {
+    const tokenResponse = await fetch('https://api.kit.com/oauth/token', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/x-www-form-urlencoded',
       },
-      body: JSON.stringify({
+      body: new URLSearchParams({
         client_id: clientId,
         client_secret: clientSecret,
         code,
         grant_type: 'authorization_code',
         redirect_uri: redirectUri,
-      }),
+      }).toString(),
     })
 
     if (!tokenResponse.ok) {
@@ -114,7 +114,7 @@ export async function GET(request: NextRequest) {
     // Fetch account information
     let accountInfo = {};
     try {
-      const accountResponse = await fetch('https://api.kit.com/v4/account', {
+      const accountResponse = await fetch('https://api.kit.com/account', {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${tokenData.access_token}`,
