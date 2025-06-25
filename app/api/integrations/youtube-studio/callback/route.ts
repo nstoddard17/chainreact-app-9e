@@ -25,29 +25,12 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Verify state parameter to prevent CSRF
-    const { data: pkceData, error: pkceError } = await createAdminClient()
-      .from('oauth_pkce_state')
-      .select('*')
-      .eq('state', state)
-      .single()
-
-    if (pkceError || !pkceData) {
-      console.error('Invalid state or PKCE lookup error:', pkceError)
-      return createPopupResponse('error', provider, 'Invalid state parameter', baseUrl)
-    }
-
-    const userId = pkceData.user_id
+    // Parse the state parameter directly (same as YouTube integration)
+    const { userId, code_verifier } = JSON.parse(atob(state))
     
     if (!userId) {
-      return createPopupResponse('error', provider, 'User ID not found', baseUrl)
+      return createPopupResponse('error', provider, 'User ID not found in state', baseUrl)
     }
-
-    // Clean up the state
-    await createAdminClient()
-      .from('oauth_pkce_state')
-      .delete()
-      .eq('state', state)
 
     // Get YouTube Studio (Google) OAuth credentials
     const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
@@ -71,6 +54,7 @@ export async function GET(request: NextRequest) {
         client_secret: clientSecret,
         redirect_uri: redirectUri,
         grant_type: 'authorization_code',
+        code_verifier: code_verifier || '',
       }),
     })
 
