@@ -197,6 +197,7 @@ function generateSlackAuthUrl(state: string): string {
   })
 
   // Add this parameter to force Slack to show the workspace selector
+  // This is critical for users who don't have a workspace yet
   params.append("multiple_workspaces", "true")
 
   const authUrl = `https://slack.com/oauth/v2/authorize?${params.toString()}`
