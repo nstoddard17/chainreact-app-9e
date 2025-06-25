@@ -7,6 +7,7 @@ import Sidebar from "./Sidebar"
 import TopBar from "./TopBar"
 import { useIntegrationStore } from "@/stores/integrationStore"
 import { Loader2 } from "lucide-react"
+import { useTheme } from "next-themes"
 
 interface AppLayoutProps {
   children: React.ReactNode
@@ -17,21 +18,29 @@ export default function AppLayout({ children, title }: AppLayoutProps) {
   const { initialize, user } = useAuthStore()
   const { globalPreloadingData } = useIntegrationStore()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const { setTheme, theme } = useTheme()
 
   useEffect(() => {
     initialize()
   }, [initialize])
 
+  // Set default theme to dark for dashboard users
+  useEffect(() => {
+    if (user && theme === "system") {
+      setTheme("dark")
+    }
+  }, [user, theme, setTheme])
+
   if (!user) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+      <div className="min-h-screen bg-gradient-to-br from-background to-muted flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex">
+    <div className="min-h-screen bg-background flex">
       {/* Hidden dummy password field to trap browser autofill globally */}
       <input
         type="password"

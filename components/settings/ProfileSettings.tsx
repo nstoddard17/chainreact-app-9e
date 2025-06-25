@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Loader2 } from "lucide-react"
+import { ThemeSlideToggle } from "@/components/ui/theme-slide-toggle"
 
 export default function ProfileSettings() {
   const { user, profile, updateProfile } = useAuthStore()
@@ -55,16 +56,20 @@ export default function ProfileSettings() {
   }
 
   return (
-    <Card className="bg-white rounded-2xl shadow-lg border border-slate-200">
+    <Card className="bg-card rounded-2xl shadow-lg border border-border">
       <CardHeader>
-        <CardTitle className="text-xl font-semibold text-slate-900">Profile Settings</CardTitle>
+        <CardTitle className="text-xl font-semibold text-card-foreground">Profile Settings</CardTitle>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" value={user?.email || ""} disabled className="bg-slate-50" />
-            <p className="text-xs text-slate-500">Your email address cannot be changed.</p>
+            <Input id="email" type="email" value={user?.email || ""} disabled className="bg-muted" />
+            <p className="text-xs text-muted-foreground">Your email address cannot be changed.</p>
+          </div>
+
+          <div className="space-y-2">
+            <ThemeSlideToggle />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -120,7 +125,7 @@ export default function ProfileSettings() {
                 "Save Changes"
               )}
             </Button>
-            {success && <span className="text-green-600">Profile updated successfully!</span>}
+            {success && <span className="text-green-600 dark:text-green-400">Profile updated successfully!</span>}
           </div>
         </form>
       </CardContent>

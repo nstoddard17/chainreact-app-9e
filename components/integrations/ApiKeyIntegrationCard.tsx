@@ -56,19 +56,19 @@ export function ApiKeyIntegrationCard({ provider, integration, status, open, onO
       case 'connected':
         return {
           icon: <CheckCircle className="w-3.5 h-3.5" />,
-          badgeClass: 'bg-green-100 text-green-800',
+          badgeClass: 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-300',
           action: 'disconnect'
         }
       case 'expiring':
         return {
           icon: <Clock className="w-3.5 h-3.5" />,
-          badgeClass: 'bg-yellow-100 text-yellow-800',
+          badgeClass: 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-300',
           action: 'disconnect'
         }
       default: // disconnected
         return {
           icon: <X className="w-3.5 h-3.5" />,
-          badgeClass: 'bg-gray-100 text-gray-800',
+          badgeClass: 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-300',
           action: 'connect'
         }
     }
@@ -98,13 +98,13 @@ export function ApiKeyIntegrationCard({ provider, integration, status, open, onO
 
   return (
     <>
-      <Card className="flex flex-col h-full transition-all duration-200 hover:shadow-lg rounded-xl border border-gray-200 bg-white overflow-hidden">
+      <Card className="flex flex-col h-full transition-all duration-200 hover:shadow-lg rounded-xl border border-border bg-card overflow-hidden">
         <CardHeader className="flex flex-row items-center justify-between p-5 pb-4 space-y-0">
           <div className="flex items-center gap-4 min-w-0 flex-1">
             {renderLogo()}
             <div className="min-w-0 flex-1">
               <h3 
-                className="text-base sm:text-lg font-semibold text-gray-900 leading-tight"
+                className="text-base sm:text-lg font-semibold text-card-foreground leading-tight"
                 title={provider.name}
               >
                 {provider.name === "Blackbaud Raiser's Edge NXT" ? "Blackbaud" : provider.id === 'x' || provider.id === 'twitter' ? 'X' : provider.name}
@@ -122,7 +122,7 @@ export function ApiKeyIntegrationCard({ provider, integration, status, open, onO
         </CardHeader>
 
         <CardContent className="px-5 pb-4 flex-1">
-          <div className="flex items-center gap-2 text-sm text-gray-500">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
             {integration?.created_at && (
               <span>Connected {new Date(integration.created_at).toLocaleDateString()}</span>
             )}
@@ -139,7 +139,7 @@ export function ApiKeyIntegrationCard({ provider, integration, status, open, onO
                   disabled={isLoading}
                   size="sm"
                   variant="outline"
-                  className="flex-1 bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                  className="flex-1"
                 >
                   {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                   Disconnect
@@ -149,7 +149,7 @@ export function ApiKeyIntegrationCard({ provider, integration, status, open, onO
                   disabled={isLoading}
                   size="sm"
                   variant="ghost"
-                  className="w-10 h-10 p-0 border border-gray-300 hover:bg-gray-50"
+                  className="w-10 h-10 p-0 border border-border hover:bg-accent"
                   aria-label="Reconnect"
                 >
                   <RefreshCw className="h-4 w-4" />
@@ -161,7 +161,7 @@ export function ApiKeyIntegrationCard({ provider, integration, status, open, onO
                   onClick={() => onOpenChange(true)}
                   disabled={isLoading}
                   size="sm"
-                  className="flex-1 bg-gray-900 text-white hover:bg-gray-800"
+                  className="flex-1"
                 >
                   {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
                   Reconnect
@@ -171,7 +171,7 @@ export function ApiKeyIntegrationCard({ provider, integration, status, open, onO
                   disabled={isLoading}
                   size="sm"
                   variant="outline"
-                  className="w-10 h-10 p-0 border border-gray-300 hover:bg-gray-50"
+                  className="w-10 h-10 p-0"
                   aria-label="Disconnect"
                 >
                   <X className="h-4 w-4" />
@@ -182,7 +182,7 @@ export function ApiKeyIntegrationCard({ provider, integration, status, open, onO
                 onClick={() => onOpenChange(true)}
                 disabled={isLoading}
                 size="sm"
-                className="w-full bg-gray-900 text-white hover:bg-gray-800"
+                className="w-full"
               >
                 {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LinkIcon className="mr-2 h-4 w-4" />}
                 Connect

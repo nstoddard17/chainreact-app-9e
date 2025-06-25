@@ -52,15 +52,15 @@ function getActivityIcon(type: string, status: string) {
 function getStatusColor(status: string) {
   switch (status) {
     case 'success':
-      return 'bg-green-100 text-green-700'
+      return 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-300'
     case 'error':
-      return 'bg-red-100 text-red-700'
+      return 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-300'
     case 'running':
-      return 'bg-blue-100 text-blue-700'
+      return 'bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
     case 'pending':
-      return 'bg-yellow-100 text-yellow-700'
+      return 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-300'
     default:
-      return 'bg-gray-100 text-gray-700'
+      return 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
   }
 }
 
@@ -72,17 +72,17 @@ export default function ActivityFeed() {
   }, [fetchActivities])
 
   return (
-    <Card className="bg-white rounded-2xl shadow-lg border border-slate-200 h-full">
+    <Card className="bg-card rounded-2xl shadow-lg border border-border h-full">
       <CardHeader className="pb-2">
-        <CardTitle className="text-lg font-semibold text-slate-900">Recent Activity</CardTitle>
+        <CardTitle className="text-lg font-semibold text-card-foreground">Recent Activity</CardTitle>
       </CardHeader>
       <CardContent className="pt-2">
         {loading ? (
           <div className="flex items-center justify-center py-8">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
           </div>
         ) : activities.length === 0 ? (
-          <div className="text-center py-8 text-slate-500">
+          <div className="text-center py-8 text-muted-foreground">
             <Clock className="w-8 h-8 mx-auto mb-2 opacity-50" />
             <p className="text-sm">No recent activity</p>
           </div>
@@ -94,9 +94,9 @@ export default function ActivityFeed() {
                   {getActivityIcon(activity.type, activity.status)}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-900 truncate">{activity.title}</p>
-                  <p className="text-xs text-slate-600 mt-1">{activity.description}</p>
-                  <div className="flex items-center text-xs text-slate-500 mt-1">
+                  <p className="text-sm font-medium text-card-foreground truncate">{activity.title}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{activity.description}</p>
+                  <div className="flex items-center text-xs text-muted-foreground mt-1">
                     <Clock className="w-3 h-3 mr-1.5" />
                     <span>{formatTimeAgo(activity.timestamp)}</span>
                   </div>

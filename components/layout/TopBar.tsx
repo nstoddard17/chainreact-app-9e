@@ -27,7 +27,7 @@ export default function TopBar({ onMobileMenuChange, title }: TopBarProps) {
   }
 
   return (
-    <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shrink-0">
+    <header className="h-16 bg-background border-b border-border flex items-center justify-between px-6 shrink-0">
       <div className="flex items-center space-x-4">
         <Button
           variant="ghost"
@@ -37,11 +37,11 @@ export default function TopBar({ onMobileMenuChange, title }: TopBarProps) {
         >
           <Menu className="h-5 w-5" />
         </Button>
-        <h1 className="text-xl font-semibold text-slate-900">{title}</h1>
+        <h1 className="text-xl font-semibold text-foreground">{title}</h1>
       </div>
 
       <div className="flex items-center space-x-4">
-        <div className="hidden sm:flex items-center space-x-2 text-sm text-slate-600">
+        <div className="hidden sm:flex items-center space-x-2 text-sm text-muted-foreground">
           <User className="w-4 h-4" />
           <span>{user?.email}</span>
         </div>
