@@ -1,89 +1,93 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { cookies } from "next/headers"
-import { db } from "@/lib/db"
-import { auth } from "@/lib/auth"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { createPopupResponse } from "@/lib/utils/createPopupResponse"
+import { getBaseUrl } from "@/lib/utils/getBaseUrl"
+import { prepareIntegrationData } from "@/lib/integrations/tokenUtils"
 
-export const GET = async (req: NextRequest): Promise<NextResponse> => {
-  const url = new URL(req.url)
+export async function GET(request: NextRequest) {
+  const url = new URL(request.url)
   const code = url.searchParams.get("code")
   const state = url.searchParams.get("state")
+  const error = url.searchParams.get("error")
+  const errorDescription = url.searchParams.get("error_description")
 
-  if (!code || !state) {
-    return NextResponse.redirect(new URL("/dashboard", req.url))
+  const baseUrl = getBaseUrl()
+  const provider = "onedrive"
+
+  if (error) {
+    const message = errorDescription || error
+    console.error(`Error with OneDrive OAuth: ${message}`)
+    return createPopupResponse("error", provider, `OAuth Error: ${message}`, baseUrl)
   }
 
-  const storedState = cookies().get("onedrive_oauth_state")?.value ?? null
-
-  if (!storedState || storedState !== state) {
-    return NextResponse.redirect(new URL("/dashboard", req.url))
+  if (!code || !state) {
+    return createPopupResponse("error", provider, "No code or state provided for OneDrive OAuth.", baseUrl)
   }
 
   try {
-    const tokenURL = "https://login.microsoftonline.com/common/oauth2/v2.0/token"
-    const client_id = process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID
-    const client_secret = process.env.ONEDRIVE_CLIENT_SECRET
-    const redirect_uri = process.env.ONEDRIVE_REDIRECT_URI
-
-    if (!client_id || !client_secret || !redirect_uri) {
-      throw new Error("Missing OneDrive environment variables")
+    const { userId } = JSON.parse(atob(state))
+    if (!userId) {
+      throw new Error("Missing userId in OneDrive state")
     }
 
-    const tokenParams = new URLSearchParams({
-      client_id: client_id,
-      client_secret: client_secret,
-      grant_type: "authorization_code",
-      code: code,
-      redirect_uri: redirect_uri,
-      scope: "offline_access files.readwrite.all",
-    })
+    const supabase = createAdminClient()
 
-    const tokenResponse = await fetch(tokenURL, {
+    const clientId = process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID
+    const clientSecret = process.env.MICROSOFT_CLIENT_SECRET
+    const redirectUri = `${baseUrl}/api/integrations/onedrive/callback`
+
+    if (!clientId || !clientSecret) {
+      throw new Error("Microsoft client ID or secret not configured")
+    }
+
+    const tokenResponse = await fetch("https://login.microsoftonline.com/common/oauth2/v2.0/token", {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
       },
-      body: tokenParams.toString(),
+      body: new URLSearchParams({
+        client_id: clientId,
+        client_secret: clientSecret,
+        code,
+        redirect_uri: redirectUri,
+        grant_type: "authorization_code",
+        scope: "offline_access Files.ReadWrite.All",
+      }),
     })
 
     if (!tokenResponse.ok) {
-      console.error("OneDrive token exchange failed:", tokenResponse.status, await tokenResponse.text())
-      throw new Error("Failed to exchange code for token")
+      const errorData = await tokenResponse.json()
+      throw new Error(`Microsoft token exchange failed: ${errorData.error_description}`)
     }
 
     const tokenData = await tokenResponse.json()
 
-    const accessToken = tokenData.access_token
-    const refreshToken = tokenData.refresh_token
-
-    if (!accessToken || !refreshToken) {
-      throw new Error("Missing access token or refresh token")
-    }
-
-    const user = await auth.validate()
-
-    if (!user) {
-      return NextResponse.redirect(new URL("/login", req.url))
-    }
-
-    const expiresIn = tokenData.expires_in
-    const refreshExpiresIn = tokenData.refresh_expires_in || 90 * 24 * 60 * 60 // 90 days default for Microsoft
-    const expiresAt = expiresIn ? new Date(Date.now() + expiresIn * 1000) : null
+    // Calculate refresh token expiration (Microsoft default is 90 days)
+    const refreshExpiresIn = tokenData.refresh_expires_in || 90 * 24 * 60 * 60 // 90 days in seconds
     const refreshTokenExpiresAt = new Date(Date.now() + refreshExpiresIn * 1000)
 
-    await db.integration.create({
-      data: {
-        userId: user.user.userId,
-        type: "onedrive",
-        access_token: accessToken,
-        refresh_token: refreshToken,
-        expires_at: expiresAt?.toISOString() || null,
-        refresh_token_expires_at: refreshTokenExpiresAt.toISOString(),
-      },
+    // Prepare integration data with encrypted tokens
+    const integrationData = await prepareIntegrationData(
+      userId,
+      provider,
+      tokenData.access_token,
+      tokenData.refresh_token,
+      tokenData.scope ? tokenData.scope.split(" ") : [],
+      tokenData.expires_in,
+      refreshTokenExpiresAt,
+    )
+
+    const { error: upsertError } = await supabase.from("integrations").upsert(integrationData, {
+      onConflict: "user_id, provider",
     })
 
-    return NextResponse.redirect(new URL("/dashboard", req.url))
-  } catch (e) {
-    console.error("OneDrive integration failed:", e)
-    return NextResponse.redirect(new URL("/dashboard", req.url))
+    if (upsertError) {
+      throw new Error(`Failed to save OneDrive integration: ${upsertError.message}`)
+    }
+
+    return createPopupResponse("success", provider, "You can now close this window.", baseUrl)
+  } catch (e: any) {
+    console.error("OneDrive callback error:", e)
+    return createPopupResponse("error", provider, e.message || "An unexpected error occurred.", baseUrl)
   }
 }

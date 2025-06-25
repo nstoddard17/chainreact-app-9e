@@ -59,14 +59,14 @@ export async function GET(request: NextRequest) {
       return createPopupResponse('error', provider, 'Integration configuration error', baseUrl)
     }
 
-    // Exchange code for access token
-    const tokenResponse = await fetch('https://open-api.tiktok.com/oauth/access_token/', {
+    // Exchange code for access token - UPDATED to use v2 endpoint
+    const tokenResponse = await fetch('https://open.tiktokapis.com/v2/oauth/token/', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: new URLSearchParams({
-        client_key: clientKey,
+        client_id: clientKey,
         client_secret: clientSecret,
         code,
         grant_type: 'authorization_code',
@@ -83,9 +83,9 @@ export async function GET(request: NextRequest) {
     // TikTok returns data in a nested format
     const responseData = await tokenResponse.json()
     
-    if (!responseData.data || responseData.error_code !== 0) {
+    if (!responseData.data) {
       console.error('TikTok token exchange error:', responseData)
-      return createPopupResponse('error', provider, `TikTok error: ${responseData.error_code} - ${responseData.description}`, baseUrl)
+      return createPopupResponse('error', provider, `TikTok error: ${responseData.error?.code || 'Unknown'} - ${responseData.error?.message || 'Unknown error'}`, baseUrl)
     }
     
     const tokenData = responseData.data
@@ -103,22 +103,23 @@ export async function GET(request: NextRequest) {
       scope: tokenData.scope,
     }
     
-    // Optionally fetch additional user data
+    // Optionally fetch additional user data - UPDATED to use v2 endpoint
     if (tokenData.access_token && tokenData.open_id) {
       try {
-        const userResponse = await fetch('https://open-api.tiktok.com/user/info/?fields=open_id,union_id,avatar_url,display_name', {
+        const userResponse = await fetch('https://open.tiktokapis.com/v2/user/info/', {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${tokenData.access_token}`,
+            'Content-Type': 'application/json'
           }
         })
         
         if (userResponse.ok) {
           const userData = await userResponse.json()
-          if (userData.data && userData.data.user) {
+          if (userData.data) {
             userInfo = {
               ...userInfo,
-              ...userData.data.user
+              ...userData.data
             }
           }
         } else {

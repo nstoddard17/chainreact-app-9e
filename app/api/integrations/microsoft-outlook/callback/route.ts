@@ -1,108 +1,93 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { cookies } from "next/headers"
-import { db } from "@/lib/db"
-import { lucia } from "@/lib/auth"
-import { generateId } from "lucia"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { createPopupResponse } from "@/lib/utils/createPopupResponse"
+import { getBaseUrl } from "@/lib/utils/getBaseUrl"
+import { prepareIntegrationData } from "@/lib/integrations/tokenUtils"
 
-const microsoft = {
-  clientId: process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID ?? "",
-  clientSecret: process.env.MICROSOFT_CLIENT_SECRET ?? "",
-  redirectUri: process.env.MICROSOFT_REDIRECT_URI ?? "",
-}
+export async function GET(request: NextRequest) {
+  const url = new URL(request.url)
+  const code = url.searchParams.get("code")
+  const state = url.searchParams.get("state")
+  const error = url.searchParams.get("error")
+  const errorDescription = url.searchParams.get("error_description")
 
-export const GET = async (request: NextRequest): Promise<NextResponse> => {
-  const searchParams = request.nextUrl.searchParams
-  const code = searchParams.get("code")
-  const state = searchParams.get("state")
+  const baseUrl = getBaseUrl()
+  const provider = "microsoft-outlook"
 
-  if (!code || !state) {
-    return NextResponse.json({ error: "Missing code or state" }, { status: 400 })
+  if (error) {
+    const message = errorDescription || error
+    console.error(`Error with Microsoft Outlook OAuth: ${message}`)
+    return createPopupResponse("error", provider, `OAuth Error: ${message}`, baseUrl)
   }
 
-  const storedState = cookies().get("microsoft_oauth_state")?.value ?? null
-
-  if (storedState !== state) {
-    return NextResponse.json({ error: "Invalid state" }, { status: 400 })
+  if (!code || !state) {
+    return createPopupResponse("error", provider, "No code or state provided for Microsoft Outlook OAuth.", baseUrl)
   }
 
   try {
+    const { userId } = JSON.parse(atob(state))
+    if (!userId) {
+      throw new Error("Missing userId in Microsoft Outlook state")
+    }
+
+    const supabase = createAdminClient()
+
+    const clientId = process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID
+    const clientSecret = process.env.MICROSOFT_CLIENT_SECRET
+    const redirectUri = `${baseUrl}/api/integrations/microsoft-outlook/callback`
+
+    if (!clientId || !clientSecret) {
+      throw new Error("Microsoft client ID or secret not configured")
+    }
+
     const tokenResponse = await fetch("https://login.microsoftonline.com/common/oauth2/v2.0/token", {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
       },
       body: new URLSearchParams({
-        client_id: microsoft.clientId,
-        client_secret: microsoft.clientSecret,
-        code: code,
-        redirect_uri: microsoft.redirectUri,
+        client_id: clientId,
+        client_secret: clientSecret,
+        code,
+        redirect_uri: redirectUri,
         grant_type: "authorization_code",
+        scope: "offline_access User.Read Mail.ReadWrite Mail.Send",
       }),
     })
 
+    if (!tokenResponse.ok) {
+      const errorData = await tokenResponse.json()
+      throw new Error(`Microsoft token exchange failed: ${errorData.error_description}`)
+    }
+
     const tokenData = await tokenResponse.json()
 
-    if (tokenData.error) {
-      console.error("Microsoft OAuth Error:", tokenData.error_description || tokenData.error)
-      return NextResponse.json({ error: "Failed to retrieve tokens from Microsoft" }, { status: 500 })
-    }
-
-    const expiresIn = tokenData.expires_in
-    const refreshExpiresIn = tokenData.refresh_expires_in || 90 * 24 * 60 * 60 // 90 days default
-    const expiresAt = expiresIn ? new Date(Date.now() + expiresIn * 1000) : null
+    // Calculate refresh token expiration (Microsoft default is 90 days)
+    const refreshExpiresIn = tokenData.refresh_expires_in || 90 * 24 * 60 * 60 // 90 days in seconds
     const refreshTokenExpiresAt = new Date(Date.now() + refreshExpiresIn * 1000)
 
-    const profileResponse = await fetch("https://graph.microsoft.com/v1.0/me", {
-      headers: {
-        Authorization: `Bearer ${tokenData.access_token}`,
-      },
+    // Prepare integration data with encrypted tokens
+    const integrationData = await prepareIntegrationData(
+      userId,
+      provider,
+      tokenData.access_token,
+      tokenData.refresh_token,
+      tokenData.scope ? tokenData.scope.split(" ") : [],
+      tokenData.expires_in,
+      refreshTokenExpiresAt,
+    )
+
+    const { error: upsertError } = await supabase.from("integrations").upsert(integrationData, {
+      onConflict: "user_id, provider",
     })
 
-    const profileData = await profileResponse.json()
-
-    if (!profileData.id || !profileData.mail) {
-      console.error("Microsoft Profile Error:", profileData)
-      return NextResponse.json({ error: "Failed to retrieve profile from Microsoft" }, { status: 500 })
+    if (upsertError) {
+      throw new Error(`Failed to save Microsoft Outlook integration: ${upsertError.message}`)
     }
 
-    const userId = generateId(21)
-    const integrationId = generateId(21)
-
-    await db.user.create({
-      data: {
-        id: userId,
-        email: profileData.mail,
-        email_verified: true,
-        accounts: {
-          create: {
-            id: integrationId,
-            provider: "microsoft",
-            providerAccountId: profileData.id,
-          },
-        },
-      },
-    })
-
-    const session = await lucia.createSession(userId, {})
-    const sessionCookie = lucia.createSessionCookie(session.id)
-    cookies().set(sessionCookie.name, sessionCookie.value, sessionCookie.attributes)
-
-    await db.integration.create({
-      data: {
-        id: integrationId,
-        userId: userId,
-        type: "microsoft-outlook",
-        access_token: tokenData.access_token,
-        refresh_token: tokenData.refresh_token,
-        expires_at: expiresAt?.toISOString(),
-        refresh_token_expires_at: refreshTokenExpiresAt.toISOString(),
-        email: profileData.mail,
-      },
-    })
-
-    return NextResponse.redirect(new URL("/", request.url), 302)
-  } catch (error) {
-    console.error("OAuth Error:", error)
-    return NextResponse.json({ error: "OAuth failed" }, { status: 500 })
+    return createPopupResponse("success", provider, "You can now close this window.", baseUrl)
+  } catch (e: any) {
+    console.error("Microsoft Outlook callback error:", e)
+    return createPopupResponse("error", provider, e.message || "An unexpected error occurred.", baseUrl)
   }
 }
