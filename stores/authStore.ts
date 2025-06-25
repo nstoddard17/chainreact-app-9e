@@ -269,7 +269,7 @@ export const useAuthStore = create<AuthState>()(
 
           if (authError) throw authError
 
-          // Then, update the user_profiles table with first_name and last_name
+          // Then, update the user_profiles table with all profile fields
           const { error: profileError } = await supabase
             .from('user_profiles')
             .upsert({
@@ -277,6 +277,8 @@ export const useAuthStore = create<AuthState>()(
               full_name: updates.full_name,
               first_name: updates.first_name,
               last_name: updates.last_name,
+              company: updates.company,
+              job_title: updates.job_title,
               updated_at: new Date().toISOString(),
             }, {
               onConflict: 'id'

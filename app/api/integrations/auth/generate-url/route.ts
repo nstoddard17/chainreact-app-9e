@@ -455,6 +455,12 @@ async function generateTikTokAuthUrl(stateObject: any, supabase: any): Promise<s
   const clientId = process.env.NEXT_PUBLIC_TIKTOK_CLIENT_ID
   if (!clientId) throw new Error("TikTok client ID not configured")
   const baseUrl = getBaseUrl()
+  
+  // Ensure consistent redirect URI format
+  const redirectUri = `${baseUrl}/api/integrations/tiktok/callback`
+  
+  // Log the redirect URI for debugging
+  console.log('TikTok redirect URI:', redirectUri)
 
   // Generate PKCE challenge
   const codeVerifier = crypto.randomBytes(32).toString("hex")
@@ -479,14 +485,17 @@ async function generateTikTokAuthUrl(stateObject: any, supabase: any): Promise<s
     client_key: clientId, // Use client_key instead of client_id for consistency
     response_type: "code",
     scope: "user.info.basic",
-    redirect_uri: `${baseUrl}/api/integrations/tiktok/callback`,
+    redirect_uri: redirectUri,
     state,
   })
 
   // Add this parameter to force login screen
   params.append("force_login", "true")
 
-  return `https://www.tiktok.com/v2/auth/authorize?${params.toString()}`
+  const authUrl = `https://www.tiktok.com/v2/auth/authorize?${params.toString()}`
+  console.log('Generated TikTok auth URL:', authUrl)
+  
+  return authUrl
 }
 
 function generateTrelloAuthUrl(state: string): string {
