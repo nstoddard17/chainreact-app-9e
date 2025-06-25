@@ -283,7 +283,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
         <div className="flex items-center justify-center min-h-[60vh]">
           <div className="text-center">
             <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
-            <p className="text-gray-600">Loading your integrations...</p>
+            <p className="text-muted-foreground">Loading your integrations...</p>
           </div>
         </div>
       </AppLayout>
@@ -297,12 +297,12 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
           <div className="col-span-full flex items-center justify-center py-12">
             <div className="text-center">
               <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-2" />
-              <p className="text-gray-600">Loading integrations...</p>
+              <p className="text-muted-foreground">Loading integrations...</p>
             </div>
           </div>
         ) : filteredProviders.length === 0 ? (
           <div className="col-span-full text-center py-12">
-            <p className="text-gray-600">No integrations found matching your criteria.</p>
+            <p className="text-muted-foreground">No integrations found matching your criteria.</p>
           </div>
         ) : (
           filteredProviders.map((p) => {
@@ -339,45 +339,45 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
 
   // Extract the status summary content for reuse
   const StatusSummaryContent = ({ autoRefresh, setAutoRefresh }: any) => (
-    <Card className="shadow-sm rounded-lg border-gray-200">
+    <Card className="shadow-sm rounded-lg border-border bg-card">
       <CardHeader className="pb-3 sm:pb-4">
-        <CardTitle className="text-base sm:text-lg font-semibold">Integration Status</CardTitle>
+        <CardTitle className="text-base sm:text-lg font-semibold text-card-foreground">Integration Status</CardTitle>
       </CardHeader>
       <CardContent>
         <ul className="space-y-3 sm:space-y-4">
           <li className="flex justify-between items-center">
-            <span className="flex items-center text-gray-700">
+            <span className="flex items-center text-card-foreground">
               <Check className="w-4 h-4 mr-2 text-green-500" />
               <span className="text-sm sm:text-base font-medium">Connected</span>
             </span>
-            <Badge variant="secondary" className="font-mono bg-green-50 text-green-700 text-xs sm:text-sm">
+            <Badge variant="secondary" className="font-mono bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 text-xs sm:text-sm">
               {loadingMetrics ? '...' : metrics.connected}
             </Badge>
           </li>
           <li className="flex justify-between items-center">
-            <span className="flex items-center text-gray-700">
+            <span className="flex items-center text-card-foreground">
               <Bell className="w-4 h-4 mr-2 text-yellow-500" />
               <span className="text-sm sm:text-base font-medium">Expiring</span>
             </span>
-            <Badge variant="secondary" className="font-mono bg-yellow-50 text-yellow-700 text-xs sm:text-sm">
+            <Badge variant="secondary" className="font-mono bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-300 text-xs sm:text-sm">
               {loadingMetrics ? '...' : metrics.expiring}
             </Badge>
           </li>
           <li className="flex justify-between items-center">
-            <span className="flex items-center text-gray-700">
+            <span className="flex items-center text-card-foreground">
               <AlertCircle className="w-4 h-4 mr-2 text-red-500" />
               <span className="text-sm sm:text-base font-medium">Expired</span>
             </span>
-            <Badge variant="secondary" className="font-mono bg-red-50 text-red-700 text-xs sm:text-sm">
+            <Badge variant="secondary" className="font-mono bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 text-xs sm:text-sm">
               {loadingMetrics ? '...' : metrics.expired}
             </Badge>
           </li>
           <li className="flex justify-between items-center">
-            <span className="flex items-center text-gray-700">
-              <X className="w-4 h-4 mr-2 text-gray-400" />
+            <span className="flex items-center text-card-foreground">
+              <X className="w-4 h-4 mr-2 text-muted-foreground" />
               <span className="text-sm sm:text-base font-medium">Disconnected</span>
             </span>
-            <Badge variant="secondary" className="font-mono bg-gray-50 text-gray-700 text-xs sm:text-sm">
+            <Badge variant="secondary" className="font-mono bg-muted dark:bg-muted text-muted-foreground text-xs sm:text-sm">
               {loadingMetrics ? '...' : metrics.disconnected}
             </Badge>
           </li>
@@ -385,7 +385,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
         <div className="border-t my-4 sm:my-6" />
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <Label htmlFor="auto-refresh" className="text-xs sm:text-sm font-medium text-gray-700">
+            <Label htmlFor="auto-refresh" className="text-xs sm:text-sm font-medium text-card-foreground">
               Auto-refresh tokens
             </Label>
             <Switch id="auto-refresh" checked={autoRefresh} onCheckedChange={setAutoRefresh} />
@@ -400,8 +400,8 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
       <div className="container mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 md:py-8">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 sm:gap-4 mb-6 sm:mb-8">
           <div>
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">Integrations</h1>
-            <p className="text-sm sm:text-base text-gray-600 mt-1">Manage your connections to third-party services.</p>
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground">Integrations</h1>
+            <p className="text-sm sm:text-base text-muted-foreground mt-1">Manage your connections to third-party services.</p>
           </div>
           <div className="flex gap-2">
             <Button 

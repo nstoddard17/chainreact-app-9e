@@ -95,3 +95,45 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+@layer utilities {
+  /* Enhanced dark mode support for gradient backgrounds */
+  .dark .bg-gradient-to-br {
+    @apply from-background to-muted;
+  }
+  
+  /* Ensure loading states work well in dark mode */
+  .dark .border-blue-500 {
+    @apply border-primary;
+  }
+  
+  /* Better text readability in dark mode */
+  .dark .text-slate-50,
+  .dark .text-slate-100,
+  .dark .text-slate-200 {
+    @apply text-muted-foreground;
+  }
+  
+  .dark .text-slate-600,
+  .dark .text-slate-700,
+  .dark .text-slate-800,
+  .dark .text-slate-900 {
+    @apply text-foreground;
+  }
+  
+  /* Better background support for cards and panels */
+  .dark .bg-slate-50,
+  .dark .bg-slate-100 {
+    @apply bg-muted;
+  }
+  
+  .dark .bg-white {
+    @apply bg-background;
+  }
+  
+  /* Better border support */
+  .dark .border-slate-200,
+  .dark .border-slate-300 {
+    @apply border-border;
+  }
+}

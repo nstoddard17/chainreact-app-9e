@@ -41,15 +41,15 @@ export default function Sidebar({ isMobileMenuOpen, onMobileMenuChange }: Sideba
   return (
     <div
       className={cn(
-        "fixed inset-y-0 left-0 w-64 bg-white border-r border-slate-200 flex flex-col transition-transform duration-200 ease-in-out z-50",
+        "fixed inset-y-0 left-0 w-64 bg-background border-r border-border flex flex-col transition-transform duration-200 ease-in-out z-50",
         isMobileMenuOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
       )}
     >
       {/* Logo */}
-      <div className="p-6 border-b border-slate-200 flex items-center justify-between">
+      <div className="p-6 border-b border-border flex items-center justify-between">
         <Link href="/" className="flex items-center space-x-2">
           <Image src="/logo_transparent.png" alt="ChainReact Logo" width={32} height={32} className="w-8 h-8" />
-          <span className="text-xl font-bold text-slate-900">ChainReact</span>
+          <span className="text-xl font-bold text-foreground">ChainReact</span>
         </Link>
         <Button
           variant="ghost"
@@ -74,7 +74,7 @@ export default function Sidebar({ isMobileMenuOpen, onMobileMenuChange }: Sideba
                 "flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200",
                 isActive
                   ? "bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg"
-                  : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
+                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
               )}
             >
               <item.icon className="w-5 h-5" />

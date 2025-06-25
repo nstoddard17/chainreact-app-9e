@@ -27,7 +27,7 @@ export default function SettingsContent() {
       })
       const data = await res.json()
       if (res.ok) {
-        toast({ title: "Request Submitted", description: data.message || "Your Facebook data deletion request has been received.", variant: "success" })
+        toast({ title: "Request Submitted", description: data.message || "Your Facebook data deletion request has been received." })
       } else {
         toast({ title: "Error", description: data.message || "Failed to submit deletion request.", variant: "destructive" })
       }
@@ -40,11 +40,11 @@ export default function SettingsContent() {
   }
 
   return (
-    <AppLayout>
+    <AppLayout title="Settings">
       <div className="max-w-4xl mx-auto p-6">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-900">Settings</h1>
-          <p className="text-slate-600 mt-2">Manage your account settings and preferences.</p>
+          <h1 className="text-3xl font-bold text-foreground">Settings</h1>
+          <p className="text-muted-foreground mt-2">Manage your account settings and preferences.</p>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
@@ -80,12 +80,12 @@ export default function SettingsContent() {
           </TabsContent>
 
           <TabsContent value="notifications" className="mt-6">
-            <Card className="bg-white rounded-2xl shadow-lg border border-slate-200">
+            <Card className="bg-card rounded-2xl shadow-lg border border-border">
               <CardHeader>
-                <CardTitle className="text-xl font-semibold text-slate-900">Notification Settings</CardTitle>
+                <CardTitle className="text-xl font-semibold text-card-foreground">Notification Settings</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-slate-500">Configure your notification preferences.</p>
+                <p className="text-muted-foreground">Configure your notification preferences.</p>
                 {/* Add notification settings here */}
               </CardContent>
             </Card>
@@ -96,12 +96,12 @@ export default function SettingsContent() {
           </TabsContent>
 
           <TabsContent value="api" className="mt-6">
-            <Card className="bg-white rounded-2xl shadow-lg border border-slate-200">
+            <Card className="bg-card rounded-2xl shadow-lg border border-border">
               <CardHeader>
-                <CardTitle className="text-xl font-semibold text-slate-900">API Keys</CardTitle>
+                <CardTitle className="text-xl font-semibold text-card-foreground">API Keys</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-slate-500">Manage your API keys for programmatic access.</p>
+                <p className="text-muted-foreground">Manage your API keys for programmatic access.</p>
               </CardContent>
             </Card>
           </TabsContent>
