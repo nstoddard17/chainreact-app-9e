@@ -406,12 +406,15 @@ function generateTikTokAuthUrl(state: string): string {
   const baseUrl = getBaseUrl()
 
   const params = new URLSearchParams({
-    client_id: clientId,
+    client_key: clientId, // Use client_key instead of client_id for consistency
     response_type: "code",
     scope: "user.info.basic",
     redirect_uri: `${baseUrl}/api/integrations/tiktok/callback`,
     state,
   })
+
+  // Add this parameter to force login screen
+  params.append("force_login", "true")
 
   return `https://www.tiktok.com/v2/auth/authorize?${params.toString()}`
 }
