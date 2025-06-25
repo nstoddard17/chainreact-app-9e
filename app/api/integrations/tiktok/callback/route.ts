@@ -137,7 +137,9 @@ export async function GET(request: NextRequest) {
     // Optionally fetch additional user data - UPDATED to use v2 endpoint
     if (tokenData.access_token && tokenData.open_id) {
       try {
-        const userResponse = await fetch('https://open.tiktokapis.com/v2/user/info/', {
+        // TikTok v2 API requires a fields parameter to specify which fields to return
+        const fields = 'open_id,union_id,avatar_url,avatar_url_100,avatar_url_200,display_name,bio_description,profile_deep_link,is_verified';
+        const userResponse = await fetch(`https://open.tiktokapis.com/v2/user/info/?fields=${encodeURIComponent(fields)}`, {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${tokenData.access_token}`,
