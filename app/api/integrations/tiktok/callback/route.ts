@@ -86,7 +86,26 @@ export async function GET(request: NextRequest) {
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text()
       console.error('TikTok token exchange failed:', tokenResponse.status, errorText)
-      return createPopupResponse('error', provider, 'Failed to retrieve access token', baseUrl)
+      
+      // Add better error handling for common TikTok API errors
+      let errorMessage = 'Failed to retrieve access token';
+      try {
+        const errorData = JSON.parse(errorText);
+        
+        // Handle specific error types
+        if (errorData.error && errorData.error.code === 10004) {
+          // This is a redirect_uri error
+          errorMessage = `Redirect URI mismatch. Please ensure '${redirectUri}' is added to your TikTok app settings.`;
+          console.error('TikTok redirect URI mismatch. Using:', redirectUri);
+        } else if (errorData.error && errorData.error.message) {
+          errorMessage = errorData.error.message;
+        }
+      } catch (e) {
+        // If we can't parse the error, use the default message
+        console.error('Could not parse TikTok error:', e);
+      }
+      
+      return createPopupResponse('error', provider, errorMessage, baseUrl)
     }
 
     // TikTok returns data in a nested format
