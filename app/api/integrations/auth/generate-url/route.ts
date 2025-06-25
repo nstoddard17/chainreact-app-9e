@@ -140,7 +140,7 @@ export async function POST(request: NextRequest) {
         break
 
       case "kit":
-        authUrl = generateKitAuthUrl(finalState)
+        authUrl = await generateKitAuthUrl(stateObject)
         break
 
       case "blackbaud":
@@ -777,10 +777,30 @@ function generateDockerAuthUrl(state: string): string {
   return `https://hub.docker.com/oauth/authorize?${params.toString()}`
 }
 
-function generateKitAuthUrl(state: string): string {
+async function generateKitAuthUrl(stateObject: any): Promise<string> {
   const clientId = process.env.NEXT_PUBLIC_KIT_CLIENT_ID
   if (!clientId) throw new Error("Kit client ID not configured")
   const baseUrl = getBaseUrl()
+
+  // Generate PKCE challenge
+  const codeVerifier = crypto.randomBytes(32).toString("hex")
+  
+  // Convert state object to string
+  const state = btoa(JSON.stringify(stateObject))
+  
+  // Store state in database for verification in callback
+  const supabase = createAdminClient()
+  const { error } = await supabase
+    .from("pkce_flow")
+    .insert({ 
+      state,
+      code_verifier: codeVerifier,
+      provider: "kit"
+    })
+
+  if (error) {
+    throw new Error(`Failed to store Kit OAuth state: ${error.message}`)
+  }
 
   const params = new URLSearchParams({
     client_id: clientId,
