@@ -1,78 +1,93 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { cookies } from "next/headers"
-import { db } from "@/lib/db"
-import { integrationTable } from "@/lib/db/schema"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { createPopupResponse } from "@/lib/utils/createPopupResponse"
+import { getBaseUrl } from "@/lib/utils/getBaseUrl"
+import { prepareIntegrationData } from "@/lib/integrations/tokenUtils"
 
 export async function GET(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams
-  const code = searchParams.get("code")
-  const userId = cookies().get("userId")?.value
+  const url = new URL(request.url)
+  const code = url.searchParams.get("code")
+  const state = url.searchParams.get("state")
+  const error = url.searchParams.get("error")
+  const errorDescription = url.searchParams.get("error_description")
 
-  if (!code || !userId) {
-    return NextResponse.json({ error: "Missing code or userId" }, { status: 400 })
+  const baseUrl = getBaseUrl()
+  const provider = "microsoft-onenote"
+
+  if (error) {
+    const message = errorDescription || error
+    console.error(`Error with Microsoft OneNote OAuth: ${message}`)
+    return createPopupResponse("error", provider, `OAuth Error: ${message}`, baseUrl)
+  }
+
+  if (!code || !state) {
+    return createPopupResponse("error", provider, "No code or state provided for Microsoft OneNote OAuth.", baseUrl)
   }
 
   try {
-    const tokenEndpoint = "https://login.microsoftonline.com/common/oauth2/v2.0/token"
-    const clientId = process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID
-    const clientSecret = process.env.MICROSOFT_ONENOTE_CLIENT_SECRET
-    const redirectUri = process.env.MICROSOFT_ONENOTE_REDIRECT_URI
-
-    if (!clientId || !clientSecret || !redirectUri) {
-      console.error("Missing environment variables for Microsoft OneNote integration.")
-      return NextResponse.json({ error: "Missing configuration" }, { status: 500 })
+    const { userId } = JSON.parse(atob(state))
+    if (!userId) {
+      throw new Error("Missing userId in Microsoft OneNote state")
     }
 
-    const tokenParams = new URLSearchParams()
-    tokenParams.append("grant_type", "authorization_code")
-    tokenParams.append("code", code)
-    tokenParams.append("redirect_uri", redirectUri)
-    tokenParams.append("client_id", clientId)
-    tokenParams.append("client_secret", clientSecret)
+    const supabase = createAdminClient()
 
-    const tokenResponse = await fetch(tokenEndpoint, {
+    const clientId = process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID
+    const clientSecret = process.env.MICROSOFT_CLIENT_SECRET
+    const redirectUri = `${baseUrl}/api/integrations/microsoft-onenote/callback`
+
+    if (!clientId || !clientSecret) {
+      throw new Error("Microsoft client ID or secret not configured")
+    }
+
+    const tokenResponse = await fetch("https://login.microsoftonline.com/common/oauth2/v2.0/token", {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
       },
-      body: tokenParams,
+      body: new URLSearchParams({
+        client_id: clientId,
+        client_secret: clientSecret,
+        code,
+        redirect_uri: redirectUri,
+        grant_type: "authorization_code",
+        scope: "offline_access User.Read Notes.ReadWrite.All",
+      }),
     })
 
     if (!tokenResponse.ok) {
-      console.error("Failed to retrieve tokens from Microsoft:", tokenResponse.status, await tokenResponse.text())
-      return NextResponse.json({ error: "Failed to retrieve tokens from Microsoft" }, { status: 500 })
+      const errorData = await tokenResponse.json()
+      throw new Error(`Microsoft token exchange failed: ${errorData.error_description}`)
     }
 
     const tokenData = await tokenResponse.json()
 
-    // After getting tokenData
-    const expiresIn = tokenData.expires_in
-    const refreshExpiresIn = tokenData.refresh_expires_in || 90 * 24 * 60 * 60 // 90 days default
-    const expiresAt = expiresIn ? new Date(Date.now() + expiresIn * 1000) : null
+    // Calculate refresh token expiration (Microsoft default is 90 days)
+    const refreshExpiresIn = tokenData.refresh_expires_in || 90 * 24 * 60 * 60 // 90 days in seconds
     const refreshTokenExpiresAt = new Date(Date.now() + refreshExpiresIn * 1000)
 
-    const integrationData = {
-      access_token: tokenData.access_token,
-      refresh_token: tokenData.refresh_token,
-      expires_at: expiresAt ? expiresAt.toISOString() : null,
-      refresh_token_expires_at: refreshTokenExpiresAt.toISOString(),
+    // Prepare integration data with encrypted tokens
+    const integrationData = await prepareIntegrationData(
+      userId,
+      provider,
+      tokenData.access_token,
+      tokenData.refresh_token,
+      tokenData.scope ? tokenData.scope.split(" ") : [],
+      tokenData.expires_in,
+      refreshTokenExpiresAt,
+    )
+
+    const { error: upsertError } = await supabase.from("integrations").upsert(integrationData, {
+      onConflict: "user_id, provider",
+    })
+
+    if (upsertError) {
+      throw new Error(`Failed to save Microsoft OneNote integration: ${upsertError.message}`)
     }
 
-    await db
-      .insert(integrationTable)
-      .values({
-        userId: userId,
-        type: "microsoft-onenote",
-        data: integrationData,
-      })
-      .onConflictDoUpdate({
-        target: [integrationTable.userId, integrationTable.type],
-        set: { data: integrationData },
-      })
-
-    return NextResponse.redirect(new URL("/dashboard", request.url))
-  } catch (error) {
-    console.error("Error during Microsoft OneNote integration:", error)
-    return NextResponse.json({ error: "Integration failed" }, { status: 500 })
+    return createPopupResponse("success", provider, "You can now close this window.", baseUrl)
+  } catch (e: any) {
+    console.error("Microsoft OneNote callback error:", e)
+    return createPopupResponse("error", provider, e.message || "An unexpected error occurred.", baseUrl)
   }
 }
