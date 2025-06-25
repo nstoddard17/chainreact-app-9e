@@ -5,9 +5,9 @@ import { encrypt, decrypt } from "@/lib/security/encryption"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { TokenAuditLogger } from "@/lib/integrations/TokenAuditLogger"
 
-const getSupabase = () => {
+const getSupabase = async () => {
   cookies()
-  return createSupabaseServerClient()
+  return await createSupabaseServerClient()
 }
 const getAdminSupabase = () => createAdminClient()
 
@@ -20,7 +20,7 @@ if (!ENCRYPTION_SECRET) {
 // POST - Save an API Key
 export async function POST(request: NextRequest) {
   try {
-    const supabase = getSupabase()
+    const supabase = await getSupabase()
     const {
       data: { user },
     } = await supabase.auth.getUser()
@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
 // DELETE - Remove an API Key
 export async function DELETE(request: NextRequest) {
   try {
-    const supabase = getSupabase()
+    const supabase = await getSupabase()
     const {
       data: { user },
     } = await supabase.auth.getUser()

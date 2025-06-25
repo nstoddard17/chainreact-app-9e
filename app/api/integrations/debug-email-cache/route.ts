@@ -4,7 +4,7 @@ import { cookies } from "next/headers"
 
 export async function GET() {
   cookies()
-  const supabase = createSupabaseRouteHandlerClient()
+  const supabase = await createSupabaseRouteHandlerClient()
   
   try {
     const {

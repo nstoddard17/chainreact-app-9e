@@ -4,7 +4,7 @@ import { redirect } from "next/navigation"
 import SettingsContent from "@/components/settings/SettingsContent"
 
 export default async function SettingsPage() {
-  const supabase = createSupabaseServerClient()
+  const supabase = await createSupabaseServerClient()
 
   const {
     data: { session },

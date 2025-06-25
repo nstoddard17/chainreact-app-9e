@@ -4,7 +4,7 @@ import { redirect } from "next/navigation"
 import LearnContent from "@/components/learn/LearnContent"
 
 export default async function LearnPage() {
-  const supabase = createSupabaseServerClient()
+  const supabase = await createSupabaseServerClient()
 
   const {
     data: { session },

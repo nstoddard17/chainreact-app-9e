@@ -260,7 +260,7 @@ function analyzeIntegration(
 export async function GET(request: NextRequest) {
   try {
     cookies()
-    const supabase = createSupabaseRouteHandlerClient()
+    const supabase = await createSupabaseRouteHandlerClient()
     const {
       data: { user },
       error: sessionError,

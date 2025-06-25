@@ -6,7 +6,7 @@ import type { Database } from "@/types/supabase"
 export async function GET() {
   try {
     cookies()
-    const supabase = createSupabaseRouteHandlerClient()
+    const supabase = await createSupabaseRouteHandlerClient()
 
     const {
       data: { session },

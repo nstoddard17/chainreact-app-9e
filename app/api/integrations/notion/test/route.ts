@@ -5,7 +5,7 @@ import { cookies } from "next/headers"
 export async function GET(request: NextRequest) {
   try {
     cookies()
-    const supabase = createSupabaseRouteHandlerClient()
+    const supabase = await createSupabaseRouteHandlerClient()
 
     // Get current user
     const {

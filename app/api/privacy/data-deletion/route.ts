@@ -9,7 +9,7 @@ const complianceLogger = new ComplianceLogger()
 
 export async function POST(request: NextRequest) {
   cookies()
-  const supabase = createSupabaseRouteHandlerClient()
+  const supabase = await createSupabaseRouteHandlerClient()
 
   try {
     // Get authenticated user
@@ -114,7 +114,7 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   cookies()
-  const supabase = createSupabaseRouteHandlerClient()
+  const supabase = await createSupabaseRouteHandlerClient()
 
   try {
     const {
@@ -170,7 +170,7 @@ export async function GET(request: NextRequest) {
 
 async function processDeletion(userId: string, deletionType: string, integrationProvider?: string) {
   cookies()
-  const supabase = createSupabaseRouteHandlerClient()
+  const supabase = await createSupabaseRouteHandlerClient()
 
   try {
     switch (deletionType) {
@@ -217,7 +217,7 @@ async function processDeletion(userId: string, deletionType: string, integration
 
 async function performFullDeletion(userId: string) {
   cookies()
-  const supabase = createSupabaseRouteHandlerClient()
+  const supabase = await createSupabaseRouteHandlerClient()
 
   // Delete all user data
   const tablesToDelete = [
@@ -265,7 +265,7 @@ async function performFullDeletion(userId: string) {
 
 async function performPartialDeletion(userId: string) {
   cookies()
-  const supabase = createSupabaseRouteHandlerClient()
+  const supabase = await createSupabaseRouteHandlerClient()
 
   // Delete sensitive data but keep account
   const sensitiveTables = [
@@ -301,7 +301,7 @@ async function performPartialDeletion(userId: string) {
 
 async function performIntegrationSpecificDeletion(userId: string, provider: string) {
   cookies()
-  const supabase = createSupabaseRouteHandlerClient()
+  const supabase = await createSupabaseRouteHandlerClient()
 
   // Delete specific integration
   const { error } = await supabase

@@ -11,7 +11,7 @@ const createApiKeySchema = z.object({
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createSupabaseRouteHandlerClient()
+    const supabase = await createSupabaseRouteHandlerClient()
     const {
       data: { user },
     } = await supabase.auth.getUser()
@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createSupabaseRouteHandlerClient()
+    const supabase = await createSupabaseRouteHandlerClient()
     const {
       data: { user },
     } = await supabase.auth.getUser()

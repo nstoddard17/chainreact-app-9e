@@ -18,7 +18,7 @@ async function authenticateApiKey(request: NextRequest) {
   }
 
   const apiKey = authHeader.substring(7)
-  const supabase = createSupabaseRouteHandlerClient()
+  const supabase = await createSupabaseRouteHandlerClient()
 
   const { data: keyData } = await supabase
     .from("api_keys")
@@ -47,7 +47,7 @@ async function logApiUsage(
   responseTime: number,
   request: NextRequest,
 ) {
-  const supabase = createSupabaseRouteHandlerClient()
+  const supabase = await createSupabaseRouteHandlerClient()
 
   await supabase.from("api_usage_logs").insert({
     api_key_id: apiKeyId,
@@ -86,7 +86,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 })
     }
 
-    const supabase = createSupabaseRouteHandlerClient()
+    const supabase = await createSupabaseRouteHandlerClient()
     const { searchParams } = new URL(request.url)
     const page = Number.parseInt(searchParams.get("page") || "1")
     const limit = Math.min(Number.parseInt(searchParams.get("limit") || "20"), 100)
@@ -172,7 +172,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const validatedData = createWorkflowSchema.parse(body)
 
-    const supabase = createSupabaseRouteHandlerClient()
+    const supabase = await createSupabaseRouteHandlerClient()
     const { data: workflow, error } = await supabase
       .from("workflows")
       .insert({

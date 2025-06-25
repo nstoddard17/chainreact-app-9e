@@ -7,7 +7,7 @@ import { detectAvailableIntegrations } from "@/lib/integrations/availableIntegra
 export async function GET() {
   try {
     cookies()
-    const supabase = createSupabaseRouteHandlerClient()
+    const supabase = await createSupabaseRouteHandlerClient()
 
     // Get current user
     const {

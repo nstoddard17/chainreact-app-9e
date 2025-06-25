@@ -18,7 +18,7 @@ export default async function BillingPage() {
     console.warn(`Missing environment variables: ${missingVars.join(", ")}`)
   }
 
-  const supabase = createSupabaseServerClient()
+  const supabase = await createSupabaseServerClient()
 
   const {
     data: { session },
