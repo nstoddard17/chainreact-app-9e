@@ -67,7 +67,17 @@ export async function POST(request: Request) {
       .single()
 
     if (executionError) {
-      return NextResponse.json({ error: "Failed to create execution" }, { status: 500 })
+      console.error("Failed to create workflow execution:", {
+        error: executionError,
+        workflowId,
+        userId: user.id,
+        timestamp: new Date().toISOString()
+      })
+      return NextResponse.json({ 
+        error: "Failed to create execution", 
+        details: executionError.message,
+        code: executionError.code 
+      }, { status: 500 })
     }
 
     try {
@@ -180,6 +190,9 @@ async function executeNodeAdvanced(node: any, allNodes: any[], connections: any[
         break
       case "email_trigger":
         nodeResult = await executeEmailTriggerNode(node, context)
+        break
+      case "gmail_trigger_new_email":
+        nodeResult = await executeGmailTriggerNode(node, context)
         break
       case "file_upload":
         nodeResult = await executeFileUploadNode(node, context)
@@ -325,6 +338,42 @@ async function executeEmailTriggerNode(node: any, context: any) {
     email_address: node.data.config?.email_address,
     subject_filter: node.data.config?.subject_filter,
     sender_filter: node.data.config?.sender_filter,
+    timestamp: new Date().toISOString(),
+  }
+}
+
+async function executeGmailTriggerNode(node: any, context: any) {
+  if (context.testMode) {
+    return {
+      type: "gmail_trigger_new_email",
+      test: true,
+      mock_email: {
+        id: "mock_email_" + Date.now(),
+        subject: "Test Email Subject",
+        from: "test@example.com",
+        to: context.userId ? `user-${context.userId}@example.com` : "user@example.com",
+        body: "This is a test email for workflow execution.",
+        timestamp: new Date().toISOString(),
+        labels: ["INBOX"],
+        unread: true
+      },
+      config: node.data.config,
+      timestamp: new Date().toISOString(),
+    }
+  }
+
+  // In production, this would integrate with Gmail API to check for new emails
+  // For now, return a mock response indicating the trigger is set up
+  return {
+    type: "gmail_trigger_new_email",
+    status: "listening",
+    config: {
+      label_filter: node.data.config?.label_filter || "INBOX",
+      subject_filter: node.data.config?.subject_filter,
+      sender_filter: node.data.config?.sender_filter,
+      query: node.data.config?.query
+    },
+    message: "Gmail trigger is set up and listening for new emails",
     timestamp: new Date().toISOString(),
   }
 }

@@ -131,14 +131,38 @@ async function sendGmail(config: any, userId: string, input: Record<string, any>
       return { success: false, message }
     }
 
+    // Add proper sender information - replace with your actual domain
+    const fromAddress = config.from || "ChainReact Workflows <noreply@chainreact.app>"
+    
     const email = [
-      `Content-Type: text/plain; charset="UTF-8"`,
+      `Content-Type: text/html; charset="UTF-8"`,
       `MIME-Version: 1.0`,
       `Content-Transfer-Encoding: 7bit`,
-      `to: ${to}`,
-      `subject: ${subject}`,
+      `From: ${fromAddress}`,
+      `To: ${to}`,
+      `Subject: ${subject}`,
+      `Message-ID: <${Date.now()}-${Math.random().toString(36).substr(2, 9)}@chainreact.app>`,
+      `Date: ${new Date().toUTCString()}`,
+      `X-Mailer: ChainReact Workflow Engine`,
+      `X-Priority: 3`,
       ``,
-      body,
+      // Convert plain text to basic HTML for better formatting
+      `<!DOCTYPE html>`,
+      `<html>`,
+      `<head><meta charset="UTF-8"><title>${subject}</title></head>`,
+      `<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">`,
+      `<div style="max-width: 600px; margin: 0 auto; padding: 20px;">`,
+      body.replace(/\n/g, '<br>'),
+      `<hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">`,
+      `<p style="font-size: 12px; color: #666;">`,
+      `This email was sent by ChainReact Workflow Engine. `,
+      `If you received this in error, please contact support.<br>`,
+      `<a href="mailto:unsubscribe@chainreact.app?subject=Unsubscribe&body=Please unsubscribe ${to}" style="color: #666;">Unsubscribe</a> | `,
+      `<a href="https://chainreact.app/privacy" style="color: #666;">Privacy Policy</a>`,
+      `</p>`,
+      `</div>`,
+      `</body>`,
+      `</html>`,
     ].join("\n")
 
     console.log("Making Gmail API request...")
