@@ -2,6 +2,7 @@ import { type NextRequest } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createPopupResponse } from '@/lib/utils/createPopupResponse'
 import { getBaseUrl } from '@/lib/utils/getBaseUrl'
+import { encrypt } from '@/lib/security/encryption'
 
 export async function GET(request: NextRequest) {
   const url = new URL(request.url)
@@ -60,12 +61,18 @@ export async function GET(request: NextRequest) {
     const expiresIn = tokenData.expires_in // Typically 3600 seconds
     const expiresAt = new Date(new Date().getTime() + expiresIn * 1000)
 
+    // Encrypt tokens before storing
+    const encryptionKey = process.env.ENCRYPTION_KEY
+    if (!encryptionKey) {
+      throw new Error('Encryption key not configured')
+    }
+
     // Upsert the integration details
     const integrationData = {
       user_id: userId,
       provider: provider,
-      access_token: tokenData.access_token,
-      refresh_token: tokenData.refresh_token,
+      access_token: encrypt(tokenData.access_token, encryptionKey),
+      refresh_token: tokenData.refresh_token ? encrypt(tokenData.refresh_token, encryptionKey) : null,
       scopes: tokenData.scope ? tokenData.scope.split(' ') : [],
       status: 'connected',
       expires_at: expiresAt.toISOString(),
