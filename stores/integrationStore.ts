@@ -289,7 +289,9 @@ export const useIntegrationStore = create<IntegrationStore>()(
         const data = await response.json()
 
         if (data.success && data.authUrl) {
-          const popup = window.open(data.authUrl, "_blank", "width=600,height=700,scrollbars=yes,resizable=yes")
+          // Add timestamp to make popup name unique each time
+          const popupName = `oauth_popup_${providerId}_${Date.now()}`
+          const popup = window.open(data.authUrl, popupName, "width=600,height=700,scrollbars=yes,resizable=yes")
           if (!popup) {
             setLoading(`connect-${providerId}`, false)
             throw new Error("Popup blocked. Please allow popups for this site.")

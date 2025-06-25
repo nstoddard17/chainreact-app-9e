@@ -25,9 +25,9 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Verify state parameter to prevent CSRF
+    // Verify state parameter to prevent CSRF - UPDATED to use pkce_flow table
     const { data: pkceData, error: pkceError } = await createAdminClient()
-      .from('oauth_pkce_state')
+      .from('pkce_flow')
       .select('*')
       .eq('state', state)
       .single()
@@ -37,15 +37,24 @@ export async function GET(request: NextRequest) {
       return createPopupResponse('error', provider, 'Invalid state parameter', baseUrl)
     }
 
-    const userId = pkceData.user_id
+    // Parse state to get user ID
+    let stateData;
+    try {
+      stateData = JSON.parse(atob(state));
+    } catch (e) {
+      console.error('Failed to parse state:', e);
+      return createPopupResponse('error', provider, 'Invalid state format', baseUrl);
+    }
+    
+    const userId = stateData.userId;
     
     if (!userId) {
-      return createPopupResponse('error', provider, 'User ID not found', baseUrl)
+      return createPopupResponse('error', provider, 'User ID not found in state', baseUrl)
     }
 
     // Clean up the state
     await createAdminClient()
-      .from('oauth_pkce_state')
+      .from('pkce_flow')
       .delete()
       .eq('state', state)
 
