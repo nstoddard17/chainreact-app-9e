@@ -113,30 +113,12 @@ async function sendGmail(config: any, userId: string, input: Record<string, any>
     console.log("Starting Gmail send process", { userId, config: { ...config, body: config.body ? "[CONTENT]" : undefined } })
     
     const accessToken = await getDecryptedAccessToken(userId, "gmail")
-    
-    // Verify Gmail send scope
-    try {
-      const scopeResponse = await fetch("https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=" + encodeURIComponent(accessToken))
-      if (scopeResponse.ok) {
-        const scopeData = await scopeResponse.json()
-        const hasGmailSendScope = scopeData.scope?.includes("gmail.send") || scopeData.scope?.includes("gmail.modify")
-        if (!hasGmailSendScope) {
-          console.warn("Gmail integration may not have send permissions. Required scope: gmail.send")
-        } else {
-          console.log("Gmail send scope verified")
-        }
-      }
-    } catch (scopeError) {
-      console.warn("Could not verify Gmail scopes:", scopeError)
-    }
 
     const to = resolveValue(config.to, input)
-    const cc = resolveValue(config.cc, input)
-    const bcc = resolveValue(config.bcc, input)
     const subject = resolveValue(config.subject, input)
     const body = resolveValue(config.body, input)
 
-    console.log("Resolved email values:", { to, cc, bcc, subject, hasBody: !!body })
+    console.log("Resolved email values:", { to, subject, hasBody: !!body })
 
     if (!to || !subject || !body) {
       const missingFields = []
@@ -149,92 +131,17 @@ async function sendGmail(config: any, userId: string, input: Record<string, any>
       return { success: false, message }
     }
 
-    // Get the user's Gmail address to use as sender
-    let userEmail = "me@gmail.com" // fallback
-    try {
-      console.log("Fetching user's Gmail profile...")
-      const profileResponse = await fetch("https://www.googleapis.com/gmail/v1/users/me/profile", {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      })
-      
-      if (profileResponse.ok) {
-        const profileData = await profileResponse.json()
-        userEmail = profileData.emailAddress
-        console.log("User's Gmail address:", userEmail)
-      } else {
-        console.warn("Failed to fetch Gmail profile, using fallback sender")
-      }
-    } catch (error: any) {
-      console.warn("Error fetching Gmail profile:", error.message)
-    }
-
-    // Use user's actual Gmail address or custom from address
-    const fromAddress = config.from || userEmail
-    
-    // Determine if body contains HTML
-    const isHtmlBody = body.includes('<') && body.includes('>')
-    const contentType = isHtmlBody ? "text/html" : "text/plain"
-    
-    // Format the email body
-    let emailBody = body
-    if (!isHtmlBody) {
-      // Convert plain text to basic HTML for better formatting
-      emailBody = [
-        `<!DOCTYPE html>`,
-        `<html>`,
-        `<head><meta charset="UTF-8"><title>${subject}</title></head>`,
-        `<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 20px;">`,
-        `<div style="max-width: 600px; margin: 0 auto;">`,
-        body.replace(/\n/g, '<br>'),
-        `</div>`,
-        `</body>`,
-        `</html>`,
-      ].join("\n")
-    }
-
-    // Build email headers
-    const headers = [
-      `Content-Type: ${contentType}; charset="UTF-8"`,
+    const email = [
+      `Content-Type: text/plain; charset="UTF-8"`,
       `MIME-Version: 1.0`,
       `Content-Transfer-Encoding: 7bit`,
-      `From: ${fromAddress}`,
-      `To: ${to}`,
-      `Subject: ${subject}`,
-      `Message-ID: <${Date.now()}-${Math.random().toString(36).substr(2, 9)}@gmail.com>`,
-      `Date: ${new Date().toUTCString()}`,
-      `X-Mailer: Gmail API`,
-    ]
-    
-    // Add CC and BCC if provided
-    if (cc) {
-      headers.push(`Cc: ${cc}`)
-    }
-    if (bcc) {
-      headers.push(`Bcc: ${bcc}`)
-    }
-    
-    const email = [
-      ...headers,
+      `to: ${to}`,
+      `subject: ${subject}`,
       ``,
-      emailBody,
+      body,
     ].join("\n")
 
     console.log("Making Gmail API request...")
-    console.log("Email details:", { 
-      from: fromAddress, 
-      to, 
-      cc: cc || null,
-      bcc: bcc || null,
-      subject, 
-      bodyLength: emailBody.length,
-      contentType 
-    })
-    
-    const emailBase64 = Buffer.from(email).toString("base64")
-    console.log("Email base64 length:", emailBase64.length)
-    
     const response = await fetch("https://www.googleapis.com/gmail/v1/users/me/messages/send", {
       method: "POST",
       headers: {
@@ -242,7 +149,7 @@ async function sendGmail(config: any, userId: string, input: Record<string, any>
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        raw: emailBase64,
+        raw: Buffer.from(email).toString("base64"),
       }),
     })
 
@@ -254,44 +161,15 @@ async function sendGmail(config: any, userId: string, input: Record<string, any>
       console.error("Gmail API error:", {
         status: response.status,
         statusText: response.statusText,
-        error: result.error,
-        requestDetails: {
-          to,
-          cc: cc || null,
-          bcc: bcc || null,
-          from: fromAddress,
-          subject,
-          emailLength: email.length
-        }
+        error: result.error
       })
       
       const errorMessage = result.error?.message || `Failed to send email via Gmail API (${response.status})`
       throw new Error(errorMessage)
     }
 
-    console.log("Gmail send successful:", { 
-      messageId: result.id,
-      to,
-      cc: cc || null,
-      bcc: bcc || null,
-      from: fromAddress,
-      subject,
-      timestamp: new Date().toISOString()
-    })
-    
-    return { 
-      success: true, 
-      output: { 
-        messageId: result.id, 
-        status: "sent",
-        to,
-        cc: cc || null,
-        bcc: bcc || null,
-        from: fromAddress,
-        subject,
-        sentAt: new Date().toISOString()
-      } 
-    }
+    console.log("Gmail send successful:", { messageId: result.id })
+    return { success: true, output: { messageId: result.id, status: "sent" } }
   } catch (error: any) {
     console.error("Gmail send error:", {
       message: error.message,
