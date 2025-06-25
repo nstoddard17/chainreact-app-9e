@@ -789,7 +789,7 @@ function generateKitAuthUrl(state: string): string {
     state,
   })
 
-  return `https://kit.com/oauth/authorize?${params.toString()}`
+  return `https://app.kit.com/oauth/authorize?${params.toString()}`
 }
 
 function generateBlackbaudAuthUrl(state: string): string {
