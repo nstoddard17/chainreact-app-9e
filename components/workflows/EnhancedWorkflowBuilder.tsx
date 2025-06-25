@@ -242,7 +242,7 @@ export default function EnhancedWorkflowBuilder() {
     <AppLayout>
       <div className="h-full flex flex-col">
         {/* Enhanced Toolbar */}
-        <div className="flex items-center justify-between p-4 bg-white border-b border-slate-200">
+        <div className="flex items-center justify-between p-4 bg-card border-b border-border">
           <div className="flex items-center space-x-4">
             <div>
               <h1 className="text-xl font-semibold text-slate-900">{currentWorkflow.name}</h1>
@@ -293,7 +293,7 @@ export default function EnhancedWorkflowBuilder() {
 
         <div className="flex-1 flex">
           {/* Enhanced Side Panel */}
-          <div className="w-80 border-r border-slate-200 bg-white">
+          <div className="w-80 border-r border-border bg-card">
             <Tabs value={activePanel} onValueChange={setActivePanel} className="h-full">
               <TabsList className="grid w-full grid-cols-4 p-1 m-2">
                 <TabsTrigger value="nodes" className="text-xs">
@@ -358,7 +358,7 @@ export default function EnhancedWorkflowBuilder() {
 
               {/* Zoom Level Indicator */}
               <Panel position="bottom-left">
-                <div className="bg-white px-2 py-1 rounded shadow text-xs text-slate-600">
+                <div className="bg-card px-2 py-1 rounded shadow text-xs text-muted-foreground">
                   Zoom: {Math.round((builderPreferences?.zoom_level || 1) * 100)}%
                 </div>
               </Panel>

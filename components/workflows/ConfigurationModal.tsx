@@ -429,7 +429,7 @@ export default function ConfigurationModal({
             </div>
             
             {hasRequiredFields && (
-              <div className="text-xs text-gray-500 px-1">
+              <div className="text-xs text-muted-foreground px-1">
                 * Required fields must be filled out before saving
               </div>
             )}

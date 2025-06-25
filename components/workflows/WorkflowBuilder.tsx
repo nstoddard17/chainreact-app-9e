@@ -254,7 +254,7 @@ export default function WorkflowBuilder() {
                         <img src={integration.logo} alt={`${integration.name} logo`} className="w-8 h-8 object-contain" />
                         <div>
                           <h3 className="font-semibold">{integration.name}</h3>
-                          <p className="text-sm text-gray-500">{integration.triggers.length} {integration.triggers.length > 1 ? 'triggers' : 'trigger'}</p>
+                          <p className="text-sm text-muted-foreground">{integration.triggers.length} {integration.triggers.length > 1 ? 'triggers' : 'trigger'}</p>
                         </div>
                       </CardContent>
                     </Card>
@@ -267,7 +267,7 @@ export default function WorkflowBuilder() {
                     >
                       <CardContent className="p-4">
                         <h3 className="font-semibold">{trigger.title}</h3>
-                        <p className="text-sm text-gray-500">{trigger.description}</p>
+                        <p className="text-sm text-muted-foreground">{trigger.description}</p>
                       </CardContent>
                     </Card>
                   ))}
@@ -308,7 +308,7 @@ export default function WorkflowBuilder() {
                         <img src={integration.logo} alt={`${integration.name} logo`} className="w-8 h-8 object-contain" />
                         <div>
                           <h3 className="font-semibold">{integration.name}</h3>
-                          <p className="text-sm text-gray-500">{integration.actions.length} {integration.actions.length > 1 ? 'actions' : 'action'}</p>
+                          <p className="text-sm text-muted-foreground">{integration.actions.length} {integration.actions.length > 1 ? 'actions' : 'action'}</p>
                         </div>
                       </CardContent>
                     </Card>
@@ -321,7 +321,7 @@ export default function WorkflowBuilder() {
                   >
                     <CardContent className="p-4">
                       <h3 className="font-semibold">{action.title}</h3>
-                      <p className="text-sm text-gray-500">{action.description}</p>
+                      <p className="text-sm text-muted-foreground">{action.description}</p>
                     </CardContent>
                   </Card>
                 ))}

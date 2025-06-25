@@ -957,19 +957,19 @@ function WorkflowBuilderContent() {
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-background p-4">
           <div className="text-center max-w-md flex flex-col items-center">
             <div 
-              className="w-20 h-20 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center mb-6 cursor-pointer hover:border-gray-400 hover:shadow-sm transition-all"
+              className="w-20 h-20 rounded-full border-2 border-dashed border-border flex items-center justify-center mb-6 cursor-pointer hover:border-muted-foreground hover:shadow-sm transition-all"
               onClick={handleOpenTriggerDialog}
             >
-              <Plus className="h-10 w-10 text-gray-400 hover:text-gray-500" />
+              <Plus className="h-10 w-10 text-muted-foreground hover:text-foreground" />
             </div>
             <h2 className="text-[32px] font-bold mb-2">Start your Chain</h2>
-            <p className="text-gray-600 mb-8 text-center leading-relaxed text-lg">
+            <p className="text-muted-foreground mb-8 text-center leading-relaxed text-lg">
               Chains start with a trigger – an event that kicks off<br />
               your workflow
             </p>
             <button 
               onClick={handleOpenTriggerDialog}
-              className="bg-gray-900 text-white px-8 py-3 rounded-md hover:bg-gray-800 transition-colors font-medium text-lg shadow-sm hover:shadow"
+              className="bg-primary text-primary-foreground px-8 py-3 rounded-md hover:bg-primary/90 transition-colors font-medium text-lg shadow-sm hover:shadow"
             >
               Choose a trigger
             </button>
@@ -989,12 +989,12 @@ function WorkflowBuilderContent() {
           proOptions={{ hideAttribution: true }}
           defaultEdgeOptions={{
             type: 'straight',
-            style: { strokeWidth: 1, stroke: '#d1d5db' },
+            style: { strokeWidth: 1, stroke: 'hsl(var(--border))' },
             animated: false
           }}
           defaultViewport={{ x: 0, y: 0, zoom: 1.2 }}
         >
-          <Background variant={BackgroundVariant.Dots} gap={12} size={1} color="#e2e8f0" />
+          <Background variant={BackgroundVariant.Dots} gap={12} size={1} color="hsl(var(--muted))" />
           <Controls className="left-4 bottom-4 top-auto" />
           <CollaboratorCursors collaborators={collaborators || []} />
           {isExecuting && executionEvents.length > 0 && <ExecutionMonitor events={executionEvents} />}
@@ -1002,16 +1002,16 @@ function WorkflowBuilderContent() {
       )}
 
       <Dialog open={showTriggerDialog} onOpenChange={setShowTriggerDialog}>
-        <DialogContent className="max-w-4xl h-[75vh] flex flex-col p-0 bg-white rounded-lg shadow-2xl">
-          <DialogHeader className="p-6 pb-4 border-b">
+        <DialogContent className="max-w-4xl h-[75vh] flex flex-col p-0 bg-card rounded-lg shadow-2xl">
+          <DialogHeader className="p-6 pb-4 border-b border-border">
             <DialogTitle className="text-xl font-bold">Select a Trigger</DialogTitle>
             <DialogDescription>Choose an integration and a trigger to start your workflow.</DialogDescription>
           </DialogHeader>
           
-          <div className="px-6 py-4 border-b">
+          <div className="px-6 py-4 border-b border-border">
             <div className="flex items-center space-x-4">
               <div className="relative flex-grow">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                 <Input 
                   placeholder="Search integrations or triggers..."
                   className="pl-10"
@@ -1037,37 +1037,37 @@ function WorkflowBuilderContent() {
           </div>
 
           <div className="flex-grow flex min-h-0 overflow-hidden">
-            <ScrollArea className="w-1/3 border-r">
+            <ScrollArea className="w-1/3 border-r border-border">
               <div className="py-2 px-3">
               {filteredIntegrations.length === 0 && showConnectedOnly ? (
                 <div className="flex flex-col items-center justify-center py-8 text-center">
-                  <div className="text-gray-400 mb-2">
+                  <div className="text-muted-foreground mb-2">
                     <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                     </svg>
                   </div>
-                  <p className="text-sm text-gray-500 mb-2">No connected integrations found</p>
-                  <p className="text-xs text-gray-400">Try unchecking "Show only connected apps"</p>
+                  <p className="text-sm text-muted-foreground mb-2">No connected integrations found</p>
+                  <p className="text-xs text-muted-foreground/70">Try unchecking "Show only connected apps"</p>
                 </div>
               ) : filteredIntegrations.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 text-center">
-                  <div className="text-gray-400 mb-2">
+                  <div className="text-muted-foreground mb-2">
                     <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                     </svg>
                   </div>
-                  <p className="text-sm text-gray-500">No integrations match your search</p>
+                  <p className="text-sm text-muted-foreground">No integrations match your search</p>
                 </div>
               ) : (
                 filteredIntegrations.map((integration) => (
                   <div
                     key={integration.id}
-                    className={`flex items-center p-3 rounded-md cursor-pointer ${selectedIntegration?.id === integration.id ? 'bg-blue-50 ring-1 ring-blue-200' : 'hover:bg-gray-50'}`}
+                    className={`flex items-center p-3 rounded-md cursor-pointer ${selectedIntegration?.id === integration.id ? 'bg-primary/10 ring-1 ring-primary/20' : 'hover:bg-muted/50'}`}
                     onClick={() => setSelectedIntegration(integration)}
                   >
                     {renderLogo(integration.id, integration.name)}
                     <span className="font-semibold ml-4 flex-grow">{integration.name}</span>
-                    <ChevronRight className="w-5 h-5 text-gray-400" />
+                    <ChevronRight className="w-5 h-5 text-muted-foreground" />
                   </div>
                 ))
               )}
@@ -1082,17 +1082,17 @@ function WorkflowBuilderContent() {
                       {displayedTriggers.map((trigger) => (
                         <div
                           key={trigger.type}
-                          className={`p-4 border rounded-lg cursor-pointer transition-all ${selectedTrigger?.type === trigger.type ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-500' : 'hover:border-gray-300 hover:shadow-sm'}`}
+                          className={`p-4 border rounded-lg cursor-pointer transition-all ${selectedTrigger?.type === trigger.type ? 'border-primary bg-primary/10 ring-1 ring-primary/20' : 'border-border hover:border-muted-foreground hover:shadow-sm'}`}
                           onClick={() => setSelectedTrigger(trigger)}
                         >
                           <p className="font-medium">{trigger.name}</p>
-                          <p className="text-sm text-gray-500 mt-1">{trigger.description}</p>
+                          <p className="text-sm text-muted-foreground mt-1">{trigger.description}</p>
                         </div>
                       ))}
                     </div>
                   </div>
                 ) : (
-                  <div className="flex items-center justify-center h-full text-gray-500">
+                  <div className="flex items-center justify-center h-full text-muted-foreground">
                     <p>Select an integration to see its triggers</p>
                   </div>
                 )}
@@ -1101,17 +1101,17 @@ function WorkflowBuilderContent() {
             </div>
           </div>
           
-          <DialogFooter className="p-4 border-t bg-gray-50 flex justify-between items-center">
-            <div>
+          <DialogFooter className="p-4 border-t border-border bg-muted/20 flex justify-between items-center">
+            <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+            <div className="text-sm text-muted-foreground">
               {selectedIntegration && (
-                <div className="text-sm text-gray-600">
+                <>
                   <span className="font-medium">Integration:</span> {selectedIntegration.name}
                   {selectedTrigger && <span className="ml-4"><span className="font-medium">Trigger:</span> {selectedTrigger.name}</span>}
-                </div>
+                </>
               )}
             </div>
             <div className="flex space-x-2">
-              <Button variant="outline" onClick={() => setShowTriggerDialog(false)}>Cancel</Button>
               <Button 
                 className="bg-blue-600 hover:bg-blue-700 text-white"
                 disabled={!selectedTrigger || !selectedIntegration}
@@ -1129,16 +1129,16 @@ function WorkflowBuilderContent() {
       </Dialog>
 
       <Dialog open={showActionDialog} onOpenChange={setShowActionDialog}>
-        <DialogContent className="max-w-4xl h-[75vh] flex flex-col p-0 bg-white rounded-lg shadow-2xl">
-          <DialogHeader className="p-6 pb-4 border-b">
+        <DialogContent className="max-w-4xl h-[75vh] flex flex-col p-0 bg-card rounded-lg shadow-2xl">
+          <DialogHeader className="p-6 pb-4 border-b border-border">
             <DialogTitle className="text-xl font-bold">Select an Action</DialogTitle>
             <DialogDescription>Choose an integration and an action to add to your workflow.</DialogDescription>
           </DialogHeader>
           
-          <div className="px-6 py-4 border-b">
+          <div className="px-6 py-4 border-b border-border">
             <div className="flex items-center space-x-4">
               <div className="relative flex-grow">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                 <Input 
                   placeholder="Search integrations or actions..."
                   className="pl-10"
@@ -1156,113 +1156,120 @@ function WorkflowBuilderContent() {
                   ))}
                 </SelectContent>
               </Select>
-                             <div className="flex items-center space-x-2">
-                 <Checkbox id="connected-apps-actions" checked={showConnectedOnly} onCheckedChange={(checked) => setShowConnectedOnly(Boolean(checked))} />
-                 <Label htmlFor="connected-apps-actions" className="whitespace-nowrap">Show only connected apps</Label>
-               </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="connected-apps-actions" 
+                  checked={showConnectedOnly} 
+                  onCheckedChange={(checked) => setShowConnectedOnly(Boolean(checked))} 
+                />
+                <Label htmlFor="connected-apps-actions" className="whitespace-nowrap">Show only connected apps</Label>
+              </div>
             </div>
           </div>
 
           <div className="flex-grow flex min-h-0 overflow-hidden">
-            <ScrollArea className="w-1/3 border-r">
+            <ScrollArea className="w-1/3 border-r border-border">
               <div className="py-2 px-3">
-              {(() => {
-                const filteredActions = availableIntegrations
-                  .filter(int => int.actions.length > 0)
-                  .filter(int => {
-                    if (showConnectedOnly) {
-                      return isIntegrationConnected(int.id);
-                    }
-                    return true;
-                  })
-                  .filter(int => {
-                    if (filterCategory === 'all') return true;
-                    return int.category === filterCategory;
-                  })
-                  .filter(int => {
-                    const searchLower = searchQuery.toLowerCase();
-                    if (searchLower === "") return true;
-                    
-                    const integrationMatches = int.name.toLowerCase().includes(searchLower) ||
-                                             int.description.toLowerCase().includes(searchLower) ||
-                                             int.category.toLowerCase().includes(searchLower);
-                    
-                    const actionMatches = int.actions.some(a => 
-                      (a.name && a.name.toLowerCase().includes(searchLower)) ||
-                      (a.description && a.description.toLowerCase().includes(searchLower)) ||
-                      (a.type && a.type.toLowerCase().includes(searchLower))
-                    );
-                    
-                    return integrationMatches || actionMatches;
-                  });
-
-                if (filteredActions.length === 0 && showConnectedOnly) {
-                  return (
-                    <div className="flex flex-col items-center justify-center py-8 text-center">
-                      <div className="text-gray-400 mb-2">
-                        <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                        </svg>
-                      </div>
-                      <p className="text-sm text-gray-500 mb-2">No connected integrations found</p>
-                      <p className="text-xs text-gray-400">Try unchecking "Show only connected apps"</p>
-                    </div>
-                  );
-                } else if (filteredActions.length === 0) {
-                  return (
-                    <div className="flex flex-col items-center justify-center py-8 text-center">
-                      <div className="text-gray-400 mb-2">
-                        <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
-                      </div>
-                      <p className="text-sm text-gray-500">No integrations match your search</p>
-                    </div>
-                  );
+              {availableIntegrations.filter(int => {
+                if (showConnectedOnly && !isIntegrationConnected(int.id)) return false
+                if (filterCategory !== 'all' && int.category !== filterCategory) return false
+                if (searchQuery) {
+                  const query = searchQuery.toLowerCase()
+                  const matchesIntegration = int.name.toLowerCase().includes(query) || int.description.toLowerCase().includes(query)
+                  const matchesAction = int.actions.some(action => 
+                    action.name.toLowerCase().includes(query) || action.description.toLowerCase().includes(query)
+                  )
+                  return matchesIntegration || matchesAction
                 }
-
-                return filteredActions.map((integration) => (
-                  <div
-                    key={integration.id}
-                    className={`flex items-center p-3 rounded-md cursor-pointer ${selectedIntegration?.id === integration.id ? 'bg-blue-50 ring-1 ring-blue-200' : 'hover:bg-gray-50'}`}
-                    onClick={() => setSelectedIntegration(integration)}
-                  >
-                    {renderLogo(integration.id, integration.name)}
-                    <span className="font-semibold ml-4 flex-grow">{integration.name}</span>
-                    <ChevronRight className="w-5 h-5 text-gray-400" />
+                return int.actions.length > 0
+              }).length === 0 && showConnectedOnly ? (
+                <div className="flex flex-col items-center justify-center py-8 text-center">
+                  <div className="text-muted-foreground mb-2">
+                    <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
                   </div>
-                ));
-              })()}
+                  <p className="text-sm text-muted-foreground mb-2">No connected integrations found</p>
+                  <p className="text-xs text-muted-foreground/70">Try unchecking "Show only connected apps"</p>
+                </div>
+              ) : availableIntegrations.filter(int => {
+                if (showConnectedOnly && !isIntegrationConnected(int.id)) return false
+                if (filterCategory !== 'all' && int.category !== filterCategory) return false
+                if (searchQuery) {
+                  const query = searchQuery.toLowerCase()
+                  const matchesIntegration = int.name.toLowerCase().includes(query) || int.description.toLowerCase().includes(query)
+                  const matchesAction = int.actions.some(action => 
+                    action.name.toLowerCase().includes(query) || action.description.toLowerCase().includes(query)
+                  )
+                  return matchesIntegration || matchesAction
+                }
+                return int.actions.length > 0
+              }).length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 text-center">
+                  <div className="text-muted-foreground mb-2">
+                    <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                  </div>
+                  <p className="text-sm text-muted-foreground">No integrations match your search</p>
+                </div>
+              ) : (
+                availableIntegrations
+                  .filter(int => {
+                    if (showConnectedOnly && !isIntegrationConnected(int.id)) return false
+                    if (filterCategory !== 'all' && int.category !== filterCategory) return false
+                    if (searchQuery) {
+                      const query = searchQuery.toLowerCase()
+                      const matchesIntegration = int.name.toLowerCase().includes(query) || int.description.toLowerCase().includes(query)
+                      const matchesAction = int.actions.some(action => 
+                        action.name.toLowerCase().includes(query) || action.description.toLowerCase().includes(query)
+                      )
+                      return matchesIntegration || matchesAction
+                    }
+                    return int.actions.length > 0
+                  })
+                  .map((integration) => (
+                    <div
+                      key={integration.id}
+                      className={`flex items-center p-3 rounded-md cursor-pointer ${selectedIntegration?.id === integration.id ? 'bg-primary/10 ring-1 ring-primary/20' : 'hover:bg-muted/50'}`}
+                      onClick={() => setSelectedIntegration(integration)}
+                    >
+                      {renderLogo(integration.id, integration.name)}
+                      <span className="font-semibold ml-4 flex-grow">{integration.name}</span>
+                      <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                    </div>
+                  ))
+              )}
               </div>
             </ScrollArea>
             <div className="w-2/3 h-full">
               <ScrollArea className="h-full">
-                                <div className="p-4">
+                <div className="p-4">
                 {selectedIntegration ? (
                   <div className="h-full max-h-[400px] overflow-y-auto">
                     <div className="grid grid-cols-1 gap-3">
                       {selectedIntegration.actions
-                        .filter((action) => {
-                          if (!searchQuery) return true;
-                          const searchLower = searchQuery.toLowerCase();
-                          return (action.name && action.name.toLowerCase().includes(searchLower)) ||
-                                 (action.description && action.description.toLowerCase().includes(searchLower)) ||
-                                 (action.type && action.type.toLowerCase().includes(searchLower));
+                        .filter(action => {
+                          if (searchQuery) {
+                            const query = searchQuery.toLowerCase()
+                            return action.name.toLowerCase().includes(query) || action.description.toLowerCase().includes(query)
+                          }
+                          return true
                         })
                         .map((action) => (
-                         <div
-                           key={action.type}
-                           className={`p-4 border rounded-lg cursor-pointer transition-all ${selectedAction?.type === action.type ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-500' : 'hover:border-gray-300 hover:shadow-sm'}`}
-                           onClick={() => setSelectedAction(action)}
-                         >
-                           <p className="font-medium">{action.name}</p>
-                           <p className="text-sm text-gray-500 mt-1">{action.description}</p>
-                         </div>
-                       ))}
+                          <div
+                            key={action.type}
+                            className={`p-4 border rounded-lg cursor-pointer transition-all ${selectedAction?.type === action.type ? 'border-primary bg-primary/10 ring-1 ring-primary/20' : 'border-border hover:border-muted-foreground hover:shadow-sm'}`}
+                            onClick={() => setSelectedAction(action)}
+                          >
+                            <p className="font-medium">{action.name}</p>
+                            <p className="text-sm text-muted-foreground mt-1">{action.description}</p>
+                          </div>
+                        ))}
                     </div>
                   </div>
                 ) : (
-                  <div className="flex items-center justify-center h-full text-gray-500">
+                  <div className="flex items-center justify-center h-full text-muted-foreground">
                     <p>Select an integration to see its actions</p>
                   </div>
                 )}
@@ -1270,18 +1277,18 @@ function WorkflowBuilderContent() {
               </ScrollArea>
             </div>
           </div>
-          
-          <div className="p-4 border-t bg-gray-50 flex justify-between items-center">
-            <div>
+
+          <div className="p-4 border-t border-border bg-muted/20 flex justify-between items-center">
+            <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+            <div className="text-sm text-muted-foreground">
               {selectedIntegration && (
-                <div className="text-sm text-gray-600">
+                <>
                   <span className="font-medium">Integration:</span> {selectedIntegration.name}
                   {selectedAction && <span className="ml-4"><span className="font-medium">Action:</span> {selectedAction.name}</span>}
-                </div>
+                </>
               )}
             </div>
             <div className="flex space-x-2">
-              <Button variant="outline" onClick={() => setShowActionDialog(false)}>Cancel</Button>
               <Button 
                 className="bg-blue-600 hover:bg-blue-700 text-white"
                 disabled={!selectedAction || !selectedIntegration}

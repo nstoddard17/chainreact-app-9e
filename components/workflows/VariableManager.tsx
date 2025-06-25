@@ -98,12 +98,12 @@ export default function VariableManager({ workflowId }: VariableManagerProps) {
       case "array":
         return "bg-pink-100 text-pink-700"
       default:
-        return "bg-gray-100 text-gray-700"
+        return "bg-muted text-muted-foreground"
     }
   }
 
   return (
-    <Card className="bg-white rounded-2xl shadow-lg border border-slate-200">
+    <Card className="bg-card rounded-2xl shadow-lg border border-border">
       <CardHeader>
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
