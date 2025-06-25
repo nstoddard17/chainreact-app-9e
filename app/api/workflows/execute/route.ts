@@ -3,6 +3,19 @@ import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 
 export async function POST(request: Request) {
+  // Check if environment is properly configured
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    console.error("Supabase configuration missing. Please set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY environment variables.")
+    return NextResponse.json({ 
+      error: "Configuration error", 
+      details: "Supabase configuration missing. Please check your environment variables.",
+      missingVars: {
+        SUPABASE_URL: !process.env.NEXT_PUBLIC_SUPABASE_URL,
+        SUPABASE_ANON_KEY: !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+      }
+    }, { status: 500 })
+  }
+
   cookies()
   const supabase = createSupabaseRouteHandlerClient()
 
@@ -92,9 +105,18 @@ export async function POST(request: Request) {
 
       return NextResponse.json({ success: false, error: error.message, willRetry: shouldRetry }, { status: 500 })
     }
-  } catch (error) {
-    console.error("Workflow execution error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  } catch (error: any) {
+    console.error("Workflow execution error:", {
+      message: error.message,
+      stack: error.stack,
+      name: error.name,
+      timestamp: new Date().toISOString()
+    })
+    return NextResponse.json({ 
+      error: "Internal server error", 
+      details: error.message,
+      timestamp: new Date().toISOString()
+    }, { status: 500 })
   }
 }
 
