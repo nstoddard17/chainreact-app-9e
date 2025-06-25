@@ -50,11 +50,11 @@ export async function GET(request: NextRequest) {
       .eq('state', state)
 
     // Get TikTok OAuth credentials
-    const clientKey = process.env.NEXT_PUBLIC_TIKTOK_CLIENT_ID
+    const clientId = process.env.NEXT_PUBLIC_TIKTOK_CLIENT_ID
     const clientSecret = process.env.TIKTOK_CLIENT_SECRET
     const redirectUri = `${baseUrl}/api/integrations/tiktok/callback`
 
-    if (!clientKey || !clientSecret) {
+    if (!clientId || !clientSecret) {
       console.error('TikTok OAuth credentials not configured')
       return createPopupResponse('error', provider, 'Integration configuration error', baseUrl)
     }
@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: new URLSearchParams({
-        client_id: clientKey,
+        client_id: clientId,
         client_secret: clientSecret,
         code,
         grant_type: 'authorization_code',
