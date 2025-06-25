@@ -30,16 +30,16 @@ export function ExecutionMonitor({ events }: ExecutionMonitorProps) {
     }
   }
 
-  const getEventColor = (eventType: string) => {
-    switch (eventType) {
-      case "node_complete":
-        return "bg-green-100 text-green-800"
-      case "node_error":
-        return "bg-red-100 text-red-800"
-      case "node_start":
-        return "bg-blue-100 text-blue-800"
+  const getStatusColor = (status: string): string => {
+    switch (status) {
+      case "running":
+        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300"
+      case "completed":
+        return "bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300"
+      case "failed":
+        return "bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300"
       default:
-        return "bg-gray-100 text-gray-800"
+        return "bg-muted text-muted-foreground"
     }
   }
 
@@ -62,7 +62,7 @@ export function ExecutionMonitor({ events }: ExecutionMonitorProps) {
                   <div className="mt-0.5">{getEventIcon(event.event_type)}</div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <Badge variant="secondary" className={`text-xs ${getEventColor(event.event_type)}`}>
+                      <Badge variant="secondary" className={`text-xs ${getStatusColor(event.event_type)}`}>
                         {event.event_type.replace("_", " ")}
                       </Badge>
                       {event.node_id && <span className="text-xs text-slate-500 truncate">{event.node_id}</span>}

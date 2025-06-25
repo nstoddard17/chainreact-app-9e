@@ -171,13 +171,13 @@ export default function WorkflowsContent() {
           <TabsList className="grid w-full grid-cols-2 bg-slate-100 p-1 rounded-lg">
             <TabsTrigger
               value="workflows"
-              className="transition-all duration-200 hover:bg-white hover:shadow-sm focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              className="transition-all duration-200 hover:bg-card hover:shadow-sm focus:ring-2 focus:ring-primary focus:ring-offset-2"
             >
               My Workflows
             </TabsTrigger>
             <TabsTrigger
               value="templates"
-              className="transition-all duration-200 hover:bg-white hover:shadow-sm focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              className="transition-all duration-200 hover:bg-card hover:shadow-sm focus:ring-2 focus:ring-primary focus:ring-offset-2"
             >
               Templates
             </TabsTrigger>
@@ -263,7 +263,7 @@ export default function WorkflowsContent() {
                   return (
                     <Card
                       key={workflow.id}
-                      className="bg-white rounded-xl shadow-sm border border-slate-200 hover:shadow-lg hover:border-slate-300 transition-all duration-300 transform hover:-translate-y-1 group"
+                      className="bg-card rounded-xl shadow-sm border border-border hover:shadow-lg hover:border-muted-foreground transition-all duration-300 transform hover:-translate-y-1 group"
                     >
                       <CardHeader className="pb-3">
                         <div className="flex items-start justify-between">

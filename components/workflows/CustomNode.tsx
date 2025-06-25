@@ -5,6 +5,7 @@ import { Handle, Position, type NodeProps } from "@xyflow/react"
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/availableNodes"
 import { Settings, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 // The data object passed to the node will now contain these callbacks.
 interface CustomNodeData {
@@ -16,9 +17,10 @@ interface CustomNodeData {
   config?: Record<string, any>
   onConfigure: (id: string) => void
   onDelete: (id: string) => void
+  error?: string
 }
 
-function CustomNode({ id, data, selected }: NodeProps<CustomNodeData>) {
+function CustomNode({ id, data, selected }: NodeProps) {
   const {
     title,
     description,
@@ -28,7 +30,8 @@ function CustomNode({ id, data, selected }: NodeProps<CustomNodeData>) {
     config,
     onConfigure,
     onDelete,
-  } = data
+    error,
+  } = data as unknown as CustomNodeData
 
   const component = ALL_NODE_COMPONENTS.find((c) => c.type === type)
   const hasMultipleOutputs = ["if_condition", "switch_case", "try_catch"].includes(type)
@@ -49,49 +52,69 @@ function CustomNode({ id, data, selected }: NodeProps<CustomNodeData>) {
 
   return (
     <div
-      className={`w-[400px] bg-white rounded-lg shadow-sm border ${
-        selected ? "border-blue-500" : "border-gray-200"
-      } hover:shadow-md transition-all duration-200`}
+      className={`w-[400px] bg-card rounded-lg shadow-sm border ${
+        selected ? "border-primary" : "border-border"
+      } hover:shadow-md transition-shadow ${
+        error ? "border-destructive" : ""
+      }`}
+      data-testid={`node-${id}`}
     >
-      <div className="p-4 flex items-center">
-        <div className="mr-4">
-          {providerId ? (
-            <img
-              src={`/integrations/${providerId}.svg`}
-              alt={`${title || ''} logo`}
-              className="w-8 h-8 object-contain"
-            />
-          ) : (
-            component?.icon && React.createElement(component.icon, { className: "h-8 w-8 text-gray-700" })
-          )}
+      {error && (
+        <div className="bg-destructive/10 border-b border-destructive/20 px-4 py-2">
+          <p className="text-sm text-destructive font-medium">{error}</p>
         </div>
-        
-        <div className="flex-1">
-          <h3 className="text-xl font-medium text-gray-900">{title}</h3>
-          {description && (
-            <p className="text-gray-600">{description}</p>
-          )}
-        </div>
-        
-        <div className="flex items-center">
-          {component?.configSchema && component.configSchema.length > 0 && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleConfigure}
-              className="h-8 w-8 text-gray-400 hover:text-gray-600"
-            >
-              <Settings className="w-5 h-5" />
-            </Button>
-          )}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleDelete}
-            className="h-8 w-8 text-gray-400 hover:text-gray-600"
-          >
-            <Trash2 className="w-5 h-5" />
-          </Button>
+      )}
+      <div className="p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            {providerId ? (
+              <img
+                src={`/integrations/${providerId}.svg`}
+                alt={`${title || ''} logo`}
+                className="w-8 h-8 object-contain"
+              />
+            ) : (
+              component?.icon && React.createElement(component.icon, { className: "h-8 w-8 text-foreground" })
+            )}
+            <div className="min-w-0 flex-1">
+              <h3 className="text-xl font-medium text-foreground">{title}</h3>
+              {description && (
+                <p className="text-muted-foreground">{description}</p>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center space-x-2">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleConfigure}
+                    className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                  >
+                    <Settings />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top">Configure {title}</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleDelete}
+                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                  >
+                    <Trash2 />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top">Delete {title}</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
         </div>
       </div>
 
@@ -99,7 +122,10 @@ function CustomNode({ id, data, selected }: NodeProps<CustomNodeData>) {
         <Handle
           type="target"
           position={Position.Top}
-          className="!w-3 !h-3 !bg-gray-300"
+          className="!w-3 !h-3 !bg-muted-foreground border-2 border-background"
+          style={{
+            visibility: data.isTrigger ? "hidden" : "visible",
+          }}
         />
       )}
 
@@ -109,7 +135,7 @@ function CustomNode({ id, data, selected }: NodeProps<CustomNodeData>) {
           <Handle type="source" position={Position.Bottom} id="false" className="!w-3 !h-3 !bg-red-500" style={{ left: "75%" }} />
         </>
       ) : (
-        <Handle type="source" position={Position.Bottom} className="!w-3 !h-3 !bg-gray-300" />
+        <Handle type="source" position={Position.Bottom} className="!w-3 !h-3 !bg-muted-foreground border-2 border-background" />
       )}
     </div>
   )

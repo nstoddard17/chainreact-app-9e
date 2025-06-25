@@ -53,7 +53,7 @@ export default function WorkflowExecutions({ workflowId }: WorkflowExecutionsPro
   }
 
   return (
-    <Card className="bg-white rounded-2xl shadow-lg border border-slate-200">
+    <Card className="bg-card rounded-2xl shadow-lg border border-border">
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="text-xl font-semibold text-slate-900">Execution History</CardTitle>
