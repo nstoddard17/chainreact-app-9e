@@ -21,6 +21,7 @@ export default function ProfileSettings() {
   })
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (profile) {
@@ -37,6 +38,15 @@ export default function ProfileSettings() {
     e.preventDefault()
     setLoading(true)
     setSuccess(false)
+    setError(null)
+
+    // Set a timeout to prevent getting stuck in loading state
+    const timeoutId = setTimeout(() => {
+      if (loading) {
+        setLoading(false)
+        setError("Request timed out. Please try again.")
+      }
+    }, 10000) // 10 seconds timeout
 
     try {
       // Combine first_name and last_name to create full_name
@@ -50,7 +60,9 @@ export default function ProfileSettings() {
       setTimeout(() => setSuccess(false), 3000)
     } catch (error) {
       console.error("Failed to update profile:", error)
+      setError(error instanceof Error ? error.message : "Failed to update profile. Please try again.")
     } finally {
+      clearTimeout(timeoutId)
       setLoading(false)
     }
   }
@@ -126,6 +138,7 @@ export default function ProfileSettings() {
               )}
             </Button>
             {success && <span className="text-green-600 dark:text-green-400">Profile updated successfully!</span>}
+            {error && <span className="text-red-600 dark:text-red-400">{error}</span>}
           </div>
         </form>
       </CardContent>
