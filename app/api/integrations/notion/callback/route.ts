@@ -85,7 +85,21 @@ export async function GET(request: NextRequest) {
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text()
       console.error('Notion token exchange failed:', tokenResponse.status, errorText)
-      return createPopupResponse('error', provider, 'Failed to retrieve access token', baseUrl)
+      
+      // Check for specific error types and provide better error messages
+      let errorMessage = 'Failed to retrieve access token';
+      try {
+        const errorData = JSON.parse(errorText);
+        if (errorData.error === 'invalid_grant' && errorData.error_description?.includes('permission')) {
+          errorMessage = 'You don\'t have permission to install this integration. Please ask a workspace owner to install it or request to be upgraded as a member.';
+        } else if (errorData.error_description) {
+          errorMessage = errorData.error_description;
+        }
+      } catch (e) {
+        // If we can't parse the error, use the default message
+      }
+      
+      return createPopupResponse('error', provider, errorMessage, baseUrl)
     }
 
     const tokenData = await tokenResponse.json()
