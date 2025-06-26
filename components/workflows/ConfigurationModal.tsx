@@ -16,6 +16,7 @@ import { FileUpload } from "@/components/ui/file-upload"
 import { DatePicker } from "@/components/ui/date-picker"
 import { TimePicker } from "@/components/ui/time-picker"
 import { AlertCircle } from "lucide-react"
+import { Checkbox } from "@/components/ui/checkbox"
 import { cn } from "@/lib/utils"
 
 interface ConfigurationModalProps {
@@ -274,6 +275,10 @@ export default function ConfigurationModal({
       onSave(config)
       onClose()
     }
+  }
+
+  const handleCheckboxChange = (name: string, checked: boolean) => {
+    setConfig((prev) => ({ ...prev, [name]: checked }))
   }
 
   const renderField = (field: ConfigField) => {
@@ -609,6 +614,17 @@ export default function ConfigurationModal({
             )}
           </div>
         )
+      case "boolean":
+        return (
+          <div className="flex items-center justify-start">
+            <Checkbox
+              id={field.name}
+              checked={config[field.name] || false}
+              onCheckedChange={(checked) => handleCheckboxChange(field.name, checked as boolean)}
+              className="h-4 w-4"
+            />
+          </div>
+        )
       default:
         return (
           <div className="space-y-1">
@@ -659,22 +675,19 @@ export default function ConfigurationModal({
           // Configuration form once data is loaded
           <>
             <div className="space-y-4 py-4 max-h-96 overflow-y-auto pr-2" style={{ paddingRight: '8px' }}>
-              {nodeInfo?.configSchema?.map((field) => {
-                const fieldElement = renderField(field)
-                if (fieldElement === null) return null
-                
-                return (
-                  <div key={field.name} className="space-y-2" style={{ marginRight: '4px' }}>
-                    <Label htmlFor={field.name}>
+              <div className="grid gap-4 py-4">
+                {nodeInfo.configSchema?.map((field) => (
+                  <div key={field.name} className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor={field.name} className="text-right">
                       {field.label}
-                      {field.required && <span className="text-red-500 ml-1">*</span>}
                     </Label>
-                    <div style={{ paddingRight: '4px' }}>
-                      {fieldElement}
-                    </div>
+                    <div className={field.type === "boolean" ? "col-span-3 flex items-center" : "col-span-3"}>{renderField(field)}</div>
+                    {errors[field.name] && (
+                      <p className="col-span-4 text-red-500 text-sm">{errors[field.name]}</p>
+                    )}
                   </div>
-                )
-              })}
+                ))}
+              </div>
             </div>
             
             {hasRequiredFields && (
