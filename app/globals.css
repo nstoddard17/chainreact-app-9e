@@ -198,7 +198,6 @@ body {
   
   .dark .react-flow__controls-button svg {
     fill: hsl(var(--foreground)) !important;
-    color: hsl(var(--foreground)) !important;
   }
   
   /* ReactFlow MiniMap Theme Styling */
@@ -232,5 +231,114 @@ body {
   
   .dark .react-flow__background-pattern {
     fill: hsl(var(--muted-foreground) / 0.1);
+  }
+  
+  /* Calendar Navigation Chevron Styling */
+  .rdp-nav_button .rdp-chevron {
+    color: #000000 !important;
+    transition: all 0.2s ease-in-out !important;
+  }
+  
+  .dark .rdp-nav_button .rdp-chevron {
+    color: #ffffff !important;
+    transition: all 0.2s ease-in-out !important;
+  }
+  
+  /* Alternative selectors in case the above don't work */
+  [data-theme="dark"] .rdp-nav_button .rdp-chevron {
+    color: #ffffff !important;
+    transition: all 0.2s ease-in-out !important;
+  }
+  
+  /* Force override for any remaining cases */
+  .rdp-nav_button svg {
+    color: inherit !important;
+    transition: all 0.2s ease-in-out !important;
+  }
+  
+  .dark .rdp-nav_button svg {
+    color: #ffffff !important;
+    transition: all 0.2s ease-in-out !important;
+  }
+  
+  /* Target the polygon elements directly */
+  .rdp-nav_button .rdp-chevron polygon {
+    fill: #000000 !important;
+    transition: fill 0.2s ease-in-out !important;
+  }
+  
+  .dark .rdp-nav_button .rdp-chevron polygon {
+    fill: #ffffff !important;
+    transition: fill 0.2s ease-in-out !important;
+  }
+  
+  /* More aggressive selectors */
+  .rdp-button_previous .rdp-chevron polygon,
+  .rdp-button_next .rdp-chevron polygon {
+    fill: #000000 !important;
+    transition: fill 0.2s ease-in-out !important;
+  }
+  
+  .dark .rdp-button_previous .rdp-chevron polygon,
+  .dark .rdp-button_next .rdp-chevron polygon {
+    fill: #ffffff !important;
+    transition: fill 0.2s ease-in-out !important;
+  }
+  
+  /* Target any SVG in the nav buttons */
+  .rdp-nav_button svg polygon {
+    fill: #000000 !important;
+    transition: fill 0.2s ease-in-out !important;
+  }
+  
+  .dark .rdp-nav_button svg polygon {
+    fill: #ffffff !important;
+    transition: fill 0.2s ease-in-out !important;
+  }
+  
+  /* Force all chevron-related elements */
+  .rdp-chevron polygon {
+    fill: #000000 !important;
+    transition: fill 0.2s ease-in-out !important;
+  }
+  
+  .dark .rdp-chevron polygon {
+    fill: #ffffff !important;
+    transition: fill 0.2s ease-in-out !important;
+  }
+  
+  /* Hover effects */
+  .rdp-nav_button:hover .rdp-chevron polygon {
+    fill: #3b82f6 !important;
+    transform: scale(1.1) !important;
+  }
+  
+  .dark .rdp-nav_button:hover .rdp-chevron polygon {
+    fill: #60a5fa !important;
+    transform: scale(1.1) !important;
+  }
+  
+  /* Alternative hover selectors */
+  .rdp-button_previous:hover .rdp-chevron polygon,
+  .rdp-button_next:hover .rdp-chevron polygon {
+    fill: #3b82f6 !important;
+    transform: scale(1.1) !important;
+  }
+  
+  .dark .rdp-button_previous:hover .rdp-chevron polygon,
+  .dark .rdp-button_next:hover .rdp-chevron polygon {
+    fill: #60a5fa !important;
+    transform: scale(1.1) !important;
+  }
+  
+  /* General hover for any chevron */
+  .rdp-chevron:hover polygon {
+    fill: #3b82f6 !important;
+    transform: scale(1.1) !important;
+  }
+  
+  .dark .rdp-chevron:hover polygon {
+    fill: #60a5fa !important;
+    transform: scale(1.1) !important;
   }
 }

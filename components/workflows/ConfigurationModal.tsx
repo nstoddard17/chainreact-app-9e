@@ -44,6 +44,16 @@ export default function ConfigurationModal({
   >({})
   const [loadingDynamic, setLoadingDynamic] = useState(false)
 
+  // Function to get user's timezone
+  const getUserTimezone = () => {
+    try {
+      return Intl.DateTimeFormat().resolvedOptions().timeZone
+    } catch (error) {
+      // Fallback to UTC if timezone detection fails
+      return "UTC"
+    }
+  }
+
   useEffect(() => {
     if (isOpen && nodeInfo) {
       // Initialize config with default or existing values
@@ -73,6 +83,10 @@ export default function ConfigurationModal({
         if (!initialConfig.endDate) {
           initialConfig.endDate = tomorrow.toISOString().split('T')[0]
         }
+        
+        // Always set user's timezone for Google Calendar events
+        const userTimezone = getUserTimezone()
+        initialConfig.timeZone = userTimezone
       }
       
       setConfig(initialConfig)
@@ -245,6 +259,14 @@ export default function ConfigurationModal({
       fetchDynamicData()
     }
   }, [isOpen, nodeInfo, loadIntegrationData, getIntegrationByProvider, initialData])
+
+  // Force timezone update for Google Calendar events
+  useEffect(() => {
+    if (isOpen && nodeInfo?.type === "google_calendar_action_create_event" && !config.timeZone) {
+      const userTimezone = getUserTimezone()
+      setConfig(prev => ({ ...prev, timeZone: userTimezone }))
+    }
+  }, [isOpen, nodeInfo?.type, config.timeZone])
 
   if (!nodeInfo) {
     return null
@@ -676,17 +698,26 @@ export default function ConfigurationModal({
           <>
             <div className="space-y-4 py-4 max-h-96 overflow-y-auto pr-2" style={{ paddingRight: '8px' }}>
               <div className="grid gap-4 py-4">
-                {nodeInfo.configSchema?.map((field) => (
-                  <div key={field.name} className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor={field.name} className="text-right">
-                      {field.label}
-                    </Label>
-                    <div className={field.type === "boolean" ? "col-span-3 flex items-center" : "col-span-3"}>{renderField(field)}</div>
-                    {errors[field.name] && (
-                      <p className="col-span-4 text-red-500 text-sm">{errors[field.name]}</p>
-                    )}
-                  </div>
-                ))}
+                {nodeInfo.configSchema?.map((field) => {
+                  // Hide time fields and their labels for Google Calendar when "All Day" is enabled
+                  if (nodeInfo?.type === "google_calendar_action_create_event" && 
+                      field.type === "time" && 
+                      config.allDay) {
+                    return null
+                  }
+                  
+                  return (
+                    <div key={field.name} className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor={field.name} className="text-right">
+                        {field.label}
+                      </Label>
+                      <div className={field.type === "boolean" ? "col-span-3 flex items-center" : "col-span-3"}>{renderField(field)}</div>
+                      {errors[field.name] && (
+                        <p className="col-span-4 text-red-500 text-sm">{errors[field.name]}</p>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
             </div>
             
