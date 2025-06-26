@@ -239,12 +239,6 @@ export function SubProcessors() {
                 <p className="text-sm text-slate-700 mb-2">E-commerce platform</p>
                 <p className="text-xs text-slate-600">Data: OAuth tokens, store data</p>
               </div>
-              
-              <div className="bg-slate-50 p-4 rounded-lg">
-                <h4 className="font-semibold text-slate-900 mb-2">GlobalPayments</h4>
-                <p className="text-sm text-slate-700 mb-2">Payment processing</p>
-                <p className="text-xs text-slate-600">Data: Payment info, transaction data</p>
-              </div>
             </div>
           </section>
 

@@ -34,6 +34,5 @@ export const integrationIcons: Record<string, string> = {
   gumroad: '/integrations/gumroad.svg',
   beehiiv: '/integrations/beehiiv.svg',
   blackbaud: '/integrations/blackbaud.svg',
-  globalpayments: '/integrations/globalpayments.svg',
   kit: '/integrations/kit.svg',
 };
