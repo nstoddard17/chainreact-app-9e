@@ -29,13 +29,14 @@ import {
 export interface ConfigField {
   name: string
   label: string
-  type: "string" | "number" | "boolean" | "select" | "textarea" | "text" | "email" | "password" | "email-autocomplete" | "file"
+  type: "string" | "number" | "boolean" | "select" | "textarea" | "text" | "email" | "password" | "email-autocomplete" | "file" | "date" | "time" | "datetime"
   required?: boolean
   placeholder?: string
   options?: { value: string; label: string }[] | string[]
   dynamic?: "slack-channels" | "google-contacts" | "google-calendars" | "google-drive-folders" | "google-drive-files" | "gmail-recent-recipients" | "gmail-enhanced-recipients" | "gmail-contact-groups"
   accept?: string // For file inputs, specify accepted file types
   maxSize?: number // For file inputs, specify max file size in bytes
+  defaultValue?: string | number | boolean // Default value for the field
   [key: string]: any
 }
 
@@ -282,7 +283,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   {
     type: "google_calendar_action_create_event",
     title: "Create Event (Google Calendar)",
-    description: "Create a new calendar event",
+    description: "Create a new calendar event with comprehensive features",
     isTrigger: false,
     providerId: "google-calendar",
     requiredScopes: ["https://www.googleapis.com/auth/calendar"],
@@ -295,20 +296,201 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         dynamic: "google-calendars",
         required: true,
       },
-      { name: "title", label: "Title", type: "text", placeholder: "My Event" },
+      { 
+        name: "title", 
+        label: "Event Title", 
+        type: "text", 
+        placeholder: "Add title", 
+        required: true 
+      },
+      { 
+        name: "allDay", 
+        label: "All Day", 
+        type: "boolean", 
+        defaultValue: false
+      },
+      {
+        name: "startDate",
+        label: "Start Date",
+        type: "date",
+        required: true,
+      },
       {
         name: "startTime",
-        label: "Start Time (ISO)",
-        type: "text",
-        placeholder: "e.g., 2024-01-01T10:00:00Z",
+        label: "Start Time",
+        type: "time",
+        required: true,
+        defaultValue: "09:00"
+      },
+      {
+        name: "endDate",
+        label: "End Date",
+        type: "date",
+        required: true,
       },
       {
         name: "endTime",
-        label: "End Time (ISO)",
-        type: "text",
-        placeholder: "e.g., 2024-01-01T11:00:00Z",
+        label: "End Time", 
+        type: "time",
+        required: true,
+        defaultValue: "10:00"
       },
-      { name: "description", label: "Description", type: "textarea" },
+      { 
+        name: "timeZone", 
+        label: "Time Zone", 
+        type: "select",
+        defaultValue: "America/New_York",
+        options: [
+          { value: "America/New_York", label: "Eastern Time" },
+          { value: "America/Chicago", label: "Central Time" },
+          { value: "America/Denver", label: "Mountain Time" },
+          { value: "America/Los_Angeles", label: "Pacific Time" },
+          { value: "UTC", label: "UTC" },
+          { value: "Europe/London", label: "London" },
+          { value: "Europe/Paris", label: "Paris" },
+          { value: "Europe/Berlin", label: "Berlin" },
+          { value: "Asia/Tokyo", label: "Tokyo" },
+          { value: "Asia/Shanghai", label: "Shanghai" },
+          { value: "Asia/Dubai", label: "Dubai" },
+          { value: "Australia/Sydney", label: "Sydney" }
+        ]
+      },
+      { 
+        name: "attendees", 
+        label: "Add guests", 
+        type: "email-autocomplete", 
+        placeholder: "Enter names or email addresses"
+      },
+      { 
+        name: "location", 
+        label: "Add location", 
+        type: "text", 
+        placeholder: "Add location" 
+      },
+      { 
+        name: "description", 
+        label: "Add description", 
+        type: "textarea", 
+        placeholder: "Add description" 
+      },
+      { 
+        name: "createMeetLink", 
+        label: "Add Google Meet video conferencing", 
+        type: "boolean", 
+        defaultValue: false
+      },
+      { 
+        name: "sendNotifications", 
+        label: "Send invitations", 
+        type: "select",
+        defaultValue: "all",
+        options: [
+          { value: "all", label: "Send to all guests" },
+          { value: "externalOnly", label: "Send to guests outside your organization" },
+          { value: "none", label: "Don't send" }
+        ]
+      },
+      { 
+        name: "guestsCanInviteOthers", 
+        label: "Guests can invite others", 
+        type: "boolean", 
+        defaultValue: true
+      },
+      { 
+        name: "guestsCanSeeOtherGuests", 
+        label: "Guests can see guest list", 
+        type: "boolean", 
+        defaultValue: true
+      },
+      { 
+        name: "guestsCanModify", 
+        label: "Guests can modify event", 
+        type: "boolean", 
+        defaultValue: false
+      },
+      { 
+        name: "visibility", 
+        label: "Visibility", 
+        type: "select",
+        defaultValue: "default",
+        options: [
+          { value: "default", label: "Default visibility" },
+          { value: "public", label: "Public" },
+          { value: "private", label: "Private" }
+        ]
+      },
+      { 
+        name: "transparency", 
+        label: "Show as", 
+        type: "select",
+        defaultValue: "opaque",
+        options: [
+          { value: "opaque", label: "Busy" },
+          { value: "transparent", label: "Free" }
+        ]
+      },
+      { 
+        name: "colorId", 
+        label: "Color", 
+        type: "select",
+        placeholder: "Calendar color",
+        options: [
+          { value: "default", label: "Calendar color" },
+          { value: "1", label: "Lavender" },
+          { value: "2", label: "Sage" },
+          { value: "3", label: "Grape" },
+          { value: "4", label: "Flamingo" },
+          { value: "5", label: "Banana" },
+          { value: "6", label: "Tangerine" },
+          { value: "7", label: "Peacock" },
+          { value: "8", label: "Graphite" },
+          { value: "9", label: "Blueberry" },
+          { value: "10", label: "Basil" },
+          { value: "11", label: "Tomato" }
+        ]
+      },
+      { 
+        name: "reminderMinutes", 
+        label: "Notification", 
+        type: "select",
+        defaultValue: "10",
+        options: [
+          { value: "0", label: "None" },
+          { value: "5", label: "5 minutes before" },
+          { value: "10", label: "10 minutes before" },
+          { value: "15", label: "15 minutes before" },
+          { value: "30", label: "30 minutes before" },
+          { value: "60", label: "1 hour before" },
+          { value: "120", label: "2 hours before" },
+          { value: "1440", label: "1 day before" },
+          { value: "2880", label: "2 days before" },
+          { value: "10080", label: "1 week before" }
+        ]
+      },
+      { 
+        name: "reminderMethod", 
+        label: "Notification method", 
+        type: "select",
+        defaultValue: "popup",
+        options: [
+          { value: "popup", label: "Notification" },
+          { value: "email", label: "Email" }
+        ]
+      },
+      { 
+        name: "recurrence", 
+        label: "Repeat", 
+        type: "select",
+        placeholder: "Does not repeat",
+        options: [
+          { value: "none", label: "Does not repeat" },
+          { value: "RRULE:FREQ=DAILY", label: "Daily" },
+          { value: "RRULE:FREQ=WEEKLY", label: "Weekly" },
+          { value: "RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR", label: "Every weekday (Monday to Friday)" },
+          { value: "RRULE:FREQ=MONTHLY", label: "Monthly" },
+          { value: "RRULE:FREQ=YEARLY", label: "Annually" }
+        ]
+      }
     ],
   },
 

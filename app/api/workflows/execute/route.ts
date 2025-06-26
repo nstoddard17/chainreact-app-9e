@@ -897,6 +897,8 @@ async function executeCalendarEventNode(node: any, context: any) {
     }
   }
 
+  // We'll implement the enhanced Google Calendar execution inline
+  
   // Get Google Calendar integration
   const supabase = await createSupabaseRouteHandlerClient()
   const { data: integration } = await supabase
@@ -911,44 +913,227 @@ async function executeCalendarEventNode(node: any, context: any) {
     throw new Error("Google Calendar integration not connected")
   }
 
-  const title = renderTemplate(node.data.config?.title || "ChainReact Event", context, "handlebars")
-  const description = renderTemplate(node.data.config?.description || "", context, "handlebars")
+  // Render all template values from the node configuration
+  const config = node.data.config || {}
+  const params: any = {}
 
-  const startTime = new Date()
-  const endTime = new Date(startTime.getTime() + (node.data.config?.duration || 60) * 60000)
-
-  const response = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${integration.access_token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      summary: title,
-      description,
-      start: {
-        dateTime: startTime.toISOString(),
-        timeZone: "UTC",
-      },
-      end: {
-        dateTime: endTime.toISOString(),
-        timeZone: "UTC",
-      },
-    }),
-  })
-
-  const result = await response.json()
-
-  if (result.error) {
-    throw new Error(`Google Calendar API error: ${result.error.message}`)
+  // Basic fields
+  if (config.title) params.title = renderTemplate(config.title, context, "handlebars")
+  if (config.description) params.description = renderTemplate(config.description, context, "handlebars")
+  if (config.location) params.location = renderTemplate(config.location, context, "handlebars")
+  
+  // Date and Time fields - handle both old format and new separate fields
+  if (config.startDate && config.startTime) {
+    // New format with separate date and time fields
+    params.startDate = renderTemplate(config.startDate, context, "handlebars")
+    params.startTime = renderTemplate(config.startTime, context, "handlebars")
+  } else if (config.startTime) {
+    // Legacy format with combined datetime
+    params.startTime = renderTemplate(config.startTime, context, "handlebars")
+  } else {
+    // Default values
+    const tomorrow = new Date()
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    params.startDate = tomorrow.toISOString().split('T')[0]
+    params.startTime = "09:00"
   }
+  
+  if (config.endDate && config.endTime) {
+    // New format with separate date and time fields
+    params.endDate = renderTemplate(config.endDate, context, "handlebars")
+    params.endTime = renderTemplate(config.endTime, context, "handlebars")
+  } else if (config.endTime) {
+    // Legacy format with combined datetime
+    params.endTime = renderTemplate(config.endTime, context, "handlebars")
+  } else {
+    // Default values
+    const tomorrow = new Date()
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    params.endDate = tomorrow.toISOString().split('T')[0]
+    params.endTime = "10:00"
+  }
+  
+  // Copy other configuration values
+  if (config.calendarId) params.calendarId = config.calendarId
+  if (config.timeZone) params.timeZone = config.timeZone
+  if (config.allDay !== undefined) params.allDay = config.allDay
+  if (config.attendees) params.attendees = renderTemplate(config.attendees, context, "handlebars")
+  if (config.sendNotifications) params.sendNotifications = config.sendNotifications
+  if (config.visibility) params.visibility = config.visibility
+  if (config.transparency) params.transparency = config.transparency
+  if (config.colorId) params.colorId = config.colorId
+  if (config.recurrence) params.recurrence = renderTemplate(config.recurrence, context, "handlebars")
+  if (config.reminderMinutes) params.reminderMinutes = config.reminderMinutes
+  if (config.reminderMethod) params.reminderMethod = config.reminderMethod
+  if (config.guestsCanInviteOthers !== undefined) params.guestsCanInviteOthers = config.guestsCanInviteOthers
+  if (config.guestsCanModify !== undefined) params.guestsCanModify = config.guestsCanModify
+  if (config.guestsCanSeeOtherGuests !== undefined) params.guestsCanSeeOtherGuests = config.guestsCanSeeOtherGuests
+  if (config.createMeetLink !== undefined) params.createMeetLink = config.createMeetLink
+  if (config.eventType) params.eventType = config.eventType
 
-  return {
-    type: "calendar_event",
-    title,
-    description,
-    event_id: result.id,
-    event_link: result.htmlLink,
+  // Execute the calendar event creation using enhanced logic
+  try {
+    // Build the event object with all the enhanced fields
+    const eventData: any = {
+      summary: params.title || "ChainReact Event",
+      description: params.description || "",
+      location: params.location || "",
+    }
+
+    // Handle time zone and dates
+    const timeZone = params.timeZone || "America/New_York"
+    
+    if (params.allDay) {
+      // All-day event uses date format
+      const startDate = params.startDate || new Date().toISOString().split('T')[0]
+      const endDate = params.endDate || new Date(Date.now() + 24*60*60*1000).toISOString().split('T')[0]
+      
+      eventData.start = { date: startDate }
+      eventData.end = { date: endDate }
+    } else {
+      // Timed event uses dateTime format
+      let startDateTime, endDateTime
+      
+      if (params.startDate && params.startTime) {
+        // New format: combine separate date and time fields
+        startDateTime = `${params.startDate}T${params.startTime}:00`
+        endDateTime = `${params.endDate}T${params.endTime}:00`
+      } else {
+        // Legacy format: use existing datetime strings
+        startDateTime = params.startTime || new Date().toISOString()
+        endDateTime = params.endTime || new Date(Date.now() + 60*60*1000).toISOString()
+      }
+      
+      eventData.start = {
+        dateTime: startDateTime,
+        timeZone: timeZone,
+      }
+      eventData.end = {
+        dateTime: endDateTime,
+        timeZone: timeZone,
+      }
+    }
+
+    // Add attendees if provided
+    if (params.attendees) {
+      const attendeeEmails: string[] = typeof params.attendees === 'string' 
+        ? params.attendees.split(',').map((email: string) => email.trim()).filter((email: string) => email)
+        : params.attendees
+      
+      if (attendeeEmails.length > 0) {
+        eventData.attendees = attendeeEmails.map((email: string) => ({ 
+          email: email,
+          responseStatus: "needsAction"
+        }))
+      }
+    }
+
+    // Add recurrence if provided
+    if (params.recurrence && params.recurrence.trim() && params.recurrence !== "none") {
+      eventData.recurrence = [params.recurrence.trim()]
+    }
+
+    // Add reminders
+    if (params.reminderMinutes || params.reminderMethod) {
+      const minutes = parseInt(params.reminderMinutes) || 15
+      const method = params.reminderMethod || "popup"
+      
+      if (minutes > 0) {
+        eventData.reminders = {
+          useDefault: false,
+          overrides: [{ method: method, minutes: minutes }]
+        }
+      } else {
+        eventData.reminders = { useDefault: false, overrides: [] }
+      }
+    }
+
+    // Add guest permissions
+    if (params.guestsCanInviteOthers !== undefined) {
+      eventData.guestsCanInviteOthers = params.guestsCanInviteOthers === true || params.guestsCanInviteOthers === "true"
+    }
+    if (params.guestsCanModify !== undefined) {
+      eventData.guestsCanModify = params.guestsCanModify === true || params.guestsCanModify === "true"
+    }
+    if (params.guestsCanSeeOtherGuests !== undefined) {
+      eventData.guestsCanSeeOtherGuests = params.guestsCanSeeOtherGuests === true || params.guestsCanSeeOtherGuests === "true"
+    }
+
+    // Add visibility and transparency
+    if (params.visibility) {
+      eventData.visibility = params.visibility
+    }
+    if (params.transparency) {
+      eventData.transparency = params.transparency
+    }
+
+    // Add color
+    if (params.colorId && params.colorId !== "default") {
+      eventData.colorId = params.colorId
+    }
+
+    // Add event type
+    if (params.eventType && params.eventType !== "default") {
+      eventData.eventType = params.eventType
+    }
+
+    // Add Google Meet conference if requested
+    if (params.createMeetLink === true || params.createMeetLink === "true") {
+      eventData.conferenceData = {
+        createRequest: {
+          requestId: `meet_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          conferenceSolutionKey: { type: "hangoutsMeet" }
+        }
+      }
+    }
+
+    // Determine calendar and build request URL
+    const calendarId = params.calendarId || "primary"
+    let url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`
+    
+    // Add query parameters
+    const queryParams = []
+    if (params.sendNotifications && params.sendNotifications !== "none") {
+      queryParams.push(`sendUpdates=${params.sendNotifications}`)
+    }
+    if (params.createMeetLink) {
+      queryParams.push("conferenceDataVersion=1")
+    }
+    if (queryParams.length > 0) {
+      url += `?${queryParams.join('&')}`
+    }
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${integration.access_token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(eventData),
+    })
+
+    const result = await response.json()
+    
+    if (!response.ok) {
+      throw new Error(`Google Calendar API error: ${result.error?.message || 'Unknown error'}`)
+    }
+    
+    return {
+      type: "calendar_event",
+      title: params.title || "Calendar Event",
+      description: params.description || "",
+      location: params.location || "",
+      event_id: result.id,
+      event_link: result.htmlLink,
+      start_time: params.startTime,
+      end_time: params.endTime,
+      calendar_id: params.calendarId || "primary",
+      attendees_count: params.attendees ? (typeof params.attendees === 'string' ? params.attendees.split(',').length : params.attendees.length) : 0,
+      has_meet_link: !!params.createMeetLink,
+      result: result
+    }
+  } catch (error: any) {
+    throw new Error(`Google Calendar event creation failed: ${error.message}`)
   }
 }
 
