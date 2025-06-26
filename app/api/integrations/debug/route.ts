@@ -26,11 +26,23 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
+    // Count integrations by provider and status instead of returning all details
+    const byProvider = {};
+    const byStatus = {};
+    
+    integrations?.forEach(integration => {
+      // Count by provider
+      byProvider[integration.provider] = (byProvider[integration.provider] || 0) + 1;
+      
+      // Count by status
+      byStatus[integration.status || 'unknown'] = (byStatus[integration.status || 'unknown'] || 0) + 1; 
+    });
+
     return NextResponse.json({
       success: true,
-      integrations: integrations || [],
       count: integrations?.length || 0,
-      userId: user.id,
+      byProvider,
+      byStatus
     })
   } catch (error: any) {
     console.error("Debug endpoint error:", error)

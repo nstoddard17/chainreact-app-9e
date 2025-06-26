@@ -36,50 +36,34 @@ export async function GET() {
       return NextResponse.json({ error: "Database error" }, { status: 500 })
     }
 
-    // Process each integration to extract key information
+    // Process each integration to extract status information only
     const results = integrations.map((integration) => {
-      const { provider, id, status, access_token, refresh_token, expires_at, metadata, scopes, granted_scopes } =
-        integration
+      const { provider, id, status, access_token, refresh_token, expires_at } = integration
 
-      // Check token storage
-      const hasAccessToken = !!access_token || !!metadata?.access_token
-      const hasRefreshToken = !!refresh_token || !!metadata?.refresh_token
+      // Check token storage without revealing details
+      const hasAccessToken = !!access_token
+      const hasRefreshToken = !!refresh_token
 
       // Check token expiration
-      const tokenExpiresAt = expires_at || metadata?.expires_at
-      let expiryStatus = "Unknown"
-
-      if (tokenExpiresAt) {
-        const expiryDate = new Date(tokenExpiresAt * 1000)
+      let tokenStatus = "Unknown"
+      if (expires_at) {
+        const expiryDate = new Date(expires_at * 1000)
         const now = new Date()
-        expiryStatus = expiryDate < now ? "Expired" : `Valid until ${expiryDate.toISOString()}`
+        tokenStatus = expiryDate < now ? "Expired" : "Valid"
       }
-
-      // Check scopes
-      const storedScopes = scopes || granted_scopes || metadata?.scopes || []
 
       return {
         provider,
         id,
         status,
-        tokenStatus: {
-          hasAccessToken,
-          hasRefreshToken,
-          expiryStatus,
-        },
-        scopes: storedScopes,
-        metadata: {
-          hasMetadata: !!metadata,
-          tokenInMetadata: !!metadata?.access_token,
-          refreshTokenInMetadata: !!metadata?.refresh_token,
-          scopesInMetadata: !!metadata?.scopes,
-        },
+        hasAccessToken,
+        hasRefreshToken,
+        tokenStatus
       }
     })
 
     return NextResponse.json({
-      userId,
-      integrationCount: integrations.length,
+      count: integrations.length,
       integrations: results,
     })
   } catch (error: any) {

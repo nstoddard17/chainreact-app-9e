@@ -91,8 +91,15 @@ export const INTEGRATION_SCOPES = {
     optional: [],
   },
   hubspot: {
-    required: ["crm.objects.contacts.read"],
-    optional: ["crm.objects.deals.read", "crm.objects.companies.read"],
+    required: [
+      "crm.objects.companies.read",
+      "crm.objects.companies.write",
+      "crm.objects.contacts.read", 
+      "crm.objects.contacts.write",
+      "crm.objects.deals.read",
+      "crm.objects.deals.write"
+    ],
+    optional: [],
   },
   mailchimp: {
     required: ["basic_access"],

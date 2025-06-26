@@ -322,10 +322,10 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     category: "crm",
     capabilities: ["Manage Contacts", "Log Activities", "Create Deals", "Marketing Emails"],
     scopes: [
-      "crm.objects.contacts.read", 
-      "crm.objects.contacts.write", 
       "crm.objects.companies.read", 
       "crm.objects.companies.write", 
+      "crm.objects.contacts.read", 
+      "crm.objects.contacts.write", 
       "crm.objects.deals.read", 
       "crm.objects.deals.write"
     ],
@@ -482,7 +482,7 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     description: "Payment technology and software solutions",
     category: "other",
     capabilities: ["Payment Processing", "Point of Sale", "Analytics", "E-commerce Solutions"],
-    scopes: ["read_transactions", "write_transactions"],
+    scopes: ["read_transactions", "write_transactions", "read_merchants", "read_settlements"],
     isAvailable: false,
     requiresClientId: "NEXT_PUBLIC_GLOBALPAYMENTS_CLIENT_ID",
     requiresClientSecret: "GLOBALPAYMENTS_CLIENT_SECRET",

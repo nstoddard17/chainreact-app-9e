@@ -147,10 +147,6 @@ export async function POST(request: NextRequest) {
         authUrl = generateBlackbaudAuthUrl(finalState)
         break
 
-      case "globalpayments":
-        authUrl = generateGlobalPaymentsAuthUrl(finalState)
-        break
-
       case "microsoft-outlook":
         authUrl = generateMicrosoftOutlookAuthUrl(finalState)
         break
@@ -602,15 +598,14 @@ async function generateHubSpotAuthUrl(stateObject: any, supabase: any): Promise<
     throw new Error(`Failed to store HubSpot OAuth state: ${error.message}`)
   }
 
-  // HubSpot scopes
+  // HubSpot scopes - updated to match exactly what's in the developer portal
   const hubspotScopes = [
-    "crm.objects.contacts.read",
-    "crm.objects.contacts.write",
     "crm.objects.companies.read",
     "crm.objects.companies.write",
+    "crm.objects.contacts.read",
+    "crm.objects.contacts.write",
     "crm.objects.deals.read",
-    "crm.objects.deals.write",
-    "content",
+    "crm.objects.deals.write"
   ]
 
   const params = new URLSearchParams({
@@ -883,22 +878,6 @@ function generateBlackbaudAuthUrl(state: string): string {
   })
 
   return `https://oauth2.sky.blackbaud.com/authorization?${params.toString()}`
-}
-
-function generateGlobalPaymentsAuthUrl(state: string): string {
-  const clientId = process.env.NEXT_PUBLIC_GLOBALPAYMENTS_CLIENT_ID
-  if (!clientId) throw new Error("GlobalPayments client ID not configured")
-  const baseUrl = getBaseUrl()
-
-  const params = new URLSearchParams({
-    client_id: clientId,
-    response_type: "code",
-    redirect_uri: `${baseUrl}/api/integrations/globalpayments/callback`,
-    scope: "read_transactions write_transactions",
-    state,
-  })
-
-  return `https://api.globalpayments.com/oauth/authorize?${params.toString()}`
 }
 
 function generateMicrosoftOutlookAuthUrl(state: string): string {
