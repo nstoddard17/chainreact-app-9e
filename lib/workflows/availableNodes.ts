@@ -29,11 +29,13 @@ import {
 export interface ConfigField {
   name: string
   label: string
-  type: "string" | "number" | "boolean" | "select" | "textarea" | "text" | "email" | "password" | "email-autocomplete"
+  type: "string" | "number" | "boolean" | "select" | "textarea" | "text" | "email" | "password" | "email-autocomplete" | "file"
   required?: boolean
   placeholder?: string
   options?: { value: string; label: string }[] | string[]
   dynamic?: "slack-channels" | "google-contacts" | "google-calendars" | "google-drive-folders" | "google-drive-files" | "gmail-recent-recipients" | "gmail-enhanced-recipients" | "gmail-contact-groups"
+  accept?: string // For file inputs, specify accepted file types
+  maxSize?: number // For file inputs, specify max file size in bytes
   [key: string]: any
 }
 
@@ -206,7 +208,14 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
       { name: "bcc", label: "BCC", type: "email-autocomplete", placeholder: "optional: bcc@example.com", dynamic: "gmail-enhanced-recipients" },
       { name: "subject", label: "Subject", type: "text", placeholder: "Your email subject", required: true },
       { name: "body", label: "Body", type: "textarea", placeholder: "Your email body", required: true },
-      { name: "attachment", label: "Attachment URL", type: "text", placeholder: "Optional: URL to a file" },
+      { 
+        name: "attachments", 
+        label: "Attachments", 
+        type: "file", 
+        placeholder: "Choose files to attach...",
+        accept: ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.jpg,.jpeg,.png,.gif,.zip,.rar",
+        maxSize: 25 * 1024 * 1024 // 25MB limit (Gmail's attachment limit)
+      },
     ],
     actionParamsSchema: {
       to: "The email address of the primary recipient.",
@@ -214,7 +223,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
       bcc: "Comma-separated list of BCC recipients.",
       subject: "The subject line of the email.",
       body: "The email content, which can be plain text or HTML.",
-      attachment: "A URL to a file to be included as an attachment.",
+      attachments: "Files to be included as attachments.",
     },
   },
 
