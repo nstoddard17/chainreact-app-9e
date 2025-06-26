@@ -6,9 +6,8 @@ import { encrypt } from '@/lib/security/encryption'
 
 interface InstagramBusinessAccount {
   id: string;
-  name?: string;
   username?: string;
-  profile_picture_url?: string;
+  account_type?: string;
 }
 
 export async function GET(request: NextRequest) {
@@ -66,78 +65,78 @@ export async function GET(request: NextRequest) {
       .delete()
       .eq('state', state)
 
-    // Get Facebook OAuth credentials (used for Instagram Graph API)
-    const clientId = process.env.NEXT_PUBLIC_FACEBOOK_CLIENT_ID
-    const clientSecret = process.env.FACEBOOK_CLIENT_SECRET
+    // Get Instagram OAuth credentials
+    const clientId = process.env.NEXT_PUBLIC_INSTAGRAM_CLIENT_ID
+    const clientSecret = process.env.INSTAGRAM_CLIENT_SECRET
     const redirectUri = `${baseUrl}/api/integrations/instagram/callback`
 
     if (!clientId || !clientSecret) {
-      console.error('Facebook OAuth credentials not configured for Instagram Graph API')
+      console.error('Instagram OAuth credentials not configured')
       return createPopupResponse('error', provider, 'Integration configuration error', baseUrl)
     }
 
-    // Exchange code for Facebook access token (which will be used for Instagram)
-    const tokenResponse = await fetch(
-      `https://graph.facebook.com/v19.0/oauth/access_token?client_id=${clientId}&client_secret=${clientSecret}&redirect_uri=${encodeURIComponent(redirectUri)}&code=${code}`
-    )
+    // Exchange code for Instagram access token
+    const tokenResponse = await fetch('https://api.instagram.com/oauth/access_token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        client_id: clientId,
+        client_secret: clientSecret,
+        grant_type: 'authorization_code',
+        redirect_uri: redirectUri,
+        code: code
+      }).toString()
+    })
 
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text()
-      console.error('Facebook token exchange failed for Instagram:', tokenResponse.status, errorText)
+      console.error('Instagram token exchange failed:', tokenResponse.status, errorText)
       return createPopupResponse('error', provider, 'Failed to retrieve access token', baseUrl)
     }
 
     const tokenData = await tokenResponse.json()
     
-    // Default to long-lived token expiration (60 days) if not specified
-    const expiresIn = tokenData.expires_in || 60 * 24 * 60 * 60
+    // The response format according to documentation is:
+    // { "access_token": "...", "user_id": "...", "permissions": "..." }
+    const shortLivedToken = tokenData.access_token
+    const userId_instagram = tokenData.user_id
+    const grantedPermissions = tokenData.permissions || ''
+    
+    console.log('Instagram permissions granted:', grantedPermissions)
+
+    // Exchange short-lived token for long-lived token
+    const longLivedTokenResponse = await fetch(
+      `https://graph.instagram.com/access_token?grant_type=ig_exchange_token&client_secret=${clientSecret}&access_token=${shortLivedToken}`
+    )
+
+    if (!longLivedTokenResponse.ok) {
+      console.error('Failed to exchange for long-lived token:', await longLivedTokenResponse.text())
+      return createPopupResponse('error', provider, 'Failed to obtain long-lived access token', baseUrl)
+    }
+
+    const longLivedTokenData = await longLivedTokenResponse.json()
+    const longLivedToken = longLivedTokenData.access_token
+    const expiresIn = longLivedTokenData.expires_in || 60 * 24 * 60 * 60 // Default to 60 days
     const expiresAt = new Date(Date.now() + expiresIn * 1000)
 
-    // Step 1: Get user's Facebook Pages
-    const pagesResponse = await fetch(
-      `https://graph.facebook.com/v19.0/me/accounts?access_token=${tokenData.access_token}`
+    // Get basic account info
+    const userInfoResponse = await fetch(
+      `https://graph.instagram.com/me?fields=id,username,account_type&access_token=${longLivedToken}`
     )
-    
-    if (!pagesResponse.ok) {
-      console.error('Failed to fetch Facebook Pages:', await pagesResponse.text())
-      return createPopupResponse('error', provider, 'Failed to fetch connected Facebook Pages', baseUrl)
+
+    if (!userInfoResponse.ok) {
+      console.error('Failed to fetch Instagram user info:', await userInfoResponse.text())
+      return createPopupResponse('error', provider, 'Failed to fetch account information', baseUrl)
     }
-    
-    const pagesData = await pagesResponse.json()
-    
-    if (!pagesData.data || pagesData.data.length === 0) {
-      console.error('No Facebook Pages found:', pagesData)
-      return createPopupResponse('error', provider, 'No Facebook Pages connected to your account. Instagram Business accounts must be linked to a Facebook Page.', baseUrl)
+
+    const userInfo = await userInfoResponse.json()
+
+    // Verify this is a business or creator account
+    if (userInfo.account_type !== 'BUSINESS' && userInfo.account_type !== 'CREATOR') {
+      return createPopupResponse('error', provider, 'This API requires an Instagram Professional account (Business or Creator)', baseUrl)
     }
-    
-    // Step 2: For each Page, check for an Instagram Business account
-    let instagramAccount = null
-    let pageWithInstagram = null
-    
-    for (const page of pagesData.data) {
-      try {
-        const instagramResponse = await fetch(
-          `https://graph.facebook.com/v19.0/${page.id}?fields=instagram_business_account{id,name,username,profile_picture_url}&access_token=${tokenData.access_token}`
-        )
-        
-        if (instagramResponse.ok) {
-          const pageData = await instagramResponse.json()
-          if (pageData.instagram_business_account) {
-            instagramAccount = pageData.instagram_business_account
-            pageWithInstagram = page
-            break
-          }
-        }
-      } catch (error) {
-        console.warn(`Error checking Instagram for page ${page.id}:`, error)
-      }
-    }
-    
-    if (!instagramAccount) {
-      return createPopupResponse('error', provider, 'No Instagram Business account found. Please connect your Instagram account to a Facebook Page.', baseUrl)
-    }
-    
-    console.log('Found Instagram Business account:', instagramAccount.id)
 
     const encryptionKey = process.env.ENCRYPTION_KEY
     if (!encryptionKey) {
@@ -149,17 +148,17 @@ export async function GET(request: NextRequest) {
     const { error: upsertError } = await supabase.from('integrations').upsert({
       user_id: userId,
       provider,
-      access_token: encrypt(tokenData.access_token, encryptionKey),
-      refresh_token: tokenData.refresh_token ? encrypt(tokenData.refresh_token, encryptionKey) : null,
+      access_token: encrypt(longLivedToken, encryptionKey),
+      refresh_token: null, // Instagram API with Instagram Login doesn't provide refresh tokens
       expires_at: expiresAt.toISOString(),
       status: 'connected',
       is_active: true,
       updated_at: new Date().toISOString(),
       metadata: {
-        instagram_business_account_id: instagramAccount.id,
-        instagram_username: instagramAccount.username,
-        facebook_page_id: pageWithInstagram.id,
-        facebook_page_name: pageWithInstagram.name
+        instagram_account_id: userInfo.id,
+        instagram_username: userInfo.username,
+        account_type: userInfo.account_type,
+        granted_permissions: grantedPermissions
       }
     }, {
       onConflict: 'user_id, provider',
@@ -170,7 +169,7 @@ export async function GET(request: NextRequest) {
       return createPopupResponse('error', provider, 'Failed to store integration data', baseUrl)
     }
 
-    return createPopupResponse('success', provider, 'Instagram Business account connected successfully!', baseUrl)
+    return createPopupResponse('success', provider, 'Instagram Professional account connected successfully!', baseUrl)
   } catch (error) {
     console.error('Instagram callback error:', error)
     return createPopupResponse('error', provider, 'An unexpected error occurred', baseUrl)
