@@ -441,13 +441,13 @@ async function generateInstagramAuthUrl(stateObject: any, supabase: any): Promis
     throw new Error(`Failed to store Instagram OAuth state: ${error.message}`)
   }
 
-  // Instagram Graph API requires these scopes to access business accounts
+  // Facebook permissions that give access to Instagram business accounts
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: `${baseUrl}/api/integrations/instagram/callback`,
     response_type: "code",
-    // Instagram Graph API requires these Facebook permissions
-    scope: "instagram_basic,instagram_content_publish,pages_show_list,instagram_manage_comments,instagram_manage_insights",
+    // Use standard Facebook permissions - we'll get Instagram access through Pages API
+    scope: "pages_show_list,pages_read_engagement,pages_manage_metadata,business_management,instagram_basic",
     state,
   })
 
