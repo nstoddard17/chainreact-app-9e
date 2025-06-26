@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, Link as LinkIcon, Link2Off, RefreshCw, Info, X, CheckCircle, Clock, XCircle } from "lucide-react"
+import { Loader2, Link as LinkIcon, Link2Off, RefreshCw, Info, X, CheckCircle, Clock, XCircle, AlertTriangle } from "lucide-react"
 import { useIntegrationStore, type Provider } from "@/stores/integrationStore"
 import { cn } from "@/lib/utils"
 import {
@@ -44,7 +44,7 @@ export function IntegrationCard({
   onDisconnect,
   onReconnect,
 }: IntegrationCardProps) {
-  const { connectIntegration, disconnectIntegration, reconnectIntegration, loadingStates } = useIntegrationStore()
+  const { connectIntegration, disconnectIntegration, reconnectIntegration, loadingStates, resetConnectionState } = useIntegrationStore()
   const [imageError, setImageError] = useState(false)
   const [showInfo, setShowInfo] = useState(false)
   const [showDisconnectDialog, setShowDisconnectDialog] = useState(false)
@@ -198,47 +198,93 @@ export function IntegrationCard({
           )}
           {!integration && <span>Not connected</span>}
           <TooltipProvider>
-            <Tooltip open={showInfo} onOpenChange={setShowInfo}>
+            <Tooltip>
               <TooltipTrigger asChild>
-                <button 
-                  type="button" 
-                  className="ml-auto text-muted-foreground hover:text-foreground transition-colors"
-                  onClick={() => setShowInfo(!showInfo)}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  onClick={() => setShowInfo(true)}
                 >
-                  <Info className="w-4 h-4" aria-label="Integration details" />
-                </button>
+                  <Info className="h-4 w-4" />
+                  <span className="sr-only">View integration details</span>
+                </Button>
               </TooltipTrigger>
-              <TooltipContent className="max-w-xs text-sm">
-                <div className="font-semibold mb-1">{provider.name === "Blackbaud Raiser's Edge NXT" ? "Blackbaud" : provider.name}</div>
-                {integration?.created_at && (
-                  <div className="text-xs text-muted-foreground">Connected: {new Date(integration.created_at).toLocaleString()}</div>
-                )}
-                {integration?.expires_at && (
-                  <div className="text-xs text-muted-foreground">Expires: {formatExpiresAt(integration.expires_at)}</div>
-                )}
-              </TooltipContent>
+              <TooltipContent>View integration details</TooltipContent>
             </Tooltip>
           </TooltipProvider>
         </div>
+        <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
+          {provider.description}
+        </p>
       </CardContent>
 
-      <CardFooter className="p-5 pt-0">
-        <div className="w-full">
-          {isConnected ? (
-            <div className="flex space-x-2">
-              <Button onClick={() => setShowDisconnectDialog(true)} variant="outline" className="flex-grow">
-                Disconnect
-              </Button>
-              <Button onClick={onReconnect} variant="secondary" size="icon" aria-label="Reconnect">
-                <RefreshCw className="h-4 w-4" />
-              </Button>
-            </div>
+      <CardFooter className="px-5 py-4 pt-0 flex flex-col gap-2">
+        <div className="flex w-full justify-between gap-2">
+          {isLoading ? (
+            <Button disabled className="w-full">
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              {status === "connected" ? "Disconnecting..." : "Connecting..."}
+            </Button>
+          ) : isConnected ? (
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => setShowDisconnectDialog(true)}
+            >
+              <Link2Off className="mr-2 h-4 w-4" />
+              Disconnect
+            </Button>
           ) : (
-            <Button onClick={handleConnectClick} disabled={!isConfigured} className="w-full">
-              {isConfigured ? (status === "expired" ? "Reconnect" : "Connect") : "Not Configured"}
+            <Button
+              className="w-full"
+              disabled={!isConfigured}
+              onClick={handleConnectClick}
+            >
+              <LinkIcon className="mr-2 h-4 w-4" />
+              Connect
             </Button>
           )}
+
+          {isConnected && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={handleReconnect}
+                    disabled={isLoading}
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                    <span className="sr-only">Refresh connection</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Refresh connection</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
         </div>
+
+        {/* Add reset button for connection issues */}
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs text-muted-foreground w-full mt-1"
+                onClick={() => resetConnectionState()}
+              >
+                <AlertTriangle className="h-3 w-3 mr-1" />
+                Fix connection issues
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              Reset connection state if popup doesn't appear
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </CardFooter>
 
       <Dialog open={showDisconnectDialog} onOpenChange={setShowDisconnectDialog}>

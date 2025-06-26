@@ -5,6 +5,71 @@ import { apiClient } from "@/lib/apiClient"
 // Global variable to track OAuth popup windows
 let currentOAuthPopup: Window | null = null;
 
+// Track if the window has lost focus
+let windowHasLostFocus = false;
+
+// Function to check if a popup is still valid and accessible
+function isPopupValid(popup: Window | null): boolean {
+  if (!popup) return false;
+  
+  try {
+    // Check if popup is closed
+    if (popup.closed) return false;
+    
+    // Try to access a property to verify the popup is still accessible
+    // This will throw an error if the popup is inaccessible due to cross-origin restrictions
+    const test = popup.location.href;
+    return true;
+  } catch (e) {
+    console.warn("Popup is no longer accessible:", e);
+    return false;
+  }
+}
+
+// Add focus/blur event listeners to detect tab switching
+if (typeof window !== 'undefined') {
+  window.addEventListener('blur', () => {
+    windowHasLostFocus = true;
+  });
+  
+  window.addEventListener('focus', () => {
+    if (windowHasLostFocus) {
+      // Reset popup state if we've switched tabs/windows and returned
+      if (currentOAuthPopup && !isPopupValid(currentOAuthPopup)) {
+        try {
+          currentOAuthPopup.close();
+        } catch (e) {
+          console.warn("Failed to close popup on focus return:", e);
+        }
+        currentOAuthPopup = null;
+      }
+      windowHasLostFocus = false;
+    }
+  });
+  
+  // Also listen for visibility change events
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      // User has returned to the tab
+      if (windowHasLostFocus) {
+        console.log("Tab became visible again, checking popup state");
+        if (currentOAuthPopup && !isPopupValid(currentOAuthPopup)) {
+          try {
+            currentOAuthPopup.close();
+          } catch (e) {
+            console.warn("Failed to close popup on visibility change:", e);
+          }
+          currentOAuthPopup = null;
+        }
+        windowHasLostFocus = false;
+      }
+    } else {
+      // User has left the tab
+      windowHasLostFocus = true;
+    }
+  });
+}
+
 // This represents the structure of a connected integration
 export interface Integration {
   id: string
@@ -72,6 +137,7 @@ export interface IntegrationStore {
   reconnectIntegration: (integrationId: string) => Promise<void>
   deleteIntegration: (integrationId: string) => Promise<void>
   setCurrentUserId: (userId: string | null) => void
+  resetConnectionState: () => void
 }
 
 export const useIntegrationStore = create<IntegrationStore>()(
@@ -257,13 +323,17 @@ export const useIntegrationStore = create<IntegrationStore>()(
       }
 
       // Force close any existing popup
-      if (currentOAuthPopup && !currentOAuthPopup.closed) {
+      if (currentOAuthPopup && !isPopupValid(currentOAuthPopup)) {
         try {
           currentOAuthPopup.close()
         } catch (e) {
           console.warn("Failed to close existing popup:", e)
         }
+        currentOAuthPopup = null;
       }
+      
+      // Reset window focus tracking
+      windowHasLostFocus = false;
       
       // Reset the loading state for this provider
       setLoading(`connect-${providerId}`, false)
@@ -273,7 +343,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
 
       // Set a timeout to reset the state if OAuth flow takes too long
       const timeoutId = setTimeout(() => {
-        if (currentOAuthPopup && !currentOAuthPopup.closed) {
+        if (currentOAuthPopup && !isPopupValid(currentOAuthPopup)) {
           try {
             currentOAuthPopup.close()
           } catch (e) {
@@ -711,6 +781,34 @@ export const useIntegrationStore = create<IntegrationStore>()(
       } finally {
         setLoading(`delete-${integration.provider}`, false)
       }
+    },
+
+    resetConnectionState: () => {
+      // Close any existing popup
+      if (currentOAuthPopup && !isPopupValid(currentOAuthPopup)) {
+        try {
+          currentOAuthPopup.close()
+        } catch (e) {
+          console.warn("Failed to close popup during reset:", e)
+        }
+      }
+      
+      // Reset variables
+      currentOAuthPopup = null
+      windowHasLostFocus = false
+      
+      // Clear any loading states related to connections
+      const { loadingStates } = get()
+      const newLoadingStates = { ...loadingStates }
+      
+      // Find and clear any connect-* loading states
+      Object.keys(newLoadingStates).forEach(key => {
+        if (key.startsWith('connect-')) {
+          newLoadingStates[key] = false
+        }
+      })
+      
+      set({ loadingStates: newLoadingStates, error: null })
     },
   })
 )
