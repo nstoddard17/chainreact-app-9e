@@ -20,10 +20,10 @@ function Calendar({
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
-      className={cn("p-3 bg-background text-foreground w-[286px]", className)}
+      className={cn("p-3 bg-background text-foreground", className)}
       classNames={{
-        months: "flex flex-col space-y-4",
-        month: "space-y-2",
+        months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
+        month: "space-y-4",
         caption: "flex justify-between items-center pt-1 mb-2 relative",
         caption_label: "text-sm font-semibold text-foreground",
         nav: "flex items-center space-x-1 !absolute !right-0 !top-1",
@@ -33,17 +33,17 @@ function Calendar({
         ),
         nav_button_previous: "",
         nav_button_next: "",
-        table: "w-full border-collapse border-spacing-0",
-        head_row: "flex w-full",
+        table: "w-full border-collapse",
+        head_row: "grid grid-cols-7 w-full",
         head_cell:
-          "text-muted-foreground font-normal text-[0.8rem] w-9 rounded-md flex items-center justify-center py-2",
-        row: "flex w-full mt-1",
-        cell: "text-center text-sm p-0 relative focus-within:relative focus-within:z-20 [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md",
-        day: "h-9 w-9 p-0 font-normal flex items-center justify-center transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+          "text-muted-foreground font-normal text-[0.8rem] text-center flex items-center justify-center py-2",
+        row: "grid grid-cols-7 w-full",
+        cell: "h-9 text-center text-sm p-0 relative focus-within:relative focus-within:z-20 flex items-center justify-center",
+        day: "h-9 w-9 p-0 font-normal text-center text-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 inline-flex items-center justify-center text-foreground",
         day_range_end: "day-range-end",
         day_selected:
-          "bg-teal-600 text-white hover:bg-teal-700 hover:text-white focus:bg-teal-600 focus:text-white rounded-full shadow-sm",
-        day_today: "bg-sky-200 text-sky-900 dark:bg-sky-800 dark:text-sky-100 rounded-full",
+          "bg-teal-600 text-white hover:bg-teal-700 hover:text-white focus:bg-teal-600 focus:text-white !rounded-full shadow-sm",
+        day_today: "bg-sky-200 text-sky-900 dark:bg-sky-800 dark:text-sky-100 !rounded-full",
         day_outside:
           "day-outside text-muted-foreground aria-selected:bg-accent/50 aria-selected:text-muted-foreground opacity-50",
         day_disabled: "text-muted-foreground opacity-50",
@@ -51,10 +51,6 @@ function Calendar({
           "aria-selected:bg-accent aria-selected:text-accent-foreground",
         day_hidden: "invisible",
         ...classNames,
-      }}
-      components={{
-        IconLeft: ({ ...props }) => <ChevronLeft className="h-4 w-4" {...props} />,
-        IconRight: ({ ...props }) => <ChevronRight className="h-4 w-4" {...props} />,
       }}
       {...props}
     />
