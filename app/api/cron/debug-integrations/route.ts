@@ -94,7 +94,7 @@ export async function GET(request: NextRequest) {
         : "No expiry",
       lastRefresh: integration.last_token_refresh || "Never",
       createdAt: integration.created_at,
-      tokenPreview: integration.access_token ? `${integration.access_token.substring(0, 15)}...` : "No token",
+      hasAccessToken: !!integration.access_token
     }))
 
     return NextResponse.json({

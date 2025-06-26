@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
       total: allIntegrations?.length || 0,
       byStatus: {} as Record<string, number>,
       byProvider: {} as Record<string, number>,
-      expiredAnalysis: [] as any[],
+      expiredCount: 0,
       recoveryJobCriteria: {
         statusExpired: 0,
         statusDisconnected: 0,
@@ -81,24 +81,9 @@ export async function GET(request: NextRequest) {
       const meetsAllCriteria = meetsStatusCriteria && hasRefreshToken && within7Days
       if (meetsAllCriteria) analysis.recoveryJobCriteria.meetsAllCriteria++
 
-      // Add to expired analysis if frontend considers it expired
+      // Count expired integrations without storing sensitive data
       if (isExpiredByFrontend) {
-        analysis.expiredAnalysis.push({
-          id: integration.id,
-          provider: integration.provider,
-          user_id: integration.user_id,
-          status: integration.status,
-          expires_at: integration.expires_at,
-          refresh_token_exists: !!integration.refresh_token,
-          updated_at: integration.updated_at,
-          expiry_reason: expiryReason,
-          meets_recovery_criteria: meetsAllCriteria,
-          recovery_criteria_details: {
-            meets_status_criteria: meetsStatusCriteria,
-            has_refresh_token: hasRefreshToken,
-            within_7_days: within7Days
-          }
-        })
+        analysis.expiredCount++;
       }
     })
 

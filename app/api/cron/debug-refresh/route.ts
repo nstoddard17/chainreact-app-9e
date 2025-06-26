@@ -53,14 +53,11 @@ export async function GET(request: NextRequest) {
     for (const integration of integrations) {
       if (!integration.refresh_token) {
         results.push({
-          id: integration.id,
           provider: integration.provider,
           error: "No refresh token available",
         });
         continue;
       }
-      
-      console.log(`🔄 Testing token refresh for ${integration.provider} (ID: ${integration.id})`);
       
       const refreshResult = await refreshTokenForProvider(
         integration.provider,
@@ -69,7 +66,6 @@ export async function GET(request: NextRequest) {
       );
       
       results.push({
-        id: integration.id,
         provider: integration.provider,
         success: refreshResult.success,
         error: refreshResult.error,
