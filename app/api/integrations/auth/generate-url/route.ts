@@ -669,7 +669,14 @@ function generateShopifyAuthUrl(state: string): string {
   const clientId = process.env.NEXT_PUBLIC_SHOPIFY_CLIENT_ID
   if (!clientId) throw new Error("Shopify client ID not configured")
   const baseUrl = getBaseUrl()
-
+  
+  // Shopify requires a shop parameter - this should be set in the app admin
+  // For draft apps, this needs to be your development store
+  const shopifyStore = process.env.NEXT_PUBLIC_SHOPIFY_STORE
+  if (!shopifyStore) {
+    throw new Error("Shopify store not configured. Set NEXT_PUBLIC_SHOPIFY_STORE env variable to your store domain, e.g., 'your-store.myshopify.com'")
+  }
+  
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: `${baseUrl}/api/integrations/shopify/callback`,
@@ -678,7 +685,8 @@ function generateShopifyAuthUrl(state: string): string {
     state,
   })
 
-  return `https://shopify.com/oauth/authorize?${params.toString()}`
+  // The correct format for Shopify OAuth URL includes the shop domain
+  return `https://${shopifyStore}/admin/oauth/authorize?${params.toString()}`
 }
 
 function generateStripeAuthUrl(state: string): string {
