@@ -2,6 +2,9 @@ import { create } from "zustand"
 import { getSupabaseClient } from "@/lib/supabase"
 import { apiClient } from "@/lib/apiClient"
 
+// Global variable to track OAuth popup windows
+let currentOAuthPopup: Window | null = null;
+
 // This represents the structure of a connected integration
 export interface Integration {
   id: string
@@ -253,8 +256,34 @@ export const useIntegrationStore = create<IntegrationStore>()(
         throw new Error(`${provider.name} integration is not configured. Missing environment variables.`)
       }
 
+      // Force close any existing popup
+      if (currentOAuthPopup && !currentOAuthPopup.closed) {
+        try {
+          currentOAuthPopup.close()
+        } catch (e) {
+          console.warn("Failed to close existing popup:", e)
+        }
+      }
+      
+      // Reset the loading state for this provider
+      setLoading(`connect-${providerId}`, false)
+      // Then set it again to true
       setLoading(`connect-${providerId}`, true)
       setError(null)
+
+      // Set a timeout to reset the state if OAuth flow takes too long
+      const timeoutId = setTimeout(() => {
+        if (currentOAuthPopup && !currentOAuthPopup.closed) {
+          try {
+            currentOAuthPopup.close()
+          } catch (e) {
+            console.warn("Failed to close popup on timeout:", e)
+          }
+        }
+        currentOAuthPopup = null
+        setLoading(`connect-${providerId}`, false)
+        setError("OAuth authorization timed out. Please try again.")
+      }, 120000) // 2 minutes timeout
 
       try {
         console.log(`🔗 Connecting to ${providerId}...`)
@@ -283,6 +312,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
 
         if (!response.ok) {
           const errorData = await response.json()
+          clearTimeout(timeoutId)
           throw new Error(errorData.error || "Failed to generate OAuth URL")
         }
 
@@ -293,9 +323,13 @@ export const useIntegrationStore = create<IntegrationStore>()(
           const popupName = `oauth_popup_${providerId}_${Date.now()}`
           const popup = window.open(data.authUrl, popupName, "width=600,height=700,scrollbars=yes,resizable=yes")
           if (!popup) {
+            clearTimeout(timeoutId)
             setLoading(`connect-${providerId}`, false)
             throw new Error("Popup blocked. Please allow popups for this site.")
           }
+
+          // Store the reference to the current popup
+          currentOAuthPopup = popup
 
           console.log(`✅ OAuth popup opened for ${providerId}`)
 
@@ -305,27 +339,33 @@ export const useIntegrationStore = create<IntegrationStore>()(
             if (event.origin !== window.location.origin) return
 
             if (event.data && event.data.type === "oauth-success") {
+              clearTimeout(timeoutId)
               console.log(`✅ OAuth successful for ${providerId}:`, event.data.message)
               closedByMessage = true
               window.removeEventListener("message", messageHandler)
               if (popup && !popup.closed) {
                 popup.close()
               }
+              currentOAuthPopup = null
               setLoading(`connect-${providerId}`, false)
               setTimeout(() => {
                 fetchIntegrations(true)
               }, 500)
             } else if (event.data && event.data.type === "oauth-error") {
+              clearTimeout(timeoutId)
               console.error(`❌ OAuth error for ${providerId}:`, event.data.message)
               setError(event.data.message)
               closedByMessage = true
               popup?.close()
+              currentOAuthPopup = null
               window.removeEventListener("message", messageHandler)
               setLoading(`connect-${providerId}`, false)
             } else if (event.data && event.data.type === "oauth-cancelled") {
+              clearTimeout(timeoutId)
               console.log(`🚫 OAuth cancelled for ${providerId}:`, event.data.message)
               closedByMessage = true
               window.removeEventListener("message", messageHandler)
+              currentOAuthPopup = null
               setLoading(`connect-${providerId}`, false)
             }
           }
@@ -335,20 +375,25 @@ export const useIntegrationStore = create<IntegrationStore>()(
           const timer = setInterval(() => {
             if (popup?.closed) {
               clearInterval(timer)
+              clearTimeout(timeoutId)
               window.removeEventListener("message", messageHandler)
               if (!closedByMessage) {
                 console.log(`❌ Popup closed manually for ${providerId}`)
                 setError("Popup closed before completing authorization.")
+                currentOAuthPopup = null
                 setLoading(`connect-${providerId}`, false)
               }
             }
           }, 500)
         } else {
+          clearTimeout(timeoutId)
           throw new Error(data.error || "Failed to get auth URL")
         }
       } catch (error: any) {
+        clearTimeout(timeoutId)
         console.error(`Error connecting to ${providerId}:`, error.message)
         setError(`Failed to connect to ${providerId}: ${error.message}`)
+        currentOAuthPopup = null
         setLoading(`connect-${providerId}`, false)
       }
     },

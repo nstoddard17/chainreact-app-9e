@@ -88,6 +88,78 @@ export async function GET(request: NextRequest) {
     const expiresIn = tokenData.expires_in
     const expiresAt = new Date(new Date().getTime() + expiresIn * 1000)
 
+    // Fetch user information
+    let userInfo = null
+    try {
+      const userInfoResponse = await fetch('https://api.paypal.com/v1/identity/openidconnect/userinfo', {
+        headers: {
+          'Authorization': `Bearer ${tokenData.access_token}`,
+          'Content-Type': 'application/json'
+        },
+      })
+
+      if (userInfoResponse.ok) {
+        userInfo = await userInfoResponse.json()
+        console.log('PayPal user info:', userInfo)
+      } else {
+        console.error('Failed to fetch PayPal user info:', await userInfoResponse.text())
+      }
+    } catch (userInfoError) {
+      console.error('Error fetching PayPal user info:', userInfoError)
+    }
+
+    // Fetch PayPal account verification status and additional attributes
+    let paypalAttributes = null
+    try {
+      const attributesResponse = await fetch('https://api.paypal.com/v1/oauth2/token/userinfo', {
+        headers: {
+          'Authorization': `Bearer ${tokenData.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        method: 'GET'
+      })
+
+      if (attributesResponse.ok) {
+        paypalAttributes = await attributesResponse.json()
+        console.log('PayPal attributes:', paypalAttributes)
+      } else {
+        console.error('Failed to fetch PayPal attributes:', await attributesResponse.text())
+      }
+    } catch (attributesError) {
+      console.error('Error fetching PayPal attributes:', attributesError)
+    }
+
+    // Extract user data with fallbacks for different response formats
+    let accountId = null
+    let email = null
+    let name = null
+    let verified = false
+
+    // Try to extract from userInfo
+    if (userInfo) {
+      accountId = userInfo.payer_id || userInfo.sub || null
+      email = userInfo.email || null
+      name = userInfo.name || userInfo.given_name ? `${userInfo.given_name} ${userInfo.family_name || ''}`.trim() : null
+    }
+
+    // Try to extract from paypalAttributes
+    if (paypalAttributes) {
+      // Handle nested account structure
+      if (paypalAttributes.account) {
+        accountId = accountId || paypalAttributes.account.payer_id || paypalAttributes.account.account_id || null
+        email = email || paypalAttributes.account.email || null
+        name = name || paypalAttributes.account.name || null
+        verified = paypalAttributes.account.verified === true || paypalAttributes.account.verified === 'true'
+      } 
+      // Handle flat structure
+      else {
+        accountId = accountId || paypalAttributes.payer_id || paypalAttributes.account_id || null
+        email = email || paypalAttributes.email || null
+        name = name || paypalAttributes.name || null
+        verified = paypalAttributes.verified === true || paypalAttributes.verified === 'true'
+      }
+    }
+
     // Upsert the integration details
     const integrationData = {
       user_id: userId,
@@ -98,6 +170,14 @@ export async function GET(request: NextRequest) {
       status: 'connected',
       expires_at: expiresAt.toISOString(),
       updated_at: new Date().toISOString(),
+      metadata: {
+        user_info: userInfo,
+        paypal_attributes: paypalAttributes,
+        account_id: accountId,
+        email: email,
+        name: name,
+        verified: verified
+      }
     }
 
     const { error: upsertError } = await supabase.from('integrations').upsert(integrationData, {
