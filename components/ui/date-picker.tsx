@@ -30,11 +30,6 @@ export function DatePicker({
 }: DatePickerProps) {
   const [open, setOpen] = React.useState(false)
   
-  const handleSelect = (date: Date | undefined) => {
-    if (onChange) onChange(date)
-    setOpen(false) // Close popover after selection
-  }
-  
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -51,12 +46,22 @@ export function DatePicker({
           {value ? format(value, "PPP") : <span>{placeholder}</span>}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
+      <PopoverContent 
+        className="w-auto p-0" 
+        align="start"
+        side="bottom"
+        sideOffset={5}
+        avoidCollisions={true}
+      >
         <Calendar
           mode="single"
           selected={value}
-          onSelect={handleSelect}
+          onSelect={(date) => {
+            onChange?.(date)
+            setOpen(false)
+          }}
           initialFocus
+          disabled={disabled}
         />
       </PopoverContent>
     </Popover>

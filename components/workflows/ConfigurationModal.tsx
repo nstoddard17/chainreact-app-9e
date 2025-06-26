@@ -16,6 +16,7 @@ import { FileUpload } from "@/components/ui/file-upload"
 import { DatePicker } from "@/components/ui/date-picker"
 import { TimePicker } from "@/components/ui/time-picker"
 import { AlertCircle } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 interface ConfigurationModalProps {
   isOpen: boolean
@@ -530,6 +531,9 @@ export default function ConfigurationModal({
           </div>
         )
       case "date":
+        // Special handling for Google Calendar dates
+        const isGoogleCalendarNode = nodeInfo?.type?.includes("google_calendar_action");
+        
         const handleDateChange = (date: Date | undefined) => {
           const dateString = date ? date.toISOString().split('T')[0] : ""
           const newConfig = { ...config, [field.name]: dateString }
@@ -553,27 +557,29 @@ export default function ConfigurationModal({
           }
         }
         
-        // Ensure proper date parsing from string
-        let dateValue = undefined
-        try {
-          dateValue = value ? new Date(value + 'T00:00:00') : undefined
-          // Check for invalid date
-          if (dateValue && isNaN(dateValue.getTime())) {
-            dateValue = undefined
+        // Parse the date value safely
+        let dateValue: Date | undefined;
+        if (value) {
+          try {
+            const parsedDate = new Date(value + 'T00:00:00');
+            dateValue = isNaN(parsedDate.getTime()) ? undefined : parsedDate;
+          } catch (e) {
+            console.error("Failed to parse date:", value);
+            dateValue = undefined;
           }
-        } catch (e) {
-          console.error("Error parsing date:", e)
-          dateValue = undefined
         }
         
         return (
-          <div className="space-y-1">
+          <div className="space-y-1 relative z-50">
             <DatePicker
               value={dateValue}
               onChange={handleDateChange}
               placeholder={field.placeholder || "Select date"}
               disabled={loadingDynamic}
-              className={inputClassName}
+              className={cn(
+                inputClassName,
+                isGoogleCalendarNode && "google-calendar-datepicker" // Add special class for styling
+              )}
             />
             {hasError && (
               <div className="flex items-center gap-1 text-sm text-red-600">
