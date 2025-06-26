@@ -59,39 +59,6 @@ export default function LoginForm() {
 
   return (
     <>
-      <style jsx>{`
-        .black-text-input {
-          color: #000000 !important;
-        }
-        .black-text-input::placeholder {
-          color: #6b7280 !important;
-        }
-        .black-text-input:focus {
-          color: #000000 !important;
-        }
-        .black-text-input:-webkit-autofill {
-          -webkit-text-fill-color: #000000 !important;
-          -webkit-box-shadow: 0 0 0px 1000px #f1f5f9 inset !important;
-          box-shadow: 0 0 0px 1000px #f1f5f9 inset !important;
-          transition: background-color 5000s ease-in-out 0s !important;
-        }
-        .black-text-input:-webkit-autofill:hover {
-          -webkit-text-fill-color: #000000 !important;
-          -webkit-box-shadow: 0 0 0px 1000px #f1f5f9 inset !important;
-          box-shadow: 0 0 0px 1000px #f1f5f9 inset !important;
-        }
-        .black-text-input:-webkit-autofill:focus {
-          -webkit-text-fill-color: #000000 !important;
-          -webkit-box-shadow: 0 0 0px 1000px #f1f5f9 inset !important;
-          box-shadow: 0 0 0px 1000px #f1f5f9 inset !important;
-        }
-        .black-text-input:-webkit-autofill:active {
-          -webkit-text-fill-color: #000000 !important;
-          -webkit-box-shadow: 0 0 0px 1000px #f1f5f9 inset !important;
-          box-shadow: 0 0 0px 1000px #f1f5f9 inset !important;
-        }
-      `}</style>
-
       <Card className="w-full max-w-md bg-white rounded-2xl shadow-lg border border-slate-200">
         <CardContent className="space-y-6 p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -106,14 +73,9 @@ export default function LoginForm() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="black-text-input w-full pl-10 pr-3 py-2 bg-slate-100 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full pl-10 pr-3 py-2 !bg-white text-black border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="Enter your email"
                   required
-                  style={{
-                    color: "#000000 !important",
-                    WebkitTextFillColor: "#000000 !important",
-                    caretColor: "#000000",
-                  }}
                 />
               </div>
             </div>
@@ -129,14 +91,9 @@ export default function LoginForm() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="black-text-input w-full pl-10 pr-3 py-2 bg-slate-100 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full pl-10 pr-3 py-2 !bg-white text-black border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="Enter your password"
                   required
-                  style={{
-                    color: "#000000 !important",
-                    WebkitTextFillColor: "#000000 !important",
-                    caretColor: "#000000",
-                  }}
                 />
               </div>
             </div>
@@ -162,7 +119,7 @@ export default function LoginForm() {
           <Button
             onClick={handleGoogleSignIn}
             variant="outline"
-            className="w-full flex items-center space-x-2 border border-slate-300 bg-white text-black hover:bg-slate-100 active:bg-slate-200"
+            className="w-full flex items-center space-x-2 border border-slate-300 !bg-white text-black hover:!bg-slate-100 active:!bg-slate-200"
             disabled={loading}
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24">

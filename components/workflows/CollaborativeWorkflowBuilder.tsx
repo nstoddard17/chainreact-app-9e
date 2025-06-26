@@ -1039,7 +1039,7 @@ function WorkflowBuilderContent() {
                 </SelectContent>
               </Select>
               <div className="flex items-center space-x-2">
-                <Checkbox id="connected-apps" checked={showConnectedOnly} onCheckedChange={(checked) => setShowConnectedOnly(Boolean(checked))} />
+                <Checkbox id="connected-apps" checked={showConnectedOnly} onCheckedChange={(checked: boolean) => setShowConnectedOnly(Boolean(checked))} />
                 <Label htmlFor="connected-apps" className="whitespace-nowrap">Show only connected apps</Label>
               </div>
             </div>
@@ -1073,17 +1073,6 @@ function WorkflowBuilderContent() {
                     key={integration.id}
                     className={`flex items-center p-3 rounded-md cursor-pointer ${selectedIntegration?.id === integration.id ? 'bg-primary/10 ring-1 ring-primary/20' : 'hover:bg-muted/50'}`}
                     onClick={() => setSelectedIntegration(integration)}
-                    onDoubleClick={() => {
-                      setSelectedIntegration(integration)
-                      // If only one trigger, select it immediately
-                      if (integration.triggers.length === 1) {
-                        setTimeout(() => {
-                          const trigger = integration.triggers[0]
-                          setSelectedTrigger(trigger)
-                          handleTriggerSelect(integration, trigger)
-                        }, 0)
-                      }
-                    }}
                   >
                     {renderLogo(integration.id, integration.name)}
                     <span className="font-semibold ml-4 flex-grow">{integration.name}</span>
@@ -1184,8 +1173,8 @@ function WorkflowBuilderContent() {
               <div className="flex items-center space-x-2">
                 <Checkbox 
                   id="connected-apps-actions" 
-                  checked={showConnectedOnly} 
-                  onCheckedChange={(checked) => setShowConnectedOnly(Boolean(checked))} 
+                  checked={showConnectedOnly}
+                  onCheckedChange={(checked: boolean) => setShowConnectedOnly(Boolean(checked))}
                 />
                 <Label htmlFor="connected-apps-actions" className="whitespace-nowrap">Show only connected apps</Label>
               </div>
@@ -1258,17 +1247,6 @@ function WorkflowBuilderContent() {
                       key={integration.id}
                       className={`flex items-center p-3 rounded-md cursor-pointer ${selectedIntegration?.id === integration.id ? 'bg-primary/10 ring-1 ring-primary/20' : 'hover:bg-muted/50'}`}
                       onClick={() => setSelectedIntegration(integration)}
-                      onDoubleClick={() => {
-                        setSelectedIntegration(integration)
-                        // If only one action, select it immediately
-                        if (integration.actions.length === 1) {
-                          setTimeout(() => {
-                            const action = integration.actions[0]
-                            setSelectedAction(action)
-                            handleActionSelect(integration, action)
-                          }, 0)
-                        }
-                      }}
                     >
                       {renderLogo(integration.id, integration.name)}
                       <span className="font-semibold ml-4 flex-grow">{integration.name}</span>
@@ -1361,7 +1339,7 @@ function WorkflowBuilderContent() {
       )}
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={!!deletingNode} onOpenChange={(open) => !open && setDeletingNode(null)}>
+      <Dialog open={!!deletingNode} onOpenChange={(open: boolean) => !open && setDeletingNode(null)}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Delete Node</DialogTitle>
