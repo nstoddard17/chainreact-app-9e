@@ -72,7 +72,13 @@ export async function GET(request: NextRequest) {
 
     // Determine if we're using sandbox credentials
     const isSandbox = clientId.includes('sandbox') || process.env.PAYPAL_SANDBOX === 'true'
-    const paypalDomain = isSandbox ? 'api.sandbox.paypal.com' : 'api.paypal.com'
+    
+    // Use the correct token endpoint domain for sandbox or production
+    // For v1 token endpoint
+    const paypalDomain = isSandbox ? 'api-m.sandbox.paypal.com' : 'api-m.paypal.com'
+    
+    console.log("Using PayPal domain for token exchange:", paypalDomain)
+    console.log("Received code parameter:", !!code)
 
     const tokenResponse = await fetch(`https://${paypalDomain}/v1/oauth2/token`, {
       method: 'POST',
