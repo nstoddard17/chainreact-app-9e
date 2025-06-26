@@ -553,7 +553,18 @@ export default function ConfigurationModal({
           }
         }
         
-        const dateValue = value ? new Date(value + 'T00:00:00') : undefined
+        // Ensure proper date parsing from string
+        let dateValue = undefined
+        try {
+          dateValue = value ? new Date(value + 'T00:00:00') : undefined
+          // Check for invalid date
+          if (dateValue && isNaN(dateValue.getTime())) {
+            dateValue = undefined
+          }
+        } catch (e) {
+          console.error("Error parsing date:", e)
+          dateValue = undefined
+        }
         
         return (
           <div className="space-y-1">
