@@ -13,6 +13,8 @@ import { Combobox } from "@/components/ui/combobox"
 import { EmailAutocomplete } from "@/components/ui/email-autocomplete"
 import { ConfigurationLoadingScreen } from "@/components/ui/loading-screen"
 import { FileUpload } from "@/components/ui/file-upload"
+import { DatePicker } from "@/components/ui/date-picker"
+import { TimePicker } from "@/components/ui/time-picker"
 import { AlertCircle } from "lucide-react"
 
 interface ConfigurationModalProps {
@@ -46,7 +48,8 @@ export default function ConfigurationModal({
       const initialConfig =
         nodeInfo.configSchema?.reduce(
           (acc, field) => {
-            acc[field.name] = initialData[field.name] || "" // Use initialData or default
+            // Use initialData first, then defaultValue, then empty string
+            acc[field.name] = initialData[field.name] || field.defaultValue || ""
             // For file fields, initialize the display files as empty since we only have IDs
             if (field.type === "file") {
               acc[`${field.name}_files`] = []
@@ -55,6 +58,21 @@ export default function ConfigurationModal({
           },
           {} as Record<string, any>,
         ) || {}
+      
+      // Set default dates for Google Calendar if not provided
+      if (nodeInfo.type === "google_calendar_action_create_event") {
+        const now = new Date()
+        const tomorrow = new Date(now)
+        tomorrow.setDate(tomorrow.getDate() + 1)
+        
+        if (!initialConfig.startDate) {
+          initialConfig.startDate = tomorrow.toISOString().split('T')[0]
+        }
+        if (!initialConfig.endDate) {
+          initialConfig.endDate = tomorrow.toISOString().split('T')[0]
+        }
+      }
+      
       setConfig(initialConfig)
       
       // Restore file attachments if they exist
@@ -511,6 +529,85 @@ export default function ConfigurationModal({
             )}
           </div>
         )
+      case "date":
+        const handleDateChange = (date: Date | undefined) => {
+          const dateString = date ? date.toISOString().split('T')[0] : ""
+          const newConfig = { ...config, [field.name]: dateString }
+          
+          // For Google Calendar, automatically set end date when start date changes
+          if (nodeInfo?.type === "google_calendar_action_create_event" && field.name === "startDate" && date) {
+            if (!config.endDate || config.endDate === config.startDate) {
+              newConfig.endDate = dateString
+            }
+          }
+          
+          setConfig(newConfig)
+          
+          // Clear error when user selects a date
+          if (hasError && date) {
+            setErrors(prev => {
+              const newErrors = { ...prev }
+              delete newErrors[field.name]
+              return newErrors
+            })
+          }
+        }
+        
+        const dateValue = value ? new Date(value + 'T00:00:00') : undefined
+        
+        return (
+          <div className="space-y-1">
+            <DatePicker
+              value={dateValue}
+              onChange={handleDateChange}
+              placeholder={field.placeholder || "Select date"}
+              disabled={loadingDynamic}
+              className={inputClassName}
+            />
+            {hasError && (
+              <div className="flex items-center gap-1 text-sm text-red-600">
+                <AlertCircle className="h-4 w-4" />
+                {errors[field.name]}
+              </div>
+            )}
+          </div>
+        )
+      case "time":
+        // Hide time fields for Google Calendar when "All Day" is enabled
+        if (nodeInfo?.type === "google_calendar_action_create_event" && config.allDay) {
+          return null
+        }
+        
+        const handleTimeChange = (time: string) => {
+          setConfig({ ...config, [field.name]: time })
+          
+          // Clear error when user selects a time
+          if (hasError && time) {
+            setErrors(prev => {
+              const newErrors = { ...prev }
+              delete newErrors[field.name]
+              return newErrors
+            })
+          }
+        }
+        
+        return (
+          <div className="space-y-1">
+            <TimePicker
+              value={value}
+              onChange={handleTimeChange}
+              placeholder={field.placeholder || "Select time"}
+              disabled={loadingDynamic}
+              className={inputClassName}
+            />
+            {hasError && (
+              <div className="flex items-center gap-1 text-sm text-red-600">
+                <AlertCircle className="h-4 w-4" />
+                {errors[field.name]}
+              </div>
+            )}
+          </div>
+        )
       default:
         return (
           <div className="space-y-1">
@@ -561,17 +658,22 @@ export default function ConfigurationModal({
           // Configuration form once data is loaded
           <>
             <div className="space-y-4 py-4 max-h-96 overflow-y-auto pr-2" style={{ paddingRight: '8px' }}>
-              {nodeInfo?.configSchema?.map((field) => (
-                <div key={field.name} className="space-y-2" style={{ marginRight: '4px' }}>
-                  <Label htmlFor={field.name}>
-                    {field.label}
-                    {field.required && <span className="text-red-500 ml-1">*</span>}
-                  </Label>
-                  <div style={{ paddingRight: '4px' }}>
-                    {renderField(field)}
+              {nodeInfo?.configSchema?.map((field) => {
+                const fieldElement = renderField(field)
+                if (fieldElement === null) return null
+                
+                return (
+                  <div key={field.name} className="space-y-2" style={{ marginRight: '4px' }}>
+                    <Label htmlFor={field.name}>
+                      {field.label}
+                      {field.required && <span className="text-red-500 ml-1">*</span>}
+                    </Label>
+                    <div style={{ paddingRight: '4px' }}>
+                      {fieldElement}
+                    </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
             
             {hasRequiredFields && (
