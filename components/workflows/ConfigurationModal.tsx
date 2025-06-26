@@ -12,6 +12,7 @@ import { useIntegrationStore } from "@/stores/integrationStore"
 import { Combobox } from "@/components/ui/combobox"
 import { EmailAutocomplete } from "@/components/ui/email-autocomplete"
 import { ConfigurationLoadingScreen } from "@/components/ui/loading-screen"
+import { FileUpload } from "@/components/ui/file-upload"
 import { AlertCircle } from "lucide-react"
 
 interface ConfigurationModalProps {
@@ -356,6 +357,69 @@ export default function ConfigurationModal({
               isLoading={loadingDynamic}
               multiple={field.name === "to"} // Allow multiple recipients for "to" field
               className={inputClassName}
+            />
+            {hasError && (
+              <div className="flex items-center gap-1 text-sm text-red-600">
+                <AlertCircle className="h-4 w-4" />
+                {errors[field.name]}
+              </div>
+            )}
+          </div>
+        )
+      case "file":
+        const handleFileChange = async (files: FileList | File[]) => {
+          try {
+            if (files && files.length > 0) {
+              // Store files and get file IDs
+              const formData = new FormData()
+              Array.from(files).forEach(file => {
+                formData.append('files', file)
+              })
+              
+              const response = await fetch('/api/workflows/files/store', {
+                method: 'POST',
+                body: formData
+              })
+              
+              if (!response.ok) {
+                const errorData = await response.json()
+                throw new Error(errorData.error || 'Failed to store files')
+              }
+              
+              const result = await response.json()
+              setConfig({ ...config, [field.name]: result.fileIds })
+            } else {
+              setConfig({ ...config, [field.name]: [] })
+            }
+            
+            // Clear error when user selects files
+            if (hasError && files && files.length > 0) {
+              setErrors(prev => {
+                const newErrors = { ...prev }
+                delete newErrors[field.name]
+                return newErrors
+              })
+            }
+          } catch (error: any) {
+            console.error('Error storing files:', error)
+            setErrors(prev => ({
+              ...prev,
+              [field.name]: `Failed to upload files: ${error.message}`
+            }))
+          }
+        }
+        
+        return (
+          <div className="space-y-1">
+            <FileUpload
+              value={value as FileList | File[]}
+              onChange={handleFileChange}
+              accept={field.accept}
+              maxSize={field.maxSize}
+              maxFiles={5}
+              placeholder={field.placeholder}
+              disabled={loadingDynamic}
+              className={hasError ? 'ring-2 ring-red-500 rounded-md' : ''}
             />
             {hasError && (
               <div className="flex items-center gap-1 text-sm text-red-600">

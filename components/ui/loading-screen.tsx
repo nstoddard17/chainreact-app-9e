@@ -41,22 +41,22 @@ export function LoadingScreen({
     )}>
       <div className="relative">
         <div className={cn(
-          "border-4 border-gray-200 border-t-blue-600 rounded-full animate-spin",
+          "border-4 border-border border-t-primary rounded-full animate-spin",
           spinnerSizes[size]
         )}></div>
       </div>
       <div className="text-center space-y-2">
         <h3 className={cn(
-          "font-medium text-gray-900",
+          "font-medium text-foreground",
           titleSizes[size]
         )}>
           {title}
         </h3>
-        <p className="text-sm text-gray-500 max-w-md">
+        <p className="text-sm text-muted-foreground max-w-md">
           {description}
         </p>
-        <div className="flex items-center justify-center space-x-2 text-xs text-gray-400">
-          <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></div>
+        <div className="flex items-center justify-center space-x-2 text-xs text-muted-foreground">
+          <div className="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
           <span>This may take a few seconds</span>
         </div>
       </div>

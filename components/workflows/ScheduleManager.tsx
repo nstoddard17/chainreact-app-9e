@@ -244,10 +244,10 @@ export default function ScheduleManager({ workflowId }: ScheduleManagerProps) {
         </div>
       </CardHeader>
       <CardContent>
-        {loading ? (
-          <div className="text-center py-8 text-slate-500">Loading schedules...</div>
-        ) : schedules.length === 0 ? (
-          <div className="text-center py-8 text-slate-500">
+              {loading ? (
+        <div className="text-center py-8 text-muted-foreground">Loading schedules...</div>
+                ) : schedules.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
             No schedules configured. Add a schedule to run this workflow automatically.
           </div>
         ) : (

@@ -64,10 +64,10 @@ export default function WorkflowExecutions({ workflowId }: WorkflowExecutionsPro
         </div>
       </CardHeader>
       <CardContent>
-        {loading ? (
-          <div className="text-center py-8 text-slate-500">Loading executions...</div>
-        ) : executions.length === 0 ? (
-          <div className="text-center py-8 text-slate-500">No executions yet</div>
+              {loading ? (
+        <div className="text-center py-8 text-muted-foreground">Loading executions...</div>
+                  ) : executions.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">No executions yet</div>
         ) : (
           <div className="space-y-4">
             {executions.map((execution) => (

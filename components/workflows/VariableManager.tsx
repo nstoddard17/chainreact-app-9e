@@ -197,10 +197,10 @@ export default function VariableManager({ workflowId }: VariableManagerProps) {
         </div>
       </CardHeader>
       <CardContent>
-        {loading ? (
-          <div className="text-center py-8 text-slate-500">Loading variables...</div>
-        ) : variables.length === 0 ? (
-          <div className="text-center py-8 text-slate-500">
+              {loading ? (
+        <div className="text-center py-8 text-muted-foreground">Loading variables...</div>
+                ) : variables.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
             No variables defined. Add variables to store data across workflow executions.
           </div>
         ) : (
