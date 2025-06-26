@@ -37,7 +37,7 @@ export default function VariableManager({ workflowId }: VariableManagerProps) {
     e.preventDefault()
 
     try {
-      let processedValue = formData.value
+      let processedValue: any = formData.value
 
       // Process value based on type
       switch (formData.type) {
@@ -88,7 +88,7 @@ export default function VariableManager({ workflowId }: VariableManagerProps) {
   const getTypeColor = (type: string) => {
     switch (type) {
       case "string":
-        return "bg-blue-100 text-blue-700"
+        return "bg-primary/10 text-primary"
       case "number":
         return "bg-green-100 text-green-700"
       case "boolean":
@@ -107,8 +107,8 @@ export default function VariableManager({ workflowId }: VariableManagerProps) {
       <CardHeader>
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
-            <Database className="w-5 h-5 text-slate-600" />
-            <CardTitle className="text-xl font-semibold text-slate-900">Workflow Variables</CardTitle>
+            <Database className="w-5 h-5 text-muted-foreground" />
+            <CardTitle className="text-xl font-semibold text-foreground">Workflow Variables</CardTitle>
           </div>
           <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogTrigger asChild>
@@ -208,13 +208,13 @@ export default function VariableManager({ workflowId }: VariableManagerProps) {
             {variables.map((variable) => (
               <div
                 key={variable.id}
-                className="flex items-center justify-between p-3 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors"
+                className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors"
               >
                 <div className="flex items-center space-x-3">
                   <Badge className={`text-xs ${getTypeColor(variable.type)}`}>{variable.type}</Badge>
                   <div>
-                    <div className="font-medium text-slate-900">{variable.name}</div>
-                    <div className="text-sm text-slate-500 truncate max-w-xs">
+                    <div className="font-medium text-foreground">{variable.name}</div>
+                    <div className="text-sm text-muted-foreground truncate max-w-xs">
                       {typeof variable.value === "object" ? JSON.stringify(variable.value) : String(variable.value)}
                     </div>
                   </div>

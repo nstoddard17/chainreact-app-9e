@@ -19,7 +19,7 @@ export default function OrganizationContent({ organization }: Props) {
   const userRole = organization.members?.[0]?.role || "viewer"
 
   return (
-    <AppLayout>
+    <AppLayout title="Organization">
       <div className="space-y-6">
         {/* Organization Header */}
         <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">

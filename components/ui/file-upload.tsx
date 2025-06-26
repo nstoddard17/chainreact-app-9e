@@ -42,10 +42,12 @@ export function FileUpload({
     if (value && value.length > 0) {
       const initialFiles: UploadedFile[] = Array.from(value).map((file, index) => ({
         file,
-        id: `${Date.now()}-${index}`,
+        id: (file as any)._fileId || `${file.name}-${file.size}-${index}`, // Use fileId for restored files, fallback to file properties
         progress: 100,
       }))
       setUploadedFiles(initialFiles)
+    } else {
+      setUploadedFiles([])
     }
   }, [value])
 
@@ -55,6 +57,16 @@ export function FileUpload({
     const newUploadedFiles: UploadedFile[] = []
 
     Array.from(fileList).forEach((file, index) => {
+      // Check for duplicate files (same name and size)
+      const isDuplicate = uploadedFiles.some(uploaded => 
+        uploaded.file.name === file.name && uploaded.file.size === file.size
+      )
+      
+      if (isDuplicate) {
+        newErrors.push(`${file.name} is already attached.`)
+        return
+      }
+      
       // Check file size
       if (file.size > maxSize) {
         newErrors.push(`${file.name} is too large. Maximum size is ${formatFileSize(maxSize)}.`)
@@ -70,7 +82,7 @@ export function FileUpload({
       validFiles.push(file)
       newUploadedFiles.push({
         file,
-        id: `${Date.now()}-${index}`,
+        id: `${file.name}-${file.size}-${Date.now()}-${index}`, // More unique ID
         progress: 100, // For now, we'll set to 100% immediately
       })
     })
@@ -113,6 +125,8 @@ export function FileUpload({
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       handleFiles(e.target.files)
+      // Reset the input to allow selecting the same file again if needed
+      e.target.value = ''
     }
   }
 
@@ -134,11 +148,7 @@ export function FileUpload({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
   }
 
-  const openFileDialog = () => {
-    if (!disabled && fileInputRef.current) {
-      fileInputRef.current.click()
-    }
-  }
+
 
   return (
     <div className={cn("space-y-4", className)}>
@@ -154,7 +164,6 @@ export function FileUpload({
         onDragLeave={handleDrag}
         onDragOver={handleDrag}
         onDrop={handleDrop}
-        onClick={openFileDialog}
       >
         <input
           ref={fileInputRef}

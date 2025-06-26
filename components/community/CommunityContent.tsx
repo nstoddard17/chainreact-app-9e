@@ -130,7 +130,7 @@ const topContributors = [
 
 export default function CommunityContent() {
   return (
-    <AppLayout>
+    <AppLayout title="Community">
       <div className="space-y-8">
         {/* Header */}
         <div className="flex items-center justify-between">

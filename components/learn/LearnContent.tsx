@@ -89,7 +89,7 @@ const achievements = [
 
 export default function LearnContent() {
   return (
-    <AppLayout>
+    <AppLayout title="Learn">
       <div className="space-y-8">
         {/* Header */}
         <div className="flex items-center justify-between">

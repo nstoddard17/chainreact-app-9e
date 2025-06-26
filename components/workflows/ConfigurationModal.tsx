@@ -47,11 +47,65 @@ export default function ConfigurationModal({
         nodeInfo.configSchema?.reduce(
           (acc, field) => {
             acc[field.name] = initialData[field.name] || "" // Use initialData or default
+            // For file fields, initialize the display files as empty since we only have IDs
+            if (field.type === "file") {
+              acc[`${field.name}_files`] = []
+            }
             return acc
           },
           {} as Record<string, any>,
         ) || {}
       setConfig(initialConfig)
+      
+      // Restore file attachments if they exist
+      const restoreFileAttachments = async () => {
+        for (const field of nodeInfo.configSchema || []) {
+          if (field.type === "file" && initialData[field.name] && Array.isArray(initialData[field.name]) && initialData[field.name].length > 0) {
+            try {
+              // Fetch file metadata from stored file IDs
+              const fileIds = initialData[field.name] as string[]
+              const response = await fetch(`/api/workflows/files/store?fileIds=${fileIds.join(',')}`)
+              
+              if (response.ok) {
+                const { files } = await response.json()
+                
+                // Create pseudo-File objects for display purposes
+                const displayFiles = files.map((fileMetadata: any) => {
+                  // Create a minimal File-like object for display
+                  const displayFile = {
+                    name: fileMetadata.file_name,
+                    size: fileMetadata.file_size,
+                    type: fileMetadata.file_type,
+                    lastModified: new Date(fileMetadata.created_at).getTime(),
+                    webkitRelativePath: '',
+                    // Mark this as a restored file so we know not to re-upload it
+                    _isRestored: true,
+                    _fileId: fileMetadata.id,
+                    // Add minimal required methods
+                    arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)),
+                    bytes: () => Promise.resolve(new Uint8Array(0)),
+                    slice: () => new Blob(),
+                    stream: () => new ReadableStream(),
+                    text: () => Promise.resolve('')
+                  }
+                  
+                  return displayFile as unknown as File
+                })
+                
+                // Update config with the display files
+                setConfig(prev => ({
+                  ...prev,
+                  [`${field.name}_files`]: displayFiles
+                }))
+              }
+            } catch (error) {
+              console.error(`Failed to restore files for ${field.name}:`, error)
+            }
+          }
+        }
+      }
+      
+      restoreFileAttachments()
       setErrors({}) // Clear errors when opening modal
 
       // Fetch dynamic data if needed
@@ -370,26 +424,51 @@ export default function ConfigurationModal({
         const handleFileChange = async (files: FileList | File[]) => {
           try {
             if (files && files.length > 0) {
-              // Store files and get file IDs
-              const formData = new FormData()
-              Array.from(files).forEach(file => {
-                formData.append('files', file)
-              })
+              const filesArray = Array.from(files)
               
-              const response = await fetch('/api/workflows/files/store', {
-                method: 'POST',
-                body: formData
-              })
+              // Separate new files from restored files
+              const newFiles = filesArray.filter(file => !(file as any)._isRestored)
+              const restoredFiles = filesArray.filter(file => (file as any)._isRestored)
               
-              if (!response.ok) {
-                const errorData = await response.json()
-                throw new Error(errorData.error || 'Failed to store files')
+              let allFileIds: string[] = []
+              
+              // Get file IDs from restored files
+              const restoredFileIds = restoredFiles.map(file => (file as any)._fileId)
+              allFileIds.push(...restoredFileIds)
+              
+              // Upload new files if any
+              if (newFiles.length > 0) {
+                const formData = new FormData()
+                newFiles.forEach(file => {
+                  formData.append('files', file)
+                })
+                
+                const response = await fetch('/api/workflows/files/store', {
+                  method: 'POST',
+                  body: formData
+                })
+                
+                if (!response.ok) {
+                  const errorData = await response.json()
+                  throw new Error(errorData.error || 'Failed to store files')
+                }
+                
+                const result = await response.json()
+                allFileIds.push(...result.fileIds)
               }
               
-              const result = await response.json()
-              setConfig({ ...config, [field.name]: result.fileIds })
+              // Store both file IDs for the workflow and the actual files for the UI
+              setConfig({ 
+                ...config, 
+                [field.name]: allFileIds,
+                [`${field.name}_files`]: filesArray // Store all files for UI
+              })
             } else {
-              setConfig({ ...config, [field.name]: [] })
+              setConfig({ 
+                ...config, 
+                [field.name]: [],
+                [`${field.name}_files`]: []
+              })
             }
             
             // Clear error when user selects files
@@ -409,10 +488,13 @@ export default function ConfigurationModal({
           }
         }
         
+        // Use the stored files for the FileUpload component display
+        const fileValue = config[`${field.name}_files`] || []
+        
         return (
           <div className="space-y-1">
             <FileUpload
-              value={value as FileList | File[]}
+              value={fileValue as File[]}
               onChange={handleFileChange}
               accept={field.accept}
               maxSize={field.maxSize}

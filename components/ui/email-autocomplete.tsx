@@ -229,7 +229,7 @@ export function EmailAutocomplete({
                 <button
                   type="button"
                   onClick={() => handleEmailRemove(email)}
-                  className="ml-1 hover:bg-gray-200 rounded-full p-0.5"
+                  className="ml-1 hover:bg-muted rounded-full p-0.5"
                   disabled={disabled}
                 >
                   <X className="w-3 h-3" />
@@ -270,7 +270,7 @@ export function EmailAutocomplete({
           />
           {isLoading && (
             <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-              <div className="w-4 h-4 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin"></div>
+              <div className="w-4 h-4 border-2 border-border border-t-primary rounded-full animate-spin"></div>
             </div>
           )}
         </div>
@@ -278,12 +278,12 @@ export function EmailAutocomplete({
 
       {/* Suggestions dropdown */}
       {isOpen && (isLoading || filteredSuggestions.length > 0) && (
-        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-64 overflow-auto">
+        <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-md shadow-lg max-h-64 overflow-auto">
           {isLoading ? (
             // Loading state in dropdown
             <div className="flex items-center justify-center py-8 space-x-3">
-              <div className="w-5 h-5 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin"></div>
-              <span className="text-sm text-gray-500">Loading email suggestions...</span>
+              <div className="w-5 h-5 border-2 border-border border-t-primary rounded-full animate-spin"></div>
+              <span className="text-sm text-muted-foreground">Loading email suggestions...</span>
             </div>
           ) : (
             <ul ref={listRef} className="py-1">
@@ -292,8 +292,8 @@ export function EmailAutocomplete({
                   <button
                     type="button"
                     className={cn(
-                      "w-full px-3 py-2 text-left hover:bg-gray-50 focus:bg-gray-50 flex items-center gap-2",
-                      selectedIndex === index && "bg-blue-50"
+                      "w-full px-3 py-2 text-left hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground flex items-center gap-2",
+                      selectedIndex === index && "bg-accent text-accent-foreground"
                     )}
                     onMouseDown={(e) => {
                       e.preventDefault() // Prevent input blur
@@ -302,26 +302,26 @@ export function EmailAutocomplete({
                     onMouseEnter={() => setSelectedIndex(index)}
                   >
                     {suggestion.isGroup ? (
-                      <Users className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                      <Users className="w-4 h-4 text-primary flex-shrink-0" />
                     ) : (
-                      <Mail className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                      <Mail className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                     )}
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-gray-900 truncate">
-                        {suggestion.name || suggestion.email}
+                                          <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-popover-foreground truncate">
+                          {suggestion.name || suggestion.email}
+                        </div>
+                        {suggestion.name && !suggestion.isGroup && (
+                          <div className="text-xs text-muted-foreground truncate">
+                            {suggestion.email}
+                          </div>
+                        )}
+                        {suggestion.isGroup && suggestion.members && (
+                          <div className="text-xs text-primary truncate">
+                            {suggestion.members.length} members: {suggestion.members.slice(0, 2).map(m => m.name || m.email).join(', ')}
+                            {suggestion.members.length > 2 && '...'}
+                          </div>
+                        )}
                       </div>
-                      {suggestion.name && !suggestion.isGroup && (
-                        <div className="text-xs text-gray-500 truncate">
-                          {suggestion.email}
-                        </div>
-                      )}
-                      {suggestion.isGroup && suggestion.members && (
-                        <div className="text-xs text-blue-600 truncate">
-                          {suggestion.members.length} members: {suggestion.members.slice(0, 2).map(m => m.name || m.email).join(', ')}
-                          {suggestion.members.length > 2 && '...'}
-                        </div>
-                      )}
-                    </div>
                   </button>
                 </li>
               ))}
