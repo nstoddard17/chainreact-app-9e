@@ -22,10 +22,38 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const { userId } = JSON.parse(atob(state))
-    if (!userId) {
-      throw new Error('Missing userId in PayPal state')
+    // Verify state parameter to prevent CSRF
+    const { data: pkceData, error: pkceError } = await createAdminClient()
+      .from('pkce_flow')
+      .select('*')
+      .eq('state', state)
+      .single()
+
+    if (pkceError || !pkceData) {
+      console.error('Invalid state or PKCE lookup error:', pkceError)
+      return createPopupResponse('error', provider, 'Invalid state parameter', baseUrl)
     }
+
+    // Parse state to get user ID
+    let stateData;
+    try {
+      stateData = JSON.parse(atob(state));
+    } catch (e) {
+      console.error('Failed to parse state:', e);
+      return createPopupResponse('error', provider, 'Invalid state format', baseUrl);
+    }
+    
+    const userId = stateData.userId;
+    
+    if (!userId) {
+      return createPopupResponse('error', provider, 'User ID not found in state', baseUrl)
+    }
+
+    // Clean up the state
+    await createAdminClient()
+      .from('pkce_flow')
+      .delete()
+      .eq('state', state)
 
     const supabase = createAdminClient()
 

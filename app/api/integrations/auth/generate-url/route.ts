@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
         break
 
       case "paypal":
-        authUrl = generatePayPalAuthUrl(finalState)
+        authUrl = await generatePayPalAuthUrl(stateObject)
         break
 
       case "teams":
@@ -697,20 +697,40 @@ function generateStripeAuthUrl(state: string): string {
   return `https://connect.stripe.com/oauth/authorize?${params.toString()}`
 }
 
-function generatePayPalAuthUrl(state: string): string {
+async function generatePayPalAuthUrl(stateObject: any): Promise<string> {
   const clientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID
   if (!clientId) throw new Error("PayPal client ID not configured")
   const baseUrl = getBaseUrl()
+
+  // Generate PKCE challenge
+  const codeVerifier = crypto.randomBytes(32).toString("hex")
+  
+  // Convert state object to string
+  const state = btoa(JSON.stringify(stateObject))
+  
+  // Store state in database for verification in callback
+  const supabase = createAdminClient()
+  const { error } = await supabase
+    .from("pkce_flow")
+    .insert({ 
+      state,
+      code_verifier: codeVerifier,
+      provider: "paypal"
+    })
+
+  if (error) {
+    throw new Error(`Failed to store PayPal OAuth state: ${error.message}`)
+  }
 
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: `${baseUrl}/api/integrations/paypal/callback`,
     response_type: "code",
-    scope: "openid profile email",
+    scope: "openid profile email https://uri.paypal.com/services/paypalattributes",
     state,
   })
 
-  return `https://www.paypal.com/signin/authorize?${params.toString()}`
+  return `https://www.paypal.com/connect?${params.toString()}`
 }
 
 function generateTeamsAuthUrl(state: string): string {
