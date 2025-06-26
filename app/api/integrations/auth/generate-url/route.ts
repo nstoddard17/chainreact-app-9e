@@ -744,7 +744,11 @@ async function generatePayPalAuthUrl(stateObject: any): Promise<string> {
     state,
   })
 
-  return `https://www.paypal.com/connect?${params.toString()}`
+  // Use sandbox URL if client ID contains 'sandbox' or is explicitly set via env variable
+  const isSandbox = clientId.includes('sandbox') || process.env.PAYPAL_SANDBOX === 'true'
+  const paypalDomain = isSandbox ? 'www.sandbox.paypal.com' : 'www.paypal.com'
+  
+  return `https://${paypalDomain}/connect?${params.toString()}`
 }
 
 function generateTeamsAuthUrl(state: string): string {
