@@ -729,18 +729,11 @@ async function generatePayPalAuthUrl(stateObject: any): Promise<string> {
     throw new Error(`Failed to store PayPal OAuth state: ${error.message}`)
   }
 
-  // Comprehensive list of PayPal scopes
+  // Simplified list of PayPal scopes for better compatibility
   const paypalScopes = [
     "openid",
-    "profile",
     "email",
-    "https://uri.paypal.com/services/paypalattributes",
-    "https://uri.paypal.com/services/identity/email",
-    "https://uri.paypal.com/services/identity/name",
-    "https://uri.paypal.com/services/identity/account",
-    "https://uri.paypal.com/services/invoicing",
-    "https://uri.paypal.com/services/subscription",
-    "https://uri.paypal.com/services/payouts"
+    "profile",
   ].join(" ")
 
   const params = new URLSearchParams({
@@ -753,9 +746,13 @@ async function generatePayPalAuthUrl(stateObject: any): Promise<string> {
 
   // Use sandbox URL if client ID contains 'sandbox' or is explicitly set via env variable
   const isSandbox = clientId.includes('sandbox') || process.env.PAYPAL_SANDBOX === 'true'
-  const paypalDomain = isSandbox ? 'www.sandbox.paypal.com' : 'www.paypal.com'
   
-  return `https://${paypalDomain}/connect?${params.toString()}`
+  // Use standard authorization endpoints that work better with sandbox
+  if (isSandbox) {
+    return `https://www.sandbox.paypal.com/signin/authorize?${params.toString()}`
+  } else {
+    return `https://www.paypal.com/signin/authorize?${params.toString()}`
+  }
 }
 
 function generateTeamsAuthUrl(state: string): string {
