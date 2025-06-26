@@ -59,7 +59,12 @@ export async function GET(request: NextRequest) {
 
     const clientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID
     const clientSecret = process.env.PAYPAL_CLIENT_SECRET
-    const redirectUri = `${baseUrl}/api/integrations/paypal/callback`
+    // Use the same registered redirect URI as in the auth URL generation
+    // This ensures consistency between authorization request and token exchange
+    const redirectUri = process.env.PAYPAL_REDIRECT_URI || "https://chainreact.app/api/integrations/paypal/callback"
+    
+    // For debugging
+    console.log("PayPal callback processing - using redirect URI:", redirectUri)
 
     if (!clientId || !clientSecret) {
       throw new Error('PayPal client ID or secret not configured')
