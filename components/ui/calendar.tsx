@@ -24,9 +24,9 @@ function Calendar({
       classNames={{
         months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
         month: "space-y-4",
-        caption: "flex justify-between items-center pt-1 mb-2 relative",
+        caption: "flex items-center justify-between px-2 pt-2",
         caption_label: "text-sm font-semibold text-foreground",
-        nav: "flex items-center space-x-1 !absolute !right-0 !top-1",
+        nav: "flex items-center space-x-1",
         nav_button: cn(
           buttonVariants({ variant: "ghost" }),
           "h-7 w-7 bg-transparent p-0 opacity-70 hover:opacity-100 hover:bg-accent text-foreground dark:text-white"
