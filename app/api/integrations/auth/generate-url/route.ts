@@ -722,11 +722,25 @@ async function generatePayPalAuthUrl(stateObject: any): Promise<string> {
     throw new Error(`Failed to store PayPal OAuth state: ${error.message}`)
   }
 
+  // Comprehensive list of PayPal scopes
+  const paypalScopes = [
+    "openid",
+    "profile",
+    "email",
+    "https://uri.paypal.com/services/paypalattributes",
+    "https://uri.paypal.com/services/identity/email",
+    "https://uri.paypal.com/services/identity/name",
+    "https://uri.paypal.com/services/identity/account",
+    "https://uri.paypal.com/services/invoicing",
+    "https://uri.paypal.com/services/subscription",
+    "https://uri.paypal.com/services/payouts"
+  ].join(" ")
+
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: `${baseUrl}/api/integrations/paypal/callback`,
     response_type: "code",
-    scope: "openid profile email https://uri.paypal.com/services/paypalattributes",
+    scope: paypalScopes,
     state,
   })
 

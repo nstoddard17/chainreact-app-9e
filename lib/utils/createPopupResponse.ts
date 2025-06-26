@@ -17,9 +17,8 @@ export function createPopupResponse(
       // Flag to track if we've already sent a response
       window.sentResponse = false;
       
-      // Listen for window close/navigation events
-      window.addEventListener('beforeunload', function() {
-        // Only send if we haven't already sent a success/error message
+      // More robust handling of window closing
+      function sendCancelMessage() {
         if (window.opener && !window.sentResponse) {
           try {
             window.opener.postMessage({
@@ -27,11 +26,27 @@ export function createPopupResponse(
               provider: '${safeProvider}',
               message: 'Authorization cancelled'
             }, '${baseUrl}');
+            console.log('Cancel message sent to parent');
+            window.sentResponse = true;
           } catch (e) {
             console.error('Error sending cancel message:', e);
           }
         }
+      }
+      
+      // Listen for window close/navigation events
+      window.addEventListener('beforeunload', function(e) {
+        sendCancelMessage();
       });
+      
+      // Periodic check to notify parent if connection is lost
+      let connectionCheckInterval = setInterval(function() {
+        if (window.opener === null) {
+          console.log('Lost connection to parent window');
+          clearInterval(connectionCheckInterval);
+          window.close();
+        }
+      }, 1000);
       
       try {
         if (window.opener) {
@@ -43,6 +58,7 @@ export function createPopupResponse(
               provider: '${safeProvider}',
               message: '${safeMessage}'
           }, '${baseUrl}');
+          
           // Ensure window closes even if postMessage fails
           setTimeout(() => window.close(), 1000);
         } else {
@@ -101,7 +117,7 @@ export function createPopupResponse(
           <h1 id="header">${header}</h1>
           <p id="message">${message}</p>
           <p>This window will close automatically...</p>
-          <button class="close-button" onclick="window.close()">Close Window</button>
+          <button class="close-button" onclick="sendCancelMessage(); window.close()">Close Window</button>
         </div>
         ${script}
       </body>
