@@ -27,6 +27,14 @@ interface IntegrationsContentProps {
 function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
   const [activeFilter, setActiveFilter] = useState<"all" | "connected" | "expiring" | "expired" | "disconnected">("all")
   const [autoRefresh, setAutoRefresh] = useState(true)
+  const [autoRefreshOnTabSwitch, setAutoRefreshOnTabSwitch] = useState(() => {
+    // Initialize from localStorage if available, default to true
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('autoRefreshOnTabSwitch');
+      return saved !== null ? saved === 'true' : true;
+    }
+    return true;
+  });
   const [isInitializing, setIsInitializing] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [openGuideForProviderId, setOpenGuideForProviderId] = useState<string | null>(null)
@@ -38,6 +46,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
     total: 0
   })
   const [loadingMetrics, setLoadingMetrics] = useState(false)
+  const [wasHidden, setWasHidden] = useState(false)
   const { toast } = useToast()
 
   const {
@@ -52,6 +61,43 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
   } = useIntegrationStore()
   const { user } = useAuthStore()
   const router = useRouter()
+
+  // Save autoRefreshOnTabSwitch to localStorage when it changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('autoRefreshOnTabSwitch', autoRefreshOnTabSwitch.toString());
+    }
+  }, [autoRefreshOnTabSwitch]);
+
+  // Add visibility change listener to detect tab switching
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        // User switched away from this tab
+        setWasHidden(true);
+      } else if (document.visibilityState === 'visible' && wasHidden && autoRefreshOnTabSwitch) {
+        // User returned to this tab after switching away and auto-refresh is enabled
+        console.log('User returned to integrations tab - refreshing page to restore popup functionality');
+        // Show a brief toast notification
+        toast({
+          title: "Refreshing page",
+          description: "Refreshing to ensure integrations work properly",
+          duration: 2000,
+        });
+        
+        // Give the toast time to display before refreshing
+        setTimeout(() => {
+          window.location.reload();
+        }, 1000);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [wasHidden, toast, autoRefreshOnTabSwitch]);
 
   useEffect(() => {
     if (providers.length === 0) {
@@ -338,7 +384,17 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
   }
 
   // Extract the status summary content for reuse
-  const StatusSummaryContent = ({ autoRefresh, setAutoRefresh }: any) => (
+  const StatusSummaryContent = ({ 
+    autoRefresh, 
+    setAutoRefresh,
+    autoRefreshOnTabSwitch,
+    setAutoRefreshOnTabSwitch 
+  }: {
+    autoRefresh: boolean;
+    setAutoRefresh: (value: boolean) => void;
+    autoRefreshOnTabSwitch: boolean;
+    setAutoRefreshOnTabSwitch: (value: boolean) => void;
+  }) => (
     <Card className="shadow-sm rounded-lg border-border bg-card">
       <CardHeader className="pb-3 sm:pb-4">
         <CardTitle className="text-base sm:text-lg font-semibold text-card-foreground">Integration Status</CardTitle>
@@ -389,6 +445,16 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
               Auto-refresh tokens
             </Label>
             <Switch id="auto-refresh" checked={autoRefresh} onCheckedChange={setAutoRefresh} />
+          </div>
+          
+          <div className="flex items-center justify-between pt-2">
+            <Label htmlFor="auto-refresh-tab" className="text-xs sm:text-sm font-medium text-card-foreground">
+              <div>
+                <span>Auto-refresh on tab switch</span>
+                <p className="text-xs text-muted-foreground mt-1">Refreshes page when returning to this tab to fix popup issues</p>
+              </div>
+            </Label>
+            <Switch id="auto-refresh-tab" checked={autoRefreshOnTabSwitch} onCheckedChange={setAutoRefreshOnTabSwitch} />
           </div>
         </div>
       </CardContent>
@@ -467,6 +533,8 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
                 <StatusSummaryContent
                   autoRefresh={autoRefresh}
                   setAutoRefresh={setAutoRefresh}
+                  autoRefreshOnTabSwitch={autoRefreshOnTabSwitch}
+                  setAutoRefreshOnTabSwitch={setAutoRefreshOnTabSwitch}
                 />
               </div>
             </div>
@@ -477,6 +545,8 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
               <StatusSummaryContent
                 autoRefresh={autoRefresh}
                 setAutoRefresh={setAutoRefresh}
+                autoRefreshOnTabSwitch={autoRefreshOnTabSwitch}
+                setAutoRefreshOnTabSwitch={setAutoRefreshOnTabSwitch}
               />
             </div>
           </aside>

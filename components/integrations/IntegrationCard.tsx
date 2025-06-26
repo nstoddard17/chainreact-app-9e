@@ -44,7 +44,7 @@ export function IntegrationCard({
   onDisconnect,
   onReconnect,
 }: IntegrationCardProps) {
-  const { connectIntegration, disconnectIntegration, reconnectIntegration, loadingStates, resetConnectionState } = useIntegrationStore()
+  const { connectIntegration, disconnectIntegration, reconnectIntegration, loadingStates } = useIntegrationStore()
   const [imageError, setImageError] = useState(false)
   const [showInfo, setShowInfo] = useState(false)
   const [showDisconnectDialog, setShowDisconnectDialog] = useState(false)
@@ -265,26 +265,6 @@ export function IntegrationCard({
             </TooltipProvider>
           )}
         </div>
-
-        {/* Add reset button for connection issues */}
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-xs text-muted-foreground w-full mt-1"
-                onClick={() => resetConnectionState()}
-              >
-                <AlertTriangle className="h-3 w-3 mr-1" />
-                Fix connection issues
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              Reset connection state if popup doesn't appear
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
       </CardFooter>
 
       <Dialog open={showDisconnectDialog} onOpenChange={setShowDisconnectDialog}>
