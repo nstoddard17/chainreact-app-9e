@@ -421,6 +421,10 @@ async function generateInstagramAuthUrl(stateObject: any, supabase: any): Promis
   const clientId = process.env.NEXT_PUBLIC_INSTAGRAM_CLIENT_ID
   if (!clientId) throw new Error("Instagram client ID not configured")
   const baseUrl = getBaseUrl()
+  
+  // Generate the exact redirect URI and log it for debugging
+  const redirectUri = `${baseUrl}/api/integrations/instagram/callback`
+  console.log('Instagram redirect URI:', redirectUri)
 
   // Generate PKCE challenge
   const codeVerifier = crypto.randomBytes(32).toString("hex")
@@ -444,7 +448,7 @@ async function generateInstagramAuthUrl(stateObject: any, supabase: any): Promis
   // Instagram business scopes for Instagram API with Instagram Login
   const params = new URLSearchParams({
     client_id: clientId,
-    redirect_uri: `${baseUrl}/api/integrations/instagram/callback`,
+    redirect_uri: redirectUri,
     response_type: "code",
     scope: "instagram_business_basic,instagram_business_content_publish,instagram_business_manage_comments,instagram_business_manage_messages",
     state,
