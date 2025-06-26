@@ -700,7 +700,14 @@ function generateStripeAuthUrl(state: string): string {
 async function generatePayPalAuthUrl(stateObject: any): Promise<string> {
   const clientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID
   if (!clientId) throw new Error("PayPal client ID not configured")
-  const baseUrl = getBaseUrl()
+  
+  // Instead of using dynamic baseUrl, use the exact registered redirect URI
+  // This ensures it matches exactly what's in the PayPal developer dashboard
+  const registeredRedirectUri = process.env.PAYPAL_REDIRECT_URI || "https://chainreact.app/api/integrations/paypal/callback"
+  
+  // For debugging
+  console.log("PayPal OAuth URL generation - using redirect URI:", registeredRedirectUri)
+  console.log("PayPal client ID exists:", !!clientId)
 
   // Generate PKCE challenge
   const codeVerifier = crypto.randomBytes(32).toString("hex")
@@ -738,7 +745,7 @@ async function generatePayPalAuthUrl(stateObject: any): Promise<string> {
 
   const params = new URLSearchParams({
     client_id: clientId,
-    redirect_uri: `${baseUrl}/api/integrations/paypal/callback`,
+    redirect_uri: registeredRedirectUri,
     response_type: "code",
     scope: paypalScopes,
     state,
