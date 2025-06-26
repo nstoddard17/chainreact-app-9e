@@ -34,10 +34,10 @@ function Calendar({
         nav_button_previous: "",
         nav_button_next: "",
         table: "w-full border-collapse",
-        head_row: "grid grid-cols-7 w-full",
+        head_row: "w-full",
         head_cell:
           "text-muted-foreground font-normal text-[0.8rem] text-center flex items-center justify-center py-2",
-        row: "grid grid-cols-7 w-full",
+        row: "w-full",
         cell: "h-9 text-center text-sm p-0 relative focus-within:relative focus-within:z-20 flex items-center justify-center",
         day: "h-9 w-9 p-0 font-normal text-center text-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 inline-flex items-center justify-center text-foreground",
         day_range_end: "day-range-end",
