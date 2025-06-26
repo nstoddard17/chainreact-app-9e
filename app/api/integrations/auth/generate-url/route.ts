@@ -160,7 +160,7 @@ export async function POST(request: NextRequest) {
         break
 
       case "gumroad":
-        authUrl = generateGumroadAuthUrl(finalState)
+        authUrl = await generateGumroadAuthUrl(stateObject)
         break
 
       default:
@@ -446,8 +446,8 @@ async function generateInstagramAuthUrl(stateObject: any, supabase: any): Promis
     client_id: clientId,
     redirect_uri: `${baseUrl}/api/integrations/instagram/callback`,
     response_type: "code",
-    // Use standard Facebook permissions - we'll get Instagram access through Pages API
-    scope: "pages_show_list,pages_read_engagement,pages_manage_metadata,business_management,instagram_basic",
+    // Updated to use new Instagram business scopes
+    scope: "instagram_business_basic,instagram_business_content_publish,instagram_business_manage_comments,instagram_business_manage_messages",
     state,
   })
 
@@ -930,10 +930,30 @@ function generateMicrosoftOneNoteAuthUrl(state: string): string {
   return `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`
 }
 
-function generateGumroadAuthUrl(state: string): string {
+async function generateGumroadAuthUrl(stateObject: any): Promise<string> {
   const clientId = process.env.NEXT_PUBLIC_GUMROAD_CLIENT_ID
   if (!clientId) throw new Error("Gumroad client ID not configured")
   const baseUrl = getBaseUrl()
+
+  // Generate PKCE challenge
+  const codeVerifier = crypto.randomBytes(32).toString("hex")
+  
+  // Convert state object to string
+  const state = btoa(JSON.stringify(stateObject))
+  
+  // Store state in database for verification in callback
+  const supabase = createAdminClient()
+  const { error } = await supabase
+    .from("pkce_flow")
+    .insert({ 
+      state,
+      code_verifier: codeVerifier,
+      provider: "gumroad" 
+    })
+
+  if (error) {
+    throw new Error(`Failed to store Gumroad OAuth state: ${error.message}`)
+  }
 
   const params = new URLSearchParams({
     client_id: clientId,
