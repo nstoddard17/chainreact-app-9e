@@ -65,7 +65,11 @@ export async function GET(request: NextRequest) {
       throw new Error('PayPal client ID or secret not configured')
     }
 
-    const tokenResponse = await fetch('https://api.paypal.com/v1/oauth2/token', {
+    // Determine if we're using sandbox credentials
+    const isSandbox = clientId.includes('sandbox') || process.env.PAYPAL_SANDBOX === 'true'
+    const paypalDomain = isSandbox ? 'api.sandbox.paypal.com' : 'api.paypal.com'
+
+    const tokenResponse = await fetch(`https://${paypalDomain}/v1/oauth2/token`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
@@ -91,7 +95,7 @@ export async function GET(request: NextRequest) {
     // Fetch user information
     let userInfo = null
     try {
-      const userInfoResponse = await fetch('https://api.paypal.com/v1/identity/openidconnect/userinfo', {
+      const userInfoResponse = await fetch(`https://${paypalDomain}/v1/identity/openidconnect/userinfo`, {
         headers: {
           'Authorization': `Bearer ${tokenData.access_token}`,
           'Content-Type': 'application/json'
@@ -111,7 +115,7 @@ export async function GET(request: NextRequest) {
     // Fetch PayPal account verification status and additional attributes
     let paypalAttributes = null
     try {
-      const attributesResponse = await fetch('https://api.paypal.com/v1/oauth2/token/userinfo', {
+      const attributesResponse = await fetch(`https://${paypalDomain}/v1/oauth2/token/userinfo`, {
         headers: {
           'Authorization': `Bearer ${tokenData.access_token}`,
           'Content-Type': 'application/json'
