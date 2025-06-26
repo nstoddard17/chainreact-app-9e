@@ -306,7 +306,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
       { 
         name: "allDay", 
         label: "All Day", 
-        type: "boolean", 
+        type: "boolean",
         defaultValue: false
       },
       {
