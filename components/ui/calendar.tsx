@@ -20,10 +20,10 @@ function Calendar({
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
-      className={cn("p-3 bg-background text-foreground", className)}
+      className={cn("p-3 bg-background text-foreground w-auto", className)}
       classNames={{
         months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
-        month: "space-y-4",
+        month: "space-y-4 w-full",
         caption: "flex justify-between items-center pt-1 mb-2 relative",
         caption_label: "text-sm font-semibold text-foreground",
         nav: "flex items-center space-x-1 !absolute !right-0 !top-1",
@@ -38,8 +38,8 @@ function Calendar({
         head_cell:
           "text-muted-foreground font-normal text-[0.8rem] text-center flex items-center justify-center py-2",
         row: "grid grid-cols-7 w-full",
-        cell: "h-9 text-center text-sm p-0 relative focus-within:relative focus-within:z-20 flex items-center justify-center",
-        day: "h-9 w-9 p-0 font-normal text-center text-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 inline-flex items-center justify-center text-foreground",
+        cell: "h-8 text-center text-sm p-0 relative focus-within:relative focus-within:z-20 flex items-center justify-center",
+        day: "h-8 w-8 p-0 font-normal text-center text-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 inline-flex items-center justify-center text-foreground",
         day_range_end: "day-range-end",
         day_selected:
           "bg-teal-600 text-white hover:bg-teal-700 hover:text-white focus:bg-teal-600 focus:text-white !rounded-full shadow-sm",
@@ -52,7 +52,10 @@ function Calendar({
         day_hidden: "invisible",
         ...classNames,
       }}
-
+      components={{
+        IconLeft: ({ ...props }) => <ChevronLeft className="h-4 w-4" {...props} />,
+        IconRight: ({ ...props }) => <ChevronRight className="h-4 w-4" {...props} />,
+      }}
       {...props}
     />
   )
