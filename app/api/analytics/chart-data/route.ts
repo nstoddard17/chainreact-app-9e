@@ -18,7 +18,6 @@ export async function GET() {
         .from('workflow_executions')
         .select('completed_at, status')
         .eq('user_id', user.id)
-        .eq('status', 'success')
         .gte('completed_at', sevenDaysAgo.toISOString());
 
     if (error) {
@@ -33,10 +32,12 @@ export async function GET() {
         const dayExecutions = executions.filter(ex => 
             ex.completed_at && format(new Date(ex.completed_at), 'yyyy-MM-dd') === format(day, 'yyyy-MM-dd')
         );
+        const successfulExecutions = dayExecutions.filter(ex => ex.status === 'success');
+        
         return {
             name: dayString,
-            completions: dayExecutions.length,
-            executions: 0, // You can add total executions if needed
+            completions: successfulExecutions.length,
+            executions: dayExecutions.length,
         };
     });
 
