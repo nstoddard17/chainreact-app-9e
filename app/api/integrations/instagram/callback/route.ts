@@ -1,12 +1,14 @@
-import { type NextRequest, NextResponse } from 'next/server'
+import { type NextRequest } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createPopupResponse } from '@/lib/utils/createPopupResponse'
 import { getBaseUrl } from '@/lib/utils/getBaseUrl'
 import { encrypt } from '@/lib/security/encryption'
 
-interface InstagramProfile {
-  id?: string;
+interface InstagramBusinessAccount {
+  id: string;
+  name?: string;
   username?: string;
+  profile_picture_url?: string;
 }
 
 export async function GET(request: NextRequest) {
@@ -64,61 +66,80 @@ export async function GET(request: NextRequest) {
       .delete()
       .eq('state', state)
 
-    // Get Instagram OAuth credentials
-    const clientId = process.env.NEXT_PUBLIC_INSTAGRAM_CLIENT_ID
-    const clientSecret = process.env.INSTAGRAM_CLIENT_SECRET
+    // Get Facebook OAuth credentials (used for Instagram Graph API)
+    const clientId = process.env.NEXT_PUBLIC_FACEBOOK_CLIENT_ID
+    const clientSecret = process.env.FACEBOOK_CLIENT_SECRET
     const redirectUri = `${baseUrl}/api/integrations/instagram/callback`
 
     if (!clientId || !clientSecret) {
-      console.error('Instagram OAuth credentials not configured')
+      console.error('Facebook OAuth credentials not configured for Instagram Graph API')
       return createPopupResponse('error', provider, 'Integration configuration error', baseUrl)
     }
 
-    // Exchange code for access token
-    // Instagram uses Facebook's OAuth API for token exchange
-    const tokenResponse = await fetch('https://api.instagram.com/oauth/access_token', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: new URLSearchParams({
-        client_id: clientId,
-        client_secret: clientSecret,
-        grant_type: 'authorization_code',
-        redirect_uri: redirectUri,
-        code,
-      }),
-    })
+    // Exchange code for Facebook access token (which will be used for Instagram)
+    const tokenResponse = await fetch(
+      `https://graph.facebook.com/v19.0/oauth/access_token?client_id=${clientId}&client_secret=${clientSecret}&redirect_uri=${encodeURIComponent(redirectUri)}&code=${code}`
+    )
 
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text()
-      console.error('Instagram token exchange failed:', tokenResponse.status, errorText)
+      console.error('Facebook token exchange failed for Instagram:', tokenResponse.status, errorText)
       return createPopupResponse('error', provider, 'Failed to retrieve access token', baseUrl)
     }
 
     const tokenData = await tokenResponse.json()
     
-    // Instagram tokens are typically long-lived (60 days)
-    // Default to 60 days if not specified
+    // Default to long-lived token expiration (60 days) if not specified
     const expiresIn = tokenData.expires_in || 60 * 24 * 60 * 60
     const expiresAt = new Date(Date.now() + expiresIn * 1000)
 
-    // Get user info to store additional details
-    let profileData: InstagramProfile = {}
+    // Step 1: Get user's Facebook Pages
+    const pagesResponse = await fetch(
+      `https://graph.facebook.com/v19.0/me/accounts?access_token=${tokenData.access_token}`
+    )
     
-    try {
-      const profileResponse = await fetch(`https://graph.instagram.com/me?fields=id,username&access_token=${tokenData.access_token}`)
-      if (profileResponse.ok) {
-        profileData = await profileResponse.json() as InstagramProfile
-      } else {
-        console.warn('Could not fetch Instagram profile:', await profileResponse.text())
-      }
-    } catch (profileError) {
-      console.warn('Error fetching Instagram profile:', profileError)
+    if (!pagesResponse.ok) {
+      console.error('Failed to fetch Facebook Pages:', await pagesResponse.text())
+      return createPopupResponse('error', provider, 'Failed to fetch connected Facebook Pages', baseUrl)
     }
+    
+    const pagesData = await pagesResponse.json()
+    
+    if (!pagesData.data || pagesData.data.length === 0) {
+      console.error('No Facebook Pages found:', pagesData)
+      return createPopupResponse('error', provider, 'No Facebook Pages connected to your account. Instagram Business accounts must be linked to a Facebook Page.', baseUrl)
+    }
+    
+    // Step 2: For each Page, check for an Instagram Business account
+    let instagramAccount = null
+    let pageWithInstagram = null
+    
+    for (const page of pagesData.data) {
+      try {
+        const instagramResponse = await fetch(
+          `https://graph.facebook.com/v19.0/${page.id}?fields=instagram_business_account{id,name,username,profile_picture_url}&access_token=${tokenData.access_token}`
+        )
+        
+        if (instagramResponse.ok) {
+          const pageData = await instagramResponse.json()
+          if (pageData.instagram_business_account) {
+            instagramAccount = pageData.instagram_business_account
+            pageWithInstagram = page
+            break
+          }
+        }
+      } catch (error) {
+        console.warn(`Error checking Instagram for page ${page.id}:`, error)
+      }
+    }
+    
+    if (!instagramAccount) {
+      return createPopupResponse('error', provider, 'No Instagram Business account found. Please connect your Instagram account to a Facebook Page.', baseUrl)
+    }
+    
+    console.log('Found Instagram Business account:', instagramAccount.id)
 
     const encryptionKey = process.env.ENCRYPTION_KEY
-
     if (!encryptionKey) {
       return createPopupResponse('error', provider, 'Encryption key not configured', baseUrl)
     }
@@ -129,14 +150,16 @@ export async function GET(request: NextRequest) {
       user_id: userId,
       provider,
       access_token: encrypt(tokenData.access_token, encryptionKey),
-      refresh_token: null, // Instagram basic display API doesn't provide refresh tokens
+      refresh_token: tokenData.refresh_token ? encrypt(tokenData.refresh_token, encryptionKey) : null,
       expires_at: expiresAt.toISOString(),
       status: 'connected',
       is_active: true,
       updated_at: new Date().toISOString(),
       metadata: {
-        user_id: tokenData.user_id || profileData.id,
-        username: profileData.username
+        instagram_business_account_id: instagramAccount.id,
+        instagram_username: instagramAccount.username,
+        facebook_page_id: pageWithInstagram.id,
+        facebook_page_name: pageWithInstagram.name
       }
     }, {
       onConflict: 'user_id, provider',
@@ -147,7 +170,7 @@ export async function GET(request: NextRequest) {
       return createPopupResponse('error', provider, 'Failed to store integration data', baseUrl)
     }
 
-    return createPopupResponse('success', provider, 'Instagram connected successfully!', baseUrl)
+    return createPopupResponse('success', provider, 'Instagram Business account connected successfully!', baseUrl)
   } catch (error) {
     console.error('Instagram callback error:', error)
     return createPopupResponse('error', provider, 'An unexpected error occurred', baseUrl)
