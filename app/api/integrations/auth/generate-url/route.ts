@@ -417,9 +417,9 @@ function generateFacebookAuthUrl(state: string): string {
 }
 
 async function generateInstagramAuthUrl(stateObject: any, supabase: any): Promise<string> {
-  // Use Facebook client ID since Instagram Graph API works through Facebook
-  const clientId = process.env.NEXT_PUBLIC_FACEBOOK_CLIENT_ID
-  if (!clientId) throw new Error("Facebook client ID not configured for Instagram Graph API")
+  // Use Instagram-specific client ID for Instagram API with Instagram Login
+  const clientId = process.env.NEXT_PUBLIC_INSTAGRAM_CLIENT_ID
+  if (!clientId) throw new Error("Instagram client ID not configured")
   const baseUrl = getBaseUrl()
 
   // Generate PKCE challenge
@@ -441,19 +441,18 @@ async function generateInstagramAuthUrl(stateObject: any, supabase: any): Promis
     throw new Error(`Failed to store Instagram OAuth state: ${error.message}`)
   }
 
-  // Facebook permissions that give access to Instagram business accounts
+  // Instagram business scopes for Instagram API with Instagram Login
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: `${baseUrl}/api/integrations/instagram/callback`,
     response_type: "code",
-    // Updated to use new Instagram business scopes
     scope: "instagram_business_basic,instagram_business_content_publish,instagram_business_manage_comments,instagram_business_manage_messages",
     state,
   })
 
-  // Use Facebook OAuth endpoint for Instagram Graph API
-  console.log("Using Facebook OAuth for Instagram Graph API access")
-  return `https://www.facebook.com/v19.0/dialog/oauth?${params.toString()}`
+  // Use Instagram's OAuth endpoint instead of Facebook's
+  console.log("Using Instagram API with Instagram Login")
+  return `https://www.instagram.com/oauth/authorize?${params.toString()}`
 }
 
 async function generateTikTokAuthUrl(stateObject: any, supabase: any): Promise<string> {
