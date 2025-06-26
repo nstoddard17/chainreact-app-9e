@@ -231,106 +231,115 @@ const useWorkflowBuilderState = () => {
   }, [getNodes, setNodes, setEdges, fitView])
 
   const handleDeleteNode = useCallback((nodeId: string) => {
-    const nodeToRemove = getNodes().find((n) => n.id === nodeId)
+    const allNodes = getNodes()
+    const allEdges = getEdges()
+    const nodeToRemove = allNodes.find((n) => n.id === nodeId)
     if (!nodeToRemove) return
     
     // If we're deleting the trigger or this is the last custom node, reset the workflow
-    const customNodes = getNodes().filter((n: Node) => n.type === "custom")
+    const customNodes = allNodes.filter((n: Node) => n.type === "custom")
     if (nodeToRemove.data.isTrigger || customNodes.length <= 1) {
       setNodes([])
       setEdges([])
       return
     }
     
+    // Find the node before the deleted node (by following edges)
+    const incomingEdge = allEdges.find(e => e.target === nodeId)
+    const previousNodeId = incomingEdge?.source
+    
+    // Find nodes that come after the deleted node
+    const outgoingEdges = allEdges.filter(e => e.source === nodeId)
+    
     // Remove the node and all related edges
-    setNodes((prevNodes: Node[]) => prevNodes.filter((n: Node) => n.id !== nodeId))
-    setEdges((prevEdges: Edge[]) => prevEdges.filter((e: Edge) => e.source !== nodeId && e.target !== nodeId))
+    const nodesAfterRemoval = allNodes.filter((n: Node) => n.id !== nodeId)
+    const edgesAfterRemoval = allEdges.filter((e: Edge) => e.source !== nodeId && e.target !== nodeId)
     
     // Remove any add action nodes that were connected to this node
-    setNodes((prevNodes: Node[]) => prevNodes.filter((n: Node) => 
+    const cleanedNodes = nodesAfterRemoval.filter((n: Node) => 
       !(n.type === "addAction" && n.data.parentId === nodeId)
-    ))
+    )
     
-         // After deletion, rebuild the workflow structure properly
-     setTimeout(() => {
-       const remainingCustomNodes = getNodes().filter((n: Node) => n.type === "custom")
-       
-       if (remainingCustomNodes.length === 0) {
-         // No custom nodes left, reset everything
-         setNodes([])
-         setEdges([])
-         return
-       }
-       
-       // Remove all existing add action nodes and their edges
-       setNodes((prevNodes: Node[]) => prevNodes.filter((n: Node) => n.type !== "addAction"))
-       setEdges((prevEdges: Edge[]) => prevEdges.filter((e: Edge) => {
-         const targetNode = getNodes().find((n: Node) => n.id === e.target)
-         const sourceNode = getNodes().find((n: Node) => n.id === e.source)
-         return targetNode?.type !== "addAction" && sourceNode?.type !== "addAction"
-       }))
-       
-       // Sort remaining custom nodes by Y position to maintain proper order
-       const sortedNodes = remainingCustomNodes.sort((a, b) => a.position.y - b.position.y)
-       
-       // Rebuild edges between remaining custom nodes to maintain workflow flow
-       const newEdges: Edge[] = []
-       for (let i = 0; i < sortedNodes.length - 1; i++) {
-         const source = sortedNodes[i]
-         const target = sortedNodes[i + 1]
-         newEdges.push({
-           id: `${source.id}-${target.id}`,
-           source: source.id,
-           target: target.id,
-           animated: false,
-           style: { stroke: "#d1d5db", strokeWidth: 1 },
-           type: "straight"
-         })
-       }
-       
-       // Find the last custom node (by Y position)
-       const lastNode = sortedNodes[sortedNodes.length - 1]
-       
-       if (lastNode) {
-         // Add new add action node after the last custom node
-         const addActionId = `add-action-${Date.now()}`
-         const addActionNode: Node = {
-           id: addActionId,
-           type: "addAction",
-           position: { x: lastNode.position.x, y: lastNode.position.y + 160 },
-           data: { 
-             parentId: lastNode.id, 
-             onClick: () => handleAddActionClick(addActionId, lastNode.id) 
-           }
-         }
-         
-         setNodes((prevNodes: Node[]) => [...prevNodes, addActionNode])
-         
-         // Add edge from last node to add action button
-         newEdges.push({
-           id: `${lastNode.id}-${addActionId}`,
-           source: lastNode.id,
-           target: addActionId,
-           animated: false,
-           style: { stroke: "#d1d5db", strokeWidth: 1, strokeDasharray: "5,5" },
-           type: "straight"
-         })
-       }
-       
-       // Update edges with the new structure
-       setEdges((prevEdges: Edge[]) => {
-         // Keep existing edges between custom nodes that weren't affected
-         const existingCustomEdges = prevEdges.filter((e: Edge) => {
-           const sourceExists = sortedNodes.some(n => n.id === e.source)
-           const targetExists = sortedNodes.some(n => n.id === e.target)
-           return sourceExists && targetExists
-         })
-         return [...existingCustomEdges, ...newEdges]
-       })
-       
-       // Fit view to show the updated workflow
-       setTimeout(() => fitView({ padding: 0.5 }), 100)
-     }, 50)
+    // If there was a previous node, reconnect it to the nodes that were after the deleted node
+    let updatedEdges = edgesAfterRemoval
+    if (previousNodeId && outgoingEdges.length > 0) {
+      // Connect the previous node to the next nodes
+      outgoingEdges.forEach(outgoingEdge => {
+        updatedEdges.push({
+          id: `${previousNodeId}-${outgoingEdge.target}`,
+          source: previousNodeId,
+          target: outgoingEdge.target,
+          animated: false,
+          style: { stroke: "#d1d5db", strokeWidth: 1 },
+          type: "straight"
+        })
+      })
+    }
+    
+    // Update the nodes and edges state
+    setNodes(cleanedNodes)
+    setEdges(updatedEdges)
+    
+    // Now rebuild the add action button logic
+    setTimeout(() => {
+      const currentNodes = getNodes()
+      const currentEdges = getEdges()
+      const remainingCustomNodes = currentNodes.filter((n: Node) => n.type === "custom")
+      
+      if (remainingCustomNodes.length === 0) {
+        return
+      }
+      
+      // Remove all existing add action nodes and their edges
+      const nodesWithoutAddActions = currentNodes.filter((n: Node) => n.type !== "addAction")
+      const edgesWithoutAddActions = currentEdges.filter((e: Edge) => {
+        const targetNode = currentNodes.find((n: Node) => n.id === e.target)
+        const sourceNode = currentNodes.find((n: Node) => n.id === e.source)
+        return targetNode?.type !== "addAction" && sourceNode?.type !== "addAction"
+      })
+      
+      // Sort remaining custom nodes by Y position to maintain proper order
+      const sortedNodes = remainingCustomNodes.sort((a, b) => a.position.y - b.position.y)
+      
+      // Find the actual last node in the workflow chain
+      const lastNode = sortedNodes.find(node => {
+        // A node is the last node if no other custom node has it as a source
+        return !edgesWithoutAddActions.some(edge => 
+          edge.source === node.id && 
+          sortedNodes.some(n => n.id === edge.target)
+        )
+      }) || sortedNodes[sortedNodes.length - 1] // fallback to position-based last node
+      
+      if (lastNode) {
+        // Add new add action node after the actual last custom node
+        const addActionId = `add-action-${Date.now()}`
+        const addActionNode: Node = {
+          id: addActionId,
+          type: "addAction",
+          position: { x: lastNode.position.x, y: lastNode.position.y + 160 },
+          data: { 
+            parentId: lastNode.id, 
+            onClick: () => handleAddActionClick(addActionId, lastNode.id) 
+          }
+        }
+        
+        // Add edge from last node to add action button
+        const addActionEdge: Edge = {
+          id: `${lastNode.id}-${addActionId}`,
+          source: lastNode.id,
+          target: addActionId,
+          animated: false,
+          style: { stroke: "#d1d5db", strokeWidth: 1, strokeDasharray: "5,5" },
+          type: "straight"
+        }
+        
+        setNodes([...nodesWithoutAddActions, addActionNode])
+        setEdges([...edgesWithoutAddActions, addActionEdge])
+      }
+      
+      // Fit view to show the updated workflow
+      setTimeout(() => fitView({ padding: 0.5 }), 100)
+    }, 50)
   }, [getNodes, getEdges, setNodes, setEdges, fitView, handleAddActionClick])
 
   const handleDeleteNodeWithConfirmation = useCallback((nodeId: string) => {
@@ -550,7 +559,7 @@ const useWorkflowBuilderState = () => {
       const addActionNode: Node = {
         id: "add-action-1",
         type: "addAction",
-        position: { x: 400, y: 220 },
+        position: { x: 400, y: 240 },
         data: {
           parentId: "trigger",
           onClick: () => handleAddActionClick("add-action-1", "trigger")
@@ -1064,6 +1073,17 @@ function WorkflowBuilderContent() {
                     key={integration.id}
                     className={`flex items-center p-3 rounded-md cursor-pointer ${selectedIntegration?.id === integration.id ? 'bg-primary/10 ring-1 ring-primary/20' : 'hover:bg-muted/50'}`}
                     onClick={() => setSelectedIntegration(integration)}
+                    onDoubleClick={() => {
+                      setSelectedIntegration(integration)
+                      // If only one trigger, select it immediately
+                      if (integration.triggers.length === 1) {
+                        setTimeout(() => {
+                          const trigger = integration.triggers[0]
+                          setSelectedTrigger(trigger)
+                          handleTriggerSelect(integration, trigger)
+                        }, 0)
+                      }
+                    }}
                   >
                     {renderLogo(integration.id, integration.name)}
                     <span className="font-semibold ml-4 flex-grow">{integration.name}</span>
@@ -1084,6 +1104,12 @@ function WorkflowBuilderContent() {
                           key={trigger.type}
                           className={`p-4 border rounded-lg cursor-pointer transition-all ${selectedTrigger?.type === trigger.type ? 'border-primary bg-primary/10 ring-1 ring-primary/20' : 'border-border hover:border-muted-foreground hover:shadow-sm'}`}
                           onClick={() => setSelectedTrigger(trigger)}
+                          onDoubleClick={() => {
+                            setSelectedTrigger(trigger)
+                            if (selectedIntegration) {
+                              handleTriggerSelect(selectedIntegration, trigger)
+                            }
+                          }}
                         >
                           <p className="font-medium">{trigger.name}</p>
                           <p className="text-sm text-muted-foreground mt-1">{trigger.description}</p>
@@ -1113,7 +1139,6 @@ function WorkflowBuilderContent() {
             </div>
             <div className="flex space-x-2">
               <Button 
-                className="bg-blue-600 hover:bg-blue-700 text-white"
                 disabled={!selectedTrigger || !selectedIntegration}
                 onClick={() => {
                   if (selectedIntegration && selectedTrigger) {
@@ -1233,6 +1258,17 @@ function WorkflowBuilderContent() {
                       key={integration.id}
                       className={`flex items-center p-3 rounded-md cursor-pointer ${selectedIntegration?.id === integration.id ? 'bg-primary/10 ring-1 ring-primary/20' : 'hover:bg-muted/50'}`}
                       onClick={() => setSelectedIntegration(integration)}
+                      onDoubleClick={() => {
+                        setSelectedIntegration(integration)
+                        // If only one action, select it immediately
+                        if (integration.actions.length === 1) {
+                          setTimeout(() => {
+                            const action = integration.actions[0]
+                            setSelectedAction(action)
+                            handleActionSelect(integration, action)
+                          }, 0)
+                        }
+                      }}
                     >
                       {renderLogo(integration.id, integration.name)}
                       <span className="font-semibold ml-4 flex-grow">{integration.name}</span>
@@ -1261,6 +1297,12 @@ function WorkflowBuilderContent() {
                             key={action.type}
                             className={`p-4 border rounded-lg cursor-pointer transition-all ${selectedAction?.type === action.type ? 'border-primary bg-primary/10 ring-1 ring-primary/20' : 'border-border hover:border-muted-foreground hover:shadow-sm'}`}
                             onClick={() => setSelectedAction(action)}
+                            onDoubleClick={() => {
+                              setSelectedAction(action)
+                              if (selectedIntegration) {
+                                handleActionSelect(selectedIntegration, action)
+                              }
+                            }}
                           >
                             <p className="font-medium">{action.name}</p>
                             <p className="text-sm text-muted-foreground mt-1">{action.description}</p>
@@ -1290,7 +1332,6 @@ function WorkflowBuilderContent() {
             </div>
             <div className="flex space-x-2">
               <Button 
-                className="bg-blue-600 hover:bg-blue-700 text-white"
                 disabled={!selectedAction || !selectedIntegration}
                 onClick={() => {
                   if (selectedIntegration && selectedAction) {

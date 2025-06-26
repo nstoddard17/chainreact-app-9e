@@ -5,7 +5,7 @@ import { type NextRequest, NextResponse } from "next/server"
 export async function GET(request: NextRequest) {
   try {
     cookies()
-    const supabase = createSupabaseServerClient()
+    const supabase = await createSupabaseServerClient()
     const { searchParams } = new URL(request.url)
 
     const category = searchParams.get("category")
@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     cookies()
-    const supabase = createSupabaseServerClient()
+    const supabase = await createSupabaseServerClient()
     const {
       data: { session },
       error: sessionError,

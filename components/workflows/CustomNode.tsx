@@ -35,6 +35,20 @@ function CustomNode({ id, data, selected }: NodeProps) {
 
   const component = ALL_NODE_COMPONENTS.find((c) => c.type === type)
   const hasMultipleOutputs = ["if_condition", "switch_case", "try_catch"].includes(type)
+  
+  // Check if this node has configuration options
+  const nodeHasConfiguration = (): boolean => {
+    if (!component) return false
+    
+    // Check if the node has configuration fields that require user input
+    const hasConfigFields = !!(component.config && Object.keys(component.config).length > 0)
+    const hasRequiredFields = !!(component.requiredFields && component.requiredFields.length > 0)
+    const hasConfigSchema = !!(component.configSchema && component.configSchema.length > 0)
+    const hasSettings = !!(component.settings && Object.keys(component.settings).length > 0)
+    
+    // Node needs configuration if it has any configuration properties
+    return hasConfigFields || hasRequiredFields || hasConfigSchema || hasSettings
+  }
 
   const handleConfigure = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -50,14 +64,23 @@ function CustomNode({ id, data, selected }: NodeProps) {
     }
   }
 
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    // Only open configuration if the node has configuration options
+    if (nodeHasConfiguration() && onConfigure) {
+      onConfigure(id)
+    }
+  }
+
   return (
     <div
       className={`w-[400px] bg-card rounded-lg shadow-sm border ${
         selected ? "border-primary" : "border-border"
       } hover:shadow-md transition-shadow ${
         error ? "border-destructive" : ""
-      }`}
+      } ${nodeHasConfiguration() ? "cursor-pointer" : ""}`}
       data-testid={`node-${id}`}
+      onDoubleClick={handleDoubleClick}
     >
       {error && (
         <div className="bg-destructive/10 border-b border-destructive/20 px-4 py-2">
@@ -84,21 +107,23 @@ function CustomNode({ id, data, selected }: NodeProps) {
             </div>
           </div>
           <div className="flex items-center space-x-2">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={handleConfigure}
-                    className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                  >
-                    <Settings />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="top">Configure {title}</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            {nodeHasConfiguration() && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleConfigure}
+                      className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                    >
+                      <Settings />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">Configure {title} (or double-click)</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>

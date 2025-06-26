@@ -150,7 +150,7 @@ export default function WorkflowsContent() {
     return (
       <AppLayout title="Workflows">
         <div className="flex items-center justify-center h-64">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+                          <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
         <AIChatAssistant />
       </AppLayout>
@@ -185,11 +185,11 @@ export default function WorkflowsContent() {
 
           <TabsContent value="workflows" className="space-y-8">
             {/* AI Generation Section */}
-            <Card className="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 border-blue-200/50 shadow-sm">
+                          <Card className="bg-gradient-to-br from-muted/30 via-muted/20 to-muted/10 border-border shadow-sm">
               <CardHeader className="pb-4">
                 <CardTitle className="flex items-center gap-3 text-xl">
-                  <div className="p-2 bg-blue-100 rounded-lg">
-                    <Sparkles className="h-5 w-5 text-blue-600" />
+                                      <div className="p-2 bg-primary/10 rounded-lg">
+                      <Sparkles className="h-5 w-5 text-primary" />
                   </div>
                   Generate Workflow with AI
                 </CardTitle>
@@ -205,7 +205,7 @@ export default function WorkflowsContent() {
                       value={aiPrompt}
                       onChange={(e) => setAiPrompt(e.target.value)}
                       rows={3}
-                      className="resize-none border-blue-200 focus:border-blue-400 focus:ring-blue-400 transition-all duration-200"
+                      className="resize-none border-border focus:border-primary focus:ring-primary transition-all duration-200"
                     />
                   </div>
                   <Button
@@ -267,7 +267,7 @@ export default function WorkflowsContent() {
                     >
                       <CardHeader className="pb-3">
                         <div className="flex items-start justify-between">
-                          <CardTitle className="text-lg font-semibold text-slate-900 group-hover:text-blue-600 transition-colors duration-200 line-clamp-1">
+                          <CardTitle className="text-lg font-semibold text-foreground group-hover:text-primary transition-colors duration-200 line-clamp-1">
                             {workflow.name}
                           </CardTitle>
                           <div
@@ -289,7 +289,7 @@ export default function WorkflowsContent() {
                       <CardContent className="space-y-4">
                         <div className="flex items-center text-sm text-slate-500 bg-slate-50 p-2 rounded-lg">
                           <div className="flex items-center gap-2">
-                            <div className={`w-2 h-2 rounded-full ${functionalNodes.length > 0 ? 'bg-blue-500' : 'bg-slate-400'}`}></div>
+                            <div className={`w-2 h-2 rounded-full ${functionalNodes.length > 0 ? 'bg-primary' : 'bg-muted-foreground'}`}></div>
                             <span>{functionalNodes.length} nodes</span>
                           </div>
                           <div className="flex-1 text-right">
@@ -318,7 +318,7 @@ export default function WorkflowsContent() {
                           <Button
                             size="sm"
                             variant="outline"
-                            className="flex-1 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 transition-all duration-200"
+                            className="flex-1 hover:bg-primary/5 hover:text-primary hover:border-primary/20 focus:ring-2 focus:ring-primary focus:ring-offset-1 transition-all duration-200"
                             onClick={() => {
                               setTemplateDialog({ open: true, workflowId: workflow.id })
                               setTemplateForm((prev) => ({ ...prev, name: `${workflow.name} Template` }))

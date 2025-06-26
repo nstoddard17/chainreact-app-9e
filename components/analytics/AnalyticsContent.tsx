@@ -35,7 +35,7 @@ export default function AnalyticsContent() {
   ]
 
   return (
-    <AppLayout>
+    <AppLayout title="Analytics">
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold text-slate-900">Analytics</h1>
@@ -122,7 +122,7 @@ export default function AnalyticsContent() {
                       outerRadius={80}
                       fill="#8884d8"
                       dataKey="value"
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
                     >
                       {integrationUsage.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
