@@ -272,6 +272,75 @@ async function sendGmail(config: any, userId: string, input: Record<string, any>
   }
 }
 
+async function addGmailLabels(config: any, userId: string, input: Record<string, any>): Promise<ActionResult> {
+  try {
+    console.log("Starting Gmail add labels process", { userId, config })
+    
+    const accessToken = await getDecryptedAccessToken(userId, "gmail")
+
+    const messageId = resolveValue(config.messageId, input)
+    const labelIds = resolveValue(config.labelIds, input)
+
+    console.log("Resolved values:", { messageId, labelIds })
+
+    if (!messageId || !labelIds || !Array.isArray(labelIds) || labelIds.length === 0) {
+      const missingFields = []
+      if (!messageId) missingFields.push("Message ID")
+      if (!labelIds || !Array.isArray(labelIds) || labelIds.length === 0) missingFields.push("Labels")
+      
+      const message = `Missing required fields for adding labels: ${missingFields.join(", ")}`
+      console.error(message)
+      return { success: false, message }
+    }
+
+    console.log("Making Gmail API request to add labels...")
+    const response = await fetch(`https://www.googleapis.com/gmail/v1/users/me/messages/${messageId}/modify`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        addLabelIds: labelIds,
+      }),
+    })
+
+    console.log("Gmail API response status:", response.status)
+    
+    const result = await response.json()
+
+    if (!response.ok) {
+      console.error("Gmail API error:", {
+        status: response.status,
+        statusText: response.statusText,
+        error: result.error
+      })
+      
+      const errorMessage = result.error?.message || `Failed to add labels via Gmail API (${response.status})`
+      throw new Error(errorMessage)
+    }
+
+    console.log("Gmail add labels successful:", { messageId: result.id, labelsAdded: labelIds })
+    return { 
+      success: true, 
+      output: { 
+        messageId: result.id, 
+        labelIds: labelIds,
+        labelsAdded: labelIds.length,
+        status: "labels_added"
+      } 
+    }
+  } catch (error: any) {
+    console.error("Gmail add labels error:", {
+      message: error.message,
+      stack: error.stack,
+      userId,
+      config
+    })
+    return { success: false, message: `Gmail add labels action failed: ${error.message}` }
+  }
+}
+
 // Add other action handlers here e.g. sendSlackMessage, createGoogleDoc etc.
 
 export async function executeAction(params: ExecuteActionParams): Promise<ActionResult> {
@@ -307,6 +376,21 @@ export async function executeAction(params: ExecuteActionParams): Promise<Action
         }
       }
       return sendGmail(config, userId, input)
+    case "gmail_action_add_label":
+      if (!hasEncryptionKey) {
+        console.warn("Encryption key missing, running Gmail add label action in test mode")
+        return { 
+          success: true, 
+          output: { 
+            test: true, 
+            messageId: config?.messageId || "test_message_id",
+            labelIds: config?.labelIds || ["test_label"],
+            labelsAdded: config?.labelIds?.length || 1
+          }, 
+          message: "Test mode: Gmail labels added successfully (missing encryption key)" 
+        }
+      }
+      return addGmailLabels(config, userId, input)
     // Future actions will be added here
     // case "slack_action_send_message":
     //   return sendSlackMessage(config, userId, input)

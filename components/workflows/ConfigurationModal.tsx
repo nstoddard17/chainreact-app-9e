@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog"
 import { ConfigField, NodeComponent } from "@/lib/workflows/availableNodes"
 import { useIntegrationStore } from "@/stores/integrationStore"
-import { Combobox } from "@/components/ui/combobox"
+import { Combobox, MultiCombobox } from "@/components/ui/combobox"
 import { EmailAutocomplete } from "@/components/ui/email-autocomplete"
 import { ConfigurationLoadingScreen } from "@/components/ui/loading-screen"
 import { FileUpload } from "@/components/ui/file-upload"
@@ -159,6 +159,18 @@ export default function ConfigurationModal({
               newOptions[field.name] = data.map((group: any) => ({
                 value: group.id,
                 label: group.name,
+              }))
+            } else if (field.dynamic === "gmail_messages") {
+              newOptions[field.name] = data.map((message: any) => ({
+                value: message.id,
+                label: message.subject || "No Subject",
+                description: message.description,
+              }))
+            } else if (field.dynamic === "gmail_labels") {
+              newOptions[field.name] = data.map((label: any) => ({
+                value: label.id,
+                label: label.name,
+                description: `${label.messages_total} messages`,
               }))
             } else if (field.dynamic === "google-sheets_spreadsheets") {
               const data = await loadIntegrationData(
@@ -509,6 +521,19 @@ export default function ConfigurationModal({
       }
     }
 
+    const handleMultiSelectChange = (newValue: string[]) => {
+      setConfig({ ...config, [field.name]: newValue })
+      
+      // Clear error when user selects values
+      if (hasError && newValue.length > 0) {
+        setErrors(prev => {
+          const newErrors = { ...prev }
+          delete newErrors[field.name]
+          return newErrors
+        })
+      }
+    }
+
     const inputClassName = `${hasError ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`
 
     switch (field.type) {
@@ -530,7 +555,36 @@ export default function ConfigurationModal({
 
         const finalOptions = selectOptions || [];
         
-        if (field.dynamic) {
+        // Use Combobox for all select fields that have options (both dynamic and static)
+        if (finalOptions.length > 0) {
+          // Check if this field supports multiple selection
+          if (field.multiple) {
+            // Ensure value is an array for multi-select
+            const multiValue = Array.isArray(value) ? value : value ? [value] : []
+            
+            return (
+              <div className="space-y-1">
+                <div className={hasError ? 'ring-2 ring-red-500 rounded-md' : ''}>
+                  <MultiCombobox
+                    options={finalOptions}
+                    value={multiValue}
+                    onChange={handleMultiSelectChange}
+                    placeholder={field.placeholder}
+                    searchPlaceholder="Search or type..."
+                    emptyPlaceholder={loadingDynamic ? "Loading..." : "No results found."}
+                    disabled={loadingDynamic}
+                  />
+                </div>
+                {hasError && (
+                  <div className="flex items-center gap-1 text-sm text-red-600">
+                    <AlertCircle className="h-4 w-4" />
+                    {errors[field.name]}
+                  </div>
+                )}
+              </div>
+            )
+          }
+          
           return (
             <div className="space-y-1">
               <div className={hasError ? 'ring-2 ring-red-500 rounded-md' : ''}>
@@ -554,6 +608,7 @@ export default function ConfigurationModal({
           )
         }
 
+        // Fallback to regular Select if no options are available
         return (
           <div className="space-y-1">
             <Select onValueChange={handleSelectChange} value={value} disabled={loadingDynamic}>

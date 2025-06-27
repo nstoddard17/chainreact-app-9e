@@ -1,5 +1,10 @@
+import { getEnvironmentConfig } from './environment'
+
 export function getBaseUrl(): string {
-  // Server-side or when environment variable is set, use the configured URL
+  // Use the new environment configuration system
+  const config = getEnvironmentConfig()
+  
+  // For backward compatibility, check if old environment variables are set
   if (process.env.NEXT_PUBLIC_APP_URL) {
     return process.env.NEXT_PUBLIC_APP_URL
   }
@@ -12,10 +17,6 @@ export function getBaseUrl(): string {
     return `https://${process.env.VERCEL_URL}`
   }
 
-  // In browser, use current origin only as fallback when no environment variables are set
-  if (typeof window !== "undefined") {
-    return window.location.origin
-  }
-
-  return "http://localhost:3000"
+  // Use the new environment-based configuration
+  return config.baseUrl
 }

@@ -53,7 +53,7 @@ export interface ConfigField {
   placeholder?: string
   description?: string
   options?: { value: string; label: string }[] | string[]
-  dynamic?: "slack-channels" | "google-calendars" | "google-drive-folders" | "google-drive-files" | "gmail-recent-recipients" | "gmail-enhanced-recipients" | "gmail-contact-groups" | "google-sheets_spreadsheets" | "google-sheets_sheets" | "google-docs_documents" | "google-docs_templates" | "youtube_channels" | "youtube_videos" | "youtube_playlists" | "teams_chats" | "teams_teams" | "teams_channels" | "github_repositories" | "gitlab_projects" | "notion_databases" | "notion_pages" | "trello_boards" | "trello_lists" | "hubspot_companies" | "airtable_bases" | "gumroad_products" | "blackbaud_constituents"
+  dynamic?: "slack-channels" | "google-calendars" | "google-drive-folders" | "google-drive-files" | "gmail-recent-recipients" | "gmail-enhanced-recipients" | "gmail-contact-groups" | "gmail_messages" | "gmail_labels" | "google-sheets_spreadsheets" | "google-sheets_sheets" | "google-docs_documents" | "google-docs_templates" | "youtube_channels" | "youtube_videos" | "youtube_playlists" | "teams_chats" | "teams_teams" | "teams_channels" | "github_repositories" | "gitlab_projects" | "notion_databases" | "notion_pages" | "trello_boards" | "trello_lists" | "hubspot_companies" | "airtable_bases" | "gumroad_products" | "blackbaud_constituents"
   accept?: string // For file inputs, specify accepted file types
   maxSize?: number // For file inputs, specify max file size in bytes
   defaultValue?: string | number | boolean // Default value for the field
@@ -1816,8 +1816,25 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     isTrigger: false,
     requiredScopes: ["https://www.googleapis.com/auth/gmail.modify"],
     configSchema: [
-      { name: "messageId", label: "Message ID", type: "text" },
-      { name: "labelName", label: "Label Name", type: "text" },
+      { 
+        name: "messageId", 
+        label: "Email", 
+        type: "select", 
+        dynamic: "gmail_messages",
+        required: true,
+        placeholder: "Select an email from your Gmail account",
+        description: "Choose from your recent emails"
+      },
+      { 
+        name: "labelIds", 
+        label: "Labels", 
+        type: "select", 
+        dynamic: "gmail_labels",
+        required: true,
+        placeholder: "Select one or more labels",
+        description: "Choose from your Gmail labels (supports multiple selection)",
+        multiple: true
+      },
     ],
   },
   {
