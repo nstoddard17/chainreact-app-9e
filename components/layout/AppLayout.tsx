@@ -18,6 +18,7 @@ export default function AppLayout({ children, title }: AppLayoutProps) {
   const { initialize, user } = useAuthStore()
   const { globalPreloadingData } = useIntegrationStore()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const { setTheme, theme } = useTheme()
 
   useEffect(() => {
@@ -49,15 +50,23 @@ export default function AppLayout({ children, title }: AppLayoutProps) {
         style={{ display: 'none' }}
         tabIndex={-1}
       />
-      <Sidebar isMobileMenuOpen={isMobileMenuOpen} onMobileMenuChange={setIsMobileMenuOpen} />
+      <Sidebar 
+        isMobileMenuOpen={isMobileMenuOpen} 
+        onMobileMenuChange={setIsMobileMenuOpen}
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+      />
       {isMobileMenuOpen && (
         <div
           className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
           onClick={() => setIsMobileMenuOpen(false)}
         />
       )}
-      <div className="flex-1 flex flex-col lg:ml-64">
-        <TopBar onMobileMenuChange={setIsMobileMenuOpen} title={title} />
+      <div className={`flex-1 flex flex-col transition-all duration-200 ${isSidebarCollapsed ? 'lg:ml-16' : 'lg:ml-64'}`}>
+        <TopBar 
+          onMobileMenuChange={setIsMobileMenuOpen} 
+          title={title}
+        />
         {globalPreloadingData && (
           <div className="bg-blue-50 border-b border-blue-200 px-6 py-2">
             <div className="flex items-center gap-2 text-sm text-blue-700">
