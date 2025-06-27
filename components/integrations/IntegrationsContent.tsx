@@ -462,33 +462,27 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
   )
 
   return (
-    <AppLayout title="Integrations">
+    <AppLayout title="Integrations" subtitle="Manage your connections to third-party services.">
       <div className="container mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 md:py-8">
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 sm:gap-4 mb-6 sm:mb-8">
-          <div>
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground">Integrations</h1>
-            <p className="text-sm sm:text-base text-muted-foreground mt-1">Manage your connections to third-party services.</p>
-          </div>
-          <div className="flex gap-2">
-            <Button 
-              onClick={handleRefresh} 
-              disabled={loading || loadingMetrics} 
-              variant="outline"
-              className="w-full sm:w-auto text-sm sm:text-base"
-            >
-              {(loading || loadingMetrics) ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Refreshing...
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                  Refresh
-                </>
-              )}
-            </Button>
-          </div>
+        <div className="flex justify-end mb-6 sm:mb-8">
+          <Button 
+            onClick={handleRefresh} 
+            disabled={loading || loadingMetrics} 
+            variant="outline"
+            className="text-sm sm:text-base"
+          >
+            {(loading || loadingMetrics) ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Refreshing...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Refresh
+              </>
+            )}
+          </Button>
         </div>
 
         <div className="lg:flex lg:gap-6 xl:gap-8">

@@ -16,9 +16,10 @@ import { ThemeToggle } from "@/components/ui/theme-toggle"
 interface TopBarProps {
   onMobileMenuChange: (isOpen: boolean) => void
   title: string
+  subtitle?: string
 }
 
-export default function TopBar({ onMobileMenuChange, title }: TopBarProps) {
+export default function TopBar({ onMobileMenuChange, title, subtitle }: TopBarProps) {
   const { user, profile, signOut } = useAuthStore()
   const router = useRouter()
 
@@ -45,7 +46,12 @@ export default function TopBar({ onMobileMenuChange, title }: TopBarProps) {
         >
           <Menu className="h-5 w-5" />
         </Button>
-        <h1 className="text-xl font-semibold text-foreground">{title}</h1>
+        <div>
+          <h1 className="text-xl font-semibold text-foreground">{title}</h1>
+          {subtitle && (
+            <p className="text-sm text-muted-foreground">{subtitle}</p>
+          )}
+        </div>
       </div>
 
       <div className="flex items-center space-x-4">

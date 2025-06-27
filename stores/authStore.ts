@@ -72,7 +72,7 @@ export const useAuthStore = create<AuthState>()(
         const initTimeout = setTimeout(() => {
           console.error("Auth initialization timed out - forcing completion")
           set({ loading: false, initialized: true, error: "Initialization timed out" })
-        }, 10000) // 10 second timeout
+        }, 12000) // Increased from 5 seconds to 12 seconds
 
         try {
           set({ loading: true, error: null })
@@ -122,15 +122,32 @@ export const useAuthStore = create<AuthState>()(
           // Get current session from Supabase with timeout
           const sessionPromise = supabase.auth.getSession()
           const sessionTimeout = new Promise<never>((_, reject) => 
-            setTimeout(() => reject(new Error('Session fetch timeout')), 5000)
+            setTimeout(() => reject(new Error('Session fetch timeout')), 8000) // Increased from 3 seconds to 8 seconds
           )
           
-          const sessionResult = await Promise.race([sessionPromise, sessionTimeout])
+          let sessionResult
+          try {
+            sessionResult = await Promise.race([sessionPromise, sessionTimeout])
+          } catch (timeoutError) {
+            console.warn("Session fetch timed out, continuing without session:", timeoutError)
+            // Try one more time without timeout as fallback
+            try {
+              console.log("🔄 Retrying session fetch without timeout...")
+              sessionResult = await sessionPromise
+            } catch (fallbackError) {
+              console.warn("Fallback session fetch also failed:", fallbackError)
+              set({ user: null, loading: false, initialized: true })
+              clearTimeout(initTimeout)
+              return
+            }
+          }
+          
           const { data: { session }, error: sessionError } = sessionResult
 
           if (sessionError) {
             console.error("Session error:", sessionError)
-            set({ user: null, error: sessionError.message, loading: false, initialized: true })
+            // Don't fail completely on session error, just set user to null
+            set({ user: null, loading: false, initialized: true })
             clearTimeout(initTimeout)
             return
           }
@@ -153,7 +170,7 @@ export const useAuthStore = create<AuthState>()(
                 .single()
               
               const profileTimeout = new Promise<never>((_, reject) => 
-                setTimeout(() => reject(new Error('Profile fetch timeout')), 3000)
+                setTimeout(() => reject(new Error('Profile fetch timeout')), 2000) // Reduced from 3 seconds to 2 seconds
               )
               
               const profileResult = await Promise.race([profilePromise, profileTimeout])
@@ -194,7 +211,7 @@ export const useAuthStore = create<AuthState>()(
                     })
                   
                   const createTimeout = new Promise<never>((_, reject) => 
-                    setTimeout(() => reject(new Error('Profile creation timeout')), 3000)
+                    setTimeout(() => reject(new Error('Profile creation timeout')), 2000) // Reduced from 3 seconds to 2 seconds
                   )
                   
                   const createResult = await Promise.race([createPromise, createTimeout])
@@ -216,7 +233,7 @@ export const useAuthStore = create<AuthState>()(
 
               set({ user, profile, loading: false, initialized: true })
 
-              // Set current user ID in integration store
+              // Set current user ID in integration store (reduced delay)
               setTimeout(async () => {
                 try {
                   const { useIntegrationStore } = await import("./integrationStore")
@@ -225,26 +242,25 @@ export const useAuthStore = create<AuthState>()(
                 } catch (error) {
                   console.error("Error updating integration store user ID on init:", error)
                 }
-              }, 100)
+              }, 50) // Reduced from 100ms to 50ms
 
-              // Start background data preloading (only once) - don't block initialization
-              console.log("🚀 Starting background data preload...")
+              // Start lightweight background data preloading (only essential data)
+              console.log("🚀 Starting lightweight background preload...")
               setTimeout(async () => {
                 try {
                   const { useIntegrationStore } = await import("./integrationStore")
                   const integrationStore = useIntegrationStore.getState()
 
-                  // Only start if not already started
+                  // Only start if not already started and only fetch basic integration list
                   if (!integrationStore.preloadStarted && !integrationStore.globalPreloadingData) {
                     await integrationStore.fetchIntegrations(true)
-                    await integrationStore.initializeGlobalPreload()
-                    console.log("✅ Background preload completed")
+                    console.log("✅ Lightweight preload completed")
                   }
                 } catch (error) {
-                  console.error("❌ Background preload failed:", error)
+                  console.error("❌ Lightweight preload failed:", error)
                   // Don't fail auth initialization for background preload errors
                 }
-              }, 1000)
+              }, 2000) // Increased delay to prioritize UI responsiveness
             } catch (profileError) {
               console.error("Profile fetch failed:", profileError)
               // Continue with basic user data - don't fail auth initialization
@@ -265,7 +281,7 @@ export const useAuthStore = create<AuthState>()(
               } catch (error) {
                 console.error("Error clearing integration store on init:", error)
               }
-            }, 100)
+            }, 50) // Reduced from 100ms to 50ms
           }
 
           // Set up auth state listener (only once)

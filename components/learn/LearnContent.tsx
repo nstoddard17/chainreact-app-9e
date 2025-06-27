@@ -89,16 +89,10 @@ const achievements = [
 
 export default function LearnContent() {
   return (
-    <AppLayout title="Learn">
+    <AppLayout title="Learn" subtitle="Master workflow automation with our comprehensive courses and tutorials">
       <div className="space-y-8">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-slate-900">Learning Center</h1>
-            <p className="text-slate-600 mt-2">
-              Master workflow automation with our comprehensive courses and tutorials
-            </p>
-          </div>
+        {/* Browse All Courses Button */}
+        <div className="flex justify-end">
           <Button>
             <BookOpen className="w-4 h-4 mr-2" />
             Browse All Courses
