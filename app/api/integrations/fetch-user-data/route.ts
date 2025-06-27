@@ -555,36 +555,124 @@ const dataFetchers: DataFetcher = {
     }
   },
 
-  airtable_bases: async (integration: any) => {
+  "hubspot_companies": async (integration: any) => {
     try {
-      const response = await fetch("https://api.airtable.com/v0/meta/bases", {
-        headers: {
-          Authorization: `Bearer ${integration.access_token}`,
-          "Content-Type": "application/json",
+      const response = await fetch(
+        "https://api.hubapi.com/crm/v3/objects/companies?limit=100",
+        {
+          headers: {
+            Authorization: `Bearer ${integration.access_token}`,
+            "Content-Type": "application/json",
+          },
         },
-      })
-
+      )
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("HubSpot authentication expired. Please reconnect your account.")
+        }
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(`HubSpot API error: ${response.status} - ${errorData.message || "Unknown error"}`)
+      }
+      const data = await response.json()
+      return data.results?.map((company: any) => ({
+        value: company.id,
+        label: company.properties.name || "Unnamed Company",
+        description: company.properties.domain,
+      })) || []
+    } catch (error: any) {
+      console.error("Error fetching HubSpot companies:", error)
+      throw error
+    }
+  },
+  "airtable_bases": async (integration: any) => {
+    try {
+      const response = await fetch(
+        "https://api.airtable.com/v0/meta/bases",
+        {
+          headers: {
+            Authorization: `Bearer ${integration.access_token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      )
       if (!response.ok) {
         if (response.status === 401) {
           throw new Error("Airtable authentication expired. Please reconnect your account.")
         }
         const errorData = await response.json().catch(() => ({}))
-        throw new Error(`Airtable API error: ${response.status} - ${errorData.error?.message || response.statusText}`)
+        throw new Error(`Airtable API error: ${response.status} - ${errorData.message || "Unknown error"}`)
       }
-
       const data = await response.json()
-      return (data.bases || []).map((base: any) => ({
-        id: base.id,
-        name: base.name,
+      return data.bases?.map((base: any) => ({
         value: base.id,
-        permission_level: base.permissionLevel,
-      }))
+        label: base.name,
+        description: base.description,
+      })) || []
     } catch (error: any) {
       console.error("Error fetching Airtable bases:", error)
       throw error
     }
   },
-
+  "gumroad_products": async (integration: any) => {
+    try {
+      const response = await fetch(
+        "https://api.gumroad.com/v2/products",
+        {
+          headers: {
+            Authorization: `Bearer ${integration.access_token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      )
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("Gumroad authentication expired. Please reconnect your account.")
+        }
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(`Gumroad API error: ${response.status} - ${errorData.message || "Unknown error"}`)
+      }
+      const data = await response.json()
+      return data.products?.map((product: any) => ({
+        value: product.id,
+        label: product.name,
+        description: product.description,
+        price: product.price,
+      })) || []
+    } catch (error: any) {
+      console.error("Error fetching Gumroad products:", error)
+      throw error
+    }
+  },
+  "blackbaud_constituents": async (integration: any) => {
+    try {
+      const response = await fetch(
+        "https://api.sky.blackbaud.com/constituent/v1/constituents",
+        {
+          headers: {
+            "Bb-Api-Subscription-Key": integration.access_token,
+            "Content-Type": "application/json",
+          },
+        },
+      )
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("Blackbaud authentication expired. Please reconnect your account.")
+        }
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(`Blackbaud API error: ${response.status} - ${errorData.message || "Unknown error"}`)
+      }
+      const data = await response.json()
+      return data.value?.map((constituent: any) => ({
+        value: constituent.id,
+        label: `${constituent.first_name} ${constituent.last_name}`,
+        description: constituent.email_address,
+        type: constituent.type,
+      })) || []
+    } catch (error: any) {
+      console.error("Error fetching Blackbaud constituents:", error)
+      throw error
+    }
+  },
   trello_boards: async (integration: any) => {
     try {
       const response = await fetch(
@@ -622,37 +710,506 @@ const dataFetchers: DataFetcher = {
   github_repositories: async (integration: any) => {
     try {
       const response = await fetch(
-        "https://api.github.com/user/repos?per_page=100&sort=updated&affiliation=owner,collaborator",
+        "https://api.github.com/user/repos?sort=updated&per_page=50",
         {
           headers: {
             Authorization: `Bearer ${integration.access_token}`,
             "Content-Type": "application/json",
-            Accept: "application/vnd.github.v3+json",
-            "User-Agent": "ChainReact-App",
+          },
+        },
+      )
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("GitHub authentication expired. Please reconnect your account.")
+        }
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(`GitHub API error: ${response.status} - ${errorData.message || "Unknown error"}`)
+      }
+      const data = await response.json()
+      return data.map((repo: any) => ({
+        value: repo.full_name,
+        label: repo.name,
+        description: repo.description,
+        private: repo.private,
+        language: repo.language,
+      })) || []
+    } catch (error: any) {
+      console.error("Error fetching GitHub repositories:", error)
+      throw error
+    }
+  },
+
+  "google-docs_documents": async (integration: any) => {
+    try {
+      // Use Google Drive API to list Google Docs files
+      const response = await fetch(
+        "https://www.googleapis.com/drive/v3/files?q=mimeType='application/vnd.google-apps.document'&pageSize=100&fields=files(id,name,createdTime,modifiedTime,webViewLink)",
+        {
+          headers: {
+            Authorization: `Bearer ${integration.access_token}`,
+            "Content-Type": "application/json",
           },
         },
       )
 
       if (!response.ok) {
         if (response.status === 401) {
-          throw new Error("GitHub authentication expired. Please reconnect your account.")
+          throw new Error("Google Docs authentication expired. Please reconnect your account.")
         }
         const errorData = await response.json().catch(() => ({}))
-        throw new Error(`GitHub API error: ${response.status} - ${errorData.message || response.statusText}`)
+        throw new Error(
+          `Google Drive API error: ${response.status} - ${errorData.error?.message || response.statusText}`,
+        )
       }
 
       const data = await response.json()
-      return data.map((repo: any) => ({
-        id: repo.id,
-        name: repo.full_name,
-        value: repo.full_name,
-        description: repo.description,
-        private: repo.private,
-        url: repo.html_url,
-        updated_at: repo.updated_at,
+      return (data.files || []).map((file: any) => ({
+        id: file.id,
+        name: file.name,
+        value: file.id,
+        created_time: file.createdTime,
+        modified_time: file.modifiedTime,
+        web_view_link: file.webViewLink,
+        document_url: `https://docs.google.com/document/d/${file.id}/edit`,
       }))
     } catch (error: any) {
-      console.error("Error fetching GitHub repositories:", error)
+      console.error("Error fetching Google Docs documents:", error)
+      throw error
+    }
+  },
+
+  "google-docs_templates": async (integration: any) => {
+    try {
+      // Use Google Drive API to list Google Docs template files
+      const response = await fetch(
+        "https://www.googleapis.com/drive/v3/files?q=mimeType='application/vnd.google-apps.document' and name contains 'Template'&pageSize=50&fields=files(id,name,createdTime,modifiedTime,webViewLink)",
+        {
+          headers: {
+            Authorization: `Bearer ${integration.access_token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      )
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("Google Docs authentication expired. Please reconnect your account.")
+        }
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(
+          `Google Drive API error: ${response.status} - ${errorData.error?.message || response.statusText}`,
+        )
+      }
+
+      const data = await response.json()
+      return (data.files || []).map((file: any) => ({
+        id: file.id,
+        name: file.name,
+        value: file.id,
+        created_time: file.createdTime,
+        modified_time: file.modifiedTime,
+        web_view_link: file.webViewLink,
+        document_url: `https://docs.google.com/document/d/${file.id}/edit`,
+        is_template: true,
+      }))
+    } catch (error: any) {
+      console.error("Error fetching Google Docs templates:", error)
+      throw error
+    }
+  },
+
+  "youtube_channels": async (integration: any) => {
+    try {
+      const response = await fetch(
+        "https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true&maxResults=50",
+        {
+          headers: {
+            Authorization: `Bearer ${integration.access_token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      )
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("YouTube authentication expired. Please reconnect your account.")
+        }
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(`YouTube API error: ${response.status} - ${errorData.error?.message || response.statusText}`)
+      }
+      const data = await response.json()
+      return (data.items || []).map((channel: any) => ({
+        id: channel.id,
+        name: channel.snippet.title,
+        value: channel.id,
+        description: channel.snippet.description,
+        thumbnail: channel.snippet.thumbnails?.default?.url,
+      }))
+    } catch (error: any) {
+      console.error("Error fetching YouTube channels:", error)
+      throw error
+    }
+  },
+  "youtube_videos": async (integration: any) => {
+    try {
+      // Get all videos from all channels (first channel only for now)
+      const channelResp = await fetch(
+        "https://www.googleapis.com/youtube/v3/channels?part=id&mine=true",
+        {
+          headers: {
+            Authorization: `Bearer ${integration.access_token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      )
+      if (!channelResp.ok) {
+        if (channelResp.status === 401) {
+          throw new Error("YouTube authentication expired. Please reconnect your account.")
+        }
+        const errorData = await channelResp.json().catch(() => ({}))
+        throw new Error(`YouTube API error: ${channelResp.status} - ${errorData.error?.message || channelResp.statusText}`)
+      }
+      const channelData = await channelResp.json()
+      const channelId = channelData.items?.[0]?.id
+      if (!channelId) return []
+      // Now get videos from the uploads playlist
+      const playlistResp = await fetch(
+        `https://www.googleapis.com/youtube/v3/channels?part=contentDetails&id=${channelId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${integration.access_token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      )
+      const playlistData = await playlistResp.json()
+      const uploadsPlaylistId = playlistData.items?.[0]?.contentDetails?.relatedPlaylists?.uploads
+      if (!uploadsPlaylistId) return []
+      // Get videos from uploads playlist
+      const videosResp = await fetch(
+        `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${uploadsPlaylistId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${integration.access_token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      )
+      if (!videosResp.ok) {
+        if (videosResp.status === 401) {
+          throw new Error("YouTube authentication expired. Please reconnect your account.")
+        }
+        const errorData = await videosResp.json().catch(() => ({}))
+        throw new Error(`YouTube API error: ${videosResp.status} - ${errorData.error?.message || videosResp.statusText}`)
+      }
+      const videosData = await videosResp.json()
+      return (videosData.items || []).map((item: any) => ({
+        id: item.snippet.resourceId.videoId,
+        name: item.snippet.title,
+        value: item.snippet.resourceId.videoId,
+        description: item.snippet.description,
+        publishedAt: item.snippet.publishedAt,
+        thumbnail: item.snippet.thumbnails?.default?.url,
+      }))
+    } catch (error: any) {
+      console.error("Error fetching YouTube videos:", error)
+      throw error
+    }
+  },
+  "youtube_playlists": async (integration: any) => {
+    try {
+      const response = await fetch(
+        "https://www.googleapis.com/youtube/v3/playlists?part=snippet&mine=true&maxResults=50",
+        {
+          headers: {
+            Authorization: `Bearer ${integration.access_token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      )
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("YouTube authentication expired. Please reconnect your account.")
+        }
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(`YouTube API error: ${response.status} - ${errorData.error?.message || "Unknown error"}`)
+      }
+      const data = await response.json()
+      return data.items?.map((playlist: any) => ({
+        value: playlist.id,
+        label: playlist.snippet.title,
+      })) || []
+    } catch (error: any) {
+      console.error("Error fetching YouTube playlists:", error)
+      throw error
+    }
+  },
+  "teams_chats": async (integration: any) => {
+    try {
+      const response = await fetch(
+        "https://graph.microsoft.com/v1.0/me/chats",
+        {
+          headers: {
+            Authorization: `Bearer ${integration.access_token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      )
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("Teams authentication expired. Please reconnect your account.")
+        }
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(`Teams API error: ${response.status} - ${errorData.error?.message || "Unknown error"}`)
+      }
+      const data = await response.json()
+      return data.value?.map((chat: any) => ({
+        value: chat.id,
+        label: chat.topic || chat.chatType || "Chat",
+      })) || []
+    } catch (error: any) {
+      console.error("Error fetching Teams chats:", error)
+      throw error
+    }
+  },
+  "teams_teams": async (integration: any) => {
+    try {
+      const response = await fetch(
+        "https://graph.microsoft.com/v1.0/me/joinedTeams",
+        {
+          headers: {
+            Authorization: `Bearer ${integration.access_token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      )
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("Teams authentication expired. Please reconnect your account.")
+        }
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(`Teams API error: ${response.status} - ${errorData.error?.message || "Unknown error"}`)
+      }
+      const data = await response.json()
+      return data.value?.map((team: any) => ({
+        value: team.id,
+        label: team.displayName,
+      })) || []
+    } catch (error: any) {
+      console.error("Error fetching Teams teams:", error)
+      throw error
+    }
+  },
+  "teams_channels": async (integration: any) => {
+    try {
+      // First get all teams, then get channels for each team
+      const teamsResponse = await fetch(
+        "https://graph.microsoft.com/v1.0/me/joinedTeams",
+        {
+          headers: {
+            Authorization: `Bearer ${integration.access_token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      )
+      if (!teamsResponse.ok) {
+        if (teamsResponse.status === 401) {
+          throw new Error("Teams authentication expired. Please reconnect your account.")
+        }
+        const errorData = await teamsResponse.json().catch(() => ({}))
+        throw new Error(`Teams API error: ${teamsResponse.status} - ${errorData.error?.message || "Unknown error"}`)
+      }
+      const teamsData = await teamsResponse.json()
+      
+      const allChannels: any[] = []
+      
+      for (const team of teamsData.value || []) {
+        try {
+          const channelsResponse = await fetch(
+            `https://graph.microsoft.com/v1.0/teams/${team.id}/channels`,
+            {
+              headers: {
+                Authorization: `Bearer ${integration.access_token}`,
+                "Content-Type": "application/json",
+              },
+            },
+          )
+          if (channelsResponse.ok) {
+            const channelsData = await channelsResponse.json()
+            const teamChannels = channelsData.value?.map((channel: any) => ({
+              value: `${team.id}:${channel.id}`,
+              label: `${team.displayName} - ${channel.displayName}`,
+            })) || []
+            allChannels.push(...teamChannels)
+          }
+        } catch (error) {
+          console.warn(`Failed to fetch channels for team ${team.displayName}:`, error)
+        }
+      }
+      
+      return allChannels
+    } catch (error: any) {
+      console.error("Error fetching Teams channels:", error)
+      throw error
+    }
+  },
+  "gitlab_projects": async (integration: any) => {
+    try {
+      const response = await fetch(
+        "https://gitlab.com/api/v4/projects?membership=true&order_by=updated_at&per_page=50",
+        {
+          headers: {
+            Authorization: `Bearer ${integration.access_token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      )
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("GitLab authentication expired. Please reconnect your account.")
+        }
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(`GitLab API error: ${response.status} - ${errorData.message || "Unknown error"}`)
+      }
+      const data = await response.json()
+      return data.map((project: any) => ({
+        value: project.id.toString(),
+        label: project.name,
+        description: project.description,
+        visibility: project.visibility,
+        path: project.path_with_namespace,
+      })) || []
+    } catch (error: any) {
+      console.error("Error fetching GitLab projects:", error)
+      throw error
+    }
+  },
+  "notion_databases": async (integration: any) => {
+    try {
+      const response = await fetch(
+        "https://api.notion.com/v1/search",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${integration.access_token}`,
+            "Notion-Version": "2022-06-28",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            filter: {
+              property: "object",
+              value: "database",
+            },
+            page_size: 100,
+          }),
+        },
+      )
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("Notion authentication expired. Please reconnect your account.")
+        }
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(`Notion API error: ${response.status} - ${errorData.message || "Unknown error"}`)
+      }
+      const data = await response.json()
+      return data.results?.map((database: any) => ({
+        value: database.id,
+        label: getDatabaseTitle(database),
+        description: database.description?.[0]?.plain_text,
+      })) || []
+    } catch (error: any) {
+      console.error("Error fetching Notion databases:", error)
+      throw error
+    }
+  },
+  "notion_pages": async (integration: any) => {
+    try {
+      const response = await fetch(
+        "https://api.notion.com/v1/search",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${integration.access_token}`,
+            "Notion-Version": "2022-06-28",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            filter: {
+              property: "object",
+              value: "page",
+            },
+            page_size: 100,
+          }),
+        },
+      )
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("Notion authentication expired. Please reconnect your account.")
+        }
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(`Notion API error: ${response.status} - ${errorData.message || "Unknown error"}`)
+      }
+      const data = await response.json()
+      return data.results?.map((page: any) => ({
+        value: page.id,
+        label: getPageTitle(page),
+        description: page.properties?.Description?.rich_text?.[0]?.plain_text,
+      })) || []
+    } catch (error: any) {
+      console.error("Error fetching Notion pages:", error)
+      throw error
+    }
+  },
+  "trello_lists": async (integration: any) => {
+    try {
+      // First get all boards, then get lists for each board
+      const boardsResponse = await fetch(
+        "https://api.trello.com/1/members/me/boards",
+        {
+          headers: {
+            Authorization: `Bearer ${integration.access_token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      )
+      if (!boardsResponse.ok) {
+        if (boardsResponse.status === 401) {
+          throw new Error("Trello authentication expired. Please reconnect your account.")
+        }
+        const errorData = await boardsResponse.json().catch(() => ({}))
+        throw new Error(`Trello API error: ${boardsResponse.status} - ${errorData.message || "Unknown error"}`)
+      }
+      const boardsData = await boardsResponse.json()
+      
+      const allLists: any[] = []
+      
+      for (const board of boardsData) {
+        try {
+          const listsResponse = await fetch(
+            `https://api.trello.com/1/boards/${board.id}/lists`,
+            {
+              headers: {
+                Authorization: `Bearer ${integration.access_token}`,
+                "Content-Type": "application/json",
+              },
+            },
+          )
+          if (listsResponse.ok) {
+            const listsData = await listsResponse.json()
+            const boardLists = listsData.map((list: any) => ({
+              value: list.id,
+              label: `${board.name} - ${list.name}`,
+              description: list.name,
+            }))
+            allLists.push(...boardLists)
+          }
+        } catch (error) {
+          console.warn(`Failed to fetch lists for board ${board.name}:`, error)
+        }
+      }
+      
+      return allLists
+    } catch (error: any) {
+      console.error("Error fetching Trello lists:", error)
       throw error
     }
   },

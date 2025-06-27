@@ -1270,7 +1270,7 @@ function WorkflowBuilderContent() {
               <ScrollArea className="h-full">
                 <div className="p-4">
                 {selectedIntegration ? (
-                  <div className="h-full max-h-[400px] overflow-y-auto">
+                  <div className="h-full">
                     <div className="grid grid-cols-1 gap-3">
                       {displayedTriggers.map((trigger) => (
                         <div
@@ -1444,7 +1444,7 @@ function WorkflowBuilderContent() {
               <ScrollArea className="h-full">
                 <div className="p-4">
                 {selectedIntegration ? (
-                  <div className="h-full max-h-[400px] overflow-y-auto">
+                  <div className="h-full">
                     <div className="grid grid-cols-1 gap-3">
                       {selectedIntegration.actions
                         .filter(action => {

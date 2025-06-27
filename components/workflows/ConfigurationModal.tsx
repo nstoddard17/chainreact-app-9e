@@ -40,7 +40,7 @@ export default function ConfigurationModal({
 }: ConfigurationModalProps) {
   const [config, setConfig] = useState<Record<string, any>>(initialData)
   const [errors, setErrors] = useState<Record<string, string>>({})
-  const { loadIntegrationData, getIntegrationByProvider } = useIntegrationStore()
+  const { loadIntegrationData, getIntegrationByProvider, checkIntegrationScopes } = useIntegrationStore()
   const [dynamicOptions, setDynamicOptions] = useState<
     Record<string, { value: string; label: string }[]>
   >({})
@@ -100,183 +100,147 @@ export default function ConfigurationModal({
     }
   }, [config, nodeInfo?.providerId, getIntegrationByProvider, loadIntegrationData])
 
-  useEffect(() => {
-    if (isOpen && nodeInfo) {
-      // Reset config when opening modal
-      setConfig(initialData)
-      
-      // Restore file attachments if they exist
-      const restoreFileAttachments = async () => {
-        for (const field of nodeInfo.configSchema || []) {
-          if (field.type === "file" && initialData[field.name]) {
-            try {
-              const fileIds = Array.isArray(initialData[field.name]) 
-                ? initialData[field.name] 
-                : [initialData[field.name]]
-              
-              if (fileIds.length > 0) {
-                const { FileStorageService } = await import("@/lib/storage/fileStorage")
-                const files = await FileStorageService.getFilesFromReferences(fileIds, "user")
-                
-                if (files.length > 0) {
-                  // Mark files as restored and add to config
-                  const restoredFiles = files.map(file => ({
-                    name: file.fileName,
-                    size: file.content.byteLength,
-                    type: file.mimeType,
-                    lastModified: Date.now(),
-                    webkitRelativePath: '',
-                    _isRestored: true,
-                    _fileId: fileIds[files.indexOf(file)],
-                    // Add minimal required methods
-                    arrayBuffer: () => Promise.resolve(file.content),
-                    bytes: () => Promise.resolve(new Uint8Array(file.content)),
-                    slice: () => new Blob([file.content], { type: file.mimeType }),
-                    stream: () => new ReadableStream(),
-                    text: () => Promise.resolve('')
-                  }))
-                  
-                  setConfig(prev => ({
-                    ...prev,
-                    [field.name]: restoredFiles
-                  }))
-                }
-              }
-            } catch (error) {
-              console.error(`Failed to restore files for ${field.name}:`, error)
-            }
-          }
-        }
-      }
-      
-      restoreFileAttachments()
-      setErrors({}) // Clear errors when opening modal
+  const fetchDynamicData = useCallback(async () => {
+    if (!nodeInfo || !nodeInfo.providerId) return
 
-      // Fetch dynamic data if needed
-      const fetchDynamicData = async () => {
-        if (!nodeInfo?.providerId) return
+    const integration = getIntegrationByProvider(nodeInfo.providerId)
+    if (!integration) return
 
-        const integration = getIntegrationByProvider(nodeInfo.providerId)
-        if (!integration) return
+    // Check if integration needs reconnection due to missing scopes
+    const scopeCheck = checkIntegrationScopes(nodeInfo.providerId)
+    if (scopeCheck.needsReconnection) {
+      console.warn(`Integration needs reconnection: ${scopeCheck.reason}`)
+      setErrors({ integrationError: `This integration needs to be reconnected to access the required permissions. Please reconnect your ${nodeInfo.providerId} integration.` })
+      return
+    }
 
-        setLoadingDynamic(true)
-        const newOptions: Record<string, { value: string; label: string }[]> = {}
-        
-        for (const field of nodeInfo.configSchema || []) {
-          // Skip dependent fields - they will be fetched when their dependency changes
-          if (field.dependsOn) continue
-          
-          if (field.dynamic === "slack-channels") {
-            const data = await loadIntegrationData(
-              nodeInfo.providerId,
-              integration.id,
-            )
-            if (data) {
-              newOptions[field.name] = data.map((ch: any) => ({
-                value: ch.id,
-                label: `#${ch.name}`,
+    setLoadingDynamic(true)
+    const newOptions: Record<string, any[]> = {}
+    let hasData = false
+
+    for (const field of nodeInfo.configSchema || []) {
+      if (field.dynamic) {
+        try {
+          console.log(`Fetching dynamic data for ${field.dynamic}`)
+          const data = await loadIntegrationData(field.dynamic, integration.id)
+          if (data) {
+            hasData = true
+            if (field.dynamic === "slack-channels") {
+              newOptions[field.name] = data.map((channel: any) => ({
+                value: channel.id,
+                label: channel.name,
               }))
-            }
-          } else if (field.dynamic === "gmail-recent-recipients") {
-            const data = await loadIntegrationData(
-              "gmail-recent-recipients",
-              integration.id,
-            )
-            if (data) {
+            } else if (field.dynamic === "google-calendars") {
+              newOptions[field.name] = data.map((calendar: any) => ({
+                value: calendar.id,
+                label: calendar.summary,
+              }))
+            } else if (field.dynamic === "google-drive-folders") {
+              newOptions[field.name] = data.map((folder: any) => ({
+                value: folder.id,
+                label: folder.name,
+              }))
+            } else if (field.dynamic === "google-drive-files") {
+              newOptions[field.name] = data.map((file: any) => ({
+                value: file.id,
+                label: file.name,
+              }))
+            } else if (field.dynamic === "gmail-recent-recipients") {
               newOptions[field.name] = data.map((recipient: any) => ({
                 value: recipient.email,
-                label: recipient.label,
-                email: recipient.email,
-                name: recipient.name,
+                label: recipient.email,
               }))
-            }
-          } else if (field.dynamic === "gmail-enhanced-recipients") {
-            // For gmail-enhanced-recipients, always use the Gmail integration
-            const gmailIntegration = getIntegrationByProvider("gmail")
-            if (gmailIntegration) {
+            } else if (field.dynamic === "gmail-enhanced-recipients") {
+              newOptions[field.name] = data.map((recipient: any) => ({
+                value: recipient.email,
+                label: recipient.email,
+              }))
+            } else if (field.dynamic === "gmail-contact-groups") {
+              newOptions[field.name] = data.map((group: any) => ({
+                value: group.id,
+                label: group.name,
+              }))
+            } else if (field.dynamic === "google-sheets_spreadsheets") {
               const data = await loadIntegrationData(
-                "gmail-enhanced-recipients",
-                gmailIntegration.id,
+                field.dynamic,
+                integration.id,
               )
               if (data) {
-                newOptions[field.name] = data.map((recipient: any) => ({
-                  value: recipient.value,
-                  label: recipient.label,
-                  email: recipient.email,
-                  name: recipient.name,
-                  type: recipient.type,
-                  isGroup: recipient.isGroup,
-                  groupId: recipient.groupId,
-                  members: recipient.members,
+                newOptions[field.name] = data.map((spreadsheet: any) => ({
+                  value: spreadsheet.id,
+                  label: spreadsheet.name,
+                }))
+              }
+            } else if (field.dynamic === "google-sheets_sheets") {
+              const data = await loadIntegrationData(
+                field.dynamic,
+                integration.id,
+              )
+              if (data) {
+                newOptions[field.name] = data.map((sheet: any) => ({
+                  value: sheet.title,
+                  label: sheet.title,
+                }))
+              }
+            } else if (field.dynamic === "google-docs_documents") {
+              const data = await loadIntegrationData(
+                field.dynamic,
+                integration.id,
+              )
+              if (data) {
+                newOptions[field.name] = data.map((document: any) => ({
+                  value: document.id,
+                  label: document.name,
+                }))
+              }
+            } else if (field.dynamic === "google-docs_templates") {
+              const data = await loadIntegrationData(
+                field.dynamic,
+                integration.id,
+              )
+              if (data) {
+                newOptions[field.name] = data.map((template: any) => ({
+                  value: template.id,
+                  label: template.name,
                 }))
               }
             }
-          } else if (field.dynamic === "gmail-contact-groups") {
-            const data = await loadIntegrationData(
-              "gmail-contact-groups",
-              integration.id,
-            )
-            if (data) {
-              newOptions[field.name] = data.map((group: any) => ({
-                value: `@${group.name}`,
-                label: `📧 ${group.name} (${group.memberCount} members)`,
-                email: `@${group.name}`,
-                name: group.name,
-                type: 'contact_group',
-                isGroup: true,
-                groupId: group.id,
-                members: group.emails,
-              }))
-            }
-          } else if (field.dynamic === "google-calendars") {
-            const data = await loadIntegrationData(
-              nodeInfo.providerId,
-              integration.id,
-            )
-            if (data) {
-              newOptions[field.name] = data.map((cal: any) => ({
-                value: cal.id,
-                label: cal.summary,
-              }))
-            }
-          } else if (
-            field.dynamic === "google-drive-folders" ||
-            field.dynamic === "google-drive-files"
-          ) {
-            const data = await loadIntegrationData(
-              nodeInfo.providerId,
-              integration.id,
-            )
-            if (data) {
-              const items =
-                field.dynamic === "google-drive-folders"
-                  ? data.filter((f: any) => f.type === "folder")
-                  : data
-              newOptions[field.name] = items.map((item: any) => ({
-                value: item.id,
-                label: item.name,
-              }))
-            }
-          } else if (field.dynamic === "google-sheets_spreadsheets") {
-            const data = await loadIntegrationData(
-              field.dynamic,
-              integration.id,
-            )
-            if (data) {
-              newOptions[field.name] = data.map((spreadsheet: any) => ({
-                value: spreadsheet.id,
-                label: spreadsheet.name,
-              }))
-            }
+          }
+        } catch (error: any) {
+          console.error(`Error fetching dynamic data for ${field.dynamic}:`, error)
+          // Show specific error for scope issues
+          if (error.message && error.message.includes("insufficient authentication scopes")) {
+            setErrors(prev => ({
+              ...prev,
+              [field.name]: `This integration needs to be reconnected to access ${field.dynamic}. Please reconnect your ${nodeInfo.providerId} integration.`
+            }))
+          } else if (error.message && error.message.includes("authentication expired")) {
+            setErrors(prev => ({
+              ...prev,
+              [field.name]: `Authentication expired. Please reconnect your ${nodeInfo.providerId} integration.`
+            }))
+          } else {
+            setErrors(prev => ({
+              ...prev,
+              [field.name]: `Failed to load ${field.label || field.name}: ${error.message}`
+            }))
           }
         }
-        setDynamicOptions(newOptions)
-        setLoadingDynamic(false)
       }
+    }
 
+    if (hasData) {
+      setDynamicOptions(newOptions)
+    }
+    setLoadingDynamic(false)
+  }, [nodeInfo, loadIntegrationData, checkIntegrationScopes])
+
+  // Fetch dynamic data when modal opens
+  useEffect(() => {
+    if (isOpen && nodeInfo) {
       fetchDynamicData()
     }
-  }, [isOpen, nodeInfo, loadIntegrationData, getIntegrationByProvider, initialData])
+  }, [isOpen, nodeInfo, fetchDynamicData])
 
   // Watch for changes in dependent fields and fetch their data
   useEffect(() => {
