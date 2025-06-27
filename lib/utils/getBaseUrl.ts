@@ -34,12 +34,7 @@ export function getBaseUrl(): string {
 
 // Separate function for API calls that should use localhost in development
 export function getApiBaseUrl(): string {
-  // For local development, use localhost for API calls
-  if (process.env.NODE_ENV === "development") {
-    return "http://localhost:3000"
-  }
-
-  // For production, use the configured URL
+  // For production, use the configured URL (prioritize environment variables)
   if (process.env.NEXT_PUBLIC_APP_URL) {
     return process.env.NEXT_PUBLIC_APP_URL
   }
@@ -50,6 +45,11 @@ export function getApiBaseUrl(): string {
 
   if (process.env.VERCEL_URL) {
     return `https://${process.env.VERCEL_URL}`
+  }
+
+  // For local development (when no production environment variables are set), use localhost
+  if (process.env.NODE_ENV === "development") {
+    return "http://localhost:3000"
   }
 
   return "http://localhost:3000"
