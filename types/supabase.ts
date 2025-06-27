@@ -15,6 +15,7 @@ export interface Database {
           secondary_email: string | null
           phone_number: string | null
           avatar_url: string | null
+          provider: string | null
           created_at: string
           updated_at: string
         }
@@ -29,6 +30,7 @@ export interface Database {
           secondary_email?: string | null
           phone_number?: string | null
           avatar_url?: string | null
+          provider?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -43,6 +45,7 @@ export interface Database {
           secondary_email?: string | null
           phone_number?: string | null
           avatar_url?: string | null
+          provider?: string | null
           created_at?: string
           updated_at?: string
         }

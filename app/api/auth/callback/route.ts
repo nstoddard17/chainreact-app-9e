@@ -73,15 +73,43 @@ export async function GET(request: NextRequest) {
       });
 
       // Check if the existing user already has Google as provider
-      const hasGoogleProvider = existingUser.app_metadata?.provider === 'google' || 
+      // Check user_profiles table first, then fallback to auth.users metadata
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('provider')
+        .eq('id', existingUser.id)
+        .single();
+
+      const hasGoogleProvider = profile?.provider === 'google' || 
+                               existingUser.app_metadata?.provider === 'google' || 
                                existingUser.app_metadata?.providers?.includes('google') ||
                                existingUser.user_metadata?.provider === 'google' ||
                                existingUser.identities?.some(identity => identity.provider === 'google');
 
-      console.log(`🔍 Has Google provider: ${hasGoogleProvider}`);
+      console.log(`🔍 Has Google provider: ${hasGoogleProvider} (from profile: ${profile?.provider})`);
 
       if (hasGoogleProvider) {
         console.log(`✅ User already has Google linked, signing in normally`);
+        
+        // Ensure the user_profiles table has the correct provider
+        const { error: profileUpdateError } = await supabase
+          .from('user_profiles')
+          .upsert({
+            id: existingUser.id,
+            full_name: userInfo.name,
+            avatar_url: userInfo.picture,
+            provider: 'google',
+            updated_at: new Date().toISOString(),
+          }, {
+            onConflict: 'id'
+          });
+
+        if (profileUpdateError) {
+          console.error('❌ Error updating user profile:', profileUpdateError);
+        } else {
+          console.log('✅ Ensured user profile has provider: google');
+        }
+        
         // User already has Google linked, just sign them in
         const { data: sessionData, error: sessionError } = await supabase.auth.admin.generateLink({
           type: 'magiclink',
@@ -101,42 +129,25 @@ export async function GET(request: NextRequest) {
         // User exists but doesn't have Google linked - automatically link them
         console.log(`🔄 Auto-linking existing email account to Google for: ${userInfo.email}`);
         
-        const { error: updateError } = await supabase.auth.admin.updateUserById(existingUser.id, {
-          user_metadata: {
-            ...existingUser.user_metadata,
+        // Only update user_profiles table with provider information
+        const { error: profileError } = await supabase
+          .from('user_profiles')
+          .upsert({
+            id: existingUser.id,
             full_name: userInfo.name,
             avatar_url: userInfo.picture,
             provider: 'google',
-            provider_id: userInfo.id,
-            google_linked: true,
-            linked_at: new Date().toISOString(),
-          },
-          app_metadata: {
-            ...existingUser.app_metadata,
-            provider: 'google',
-            providers: ['google'],
-          },
-        });
+            updated_at: new Date().toISOString(),
+          }, {
+            onConflict: 'id'
+          });
 
-        if (updateError) {
-          console.error('❌ Error linking account:', updateError);
-          throw updateError;
+        if (profileError) {
+          console.error('❌ Error updating user profile:', profileError);
+          throw profileError;
         }
 
-        console.log('✅ User metadata updated successfully');
-        console.log('📝 Updated metadata:', {
-          user_metadata: {
-            full_name: userInfo.name,
-            avatar_url: userInfo.picture,
-            provider: 'google',
-            provider_id: userInfo.id,
-            google_linked: true,
-          },
-          app_metadata: {
-            provider: 'google',
-            providers: ['google'],
-          },
-        });
+        console.log('✅ User profile updated with provider: google');
 
         // Wait a moment for the update to propagate
         await new Promise(resolve => setTimeout(resolve, 1000));
@@ -168,18 +179,33 @@ export async function GET(request: NextRequest) {
       user_metadata: {
         full_name: userInfo.name,
         avatar_url: userInfo.picture,
-        provider: 'google',
-        provider_id: userInfo.id,
-      },
-      app_metadata: {
-        provider: 'google',
-        providers: ['google'],
       },
     });
 
     if (userError) {
       throw userError;
     }
+
+    // Create user profile record
+    const { error: profileError } = await supabase
+      .from('user_profiles')
+      .insert({
+        id: userData.user.id,
+        full_name: userInfo.name,
+        avatar_url: userInfo.picture,
+        provider: 'google',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+
+    if (profileError) {
+      console.error('❌ Error creating user profile:', profileError);
+      // Don't throw here as the user creation was successful
+    } else {
+      console.log('✅ New user profile created with provider: google');
+    }
+
+    console.log('✅ New user and profile created successfully');
 
     // Create session for new user
     const { data: sessionData, error: sessionError } = await supabase.auth.admin.generateLink({

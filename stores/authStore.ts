@@ -25,6 +25,7 @@ interface Profile {
   username?: string
   secondary_email?: string
   phone_number?: string
+  provider?: string
   created_at?: string
   updated_at?: string
 }
@@ -135,7 +136,7 @@ export const useAuthStore = create<AuthState>()(
             // Fetch additional profile data from user_profiles table
             const { data: profileData } = await supabase
               .from('user_profiles')
-              .select('id, first_name, last_name, full_name, company, job_title, username, secondary_email, phone_number, avatar_url, created_at, updated_at')
+              .select('id, first_name, last_name, full_name, company, job_title, username, secondary_email, phone_number, avatar_url, provider, created_at, updated_at')
               .eq('id', session.user.id)
               .single()
 
@@ -145,10 +146,41 @@ export const useAuthStore = create<AuthState>()(
               user.full_name = profileData.full_name || user.name
             }
 
-            const profile: Profile = profileData || {
-              id: session.user.id,
-              full_name: user.name,
-              avatar_url: user.avatar
+            // If no profile exists, create one
+            let profile: Profile
+            if (!profileData) {
+              // For new users, detect provider from auth.users metadata as fallback
+              const detectedProvider = session.user.app_metadata?.provider || 
+                                     session.user.app_metadata?.providers?.[0] || 
+                                     (session.user.identities?.some(id => id.provider === 'google') ? 'google' : 'email')
+              
+              profile = {
+                id: session.user.id,
+                full_name: user.name,
+                avatar_url: user.avatar,
+                provider: detectedProvider
+              }
+
+              // Save the profile to database
+              const { error: createError } = await supabase
+                .from('user_profiles')
+                .insert({
+                  id: session.user.id,
+                  full_name: user.name,
+                  avatar_url: user.avatar,
+                  provider: detectedProvider,
+                  created_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString(),
+                })
+
+              if (createError) {
+                console.error('Error creating user profile:', createError)
+              } else {
+                console.log('✅ Created user profile with provider:', detectedProvider)
+              }
+            } else {
+              profile = profileData
+              console.log('✅ Using existing profile with provider:', profile.provider)
             }
 
             set({ user, profile, loading: false, initialized: true })
@@ -215,7 +247,7 @@ export const useAuthStore = create<AuthState>()(
                 // Fetch additional profile data from user_profiles table
                 const { data: profileData } = await supabase
                   .from('user_profiles')
-                  .select('id, first_name, last_name, full_name, company, job_title, username, secondary_email, phone_number, avatar_url, created_at, updated_at')
+                  .select('id, first_name, last_name, full_name, company, job_title, username, secondary_email, phone_number, avatar_url, provider, created_at, updated_at')
                   .eq('id', session.user.id)
                   .single()
 
@@ -225,10 +257,41 @@ export const useAuthStore = create<AuthState>()(
                   user.full_name = profileData.full_name || user.name
                 }
 
-                const profile: Profile = profileData || {
-                  id: session.user.id,
-                  full_name: user.name,
-                  avatar_url: user.avatar
+                // If no profile exists, create one
+                let profile: Profile
+                if (!profileData) {
+                  // For new users, detect provider from auth.users metadata as fallback
+                  const detectedProvider = session.user.app_metadata?.provider || 
+                                         session.user.app_metadata?.providers?.[0] || 
+                                         (session.user.identities?.some(id => id.provider === 'google') ? 'google' : 'email')
+                  
+                  profile = {
+                    id: session.user.id,
+                    full_name: user.name,
+                    avatar_url: user.avatar,
+                    provider: detectedProvider
+                  }
+
+                  // Save the profile to database
+                  const { error: createError } = await supabase
+                    .from('user_profiles')
+                    .insert({
+                      id: session.user.id,
+                      full_name: user.name,
+                      avatar_url: user.avatar,
+                      provider: detectedProvider,
+                      created_at: new Date().toISOString(),
+                      updated_at: new Date().toISOString(),
+                    })
+
+                  if (createError) {
+                    console.error('Error creating user profile:', createError)
+                  } else {
+                    console.log('✅ Created user profile with provider:', detectedProvider)
+                  }
+                } else {
+                  profile = profileData
+                  console.log('✅ Using existing profile with provider:', profile.provider)
                 }
 
                 set({ user, profile, error: null })
@@ -324,6 +387,7 @@ export const useAuthStore = create<AuthState>()(
               job_title: updates.job_title,
               secondary_email: updates.secondary_email,
               phone_number: updates.phone_number,
+              provider: updates.provider,
               updated_at: new Date().toISOString(),
             }, {
               onConflict: 'id'
@@ -402,6 +466,22 @@ export const useAuthStore = create<AuthState>()(
               email: data.user.email || "",
               name: data.user.user_metadata?.full_name || data.user.user_metadata?.name,
               avatar: data.user.user_metadata?.avatar_url,
+            }
+
+            // Create user profile record
+            const { error: profileError } = await supabase
+              .from('user_profiles')
+              .insert({
+                id: data.user.id,
+                full_name: user.name,
+                provider: 'email',
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              });
+
+            if (profileError) {
+              console.error('Error creating user profile:', profileError);
+              // Don't throw here as the user creation was successful
             }
 
             set({ user, loading: false })

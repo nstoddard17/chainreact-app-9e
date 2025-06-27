@@ -14,11 +14,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Email is required' }, { status: 400 });
     }
 
-    // Check if user exists and get their provider
-    const { data: users, error } = await supabase.auth.admin.listUsers();
+    // First check if user exists in auth.users
+    const { data: users, error: authError } = await supabase.auth.admin.listUsers();
 
-    if (error) {
-      console.error('Error fetching users:', error);
+    if (authError) {
+      console.error('Error fetching users:', authError);
       return NextResponse.json({ error: 'Failed to check user provider' }, { status: 500 });
     }
 
@@ -32,15 +32,34 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Check if user has Google as provider
-    const hasGoogleProvider = user.app_metadata?.provider === 'google' || 
-                             user.app_metadata?.providers?.includes('google') ||
-                             user.user_metadata?.provider === 'google' ||
-                             user.identities?.some(identity => identity.provider === 'google');
+    // Check user_profiles table for provider information
+    const { data: profile, error: profileError } = await supabase
+      .from('user_profiles')
+      .select('provider')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError) {
+      console.error('Error fetching user profile:', profileError);
+      // Fallback to auth.users metadata if profile doesn't exist
+      const hasGoogleProvider = user.app_metadata?.provider === 'google' || 
+                               user.app_metadata?.providers?.includes('google') ||
+                               user.user_metadata?.provider === 'google' ||
+                               user.identities?.some(identity => identity.provider === 'google');
+
+      return NextResponse.json({ 
+        exists: true,
+        provider: hasGoogleProvider ? 'google' : 'email',
+        user_id: user.id
+      });
+    }
+
+    // Use provider from user_profiles table as the authoritative source
+    const provider = profile?.provider || 'email';
 
     return NextResponse.json({ 
       exists: true,
-      provider: hasGoogleProvider ? 'google' : 'email',
+      provider: provider,
       user_id: user.id
     });
 
