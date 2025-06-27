@@ -3,7 +3,6 @@
 import { create } from "zustand"
 import { persist, createJSONStorage } from "zustand/middleware"
 import { supabase } from "@/utils/supabaseClient"
-import { getEnvironmentConfig } from "@/lib/utils/environment"
 
 interface User {
   id: string
@@ -582,7 +581,7 @@ export const useAuthStore = create<AuthState>()(
           // Build the Google OAuth URL
           const params = new URLSearchParams({
             client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!,
-            redirect_uri: `${getEnvironmentConfig().url}/api/auth/callback`,
+            redirect_uri: `${process.env.NEXT_PUBLIC_BASE_URL}/api/auth/callback`,
             response_type: 'code',
             scope: 'email profile',
             state: state,

@@ -2,7 +2,6 @@ import { type NextRequest } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createPopupResponse } from '@/lib/utils/createPopupResponse'
 import { getBaseUrl } from '@/lib/utils/getBaseUrl'
-import { getEnvironmentConfig } from '@/lib/utils/environment'
 
 export async function GET(request: NextRequest) {
   const url = new URL(request.url)
@@ -62,7 +61,7 @@ export async function GET(request: NextRequest) {
     const clientSecret = process.env.PAYPAL_CLIENT_SECRET
     // Use the same registered redirect URI as in the auth URL generation
     // This ensures consistency between authorization request and token exchange
-    const redirectUri = process.env.PAYPAL_REDIRECT_URI || `${getEnvironmentConfig().url}/api/integrations/paypal/callback`
+    const redirectUri = process.env.PAYPAL_REDIRECT_URI || "https://chainreact.app/api/integrations/paypal/callback"
     
     // For debugging
     console.log("PayPal callback processing - using redirect URI:", redirectUri)

@@ -11,7 +11,6 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
 import { Mail, Lock } from "lucide-react"
 import { toast } from "@/components/ui/use-toast"
-import { apiClient } from "@/lib/apiClient"
 
 export default function LoginForm() {
   const [email, setEmail] = useState("")
@@ -23,14 +22,17 @@ export default function LoginForm() {
 
   const checkProvider = async (email: string) => {
     try {
-      const response = await apiClient.post('/api/auth/check-provider', { email });
+      const response = await fetch('/api/auth/check-provider', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+      });
 
-      if (response.error) {
-        console.error('Error checking provider:', response.error);
-        return true; // Allow login if check fails
-      }
+      const data = await response.json();
 
-      if (response.data?.exists && response.data?.provider === 'google') {
+      if (data.exists && data.provider === 'google') {
         setProviderError('This account was created with Google. Please sign in with Google instead.');
         return false;
       } else {

@@ -4,8 +4,6 @@
  * and serves as a single source of truth for token refresh endpoints and parameters
  */
 
-import { buildOAuthRedirectUri, getEnvironmentOAuthClientCredentials } from '@/lib/utils/environment'
-
 export interface OAuthProviderConfig {
   // Provider identifier
   id: string;
@@ -551,18 +549,12 @@ export function getOAuthClientCredentials(provider: string | OAuthProviderConfig
     throw new Error(`No OAuth configuration found for provider: ${typeof provider === 'string' ? provider : provider.id}`);
   }
   
-  // Use the new environment system for getting client credentials
-  try {
-    return getEnvironmentOAuthClientCredentials(config.id);
-  } catch (error) {
-    // Fallback to the old method for backward compatibility
-    const clientId = process.env[config.clientIdEnv];
-    const clientSecret = process.env[config.clientSecretEnv];
-    
-    if (!clientId || !clientSecret) {
-      throw new Error(`Missing OAuth credentials for ${config.name}. Required environment variables: ${config.clientIdEnv}, ${config.clientSecretEnv}`);
-    }
-    
-    return { clientId, clientSecret };
+  const clientId = process.env[config.clientIdEnv];
+  const clientSecret = process.env[config.clientSecretEnv];
+  
+  if (!clientId || !clientSecret) {
+    throw new Error(`Missing OAuth credentials for ${config.name}. Required environment variables: ${config.clientIdEnv}, ${config.clientSecretEnv}`);
   }
+  
+  return { clientId, clientSecret };
 }

@@ -1,7 +1,7 @@
 import { type NextRequest } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createPopupResponse } from '@/lib/utils/createPopupResponse'
-import { getOAuthRedirectBase } from '@/lib/utils/environment'
+import { getBaseUrl } from '@/lib/utils/getBaseUrl'
 
 // Validate environment variables
 if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
   const state = url.searchParams.get('state')
   const error = url.searchParams.get('error')
   const errorDescription = url.searchParams.get('error_description')
-  const baseUrl = getOAuthRedirectBase()
+  const baseUrl = getBaseUrl()
   const provider = 'facebook'
 
   if (error) {

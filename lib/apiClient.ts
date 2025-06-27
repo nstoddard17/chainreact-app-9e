@@ -9,6 +9,12 @@ interface ApiResponse<T = any> {
 }
 
 class ApiClient {
+  private baseUrl: string
+
+  constructor() {
+    this.baseUrl = getBaseUrl()
+  }
+
   private async getAuthHeaders(): Promise<Record<string, string>> {
     try {
       const { data: { session } } = await supabase.auth.getSession()
@@ -25,11 +31,8 @@ class ApiClient {
 
   private async request<T = any>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
     try {
-      // Get the base URL dynamically on each request
-      const baseUrl = getBaseUrl()
-      
       // Ensure we're using the same domain to avoid CORS issues
-      const url = `${baseUrl}${endpoint}`
+      const url = `${this.baseUrl}${endpoint}`
 
       const defaultHeaders = {
         "Content-Type": "application/json",
@@ -49,19 +52,11 @@ class ApiClient {
       }
 
       console.log(`🌐 API Request: ${config.method || "GET"} ${url}`)
-      console.log(`🔧 Base URL: ${baseUrl}`)
-      console.log(`🔧 Endpoint: ${endpoint}`)
 
       const response = await fetch(url, config)
 
       if (!response.ok) {
-        console.error(`❌ HTTP Error: ${response.status} ${response.statusText} for ${url}`)
-        // Return a structured error response instead of throwing
-        return {
-          success: false,
-          error: `HTTP ${response.status}: ${response.statusText}`,
-          data: undefined,
-        }
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
       }
 
       const data = await response.json()
@@ -74,8 +69,6 @@ class ApiClient {
       }
     } catch (error: any) {
       console.error(`❌ API Error: ${endpoint}`, error)
-      console.error(`🔧 Base URL: ${getBaseUrl()}`)
-      console.error(`🔧 Full URL: ${getBaseUrl()}${endpoint}`)
 
       // Return a structured error response instead of throwing
       return {

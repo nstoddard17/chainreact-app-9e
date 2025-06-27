@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getEnvironmentConfig } from '@/lib/utils/environment'
 
 // Helper to parse Facebook signed_request (stub for now)
 function parseSignedRequest(signedRequest: string) {
@@ -27,7 +26,7 @@ export async function POST(request: NextRequest) {
     // TODO: Find user by Facebook user_id (signed.user_id) and delete their data
     // ...
     // Return status URL as required by Facebook
-    return NextResponse.json({ url: `${getEnvironmentConfig().url}/settings/security?deletion=facebook` })
+    return NextResponse.json({ url: 'https://chainreact.app/settings/security?deletion=facebook' })
   }
 
   // User-initiated deletion (authenticated user)
