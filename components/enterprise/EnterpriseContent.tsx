@@ -64,13 +64,10 @@ export function EnterpriseContent() {
   ]
 
   return (
-    <AppLayout title="Enterprise">
+    <AppLayout title="Enterprise" subtitle="Manage enterprise-grade security, compliance, and deployment options">
       <div className="max-w-7xl mx-auto space-y-8">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">Enterprise Dashboard</h1>
-            <p className="text-muted-foreground">Manage enterprise-grade security, compliance, and deployment options</p>
-          </div>
+        {/* Enterprise Settings Button */}
+        <div className="flex justify-end">
           <Button>
             <Settings className="w-4 h-4 mr-2" />
             Enterprise Settings

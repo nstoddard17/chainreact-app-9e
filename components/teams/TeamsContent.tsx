@@ -29,13 +29,9 @@ export default function TeamsContent() {
   }
 
   return (
-    <AppLayout title="Teams">
+    <AppLayout title="Teams" subtitle="Manage your organizations and team collaboration">
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-slate-900">Teams</h1>
-            <p className="text-slate-600 mt-1">Manage your organizations and team collaboration</p>
-          </div>
+        <div className="flex justify-end">
           <Button
             onClick={() => setShowCreateDialog(true)}
             className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"

@@ -37,10 +37,6 @@ export default function AnalyticsContent() {
   return (
     <AppLayout title="Analytics">
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold text-slate-900">Analytics</h1>
-        </div>
-
         {/* Overview Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <Card className="bg-white rounded-2xl shadow-lg border border-slate-200">

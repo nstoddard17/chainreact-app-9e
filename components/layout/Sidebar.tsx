@@ -49,20 +49,45 @@ export default function Sidebar({ isMobileMenuOpen, onMobileMenuChange, isCollap
       )}
     >
       {/* Logo */}
-      <div className="p-6 border-b border-border flex items-center justify-between">
-        <Link href="/" className="flex items-center space-x-2">
-          <Image src="/logo_transparent.png" alt="ChainReact Logo" width={32} height={32} className="w-8 h-8" />
-          {!isCollapsed && <span className="text-xl font-bold text-foreground">ChainReact</span>}
-        </Link>
-        <div className="flex items-center space-x-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="hidden lg:flex"
-            onClick={onToggleCollapse}
-          >
-            {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-          </Button>
+      <div className="p-6 border-b border-border flex items-center justify-between relative">
+        {isCollapsed ? (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="hidden lg:flex"
+              onClick={onToggleCollapse}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        ) : (
+          <>
+            <Link href="/" className="flex items-center space-x-2">
+              <Image src="/logo_transparent.png" alt="ChainReact Logo" width={32} height={32} className="w-8 h-8" />
+              <span className="text-xl font-bold text-foreground">ChainReact</span>
+            </Link>
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="hidden lg:flex"
+                onClick={onToggleCollapse}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="lg:hidden"
+                onClick={() => onMobileMenuChange(false)}
+              >
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
+          </>
+        )}
+        {isCollapsed && (
           <Button
             variant="ghost"
             size="icon"
@@ -71,7 +96,7 @@ export default function Sidebar({ isMobileMenuOpen, onMobileMenuChange, isCollap
           >
             <X className="h-5 w-5" />
           </Button>
-        </div>
+        )}
       </div>
 
       {/* Navigation */}

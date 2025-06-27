@@ -12,9 +12,10 @@ import { useTheme } from "next-themes"
 interface AppLayoutProps {
   children: React.ReactNode
   title: string
+  subtitle?: string
 }
 
-export default function AppLayout({ children, title }: AppLayoutProps) {
+export default function AppLayout({ children, title, subtitle }: AppLayoutProps) {
   const { initialize, user } = useAuthStore()
   const { globalPreloadingData } = useIntegrationStore()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
@@ -25,10 +26,13 @@ export default function AppLayout({ children, title }: AppLayoutProps) {
     initialize()
   }, [initialize])
 
-  // Set default theme to dark for dashboard users
+  // Set default theme to dark for dashboard users (non-blocking)
   useEffect(() => {
     if (user && theme === "system") {
-      setTheme("dark")
+      // Use setTimeout to make this non-blocking
+      setTimeout(() => {
+        setTheme("dark")
+      }, 100)
     }
   }, [user, theme, setTheme])
 
@@ -66,6 +70,7 @@ export default function AppLayout({ children, title }: AppLayoutProps) {
         <TopBar 
           onMobileMenuChange={setIsMobileMenuOpen} 
           title={title}
+          subtitle={subtitle}
         />
         {globalPreloadingData && (
           <div className="bg-blue-50 border-b border-blue-200 px-6 py-2">

@@ -130,14 +130,10 @@ const topContributors = [
 
 export default function CommunityContent() {
   return (
-    <AppLayout title="Community">
+    <AppLayout title="Community" subtitle="Connect, learn, and share with fellow automation enthusiasts">
       <div className="space-y-8">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-slate-900">Community</h1>
-            <p className="text-slate-600 mt-2">Connect, learn, and share with fellow automation enthusiasts</p>
-          </div>
+        {/* New Discussion Button */}
+        <div className="flex justify-end">
           <Button>
             <Plus className="w-4 h-4 mr-2" />
             New Discussion

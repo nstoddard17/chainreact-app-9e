@@ -160,11 +160,8 @@ export default function WorkflowsContent() {
   return (
     <AppLayout title="Workflows">
       <div className="space-y-8 p-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold text-slate-900">Workflows</h1>
-          <div className="flex gap-3">
-            <CreateWorkflowDialog />
-          </div>
+        <div className="flex justify-end">
+          <CreateWorkflowDialog />
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
