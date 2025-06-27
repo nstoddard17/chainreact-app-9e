@@ -1,4 +1,4 @@
-import { getBaseUrl } from "./utils/getBaseUrl"
+import { getApiBaseUrl } from "./utils/getBaseUrl"
 import { supabase } from "@/utils/supabaseClient"
 
 interface ApiResponse<T = any> {
@@ -12,7 +12,7 @@ class ApiClient {
   private baseUrl: string
 
   constructor() {
-    this.baseUrl = getBaseUrl()
+    this.baseUrl = getApiBaseUrl()
   }
 
   private async getAuthHeaders(): Promise<Record<string, string>> {
