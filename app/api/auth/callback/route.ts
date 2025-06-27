@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { getBaseUrl } from '@/lib/utils/getBaseUrl';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -29,7 +30,7 @@ export async function GET(request: NextRequest) {
         code,
         client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!,
         client_secret: process.env.GOOGLE_CLIENT_SECRET!,
-        redirect_uri: `${process.env.NEXT_PUBLIC_BASE_URL}/api/auth/callback`,
+        redirect_uri: `${getBaseUrl()}/api/auth/callback`,
         grant_type: 'authorization_code',
       }),
     });
@@ -115,7 +116,7 @@ export async function GET(request: NextRequest) {
           type: 'magiclink',
           email: userInfo.email,
           options: {
-            redirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/dashboard`,
+            redirectTo: `${getBaseUrl()}/dashboard`,
           },
         });
 
@@ -157,7 +158,7 @@ export async function GET(request: NextRequest) {
           type: 'magiclink',
           email: userInfo.email,
           options: {
-            redirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/dashboard`,
+            redirectTo: `${getBaseUrl()}/dashboard`,
           },
         });
 
@@ -212,7 +213,7 @@ export async function GET(request: NextRequest) {
       type: 'magiclink',
       email: userInfo.email,
       options: {
-        redirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/dashboard`,
+        redirectTo: `${getBaseUrl()}/dashboard`,
       },
     });
 

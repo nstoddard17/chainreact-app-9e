@@ -2,6 +2,8 @@
 
 import { create } from "zustand"
 import { persist, createJSONStorage } from "zustand/middleware"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 import { supabase } from "@/utils/supabaseClient"
 
 interface User {
@@ -597,7 +599,7 @@ export const useAuthStore = create<AuthState>()(
           // Build the Google OAuth URL
           const params = new URLSearchParams({
             client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!,
-            redirect_uri: `${process.env.NEXT_PUBLIC_BASE_URL}/api/auth/callback`,
+            redirect_uri: `${getBaseUrl()}/api/auth/callback`,
             response_type: 'code',
             scope: 'email profile',
             state: state,
