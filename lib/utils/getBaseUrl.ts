@@ -1,5 +1,10 @@
 export function getBaseUrl(): string {
-  // For OAuth redirects, always use the production domain
+  // For OAuth redirects in development, use localhost
+  if (process.env.NODE_ENV === "development") {
+    return "http://localhost:3000"
+  }
+
+  // For production OAuth redirects, use the custom domain
   if (process.env.NEXT_PUBLIC_SITE_URL) {
     return process.env.NEXT_PUBLIC_SITE_URL
   }
