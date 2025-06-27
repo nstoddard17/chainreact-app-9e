@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -15,9 +15,11 @@ import { ConfigurationLoadingScreen } from "@/components/ui/loading-screen"
 import { FileUpload } from "@/components/ui/file-upload"
 import { DatePicker } from "@/components/ui/date-picker"
 import { TimePicker } from "@/components/ui/time-picker"
-import { AlertCircle } from "lucide-react"
+import { AlertCircle, Video } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 import { cn } from "@/lib/utils"
+import { LocationAutocomplete } from "@/components/ui/location-autocomplete"
+import GoogleMeetCard from "@/components/ui/google-meet-card"
 
 interface ConfigurationModalProps {
   isOpen: boolean
@@ -43,6 +45,9 @@ export default function ConfigurationModal({
     Record<string, { value: string; label: string }[]>
   >({})
   const [loadingDynamic, setLoadingDynamic] = useState(false)
+  const [meetDraft, setMeetDraft] = useState<{ eventId: string; meetUrl: string } | null>(null)
+  const [meetLoading, setMeetLoading] = useState(false)
+  const meetDraftRef = useRef<string | null>(null)
 
   // Function to get user's timezone
   const getUserTimezone = () => {
@@ -74,16 +79,24 @@ export default function ConfigurationModal({
       // Set default dates for Google Calendar if not provided
       if (nodeInfo.type === "google_calendar_action_create_event") {
         const now = new Date()
-        const tomorrow = new Date(now)
-        tomorrow.setDate(tomorrow.getDate() + 1)
-        
+        // Round to next 5 minutes
+        const rounded = new Date(Math.ceil(now.getTime() / (5 * 60 * 1000)) * (5 * 60 * 1000))
+        const todayStr = rounded.toISOString().split('T')[0]
+        const timeStr = rounded.toTimeString().slice(0,5)
         if (!initialConfig.startDate) {
-          initialConfig.startDate = tomorrow.toISOString().split('T')[0]
+          initialConfig.startDate = todayStr
+        }
+        if (!initialConfig.startTime) {
+          initialConfig.startTime = timeStr
         }
         if (!initialConfig.endDate) {
-          initialConfig.endDate = tomorrow.toISOString().split('T')[0]
+          initialConfig.endDate = todayStr
         }
-        
+        // Default end time to 1 hour after start
+        if (!initialConfig.endTime) {
+          const end = new Date(rounded.getTime() + 60 * 60 * 1000)
+          initialConfig.endTime = end.toTimeString().slice(0,5)
+        }
         // Always set user's timezone for Google Calendar events
         const userTimezone = getUserTimezone()
         initialConfig.timeZone = userTimezone
@@ -163,17 +176,6 @@ export default function ConfigurationModal({
                 label: `#${ch.name}`,
               }))
             }
-          } else if (field.dynamic === "google-contacts") {
-            const data = await loadIntegrationData(
-              nodeInfo.providerId,
-              integration.id,
-            )
-            if (data) {
-              newOptions[field.name] = data.map((c: any) => ({
-                value: c.email,
-                label: `${c.name} (${c.email})`,
-              }))
-            }
           } else if (field.dynamic === "gmail-recent-recipients") {
             const data = await loadIntegrationData(
               "gmail-recent-recipients",
@@ -188,21 +190,25 @@ export default function ConfigurationModal({
               }))
             }
           } else if (field.dynamic === "gmail-enhanced-recipients") {
-            const data = await loadIntegrationData(
-              "gmail-enhanced-recipients",
-              integration.id,
-            )
-            if (data) {
-              newOptions[field.name] = data.map((recipient: any) => ({
-                value: recipient.value,
-                label: recipient.label,
-                email: recipient.email,
-                name: recipient.name,
-                type: recipient.type,
-                isGroup: recipient.isGroup,
-                groupId: recipient.groupId,
-                members: recipient.members,
-              }))
+            // For gmail-enhanced-recipients, always use the Gmail integration
+            const gmailIntegration = getIntegrationByProvider("gmail")
+            if (gmailIntegration) {
+              const data = await loadIntegrationData(
+                "gmail-enhanced-recipients",
+                gmailIntegration.id,
+              )
+              if (data) {
+                newOptions[field.name] = data.map((recipient: any) => ({
+                  value: recipient.value,
+                  label: recipient.label,
+                  email: recipient.email,
+                  name: recipient.name,
+                  type: recipient.type,
+                  isGroup: recipient.isGroup,
+                  groupId: recipient.groupId,
+                  members: recipient.members,
+                }))
+              }
             }
           } else if (field.dynamic === "gmail-contact-groups") {
             const data = await loadIntegrationData(
@@ -268,6 +274,19 @@ export default function ConfigurationModal({
     }
   }, [isOpen, nodeInfo?.type, config.timeZone])
 
+  // Clean up draft event if modal closes with a draft present
+  useEffect(() => {
+    if (!isOpen && meetDraftRef.current) {
+      fetch("/api/integrations/google-calendar/meet-draft", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventId: meetDraftRef.current }),
+      })
+      setMeetDraft(null)
+      meetDraftRef.current = null
+    }
+  }, [isOpen])
+
   if (!nodeInfo) {
     return null
   }
@@ -294,13 +313,52 @@ export default function ConfigurationModal({
 
   const handleSave = () => {
     if (validateRequiredFields()) {
-      onSave(config)
+      const configToSave = { ...config }
+      if (nodeInfo?.type === "google_calendar_action_create_event" && Array.isArray(configToSave.attendees)) {
+        configToSave.attendees = configToSave.attendees.join(',')
+      }
+      onSave(configToSave)
       onClose()
     }
   }
 
-  const handleCheckboxChange = (name: string, checked: boolean) => {
+  const handleCheckboxChange = async (name: string, checked: boolean) => {
     setConfig((prev) => ({ ...prev, [name]: checked }))
+    if (name === "createMeetLink") {
+      if (checked) {
+        setMeetLoading(true)
+        // Create draft event
+        try {
+          const res = await fetch("/api/integrations/google-calendar/meet-draft", { method: "POST" })
+          const data = await res.json()
+          if (data.eventId && data.meetUrl) {
+            setMeetDraft({ eventId: data.eventId, meetUrl: data.meetUrl })
+            meetDraftRef.current = data.eventId
+          } else {
+            setMeetDraft(null)
+            meetDraftRef.current = null
+          }
+        } catch {
+          setMeetDraft(null)
+          meetDraftRef.current = null
+        } finally {
+          setMeetLoading(false)
+        }
+      } else {
+        // Delete draft event if exists
+        if (meetDraftRef.current) {
+          setMeetLoading(true)
+          await fetch("/api/integrations/google-calendar/meet-draft", {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ eventId: meetDraftRef.current }),
+          })
+          setMeetDraft(null)
+          meetDraftRef.current = null
+          setMeetLoading(false)
+        }
+      }
+    }
   }
 
   const renderField = (field: ConfigField) => {
@@ -435,6 +493,43 @@ export default function ConfigurationModal({
           </div>
         )
       case "email-autocomplete":
+        if (field.name === "attendees" && nodeInfo?.type === "google_calendar_action_create_event") {
+          const emailOptions = dynamicOptions[field.name] || []
+          const emailSuggestions = emailOptions.map((opt: any) => ({
+            value: opt.value,
+            label: opt.label,
+            email: opt.email || opt.value,
+            name: opt.name,
+            type: opt.type,
+            isGroup: opt.isGroup,
+            groupId: opt.groupId,
+            members: opt.members
+          }))
+          // Always use a string value for EmailAutocomplete
+          const attendeesValue = typeof value === "string" ? value : Array.isArray(value) ? value.join(", ") : ""
+          return (
+            <div className="space-y-1">
+              <EmailAutocomplete
+                value={attendeesValue}
+                onChange={(newValue) => setConfig({ ...config, [field.name]: newValue })}
+                suggestions={emailSuggestions}
+                placeholder={field.placeholder}
+                disabled={loadingDynamic}
+                isLoading={loadingDynamic}
+                multiple={true}
+                className={inputClassName}
+              />
+              {hasError && (
+                <div className="flex items-center gap-1 text-sm text-red-600">
+                  <AlertCircle className="h-4 w-4" />
+                  {errors[field.name]}
+                </div>
+              )}
+            </div>
+          )
+        }
+        
+        // Regular email-autocomplete for other fields
         const emailOptions = dynamicOptions[field.name] || []
         const emailSuggestions = emailOptions.map((opt: any) => ({
           value: opt.value,
@@ -446,26 +541,50 @@ export default function ConfigurationModal({
           groupId: opt.groupId,
           members: opt.members
         }))
-        return (
-          <div className="space-y-1">
-            <EmailAutocomplete
-              value={value}
-              onChange={handleSelectChange}
-              suggestions={emailSuggestions}
-              placeholder={field.placeholder}
-              disabled={loadingDynamic}
-              isLoading={loadingDynamic}
-              multiple={field.name === "to"} // Allow multiple recipients for "to" field
-              className={inputClassName}
-            />
-            {hasError && (
-              <div className="flex items-center gap-1 text-sm text-red-600">
-                <AlertCircle className="h-4 w-4" />
-                {errors[field.name]}
-              </div>
-            )}
-          </div>
-        )
+        if ((field.name === "attendees" && nodeInfo?.type === "google_calendar_action_create_event") || field.name === "to") {
+          const multiValue = typeof value === 'string' ? value : Array.isArray(value) ? value.join(', ') : ''
+          return (
+            <div className="space-y-1">
+              <EmailAutocomplete
+                value={multiValue}
+                onChange={(newValue) => setConfig({ ...config, [field.name]: newValue })}
+                suggestions={emailSuggestions}
+                placeholder={field.placeholder}
+                disabled={loadingDynamic}
+                isLoading={loadingDynamic}
+                multiple={true}
+                className={inputClassName}
+              />
+              {hasError && (
+                <div className="flex items-center gap-1 text-sm text-red-600">
+                  <AlertCircle className="h-4 w-4" />
+                  {errors[field.name]}
+                </div>
+              )}
+            </div>
+          )
+        } else {
+          return (
+            <div className="space-y-1">
+              <EmailAutocomplete
+                value={typeof value === 'string' ? value : ''}
+                onChange={handleSelectChange}
+                suggestions={emailSuggestions}
+                placeholder={field.placeholder}
+                disabled={loadingDynamic}
+                isLoading={loadingDynamic}
+                multiple={false}
+                className={inputClassName}
+              />
+              {hasError && (
+                <div className="flex items-center gap-1 text-sm text-red-600">
+                  <AlertCircle className="h-4 w-4" />
+                  {errors[field.name]}
+                </div>
+              )}
+            </div>
+          )
+        }
       case "file":
         const handleFileChange = async (files: FileList | File[]) => {
           try {
@@ -637,14 +756,58 @@ export default function ConfigurationModal({
           </div>
         )
       case "boolean":
-        return (
-          <div className="flex items-center justify-start">
-            <Checkbox
-              id={field.name}
-              checked={config[field.name] || false}
-              onCheckedChange={(checked) => handleCheckboxChange(field.name, checked as boolean)}
-              className="h-4 w-4"
+        const isGoogleMeet = field.name === "createMeetLink"
+        if (isGoogleMeet && config.createMeetLink) {
+          return (
+            <GoogleMeetCard
+              meetUrl={meetDraft?.meetUrl}
+              guestLimit={100}
+              onRemove={() => handleCheckboxChange("createMeetLink", false)}
+              onCopy={() => {
+                if (meetDraft?.meetUrl) navigator.clipboard.writeText(meetDraft.meetUrl)
+              }}
+              onSettings={() => {}}
             />
+          )
+        }
+        return (
+          <div className="space-y-2">
+            <div className="flex items-center justify-start space-x-2">
+              <Checkbox
+                id={field.name}
+                checked={config[field.name] || false}
+                onCheckedChange={(checked) => handleCheckboxChange(field.name, checked as boolean)}
+                className="h-4 w-4"
+              />
+              <Label htmlFor={field.name} className="text-sm font-medium cursor-pointer">
+                {isGoogleMeet && <Video className="inline w-4 h-4 mr-2 text-blue-600" />}
+                {field.label}
+                {field.required && <span className="text-red-500 ml-1">*</span>}
+              </Label>
+            </div>
+            {field.description && (
+              <p className="text-xs text-muted-foreground ml-6">
+                {field.description}
+              </p>
+            )}
+          </div>
+        )
+      case "location-autocomplete":
+        return (
+          <div className="space-y-1">
+            <LocationAutocomplete
+              value={value}
+              onChange={handleSelectChange}
+              placeholder={field.placeholder}
+              disabled={loadingDynamic}
+              className={inputClassName}
+            />
+            {hasError && (
+              <div className="flex items-center gap-1 text-sm text-red-600">
+                <AlertCircle className="h-4 w-4" />
+                {errors[field.name]}
+              </div>
+            )}
           </div>
         )
       default:
@@ -696,24 +859,44 @@ export default function ConfigurationModal({
         ) : (
           // Configuration form once data is loaded
           <>
-            <div className="space-y-4 py-4 max-h-96 overflow-y-auto pr-2" style={{ paddingRight: '8px' }}>
-              <div className="grid gap-4 py-4">
+            <div className="space-y-6 py-4 max-h-96 overflow-y-auto pr-2" style={{ paddingRight: '8px' }}>
+              <div className="space-y-6">
                 {nodeInfo.configSchema?.map((field) => {
                   // Hide time fields and their labels for Google Calendar when "All Day" is enabled
-                  if (nodeInfo?.type === "google_calendar_action_create_event" && 
-                      field.type === "time" && 
-                      config.allDay) {
+                  if (nodeInfo?.type === "google_calendar_action_create_event" && field.type === "time" && config.allDay) {
+                    return null
+                  }
+                  // Hide time zone field and label for Google Calendar when "All Day" is enabled
+                  if (nodeInfo?.type === "google_calendar_action_create_event" && field.name === "timeZone" && config.allDay) {
                     return null
                   }
                   
+                  // Special handling for boolean fields (checkboxes)
+                  if (field.type === "boolean") {
+                    return (
+                      <div key={field.name} className="flex flex-col space-y-2 pb-4 border-b border-border/50 last:border-b-0 last:pb-0">
+                        {renderField(field)}
+                        {errors[field.name] && (
+                          <p className="text-red-500 text-sm mt-1">{errors[field.name]}</p>
+                        )}
+                      </div>
+                    )
+                  }
+                  
+                  // For all other fields, use a more dynamic layout
                   return (
-                    <div key={field.name} className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor={field.name} className="text-right">
-                        {field.label}
-                      </Label>
-                      <div className={field.type === "boolean" ? "col-span-3 flex items-center" : "col-span-3"}>{renderField(field)}</div>
+                    <div key={field.name} className="flex flex-col space-y-3 pb-4 border-b border-border/50 last:border-b-0 last:pb-0">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor={field.name} className="text-sm font-medium text-foreground min-w-0 flex-shrink-0 pr-4">
+                          {field.label}
+                          {field.required && <span className="text-red-500 ml-1">*</span>}
+                        </Label>
+                      </div>
+                      <div className="w-full">
+                        {renderField(field)}
+                      </div>
                       {errors[field.name] && (
-                        <p className="col-span-4 text-red-500 text-sm">{errors[field.name]}</p>
+                        <p className="text-red-500 text-sm mt-1">{errors[field.name]}</p>
                       )}
                     </div>
                   )

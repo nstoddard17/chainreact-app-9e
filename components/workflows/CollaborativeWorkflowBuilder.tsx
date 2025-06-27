@@ -121,6 +121,7 @@ const useWorkflowBuilderState = () => {
   const [configuringNode, setConfiguringNode] = useState<{ id: string; integration: any; nodeComponent: NodeComponent; config: Record<string, any> } | null>(null)
   const [pendingNode, setPendingNode] = useState<{ type: 'trigger' | 'action'; integration: IntegrationInfo; nodeComponent: NodeComponent; sourceNodeInfo?: { id: string; parentId: string } } | null>(null)
   const [deletingNode, setDeletingNode] = useState<{ id: string; name: string } | null>(null)
+  const [testMode, setTestMode] = useState(false)
 
   const { toast } = useToast()
   const { trackWorkflowEmails } = useWorkflowEmailTracking()
@@ -669,6 +670,7 @@ const useWorkflowBuilderState = () => {
 
   const handleSave = async () => {
     if (!currentWorkflow) return
+    console.log("Starting save process...")
     setIsSaving(true)
     isSavingRef.current = true
     
@@ -677,13 +679,16 @@ const useWorkflowBuilderState = () => {
       const reactFlowNodes = getNodes().filter((n: Node) => n.type === 'custom')
       const reactFlowEdges = getEdges().filter((e: Edge) => reactFlowNodes.some((n: Node) => n.id === e.source) && reactFlowNodes.some((n: Node) => n.id === e.target))
 
+      console.log("React Flow nodes:", reactFlowNodes)
+      console.log("React Flow edges:", reactFlowEdges)
+
       // Map to database format without losing React Flow properties
       const mappedNodes: WorkflowNode[] = reactFlowNodes.map((n: Node) => ({
         id: n.id, 
         type: 'custom', 
         position: n.position,
         data: { 
-          label: n.data.name as string, 
+          label: n.data.label as string, 
           type: n.data.type as string, 
           config: n.data.config || {},
           // Preserve additional properties that might be needed
@@ -702,6 +707,9 @@ const useWorkflowBuilderState = () => {
         targetHandle: e.targetHandle ?? undefined,
       }))
 
+      console.log("Mapped nodes:", mappedNodes)
+      console.log("Mapped connections:", mappedConnections)
+
       const updates: Partial<Workflow> = {
         name: workflowName, 
         description: currentWorkflow.description,
@@ -709,6 +717,8 @@ const useWorkflowBuilderState = () => {
         connections: mappedConnections, 
         status: currentWorkflow.status,
       }
+
+      console.log("Saving updates:", updates)
 
       // Save to database
       await updateWorkflow(currentWorkflow.id, updates)
@@ -721,6 +731,7 @@ const useWorkflowBuilderState = () => {
         connections: mappedConnections
       })
       
+      console.log("Save completed successfully")
       toast({ title: "Workflow Saved", description: "Your workflow has been successfully saved." })
     } catch (error) {
       console.error("Failed to save workflow:", error)
@@ -738,10 +749,16 @@ const useWorkflowBuilderState = () => {
         throw new Error("No workflow selected")
       }
 
+      console.log("Starting workflow execution...")
+      console.log("Test mode:", testMode)
+
       // Get all workflow nodes and edges
       const workflowNodes = getNodes().filter((n: Node) => n.type === 'custom')
       const workflowEdges = getEdges()
       
+      console.log("Workflow nodes:", workflowNodes.map(n => ({ id: n.id, type: n.data.type, config: n.data.config })))
+      console.log("Workflow edges:", workflowEdges)
+
       // Track emails from all email-sending nodes
       for (const node of workflowNodes) {
         if (node.data.config && typeof node.data.type === 'string' && node.data.type.includes('send_email')) {
@@ -778,6 +795,8 @@ const useWorkflowBuilderState = () => {
         }))
       }
 
+      console.log("Sending workflow execution request...")
+
       // Call the execution API
       const response = await fetch("/api/workflows/execute", {
         method: "POST",
@@ -786,18 +805,25 @@ const useWorkflowBuilderState = () => {
         },
         body: JSON.stringify({
           workflowId: currentWorkflow.id,
-          testMode: true,
+          testMode: testMode,
           inputData: {},
           workflowData: workflowData
         }),
       })
 
+      console.log("Execution response status:", response.status)
+
       const result = await response.json()
+      console.log("Execution result:", result)
 
       if (result.success) {
+        const message = testMode 
+          ? `Test execution completed successfully in ${result.executionTime || 'N/A'}ms. No real actions were performed.`
+          : `Execution completed successfully in ${result.executionTime || 'N/A'}ms. Check your Gmail and Google Calendar for the results.`
+        
         toast({ 
           title: "Workflow Executed Successfully!", 
-          description: `Execution completed in ${result.executionTime || 'N/A'}ms. Check the results in your integrations.` 
+          description: message
         })
         
         // Log execution results for debugging
@@ -889,7 +915,7 @@ const useWorkflowBuilderState = () => {
     availableIntegrations, renderLogo, getWorkflowStatus, currentWorkflow, isExecuting, executionEvents,
     configuringNode, setConfiguringNode, handleSaveConfiguration, collaborators, pendingNode, setPendingNode,
     selectedTrigger, setSelectedTrigger, selectedAction, setSelectedAction, searchQuery, setSearchQuery, filterCategory, setFilterCategory, showConnectedOnly, setShowConnectedOnly,
-    filteredIntegrations, displayedTriggers, deletingNode, setDeletingNode, confirmDeleteNode, isIntegrationConnected, integrationsLoading
+    filteredIntegrations, displayedTriggers, deletingNode, setDeletingNode, confirmDeleteNode, isIntegrationConnected, integrationsLoading, testMode, setTestMode
   }
 }
 
@@ -910,7 +936,7 @@ function WorkflowBuilderContent() {
     availableIntegrations, renderLogo, getWorkflowStatus, currentWorkflow, isExecuting, executionEvents,
     configuringNode, setConfiguringNode, handleSaveConfiguration, collaborators, pendingNode, setPendingNode,
     selectedTrigger, setSelectedTrigger, selectedAction, setSelectedAction, searchQuery, setSearchQuery, filterCategory, setFilterCategory, showConnectedOnly, setShowConnectedOnly,
-    filteredIntegrations, displayedTriggers, deletingNode, setDeletingNode, confirmDeleteNode, isIntegrationConnected, integrationsLoading
+    filteredIntegrations, displayedTriggers, deletingNode, setDeletingNode, confirmDeleteNode, isIntegrationConnected, integrationsLoading, testMode, setTestMode
   } = useWorkflowBuilderState()
 
   const categories = useMemo(() => {
@@ -949,6 +975,23 @@ function WorkflowBuilderContent() {
               <Tooltip>
                 <TooltipTrigger asChild><Button onClick={handleSave} disabled={isSaving || isExecuting} variant="secondary">{isSaving ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Save className="w-5 h-5 mr-2" />}Save</Button></TooltipTrigger>
                 <TooltipContent><p>Save your workflow</p></TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant={testMode ? "destructive" : "outline"} 
+                    size="sm"
+                    onClick={() => setTestMode(!testMode)}
+                    disabled={isSaving || isExecuting}
+                  >
+                    {testMode ? "Test Mode: ON" : "Test Mode: OFF"}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{testMode ? "Workflow will run in test mode (no real actions)" : "Workflow will perform real actions"}</p>
+                </TooltipContent>
               </Tooltip>
             </TooltipProvider>
             <TooltipProvider>

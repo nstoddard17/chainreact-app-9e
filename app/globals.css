@@ -341,4 +341,76 @@ body {
     fill: #60a5fa !important;
     transform: scale(1.1) !important;
   }
+  
+  /* Calendar Day Styling */
+  .rdp-day_selected {
+    background-color: hsl(var(--primary)) !important;
+    color: hsl(var(--primary-foreground)) !important;
+    font-weight: 500 !important;
+    border-radius: 50% !important;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06) !important;
+  }
+  
+  .rdp-day_selected:hover {
+    background-color: hsl(var(--primary) / 0.9) !important;
+    color: hsl(var(--primary-foreground)) !important;
+  }
+  
+  .rdp-day_today {
+    background-color: hsl(var(--muted)) !important;
+    color: hsl(var(--foreground)) !important;
+    border: 2px solid hsl(var(--primary) / 0.3) !important;
+    border-radius: 50% !important;
+    font-weight: 500 !important;
+  }
+  
+  .dark .rdp-day_selected {
+    background-color: hsl(var(--primary)) !important;
+    color: hsl(var(--primary-foreground)) !important;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.3), 0 1px 2px 0 rgba(0, 0, 0, 0.2) !important;
+  }
+  
+  .dark .rdp-day_today,
+  .dark .rdp-day_today.rdp-day_button,
+  .dark .rdp-day_button.rdp-day_today {
+    background-color: hsl(var(--muted)) !important;
+    color: hsl(var(--foreground)) !important;
+    border: 2px solid hsl(var(--primary) / 0.3) !important;
+  }
+
+  /* Calendar Day Styling */
+  .rdp-day_selected,
+  .rdp-day_selected.rdp-day_button,
+  .rdp-day_button.rdp-day_selected {
+    background-color: hsl(var(--primary)) !important;
+    color: hsl(var(--primary-foreground)) !important;
+    font-weight: 500 !important;
+    border-radius: 50% !important;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06) !important;
+  }
+  
+  .rdp-day_selected:hover,
+  .rdp-day_selected.rdp-day_button:hover,
+  .rdp-day_button.rdp-day_selected:hover {
+    background-color: hsl(var(--primary) / 0.9) !important;
+    color: hsl(var(--primary-foreground)) !important;
+  }
+  
+  .rdp-day_today,
+  .rdp-day_today.rdp-day_button,
+  .rdp-day_button.rdp-day_today {
+    background-color: hsl(var(--muted)) !important;
+    color: hsl(var(--foreground)) !important;
+    border: 2px solid hsl(var(--primary) / 0.3) !important;
+    border-radius: 50% !important;
+    font-weight: 500 !important;
+  }
+  
+  .dark .rdp-day_selected,
+  .dark .rdp-day_selected.rdp-day_button,
+  .dark .rdp-day_button.rdp-day_selected {
+    background-color: hsl(var(--primary)) !important;
+    color: hsl(var(--primary-foreground)) !important;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.3), 0 1px 2px 0 rgba(0, 0, 0, 0.2) !important;
+  }
 }

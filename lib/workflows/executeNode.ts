@@ -82,10 +82,31 @@ async function getDecryptedAccessToken(userId: string, provider: string): Promis
     }
 
     console.log(`Attempting to decrypt access token for ${provider}`)
-    const decryptedToken = decrypt(accessToken, secret)
-    console.log(`Successfully decrypted access token for ${provider}`)
+    console.log(`Token format check:`, {
+      hasColon: accessToken.includes(':'),
+      tokenLength: accessToken.length,
+      tokenPreview: accessToken.substring(0, 20) + '...'
+    })
     
-    return decryptedToken
+    try {
+      const decryptedToken = decrypt(accessToken, secret)
+      console.log(`Successfully decrypted access token for ${provider}`)
+      return decryptedToken
+    } catch (decryptError: any) {
+      console.error(`Decryption failed for ${provider}:`, {
+        error: decryptError.message,
+        tokenFormat: accessToken.includes(':') ? 'encrypted' : 'plain',
+        tokenLength: accessToken.length
+      })
+      
+      // If the token doesn't have the expected format, it might be stored as plain text
+      if (!accessToken.includes(':')) {
+        console.log(`Token for ${provider} appears to be stored as plain text, returning as-is`)
+        return accessToken
+      }
+      
+      throw new Error(`Failed to decrypt ${provider} access token: ${decryptError.message}`)
+    }
   } catch (error: any) {
     console.error(`Error in getDecryptedAccessToken for ${provider}:`, {
       message: error.message,
