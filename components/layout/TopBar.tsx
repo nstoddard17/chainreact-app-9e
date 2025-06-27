@@ -11,7 +11,7 @@ interface TopBarProps {
 }
 
 export default function TopBar({ onMobileMenuChange, title }: TopBarProps) {
-  const { user, signOut } = useAuthStore()
+  const { user, profile, signOut } = useAuthStore()
   const router = useRouter()
 
   const handleSignOut = async () => {
@@ -43,7 +43,7 @@ export default function TopBar({ onMobileMenuChange, title }: TopBarProps) {
       <div className="flex items-center space-x-4">
         <div className="hidden sm:flex items-center space-x-2 text-sm text-muted-foreground">
           <User className="w-4 h-4" />
-          <span>{user?.email}</span>
+          <span>{profile?.username || user?.email}</span>
         </div>
         <Button variant="outline" size="sm" onClick={handleSignOut} className="flex items-center space-x-2">
           <LogOut className="w-4 h-4" />
