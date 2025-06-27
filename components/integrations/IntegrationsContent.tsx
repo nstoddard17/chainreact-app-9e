@@ -19,7 +19,6 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { INTEGRATION_CONFIGS, type IntegrationConfig } from "@/lib/integrations/availableIntegrations"
 import { Zap, CheckCircle2, AlertTriangle, XCircle } from "lucide-react"
-import { apiClient } from "@/lib/apiClient"
 
 interface IntegrationsContentProps {
   configuredClients: Record<string, boolean>
@@ -118,15 +117,14 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
     
     try {
       setLoadingMetrics(true)
-      const response = await apiClient.get("/api/analytics/integration-metrics")
-      
-      if (response.error) {
-        console.warn("Failed to fetch integration metrics:", response.error)
-        return
+      const response = await fetch("/api/analytics/integration-metrics")
+      if (!response.ok) {
+        throw new Error("Failed to fetch integration metrics")
       }
       
-      if (response.data) {
-        setMetrics(response.data)
+      const data = await response.json()
+      if (data.success && data.data) {
+        setMetrics(data.data)
       }
     } catch (error) {
       console.error("Error fetching integration metrics:", error)
@@ -152,28 +150,22 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
       }
 
       try {
-        const response = await apiClient.post("/api/integrations/auth/generate-url", {
-          provider: providerId,
-          reconnect: true,
+        const response = await fetch("/api/integrations/auth/generate-url", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ provider: providerId, reconnect: true }),
         })
 
-        if (response.error) {
-          toast({
-            title: "Error",
-            description: response.error || "Could not generate authentication URL.",
-            variant: "destructive",
-          })
-          return
-        }
+        const data = await response.json()
 
-        if (response.data?.authUrl) {
+        if (data.success && data.authUrl) {
           const width = 600
           const height = 700
           const left = window.screen.width / 2 - width / 2
           const top = window.screen.height / 2 - height / 2
           const popupName = `oauth_popup_${providerId}_${Date.now()}`
           const popup = window.open(
-            response.data.authUrl,
+            data.authUrl,
             popupName,
             `width=${width},height=${height},left=${left},top=${top}`,
           )
@@ -207,7 +199,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
         } else {
           toast({
             title: "Error",
-            description: "Could not generate authentication URL.",
+            description: data.error || "Could not generate authentication URL.",
             variant: "destructive",
           })
         }
@@ -236,18 +228,10 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
       })
 
       try {
-        const response = await apiClient.delete(`/api/integrations/${integrationId}`)
+        const response = await fetch(`/api/integrations/${integrationId}`, { method: "DELETE" })
+        const data = await response.json()
 
-        if (response.error) {
-          toast({
-            title: "Error",
-            description: response.error || "Failed to disconnect.",
-            variant: "destructive",
-          })
-          return
-        }
-
-        if (response.data) {
+        if (data.success) {
           toast({
             title: "Disconnected",
             description: `${integration.provider} has been successfully disconnected.`,
@@ -257,7 +241,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
         } else {
           toast({
             title: "Error",
-            description: "Failed to disconnect.",
+            description: data.error || "Failed to disconnect.",
             variant: "destructive",
           })
         }

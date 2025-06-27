@@ -4,7 +4,6 @@ import { cookies } from "next/headers"
 import crypto from "crypto"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
-import { getEnvironmentConfig } from "@/lib/utils/environment"
 
 export async function POST(request: NextRequest) {
   try {
@@ -715,7 +714,7 @@ async function generatePayPalAuthUrl(stateObject: any): Promise<string> {
   
   // Instead of using dynamic baseUrl, use the exact registered redirect URI
   // This ensures it matches exactly what's in the PayPal developer dashboard
-  const registeredRedirectUri = process.env.PAYPAL_REDIRECT_URI || `${getEnvironmentConfig().url}/api/integrations/paypal/callback`
+  const registeredRedirectUri = process.env.PAYPAL_REDIRECT_URI || "https://chainreact.app/api/integrations/paypal/callback"
   
   // For debugging
   console.log("PayPal OAuth URL generation - using redirect URI:", registeredRedirectUri)

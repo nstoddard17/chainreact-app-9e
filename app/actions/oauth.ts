@@ -2,7 +2,6 @@
 
 import { createServerActionClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
-import { getAppUrl } from "@/lib/utils/environment"
 
 export async function initiateOAuth(provider: string, reconnect = false, integrationId?: string) {
   try {
@@ -20,8 +19,8 @@ export async function initiateOAuth(provider: string, reconnect = false, integra
       }
     }
 
-    // Call the auth API route using the new environment system
-    const baseUrl = getAppUrl()
+    // Call the auth API route
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://chainreact.app"
 
     const response = await fetch(`${baseUrl}/api/integrations/auth/generate-url`, {
       method: "POST",

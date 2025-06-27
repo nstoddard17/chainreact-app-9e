@@ -5,10 +5,10 @@ import {
   getAllScopes,
   isKnownProvider,
 } from "./integrationScopes"
-import { buildOAuthRedirectUri } from "@/lib/utils/environment"
 
 function getOAuthRedirectUri(provider: string): string {
-  return buildOAuthRedirectUri(provider)
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"
+  return `${baseUrl}/api/integrations/${provider}/callback`
 }
 
 export interface ScopeValidationResult {

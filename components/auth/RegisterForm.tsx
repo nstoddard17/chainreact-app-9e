@@ -11,7 +11,6 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Mail, Lock, User } from "lucide-react"
 import { toast } from "@/components/ui/use-toast"
-import { apiClient } from "@/lib/apiClient"
 
 export default function RegisterForm() {
   const [email, setEmail] = useState("")
@@ -25,17 +24,20 @@ export default function RegisterForm() {
 
   const checkProvider = async (email: string) => {
     try {
-      const response = await apiClient.post('/api/auth/check-provider', { email });
+      const response = await fetch('/api/auth/check-provider', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+      });
 
-      if (response.error) {
-        console.error('Error checking provider:', response.error);
-        return true; // Allow registration if check fails
-      }
+      const data = await response.json();
 
-      if (response.data?.exists && response.data?.provider === 'google') {
+      if (data.exists && data.provider === 'google') {
         setProviderError('An account with this email already exists. Please sign in with Google instead.');
         return false;
-      } else if (response.data?.exists) {
+      } else if (data.exists) {
         setProviderError('An account with this email already exists. Please sign in instead.');
         return false;
       } else {
