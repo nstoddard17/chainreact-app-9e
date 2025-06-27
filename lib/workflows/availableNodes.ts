@@ -34,7 +34,7 @@ export interface ConfigField {
   placeholder?: string
   description?: string
   options?: { value: string; label: string }[] | string[]
-  dynamic?: "slack-channels" | "google-calendars" | "google-drive-folders" | "google-drive-files" | "gmail-recent-recipients" | "gmail-enhanced-recipients" | "gmail-contact-groups"
+  dynamic?: "slack-channels" | "google-calendars" | "google-drive-folders" | "google-drive-files" | "gmail-recent-recipients" | "gmail-enhanced-recipients" | "gmail-contact-groups" | "google-sheets_spreadsheets" | "google-sheets_sheets"
   accept?: string // For file inputs, specify accepted file types
   maxSize?: number // For file inputs, specify max file size in bytes
   defaultValue?: string | number | boolean // Default value for the field
@@ -555,15 +555,39 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "google-drive",
     category: "Google Drive",
     configSchema: [
-      { name: "fileName", label: "File Name", type: "text" },
-      { name: "fileContent", label: "File Content", type: "textarea" },
+      { 
+        name: "fileName", 
+        label: "File Name", 
+        type: "text", 
+        required: true,
+        placeholder: "Enter file name (e.g., document.txt, report.pdf) - auto-filled when uploading files",
+        description: "File name for the created file. Will be automatically populated when you upload files."
+      },
+      { 
+        name: "fileContent", 
+        label: "File Content", 
+        type: "textarea", 
+        required: false,
+        placeholder: "Enter file content (optional if uploading files)",
+        description: "Text content for the file. Leave empty if uploading files."
+      },
+      { 
+        name: "uploadedFiles", 
+        label: "Upload Files", 
+        type: "file", 
+        required: false,
+        placeholder: "Choose files to upload...",
+        accept: ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.jpg,.jpeg,.png,.gif,.zip,.rar,.json,.xml,.html,.css,.js,.py,.java,.cpp,.c,.md,.log",
+        maxSize: 100 * 1024 * 1024, // 100MB limit for Google Drive
+        description: "Upload files to create in Google Drive. Files will be created with their original names and content. The file name field will be auto-populated."
+      },
       {
         name: "folderId",
-        label: "Folder",
+        label: "Destination Folder",
         type: "select",
         dynamic: "google-drive-folders",
         required: false,
-        placeholder: "Select a folder (optional)",
+        placeholder: "Select a folder (optional, defaults to root)",
       },
     ],
   },
@@ -577,7 +601,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     isTrigger: false,
     configSchema: [
       { name: "fileUrl", label: "File URL", type: "text", required: true, placeholder: "Publicly accessible URL of the file" },
-      { name: "fileName", label: "File Name", type: "text", required: true, placeholder: "e.g., report.pdf" },
+      { name: "fileName", label: "File Name", type: "text", required: false, placeholder: "e.g., report.pdf (optional - will use original filename if blank)" },
       {
         name: "folderId",
         label: "Destination Folder",
@@ -630,15 +654,293 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   {
     type: "google_sheets_action_append_row",
     title: "Add Row to Sheet",
-    description: "Adds a new row to a Google Sheet.",
+    description: "Adds a new row to a Google Sheet with comprehensive configuration options.",
     isTrigger: false,
     providerId: "google-sheets",
     requiredScopes: ["https://www.googleapis.com/auth/spreadsheets"],
     category: "Productivity",
     configSchema: [
-      { name: "spreadsheetId", label: "Spreadsheet ID", type: "text" },
-      { name: "sheetName", label: "Sheet Name", type: "text" },
-      { name: "rowData", label: "Row Data (JSON array)", type: "textarea", placeholder: 'e.g., ["value1", "value2"]' },
+      {
+        name: "spreadsheetId",
+        label: "Spreadsheet",
+        type: "select",
+        dynamic: "google-sheets_spreadsheets",
+        required: true,
+        placeholder: "Select a spreadsheet from your Google Sheets account",
+        description: "Choose from your connected Google Sheets spreadsheets"
+      },
+      {
+        name: "sheetName",
+        label: "Sheet Name",
+        type: "select",
+        dynamic: "google-sheets_sheets",
+        required: true,
+        placeholder: "Select a sheet from the spreadsheet",
+        description: "Choose from the sheets/tabs in the selected spreadsheet",
+        dependsOn: "spreadsheetId"
+      },
+      {
+        name: "valueInputOption",
+        label: "Value Input Option",
+        type: "select",
+        required: false,
+        defaultValue: "RAW",
+        options: [
+          { value: "RAW", label: "Raw (values as entered)" },
+          { value: "USER_ENTERED", label: "User Entered (formulas and formatting)" }
+        ],
+        description: "How the input data should be interpreted"
+      },
+      {
+        name: "insertDataOption",
+        label: "Insert Option",
+        type: "select",
+        required: false,
+        defaultValue: "INSERT_ROWS",
+        options: [
+          { value: "INSERT_ROWS", label: "Insert new rows" },
+          { value: "OVERWRITE", label: "Overwrite existing data" }
+        ],
+        description: "Whether to insert new rows or overwrite existing data"
+      },
+      {
+        name: "rowData",
+        label: "Row Data",
+        type: "textarea",
+        required: true,
+        placeholder: '["Name", "Email", "Date"] or use templates like ["{{data.name}}", "{{data.email}}", "{{data.timestamp}}"]',
+        description: "JSON array of values for the row. Supports template variables from previous nodes."
+      },
+      {
+        name: "includeTimestamp",
+        label: "Include Timestamp",
+        type: "boolean",
+        required: false,
+        defaultValue: false,
+        description: "Automatically add a timestamp column to the row"
+      },
+      {
+        name: "timestampColumn",
+        label: "Timestamp Column Name",
+        type: "text",
+        required: false,
+        placeholder: "Timestamp",
+        description: "Name for the timestamp column (only used if Include Timestamp is enabled)"
+      }
+    ],
+  },
+
+  // Google Sheets Read Action
+  {
+    type: "google_sheets_action_read_data",
+    title: "Read Data from Sheet",
+    description: "Reads data from a Google Sheet with filtering and formatting options.",
+    isTrigger: false,
+    providerId: "google-sheets",
+    requiredScopes: ["https://www.googleapis.com/auth/spreadsheets"],
+    category: "Productivity",
+    configSchema: [
+      {
+        name: "spreadsheetId",
+        label: "Spreadsheet",
+        type: "select",
+        dynamic: "google-sheets_spreadsheets",
+        required: true,
+        placeholder: "Select a spreadsheet from your Google Sheets account",
+        description: "Choose from your connected Google Sheets spreadsheets"
+      },
+      {
+        name: "sheetName",
+        label: "Sheet Name",
+        type: "select",
+        dynamic: "google-sheets_sheets",
+        required: true,
+        placeholder: "Select a sheet from the spreadsheet",
+        description: "Choose from the sheets/tabs in the selected spreadsheet",
+        dependsOn: "spreadsheetId"
+      },
+      {
+        name: "range",
+        label: "Range",
+        type: "text",
+        required: false,
+        placeholder: "e.g., A1:D10, A:A (entire column), 1:1 (entire row)",
+        description: "Specific range to read (optional - reads entire sheet if not specified)"
+      },
+      {
+        name: "includeHeaders",
+        label: "Include Headers",
+        type: "boolean",
+        required: false,
+        defaultValue: true,
+        description: "Whether to include the first row as headers"
+      },
+      {
+        name: "maxRows",
+        label: "Maximum Rows",
+        type: "number",
+        required: false,
+        placeholder: "100",
+        description: "Maximum number of rows to read (0 for all rows)"
+      },
+      {
+        name: "outputFormat",
+        label: "Output Format",
+        type: "select",
+        required: false,
+        defaultValue: "array",
+        options: [
+          { value: "array", label: "Array of arrays" },
+          { value: "objects", label: "Array of objects (with headers as keys)" },
+          { value: "csv", label: "CSV string" }
+        ],
+        description: "How to format the output data"
+      }
+    ],
+  },
+
+  // Google Sheets Update Action
+  {
+    type: "google_sheets_action_update_data",
+    title: "Update Data in Sheet",
+    description: "Updates existing data in a Google Sheet with cell-level precision.",
+    isTrigger: false,
+    providerId: "google-sheets",
+    requiredScopes: ["https://www.googleapis.com/auth/spreadsheets"],
+    category: "Productivity",
+    configSchema: [
+      {
+        name: "spreadsheetId",
+        label: "Spreadsheet",
+        type: "select",
+        dynamic: "google-sheets_spreadsheets",
+        required: true,
+        placeholder: "Select a spreadsheet from your Google Sheets account",
+        description: "Choose from your connected Google Sheets spreadsheets"
+      },
+      {
+        name: "sheetName",
+        label: "Sheet Name",
+        type: "select",
+        dynamic: "google-sheets_sheets",
+        required: true,
+        placeholder: "Select a sheet from the spreadsheet",
+        description: "Choose from the sheets/tabs in the selected spreadsheet",
+        dependsOn: "spreadsheetId"
+      },
+      {
+        name: "range",
+        label: "Range to Update",
+        type: "text",
+        required: true,
+        placeholder: "e.g., A1:D10, B2, C:C (entire column)",
+        description: "The specific range of cells to update"
+      },
+      {
+        name: "updateData",
+        label: "Update Data",
+        type: "textarea",
+        required: true,
+        placeholder: '["New Value 1", "New Value 2"] or [["Row1Col1", "Row1Col2"], ["Row2Col1", "Row2Col2"]]',
+        description: "JSON array of values. For single row: [\"val1\", \"val2\"]. For multiple rows: [[\"row1col1\", \"row1col2\"], [\"row2col1\", \"row2col2\"]]"
+      },
+      {
+        name: "valueInputOption",
+        label: "Value Input Option",
+        type: "select",
+        required: false,
+        defaultValue: "RAW",
+        options: [
+          { value: "RAW", label: "Raw (values as entered)" },
+          { value: "USER_ENTERED", label: "User Entered (formulas and formatting)" }
+        ],
+        description: "How the input data should be interpreted"
+      }
+    ],
+  },
+
+  // Google Sheets Create Spreadsheet Action
+  {
+    type: "google_sheets_action_create_spreadsheet",
+    title: "Create New Spreadsheet",
+    description: "Creates a new Google Sheets spreadsheet with customizable properties.",
+    isTrigger: false,
+    providerId: "google-sheets",
+    requiredScopes: ["https://www.googleapis.com/auth/spreadsheets"],
+    category: "Productivity",
+    configSchema: [
+      {
+        name: "title",
+        label: "Spreadsheet Title",
+        type: "text",
+        required: true,
+        placeholder: "e.g., Sales Report 2024, Project Tracker",
+        description: "The name of the new spreadsheet"
+      },
+      {
+        name: "description",
+        label: "Description",
+        type: "textarea",
+        required: false,
+        placeholder: "Optional description of the spreadsheet",
+        description: "A brief description of what this spreadsheet is for"
+      },
+      {
+        name: "initialData",
+        label: "Initial Data",
+        type: "textarea",
+        required: false,
+        placeholder: '[["Header1", "Header2"], ["Row1Col1", "Row1Col2"]]',
+        description: "JSON array of arrays to populate the first sheet with initial data"
+      },
+      {
+        name: "sheetName",
+        label: "First Sheet Name",
+        type: "text",
+        required: false,
+        placeholder: "Sheet1",
+        description: "Name for the first sheet (defaults to 'Sheet1')"
+      },
+      {
+        name: "locale",
+        label: "Locale",
+        type: "select",
+        required: false,
+        defaultValue: "en_US",
+        options: [
+          { value: "en_US", label: "English (US)" },
+          { value: "en_GB", label: "English (UK)" },
+          { value: "es_ES", label: "Spanish" },
+          { value: "fr_FR", label: "French" },
+          { value: "de_DE", label: "German" },
+          { value: "it_IT", label: "Italian" },
+          { value: "pt_BR", label: "Portuguese (Brazil)" },
+          { value: "ja_JP", label: "Japanese" },
+          { value: "ko_KR", label: "Korean" },
+          { value: "zh_CN", label: "Chinese (Simplified)" }
+        ],
+        description: "The locale of the spreadsheet"
+      },
+      {
+        name: "timeZone",
+        label: "Time Zone",
+        type: "select",
+        required: false,
+        defaultValue: "America/New_York",
+        options: [
+          { value: "America/New_York", label: "Eastern Time" },
+          { value: "America/Chicago", label: "Central Time" },
+          { value: "America/Denver", label: "Mountain Time" },
+          { value: "America/Los_Angeles", label: "Pacific Time" },
+          { value: "Europe/London", label: "London" },
+          { value: "Europe/Paris", label: "Paris" },
+          { value: "Asia/Tokyo", label: "Tokyo" },
+          { value: "Asia/Shanghai", label: "Shanghai" },
+          { value: "Australia/Sydney", label: "Sydney" },
+          { value: "UTC", label: "UTC" }
+        ],
+        description: "The time zone of the spreadsheet"
+      }
     ],
   },
 

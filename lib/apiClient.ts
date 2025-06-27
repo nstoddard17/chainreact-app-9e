@@ -1,4 +1,5 @@
 import { getBaseUrl } from "./utils/getBaseUrl"
+import { supabase } from "@/utils/supabaseClient"
 
 interface ApiResponse<T = any> {
   success: boolean
@@ -14,6 +15,20 @@ class ApiClient {
     this.baseUrl = getBaseUrl()
   }
 
+  private async getAuthHeaders(): Promise<Record<string, string>> {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session?.access_token) {
+        return {
+          "Authorization": `Bearer ${session.access_token}`,
+        }
+      }
+    } catch (error) {
+      console.warn("Failed to get auth token:", error)
+    }
+    return {}
+  }
+
   private async request<T = any>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
     try {
       // Ensure we're using the same domain to avoid CORS issues
@@ -23,10 +38,14 @@ class ApiClient {
         "Content-Type": "application/json",
       }
 
+      // Get authentication headers
+      const authHeaders = await this.getAuthHeaders()
+
       const config: RequestInit = {
         ...options,
         headers: {
           ...defaultHeaders,
+          ...authHeaders,
           ...options.headers,
         },
         credentials: "include", // Include cookies for authentication
@@ -55,7 +74,7 @@ class ApiClient {
       return {
         success: false,
         error: error.message || "Network error",
-        data: null,
+        data: undefined,
       }
     }
   }

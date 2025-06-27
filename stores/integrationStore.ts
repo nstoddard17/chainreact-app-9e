@@ -2,6 +2,15 @@ import { create } from "zustand"
 import { getSupabaseClient } from "@/lib/supabase"
 import { apiClient } from "@/lib/apiClient"
 
+// Global variables for OAuth popup management
+let currentOAuthPopup: Window | null = null
+let windowHasLostFocus = false
+
+// Helper function to check if popup is still valid
+function isPopupValid(popup: Window | null): boolean {
+  return !!(popup && !popup.closed)
+}
+
 // This represents the structure of a connected integration
 export interface Integration {
   id: string
@@ -117,25 +126,19 @@ export const useIntegrationStore = create<IntegrationStore>()(
     clearError: () => set({ error: null }),
 
     initializeProviders: async () => {
+      const { loading } = get()
+      if (loading) return
+
       try {
         set({ loading: true, error: null })
 
-        const controller = new AbortController()
-        const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 second timeout
+        const response = await apiClient.get("/api/integrations/available")
 
-        const response = await fetch("/api/integrations/available", {
-          signal: controller.signal,
-        })
-
-        clearTimeout(timeoutId)
-
-        if (!response.ok) {
-          throw new Error("Failed to fetch available integrations")
+        if (!response.success) {
+          throw new Error(response.error || "Failed to fetch available integrations")
         }
 
-        const data = await response.json()
-
-        const providers = Array.isArray(data) ? data : data.data?.integrations || data.integrations || data.providers || []
+        const providers = Array.isArray(response.data) ? response.data : response.data?.integrations || response.data.integrations || response.data.providers || []
 
         set({
           providers,
@@ -146,7 +149,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
       } catch (error: any) {
         console.error("Failed to initialize providers:", error)
         set({
-          error: error.name === "AbortError" ? "Request timed out" : error.message,
+          error: error.message || "Failed to load providers",
           loading: false,
           providers: [],
         })
@@ -544,6 +547,8 @@ export const useIntegrationStore = create<IntegrationStore>()(
 
       try {
         let url = ""
+        let dataType = providerId // Default to providerId
+        
         switch (providerId) {
           case "slack":
             url = "/api/integrations/slack/load-data"
@@ -566,11 +571,29 @@ export const useIntegrationStore = create<IntegrationStore>()(
           case "google-drive":
             url = "/api/integrations/google-drive/load-data"
             break
+          case "google-sheets":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "google-sheets_spreadsheets" // Default to spreadsheets
+            break
+          case "google-sheets_spreadsheets":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "google-sheets_spreadsheets"
+            break
+          case "google-sheets_sheets":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "google-sheets_sheets"
+            break
           default:
             throw new Error(`Loading data for ${providerId} is not supported.`)
         }
 
-        const response = await apiClient.post(url, { integrationId, ...params })
+        const response = await apiClient.post(url, { 
+          ...(url.includes('/gmail/') ? { integrationId } : { 
+            provider: providerId.includes('_') ? providerId.split('_')[0] : providerId, // Extract base provider name
+            dataType: params?.dataType || dataType, // Allow override via params
+          }),
+          ...params 
+        })
         const data = response.data
 
         set((state) => ({

@@ -1,4 +1,5 @@
-import { supabase } from "@/lib/supabase"
+import { supabase } from "@/utils/supabaseClient"
+import { apiClient } from "@/lib/apiClient"
 
 interface PreloadConfig {
   provider: string
@@ -25,49 +26,49 @@ class GlobalDataPreloader {
   private readonly PRELOAD_CONFIGS: PreloadConfig[] = [
     {
       provider: "notion",
-      dataTypes: ["pages", "databases"],
+      dataTypes: ["notion_pages", "notion_databases"],
       priority: 1,
       batchSize: 50,
     },
     {
       provider: "slack",
-      dataTypes: ["channels", "users"],
+      dataTypes: ["slack_channels", "slack_users"],
       priority: 2,
       batchSize: 100,
     },
     {
       provider: "google-sheets",
-      dataTypes: ["spreadsheets"],
+      dataTypes: ["google-sheets_spreadsheets"],
       priority: 2,
       batchSize: 50,
     },
     {
       provider: "google-calendar",
-      dataTypes: ["calendars"],
+      dataTypes: ["google-calendar_calendars"],
       priority: 3,
       batchSize: 20,
     },
     {
       provider: "airtable",
-      dataTypes: ["bases"],
+      dataTypes: ["airtable_bases"],
       priority: 2,
       batchSize: 30,
     },
     {
       provider: "trello",
-      dataTypes: ["boards"],
+      dataTypes: ["trello_boards"],
       priority: 3,
       batchSize: 50,
     },
     {
       provider: "github",
-      dataTypes: ["repositories"],
+      dataTypes: ["github_repositories"],
       priority: 2,
       batchSize: 100,
     },
     {
       provider: "gmail",
-      dataTypes: ["labels"],
+      dataTypes: ["gmail_labels"],
       priority: 4,
       batchSize: 50,
     },
@@ -142,32 +143,24 @@ class GlobalDataPreloader {
     try {
       console.log(`Fetching ${dataType} for ${provider}`)
 
-      const response = await fetch("/api/integrations/fetch-user-data", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          provider,
-          dataType,
-          batchSize,
-          preload: true,
-        }),
+      const response = await apiClient.post("/api/integrations/fetch-user-data", {
+        provider,
+        dataType,
+        batchSize,
+        preload: true,
       })
 
-      const result = await response.json()
-
-      if (result.success) {
+      if (response.success && response.data) {
         this.results.push({
           provider,
           dataType,
           success: true,
-          count: result.data?.length || 0,
+          count: response.data.length || 0,
         })
 
-        console.log(`Successfully preloaded ${result.data?.length || 0} ${dataType} for ${provider}`)
+        console.log(`Successfully preloaded ${response.data.length || 0} ${dataType} for ${provider}`)
       } else {
-        throw new Error(result.error || `Failed to fetch ${dataType}`)
+        throw new Error(response.error || `Failed to fetch ${dataType}`)
       }
     } catch (error: any) {
       console.error(`Failed to preload ${dataType} for ${provider}:`, error)

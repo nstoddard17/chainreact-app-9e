@@ -14,6 +14,18 @@ export function useAuth() {
     }
   }, [hydrated, initialized])
 
+  // Fallback timeout to prevent infinite loading
+  useEffect(() => {
+    const fallbackTimeout = setTimeout(() => {
+      if (!isReady && !loading) {
+        console.warn("Auth hook fallback: forcing ready state after timeout")
+        setIsReady(true)
+      }
+    }, 15000) // 15 second fallback
+
+    return () => clearTimeout(fallbackTimeout)
+  }, [isReady, loading])
+
   return {
     user,
     loading,
