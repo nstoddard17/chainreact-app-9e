@@ -14,16 +14,29 @@ export interface EnvironmentConfig {
  */
 export function getCurrentEnvironment(): Environment {
   // Check NODE_ENV first for production builds
-  if (process.env.NODE_ENV === 'production') return 'production'
+  if (process.env.NODE_ENV === 'production') {
+    console.log('🔧 Environment: Detected production from NODE_ENV')
+    return 'production'
+  }
   
   // Check explicit environment setting
-  if (process.env.NEXT_PUBLIC_ENVIRONMENT === 'development') return 'development'
-  if (process.env.NEXT_PUBLIC_ENVIRONMENT === 'production') return 'production'
+  if (process.env.NEXT_PUBLIC_ENVIRONMENT === 'development') {
+    console.log('🔧 Environment: Detected development from NEXT_PUBLIC_ENVIRONMENT')
+    return 'development'
+  }
+  if (process.env.NEXT_PUBLIC_ENVIRONMENT === 'production') {
+    console.log('🔧 Environment: Detected production from NEXT_PUBLIC_ENVIRONMENT')
+    return 'production'
+  }
   
   // If VERCEL_URL is set, we're in production
-  if (process.env.VERCEL_URL) return 'production'
+  if (process.env.VERCEL_URL) {
+    console.log('🔧 Environment: Detected production from VERCEL_URL')
+    return 'production'
+  }
   
   // Default to local for development
+  console.log('🔧 Environment: Defaulting to local')
   return 'local'
 }
 
@@ -32,18 +45,26 @@ export function getCurrentEnvironment(): Environment {
  */
 export function getEnvironmentConfig(): EnvironmentConfig {
   const env = getCurrentEnvironment()
+  console.log(`🔧 Environment Config: Using ${env} environment`)
+  
   switch (env) {
     case 'local':
+      const localUrl = process.env.NEXT_PUBLIC_LOCAL_URL || 'http://localhost:3000'
+      console.log(`🔧 Local URL: ${localUrl}`)
       return {
-        url: process.env.NEXT_PUBLIC_LOCAL_URL || 'http://localhost:3000',
+        url: localUrl,
       }
     case 'development':
+      const devUrl = process.env.NEXT_PUBLIC_DEV_URL || 'https://dev.chainreact.app'
+      console.log(`🔧 Development URL: ${devUrl}`)
       return {
-        url: process.env.NEXT_PUBLIC_DEV_URL || 'https://dev.chainreact.app',
+        url: devUrl,
       }
     case 'production':
+      const prodUrl = process.env.NEXT_PUBLIC_PROD_URL || 'https://chainreact.app'
+      console.log(`🔧 Production URL: ${prodUrl}`)
       return {
-        url: process.env.NEXT_PUBLIC_PROD_URL || 'https://chainreact.app',
+        url: prodUrl,
       }
   }
 }
