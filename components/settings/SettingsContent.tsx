@@ -4,8 +4,7 @@ import { useState } from "react"
 import AppLayout from "@/components/layout/AppLayout"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Settings, User, CreditCard, Bell, Shield, Key, Trash2 } from "lucide-react"
-import ProfileSettings from "./ProfileSettings"
+import { Settings, CreditCard, Bell, Shield, Key, Trash2 } from "lucide-react"
 import BillingContent from "@/components/billing/BillingContent"
 import DataDeletionSettings from "./DataDeletionSettings"
 import { Button } from "@/components/ui/button"
@@ -13,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { toast } from "@/hooks/use-toast"
 
 export default function SettingsContent() {
-  const [activeTab, setActiveTab] = useState("profile")
+  const [activeTab, setActiveTab] = useState("billing")
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
@@ -48,11 +47,7 @@ export default function SettingsContent() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
-            <TabsTrigger value="profile" className="flex items-center gap-2">
-              <User className="h-4 w-4" />
-              Profile
-            </TabsTrigger>
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="billing" className="flex items-center gap-2">
               <CreditCard className="h-4 w-4" />
               Billing
@@ -70,10 +65,6 @@ export default function SettingsContent() {
               API Keys
             </TabsTrigger>
           </TabsList>
-
-          <TabsContent value="profile" className="mt-6">
-            <ProfileSettings />
-          </TabsContent>
 
           <TabsContent value="billing" className="mt-6">
             <BillingContent />

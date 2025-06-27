@@ -7,7 +7,6 @@ import {
   Workflow,
   Puzzle,
   BarChart3,
-  Settings,
   Building2,
   Shield,
   Users,
@@ -32,7 +31,6 @@ const navigation = [
   { name: "Learn", href: "/learn", icon: GraduationCap },
   { name: "Community", href: "/community", icon: Users },
   { name: "Enterprise", href: "/enterprise", icon: Shield },
-  { name: "Settings", href: "/settings", icon: Settings },
 ]
 
 export default function Sidebar({ isMobileMenuOpen, onMobileMenuChange }: SidebarProps) {
