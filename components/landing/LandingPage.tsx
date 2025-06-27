@@ -30,9 +30,21 @@ import {
   Heart,
   Target,
   Layers,
+  ChevronDown,
+  LogOut,
+  Puzzle,
 } from "lucide-react"
 import Link from "next/link"
 import { useAuth } from "@/hooks/use-auth"
+import { useAuthStore } from "@/stores/authStore"
+import { useRouter } from "next/navigation"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 // 3D Chain Link Component
 const ChainLink = ({ className = "", delay = 0 }: { className?: string; delay?: number }) => (
@@ -207,6 +219,20 @@ const TaskCard = ({ className = "" }: { className?: string }) => (
 
 export default function LandingPage() {
   const { isAuthenticated, user, isReady } = useAuth()
+  const { signOut, profile } = useAuthStore()
+  const router = useRouter()
+
+  const handleSignOut = async () => {
+    try {
+      await signOut()
+      // Redirect to homepage after successful logout
+      router.push("/")
+    } catch (error) {
+      console.error("Logout error:", error)
+      // Still redirect even if there's an error
+      router.push("/")
+    }
+  }
 
   // Show loading state while auth is initializing
   if (!isReady) {
@@ -326,59 +352,80 @@ export default function LandingPage() {
         </div>
 
         {/* Header Navigation */}
-        <nav className="relative z-10 px-4 sm:px-6 lg:px-8 py-6">
-          <div className="max-w-7xl mx-auto flex items-center justify-between">
-            {/* Left: Brand Logo */}
-            <div className="flex items-center">
+        <nav className="fixed top-0 left-0 right-0 z-50 px-4 sm:px-6 lg:px-8 py-6 bg-gray-900/20 backdrop-blur-sm border-b border-gray-700/30">
+          <div className="max-w-7xl mx-auto grid grid-cols-3 items-center">
+            {/* Left Section: Logo */}
+            <div className="flex justify-start">
               <Link href="/" className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
                 ChainReact
               </Link>
             </div>
 
-            {/* Center: Navigation Links (hidden on mobile) */}
-            <div className="hidden md:flex items-center space-x-8">
-              <Link href="#features">
-                <Button 
-                  variant="ghost" 
-                  className="button-animated text-blue-200 hover:text-white hover:bg-white/10 px-4 py-2 rounded-full transition-all duration-300"
-                >
-                  Features
-                </Button>
-              </Link>
-              <Link href="#pricing">
-                <Button 
-                  variant="ghost" 
-                  className="button-animated text-blue-200 hover:text-white hover:bg-white/10 px-4 py-2 rounded-full transition-all duration-300"
-                >
-                  Pricing
-                </Button>
-              </Link>
-            </div>
-
-            {/* Right: Auth Buttons */}
-            <div className="flex items-center space-x-4">
-              {!isAuthenticated ? (
-                <>
-                  <Link href="/auth/login">
-                    <Button 
-                      variant="ghost" 
-                      className="button-animated text-blue-200 hover:text-white hover:bg-white/10 px-6 py-2 rounded-full transition-all duration-300"
-                    >
-                      Login
-                    </Button>
-                  </Link>
-                  <Link href="/auth/register">
-                    <Button className="button-animated bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-full shadow-lg hover:shadow-xl">
-                      Sign Up
-                    </Button>
-                  </Link>
-                </>
-              ) : (
-                <Link href="/dashboard">
-                  <Button className="button-animated bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-full shadow-lg hover:shadow-xl">
-                    Dashboard
+            {/* Center Section: Navigation Links */}
+            <div className="hidden md:flex justify-center">
+              <div className="flex items-center space-x-8">
+                <Link href="#features">
+                  <Button 
+                    variant="ghost" 
+                    className="button-animated text-blue-200 hover:text-white hover:bg-white/10 px-4 py-2 rounded-full transition-all duration-300 text-base"
+                  >
+                    Features
                   </Button>
                 </Link>
+                <Link href="#pricing">
+                  <Button 
+                    variant="ghost" 
+                    className="button-animated text-blue-200 hover:text-white hover:bg-white/10 px-4 py-2 rounded-full transition-all duration-300 text-base"
+                  >
+                    Pricing
+                  </Button>
+                </Link>
+              </div>
+            </div>
+
+            {/* Right Section: Auth Buttons */}
+            <div className="flex justify-end">
+              {!isAuthenticated ? (
+                <Link href="/auth/login">
+                  <Button 
+                    variant="ghost" 
+                    className="button-animated text-blue-200 hover:text-white hover:bg-white/10 px-6 py-2 rounded-full transition-all duration-300 text-base"
+                  >
+                    Login
+                  </Button>
+                </Link>
+              ) : (
+                <div className="flex items-center space-x-4">
+                  <Link href="/dashboard">
+                    <Button className="button-animated bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-full shadow-lg hover:shadow-xl">
+                      Dashboard
+                    </Button>
+                  </Link>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" className="flex items-center space-x-2 text-blue-200 hover:text-white hover:bg-white/10">
+                        <User className="w-4 h-4" />
+                        <span className="hidden sm:inline">{profile?.username || user?.email}</span>
+                        <ChevronDown className="w-4 h-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuItem onClick={() => router.push("/profile")}>
+                        <User className="w-4 h-4 mr-2" />
+                        Profile
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => router.push("/settings")}>
+                        <Settings className="w-4 h-4 mr-2" />
+                        Settings
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={handleSignOut}>
+                        <LogOut className="w-4 h-4 mr-2" />
+                        Sign Out
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
               )}
             </div>
           </div>
@@ -389,7 +436,7 @@ export default function LandingPage() {
               <Button 
                 variant="ghost" 
                 size="sm"
-                className="button-animated text-blue-200 hover:text-white hover:bg-white/10 px-4 py-2 rounded-full transition-all duration-300"
+                className="button-animated text-blue-200 hover:text-white hover:bg-white/10 px-4 py-2 rounded-full transition-all duration-300 text-base"
               >
                 Features
               </Button>
@@ -398,13 +445,16 @@ export default function LandingPage() {
               <Button 
                 variant="ghost" 
                 size="sm"
-                className="button-animated text-blue-200 hover:text-white hover:bg-white/10 px-4 py-2 rounded-full transition-all duration-300"
+                className="button-animated text-blue-200 hover:text-white hover:bg-white/10 px-4 py-2 rounded-full transition-all duration-300 text-base"
               >
                 Pricing
               </Button>
             </Link>
           </div>
         </nav>
+
+        {/* Add padding to account for fixed header */}
+        <div className="pt-24"></div>
 
         {/* Hero Section */}
         <section className="relative z-10 px-4 sm:px-6 lg:px-8 pt-8 pb-16 md:pt-12 md:pb-20">
@@ -538,15 +588,66 @@ export default function LandingPage() {
 
               <Card className="p-6 bg-white/5 backdrop-blur-sm border border-white/10 hover:bg-white/10 transition-all duration-300 hover:shadow-xl transform hover:scale-105">
                 <CardContent className="p-0">
-                  <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-teal-500 rounded-lg flex items-center justify-center mb-4">
+                  <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-blue-500 rounded-lg flex items-center justify-center mb-4">
                     <Shield className="h-6 w-6 text-white" />
                   </div>
                   <h3 className="text-xl font-semibold text-white mb-2">Enterprise Security</h3>
-                  <p className="text-blue-200 mb-4">Bank-grade security with end-to-end encryption and compliance standards.</p>
+                  <p className="text-blue-200 mb-4">Bank-level security with end-to-end encryption and SOC 2 compliance.</p>
                   {isAuthenticated && (
-                    <Link href="/settings">
+                    <Link href="/enterprise">
                       <Button size="sm" variant="outline" className="button-animated text-green-400 border-green-400 hover:bg-green-400/10">
-                        Security Settings
+                        Learn More
+                      </Button>
+                    </Link>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card className="p-6 bg-white/5 backdrop-blur-sm border border-white/10 hover:bg-white/10 transition-all duration-300 hover:shadow-xl transform hover:scale-105">
+                <CardContent className="p-0">
+                  <div className="w-12 h-12 bg-gradient-to-br from-pink-500 to-red-500 rounded-lg flex items-center justify-center mb-4">
+                    <Users className="h-6 w-6 text-white" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-white mb-2">Team Collaboration</h3>
+                  <p className="text-blue-200 mb-4">Work together seamlessly with real-time collaboration and role-based access.</p>
+                  {isAuthenticated && (
+                    <Link href="/teams">
+                      <Button size="sm" variant="outline" className="button-animated text-pink-400 border-pink-400 hover:bg-pink-400/10">
+                        Invite Team
+                      </Button>
+                    </Link>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card className="p-6 bg-white/5 backdrop-blur-sm border border-white/10 hover:bg-white/10 transition-all duration-300 hover:shadow-xl transform hover:scale-105">
+                <CardContent className="p-0">
+                  <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-lg flex items-center justify-center mb-4">
+                    <BarChart3 className="h-6 w-6 text-white" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-white mb-2">Advanced Analytics</h3>
+                  <p className="text-blue-200 mb-4">Get insights into your workflow performance with detailed analytics and reporting.</p>
+                  {isAuthenticated && (
+                    <Link href="/analytics">
+                      <Button size="sm" variant="outline" className="button-animated text-indigo-400 border-indigo-400 hover:bg-indigo-400/10">
+                        View Reports
+                      </Button>
+                    </Link>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card className="p-6 bg-white/5 backdrop-blur-sm border border-white/10 hover:bg-white/10 transition-all duration-300 hover:shadow-xl transform hover:scale-105">
+                <CardContent className="p-0">
+                  <div className="w-12 h-12 bg-gradient-to-br from-yellow-500 to-orange-500 rounded-lg flex items-center justify-center mb-4">
+                    <Puzzle className="h-6 w-6 text-white" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-white mb-2">100+ Integrations</h3>
+                  <p className="text-blue-200 mb-4">Connect with all your favorite tools and services with our extensive integration library.</p>
+                  {isAuthenticated && (
+                    <Link href="/integrations">
+                      <Button size="sm" variant="outline" className="button-animated text-yellow-400 border-yellow-400 hover:bg-yellow-400/10">
+                        Browse Apps
                       </Button>
                     </Link>
                   )}
