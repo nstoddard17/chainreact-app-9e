@@ -67,10 +67,16 @@ export const useEnterpriseStore = create<EnterpriseState>((set, get) => ({
     set((state) => ({ loading: { ...state.loading, sso: true } }))
     try {
       const response = await fetch(`/api/enterprise/sso?organizationId=${organizationId}`)
+      if (!response.ok) {
+        console.warn("SSO API endpoint not available, using mock data")
+        set({ ssoConfigurations: [], activeSSOProvider: null })
+        return
+      }
       const data = await response.json()
       set({ ssoConfigurations: data, activeSSOProvider: data.find((config: any) => config.is_active) || null })
     } catch (error) {
       console.error("Failed to fetch SSO configurations:", error)
+      set({ ssoConfigurations: [], activeSSOProvider: null })
     } finally {
       set((state) => ({ loading: { ...state.loading, sso: false } }))
     }
@@ -83,6 +89,9 @@ export const useEnterpriseStore = create<EnterpriseState>((set, get) => ({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(config),
       })
+      if (!response.ok) {
+        throw new Error("SSO API endpoint not available")
+      }
       const newConfig = await response.json()
       set((state) => ({ ssoConfigurations: [...state.ssoConfigurations, newConfig] }))
     } catch (error) {
@@ -98,6 +107,9 @@ export const useEnterpriseStore = create<EnterpriseState>((set, get) => ({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(config),
       })
+      if (!response.ok) {
+        throw new Error("SSO API endpoint not available")
+      }
       const updatedConfig = await response.json()
       set((state) => ({
         ssoConfigurations: state.ssoConfigurations.map((c) => (c.id === id ? updatedConfig : c)),
@@ -111,7 +123,10 @@ export const useEnterpriseStore = create<EnterpriseState>((set, get) => ({
 
   deleteSSOConfiguration: async (id: string) => {
     try {
-      await fetch(`/api/enterprise/sso/${id}`, { method: "DELETE" })
+      const response = await fetch(`/api/enterprise/sso/${id}`, { method: "DELETE" })
+      if (!response.ok) {
+        throw new Error("SSO API endpoint not available")
+      }
       set((state) => ({
         ssoConfigurations: state.ssoConfigurations.filter((c) => c.id !== id),
         activeSSOProvider: state.activeSSOProvider?.id === id ? null : state.activeSSOProvider,
@@ -127,10 +142,16 @@ export const useEnterpriseStore = create<EnterpriseState>((set, get) => ({
     set((state) => ({ loading: { ...state.loading, deployments: true } }))
     try {
       const response = await fetch(`/api/enterprise/deployments?organizationId=${organizationId}`)
+      if (!response.ok) {
+        console.warn("Deployments API endpoint not available, using mock data")
+        set({ deployments: [], activeDeployment: null })
+        return
+      }
       const data = await response.json()
       set({ deployments: data, activeDeployment: data.find((d: any) => d.is_active) || null })
     } catch (error) {
       console.error("Failed to fetch deployments:", error)
+      set({ deployments: [], activeDeployment: null })
     } finally {
       set((state) => ({ loading: { ...state.loading, deployments: false } }))
     }
@@ -143,6 +164,9 @@ export const useEnterpriseStore = create<EnterpriseState>((set, get) => ({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(config),
       })
+      if (!response.ok) {
+        throw new Error("Deployments API endpoint not available")
+      }
       const newDeployment = await response.json()
       set((state) => ({ deployments: [...state.deployments, newDeployment] }))
     } catch (error) {
@@ -158,6 +182,9 @@ export const useEnterpriseStore = create<EnterpriseState>((set, get) => ({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(config),
       })
+      if (!response.ok) {
+        throw new Error("Deployments API endpoint not available")
+      }
       const updatedDeployment = await response.json()
       set((state) => ({
         deployments: state.deployments.map((d) => (d.id === id ? updatedDeployment : d)),
@@ -174,10 +201,16 @@ export const useEnterpriseStore = create<EnterpriseState>((set, get) => ({
     set((state) => ({ loading: { ...state.loading, integrations: true } }))
     try {
       const response = await fetch(`/api/enterprise/integrations?organizationId=${organizationId}`)
+      if (!response.ok) {
+        console.warn("Enterprise integrations API endpoint not available, using mock data")
+        set({ enterpriseIntegrations: [] })
+        return
+      }
       const data = await response.json()
       set({ enterpriseIntegrations: data })
     } catch (error) {
       console.error("Failed to fetch enterprise integrations:", error)
+      set({ enterpriseIntegrations: [] })
     } finally {
       set((state) => ({ loading: { ...state.loading, integrations: false } }))
     }
@@ -190,6 +223,9 @@ export const useEnterpriseStore = create<EnterpriseState>((set, get) => ({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(integration),
       })
+      if (!response.ok) {
+        throw new Error("Enterprise integrations API endpoint not available")
+      }
       const newIntegration = await response.json()
       set((state) => ({ enterpriseIntegrations: [...state.enterpriseIntegrations, newIntegration] }))
     } catch (error) {
@@ -205,6 +241,9 @@ export const useEnterpriseStore = create<EnterpriseState>((set, get) => ({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(integration),
       })
+      if (!response.ok) {
+        throw new Error("Enterprise integrations API endpoint not available")
+      }
       const updatedIntegration = await response.json()
       set((state) => ({
         enterpriseIntegrations: state.enterpriseIntegrations.map((i) => (i.id === id ? updatedIntegration : i)),
@@ -221,10 +260,16 @@ export const useEnterpriseStore = create<EnterpriseState>((set, get) => ({
     try {
       const queryParams = new URLSearchParams({ organizationId, ...filters })
       const response = await fetch(`/api/enterprise/audit-logs?${queryParams}`)
+      if (!response.ok) {
+        console.warn("Audit logs API endpoint not available, using mock data")
+        set({ auditLogs: [] })
+        return
+      }
       const data = await response.json()
       set({ auditLogs: data })
     } catch (error) {
       console.error("Failed to fetch audit logs:", error)
+      set({ auditLogs: [] })
     } finally {
       set((state) => ({ loading: { ...state.loading, compliance: false } }))
     }
@@ -233,10 +278,16 @@ export const useEnterpriseStore = create<EnterpriseState>((set, get) => ({
   fetchGDPRRequests: async (organizationId: string) => {
     try {
       const response = await fetch(`/api/enterprise/gdpr-requests?organizationId=${organizationId}`)
+      if (!response.ok) {
+        console.warn("GDPR requests API endpoint not available, using mock data")
+        set({ gdprRequests: [] })
+        return
+      }
       const data = await response.json()
       set({ gdprRequests: data })
     } catch (error) {
       console.error("Failed to fetch GDPR requests:", error)
+      set({ gdprRequests: [] })
     }
   },
 
@@ -247,6 +298,9 @@ export const useEnterpriseStore = create<EnterpriseState>((set, get) => ({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(request),
       })
+      if (!response.ok) {
+        throw new Error("GDPR requests API endpoint not available")
+      }
       const newRequest = await response.json()
       set((state) => ({ gdprRequests: [...state.gdprRequests, newRequest] }))
     } catch (error) {
