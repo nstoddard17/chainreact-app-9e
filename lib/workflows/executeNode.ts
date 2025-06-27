@@ -272,28 +272,105 @@ async function sendGmail(config: any, userId: string, input: Record<string, any>
   }
 }
 
+async function fetchGmailLabels(accessToken: string) {
+  const response = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/labels", {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+  })
+  if (!response.ok) throw new Error("Failed to fetch Gmail labels")
+  const data = await response.json()
+  return data.labels || []
+}
+
+async function createGmailLabel(accessToken: string, labelName: string) {
+  const response = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/labels", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      name: labelName,
+      labelListVisibility: "labelShow",
+      messageListVisibility: "show",
+    }),
+  })
+  if (!response.ok) throw new Error("Failed to create Gmail label")
+  return await response.json()
+}
+
 async function addGmailLabels(config: any, userId: string, input: Record<string, any>): Promise<ActionResult> {
   try {
     console.log("Starting Gmail add labels process", { userId, config })
+    console.log("Input context:", input)
     
     const accessToken = await getDecryptedAccessToken(userId, "gmail")
 
     const messageId = resolveValue(config.messageId, input)
-    const labelIds = resolveValue(config.labelIds, input)
-
-    console.log("Resolved values:", { messageId, labelIds })
-
-    if (!messageId || !labelIds || !Array.isArray(labelIds) || labelIds.length === 0) {
+    let labelIdsRaw = resolveValue(config.labelIds, input)
+    
+    console.log("Resolved values:", { messageId, labelIdsRaw })
+    
+    // Normalize and filter labelIds to only include non-empty strings
+    let labelIds: string[] = []
+    if (Array.isArray(labelIdsRaw)) {
+      labelIds = labelIdsRaw.map(l => {
+        if (typeof l === "string") return l
+        if (l && typeof l === "object" && typeof l.value === "string") return l.value
+        return undefined
+      }).filter((l): l is string => typeof l === "string" && l.trim() !== "")
+    } else if (typeof labelIdsRaw === "string" && labelIdsRaw.trim() !== "") {
+      labelIds = [labelIdsRaw]
+    }
+    
+    console.log("Filtered labelIds for Gmail add label:", labelIds)
+    
+    if (!messageId || labelIds.length === 0) {
       const missingFields = []
       if (!messageId) missingFields.push("Message ID")
-      if (!labelIds || !Array.isArray(labelIds) || labelIds.length === 0) missingFields.push("Labels")
-      
+      if (labelIds.length === 0) missingFields.push("Labels")
       const message = `Missing required fields for adding labels: ${missingFields.join(", ")}`
       console.error(message)
       return { success: false, message }
     }
+    
+    // Fetch all existing labels
+    const existingLabels = await fetchGmailLabels(accessToken)
+    const existingLabelIds = new Set(existingLabels.map((l: any) => l.id))
+    const existingLabelNames = new Map(existingLabels.map((l: any) => [l.name.toLowerCase(), l.id]))
+    
+    console.log("Existing labels found:", existingLabels.length)
+    console.log("Existing label IDs:", Array.from(existingLabelIds))
+    console.log("Existing label names:", Array.from(existingLabelNames.keys()))
+    
+    // For each label, if it's not an ID or name in existingLabels, create it
+    const finalLabelIds: string[] = []
+    for (const label of labelIds) {
+      console.log(`Processing label: "${label}"`)
+      if (existingLabelIds.has(label)) {
+        console.log(`Label "${label}" found as existing ID`)
+        finalLabelIds.push(label)
+      } else if (existingLabelNames.has(label.toLowerCase())) {
+        const existingId = existingLabelNames.get(label.toLowerCase())!
+        console.log(`Label "${label}" found as existing name, using ID: ${existingId}`)
+        finalLabelIds.push(existingId)
+      } else {
+        // Create the label
+        console.log(`Creating new label: "${label}"`)
+        const newLabel = await createGmailLabel(accessToken, label)
+        console.log(`Created new label with ID: ${newLabel.id}`)
+        finalLabelIds.push(newLabel.id)
+      }
+    }
 
-    console.log("Making Gmail API request to add labels...")
+    console.log("Making Gmail API request to add labels...", { 
+      messageId, 
+      finalLabelIds,
+      url: `https://www.googleapis.com/gmail/v1/users/me/messages/${messageId}/modify`
+    })
+    
     const response = await fetch(`https://www.googleapis.com/gmail/v1/users/me/messages/${messageId}/modify`, {
       method: "POST",
       headers: {
@@ -301,7 +378,7 @@ async function addGmailLabels(config: any, userId: string, input: Record<string,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        addLabelIds: labelIds,
+        addLabelIds: finalLabelIds,
       }),
     })
 
@@ -320,13 +397,13 @@ async function addGmailLabels(config: any, userId: string, input: Record<string,
       throw new Error(errorMessage)
     }
 
-    console.log("Gmail add labels successful:", { messageId: result.id, labelsAdded: labelIds })
+    console.log("Gmail add labels successful:", { messageId: result.id, labelsAdded: finalLabelIds })
     return { 
       success: true, 
       output: { 
         messageId: result.id, 
-        labelIds: labelIds,
-        labelsAdded: labelIds.length,
+        labelIds: finalLabelIds,
+        labelsAdded: finalLabelIds.length,
         status: "labels_added"
       } 
     }

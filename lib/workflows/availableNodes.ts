@@ -1831,9 +1831,10 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         type: "select", 
         dynamic: "gmail_labels",
         required: true,
-        placeholder: "Select one or more labels",
-        description: "Choose from your Gmail labels (supports multiple selection)",
-        multiple: true
+        placeholder: "Select or enter one or more labels",
+        description: "Choose from your Gmail labels or enter new ones (supports multiple selection)",
+        multiple: true,
+        creatable: true // Allow custom label entry
       },
     ],
   },

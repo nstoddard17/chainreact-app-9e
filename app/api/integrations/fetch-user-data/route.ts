@@ -578,7 +578,7 @@ const dataFetchers: DataFetcher = {
 
       // Fetch detailed information for each message
       const detailedMessages = await Promise.all(
-        messages.slice(0, 20).map(async (message: any) => {
+        messages.slice(0, 50).map(async (message: any) => {
           try {
             const detailResponse = await fetch(
               `https://gmail.googleapis.com/gmail/v1/users/me/messages/${message.id}?format=metadata&metadataHeaders=Subject&metadataHeaders=From&metadataHeaders=Date`,

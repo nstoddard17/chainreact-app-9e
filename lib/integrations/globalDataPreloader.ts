@@ -150,10 +150,10 @@ class GlobalDataPreloader {
       console.log(`Fetching ${dataType} for ${provider}`)
 
       const response = await apiClient.post("/api/integrations/fetch-user-data", {
-        provider,
-        dataType,
-        batchSize,
-        preload: true,
+          provider,
+          dataType,
+          batchSize,
+          preload: true,
       })
 
       if (response.success && response.data) {

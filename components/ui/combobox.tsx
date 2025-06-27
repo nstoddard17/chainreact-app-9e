@@ -23,6 +23,7 @@ import { Badge } from "@/components/ui/badge"
 export interface ComboboxOption {
   value: string;
   label: string;
+  description?: string;
 }
 
 interface ComboboxProps {
@@ -43,6 +44,7 @@ interface MultiComboboxProps {
   searchPlaceholder?: string;
   emptyPlaceholder?: string;
   disabled?: boolean;
+  creatable?: boolean;
 }
 
 export function Combobox({
@@ -97,14 +99,22 @@ export function Combobox({
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0 max-h-80">
         <Command>
           <CommandInput 
             placeholder={searchPlaceholder || "Search..."}
             value={inputValue}
             onValueChange={handleCommandInputChange}
           />
-          <CommandList>
+          <CommandList 
+            className="max-h-60 overflow-y-auto" 
+            style={{ maxHeight: '240px', overflowY: 'auto' }}
+            onWheel={(e) => {
+              e.preventDefault();
+              const target = e.currentTarget;
+              target.scrollTop += e.deltaY;
+            }}
+          >
             <CommandEmpty>{emptyPlaceholder || "No results found."}</CommandEmpty>
             <CommandGroup>
               {options.map((option) => (
@@ -119,7 +129,12 @@ export function Combobox({
                       value === option.value ? "opacity-100" : "opacity-0"
                     )}
                   />
-                  {option.label}
+                  <div className="flex flex-col">
+                    <span>{option.label}</span>
+                    {option.description && (
+                      <span className="text-sm text-muted-foreground">{option.description}</span>
+                    )}
+                  </div>
                 </CommandItem>
               ))}
             </CommandGroup>
@@ -131,16 +146,22 @@ export function Combobox({
 }
 
 export function MultiCombobox({
-  options,
+  options: initialOptions,
   value,
   onChange,
   placeholder,
   searchPlaceholder,
   emptyPlaceholder,
   disabled,
+  creatable = false,
 }: MultiComboboxProps) {
   const [open, setOpen] = React.useState(false)
   const [inputValue, setInputValue] = React.useState("")
+  const [options, setOptions] = React.useState<ComboboxOption[]>(initialOptions)
+
+  React.useEffect(() => {
+    setOptions(initialOptions)
+  }, [initialOptions])
 
   const selectedOptions = options.filter((option) => value.includes(option.value))
 
@@ -157,6 +178,27 @@ export function MultiCombobox({
 
   const handleCommandInputChange = (search: string) => {
     setInputValue(search)
+  }
+
+  // Handle Enter key for creatable
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (creatable && (e.key === "Enter" || e.key === "Tab") && inputValue.trim()) {
+      const exists = options.some(
+        (option) => option.value.toLowerCase() === inputValue.trim().toLowerCase()
+      )
+      if (!exists) {
+        const newOption = { value: inputValue.trim(), label: inputValue.trim() }
+        setOptions((prev) => [...prev, newOption])
+        onChange([...value, inputValue.trim()])
+        setInputValue("")
+        e.preventDefault()
+      } else {
+        // If already exists, just select it
+        handleSelect(inputValue.trim())
+        setInputValue("")
+        e.preventDefault()
+      }
+    }
   }
 
   return (
@@ -186,27 +228,36 @@ export function MultiCombobox({
                 </Badge>
               ))
             ) : (
-              <span className="text-muted-foreground">{placeholder || "Select options..."}</span>
+              <span className="text-muted-foreground">{placeholder || "Select option(s)..."}</span>
             )}
           </div>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0 max-h-80">
         <Command>
-          <CommandInput 
+          <CommandInput
             placeholder={searchPlaceholder || "Search..."}
             value={inputValue}
             onValueChange={handleCommandInputChange}
+            onKeyDown={handleInputKeyDown}
           />
-          <CommandList>
+          <CommandList
+            className="max-h-60 overflow-y-auto"
+            style={{ maxHeight: '240px', overflowY: 'auto' }}
+            onWheel={(e) => {
+              e.preventDefault();
+              const target = e.currentTarget;
+              target.scrollTop += e.deltaY;
+            }}
+          >
             <CommandEmpty>{emptyPlaceholder || "No results found."}</CommandEmpty>
             <CommandGroup>
               {options.map((option) => (
                 <CommandItem
                   key={option.value}
                   value={option.value}
-                  onSelect={() => handleSelect(option.value)}
+                  onSelect={handleSelect}
                 >
                   <Check
                     className={cn(
@@ -214,9 +265,29 @@ export function MultiCombobox({
                       value.includes(option.value) ? "opacity-100" : "opacity-0"
                     )}
                   />
-                  {option.label}
+                  <div className="flex flex-col">
+                    <span>{option.label}</span>
+                    {option.description && (
+                      <span className="text-sm text-muted-foreground">{option.description}</span>
+                    )}
+                  </div>
                 </CommandItem>
               ))}
+              {/* Show create option if inputValue is not empty and not in options */}
+              {creatable && inputValue.trim() && !options.some(option => option.value.toLowerCase() === inputValue.trim().toLowerCase()) && (
+                <CommandItem
+                  key={"create-" + inputValue.trim()}
+                  value={inputValue.trim()}
+                  onSelect={() => {
+                    const newOption = { value: inputValue.trim(), label: inputValue.trim() }
+                    setOptions((prev) => [...prev, newOption])
+                    onChange([...value, inputValue.trim()])
+                    setInputValue("")
+                  }}
+                >
+                  <span className="text-primary">Create "{inputValue.trim()}"</span>
+                </CommandItem>
+              )}
             </CommandGroup>
           </CommandList>
         </Command>
