@@ -52,11 +52,19 @@ class ApiClient {
       }
 
       console.log(`🌐 API Request: ${config.method || "GET"} ${url}`)
+      console.log(`🔧 Base URL: ${this.baseUrl}`)
+      console.log(`🔧 Endpoint: ${endpoint}`)
 
       const response = await fetch(url, config)
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+        console.error(`❌ HTTP Error: ${response.status} ${response.statusText} for ${url}`)
+        // Return a structured error response instead of throwing
+        return {
+          success: false,
+          error: `HTTP ${response.status}: ${response.statusText}`,
+          data: undefined,
+        }
       }
 
       const data = await response.json()
@@ -69,6 +77,8 @@ class ApiClient {
       }
     } catch (error: any) {
       console.error(`❌ API Error: ${endpoint}`, error)
+      console.error(`🔧 Base URL: ${this.baseUrl}`)
+      console.error(`🔧 Full URL: ${this.baseUrl}${endpoint}`)
 
       // Return a structured error response instead of throwing
       return {
