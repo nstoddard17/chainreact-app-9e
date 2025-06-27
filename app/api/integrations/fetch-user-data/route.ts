@@ -555,6 +555,75 @@ const dataFetchers: DataFetcher = {
     }
   },
 
+  gmail_messages: async (integration: any) => {
+    try {
+      // Fetch recent messages from Gmail
+      const response = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=50", {
+        headers: {
+          Authorization: `Bearer ${integration.access_token}`,
+          "Content-Type": "application/json",
+        },
+      })
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("Gmail authentication expired. Please reconnect your account.")
+        }
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(`Gmail API error: ${response.status} - ${errorData.error?.message || response.statusText}`)
+      }
+
+      const data = await response.json()
+      const messages = data.messages || []
+
+      // Fetch detailed information for each message
+      const detailedMessages = await Promise.all(
+        messages.slice(0, 20).map(async (message: any) => {
+          try {
+            const detailResponse = await fetch(
+              `https://gmail.googleapis.com/gmail/v1/users/me/messages/${message.id}?format=metadata&metadataHeaders=Subject&metadataHeaders=From&metadataHeaders=Date`,
+              {
+                headers: {
+                  Authorization: `Bearer ${integration.access_token}`,
+                  "Content-Type": "application/json",
+                },
+              }
+            )
+
+            if (detailResponse.ok) {
+              const detailData = await detailResponse.json()
+              const headers = detailData.payload?.headers || []
+              
+              const subject = headers.find((h: any) => h.name === "Subject")?.value || "No Subject"
+              const from = headers.find((h: any) => h.name === "From")?.value || "Unknown Sender"
+              const date = headers.find((h: any) => h.name === "Date")?.value || ""
+              
+              return {
+                id: message.id,
+                value: message.id,
+                label: subject,
+                description: `From: ${from}${date ? ` • ${new Date(date).toLocaleDateString()}` : ""}`,
+                subject,
+                from,
+                date,
+                snippet: detailData.snippet || "",
+              }
+            }
+            return null
+          } catch (error) {
+            console.warn(`Failed to fetch details for message ${message.id}:`, error)
+            return null
+          }
+        })
+      )
+
+      return detailedMessages.filter(Boolean)
+    } catch (error: any) {
+      console.error("Error fetching Gmail messages:", error)
+      throw error
+    }
+  },
+
   "hubspot_companies": async (integration: any) => {
     try {
       const response = await fetch(
