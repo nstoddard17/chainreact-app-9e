@@ -2,130 +2,109 @@ import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 
+interface ExecutionContext {
+  userId: string
+  workflowId: string
+  testMode: boolean
+  inputData: any
+  results: Record<string, any>
+  errors: string[]
+}
+
 export async function POST(request: Request) {
-  // Check if environment is properly configured
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-    console.error("Supabase configuration missing. Please set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY environment variables.")
-    return NextResponse.json({ 
-      error: "Configuration error", 
-      details: "Supabase configuration missing. Please check your environment variables.",
-      missingVars: {
-        SUPABASE_URL: !process.env.NEXT_PUBLIC_SUPABASE_URL,
-        SUPABASE_ANON_KEY: !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-      }
-    }, { status: 500 })
-  }
-
-  cookies()
-  const supabase = await createSupabaseRouteHandlerClient()
-
   try {
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
+    console.log("=== Workflow Execution Started ===")
+    
+    const body = await request.json()
+    const { workflowId, testMode = false, inputData = {}, workflowData } = body
+    
+    console.log("Execution parameters:", {
+      workflowId,
+      testMode,
+      hasInputData: !!inputData,
+      hasWorkflowData: !!workflowData
+    })
 
-    if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (!workflowId) {
+      console.error("No workflowId provided")
+      return NextResponse.json({ error: "workflowId is required" }, { status: 400 })
     }
 
-    const { workflowId, testMode = false, inputData = {}, workflowData } = await request.json()
-
-    let workflow = workflowData
-
-    // If no workflowData provided, try to get from database (backward compatibility)
-    if (!workflow) {
-             const { data: dbWorkflow, error: workflowError } = await supabase
-         .from("workflows")
-         .select("*")
-         .eq("id", workflowId)
-         .eq("user_id", user.id)
-         .single()
-
-      if (workflowError || !dbWorkflow) {
-        return NextResponse.json({ error: "Workflow not found" }, { status: 404 })
-      }
-      workflow = dbWorkflow
-    }
-
-    // Validate workflow has required structure
-    if (!workflow.nodes || workflow.nodes.length === 0) {
-      return NextResponse.json({ error: "Workflow has no nodes to execute" }, { status: 400 })
-    }
-
-    // Create execution record
-    const { data: execution, error: executionError } = await supabase
-      .from("workflow_executions")
-      .insert({
-        workflow_id: workflowId,
-        user_id: user.id,
-        status: "running",
-        input_data: inputData,
-        started_at: new Date().toISOString(),
-      })
-      .select()
+    // Get the workflow from the database
+    const supabase = await createSupabaseRouteHandlerClient()
+    const { data: workflow, error: workflowError } = await supabase
+      .from("workflows")
+      .select("*")
+      .eq("id", workflowId)
       .single()
 
-    if (executionError) {
-      console.error("Failed to create workflow execution:", {
-        error: executionError,
-        workflowId,
-        userId: user.id,
-        timestamp: new Date().toISOString()
-      })
-      return NextResponse.json({ 
-        error: "Failed to create execution", 
-        details: executionError.message,
-        code: executionError.code 
-      }, { status: 500 })
+    if (workflowError || !workflow) {
+      console.error("Error fetching workflow:", workflowError)
+      return NextResponse.json({ error: "Workflow not found" }, { status: 404 })
     }
 
-    try {
-      // Execute workflow with enhanced engine
-      const result = await executeWorkflowAdvanced(workflow, inputData, user.id, testMode)
+    console.log("Workflow found:", {
+      id: workflow.id,
+      name: workflow.name,
+      nodesCount: workflow.nodes?.length || 0
+    })
 
-      // Update execution with success
-      await supabase
-        .from("workflow_executions")
-        .update({
-          status: "success",
-          output_data: result,
-          completed_at: new Date().toISOString(),
-          execution_time_ms: Date.now() - new Date(execution.started_at).getTime(),
-        })
-        .eq("id", execution.id)
-
-      return NextResponse.json({ success: true, executionId: execution.id, result })
-    } catch (error: any) {
-      // Handle retry logic
-      const shouldRetry = await handleExecutionError(supabase, execution.id, error, user.id)
-
-      if (!shouldRetry) {
-        // Update execution with error
-        await supabase
-          .from("workflow_executions")
-          .update({
-            status: "error",
-            error_message: error.message,
-            completed_at: new Date().toISOString(),
-            execution_time_ms: Date.now() - new Date(execution.started_at).getTime(),
-          })
-          .eq("id", execution.id)
-      }
-
-      return NextResponse.json({ success: false, error: error.message, willRetry: shouldRetry }, { status: 500 })
+    // Get the current user
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    if (userError || !user) {
+      console.error("User authentication error:", userError)
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
     }
+
+    console.log("User authenticated:", user.id)
+
+    // Parse workflow data
+    const nodes = workflowData?.nodes || workflow.nodes || []
+    const edges = workflowData?.edges || workflow.edges || []
+    
+    console.log("Workflow structure:", {
+      nodesCount: nodes.length,
+      edgesCount: edges.length,
+      nodeTypes: nodes.map((n: any) => n.data?.type).filter(Boolean)
+    })
+
+    if (nodes.length === 0) {
+      console.error("No nodes found in workflow")
+      return NextResponse.json({ error: "No nodes found in workflow" }, { status: 400 })
+    }
+
+    // Find trigger nodes
+    const triggerNodes = nodes.filter((node: any) => node.data?.isTrigger)
+    console.log("Trigger nodes found:", triggerNodes.length)
+
+    if (triggerNodes.length === 0) {
+      console.error("No trigger nodes found")
+      return NextResponse.json({ error: "No trigger nodes found" }, { status: 400 })
+    }
+
+    // Execute the workflow using the existing function
+    console.log("Starting workflow execution with testMode:", testMode)
+    
+    const results = await executeWorkflowAdvanced(workflow, inputData, user.id, testMode)
+    
+    console.log("Workflow execution completed successfully")
+
+    return NextResponse.json({
+      success: true,
+      results: results,
+      executionTime: new Date().toISOString()
+    })
+
   } catch (error: any) {
     console.error("Workflow execution error:", {
       message: error.message,
       stack: error.stack,
-      name: error.name,
-      timestamp: new Date().toISOString()
+      name: error.name
     })
+    
     return NextResponse.json({ 
-      error: "Internal server error", 
-      details: error.message,
-      timestamp: new Date().toISOString()
+      error: "Workflow execution failed", 
+      details: error.message 
     }, { status: 500 })
   }
 }
@@ -188,17 +167,67 @@ async function executeNodeAdvanced(node: any, allNodes: any[], connections: any[
       case "schedule":
         nodeResult = await executeScheduleNode(node, context)
         break
-      case "email_trigger":
-        nodeResult = await executeEmailTriggerNode(node, context)
+      case "manual":
+        // TODO: Implement manual trigger logic
+        nodeResult = { type: "manual", triggered: true }
         break
       case "gmail_trigger_new_email":
         nodeResult = await executeGmailTriggerNode(node, context)
         break
-      case "file_upload":
-        nodeResult = await executeFileUploadNode(node, context)
+      case "gmail_trigger_new_attachment":
+        // TODO: Implement Gmail new attachment trigger
+        nodeResult = { type: "gmail_trigger_new_attachment", triggered: true }
+        break
+      case "gmail_trigger_new_label":
+        // TODO: Implement Gmail new label trigger
+        nodeResult = { type: "gmail_trigger_new_label", triggered: true }
+        break
+      case "google_calendar_trigger_new_event":
+        // TODO: Implement Google Calendar new event trigger
+        nodeResult = { type: "google_calendar_trigger_new_event", triggered: true }
+        break
+      case "google_calendar_trigger_event_updated":
+        // TODO: Implement Google Calendar event updated trigger
+        nodeResult = { type: "google_calendar_trigger_event_updated", triggered: true }
+        break
+      case "google_calendar_trigger_event_canceled":
+        // TODO: Implement Google Calendar event canceled trigger
+        nodeResult = { type: "google_calendar_trigger_event_canceled", triggered: true }
+        break
+      case "google-drive:new_file_in_folder":
+      case "google-drive:new_folder_in_folder":
+      case "google-drive:file_updated":
+        // TODO: Implement Google Drive triggers
+        nodeResult = { type: node.data.type, triggered: true }
         break
 
       // Actions
+      case "filter":
+        nodeResult = await executeFilterNode(node, context)
+        break
+      case "delay":
+        nodeResult = await executeDelayNode(node, context)
+        break
+      case "conditional":
+        // TODO: Implement conditional logic
+        nodeResult = { type: "conditional", executed: true }
+        break
+      case "custom_script":
+        // TODO: Implement custom script logic
+        nodeResult = { type: "custom_script", executed: true }
+        break
+      case "loop":
+        nodeResult = await executeLoopNode(node, allNodes, connections, context)
+        break
+      case "gmail_action_send_email":
+        nodeResult = await executeGmailSendEmailNode(node, context)
+        break
+      case "google_calendar_action_create_event":
+        nodeResult = await executeCalendarEventNode(node, context)
+        break
+      // Add more Google Drive, Gmail, and other integration actions as needed
+      // ...
+      // Existing cases
       case "slack_message":
         nodeResult = await executeSlackMessageNode(node, context)
         break
@@ -211,13 +240,9 @@ async function executeNodeAdvanced(node: any, allNodes: any[], connections: any[
       case "send_email":
         nodeResult = await executeSendEmailNode(node, context)
         break
-      case "gmail_action_send_email":
-        nodeResult = await executeGmailSendEmailNode(node, context)
-        break
       case "webhook_call":
         nodeResult = await executeWebhookCallNode(node, context)
         break
-
       // Logic & Control
       case "if_condition":
         nodeResult = await executeIfConditionNode(node, context)
@@ -225,17 +250,6 @@ async function executeNodeAdvanced(node: any, allNodes: any[], connections: any[
       case "switch_case":
         nodeResult = await executeSwitchCaseNode(node, context)
         break
-      case "filter":
-        nodeResult = await executeFilterNode(node, context)
-        break
-      case "delay":
-        nodeResult = await executeDelayNode(node, context)
-        break
-      case "loop":
-        nodeResult = await executeLoopNode(node, allNodes, connections, context)
-        break
-
-      // Data Operations
       case "data_transform":
         nodeResult = await executeDataTransformNode(node, context)
         break
@@ -251,7 +265,6 @@ async function executeNodeAdvanced(node: any, allNodes: any[], connections: any[
       case "variable_get":
         nodeResult = await executeVariableGetNode(node, context)
         break
-
       // Error Handling
       case "try_catch":
         nodeResult = await executeTryCatchNode(node, allNodes, connections, context)
@@ -259,7 +272,6 @@ async function executeNodeAdvanced(node: any, allNodes: any[], connections: any[
       case "retry":
         nodeResult = await executeRetryNode(node, allNodes, connections, context)
         break
-
       default:
         throw new Error(`Unsupported node type: ${node.data.type}`)
     }

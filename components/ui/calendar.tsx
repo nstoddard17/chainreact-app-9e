@@ -37,9 +37,8 @@ function Calendar({
         cell: "h-9 text-center text-sm p-0 relative focus-within:relative focus-within:z-20",
         day: "h-9 w-9 p-0 font-normal text-center text-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 mx-auto",
         day_range_end: "day-range-end",
-        day_selected:
-          "bg-teal-600 text-white hover:bg-teal-700 hover:text-white focus:bg-teal-600 focus:text-white !rounded-full shadow-sm",
-        day_today: "bg-sky-200 text-sky-900 dark:bg-sky-800 dark:text-sky-100 !rounded-full",
+        day_selected: "rdp-day_selected",
+        day_today: "rdp-day_today",
         day_outside:
           "day-outside text-muted-foreground aria-selected:bg-accent/50 aria-selected:text-muted-foreground opacity-50",
         day_disabled: "text-muted-foreground opacity-50",

@@ -29,11 +29,12 @@ import {
 export interface ConfigField {
   name: string
   label: string
-  type: "string" | "number" | "boolean" | "select" | "textarea" | "text" | "email" | "password" | "email-autocomplete" | "file" | "date" | "time" | "datetime"
+  type: "string" | "number" | "boolean" | "select" | "textarea" | "text" | "email" | "password" | "email-autocomplete" | "location-autocomplete" | "file" | "date" | "time" | "datetime"
   required?: boolean
   placeholder?: string
+  description?: string
   options?: { value: string; label: string }[] | string[]
-  dynamic?: "slack-channels" | "google-contacts" | "google-calendars" | "google-drive-folders" | "google-drive-files" | "gmail-recent-recipients" | "gmail-enhanced-recipients" | "gmail-contact-groups"
+  dynamic?: "slack-channels" | "google-calendars" | "google-drive-folders" | "google-drive-files" | "gmail-recent-recipients" | "gmail-enhanced-recipients" | "gmail-contact-groups"
   accept?: string // For file inputs, specify accepted file types
   maxSize?: number // For file inputs, specify max file size in bytes
   defaultValue?: string | number | boolean // Default value for the field
@@ -319,8 +320,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         name: "startTime",
         label: "Start Time",
         type: "time",
-        required: true,
-        defaultValue: "09:00"
+        required: true
       },
       {
         name: "endDate",
@@ -330,10 +330,9 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
       },
       {
         name: "endTime",
-        label: "End Time", 
+        label: "End Time",
         type: "time",
-        required: true,
-        defaultValue: "10:00"
+        required: true
       },
       { 
         name: "timeZone", 
@@ -359,13 +358,14 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         name: "attendees", 
         label: "Add guests", 
         type: "email-autocomplete", 
-        placeholder: "Enter names or email addresses"
+        dynamic: "gmail-enhanced-recipients",
+        placeholder: "Select guests from your contacts"
       },
       { 
         name: "location", 
         label: "Add location", 
-        type: "text", 
-        placeholder: "Add location" 
+        type: "location-autocomplete", 
+        placeholder: "Enter location or address" 
       },
       { 
         name: "description", 
@@ -377,7 +377,8 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         name: "createMeetLink", 
         label: "Add Google Meet video conferencing", 
         type: "boolean", 
-        defaultValue: false
+        defaultValue: false,
+        description: "Automatically add a Google Meet video conference link to this event"
       },
       { 
         name: "sendNotifications", 
@@ -423,7 +424,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         name: "transparency", 
         label: "Show as", 
         type: "select",
-        defaultValue: "opaque",
+        defaultValue: "transparent",
         options: [
           { value: "opaque", label: "Busy" },
           { value: "transparent", label: "Free" }
