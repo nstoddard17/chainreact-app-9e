@@ -2,8 +2,15 @@
 
 import { useAuthStore } from "@/stores/authStore"
 import { Button } from "@/components/ui/button"
-import { LogOut, User, Menu } from "lucide-react"
+import { LogOut, User, Menu, Settings, ChevronDown } from "lucide-react"
 import { useRouter } from "next/navigation"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 interface TopBarProps {
   onMobileMenuChange: (isOpen: boolean) => void
@@ -41,14 +48,30 @@ export default function TopBar({ onMobileMenuChange, title }: TopBarProps) {
       </div>
 
       <div className="flex items-center space-x-4">
-        <div className="hidden sm:flex items-center space-x-2 text-sm text-muted-foreground">
-          <User className="w-4 h-4" />
-          <span>{profile?.username || user?.email}</span>
-        </div>
-        <Button variant="outline" size="sm" onClick={handleSignOut} className="flex items-center space-x-2">
-          <LogOut className="w-4 h-4" />
-          <span className="hidden sm:inline">Sign Out</span>
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" className="flex items-center space-x-2">
+              <User className="w-4 h-4" />
+              <span className="hidden sm:inline">{profile?.username || user?.email}</span>
+              <ChevronDown className="w-4 h-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuItem onClick={() => router.push("/profile")}>
+              <User className="w-4 h-4 mr-2" />
+              Profile
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => router.push("/settings")}>
+              <Settings className="w-4 h-4 mr-2" />
+              Settings
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={handleSignOut}>
+              <LogOut className="w-4 h-4 mr-2" />
+              Sign Out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </header>
   )
