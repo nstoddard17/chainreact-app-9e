@@ -353,7 +353,8 @@ export default function LandingPage() {
 
         {/* Header Navigation */}
         <nav className="fixed top-0 left-0 right-0 z-50 px-4 sm:px-6 lg:px-8 py-6 bg-gray-900/20 backdrop-blur-sm border-b border-gray-700/30">
-          <div className="max-w-7xl mx-auto grid grid-cols-3 items-center">
+          {/* Desktop Navigation */}
+          <div className="hidden md:grid max-w-7xl mx-auto grid-cols-3 items-center">
             {/* Left Section: Logo */}
             <div className="flex justify-start">
               <Link href="/" className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
@@ -362,7 +363,7 @@ export default function LandingPage() {
             </div>
 
             {/* Center Section: Navigation Links */}
-            <div className="hidden md:flex justify-center">
+            <div className="flex justify-center">
               <div className="flex items-center space-x-8">
                 <Link href="#features">
                   <Button 
@@ -430,26 +431,60 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* Mobile Navigation Links */}
-          <div className="md:hidden mt-4 flex justify-center space-x-6">
-            <Link href="#features">
-              <Button 
-                variant="ghost" 
-                size="sm"
-                className="button-animated text-blue-200 hover:text-white hover:bg-white/10 px-4 py-2 rounded-full transition-all duration-300 text-base"
-              >
-                Features
-              </Button>
-            </Link>
-            <Link href="#pricing">
-              <Button 
-                variant="ghost" 
-                size="sm"
-                className="button-animated text-blue-200 hover:text-white hover:bg-white/10 px-4 py-2 rounded-full transition-all duration-300 text-base"
-              >
-                Pricing
-              </Button>
-            </Link>
+          {/* Mobile Navigation */}
+          <div className="md:hidden max-w-7xl mx-auto grid grid-cols-2 items-center">
+            {/* Left Section: Logo */}
+            <div className="flex justify-start">
+              <Link href="/" className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+                ChainReact
+              </Link>
+            </div>
+
+            {/* Right Section: Auth Buttons */}
+            <div className="flex justify-end">
+              {!isAuthenticated ? (
+                <Link href="/auth/login">
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    className="button-animated text-blue-200 hover:text-white hover:bg-white/10 px-4 py-2 rounded-full transition-all duration-300 text-sm"
+                  >
+                    Login
+                  </Button>
+                </Link>
+              ) : (
+                <div className="flex items-center space-x-2">
+                  <Link href="/dashboard">
+                    <Button size="sm" className="button-animated bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-full shadow-lg hover:shadow-xl text-sm">
+                      Dashboard
+                    </Button>
+                  </Link>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm" className="flex items-center space-x-1 text-blue-200 hover:text-white hover:bg-white/10">
+                        <User className="w-3 h-3" />
+                        <ChevronDown className="w-3 h-3" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuItem onClick={() => router.push("/profile")}>
+                        <User className="w-4 h-4 mr-2" />
+                        Profile
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => router.push("/settings")}>
+                        <Settings className="w-4 h-4 mr-2" />
+                        Settings
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={handleSignOut}>
+                        <LogOut className="w-4 h-4 mr-2" />
+                        Sign Out
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              )}
+            </div>
           </div>
         </nav>
 
