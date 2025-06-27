@@ -5,9 +5,10 @@ import {
   getAllScopes,
   isKnownProvider,
 } from "./integrationScopes"
+import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 
 function getOAuthRedirectUri(provider: string): string {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"
+  const baseUrl = getBaseUrl()
   return `${baseUrl}/api/integrations/${provider}/callback`
 }
 
