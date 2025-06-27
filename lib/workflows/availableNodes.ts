@@ -349,7 +349,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
       },
       {
         name: "endTime",
-        label: "End Time",
+        label: "End Time", 
         type: "time",
         required: true
       },

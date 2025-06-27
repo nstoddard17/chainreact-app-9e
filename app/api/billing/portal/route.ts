@@ -2,6 +2,7 @@ import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 import Stripe from "stripe"
+import { getEnvironmentConfig } from "@/lib/utils/environment"
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 
@@ -30,13 +31,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "No subscription found" }, { status: 404 })
     }
 
-    // Get the base URL from the request headers or environment
-    const protocol = request.headers.get("x-forwarded-proto") || "https"
-    const host = request.headers.get("host") || request.headers.get("x-forwarded-host")
-    const origin = process.env.NEXT_PUBLIC_APP_URL || `${protocol}://${host}` || "https://localhost:3000"
-
-    // Ensure we have a valid URL with explicit scheme
-    const baseUrl = origin.startsWith("http") ? origin : `https://${origin}`
+    // Get the base URL from the environment configuration
+    const config = getEnvironmentConfig()
+    const baseUrl = config.url
 
     // Create portal session
     const portalSession = await stripe.billingPortal.sessions.create({
