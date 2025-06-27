@@ -9,7 +9,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Loader2 } from "lucide-react"
-import { ThemeSlideToggle } from "@/components/ui/theme-slide-toggle"
 
 export default function ProfileSettings() {
   const { user, profile, updateProfile } = useAuthStore()
@@ -82,10 +81,6 @@ export default function ProfileSettings() {
             <Label htmlFor="username">Username</Label>
             <Input id="username" value={profile?.username || ""} disabled className="bg-muted" />
             <p className="text-xs text-muted-foreground">Your username cannot be changed.</p>
-          </div>
-
-          <div className="space-y-2">
-            <ThemeSlideToggle />
           </div>
 
           <div className="grid grid-cols-2 gap-4">

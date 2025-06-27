@@ -11,6 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { ThemeToggle } from "@/components/ui/theme-toggle"
 
 interface TopBarProps {
   onMobileMenuChange: (isOpen: boolean) => void
@@ -48,6 +49,7 @@ export default function TopBar({ onMobileMenuChange, title }: TopBarProps) {
       </div>
 
       <div className="flex items-center space-x-4">
+        <ThemeToggle />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="flex items-center space-x-2">
