@@ -85,7 +85,7 @@ export async function POST(request: Request) {
     // Execute the workflow using the existing function
     console.log("Starting workflow execution with testMode:", testMode)
     
-    const results = await executeWorkflowAdvanced(workflow, inputData, user.id, testMode)
+    const results = await executeWorkflowAdvanced(workflow, inputData, user.id, testMode, workflowData)
     
     console.log("Workflow execution completed successfully")
 
@@ -109,10 +109,19 @@ export async function POST(request: Request) {
   }
 }
 
-async function executeWorkflowAdvanced(workflow: any, inputData: any, userId: string, testMode: boolean) {
+async function executeWorkflowAdvanced(workflow: any, inputData: any, userId: string, testMode: boolean, workflowData?: any) {
   const supabase = await createSupabaseRouteHandlerClient()
-  const nodes = workflow.nodes || []
-  const connections = workflow.connections || []
+  
+  // Use workflowData if provided (current state), otherwise fall back to saved workflow
+  const nodes = workflowData?.nodes || workflow.nodes || []
+  const connections = workflowData?.connections || workflow.connections || []
+
+  console.log("Executing workflow with:", {
+    nodesCount: nodes.length,
+    connectionsCount: connections.length,
+    usingWorkflowData: !!workflowData,
+    nodeTypes: nodes.map((n: any) => n.data?.type).filter(Boolean)
+  })
 
   if (nodes.length === 0) {
     throw new Error("Workflow has no nodes")
@@ -225,23 +234,11 @@ async function executeNodeAdvanced(node: any, allNodes: any[], connections: any[
       case "google_calendar_action_create_event":
         nodeResult = await executeCalendarEventNode(node, context)
         break
-      // Add more Google Drive, Gmail, and other integration actions as needed
-      // ...
-      // Existing cases
-      case "slack_message":
-        nodeResult = await executeSlackMessageNode(node, context)
+      case "google-drive:create_file":
+        nodeResult = await executeGoogleDriveCreateFileNode(node, context)
         break
-      case "calendar_event":
-        nodeResult = await executeCalendarEventNode(node, context)
-        break
-      case "sheets_append":
-        nodeResult = await executeSheetsAppendNode(node, context)
-        break
-      case "send_email":
-        nodeResult = await executeSendEmailNode(node, context)
-        break
-      case "webhook_call":
-        nodeResult = await executeWebhookCallNode(node, context)
+      case "google_drive_action_upload_file":
+        nodeResult = await executeGoogleDriveUploadFileNode(node, context)
         break
       // Logic & Control
       case "if_condition":
@@ -271,6 +268,30 @@ async function executeNodeAdvanced(node: any, allNodes: any[], connections: any[
         break
       case "retry":
         nodeResult = await executeRetryNode(node, allNodes, connections, context)
+        break
+      case "slack_message":
+        nodeResult = await executeSlackMessageNode(node, context)
+        break
+      case "calendar_event":
+        nodeResult = await executeCalendarEventNode(node, context)
+        break
+      case "sheets_append":
+        nodeResult = await executeSheetsAppendNode(node, context)
+        break
+      case "sheets_read":
+        nodeResult = await executeSheetsReadNode(node, context)
+        break
+      case "sheets_update":
+        nodeResult = await executeSheetsUpdateNode(node, context)
+        break
+      case "sheets_create_spreadsheet":
+        nodeResult = await executeSheetsCreateSpreadsheetNode(node, context)
+        break
+      case "send_email":
+        nodeResult = await executeSendEmailNode(node, context)
+        break
+      case "webhook_call":
+        nodeResult = await executeWebhookCallNode(node, context)
         break
       default:
         throw new Error(`Unsupported node type: ${node.data.type}`)
@@ -1153,11 +1174,13 @@ async function executeSheetsAppendNode(node: any, context: any) {
   if (context.testMode) {
     return {
       type: "sheets_append",
-      spreadsheet_id: node.data.config?.spreadsheet_id || "test-sheet",
-      sheet_name: node.data.config?.sheet_name || "Sheet1",
+      spreadsheet_id: node.data.config?.spreadsheetId || "test-sheet",
+      sheet_name: node.data.config?.sheetName || "Sheet1",
       test: true,
     }
   }
+
+  console.log("Starting Google Sheets append row execution...")
 
   // Get Google Sheets integration
   const supabase = await createSupabaseRouteHandlerClient()
@@ -1173,36 +1196,535 @@ async function executeSheetsAppendNode(node: any, context: any) {
     throw new Error("Google Sheets integration not connected")
   }
 
-  // Parse and evaluate values
-  const valuesConfig = node.data.config?.values || '["{{data.timestamp}}", "{{data.message}}"]'
-  const values = JSON.parse(valuesConfig).map((value: string) => renderTemplate(value, context, "handlebars"))
+  console.log("Found Google Sheets integration:", {
+    id: integration.id,
+    hasAccessToken: !!integration.access_token,
+    hasRefreshToken: !!integration.refresh_token,
+    expiresAt: integration.expires_at
+  })
 
-  const response = await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${node.data.config?.spreadsheet_id}/values/${node.data.config?.sheet_name}:append?valueInputOption=RAW`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${integration.access_token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        values: [values],
-      }),
-    },
-  )
+  // Ensure we have a valid access token
+  let accessToken = integration.access_token
 
-  const result = await response.json()
-
-  if (result.error) {
-    throw new Error(`Google Sheets API error: ${result.error.message}`)
+  // Refresh token if needed
+  if (integration.refresh_token) {
+    try {
+      const { TokenRefreshService } = await import("@/lib/integrations/tokenRefreshService")
+      
+      // Check if token needs refresh
+      const shouldRefresh = TokenRefreshService.shouldRefreshToken(integration, {
+        accessTokenExpiryThreshold: 5 // Refresh if token expires in 5 minutes
+      })
+      
+      if (shouldRefresh) {
+        console.log("Access token needs refresh, refreshing...")
+        const refreshResult = await TokenRefreshService.refreshTokenForProvider(
+          "google-sheets",
+          integration.refresh_token,
+          integration.id
+        )
+        
+        if (refreshResult.success && refreshResult.accessToken) {
+          accessToken = refreshResult.accessToken
+          console.log("Successfully refreshed access token")
+        } else {
+          console.error("Failed to refresh access token:", refreshResult.error)
+          throw new Error("Failed to refresh Google Sheets access token")
+        }
+      } else {
+        console.log("Access token is still valid")
+      }
+    } catch (error) {
+      console.error("Error refreshing token:", error)
+      throw new Error("Failed to refresh Google Sheets access token")
+    }
   }
 
-  return {
-    type: "sheets_append",
-    spreadsheet_id: node.data.config?.spreadsheet_id,
-    sheet_name: node.data.config?.sheet_name,
-    values,
-    range: result.updates?.updatedRange,
+  const config = node.data.config || {}
+  const spreadsheetId = config.spreadsheetId
+  const sheetName = config.sheetName
+  const valueInputOption = config.valueInputOption || "RAW"
+  const insertDataOption = config.insertDataOption || "INSERT_ROWS"
+  const includeTimestamp = config.includeTimestamp || false
+  const timestampColumn = config.timestampColumn || "Timestamp"
+
+  if (!spreadsheetId) {
+    throw new Error("Spreadsheet ID is required")
+  }
+
+  if (!sheetName) {
+    throw new Error("Sheet name is required")
+  }
+
+  // Parse and evaluate row data
+  let rowDataConfig = config.rowData || '["{{data.timestamp}}", "{{data.message}}"]'
+  
+  try {
+    const parsedData = JSON.parse(rowDataConfig)
+    if (!Array.isArray(parsedData)) {
+      throw new Error("Row data must be a JSON array")
+    }
+    
+    // Render template variables in each value
+    const values = parsedData.map((value: string) => renderTemplate(value, context, "handlebars"))
+    
+    // Add timestamp if requested
+    if (includeTimestamp) {
+      values.push(new Date().toISOString())
+    }
+
+    console.log("Prepared row data:", {
+      spreadsheetId,
+      sheetName,
+      valueInputOption,
+      insertDataOption,
+      includeTimestamp,
+      valuesCount: values.length,
+      values
+    })
+
+    // Build the API URL with query parameters
+    const queryParams = new URLSearchParams({
+      valueInputOption,
+      insertDataOption
+    })
+
+    const response = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${sheetName}:append?${queryParams.toString()}`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          values: [values],
+        }),
+      },
+    )
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      console.error("Google Sheets API error:", {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorData
+      })
+      throw new Error(`Google Sheets API error: ${response.status} - ${errorData.error?.message || response.statusText}`)
+    }
+
+    const result = await response.json()
+
+    console.log("Google Sheets API success response:", {
+      updatedRange: result.updates?.updatedRange,
+      updatedRows: result.updates?.updatedRows,
+      updatedColumns: result.updates?.updatedColumns,
+      updatedCells: result.updates?.updatedCells
+    })
+
+    return {
+      type: "sheets_append",
+      spreadsheet_id: spreadsheetId,
+      sheet_name: sheetName,
+      values,
+      range: result.updates?.updatedRange,
+      updated_rows: result.updates?.updatedRows,
+      updated_columns: result.updates?.updatedColumns,
+      updated_cells: result.updates?.updatedCells,
+      timestamp_added: includeTimestamp,
+      timestamp_column: includeTimestamp ? timestampColumn : null
+    }
+
+  } catch (error: any) {
+    if (error.message.includes("JSON")) {
+      throw new Error(`Invalid row data format: ${error.message}. Please provide a valid JSON array.`)
+    }
+    throw error
+  }
+}
+
+async function executeSheetsReadNode(node: any, context: any) {
+  if (context.testMode) {
+    return {
+      type: "sheets_read",
+      spreadsheet_id: node.data.config?.spreadsheetId || "test-sheet",
+      sheet_name: node.data.config?.sheetName || "Sheet1",
+      test: true,
+      data: [["Test", "Data"], ["Row1", "Value1"], ["Row2", "Value2"]]
+    }
+  }
+
+  console.log("Starting Google Sheets read data execution...")
+
+  // Get Google Sheets integration
+  const supabase = await createSupabaseRouteHandlerClient()
+  const { data: integration } = await supabase
+    .from("integrations")
+    .select("*")
+    .eq("user_id", context.userId)
+    .eq("provider", "google-sheets")
+    .eq("status", "connected")
+    .single()
+
+  if (!integration) {
+    throw new Error("Google Sheets integration not connected")
+  }
+
+  console.log("Found Google Sheets integration:", {
+    id: integration.id,
+    hasAccessToken: !!integration.access_token,
+    hasRefreshToken: !!integration.refresh_token,
+    expiresAt: integration.expires_at
+  })
+
+  // Ensure we have a valid access token
+  let accessToken = integration.access_token
+
+  // Refresh token if needed
+  if (integration.refresh_token) {
+    try {
+      const { TokenRefreshService } = await import("@/lib/integrations/tokenRefreshService")
+      
+      // Check if token needs refresh
+      const shouldRefresh = TokenRefreshService.shouldRefreshToken(integration, {
+        accessTokenExpiryThreshold: 5 // Refresh if token expires in 5 minutes
+      })
+      
+      if (shouldRefresh) {
+        console.log("Access token needs refresh, refreshing...")
+        const refreshResult = await TokenRefreshService.refreshTokenForProvider(
+          "google-sheets",
+          integration.refresh_token,
+          integration.id
+        )
+        
+        if (refreshResult.success && refreshResult.accessToken) {
+          accessToken = refreshResult.accessToken
+          console.log("Successfully refreshed access token")
+        } else {
+          console.error("Failed to refresh access token:", refreshResult.error)
+          throw new Error("Failed to refresh Google Sheets access token")
+        }
+      } else {
+        console.log("Access token is still valid")
+      }
+    } catch (error) {
+      console.error("Error refreshing token:", error)
+      throw new Error("Failed to refresh Google Sheets access token")
+    }
+  }
+
+  const config = node.data.config || {}
+  const spreadsheetId = config.spreadsheetId
+  const sheetName = config.sheetName
+  const range = config.range
+  const includeHeaders = config.includeHeaders !== false // Default to true
+  const maxRows = config.maxRows || 0
+  const outputFormat = config.outputFormat || "array"
+
+  if (!spreadsheetId) {
+    throw new Error("Spreadsheet ID is required")
+  }
+
+  if (!sheetName) {
+    throw new Error("Sheet name is required")
+  }
+
+  // Build the range string
+  const rangeString = range ? `${sheetName}!${range}` : sheetName
+
+  console.log("Reading Google Sheets data:", {
+    spreadsheetId,
+    sheetName,
+    range: rangeString,
+    includeHeaders,
+    maxRows,
+    outputFormat
+  })
+
+  try {
+    const response = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${rangeString}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+      },
+    )
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      console.error("Google Sheets API error:", {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorData
+      })
+      throw new Error(`Google Sheets API error: ${response.status} - ${errorData.error?.message || response.statusText}`)
+    }
+
+    const result = await response.json()
+    const rawData = result.values || []
+
+    console.log("Raw data from Google Sheets:", {
+      range: result.range,
+      rows: rawData.length,
+      columns: rawData[0]?.length || 0
+    })
+
+    // Process the data based on configuration
+    let processedData = rawData
+
+    // Apply max rows limit
+    if (maxRows > 0 && rawData.length > maxRows) {
+      processedData = rawData.slice(0, maxRows)
+    }
+
+    // Format the output
+    let formattedData
+    let headers: string[] | null = null
+
+    if (includeHeaders && processedData.length > 0) {
+      headers = processedData[0] as string[]
+      const dataRows = processedData.slice(1)
+      
+      switch (outputFormat) {
+        case "objects":
+          formattedData = dataRows.map((row: any[]) => {
+            const obj: any = {}
+            headers!.forEach((header: string, index: number) => {
+              obj[header] = row[index] || ""
+            })
+            return obj
+          })
+          break
+        case "csv":
+          const csvRows = [headers, ...dataRows]
+          formattedData = csvRows.map((row: any[]) => 
+            row.map((cell: any) => `"${String(cell || "").replace(/"/g, '""')}"`).join(",")
+          ).join("\n")
+          break
+        default: // array
+          formattedData = dataRows
+          break
+      }
+    } else {
+      switch (outputFormat) {
+        case "csv":
+          formattedData = processedData.map((row: any[]) => 
+            row.map((cell: any) => `"${String(cell || "").replace(/"/g, '""')}"`).join(",")
+          ).join("\n")
+          break
+        default: // array and objects (without headers)
+          formattedData = processedData
+          break
+      }
+    }
+
+    console.log("Processed data:", {
+      outputFormat,
+      includeHeaders,
+      dataLength: Array.isArray(formattedData) ? formattedData.length : formattedData.length,
+      headers: headers?.length || 0
+    })
+
+    return {
+      type: "sheets_read",
+      spreadsheet_id: spreadsheetId,
+      sheet_name: sheetName,
+      range: result.range,
+      data: formattedData,
+      headers: headers,
+      total_rows: rawData.length,
+      processed_rows: processedData.length,
+      output_format: outputFormat,
+      include_headers: includeHeaders
+    }
+
+  } catch (error: any) {
+    console.error("Error reading Google Sheets data:", error)
+    throw error
+  }
+}
+
+async function executeSheetsUpdateNode(node: any, context: any) {
+  if (context.testMode) {
+    return {
+      type: "sheets_update",
+      spreadsheet_id: node.data.config?.spreadsheetId || "test-sheet",
+      sheet_name: node.data.config?.sheetName || "Sheet1",
+      range: node.data.config?.range || "A1:B2",
+      test: true,
+      updated_cells: 4
+    }
+  }
+
+  console.log("Starting Google Sheets update data execution...")
+
+  // Get Google Sheets integration
+  const supabase = await createSupabaseRouteHandlerClient()
+  const { data: integration } = await supabase
+    .from("integrations")
+    .select("*")
+    .eq("user_id", context.userId)
+    .eq("provider", "google-sheets")
+    .eq("status", "connected")
+    .single()
+
+  if (!integration) {
+    throw new Error("Google Sheets integration not connected")
+  }
+
+  console.log("Found Google Sheets integration:", {
+    id: integration.id,
+    hasAccessToken: !!integration.access_token,
+    hasRefreshToken: !!integration.refresh_token,
+    expiresAt: integration.expires_at
+  })
+
+  // Ensure we have a valid access token
+  let accessToken = integration.access_token
+
+  // Refresh token if needed
+  if (integration.refresh_token) {
+    try {
+      const { TokenRefreshService } = await import("@/lib/integrations/tokenRefreshService")
+      
+      // Check if token needs refresh
+      const shouldRefresh = TokenRefreshService.shouldRefreshToken(integration, {
+        accessTokenExpiryThreshold: 5 // Refresh if token expires in 5 minutes
+      })
+      
+      if (shouldRefresh) {
+        console.log("Access token needs refresh, refreshing...")
+        const refreshResult = await TokenRefreshService.refreshTokenForProvider(
+          "google-sheets",
+          integration.refresh_token,
+          integration.id
+        )
+        
+        if (refreshResult.success && refreshResult.accessToken) {
+          accessToken = refreshResult.accessToken
+          console.log("Successfully refreshed access token")
+        } else {
+          console.error("Failed to refresh access token:", refreshResult.error)
+          throw new Error("Failed to refresh Google Sheets access token")
+        }
+      } else {
+        console.log("Access token is still valid")
+      }
+    } catch (error) {
+      console.error("Error refreshing token:", error)
+      throw new Error("Failed to refresh Google Sheets access token")
+    }
+  }
+
+  const config = node.data.config || {}
+  const spreadsheetId = config.spreadsheetId
+  const sheetName = config.sheetName
+  const range = config.range
+  const valueInputOption = config.valueInputOption || "RAW"
+
+  if (!spreadsheetId) {
+    throw new Error("Spreadsheet ID is required")
+  }
+
+  if (!sheetName) {
+    throw new Error("Sheet name is required")
+  }
+
+  if (!range) {
+    throw new Error("Range is required")
+  }
+
+  // Build the range string
+  const rangeString = `${sheetName}!${range}`
+
+  // Parse and evaluate update data
+  let updateDataConfig = config.updateData || '["{{data.value}}"]'
+  
+  try {
+    const parsedData = JSON.parse(updateDataConfig)
+    if (!Array.isArray(parsedData)) {
+      throw new Error("Update data must be a JSON array")
+    }
+    
+    // Process the data - handle both single row and multiple rows
+    let values: any[]
+    if (parsedData.length > 0 && Array.isArray(parsedData[0])) {
+      // Multiple rows: [["row1col1", "row1col2"], ["row2col1", "row2col2"]]
+      values = parsedData.map((row: any[]) => 
+        row.map((value: string) => renderTemplate(value, context, "handlebars"))
+      )
+    } else {
+      // Single row: ["val1", "val2"]
+      values = [parsedData.map((value: string) => renderTemplate(value, context, "handlebars"))]
+    }
+
+    console.log("Prepared update data:", {
+      spreadsheetId,
+      sheetName,
+      range: rangeString,
+      valueInputOption,
+      valuesCount: values.length,
+      values
+    })
+
+    // Build the API URL with query parameters
+    const queryParams = new URLSearchParams({
+      valueInputOption
+    })
+
+    const response = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${rangeString}?${queryParams.toString()}`,
+      {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          values,
+        }),
+      },
+    )
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      console.error("Google Sheets API error:", {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorData
+      })
+      throw new Error(`Google Sheets API error: ${response.status} - ${errorData.error?.message || response.statusText}`)
+    }
+
+    const result = await response.json()
+
+    console.log("Google Sheets API success response:", {
+      updatedRange: result.updatedRange,
+      updatedRows: result.updatedRows,
+      updatedColumns: result.updatedColumns,
+      updatedCells: result.updatedCells
+    })
+
+    return {
+      type: "sheets_update",
+      spreadsheet_id: spreadsheetId,
+      sheet_name: sheetName,
+      range: result.updatedRange,
+      values,
+      updated_rows: result.updatedRows,
+      updated_columns: result.updatedColumns,
+      updated_cells: result.updatedCells
+    }
+
+  } catch (error: any) {
+    if (error.message.includes("JSON")) {
+      throw new Error(`Invalid update data format: ${error.message}. Please provide a valid JSON array.`)
+    }
+    throw error
   }
 }
 
@@ -1323,5 +1845,597 @@ function parseDuration(duration: string): number {
       return value * 60 * 60 * 1000
     default:
       return 1000
+  }
+}
+
+async function executeGoogleDriveCreateFileNode(node: any, context: any) {
+  if (context.testMode) {
+    return {
+      type: "google-drive:create_file",
+      fileName: node.data.config?.fileName || "test-file.txt",
+      test: true,
+      message: "Test mode: File creation simulated"
+    }
+  }
+
+  console.log("Starting Google Drive create file execution...")
+
+  // Get Google Drive integration
+  const supabase = await createSupabaseRouteHandlerClient()
+  const { data: integration } = await supabase
+    .from("integrations")
+    .select("*")
+    .eq("user_id", context.userId)
+    .eq("provider", "google-drive")
+    .eq("status", "connected")
+    .single()
+
+  if (!integration) {
+    throw new Error("Google Drive integration not connected")
+  }
+
+  console.log("Found Google Drive integration:", {
+    id: integration.id,
+    hasAccessToken: !!integration.access_token,
+    hasRefreshToken: !!integration.refresh_token,
+    expiresAt: integration.expires_at
+  })
+
+  // Ensure we have a valid access token
+  let accessToken = integration.access_token
+  if (integration.refresh_token) {
+    try {
+      const { TokenRefreshService } = await import("@/lib/integrations/tokenRefreshService")
+      
+      // Check if token needs refresh
+      const shouldRefresh = TokenRefreshService.shouldRefreshToken(integration, {
+        accessTokenExpiryThreshold: 5 // Refresh if token expires in 5 minutes
+      })
+      
+      if (shouldRefresh) {
+        console.log("Access token needs refresh, refreshing...")
+        const refreshResult = await TokenRefreshService.refreshTokenForProvider(
+          "google-drive",
+          integration.refresh_token,
+          integration.id
+        )
+        
+        if (refreshResult.success && refreshResult.accessToken) {
+          accessToken = refreshResult.accessToken
+          console.log("Successfully refreshed access token")
+        } else {
+          console.error("Failed to refresh access token:", refreshResult.error)
+          throw new Error("Failed to refresh Google Drive access token")
+        }
+      } else {
+        console.log("Access token is still valid")
+      }
+    } catch (error) {
+      console.error("Error refreshing token:", error)
+      throw new Error("Failed to refresh Google Drive access token")
+    }
+  }
+
+  const config = node.data.config || {}
+  const fileName = config.fileName
+  const fileContent = config.fileContent
+  const uploadedFileIds = config.uploadedFiles || []
+  const folderId = config.folderId
+
+  console.log("Google Drive create file config:", {
+    fileName,
+    hasFileContent: !!fileContent,
+    uploadedFileIds: uploadedFileIds.length,
+    folderId: folderId || 'root'
+  })
+
+  if (!fileName) {
+    throw new Error("File name is required")
+  }
+
+  // Check if we have either content or uploaded files
+  if (!fileContent && (!uploadedFileIds || uploadedFileIds.length === 0)) {
+    throw new Error("Either file content or uploaded files are required")
+  }
+
+  try {
+    // Use googleapis library for better Node.js compatibility
+    const { google } = await import("googleapis")
+    const { Readable } = require("stream")
+    
+    const oauth2Client = new google.auth.OAuth2()
+    oauth2Client.setCredentials({ access_token: accessToken })
+    
+    const drive = google.drive({ version: "v3", auth: oauth2Client })
+    
+    const results = []
+
+    // Handle uploaded files if any
+    if (uploadedFileIds && uploadedFileIds.length > 0) {
+      console.log(`Processing ${uploadedFileIds.length} uploaded files...`)
+      
+      const { FileStorageService } = await import("@/lib/storage/fileStorage")
+      
+      // Get the uploaded files
+      const uploadedFiles = await FileStorageService.getFilesFromReferences(uploadedFileIds, context.userId)
+      console.log(`Retrieved ${uploadedFiles.length} files from storage`)
+      
+      for (const file of uploadedFiles) {
+        if (!file.content) {
+          throw new Error(`Uploaded file ${file.fileName} has no content`)
+        }
+        let fileBuffer
+        if (file.content instanceof Buffer) {
+          fileBuffer = file.content
+        } else if (file.content instanceof ArrayBuffer) {
+          fileBuffer = Buffer.from(file.content)
+        } else if (file.content && typeof file.content === 'object' && 'buffer' in file.content) {
+          // ArrayBufferView (e.g. Uint8Array, DataView)
+          fileBuffer = Buffer.from((file.content as ArrayBufferView).buffer)
+        } else {
+          throw new Error(`Unsupported file content type for ${file.fileName}`)
+        }
+        console.log(`Uploading file: ${file.fileName} (${fileBuffer.length} bytes)`)
+        
+        // Create file in Google Drive using the googleapis library
+        const fileMetadata = {
+          name: file.fileName,
+          parents: folderId ? [folderId] : undefined
+        }
+
+        console.log("Making Google Drive API request for file:", file.fileName)
+        
+        const response = await drive.files.create({
+          requestBody: fileMetadata,
+          media: {
+            mimeType: file.mimeType || 'application/octet-stream',
+            body: Readable.from(fileBuffer)
+          }
+        })
+
+        console.log("Google Drive API success response:", { fileId: response.data.id, fileName: response.data.name })
+        
+        results.push({
+          fileName: file.fileName,
+          fileId: response.data.id!,
+          fileUrl: `https://drive.google.com/file/d/${response.data.id}/view`,
+          size: fileBuffer.length
+        })
+      }
+    }
+
+    // Handle text content if provided
+    if (fileContent) {
+      console.log(`Creating text file: ${fileName} (${fileContent.length} characters)`)
+      
+      const fileMetadata = {
+        name: fileName,
+        parents: folderId ? [folderId] : undefined
+      }
+
+      console.log("Making Google Drive API request for text file:", fileName)
+      
+      const textBuffer = Buffer.from(fileContent, 'utf8')
+      const response = await drive.files.create({
+        requestBody: fileMetadata,
+        media: {
+          mimeType: 'text/plain',
+          body: Readable.from(textBuffer)
+        }
+      })
+
+      console.log("Google Drive API success response for text file:", { fileId: response.data.id, fileName: response.data.name })
+      
+      results.push({
+        fileName: fileName,
+        fileId: response.data.id!,
+        fileUrl: `https://drive.google.com/file/d/${response.data.id}/view`,
+        size: textBuffer.length
+      })
+    }
+
+    console.log(`Successfully created ${results.length} files in Google Drive:`, results)
+
+    return {
+      type: "google-drive:create_file",
+      success: true,
+      files: results,
+      totalFiles: results.length,
+      folderId: folderId || 'root',
+      message: `Successfully created ${results.length} file(s) in Google Drive`
+    }
+
+  } catch (error: any) {
+    console.error("Google Drive file creation failed:", error)
+    throw new Error(`Google Drive file creation failed: ${error.message}`)
+  }
+}
+
+async function executeGoogleDriveUploadFileNode(node: any, context: any) {
+  if (context.testMode) {
+    return {
+      type: "google_drive_action_upload_file",
+      fileName: node.data.config?.fileName || "test-file.txt",
+      test: true,
+      message: "Test mode: File upload simulated"
+    }
+  }
+
+  console.log("Starting Google Drive upload file execution...")
+
+  const config = node.data.config || {}
+  const fileUrl = config.fileUrl
+  let fileName = config.fileName
+  const folderId = config.folderId
+
+  if (!fileUrl) {
+    throw new Error("File URL is required")
+  }
+  // Don't set fallback filename here - let the logic below handle it properly
+
+  // Get Google Drive integration from database
+  const supabase = await createSupabaseRouteHandlerClient()
+  const { data: integration } = await supabase
+    .from("integrations")
+    .select("*")
+    .eq("user_id", context.userId)
+    .eq("provider", "google-drive")
+    .eq("status", "connected")
+    .single()
+
+  if (!integration) {
+    throw new Error("Google Drive integration not connected")
+  }
+
+  console.log("Found Google Drive integration:", {
+    id: integration.id,
+    hasAccessToken: !!integration.access_token,
+    hasRefreshToken: !!integration.refresh_token,
+    expiresAt: integration.expires_at
+  })
+
+  // Ensure we have a valid access token
+  let accessToken = integration.access_token
+  if (integration.refresh_token) {
+    try {
+      const { TokenRefreshService } = await import("@/lib/integrations/tokenRefreshService")
+      
+      // Check if token needs refresh
+      const shouldRefresh = TokenRefreshService.shouldRefreshToken(integration, {
+        accessTokenExpiryThreshold: 5 // Refresh if token expires in 5 minutes
+      })
+      
+      if (shouldRefresh) {
+        console.log("Access token needs refresh, refreshing...")
+        const refreshResult = await TokenRefreshService.refreshTokenForProvider(
+          "google-drive",
+          integration.refresh_token,
+          integration.id
+        )
+        
+        if (refreshResult.success && refreshResult.accessToken) {
+          accessToken = refreshResult.accessToken
+          console.log("Successfully refreshed access token")
+        } else {
+          console.error("Failed to refresh access token:", refreshResult.error)
+          throw new Error("Failed to refresh Google Drive access token")
+        }
+      } else {
+        console.log("Access token is still valid")
+      }
+    } catch (error) {
+      console.error("Error refreshing token:", error)
+      throw new Error("Failed to refresh Google Drive access token")
+    }
+  }
+
+  // Download the file from the URL
+  let fileBuffer: Buffer
+  let mimeType = "application/octet-stream"
+  let actualFileName = fileName
+  
+  try {
+    // Check if this is a Google Drive URL
+    const googleDriveMatch = fileUrl.match(/\/d\/([a-zA-Z0-9-_]+)/)
+    
+    if (googleDriveMatch && (fileUrl.includes('drive.google.com') || fileUrl.includes('docs.google.com'))) {
+      // This is a Google Drive URL - use the API to download the actual file
+      const fileId = googleDriveMatch[1]
+      console.log(`Detected Google Drive URL, extracting file ID: ${fileId}`)
+      
+      // First, get file metadata to determine the correct MIME type and filename
+      const { google } = await import("googleapis")
+      const oauth2Client = new google.auth.OAuth2()
+      oauth2Client.setCredentials({ access_token: accessToken })
+      const drive = google.drive({ version: "v3", auth: oauth2Client })
+      
+      // Get file metadata
+      const fileMetadata = await drive.files.get({
+        fileId: fileId,
+        fields: 'id,name,mimeType,size'
+      })
+      
+      const driveFile = fileMetadata.data
+      mimeType = driveFile.mimeType || "application/octet-stream"
+      actualFileName = driveFile.name || fileName
+      
+      console.log(`Google Drive file metadata:`, {
+        name: driveFile.name,
+        mimeType: driveFile.mimeType,
+        size: driveFile.size
+      })
+      
+      // Download the actual file content
+      const fileResponse = await drive.files.get({
+        fileId: fileId,
+        alt: 'media'
+      }, {
+        responseType: 'arraybuffer'
+      })
+      
+      fileBuffer = Buffer.from(fileResponse.data as ArrayBuffer)
+      console.log(`Downloaded Google Drive file: ${actualFileName} (${fileBuffer.length} bytes, ${mimeType})`)
+      
+    } else {
+      // Regular URL - download normally
+      const fetch = (await import("node-fetch")).default
+      const response = await fetch(fileUrl)
+      if (!response.ok) {
+        throw new Error(`Failed to download file from URL: ${response.status} ${response.statusText}`)
+      }
+      mimeType = response.headers.get("content-type") || mimeType
+      fileBuffer = Buffer.from(await response.arrayBuffer())
+      console.log(`Downloaded file: ${fileName} (${fileBuffer.length} bytes, ${mimeType})`)
+    }
+  } catch (error: any) {
+    throw new Error(`Failed to download file from URL: ${error.message}`)
+  }
+
+  // Upload to Google Drive
+  try {
+    const { google } = await import("googleapis")
+    const { Readable } = require("stream")
+    const oauth2Client = new google.auth.OAuth2()
+    oauth2Client.setCredentials({ access_token: accessToken })
+    const drive = google.drive({ version: "v3", auth: oauth2Client })
+    
+    // Use user-provided filename if available, otherwise use original filename from URL
+    const finalFileName = (fileName && fileName.trim() !== "") 
+      ? fileName 
+      : (actualFileName && actualFileName.trim() !== "" ? actualFileName : "downloaded-file")
+    
+    const fileMetadata = {
+      name: finalFileName,
+      parents: folderId ? [folderId] : undefined
+    }
+    const media = {
+      mimeType,
+      body: Readable.from(fileBuffer)
+    }
+    console.log("Making Google Drive API request for uploaded file:", finalFileName)
+    const response = await drive.files.create({
+      requestBody: fileMetadata,
+      media
+    })
+    console.log("Google Drive API success response:", { fileId: response.data.id, fileName: response.data.name })
+    return {
+      type: "google_drive_action_upload_file",
+      success: true,
+      fileId: response.data.id,
+      fileName: response.data.name,
+      fileUrl: `https://drive.google.com/file/d/${response.data.id}/view`,
+      size: fileBuffer.length,
+      mimeType,
+      message: `Successfully uploaded ${finalFileName} to Google Drive`
+    }
+  } catch (error: any) {
+    throw new Error(`Failed to upload file to Google Drive: ${error.message}`)
+  }
+}
+
+async function executeSheetsCreateSpreadsheetNode(node: any, context: any) {
+  if (context.testMode) {
+    return {
+      type: "sheets_create_spreadsheet",
+      title: node.data.config?.title || "Test Spreadsheet",
+      test: true,
+      spreadsheet_id: "test-spreadsheet-id",
+      spreadsheet_url: "https://docs.google.com/spreadsheets/d/test-spreadsheet-id"
+    }
+  }
+
+  console.log("Starting Google Sheets create spreadsheet execution...")
+
+  // Get Google Sheets integration
+  const supabase = await createSupabaseRouteHandlerClient()
+  const { data: integration } = await supabase
+    .from("integrations")
+    .select("*")
+    .eq("user_id", context.userId)
+    .eq("provider", "google-sheets")
+    .eq("status", "connected")
+    .single()
+
+  if (!integration) {
+    throw new Error("Google Sheets integration not connected")
+  }
+
+  console.log("Found Google Sheets integration:", {
+    id: integration.id,
+    hasAccessToken: !!integration.access_token,
+    hasRefreshToken: !!integration.refresh_token,
+    expiresAt: integration.expires_at
+  })
+
+  // Ensure we have a valid access token
+  let accessToken = integration.access_token
+
+  // Refresh token if needed
+  if (integration.refresh_token) {
+    try {
+      const { TokenRefreshService } = await import("@/lib/integrations/tokenRefreshService")
+      
+      // Check if token needs refresh
+      const shouldRefresh = TokenRefreshService.shouldRefreshToken(integration, {
+        accessTokenExpiryThreshold: 5 // Refresh if token expires in 5 minutes
+      })
+      
+      if (shouldRefresh) {
+        console.log("Access token needs refresh, refreshing...")
+        const refreshResult = await TokenRefreshService.refreshTokenForProvider(
+          "google-sheets",
+          integration.refresh_token,
+          integration.id
+        )
+        
+        if (refreshResult.success && refreshResult.accessToken) {
+          accessToken = refreshResult.accessToken
+          console.log("Successfully refreshed access token")
+        } else {
+          console.error("Failed to refresh access token:", refreshResult.error)
+          throw new Error("Failed to refresh Google Sheets access token")
+        }
+      } else {
+        console.log("Access token is still valid")
+      }
+    } catch (error) {
+      console.error("Error refreshing token:", error)
+      throw new Error("Failed to refresh Google Sheets access token")
+    }
+  }
+
+  const config = node.data.config || {}
+  const title = renderTemplate(config.title || "New Spreadsheet", context, "handlebars")
+  const description = config.description ? renderTemplate(config.description, context, "handlebars") : undefined
+  const sheetName = config.sheetName || "Sheet1"
+  const locale = config.locale || "en_US"
+  const timeZone = config.timeZone || "America/New_York"
+
+  if (!title) {
+    throw new Error("Spreadsheet title is required")
+  }
+
+  console.log("Creating Google Sheets spreadsheet:", {
+    title,
+    description,
+    sheetName,
+    locale,
+    timeZone
+  })
+
+  try {
+    // Create the spreadsheet
+    const createResponse = await fetch(
+      "https://sheets.googleapis.com/v4/spreadsheets",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          properties: {
+            title,
+            locale,
+            timeZone,
+            ...(description && { description })
+          },
+          sheets: [
+            {
+              properties: {
+                title: sheetName,
+                gridProperties: {
+                  rowCount: 1000,
+                  columnCount: 26
+                }
+              }
+            }
+          ]
+        }),
+      },
+    )
+
+    if (!createResponse.ok) {
+      const errorData = await createResponse.json().catch(() => ({}))
+      console.error("Google Sheets API error:", {
+        status: createResponse.status,
+        statusText: createResponse.statusText,
+        error: errorData
+      })
+      throw new Error(`Google Sheets API error: ${createResponse.status} - ${errorData.error?.message || createResponse.statusText}`)
+    }
+
+    const createResult = await createResponse.json()
+    const spreadsheetId = createResult.spreadsheetId
+    const spreadsheetUrl = createResult.spreadsheets?.properties?.title ? 
+      `https://docs.google.com/spreadsheets/d/${spreadsheetId}` : undefined
+
+    console.log("Created Google Sheets spreadsheet:", {
+      spreadsheetId,
+      title: createResult.spreadsheets?.properties?.title,
+      url: spreadsheetUrl
+    })
+
+    // Add initial data if provided
+    let initialDataResult = null
+    if (config.initialData) {
+      try {
+        const parsedData = JSON.parse(config.initialData)
+        if (Array.isArray(parsedData) && parsedData.length > 0) {
+          console.log("Adding initial data to spreadsheet:", {
+            rows: parsedData.length,
+            columns: parsedData[0]?.length || 0
+          })
+
+          // Render template variables in the data
+          const processedData = parsedData.map((row: any[]) => 
+            row.map((value: string) => renderTemplate(value, context, "handlebars"))
+          )
+
+          const dataResponse = await fetch(
+            `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${sheetName}!A1:${String.fromCharCode(65 + (processedData[0]?.length || 1) - 1)}${processedData.length}?valueInputOption=RAW`,
+            {
+              method: "PUT",
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                values: processedData,
+              }),
+            },
+          )
+
+          if (dataResponse.ok) {
+            initialDataResult = await dataResponse.json()
+            console.log("Initial data added successfully:", {
+              updatedRange: initialDataResult.updatedRange,
+              updatedCells: initialDataResult.updatedCells
+            })
+          } else {
+            console.warn("Failed to add initial data, but spreadsheet was created successfully")
+          }
+        }
+      } catch (error) {
+        console.warn("Error parsing initial data, but spreadsheet was created successfully:", error)
+      }
+    }
+
+    return {
+      type: "sheets_create_spreadsheet",
+      spreadsheet_id: spreadsheetId,
+      title: createResult.spreadsheets?.properties?.title,
+      description: createResult.spreadsheets?.properties?.description,
+      spreadsheet_url: spreadsheetUrl,
+      sheet_name: sheetName,
+      locale,
+      time_zone: timeZone,
+      initial_data_added: !!initialDataResult,
+      initial_data_range: initialDataResult?.updatedRange
+    }
+
+  } catch (error: any) {
+    console.error("Error creating Google Sheets spreadsheet:", error)
+    throw error
   }
 }

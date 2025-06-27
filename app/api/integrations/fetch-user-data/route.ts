@@ -88,7 +88,13 @@ export async function POST(request: NextRequest) {
     const validToken = tokenValidation.token || integration.access_token
 
     // Get the appropriate data fetcher
-    const fetcherKey = `${provider}_${dataType}`
+    let fetcherKey = `${provider}_${dataType}`
+    
+    // Check if the dataType already includes the provider name (e.g., "google-sheets_spreadsheets")
+    if (dataType.startsWith(`${provider}_`)) {
+      fetcherKey = dataType
+    }
+    
     const fetcher = dataFetchers[fetcherKey]
 
     if (!fetcher) {
@@ -431,6 +437,48 @@ const dataFetchers: DataFetcher = {
       }))
     } catch (error: any) {
       console.error("Error fetching Google Sheets:", error)
+      throw error
+    }
+  },
+
+  "google-sheets_sheets": async (integration: any, options: any) => {
+    try {
+      const { spreadsheetId } = options || {}
+      
+      if (!spreadsheetId) {
+        throw new Error("Spreadsheet ID is required to fetch sheets")
+      }
+
+      const response = await fetch(
+        `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties`,
+        {
+          headers: {
+            Authorization: `Bearer ${integration.access_token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      )
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("Google Sheets authentication expired. Please reconnect your account.")
+        }
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(
+          `Google Sheets API error: ${response.status} - ${errorData.error?.message || response.statusText}`,
+        )
+      }
+
+      const data = await response.json()
+      return (data.sheets || []).map((sheet: any) => ({
+        id: sheet.properties.sheetId,
+        name: sheet.properties.title,
+        value: sheet.properties.title,
+        index: sheet.properties.index,
+        grid_properties: sheet.properties.gridProperties,
+      }))
+    } catch (error: any) {
+      console.error("Error fetching Google Sheets sheets:", error)
       throw error
     }
   },

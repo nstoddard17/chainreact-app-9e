@@ -76,7 +76,7 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     description: "Create and manage spreadsheets in Google Sheets",
     category: "productivity",
     capabilities: ["Read Spreadsheets", "Write Data", "Create Sheets", "Format Cells"],
-    scopes: ["https://www.googleapis.com/auth/spreadsheets"],
+    scopes: ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive.readonly"],
     isAvailable: false,
     requiresClientId: "NEXT_PUBLIC_GOOGLE_CLIENT_ID",
     requiresClientSecret: "GOOGLE_CLIENT_SECRET",

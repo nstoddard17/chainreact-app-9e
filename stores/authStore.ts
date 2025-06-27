@@ -68,6 +68,12 @@ export const useAuthStore = create<AuthState>()(
           return
         }
 
+        // Add timeout protection for initialization
+        const initTimeout = setTimeout(() => {
+          console.error("Auth initialization timed out - forcing completion")
+          set({ loading: false, initialized: true, error: "Initialization timed out" })
+        }, 10000) // 10 second timeout
+
         try {
           set({ loading: true, error: null })
           console.log("🔄 Starting auth initialization...")
@@ -102,6 +108,7 @@ export const useAuthStore = create<AuthState>()(
                   // Redirect to dashboard
                   console.log("🔄 Redirecting to dashboard...");
                   window.location.href = '/dashboard'
+                  clearTimeout(initTimeout)
                   return
                 } else {
                   console.log("❌ No session found after setting tokens");
@@ -112,15 +119,19 @@ export const useAuthStore = create<AuthState>()(
             }
           }
 
-          // Get current session from Supabase
-          const {
-            data: { session },
-            error: sessionError,
-          } = await supabase.auth.getSession()
+          // Get current session from Supabase with timeout
+          const sessionPromise = supabase.auth.getSession()
+          const sessionTimeout = new Promise<never>((_, reject) => 
+            setTimeout(() => reject(new Error('Session fetch timeout')), 5000)
+          )
+          
+          const sessionResult = await Promise.race([sessionPromise, sessionTimeout])
+          const { data: { session }, error: sessionError } = sessionResult
 
           if (sessionError) {
             console.error("Session error:", sessionError)
             set({ user: null, error: sessionError.message, loading: false, initialized: true })
+            clearTimeout(initTimeout)
             return
           }
 
@@ -133,86 +144,112 @@ export const useAuthStore = create<AuthState>()(
               avatar: session.user.user_metadata?.avatar_url,
             }
 
-            // Fetch additional profile data from user_profiles table
-            const { data: profileData } = await supabase
-              .from('user_profiles')
-              .select('id, first_name, last_name, full_name, company, job_title, username, secondary_email, phone_number, avatar_url, provider, created_at, updated_at')
-              .eq('id', session.user.id)
-              .single()
-
-            if (profileData) {
-              user.first_name = profileData.first_name
-              user.last_name = profileData.last_name
-              user.full_name = profileData.full_name || user.name
-            }
-
-            // If no profile exists, create one
-            let profile: Profile
-            if (!profileData) {
-              // For new users, detect provider from auth.users metadata as fallback
-              const detectedProvider = session.user.app_metadata?.provider || 
-                                     session.user.app_metadata?.providers?.[0] || 
-                                     (session.user.identities?.some(id => id.provider === 'google') ? 'google' : 'email')
+            // Fetch additional profile data from user_profiles table with timeout
+            try {
+              const profilePromise = supabase
+                .from('user_profiles')
+                .select('id, first_name, last_name, full_name, company, job_title, username, secondary_email, phone_number, avatar_url, provider, created_at, updated_at')
+                .eq('id', session.user.id)
+                .single()
               
-              profile = {
-                id: session.user.id,
-                full_name: user.name,
-                avatar_url: user.avatar,
-                provider: detectedProvider
+              const profileTimeout = new Promise<never>((_, reject) => 
+                setTimeout(() => reject(new Error('Profile fetch timeout')), 3000)
+              )
+              
+              const profileResult = await Promise.race([profilePromise, profileTimeout])
+              const { data: profileData } = profileResult
+
+              if (profileData) {
+                user.first_name = profileData.first_name
+                user.last_name = profileData.last_name
+                user.full_name = profileData.full_name || user.name
               }
 
-              // Save the profile to database
-              const { error: createError } = await supabase
-                .from('user_profiles')
-                .insert({
+              // If no profile exists, create one
+              let profile: Profile
+              if (!profileData) {
+                // For new users, detect provider from auth.users metadata as fallback
+                const detectedProvider = session.user.app_metadata?.provider || 
+                                       session.user.app_metadata?.providers?.[0] || 
+                                       (session.user.identities?.some(id => id.provider === 'google') ? 'google' : 'email')
+                
+                profile = {
                   id: session.user.id,
                   full_name: user.name,
                   avatar_url: user.avatar,
-                  provider: detectedProvider,
-                  created_at: new Date().toISOString(),
-                  updated_at: new Date().toISOString(),
-                })
-
-              if (createError) {
-                console.error('Error creating user profile:', createError)
-              } else {
-                console.log('✅ Created user profile with provider:', detectedProvider)
-              }
-            } else {
-              profile = profileData
-              console.log('✅ Using existing profile with provider:', profile.provider)
-            }
-
-            set({ user, profile, loading: false, initialized: true })
-
-            // Set current user ID in integration store
-            setTimeout(async () => {
-              try {
-                const { useIntegrationStore } = await import("./integrationStore")
-                useIntegrationStore.getState().setCurrentUserId(session.user.id)
-                console.log("✅ Integration store updated with existing user ID")
-              } catch (error) {
-                console.error("Error updating integration store user ID on init:", error)
-              }
-            }, 100)
-
-            // Start background data preloading (only once)
-            console.log("🚀 Starting background data preload...")
-            setTimeout(async () => {
-              try {
-                const { useIntegrationStore } = await import("./integrationStore")
-                const integrationStore = useIntegrationStore.getState()
-
-                // Only start if not already started
-                if (!integrationStore.preloadStarted && !integrationStore.globalPreloadingData) {
-                  await integrationStore.fetchIntegrations(true)
-                  await integrationStore.initializeGlobalPreload()
-                  console.log("✅ Background preload completed")
+                  provider: detectedProvider
                 }
-              } catch (error) {
-                console.error("❌ Background preload failed:", error)
+
+                // Save the profile to database with timeout
+                try {
+                  const createPromise = supabase
+                    .from('user_profiles')
+                    .insert({
+                      id: session.user.id,
+                      full_name: user.name,
+                      avatar_url: user.avatar,
+                      provider: detectedProvider,
+                      created_at: new Date().toISOString(),
+                      updated_at: new Date().toISOString(),
+                    })
+                  
+                  const createTimeout = new Promise<never>((_, reject) => 
+                    setTimeout(() => reject(new Error('Profile creation timeout')), 3000)
+                  )
+                  
+                  const createResult = await Promise.race([createPromise, createTimeout])
+                  const { error: createError } = createResult
+
+                  if (createError) {
+                    console.error('Error creating user profile:', createError)
+                  } else {
+                    console.log('✅ Created user profile with provider:', detectedProvider)
+                  }
+                } catch (profileCreateError) {
+                  console.error('Profile creation failed:', profileCreateError)
+                  // Continue without profile creation - don't fail the whole auth
+                }
+              } else {
+                profile = profileData
+                console.log('✅ Using existing profile with provider:', profile.provider)
               }
-            }, 1000)
+
+              set({ user, profile, loading: false, initialized: true })
+
+              // Set current user ID in integration store
+              setTimeout(async () => {
+                try {
+                  const { useIntegrationStore } = await import("./integrationStore")
+                  useIntegrationStore.getState().setCurrentUserId(session.user.id)
+                  console.log("✅ Integration store updated with existing user ID")
+                } catch (error) {
+                  console.error("Error updating integration store user ID on init:", error)
+                }
+              }, 100)
+
+              // Start background data preloading (only once) - don't block initialization
+              console.log("🚀 Starting background data preload...")
+              setTimeout(async () => {
+                try {
+                  const { useIntegrationStore } = await import("./integrationStore")
+                  const integrationStore = useIntegrationStore.getState()
+
+                  // Only start if not already started
+                  if (!integrationStore.preloadStarted && !integrationStore.globalPreloadingData) {
+                    await integrationStore.fetchIntegrations(true)
+                    await integrationStore.initializeGlobalPreload()
+                    console.log("✅ Background preload completed")
+                  }
+                } catch (error) {
+                  console.error("❌ Background preload failed:", error)
+                  // Don't fail auth initialization for background preload errors
+                }
+              }, 1000)
+            } catch (profileError) {
+              console.error("Profile fetch failed:", profileError)
+              // Continue with basic user data - don't fail auth initialization
+              set({ user, profile: null, loading: false, initialized: true })
+            }
           } else {
             console.log("❌ No valid session found")
             set({ user: null, loading: false, initialized: true })
@@ -328,6 +365,8 @@ export const useAuthStore = create<AuthState>()(
         } catch (error: any) {
           console.error("💥 Auth initialization error:", error)
           set({ user: null, error: error.message, loading: false, initialized: true })
+        } finally {
+          clearTimeout(initTimeout)
         }
       },
 

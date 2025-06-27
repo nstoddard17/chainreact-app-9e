@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -48,6 +48,7 @@ export default function ConfigurationModal({
   const [meetDraft, setMeetDraft] = useState<{ eventId: string; meetUrl: string } | null>(null)
   const [meetLoading, setMeetLoading] = useState(false)
   const meetDraftRef = useRef<string | null>(null)
+  const previousDependentValues = useRef<Record<string, any>>({})
 
   // Function to get user's timezone
   const getUserTimezone = () => {
@@ -59,91 +60,87 @@ export default function ConfigurationModal({
     }
   }
 
+  // Function to check if a field should be shown based on dependencies
+  const shouldShowField = (field: ConfigField): boolean => {
+    if (!field.dependsOn) return true
+    
+    const dependentValue = config[field.dependsOn]
+    return !!dependentValue
+  }
+
+  // Function to fetch dynamic data for dependent fields
+  const fetchDependentData = useCallback(async (field: ConfigField, dependentValue: any) => {
+    if (!field.dynamic || !field.dependsOn) return
+    
+    const integration = getIntegrationByProvider(nodeInfo?.providerId || "")
+    if (!integration) return
+
+    try {
+      setLoadingDynamic(true)
+      const data = await loadIntegrationData(
+        field.dynamic,
+        integration.id,
+        { [field.dependsOn]: dependentValue }
+      )
+      
+      if (data) {
+        setDynamicOptions(prev => ({
+          ...prev,
+          [field.name]: data.map((item: any) => ({
+            value: item.value || item.id || item.name,
+            label: item.name || item.label || item.title,
+            ...item
+          }))
+        }))
+      }
+    } catch (error) {
+      console.error(`Error fetching dependent data for ${field.name}:`, error)
+    } finally {
+      setLoadingDynamic(false)
+    }
+  }, [config, nodeInfo?.providerId, getIntegrationByProvider, loadIntegrationData])
+
   useEffect(() => {
     if (isOpen && nodeInfo) {
-      // Initialize config with default or existing values
-      const initialConfig =
-        nodeInfo.configSchema?.reduce(
-          (acc, field) => {
-            // Use initialData first, then defaultValue, then empty string
-            acc[field.name] = initialData[field.name] || field.defaultValue || ""
-            // For file fields, initialize the display files as empty since we only have IDs
-            if (field.type === "file") {
-              acc[`${field.name}_files`] = []
-            }
-            return acc
-          },
-          {} as Record<string, any>,
-        ) || {}
-      
-      // Set default dates for Google Calendar if not provided
-      if (nodeInfo.type === "google_calendar_action_create_event") {
-        const now = new Date()
-        // Round to next 5 minutes
-        const rounded = new Date(Math.ceil(now.getTime() / (5 * 60 * 1000)) * (5 * 60 * 1000))
-        const todayStr = rounded.toISOString().split('T')[0]
-        const timeStr = rounded.toTimeString().slice(0,5)
-        if (!initialConfig.startDate) {
-          initialConfig.startDate = todayStr
-        }
-        if (!initialConfig.startTime) {
-          initialConfig.startTime = timeStr
-        }
-        if (!initialConfig.endDate) {
-          initialConfig.endDate = todayStr
-        }
-        // Default end time to 1 hour after start
-        if (!initialConfig.endTime) {
-          const end = new Date(rounded.getTime() + 60 * 60 * 1000)
-          initialConfig.endTime = end.toTimeString().slice(0,5)
-        }
-        // Always set user's timezone for Google Calendar events
-        const userTimezone = getUserTimezone()
-        initialConfig.timeZone = userTimezone
-      }
-      
-      setConfig(initialConfig)
+      // Reset config when opening modal
+      setConfig(initialData)
       
       // Restore file attachments if they exist
       const restoreFileAttachments = async () => {
         for (const field of nodeInfo.configSchema || []) {
-          if (field.type === "file" && initialData[field.name] && Array.isArray(initialData[field.name]) && initialData[field.name].length > 0) {
+          if (field.type === "file" && initialData[field.name]) {
             try {
-              // Fetch file metadata from stored file IDs
-              const fileIds = initialData[field.name] as string[]
-              const response = await fetch(`/api/workflows/files/store?fileIds=${fileIds.join(',')}`)
+              const fileIds = Array.isArray(initialData[field.name]) 
+                ? initialData[field.name] 
+                : [initialData[field.name]]
               
-              if (response.ok) {
-                const { files } = await response.json()
+              if (fileIds.length > 0) {
+                const { FileStorageService } = await import("@/lib/storage/fileStorage")
+                const files = await FileStorageService.getFilesFromReferences(fileIds, "user")
                 
-                // Create pseudo-File objects for display purposes
-                const displayFiles = files.map((fileMetadata: any) => {
-                  // Create a minimal File-like object for display
-                  const displayFile = {
-                    name: fileMetadata.file_name,
-                    size: fileMetadata.file_size,
-                    type: fileMetadata.file_type,
-                    lastModified: new Date(fileMetadata.created_at).getTime(),
+                if (files.length > 0) {
+                  // Mark files as restored and add to config
+                  const restoredFiles = files.map(file => ({
+                    name: file.fileName,
+                    size: file.content.byteLength,
+                    type: file.mimeType,
+                    lastModified: Date.now(),
                     webkitRelativePath: '',
-                    // Mark this as a restored file so we know not to re-upload it
                     _isRestored: true,
-                    _fileId: fileMetadata.id,
+                    _fileId: fileIds[files.indexOf(file)],
                     // Add minimal required methods
-                    arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)),
-                    bytes: () => Promise.resolve(new Uint8Array(0)),
-                    slice: () => new Blob(),
+                    arrayBuffer: () => Promise.resolve(file.content),
+                    bytes: () => Promise.resolve(new Uint8Array(file.content)),
+                    slice: () => new Blob([file.content], { type: file.mimeType }),
                     stream: () => new ReadableStream(),
                     text: () => Promise.resolve('')
-                  }
+                  }))
                   
-                  return displayFile as unknown as File
-                })
-                
-                // Update config with the display files
-                setConfig(prev => ({
-                  ...prev,
-                  [`${field.name}_files`]: displayFiles
-                }))
+                  setConfig(prev => ({
+                    ...prev,
+                    [field.name]: restoredFiles
+                  }))
+                }
               }
             } catch (error) {
               console.error(`Failed to restore files for ${field.name}:`, error)
@@ -164,7 +161,11 @@ export default function ConfigurationModal({
 
         setLoadingDynamic(true)
         const newOptions: Record<string, { value: string; label: string }[]> = {}
+        
         for (const field of nodeInfo.configSchema || []) {
+          // Skip dependent fields - they will be fetched when their dependency changes
+          if (field.dependsOn) continue
+          
           if (field.dynamic === "slack-channels") {
             const data = await loadIntegrationData(
               nodeInfo.providerId,
@@ -256,6 +257,17 @@ export default function ConfigurationModal({
                 label: item.name,
               }))
             }
+          } else if (field.dynamic === "google-sheets_spreadsheets") {
+            const data = await loadIntegrationData(
+              field.dynamic,
+              integration.id,
+            )
+            if (data) {
+              newOptions[field.name] = data.map((spreadsheet: any) => ({
+                value: spreadsheet.id,
+                label: spreadsheet.name,
+              }))
+            }
           }
         }
         setDynamicOptions(newOptions)
@@ -265,6 +277,44 @@ export default function ConfigurationModal({
       fetchDynamicData()
     }
   }, [isOpen, nodeInfo, loadIntegrationData, getIntegrationByProvider, initialData])
+
+  // Watch for changes in dependent fields and fetch their data
+  useEffect(() => {
+    if (!isOpen || !nodeInfo) return
+
+    const fetchDependentFields = async () => {
+      for (const field of nodeInfo.configSchema || []) {
+        if (field.dependsOn && field.dynamic) {
+          const dependentValue = config[field.dependsOn]
+          const previousValue = previousDependentValues.current[field.dependsOn]
+          
+          // Only update if the dependent value has actually changed
+          if (dependentValue !== previousValue) {
+            previousDependentValues.current[field.dependsOn] = dependentValue
+            
+            if (dependentValue) {
+              await fetchDependentData(field, dependentValue)
+            } else {
+              // Clear dependent field options when dependency is cleared
+              setDynamicOptions(prev => {
+                const newOptions = { ...prev }
+                delete newOptions[field.name]
+                return newOptions
+              })
+              // Clear dependent field value
+              setConfig(prev => {
+                const newConfig = { ...prev }
+                delete newConfig[field.name]
+                return newConfig
+              })
+            }
+          }
+        }
+      }
+    }
+
+    fetchDependentFields()
+  }, [isOpen, nodeInfo, config.spreadsheetId, fetchDependentData])
 
   // Force timezone update for Google Calendar events
   useEffect(() => {
@@ -285,6 +335,11 @@ export default function ConfigurationModal({
       setMeetDraft(null)
       meetDraftRef.current = null
     }
+    
+    // Reset previous dependent values when modal closes
+    if (!isOpen) {
+      previousDependentValues.current = {}
+    }
   }, [isOpen])
 
   if (!nodeInfo) {
@@ -303,6 +358,18 @@ export default function ConfigurationModal({
             newErrors[field.name] = `${field.label} is required`
             isValid = false
           }
+        }
+      }
+      
+      // Special validation for Google Drive create file
+      if (nodeInfo.type === "google-drive:create_file") {
+        const hasFileContent = config.fileContent && config.fileContent.trim() !== ''
+        const hasUploadedFiles = config.uploadedFiles && config.uploadedFiles.length > 0
+        
+        if (!hasFileContent && !hasUploadedFiles) {
+          newErrors.fileContent = "Either file content or uploaded files are required"
+          newErrors.uploadedFiles = "Either file content or uploaded files are required"
+          isValid = false
         }
       }
     }
@@ -364,6 +431,90 @@ export default function ConfigurationModal({
   const renderField = (field: ConfigField) => {
     const value = config[field.name] || ""
     const hasError = !!errors[field.name]
+    const isRequired = field.required
+
+    // Helper function to extract filename from URL
+    const extractFilenameFromUrl = (url: string): string => {
+      try {
+        // Try to get filename from URL path
+        const urlObj = new URL(url)
+        const pathname = urlObj.pathname
+        const filename = pathname.split('/').pop()
+        
+        if (filename && filename.includes('.')) {
+          return filename
+        }
+        
+        // Special handling for Google Drive URLs
+        if (url.includes('drive.google.com') || url.includes('docs.google.com')) {
+          // Extract file ID from Google Drive URL
+          const fileIdMatch = url.match(/\/d\/([a-zA-Z0-9-_]+)/)
+          if (fileIdMatch) {
+            const fileId = fileIdMatch[1]
+            // Determine file type based on URL pattern
+            if (url.includes('docs.google.com/document')) {
+              return `Google Doc - ${fileId}.docx`
+            } else if (url.includes('docs.google.com/spreadsheets')) {
+              return `Google Sheet - ${fileId}.xlsx`
+            } else if (url.includes('docs.google.com/presentation')) {
+              return `Google Slides - ${fileId}.pptx`
+            } else if (url.includes('drive.google.com/file')) {
+              return `Google Drive File - ${fileId}`
+            } else {
+              return `Google Drive - ${fileId}`
+            }
+          }
+        }
+        
+        // If no filename in path, try to get from Content-Disposition header
+        // For now, we'll use a fallback approach
+        return 'downloaded-file'
+      } catch (error) {
+        // If URL is invalid, try to extract from the string
+        const urlParts = url.split('/')
+        const lastPart = urlParts[urlParts.length - 1]
+        
+        if (lastPart && lastPart.includes('.')) {
+          return lastPart
+        }
+        
+        // Try to extract Google Drive file ID even from invalid URLs
+        const fileIdMatch = url.match(/\/d\/([a-zA-Z0-9-_]+)/)
+        if (fileIdMatch) {
+          const fileId = fileIdMatch[1]
+          if (url.includes('docs.google.com/document')) {
+            return `Google Doc - ${fileId}.docx`
+          } else if (url.includes('docs.google.com/spreadsheets')) {
+            return `Google Sheet - ${fileId}.xlsx`
+          } else if (url.includes('docs.google.com/presentation')) {
+            return `Google Slides - ${fileId}.pptx`
+          } else if (url.includes('drive.google.com/file')) {
+            return `Google Drive File - ${fileId}`
+          } else {
+            return `Google Drive - ${fileId}`
+          }
+        }
+        
+        return 'downloaded-file'
+      }
+    }
+
+    // Handle URL field changes for upload file from URL node
+    const handleUrlFieldChange = (newValue: string) => {
+      setConfig(prev => ({ ...prev, [field.name]: newValue }))
+      
+      // If this is the fileUrl field for upload file from URL node, auto-populate filename
+      if (nodeInfo?.type === "google_drive_action_upload_file" && field.name === "fileUrl" && newValue) {
+        const extractedFilename = extractFilenameFromUrl(newValue)
+        const currentFileName = config.fileName || ""
+        const hasUserEditedFileName = currentFileName.trim() !== ""
+        
+        // Only auto-populate if user hasn't manually set a filename
+        if (!hasUserEditedFileName) {
+          setConfig(prev => ({ ...prev, fileName: extractedFilename }))
+        }
+      }
+    }
 
     const handleChange = (
       e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
@@ -591,6 +742,28 @@ export default function ConfigurationModal({
             if (files && files.length > 0) {
               const filesArray = Array.from(files)
               
+              // Special handling for Google Drive create file - auto-populate file name IMMEDIATELY
+              if (nodeInfo?.type === "google-drive:create_file" && field.name === "uploadedFiles") {
+                const currentFileName = config.fileName || ""
+                const hasUserEditedFileName = currentFileName.trim() !== ""
+                
+                if (filesArray.length === 1) {
+                  // Single file: use the file's name (only if user hasn't manually set a name)
+                  if (!hasUserEditedFileName) {
+                    const fileName = filesArray[0].name
+                    setConfig(prev => ({ ...prev, fileName }))
+                  }
+                } else if (filesArray.length > 1) {
+                  // Multiple files: use the first file's name as base (only if user hasn't manually set a name)
+                  if (!hasUserEditedFileName) {
+                    const firstFileName = filesArray[0].name
+                    // Remove extension to create a base name
+                    const baseName = firstFileName.replace(/\.[^/.]+$/, "")
+                    setConfig(prev => ({ ...prev, fileName: baseName }))
+                  }
+                }
+              }
+              
               // Separate new files from restored files
               const newFiles = filesArray.filter(file => !(file as any)._isRestored)
               const restoredFiles = filesArray.filter(file => (file as any)._isRestored)
@@ -623,17 +796,22 @@ export default function ConfigurationModal({
               }
               
               // Store both file IDs for the workflow and the actual files for the UI
-              setConfig({ 
-                ...config, 
+              setConfig(prev => ({ 
+                ...prev, 
                 [field.name]: allFileIds,
                 [`${field.name}_files`]: filesArray // Store all files for UI
-              })
+              }))
             } else {
-              setConfig({ 
-                ...config, 
+              setConfig(prev => ({ 
+                ...prev, 
                 [field.name]: [],
                 [`${field.name}_files`]: []
-              })
+              }))
+              
+              // Clear file name if no files are uploaded for Google Drive create file
+              if (nodeInfo?.type === "google-drive:create_file" && field.name === "uploadedFiles") {
+                setConfig(prev => ({ ...prev, fileName: "" }))
+              }
             }
             
             // Clear error when user selects files
@@ -810,6 +988,43 @@ export default function ConfigurationModal({
             )}
           </div>
         )
+      case "string":
+      case "text":
+      case "email":
+      case "password":
+        return (
+          <div className="space-y-1">
+            <Input
+              type={field.type === "email" ? "email" : "text"}
+              placeholder={field.placeholder}
+              value={value || ""}
+              onChange={(e) => {
+                if (field.name === "fileUrl") {
+                  handleUrlFieldChange(e.target.value)
+                } else {
+                  setConfig(prev => ({ ...prev, [field.name]: e.target.value }))
+                }
+              }}
+              className={hasError ? 'ring-2 ring-red-500' : ''}
+              disabled={loadingDynamic}
+            />
+            {hasError && (
+              <div className="flex items-center gap-1 text-sm text-red-600">
+                <AlertCircle className="h-4 w-4" />
+                {errors[field.name]}
+              </div>
+            )}
+            {field.description && (
+              <p className="text-xs text-muted-foreground">{field.description}</p>
+            )}
+            {/* Special note for filename field in upload file from URL node */}
+            {nodeInfo?.type === "google_drive_action_upload_file" && field.name === "fileName" && (
+              <p className="text-xs text-blue-600 mt-1">
+                💡 <strong>Filename Priority:</strong> If you enter a filename here, it will be used. If you leave this blank, the original filename from the URL will be used.
+              </p>
+            )}
+          </div>
+        )
       default:
         return (
           <div className="space-y-1">
@@ -854,6 +1069,38 @@ export default function ConfigurationModal({
           <DialogDescription>{nodeInfo?.description}</DialogDescription>
         </DialogHeader>
         
+        {nodeInfo?.type === "google-drive:create_file" && (
+          <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+            <p className="text-sm text-blue-800">
+              <strong>Tip:</strong> You can either enter text content to create a text file, or upload existing files. 
+              If you upload files, the file name field will be automatically populated:
+            </p>
+            <ul className="text-sm text-blue-800 mt-1 ml-4 list-disc">
+              <li>Single file: Uses the uploaded file's name</li>
+              <li>Multiple files: Uses the first file's name (without extension) as a base name</li>
+              <li>Auto-population only occurs if you haven't manually entered a file name</li>
+              <li>You can always edit the file name manually if needed</li>
+            </ul>
+          </div>
+        )}
+        
+        
+        {nodeInfo?.type === "google_drive_action_upload_file" && (
+          <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+            <p className="text-sm text-blue-800">
+              <strong>Tip:</strong> When you enter a file URL, the file name field will be automatically populated with the filename from the URL:
+            </p>
+            <ul className="text-sm text-blue-800 mt-1 ml-4 list-disc">
+              <li>The filename is extracted from the URL path (e.g., "document.pdf" from "https://example.com/files/document.pdf")</li>
+              <li>For Google Drive URLs, it extracts the file ID and creates a descriptive name</li>
+              <li>Auto-population only occurs if you haven't manually entered a file name</li>
+              <li><strong>Filename Priority:</strong> If you enter a filename in the textbox, it will be used. If you leave it blank, the original filename from the URL will be used.</li>
+              <li>You can always edit the file name manually if needed</li>
+              <li>If no filename can be extracted, it will default to "downloaded-file"</li>
+            </ul>
+          </div>
+        )}
+        
         {loadingDynamic ? (
           <ConfigurationLoadingScreen integrationName={integrationName} />
         ) : (
@@ -868,6 +1115,11 @@ export default function ConfigurationModal({
                   }
                   // Hide time zone field and label for Google Calendar when "All Day" is enabled
                   if (nodeInfo?.type === "google_calendar_action_create_event" && field.name === "timeZone" && config.allDay) {
+                    return null
+                  }
+                  
+                  // Hide fields that depend on other fields that haven't been selected
+                  if (!shouldShowField(field)) {
                     return null
                   }
                   

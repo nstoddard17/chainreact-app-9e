@@ -33,7 +33,7 @@ import { ExecutionMonitor, type ExecutionEvent } from "./ExecutionMonitor"
 import { Button } from "@/components/ui/button"
 import { Badge, type BadgeProps } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { Save, Loader2, Play, ArrowLeft, Plus, Search, ChevronRight } from "lucide-react"
+import { Save, Loader2, Play, ArrowLeft, Plus, Search, ChevronRight, RefreshCw } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -367,7 +367,13 @@ const useWorkflowBuilderState = () => {
 
   useEffect(() => {
     if (workflowId) joinCollaboration(workflowId)
-    return () => { if (workflowId) leaveCollaboration() }
+    return () => { 
+      if (workflowId) leaveCollaboration() 
+      // Reset loading states on cleanup
+      setIsSaving(false)
+      setIsExecuting(false)
+      isSavingRef.current = false
+    }
   }, [workflowId, joinCollaboration, leaveCollaboration])
 
   useEffect(() => {
@@ -670,9 +676,28 @@ const useWorkflowBuilderState = () => {
 
   const handleSave = async () => {
     if (!currentWorkflow) return
+    
+    // Prevent multiple simultaneous save operations
+    if (isSaving) {
+      console.log("Save already in progress, skipping...")
+      return
+    }
+    
     console.log("Starting save process...")
     setIsSaving(true)
     isSavingRef.current = true
+    
+    // Add timeout protection
+    const saveTimeout = setTimeout(() => {
+      console.error("Save operation timed out")
+      setIsSaving(false)
+      isSavingRef.current = false
+      toast({ 
+        title: "Save Timeout", 
+        description: "Save operation took too long. Please try again.", 
+        variant: "destructive" 
+      })
+    }, 30000) // 30 second timeout
     
     try {
       // Get current nodes and edges from React Flow
@@ -720,7 +745,7 @@ const useWorkflowBuilderState = () => {
 
       console.log("Saving updates:", updates)
 
-      // Save to database
+      // Save to database with better error handling
       await updateWorkflow(currentWorkflow.id, updates)
       
       // Update the current workflow state with the new data but keep React Flow intact
@@ -733,17 +758,52 @@ const useWorkflowBuilderState = () => {
       
       console.log("Save completed successfully")
       toast({ title: "Workflow Saved", description: "Your workflow has been successfully saved." })
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to save workflow:", error)
-      toast({ title: "Error Saving Workflow", description: "Could not save your changes. Please try again.", variant: "destructive" })
+      
+      // Provide more specific error messages
+      let errorMessage = "Could not save your changes. Please try again."
+      if (error.message?.includes("network")) {
+        errorMessage = "Network error. Please check your connection and try again."
+      } else if (error.message?.includes("timeout")) {
+        errorMessage = "Request timed out. Please try again."
+      } else if (error.message?.includes("unauthorized")) {
+        errorMessage = "Session expired. Please refresh the page and try again."
+      }
+      
+      toast({ 
+        title: "Error Saving Workflow", 
+        description: errorMessage, 
+        variant: "destructive" 
+      })
     } finally {
+      // Always clear the timeout and reset loading state
+      clearTimeout(saveTimeout)
       setIsSaving(false)
       isSavingRef.current = false
     }
   }
 
   const handleExecute = async () => { 
+    // Prevent multiple simultaneous executions
+    if (isExecuting) {
+      console.log("Execution already in progress, skipping...")
+      return
+    }
+    
     setIsExecuting(true)
+    
+    // Add timeout protection
+    const executeTimeout = setTimeout(() => {
+      console.error("Execution operation timed out")
+      setIsExecuting(false)
+      toast({ 
+        title: "Execution Timeout", 
+        description: "Workflow execution took too long. Please try again.", 
+        variant: "destructive" 
+      })
+    }, 60000) // 60 second timeout for execution
+    
     try {
       if (!currentWorkflow) {
         throw new Error("No workflow selected")
@@ -797,7 +857,10 @@ const useWorkflowBuilderState = () => {
 
       console.log("Sending workflow execution request...")
 
-      // Call the execution API
+      // Call the execution API with timeout
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 45000) // 45 second timeout for fetch
+      
       const response = await fetch("/api/workflows/execute", {
         method: "POST",
         headers: {
@@ -809,21 +872,24 @@ const useWorkflowBuilderState = () => {
           inputData: {},
           workflowData: workflowData
         }),
+        signal: controller.signal
       })
+      
+      clearTimeout(timeoutId)
 
       console.log("Execution response status:", response.status)
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      }
 
       const result = await response.json()
       console.log("Execution result:", result)
 
       if (result.success) {
-        const message = testMode 
-          ? `Test execution completed successfully in ${result.executionTime || 'N/A'}ms. No real actions were performed.`
-          : `Execution completed successfully in ${result.executionTime || 'N/A'}ms. Check your Gmail and Google Calendar for the results.`
-        
         toast({ 
           title: "Workflow Executed Successfully!", 
-          description: message
+          description: "Workflow execution was successful."
         })
         
         // Log execution results for debugging
@@ -837,14 +903,29 @@ const useWorkflowBuilderState = () => {
         throw new Error(result.error || "Workflow execution failed")
       }
       
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to execute workflow:", error)
+      
+      // Provide more specific error messages
+      let errorMessage = "Failed to execute workflow. Please try again."
+      if (error.name === 'AbortError') {
+        errorMessage = "Execution timed out. Please try again."
+      } else if (error.message?.includes("network")) {
+        errorMessage = "Network error. Please check your connection and try again."
+      } else if (error.message?.includes("unauthorized")) {
+        errorMessage = "Session expired. Please refresh the page and try again."
+      } else if (error.message) {
+        errorMessage = error.message
+      }
+      
       toast({ 
         title: "Execution Failed", 
-        description: error instanceof Error ? error.message : "Failed to execute workflow. Please try again.", 
+        description: errorMessage, 
         variant: "destructive" 
       })
     } finally {
+      // Always clear the timeout and reset loading state
+      clearTimeout(executeTimeout)
       setIsExecuting(false)
     }
   }
@@ -909,13 +990,52 @@ const useWorkflowBuilderState = () => {
     });
   }, [selectedIntegration, searchQuery]);
 
+  // Add global error handler to prevent stuck loading states
+  useEffect(() => {
+    const handleGlobalError = (event: ErrorEvent) => {
+      console.error("Global error caught:", event.error)
+      // Reset loading states on any global error
+      setIsSaving(false)
+      setIsExecuting(false)
+      isSavingRef.current = false
+    }
+
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      console.error("Unhandled promise rejection:", event.reason)
+      // Reset loading states on unhandled promise rejection
+      setIsSaving(false)
+      setIsExecuting(false)
+      isSavingRef.current = false
+    }
+
+    window.addEventListener('error', handleGlobalError)
+    window.addEventListener('unhandledrejection', handleUnhandledRejection)
+
+    return () => {
+      window.removeEventListener('error', handleGlobalError)
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection)
+    }
+  }, [])
+
+  const handleResetLoadingStates = () => {
+    console.log("Manually resetting loading states...")
+    setIsSaving(false)
+    setIsExecuting(false)
+    isSavingRef.current = false
+    toast({ 
+      title: "Loading States Reset", 
+      description: "All loading states have been reset.", 
+      variant: "default" 
+    })
+  }
+
   return {
     nodes, edges, onNodesChange, onEdgesChange, onConnect, workflowName, setWorkflowName, isSaving, handleSave, handleExecute, showTriggerDialog,
     setShowTriggerDialog, showActionDialog, setShowActionDialog, handleTriggerSelect, handleActionSelect, selectedIntegration, setSelectedIntegration,
     availableIntegrations, renderLogo, getWorkflowStatus, currentWorkflow, isExecuting, executionEvents,
     configuringNode, setConfiguringNode, handleSaveConfiguration, collaborators, pendingNode, setPendingNode,
     selectedTrigger, setSelectedTrigger, selectedAction, setSelectedAction, searchQuery, setSearchQuery, filterCategory, setFilterCategory, showConnectedOnly, setShowConnectedOnly,
-    filteredIntegrations, displayedTriggers, deletingNode, setDeletingNode, confirmDeleteNode, isIntegrationConnected, integrationsLoading, testMode, setTestMode
+    filteredIntegrations, displayedTriggers, deletingNode, setDeletingNode, confirmDeleteNode, isIntegrationConnected, integrationsLoading, testMode, setTestMode, handleResetLoadingStates
   }
 }
 
@@ -936,7 +1056,7 @@ function WorkflowBuilderContent() {
     availableIntegrations, renderLogo, getWorkflowStatus, currentWorkflow, isExecuting, executionEvents,
     configuringNode, setConfiguringNode, handleSaveConfiguration, collaborators, pendingNode, setPendingNode,
     selectedTrigger, setSelectedTrigger, selectedAction, setSelectedAction, searchQuery, setSearchQuery, filterCategory, setFilterCategory, showConnectedOnly, setShowConnectedOnly,
-    filteredIntegrations, displayedTriggers, deletingNode, setDeletingNode, confirmDeleteNode, isIntegrationConnected, integrationsLoading, testMode, setTestMode
+    filteredIntegrations, displayedTriggers, deletingNode, setDeletingNode, confirmDeleteNode, isIntegrationConnected, integrationsLoading, testMode, setTestMode, handleResetLoadingStates
   } = useWorkflowBuilderState()
 
   const categories = useMemo(() => {
@@ -1000,6 +1120,27 @@ function WorkflowBuilderContent() {
                 <TooltipContent><p>Execute the workflow</p></TooltipContent>
               </Tooltip>
             </TooltipProvider>
+            {/* Emergency reset button - only show if loading states are stuck */}
+            {(isSaving || isExecuting) && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      onClick={handleResetLoadingStates}
+                      variant="outline" 
+                      size="sm"
+                      className="text-orange-600 border-orange-600 hover:bg-orange-50"
+                    >
+                      <RefreshCw className="w-4 h-4 mr-1" />
+                      Reset
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Reset stuck loading states</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
           </div>
         </div>
       </div>
