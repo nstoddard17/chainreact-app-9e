@@ -1,6 +1,11 @@
 import { getEnvironmentConfig } from './environment'
 
 export function getBaseUrl(): string {
+  // For Vercel deployment, use VERCEL_URL if available
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`
+  }
+
   // Use the new environment configuration system
   const config = getEnvironmentConfig()
   
@@ -13,10 +18,6 @@ export function getBaseUrl(): string {
     return process.env.NEXT_PUBLIC_BASE_URL
   }
 
-  if (process.env.VERCEL_URL) {
-    return `https://${process.env.VERCEL_URL}`
-  }
-
   // Use the new environment-based configuration
-  return config.baseUrl
+  return config.url
 }

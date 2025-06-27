@@ -13,9 +13,17 @@ export interface EnvironmentConfig {
  * Get the current environment
  */
 export function getCurrentEnvironment(): Environment {
+  // Check NODE_ENV first for production builds
   if (process.env.NODE_ENV === 'production') return 'production'
+  
+  // Check explicit environment setting
   if (process.env.NEXT_PUBLIC_ENVIRONMENT === 'development') return 'development'
   if (process.env.NEXT_PUBLIC_ENVIRONMENT === 'production') return 'production'
+  
+  // If VERCEL_URL is set, we're in production
+  if (process.env.VERCEL_URL) return 'production'
+  
+  // Default to local for development
   return 'local'
 }
 
