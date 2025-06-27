@@ -1,6 +1,7 @@
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
+import { executeAction } from "@/lib/workflows/executeNode"
 
 interface ExecutionContext {
   userId: string
@@ -231,6 +232,14 @@ async function executeNodeAdvanced(node: any, allNodes: any[], connections: any[
       case "gmail_action_send_email":
         nodeResult = await executeGmailSendEmailNode(node, context)
         break
+      case "gmail_action_add_label":
+        nodeResult = await executeAction({
+          node,
+          input: context.data,
+          userId: context.userId,
+          workflowId: context.workflowId
+        })
+        break
       case "google_calendar_action_create_event":
         nodeResult = await executeCalendarEventNode(node, context)
         break
@@ -303,7 +312,19 @@ async function executeNodeAdvanced(node: any, allNodes: any[], connections: any[
         nodeResult = await executeWebhookCallNode(node, context)
         break
       default:
-        throw new Error(`Unsupported node type: ${node.data.type}`)
+        // Handle any action type that ends with _action_ using the generic executeAction function
+        if (node.data.type && node.data.type.includes('_action_')) {
+          console.log(`Using generic executeAction for node type: ${node.data.type}`)
+          nodeResult = await executeAction({
+            node,
+            input: context.data,
+            userId: context.userId,
+            workflowId: context.workflowId
+          })
+        } else {
+          throw new Error(`Unsupported node type: ${node.data.type}`)
+        }
+        break
     }
 
     // Store result
