@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Mail, Lock, User } from "lucide-react"
+import { toast } from "@/components/ui/use-toast"
 
 export default function RegisterForm() {
   const [email, setEmail] = useState("")
@@ -17,14 +18,52 @@ export default function RegisterForm() {
   const [firstName, setFirstName] = useState("")
   const [lastName, setLastName] = useState("")
   const [loading, setLoading] = useState(false)
+  const [providerError, setProviderError] = useState("")
   const { signUp, signInWithGoogle } = useAuthStore()
   const router = useRouter()
+
+  const checkProvider = async (email: string) => {
+    try {
+      const response = await fetch('/api/auth/check-provider', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await response.json();
+
+      if (data.exists && data.provider === 'google') {
+        setProviderError('An account with this email already exists. Please sign in with Google instead.');
+        return false;
+      } else if (data.exists) {
+        setProviderError('An account with this email already exists. Please sign in instead.');
+        return false;
+      } else {
+        setProviderError('');
+        return true;
+      }
+    } catch (error) {
+      console.error('Error checking provider:', error);
+      return true; // Allow registration if check fails
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
+    setProviderError('')
 
     try {
+      // Check if user already exists
+      const canRegister = await checkProvider(email);
+      
+      if (!canRegister) {
+        setLoading(false);
+        return;
+      }
+
       await signUp(email, password, {
         first_name: firstName,
         last_name: lastName,
@@ -33,6 +72,11 @@ export default function RegisterForm() {
       router.push("/dashboard")
     } catch (error) {
       console.error("Registration error:", error)
+      toast({
+        title: "Registration Failed",
+        description: "Could not create account. Please try again.",
+        variant: "destructive",
+      })
     } finally {
       setLoading(false)
     }
@@ -40,55 +84,47 @@ export default function RegisterForm() {
 
   const handleGoogleSignIn = async () => {
     setLoading(true)
+    setProviderError('')
     try {
       await signInWithGoogle()
     } catch (error) {
       console.error("Google sign in error:", error)
+      toast({
+        title: "Google Sign In Failed",
+        description: "Could not sign in with Google. Please try again.",
+        variant: "destructive",
+      })
     } finally {
       setLoading(false)
     }
   }
 
+  const handleEmailChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newEmail = e.target.value;
+    setEmail(newEmail);
+    
+    // Clear previous error when user starts typing
+    if (providerError) {
+      setProviderError('');
+    }
+    
+    // Check provider when user finishes typing (debounced)
+    if (newEmail && newEmail.includes('@')) {
+      setTimeout(() => {
+        if (email === newEmail) { // Only check if email hasn't changed
+          checkProvider(newEmail);
+        }
+      }, 500);
+    }
+  }
+
   return (
     <>
-      <style jsx>{`
-        .black-text-input {
-          color: #000000 !important;
-        }
-        .black-text-input::placeholder {
-          color: #6b7280 !important;
-        }
-        .black-text-input:focus {
-          color: #000000 !important;
-        }
-        .black-text-input:-webkit-autofill {
-          -webkit-text-fill-color: #000000 !important;
-          -webkit-box-shadow: 0 0 0px 1000px #f1f5f9 inset !important;
-          box-shadow: 0 0 0px 1000px #f1f5f9 inset !important;
-          transition: background-color 5000s ease-in-out 0s !important;
-        }
-        .black-text-input:-webkit-autofill:hover {
-          -webkit-text-fill-color: #000000 !important;
-          -webkit-box-shadow: 0 0 0px 1000px #f1f5f9 inset !important;
-          box-shadow: 0 0 0px 1000px #f1f5f9 inset !important;
-        }
-        .black-text-input:-webkit-autofill:focus {
-          -webkit-text-fill-color: #000000 !important;
-          -webkit-box-shadow: 0 0 0px 1000px #f1f5f9 inset !important;
-          box-shadow: 0 0 0px 1000px #f1f5f9 inset !important;
-        }
-        .black-text-input:-webkit-autofill:active {
-          -webkit-text-fill-color: #000000 !important;
-          -webkit-box-shadow: 0 0 0px 1000px #f1f5f9 inset !important;
-          box-shadow: 0 0 0px 1000px #f1f5f9 inset !important;
-        }
-      `}</style>
-
-      <Card className="bg-white rounded-2xl shadow-xl border border-slate-200">
+      <Card className="w-full max-w-md bg-white rounded-2xl shadow-lg border border-slate-200">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold text-slate-900">Create Account</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-6 p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -102,14 +138,9 @@ export default function RegisterForm() {
                     type="text"
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
-                    className="black-text-input w-full pl-10 pr-3 py-2 bg-slate-100 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full pl-10 pr-3 py-2 !bg-white text-black border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="First name"
                     required
-                    style={{
-                      color: "#000000 !important",
-                      WebkitTextFillColor: "#000000 !important",
-                      caretColor: "#000000",
-                    }}
                   />
                 </div>
               </div>
@@ -125,14 +156,9 @@ export default function RegisterForm() {
                     type="text"
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
-                    className="black-text-input w-full pl-10 pr-3 py-2 bg-slate-100 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full pl-10 pr-3 py-2 !bg-white text-black border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="Last name"
                     required
-                    style={{
-                      color: "#000000 !important",
-                      WebkitTextFillColor: "#000000 !important",
-                      caretColor: "#000000",
-                    }}
                   />
                 </div>
               </div>
@@ -148,17 +174,17 @@ export default function RegisterForm() {
                   id="email"
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="black-text-input w-full pl-10 pr-3 py-2 bg-slate-100 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  onChange={handleEmailChange}
+                  className="w-full pl-10 pr-3 py-2 !bg-white text-black border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="Enter your email"
                   required
-                  style={{
-                    color: "#000000 !important",
-                    WebkitTextFillColor: "#000000 !important",
-                    caretColor: "#000000",
-                  }}
                 />
               </div>
+              {providerError && (
+                <div className="text-sm text-red-600 mt-1 p-2 bg-red-50 border border-red-200 rounded">
+                  {providerError}
+                </div>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -172,15 +198,10 @@ export default function RegisterForm() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="black-text-input w-full pl-10 pr-3 py-2 bg-slate-100 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full pl-10 pr-3 py-2 !bg-white text-black border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="Create a password"
                   required
                   minLength={6}
-                  style={{
-                    color: "#000000 !important",
-                    WebkitTextFillColor: "#000000 !important",
-                    caretColor: "#000000",
-                  }}
                 />
               </div>
             </div>
@@ -188,7 +209,7 @@ export default function RegisterForm() {
             <Button
               type="submit"
               className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
-              disabled={loading}
+              disabled={loading || !!providerError}
             >
               {loading ? "Creating account..." : "Create Account"}
             </Button>
@@ -206,7 +227,7 @@ export default function RegisterForm() {
           <Button
             onClick={handleGoogleSignIn}
             variant="outline"
-            className="w-full flex items-center space-x-2 border border-slate-300 bg-white text-black hover:bg-slate-100 active:bg-slate-200"
+            className="w-full flex items-center space-x-2 border border-slate-300 !bg-white text-black hover:!bg-slate-100 active:!bg-slate-200"
             disabled={loading}
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24">

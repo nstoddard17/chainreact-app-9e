@@ -16,14 +16,49 @@ export default function LoginForm() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
+  const [providerError, setProviderError] = useState("")
   const { signIn, signInWithGoogle } = useAuthStore()
   const router = useRouter()
+
+  const checkProvider = async (email: string) => {
+    try {
+      const response = await fetch('/api/auth/check-provider', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await response.json();
+
+      if (data.exists && data.provider === 'google') {
+        setProviderError('This account was created with Google. Please sign in with Google instead.');
+        return false;
+      } else {
+        setProviderError('');
+        return true;
+      }
+    } catch (error) {
+      console.error('Error checking provider:', error);
+      return true; // Allow login if check fails
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
+    setProviderError('')
 
     try {
+      // Check if user should use Google instead
+      const canUseEmail = await checkProvider(email);
+      
+      if (!canUseEmail) {
+        setLoading(false);
+        return;
+      }
+
       await signIn(email, password)
       window.location.href = "/dashboard"
     } catch (error) {
@@ -40,6 +75,7 @@ export default function LoginForm() {
 
   const handleGoogleSignIn = async () => {
     setLoading(true)
+    setProviderError('')
     try {
       await signInWithGoogle()
       setTimeout(() => {
@@ -54,6 +90,25 @@ export default function LoginForm() {
       })
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleEmailChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newEmail = e.target.value;
+    setEmail(newEmail);
+    
+    // Clear previous error when user starts typing
+    if (providerError) {
+      setProviderError('');
+    }
+    
+    // Check provider when user finishes typing (debounced)
+    if (newEmail && newEmail.includes('@')) {
+      setTimeout(() => {
+        if (email === newEmail) { // Only check if email hasn't changed
+          checkProvider(newEmail);
+        }
+      }, 500);
     }
   }
 
@@ -72,12 +127,17 @@ export default function LoginForm() {
                   id="email"
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={handleEmailChange}
                   className="w-full pl-10 pr-3 py-2 !bg-white text-black border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="Enter your email"
                   required
                 />
               </div>
+              {providerError && (
+                <div className="text-sm text-red-600 mt-1 p-2 bg-red-50 border border-red-200 rounded">
+                  {providerError}
+                </div>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -101,7 +161,7 @@ export default function LoginForm() {
             <Button
               type="submit"
               className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
-              disabled={loading}
+              disabled={loading || !!providerError}
             >
               {loading ? "Signing in..." : "Sign In"}
             </Button>

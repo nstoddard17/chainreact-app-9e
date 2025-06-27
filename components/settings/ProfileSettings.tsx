@@ -18,6 +18,8 @@ export default function ProfileSettings() {
     last_name: "",
     company: "",
     job_title: "",
+    secondary_email: "",
+    phone_number: "",
   })
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
@@ -30,6 +32,8 @@ export default function ProfileSettings() {
         last_name: profile.last_name || "",
         company: profile.company || "",
         job_title: profile.job_title || "",
+        secondary_email: profile.secondary_email || "",
+        phone_number: profile.phone_number || "",
       })
     }
   }, [profile])
@@ -75,9 +79,9 @@ export default function ProfileSettings() {
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" value={user?.email || ""} disabled className="bg-muted" />
-            <p className="text-xs text-muted-foreground">Your email address cannot be changed.</p>
+            <Label htmlFor="username">Username</Label>
+            <Input id="username" value={profile?.username || ""} disabled className="bg-muted" />
+            <p className="text-xs text-muted-foreground">Your username cannot be changed.</p>
           </div>
 
           <div className="space-y-2">
@@ -124,6 +128,36 @@ export default function ProfileSettings() {
               onChange={(e) => setFormData({ ...formData, job_title: e.target.value })}
               placeholder="Your job title"
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="phone_number">Phone Number</Label>
+            <Input
+              id="phone_number"
+              type="tel"
+              value={formData.phone_number}
+              onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
+              placeholder="Your phone number"
+            />
+            <p className="text-xs text-muted-foreground">Optional phone number for contact purposes.</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="email">Email</Label>
+            <Input id="email" type="email" value={user?.email || ""} disabled className="bg-muted" />
+            <p className="text-xs text-muted-foreground">Your email address cannot be changed.</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="secondary_email">Secondary Email</Label>
+            <Input
+              id="secondary_email"
+              type="email"
+              value={formData.secondary_email}
+              onChange={(e) => setFormData({ ...formData, secondary_email: e.target.value })}
+              placeholder="Your secondary email address"
+            />
+            <p className="text-xs text-muted-foreground">Optional backup email address for notifications.</p>
           </div>
 
           <div className="flex items-center space-x-4">

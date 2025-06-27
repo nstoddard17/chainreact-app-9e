@@ -22,6 +22,9 @@ interface Profile {
   avatar_url?: string
   company?: string
   job_title?: string
+  username?: string
+  secondary_email?: string
+  phone_number?: string
   created_at?: string
   updated_at?: string
 }
@@ -68,6 +71,46 @@ export const useAuthStore = create<AuthState>()(
           set({ loading: true, error: null })
           console.log("🔄 Starting auth initialization...")
 
+          // Handle hash fragment for magic links
+          if (typeof window !== 'undefined') {
+            const hash = window.location.hash
+            console.log("🔍 Checking for magic link hash:", hash ? 'Found hash' : 'No hash');
+            if (hash && hash.includes('access_token')) {
+              console.log("🔗 Processing magic link hash...")
+              console.log("🔍 Hash content:", hash.substring(0, 100) + "...");
+              
+              // Extract access token from hash
+              const urlParams = new URLSearchParams(hash.substring(1));
+              const accessToken = urlParams.get('access_token');
+              const refreshToken = urlParams.get('refresh_token');
+              
+              if (accessToken && refreshToken) {
+                console.log("🔑 Setting session from tokens...");
+                const { data, error } = await supabase.auth.setSession({
+                  access_token: accessToken,
+                  refresh_token: refreshToken,
+                });
+                
+                if (error) {
+                  console.error("Error setting session from magic link:", error);
+                } else if (data.session) {
+                  console.log("✅ Magic link session established")
+                  console.log("🔍 Session user:", data.session.user.email);
+                  // Clear the hash
+                  window.location.hash = ''
+                  // Redirect to dashboard
+                  console.log("🔄 Redirecting to dashboard...");
+                  window.location.href = '/dashboard'
+                  return
+                } else {
+                  console.log("❌ No session found after setting tokens");
+                }
+              } else {
+                console.log("❌ Missing tokens in hash");
+              }
+            }
+          }
+
           // Get current session from Supabase
           const {
             data: { session },
@@ -92,7 +135,7 @@ export const useAuthStore = create<AuthState>()(
             // Fetch additional profile data from user_profiles table
             const { data: profileData } = await supabase
               .from('user_profiles')
-              .select('first_name, last_name, full_name, company, job_title, avatar_url, created_at, updated_at')
+              .select('id, first_name, last_name, full_name, company, job_title, username, secondary_email, phone_number, avatar_url, created_at, updated_at')
               .eq('id', session.user.id)
               .single()
 
@@ -172,7 +215,7 @@ export const useAuthStore = create<AuthState>()(
                 // Fetch additional profile data from user_profiles table
                 const { data: profileData } = await supabase
                   .from('user_profiles')
-                  .select('first_name, last_name, full_name, company, job_title, avatar_url, created_at, updated_at')
+                  .select('id, first_name, last_name, full_name, company, job_title, username, secondary_email, phone_number, avatar_url, created_at, updated_at')
                   .eq('id', session.user.id)
                   .single()
 
@@ -279,6 +322,8 @@ export const useAuthStore = create<AuthState>()(
               last_name: updates.last_name,
               company: updates.company,
               job_title: updates.job_title,
+              secondary_email: updates.secondary_email,
+              phone_number: updates.phone_number,
               updated_at: new Date().toISOString(),
             }, {
               onConflict: 'id'
@@ -299,6 +344,7 @@ export const useAuthStore = create<AuthState>()(
             profile: {
               ...profile,
               ...updates,
+              id: user.id,
             }
           })
         } catch (error: any) {
@@ -371,16 +417,28 @@ export const useAuthStore = create<AuthState>()(
         try {
           set({ loading: true, error: null })
 
-          const { error } = await supabase.auth.signInWithOAuth({
-            provider: "google",
-            options: {
-              redirectTo: `${window.location.origin}/dashboard`,
-            },
+          // Generate a random state parameter for security
+          const state = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
+          
+          // Store state in sessionStorage for verification
+          sessionStorage.setItem('oauth_state', state)
+
+          // Build the Google OAuth URL
+          const params = new URLSearchParams({
+            client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!,
+            redirect_uri: `${process.env.NEXT_PUBLIC_BASE_URL}/api/auth/callback`,
+            response_type: 'code',
+            scope: 'email profile',
+            state: state,
+            access_type: 'offline',
+            prompt: 'consent',
           })
 
-          if (error) throw error
+          const googleOAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`
 
-          set({ loading: false })
+          // Redirect to Google OAuth
+          window.location.href = googleOAuthUrl
+
         } catch (error: any) {
           console.error("Google sign in error:", error)
           set({ error: error.message, loading: false })

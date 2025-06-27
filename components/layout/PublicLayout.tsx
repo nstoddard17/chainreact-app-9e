@@ -16,7 +16,7 @@ interface PublicLayoutProps {
 export function PublicLayout({ children }: PublicLayoutProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const { isAuthenticated, user, isReady } = useAuth()
-  const { signOut } = useAuthStore()
+  const { signOut, profile } = useAuthStore()
   const router = useRouter()
 
   const handlePageNavigation = (path: string) => {
@@ -52,16 +52,16 @@ export function PublicLayout({ children }: PublicLayoutProps) {
     )
   }
 
-  const getFirstName = () => {
+  const getDisplayName = () => {
+    if (profile?.username) return profile.username
     if (!user) return ""
-    if (user.user_metadata?.first_name) return user.user_metadata.first_name
-    if (user.user_metadata?.name) return user.user_metadata.name.split(" ")[0]
+    if (user.first_name) return user.first_name
     if (user.name) return user.name.split(" ")[0]
     if (user.email) return user.email.split("@")[0]
     return "User"
   }
 
-  const firstName = getFirstName()
+  const displayName = getDisplayName()
 
   return (
     <div className="min-h-screen bg-white">
@@ -122,7 +122,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
                 <div className="flex items-center space-x-3">
                   <div className="flex items-center space-x-2 text-sm text-slate-600 whitespace-nowrap">
                     <User className="h-4 w-4 flex-shrink-0" />
-                    <span className="font-medium">Welcome, {firstName}!</span>
+                    <span className="font-medium">Welcome, {displayName}!</span>
                   </div>
                   <Link href="/dashboard">
                     <Button
@@ -180,7 +180,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
 
               {isAuthenticated ? (
                 <div className="flex items-center space-x-2">
-                  <span className="text-sm text-slate-600">Hi, {firstName}!</span>
+                  <span className="text-sm text-slate-600">Hi, {displayName}!</span>
                   <Link href="/dashboard">
                     <Button size="sm" className="bg-indigo-600 text-white hover:bg-indigo-700">
                       Dashboard
@@ -274,7 +274,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
                   <div className="space-y-3">
                     <div className="flex items-center space-x-2 text-slate-600">
                       <User className="h-4 w-4" />
-                      <span className="font-medium">Welcome, {firstName}!</span>
+                      <span className="font-medium">Welcome, {displayName}!</span>
                     </div>
                     <div className="flex space-x-3">
                       <Link href="/dashboard" className="flex-1">
