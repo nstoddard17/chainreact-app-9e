@@ -57,9 +57,9 @@ export default function ConfigurationModal({
     } catch (error) {
       // Fallback to UTC if timezone detection fails
       return "UTC"
-    }
-  }
-
+        }
+      }
+      
   // Function to check if a field should be shown based on dependencies
   const shouldShowField = (field: ConfigField): boolean => {
     if (!field.dependsOn) return true
@@ -85,15 +85,15 @@ export default function ConfigurationModal({
       
       if (data) {
         setDynamicOptions(prev => ({
-          ...prev,
+                  ...prev,
           [field.name]: data.map((item: any) => ({
             value: item.value || item.id || item.name,
             label: item.name || item.label || item.title,
             ...item
           }))
-        }))
-      }
-    } catch (error) {
+                }))
+              }
+            } catch (error) {
       console.error(`Error fetching dependent data for ${field.name}:`, error)
     } finally {
       setLoadingDynamic(false)
@@ -103,8 +103,8 @@ export default function ConfigurationModal({
   const fetchDynamicData = useCallback(async () => {
     if (!nodeInfo || !nodeInfo.providerId) return
 
-    const integration = getIntegrationByProvider(nodeInfo.providerId)
-    if (!integration) return
+        const integration = getIntegrationByProvider(nodeInfo.providerId)
+        if (!integration) return
 
     // Check if integration needs reconnection due to missing scopes
     const scopeCheck = checkIntegrationScopes(nodeInfo.providerId)
@@ -114,16 +114,16 @@ export default function ConfigurationModal({
       return
     }
 
-    setLoadingDynamic(true)
+        setLoadingDynamic(true)
     const newOptions: Record<string, any[]> = {}
     let hasData = false
 
-    for (const field of nodeInfo.configSchema || []) {
+        for (const field of nodeInfo.configSchema || []) {
       if (field.dynamic) {
         try {
           console.log(`Fetching dynamic data for ${field.dynamic}`)
           const data = await loadIntegrationData(field.dynamic, integration.id)
-          if (data) {
+            if (data) {
             hasData = true
             if (field.dynamic === "slack-channels") {
               newOptions[field.name] = data.map((channel: any) => ({
@@ -145,12 +145,12 @@ export default function ConfigurationModal({
                 value: file.id,
                 label: file.name,
               }))
-            } else if (field.dynamic === "gmail-recent-recipients") {
+          } else if (field.dynamic === "gmail-recent-recipients") {
               newOptions[field.name] = data.map((recipient: any) => ({
                 value: recipient.email,
                 label: recipient.email,
               }))
-            } else if (field.dynamic === "gmail-enhanced-recipients") {
+          } else if (field.dynamic === "gmail-enhanced-recipients") {
               newOptions[field.name] = data.map((recipient: any) => ({
                 value: recipient.email,
                 label: recipient.email,
@@ -173,51 +173,51 @@ export default function ConfigurationModal({
                 description: `${label.messages_total} messages`,
               }))
             } else if (field.dynamic === "google-sheets_spreadsheets") {
-              const data = await loadIntegrationData(
+            const data = await loadIntegrationData(
                 field.dynamic,
-                integration.id,
-              )
-              if (data) {
+              integration.id,
+            )
+            if (data) {
                 newOptions[field.name] = data.map((spreadsheet: any) => ({
                   value: spreadsheet.id,
                   label: spreadsheet.name,
-                }))
-              }
+              }))
+            }
             } else if (field.dynamic === "google-sheets_sheets") {
-              const data = await loadIntegrationData(
+            const data = await loadIntegrationData(
                 field.dynamic,
-                integration.id,
-              )
-              if (data) {
+              integration.id,
+            )
+            if (data) {
                 newOptions[field.name] = data.map((sheet: any) => ({
                   value: sheet.title,
                   label: sheet.title,
-                }))
-              }
+              }))
+            }
             } else if (field.dynamic === "google-docs_documents") {
-              const data = await loadIntegrationData(
+            const data = await loadIntegrationData(
                 field.dynamic,
-                integration.id,
-              )
-              if (data) {
+              integration.id,
+            )
+            if (data) {
                 newOptions[field.name] = data.map((document: any) => ({
                   value: document.id,
                   label: document.name,
-                }))
-              }
+              }))
+            }
             } else if (field.dynamic === "google-docs_templates") {
-              const data = await loadIntegrationData(
+            const data = await loadIntegrationData(
                 field.dynamic,
-                integration.id,
-              )
-              if (data) {
+              integration.id,
+            )
+            if (data) {
                 newOptions[field.name] = data.map((template: any) => ({
                   value: template.id,
                   label: template.name,
-                }))
-              }
+              }))
             }
           }
+        }
         } catch (error: any) {
           console.error(`Error fetching dynamic data for ${field.dynamic}:`, error)
           // Show specific error for scope issues
@@ -242,8 +242,8 @@ export default function ConfigurationModal({
     }
 
     if (hasData) {
-      setDynamicOptions(newOptions)
-    }
+        setDynamicOptions(newOptions)
+      }
     setLoadingDynamic(false)
   }, [nodeInfo, loadIntegrationData, checkIntegrationScopes])
 
@@ -664,22 +664,22 @@ export default function ConfigurationModal({
         )
       case "email-autocomplete":
         if (field.name === "attendees" && nodeInfo?.type === "google_calendar_action_create_event") {
-          const emailOptions = dynamicOptions[field.name] || []
-          const emailSuggestions = emailOptions.map((opt: any) => ({
-            value: opt.value,
-            label: opt.label,
-            email: opt.email || opt.value,
-            name: opt.name,
-            type: opt.type,
-            isGroup: opt.isGroup,
-            groupId: opt.groupId,
-            members: opt.members
-          }))
+        const emailOptions = dynamicOptions[field.name] || []
+        const emailSuggestions = emailOptions.map((opt: any) => ({
+          value: opt.value,
+          label: opt.label,
+          email: opt.email || opt.value,
+          name: opt.name,
+          type: opt.type,
+          isGroup: opt.isGroup,
+          groupId: opt.groupId,
+          members: opt.members
+        }))
           // Always use a string value for EmailAutocomplete
           const attendeesValue = typeof value === "string" ? value : Array.isArray(value) ? value.join(", ") : ""
-          return (
-            <div className="space-y-1">
-              <EmailAutocomplete
+        return (
+          <div className="space-y-1">
+            <EmailAutocomplete
                 value={attendeesValue}
                 onChange={(newValue) => setConfig({ ...config, [field.name]: newValue })}
                 suggestions={emailSuggestions}
@@ -738,22 +738,22 @@ export default function ConfigurationModal({
             <div className="space-y-1">
               <EmailAutocomplete
                 value={typeof value === 'string' ? value : ''}
-                onChange={handleSelectChange}
-                suggestions={emailSuggestions}
-                placeholder={field.placeholder}
-                disabled={loadingDynamic}
-                isLoading={loadingDynamic}
+              onChange={handleSelectChange}
+              suggestions={emailSuggestions}
+              placeholder={field.placeholder}
+              disabled={loadingDynamic}
+              isLoading={loadingDynamic}
                 multiple={false}
-                className={inputClassName}
-              />
-              {hasError && (
-                <div className="flex items-center gap-1 text-sm text-red-600">
-                  <AlertCircle className="h-4 w-4" />
-                  {errors[field.name]}
-                </div>
-              )}
-            </div>
-          )
+              className={inputClassName}
+            />
+            {hasError && (
+              <div className="flex items-center gap-1 text-sm text-red-600">
+                <AlertCircle className="h-4 w-4" />
+                {errors[field.name]}
+              </div>
+            )}
+          </div>
+        )
         }
       case "file":
         const handleFileChange = async (files: FileList | File[]) => {
@@ -955,7 +955,7 @@ export default function ConfigurationModal({
       case "boolean":
         const isGoogleMeet = field.name === "createMeetLink"
         if (isGoogleMeet && config.createMeetLink) {
-          return (
+        return (
             <GoogleMeetCard
               meetUrl={meetDraft?.meetUrl}
               guestLimit={100}
@@ -970,12 +970,12 @@ export default function ConfigurationModal({
         return (
           <div className="space-y-2">
             <div className="flex items-center justify-start space-x-2">
-              <Checkbox
-                id={field.name}
-                checked={config[field.name] || false}
-                onCheckedChange={(checked) => handleCheckboxChange(field.name, checked as boolean)}
-                className="h-4 w-4"
-              />
+            <Checkbox
+              id={field.name}
+              checked={config[field.name] || false}
+              onCheckedChange={(checked) => handleCheckboxChange(field.name, checked as boolean)}
+              className="h-4 w-4"
+            />
               <Label htmlFor={field.name} className="text-sm font-medium cursor-pointer">
                 {isGoogleMeet && <Video className="inline w-4 h-4 mr-2 text-blue-600" />}
                 {field.label}
@@ -1159,17 +1159,17 @@ export default function ConfigurationModal({
                     <div key={field.name} className="flex flex-col space-y-3 pb-4 border-b border-border/50 last:border-b-0 last:pb-0">
                       <div className="flex items-center justify-between">
                         <Label htmlFor={field.name} className="text-sm font-medium text-foreground min-w-0 flex-shrink-0 pr-4">
-                          {field.label}
+                      {field.label}
                           {field.required && <span className="text-red-500 ml-1">*</span>}
-                        </Label>
+                    </Label>
                       </div>
                       <div className="w-full">
                         {renderField(field)}
                       </div>
-                      {errors[field.name] && (
+                    {errors[field.name] && (
                         <p className="text-red-500 text-sm mt-1">{errors[field.name]}</p>
-                      )}
-                    </div>
+                    )}
+                  </div>
                   )
                 })}
               </div>
