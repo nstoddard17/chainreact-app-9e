@@ -287,6 +287,15 @@ async function executeNodeAdvanced(node: any, allNodes: any[], connections: any[
       case "sheets_create_spreadsheet":
         nodeResult = await executeSheetsCreateSpreadsheetNode(node, context)
         break
+      case "google_docs_action_create_document":
+        nodeResult = await executeGoogleDocsCreateDocumentNode(node, context)
+        break
+      case "google_docs_action_read_document":
+        nodeResult = await executeGoogleDocsReadDocumentNode(node, context)
+        break
+      case "google_docs_action_update_document":
+        nodeResult = await executeGoogleDocsUpdateDocumentNode(node, context)
+        break
       case "send_email":
         nodeResult = await executeSendEmailNode(node, context)
         break
@@ -2437,5 +2446,684 @@ async function executeSheetsCreateSpreadsheetNode(node: any, context: any) {
   } catch (error: any) {
     console.error("Error creating Google Sheets spreadsheet:", error)
     throw error
+  }
+}
+
+// Google Docs Execution Functions
+async function executeGoogleDocsCreateDocumentNode(node: any, context: any) {
+  if (context.testMode) {
+    return {
+      type: "google_docs_create_document",
+      title: node.data.config?.title || "Test Document",
+      test: true,
+      document_id: "test-document-id",
+      document_url: "https://docs.google.com/document/d/test-document-id/edit"
+    }
+  }
+
+  console.log("Starting Google Docs create document execution...")
+
+  // Get Google Docs integration
+  const supabase = await createSupabaseRouteHandlerClient()
+  const { data: integration } = await supabase
+    .from("integrations")
+    .select("*")
+    .eq("user_id", context.userId)
+    .eq("provider", "google-docs")
+    .eq("status", "connected")
+    .single()
+
+  if (!integration) {
+    throw new Error("Google Docs integration not connected")
+  }
+
+  console.log("Found Google Docs integration:", {
+    id: integration.id,
+    hasAccessToken: !!integration.access_token,
+    hasRefreshToken: !!integration.refresh_token,
+    expiresAt: integration.expires_at
+  })
+
+  // Ensure we have a valid access token
+  let accessToken = integration.access_token
+  if (integration.refresh_token) {
+    try {
+      const { TokenRefreshService } = await import("@/lib/integrations/tokenRefreshService")
+      
+      const shouldRefresh = TokenRefreshService.shouldRefreshToken(integration, {
+        accessTokenExpiryThreshold: 5
+      })
+      
+      if (shouldRefresh) {
+        console.log("Access token needs refresh, refreshing...")
+        const refreshResult = await TokenRefreshService.refreshTokenForProvider(
+          "google-docs",
+          integration.refresh_token,
+          integration.id
+        )
+        
+        if (refreshResult.success && refreshResult.accessToken) {
+          accessToken = refreshResult.accessToken
+          console.log("Successfully refreshed access token")
+        } else {
+          console.error("Failed to refresh access token:", refreshResult.error)
+          throw new Error("Failed to refresh Google Docs access token")
+        }
+      } else {
+        console.log("Access token is still valid")
+      }
+    } catch (error) {
+      console.error("Error refreshing token:", error)
+      throw new Error("Failed to refresh Google Docs access token")
+    }
+  }
+
+  const config = node.data.config || {}
+  const title = renderTemplate(config.title || "New Document", context, "handlebars")
+  const content = config.content ? renderTemplate(config.content, context, "handlebars") : ""
+  const templateId = config.templateId
+  const folderId = config.folderId
+  const shareWith = config.shareWith
+  const permission = config.permission || "writer"
+
+  if (!title) {
+    throw new Error("Document title is required")
+  }
+
+  console.log("Creating Google Docs document:", {
+    title,
+    hasContent: !!content,
+    templateId,
+    folderId,
+    shareWith
+  })
+
+  try {
+    // Create the document
+    const createResponse = await fetch(
+      "https://docs.googleapis.com/v1/documents",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title,
+        }),
+      },
+    )
+
+    if (!createResponse.ok) {
+      const errorData = await createResponse.json().catch(() => ({}))
+      console.error("Google Docs API error:", {
+        status: createResponse.status,
+        statusText: createResponse.statusText,
+        error: errorData
+      })
+      throw new Error(`Google Docs API error: ${createResponse.status} - ${errorData.error?.message || createResponse.statusText}`)
+    }
+
+    const createResult = await createResponse.json()
+    const documentId = createResult.documentId
+    const documentUrl = `https://docs.google.com/document/d/${documentId}/edit`
+
+    console.log("Created Google Docs document:", {
+      documentId,
+      title: createResult.title,
+      url: documentUrl
+    })
+
+    // Add content if provided
+    if (content) {
+      const contentResponse = await fetch(
+        `https://docs.googleapis.com/v1/documents/${documentId}:batchUpdate`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            requests: [
+              {
+                insertText: {
+                  location: {
+                    index: 1
+                  },
+                  text: content
+                }
+              }
+            ]
+          }),
+        },
+      )
+
+      if (!contentResponse.ok) {
+        console.warn("Failed to add content to document:", contentResponse.statusText)
+      } else {
+        console.log("Successfully added content to document")
+      }
+    }
+
+    // Move to folder if specified
+    if (folderId && folderId !== "root") {
+      try {
+        const moveResponse = await fetch(
+          `https://www.googleapis.com/drive/v3/files/${documentId}?addParents=${folderId}&removeParents=root`,
+          {
+            method: "PATCH",
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "Content-Type": "application/json",
+            },
+          },
+        )
+
+        if (!moveResponse.ok) {
+          console.warn("Failed to move document to folder:", moveResponse.statusText)
+        } else {
+          console.log("Successfully moved document to folder")
+        }
+      } catch (error) {
+        console.warn("Error moving document to folder:", error)
+      }
+    }
+
+    // Share document if specified
+    if (shareWith) {
+      try {
+        const emails = shareWith.split(",").map((email: string) => email.trim())
+        
+        for (const email of emails) {
+          const shareResponse = await fetch(
+            `https://www.googleapis.com/drive/v3/files/${documentId}/permissions`,
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                type: "user",
+                role: permission,
+                emailAddress: email,
+                sendNotificationEmail: true
+              }),
+            },
+          )
+
+          if (!shareResponse.ok) {
+            console.warn(`Failed to share document with ${email}:`, shareResponse.statusText)
+          } else {
+            console.log(`Successfully shared document with ${email}`)
+          }
+        }
+      } catch (error) {
+        console.warn("Error sharing document:", error)
+      }
+    }
+
+    return {
+      type: "google_docs_create_document",
+      success: true,
+      document_id: documentId,
+      title: createResult.title,
+      document_url: documentUrl,
+      content_length: content ? content.length : 0,
+      shared_with: shareWith ? shareWith.split(",").length : 0,
+      message: `Successfully created document "${title}"`
+    }
+  } catch (error: any) {
+    throw new Error(`Failed to create Google Docs document: ${error.message}`)
+  }
+}
+
+async function executeGoogleDocsReadDocumentNode(node: any, context: any) {
+  if (context.testMode) {
+    return {
+      type: "google_docs_read_document",
+      document_id: node.data.config?.documentId || "test-document-id",
+      test: true,
+      content: "Test document content",
+      content_length: 25
+    }
+  }
+
+  console.log("Starting Google Docs read document execution...")
+
+  // Get Google Docs integration
+  const supabase = await createSupabaseRouteHandlerClient()
+  const { data: integration } = await supabase
+    .from("integrations")
+    .select("*")
+    .eq("user_id", context.userId)
+    .eq("provider", "google-docs")
+    .eq("status", "connected")
+    .single()
+
+  if (!integration) {
+    throw new Error("Google Docs integration not connected")
+  }
+
+  // Ensure we have a valid access token
+  let accessToken = integration.access_token
+  if (integration.refresh_token) {
+    try {
+      const { TokenRefreshService } = await import("@/lib/integrations/tokenRefreshService")
+      
+      const shouldRefresh = TokenRefreshService.shouldRefreshToken(integration, {
+        accessTokenExpiryThreshold: 5
+      })
+      
+      if (shouldRefresh) {
+        console.log("Access token needs refresh, refreshing...")
+        const refreshResult = await TokenRefreshService.refreshTokenForProvider(
+          "google-docs",
+          integration.refresh_token,
+          integration.id
+        )
+        
+        if (refreshResult.success && refreshResult.accessToken) {
+          accessToken = refreshResult.accessToken
+          console.log("Successfully refreshed access token")
+        } else {
+          console.error("Failed to refresh access token:", refreshResult.error)
+          throw new Error("Failed to refresh Google Docs access token")
+        }
+      } else {
+        console.log("Access token is still valid")
+      }
+    } catch (error) {
+      console.error("Error refreshing token:", error)
+      throw new Error("Failed to refresh Google Docs access token")
+    }
+  }
+
+  const config = node.data.config || {}
+  const documentId = config.documentId
+  const includeFormatting = config.includeFormatting || false
+  const includeComments = config.includeComments || false
+  const outputFormat = config.outputFormat || "text"
+
+  if (!documentId) {
+    throw new Error("Document ID is required")
+  }
+
+  console.log("Reading Google Docs document:", {
+    documentId,
+    includeFormatting,
+    includeComments,
+    outputFormat
+  })
+
+  try {
+    // Read the document
+    const readResponse = await fetch(
+      `https://docs.googleapis.com/v1/documents/${documentId}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+      },
+    )
+
+    if (!readResponse.ok) {
+      const errorData = await readResponse.json().catch(() => ({}))
+      console.error("Google Docs API error:", {
+        status: readResponse.status,
+        statusText: readResponse.statusText,
+        error: errorData
+      })
+      throw new Error(`Google Docs API error: ${readResponse.status} - ${errorData.error?.message || readResponse.statusText}`)
+    }
+
+    const document = await readResponse.json()
+    const title = document.title
+    const documentUrl = `https://docs.google.com/document/d/${documentId}/edit`
+
+    // Extract content based on output format
+    let content = ""
+    let formattedContent = null
+
+    if (outputFormat === "json") {
+      formattedContent = document
+    } else {
+      // Extract plain text content
+      if (document.body && document.body.content) {
+        content = extractTextFromDocument(document.body.content)
+      }
+    }
+
+    console.log("Successfully read Google Docs document:", {
+      documentId,
+      title,
+      contentLength: content.length,
+      outputFormat
+    })
+
+    return {
+      type: "google_docs_read_document",
+      success: true,
+      document_id: documentId,
+      title,
+      document_url: documentUrl,
+      content: outputFormat === "json" ? null : content,
+      formatted_content: outputFormat === "json" ? formattedContent : null,
+      content_length: content.length,
+      output_format: outputFormat,
+      message: `Successfully read document "${title}"`
+    }
+  } catch (error: any) {
+    throw new Error(`Failed to read Google Docs document: ${error.message}`)
+  }
+}
+
+// Helper function to extract text from document content
+function extractTextFromDocument(content: any[]): string {
+  let text = ""
+  
+  for (const element of content) {
+    if (element.paragraph) {
+      for (const element2 of element.paragraph.elements || []) {
+        if (element2.textRun) {
+          text += element2.textRun.content || ""
+        }
+      }
+      text += "\n"
+    }
+  }
+  
+  return text.trim()
+}
+
+async function executeGoogleDocsUpdateDocumentNode(node: any, context: any) {
+  if (context.testMode) {
+    return {
+      type: "google_docs_update_document",
+      document_id: node.data.config?.documentId || "test-document-id",
+      test: true,
+      operation: "insert",
+      content_length: 25
+    }
+  }
+
+  console.log("Starting Google Docs update document execution...")
+
+  // Get Google Docs integration
+  const supabase = await createSupabaseRouteHandlerClient()
+  const { data: integration } = await supabase
+    .from("integrations")
+    .select("*")
+    .eq("user_id", context.userId)
+    .eq("provider", "google-docs")
+    .eq("status", "connected")
+    .single()
+
+  if (!integration) {
+    throw new Error("Google Docs integration not connected")
+  }
+
+  // Ensure we have a valid access token
+  let accessToken = integration.access_token
+  if (integration.refresh_token) {
+    try {
+      const { TokenRefreshService } = await import("@/lib/integrations/tokenRefreshService")
+      
+      const shouldRefresh = TokenRefreshService.shouldRefreshToken(integration, {
+        accessTokenExpiryThreshold: 5
+      })
+      
+      if (shouldRefresh) {
+        console.log("Access token needs refresh, refreshing...")
+        const refreshResult = await TokenRefreshService.refreshTokenForProvider(
+          "google-docs",
+          integration.refresh_token,
+          integration.id
+        )
+        
+        if (refreshResult.success && refreshResult.accessToken) {
+          accessToken = refreshResult.accessToken
+          console.log("Successfully refreshed access token")
+        } else {
+          console.error("Failed to refresh access token:", refreshResult.error)
+          throw new Error("Failed to refresh Google Docs access token")
+        }
+      } else {
+        console.log("Access token is still valid")
+      }
+    } catch (error) {
+      console.error("Error refreshing token:", error)
+      throw new Error("Failed to refresh Google Docs access token")
+    }
+  }
+
+  const config = node.data.config || {}
+  const documentId = config.documentId
+  const operation = config.operation || "insert"
+  const content = renderTemplate(config.content || "", context, "handlebars")
+  const location = config.location
+  const formatting = config.formatting || "none"
+
+  if (!documentId) {
+    throw new Error("Document ID is required")
+  }
+
+  if (!content) {
+    throw new Error("Content is required")
+  }
+
+  console.log("Updating Google Docs document:", {
+    documentId,
+    operation,
+    contentLength: content.length,
+    location,
+    formatting
+  })
+
+  try {
+    // Build the update request based on operation type
+    let requests = []
+
+    if (operation === "append") {
+      // Get document length first
+      const readResponse = await fetch(
+        `https://docs.googleapis.com/v1/documents/${documentId}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+        },
+      )
+
+      if (!readResponse.ok) {
+        throw new Error("Failed to read document for append operation")
+      }
+
+      const document = await readResponse.json()
+      const endIndex = document.body.content ? document.body.content.length : 1
+
+      requests.push({
+        insertText: {
+          location: {
+            index: endIndex
+          },
+          text: content
+        }
+      })
+    } else if (operation === "insert") {
+      const insertIndex = location ? parseInt(location) : 1
+      requests.push({
+        insertText: {
+          location: {
+            index: insertIndex
+          },
+          text: content
+        }
+      })
+    } else if (operation === "replace") {
+      // Find text to replace
+      const readResponse = await fetch(
+        `https://docs.googleapis.com/v1/documents/${documentId}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+        },
+      )
+
+      if (!readResponse.ok) {
+        throw new Error("Failed to read document for replace operation")
+      }
+
+      const document = await readResponse.json()
+      const documentText = extractTextFromDocument(document.body.content || [])
+      
+      if (location && documentText.includes(location)) {
+        const startIndex = documentText.indexOf(location)
+        const endIndex = startIndex + location.length
+        
+        requests.push({
+          deleteContentRange: {
+            range: {
+              startIndex,
+              endIndex
+            }
+          }
+        })
+        
+        requests.push({
+          insertText: {
+            location: {
+              index: startIndex
+            },
+            text: content
+          }
+        })
+      } else {
+        // If text not found, append instead
+        requests.push({
+          insertText: {
+            location: {
+              index: documentText.length + 1
+            },
+            text: content
+          }
+        })
+      }
+    } else if (operation === "delete") {
+      if (location) {
+        const readResponse = await fetch(
+          `https://docs.googleapis.com/v1/documents/${documentId}`,
+          {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "Content-Type": "application/json",
+            },
+          },
+        )
+
+        if (!readResponse.ok) {
+          throw new Error("Failed to read document for delete operation")
+        }
+
+        const document = await readResponse.json()
+        const documentText = extractTextFromDocument(document.body.content || [])
+        
+        if (documentText.includes(location)) {
+          const startIndex = documentText.indexOf(location)
+          const endIndex = startIndex + location.length
+          
+          requests.push({
+            deleteContentRange: {
+              range: {
+                startIndex,
+                endIndex
+              }
+            }
+          })
+        }
+      }
+    }
+
+    // Apply formatting if specified
+    if (formatting !== "none" && requests.length > 0) {
+      const formattingRequest = buildFormattingRequest(formatting, requests[0])
+      if (formattingRequest) {
+        requests.push(formattingRequest)
+      }
+    }
+
+    // Execute the update
+    const updateResponse = await fetch(
+      `https://docs.googleapis.com/v1/documents/${documentId}:batchUpdate`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          requests
+        }),
+      },
+    )
+
+    if (!updateResponse.ok) {
+      const errorData = await updateResponse.json().catch(() => ({}))
+      console.error("Google Docs API error:", {
+        status: updateResponse.status,
+        statusText: updateResponse.statusText,
+        error: errorData
+      })
+      throw new Error(`Google Docs API error: ${updateResponse.status} - ${errorData.error?.message || updateResponse.statusText}`)
+    }
+
+    console.log("Successfully updated Google Docs document")
+
+    return {
+      type: "google_docs_update_document",
+      success: true,
+      document_id: documentId,
+      operation,
+      content_length: content.length,
+      formatting_applied: formatting !== "none",
+      message: `Successfully ${operation}ed content in document`
+    }
+  } catch (error: any) {
+    throw new Error(`Failed to update Google Docs document: ${error.message}`)
+  }
+}
+
+// Helper function to build formatting requests
+function buildFormattingRequest(formatting: string, insertRequest: any) {
+  const formatMap: Record<string, any> = {
+    bold: { bold: true },
+    italic: { italic: true },
+    underline: { underline: true },
+    heading1: { paragraphStyle: { namedStyleType: "HEADING_1" } },
+    heading2: { paragraphStyle: { namedStyleType: "HEADING_2" } },
+    heading3: { paragraphStyle: { namedStyleType: "HEADING_3" } }
+  }
+
+  const format = formatMap[formatting]
+  if (!format) return null
+
+  return {
+    updateTextStyle: {
+      textStyle: format,
+      range: {
+        startIndex: insertRequest.insertText.location.index,
+        endIndex: insertRequest.insertText.location.index + insertRequest.insertText.text.length
+      },
+      fields: Object.keys(format).join(",")
+    }
   }
 }

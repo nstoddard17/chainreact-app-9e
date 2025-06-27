@@ -24,6 +24,25 @@ import {
   Repeat,
   AlertTriangle,
   Edit,
+  Share,
+  Download,
+  Hash,
+  UserPlus,
+  GitPullRequest,
+  AlertCircle,
+  Building,
+  User,
+  Camera,
+  List,
+  Move,
+  DollarSign,
+  CreditCard,
+  FolderPlus,
+  Trash2,
+  Search,
+  Layout,
+  Shield,
+  Package,
 } from "lucide-react"
 
 export interface ConfigField {
@@ -34,7 +53,7 @@ export interface ConfigField {
   placeholder?: string
   description?: string
   options?: { value: string; label: string }[] | string[]
-  dynamic?: "slack-channels" | "google-calendars" | "google-drive-folders" | "google-drive-files" | "gmail-recent-recipients" | "gmail-enhanced-recipients" | "gmail-contact-groups" | "google-sheets_spreadsheets" | "google-sheets_sheets"
+  dynamic?: "slack-channels" | "google-calendars" | "google-drive-folders" | "google-drive-files" | "gmail-recent-recipients" | "gmail-enhanced-recipients" | "gmail-contact-groups" | "google-sheets_spreadsheets" | "google-sheets_sheets" | "google-docs_documents" | "google-docs_templates" | "youtube_channels" | "youtube_videos" | "youtube_playlists" | "teams_chats" | "teams_teams" | "teams_channels" | "github_repositories" | "gitlab_projects" | "notion_databases" | "notion_pages" | "trello_boards" | "trello_lists" | "hubspot_companies" | "airtable_bases" | "gumroad_products" | "blackbaud_constituents"
   accept?: string // For file inputs, specify accepted file types
   maxSize?: number // For file inputs, specify max file size in bytes
   defaultValue?: string | number | boolean // Default value for the field
@@ -1169,6 +1188,124 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     isTrigger: false,
   },
   {
+    type: "teams_action_send_chat_message",
+    title: "Send Chat Message (Teams)",
+    description: "Send a message to a specific chat or user",
+    icon: MessageSquare,
+    providerId: "teams",
+    requiredScopes: ["Chat.ReadWrite"],
+    category: "Communication",
+    isTrigger: false,
+    configSchema: [
+      { name: "chatId", label: "Chat", type: "select", dynamic: "teams_chats", required: true, placeholder: "Select a chat" },
+      { name: "message", label: "Message", type: "textarea", required: true, placeholder: "Enter your message" },
+      { name: "attachments", label: "Attachments", type: "file", required: false, accept: ".pdf,.doc,.docx,.txt,.jpg,.png,.gif", multiple: true, placeholder: "Add file attachments (optional)" }
+    ]
+  },
+  {
+    type: "teams_action_create_channel",
+    title: "Create Channel (Teams)",
+    description: "Create a new channel in a team",
+    icon: Hash,
+    providerId: "teams",
+    requiredScopes: ["Channel.Create"],
+    category: "Communication",
+    isTrigger: false,
+    configSchema: [
+      { name: "teamId", label: "Team", type: "select", dynamic: "teams_teams", required: true, placeholder: "Select a team" },
+      { name: "channelName", label: "Channel Name", type: "text", required: true, placeholder: "Enter channel name" },
+      { name: "description", label: "Description", type: "textarea", required: false, placeholder: "Channel description (optional)" },
+      { name: "isPrivate", label: "Private Channel", type: "boolean", required: false, defaultValue: false }
+    ]
+  },
+  {
+    type: "teams_action_add_member_to_team",
+    title: "Add Member to Team (Teams)",
+    description: "Add a user to a team",
+    icon: UserPlus,
+    providerId: "teams",
+    requiredScopes: ["TeamMember.ReadWrite.All"],
+    category: "Communication",
+    isTrigger: false,
+    configSchema: [
+      { name: "teamId", label: "Team", type: "select", dynamic: "teams_teams", required: true, placeholder: "Select a team" },
+      { name: "userEmail", label: "User Email", type: "email", required: true, placeholder: "Enter user's email address" },
+      { name: "role", label: "Role", type: "select", required: true, defaultValue: "member", options: [
+        { value: "member", label: "Member" },
+        { value: "owner", label: "Owner" }
+      ] }
+    ]
+  },
+  {
+    type: "teams_action_schedule_meeting",
+    title: "Schedule Meeting (Teams)",
+    description: "Schedule a meeting with participants",
+    icon: Calendar,
+    providerId: "teams",
+    requiredScopes: ["Calendars.ReadWrite"],
+    category: "Communication",
+    isTrigger: false,
+    configSchema: [
+      { name: "subject", label: "Meeting Subject", type: "text", required: true, placeholder: "Enter meeting subject" },
+      { name: "startTime", label: "Start Time", type: "datetime", required: true },
+      { name: "endTime", label: "End Time", type: "datetime", required: true },
+      { name: "attendees", label: "Attendees", type: "text", required: false, placeholder: "Comma-separated email addresses" },
+      { name: "description", label: "Description", type: "textarea", required: false, placeholder: "Meeting description" },
+      { name: "isOnlineMeeting", label: "Online Meeting", type: "boolean", required: false, defaultValue: true }
+    ]
+  },
+  {
+    type: "teams_action_send_adaptive_card",
+    title: "Send Adaptive Card (Teams)",
+    description: "Send a rich adaptive card message to a channel",
+    icon: FileText,
+    providerId: "teams",
+    requiredScopes: ["Chat.ReadWrite"],
+    category: "Communication",
+    isTrigger: false,
+    configSchema: [
+      { name: "channelId", label: "Channel", type: "select", dynamic: "teams_channels", required: true, placeholder: "Select a channel" },
+      { name: "cardTitle", label: "Card Title", type: "text", required: true, placeholder: "Enter card title" },
+      { name: "cardText", label: "Card Text", type: "textarea", required: true, placeholder: "Enter card content" },
+      { name: "cardType", label: "Card Type", type: "select", required: true, defaultValue: "hero", options: [
+        { value: "hero", label: "Hero Card" },
+        { value: "thumbnail", label: "Thumbnail Card" },
+        { value: "receipt", label: "Receipt Card" }
+      ] }
+    ]
+  },
+  {
+    type: "teams_action_get_team_members",
+    title: "Get Team Members (Teams)",
+    description: "Get all members of a team",
+    icon: Users,
+    providerId: "teams",
+    requiredScopes: ["TeamMember.Read.All"],
+    category: "Communication",
+    isTrigger: false,
+    configSchema: [
+      { name: "teamId", label: "Team", type: "select", dynamic: "teams_teams", required: true, placeholder: "Select a team" }
+    ]
+  },
+  {
+    type: "teams_action_create_team",
+    title: "Create Team (Teams)",
+    description: "Create a new team",
+    icon: Plus,
+    providerId: "teams",
+    requiredScopes: ["Team.Create"],
+    category: "Communication",
+    isTrigger: false,
+    configSchema: [
+      { name: "displayName", label: "Team Name", type: "text", required: true, placeholder: "Enter team name" },
+      { name: "description", label: "Description", type: "textarea", required: false, placeholder: "Team description (optional)" },
+      { name: "visibility", label: "Visibility", type: "select", required: true, defaultValue: "private", options: [
+        { value: "private", label: "Private" },
+        { value: "public", label: "Public" }
+      ] }
+    ]
+  },
+  {
     type: "onedrive_trigger_file_modified",
     title: "File Modified in Folder",
     description: "Triggers when a file is modified in a specific folder.",
@@ -1203,16 +1340,6 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "teams",
     category: "Communication",
     isTrigger: true,
-  },
-  {
-    type: "teams_action_send_message",
-    title: "Send Message to Channel (Teams)",
-    description: "Send a message to a channel",
-    icon: MessageSquare,
-    providerId: "teams",
-    requiredScopes: ["Chat.ReadWrite"],
-    category: "Communication",
-    isTrigger: false,
   },
 
   // Twitter (X)
@@ -1287,6 +1414,17 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "youtube",
     category: "Social",
     isTrigger: true,
+    configSchema: [
+      {
+        name: "channelId",
+        label: "Channel",
+        type: "select",
+        dynamic: "youtube_channels",
+        required: true,
+        placeholder: "Select a channel from your YouTube account",
+        description: "Choose from your connected YouTube channels"
+      }
+    ]
   },
   {
     type: "youtube_trigger_new_comment",
@@ -1296,6 +1434,17 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "youtube",
     category: "Social",
     isTrigger: true,
+    configSchema: [
+      {
+        name: "videoId",
+        label: "Video",
+        type: "select",
+        dynamic: "youtube_videos",
+        required: true,
+        placeholder: "Select a video from your YouTube account",
+        description: "Choose from your uploaded YouTube videos"
+      }
+    ]
   },
   {
     type: "youtube_action_upload_video",
@@ -1306,6 +1455,93 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     requiredScopes: ["https://www.googleapis.com/auth/youtube.upload"],
     category: "Social",
     isTrigger: false,
+    configSchema: [
+      { name: "videoFile", label: "Video File", type: "file", required: true, accept: ".mp4,.mov,.avi,.wmv,.flv,.mkv", maxSize: 512 * 1024 * 1024, placeholder: "Select a video file to upload" },
+      { name: "title", label: "Title", type: "text", required: true, placeholder: "Enter video title" },
+      { name: "description", label: "Description", type: "textarea", required: false, placeholder: "Enter video description" },
+      { name: "privacyStatus", label: "Privacy Status", type: "select", required: true, defaultValue: "private", options: [ { value: "public", label: "Public" }, { value: "unlisted", label: "Unlisted" }, { value: "private", label: "Private" } ] },
+      { name: "tags", label: "Tags", type: "text", required: false, placeholder: "Comma-separated tags (optional)" },
+      { name: "playlistId", label: "Add to Playlist", type: "select", dynamic: "youtube_playlists", required: false, placeholder: "Select a playlist (optional)" }
+    ]
+  },
+  {
+    type: "youtube_action_list_videos",
+    title: "List My Videos (YouTube)",
+    description: "List all videos from your YouTube channel",
+    icon: Video,
+    providerId: "youtube",
+    requiredScopes: ["https://www.googleapis.com/auth/youtube.readonly"],
+    category: "Social",
+    isTrigger: false,
+    configSchema: []
+  },
+  {
+    type: "youtube_action_update_video",
+    title: "Update Video Details (YouTube)",
+    description: "Update the title, description, privacy, or tags of a video",
+    icon: Edit,
+    providerId: "youtube",
+    requiredScopes: ["https://www.googleapis.com/auth/youtube"],
+    category: "Social",
+    isTrigger: false,
+    configSchema: [
+      { name: "videoId", label: "Video", type: "select", dynamic: "youtube_videos", required: true, placeholder: "Select a video to update" },
+      { name: "title", label: "Title", type: "text", required: false, placeholder: "New title (optional)" },
+      { name: "description", label: "Description", type: "textarea", required: false, placeholder: "New description (optional)" },
+      { name: "privacyStatus", label: "Privacy Status", type: "select", required: false, options: [ { value: "public", label: "Public" }, { value: "unlisted", label: "Unlisted" }, { value: "private", label: "Private" } ] },
+      { name: "tags", label: "Tags", type: "text", required: false, placeholder: "Comma-separated tags (optional)" }
+    ]
+  },
+  {
+    type: "youtube_action_delete_video",
+    title: "Delete Video (YouTube)",
+    description: "Delete a video from your YouTube channel",
+    icon: Edit,
+    providerId: "youtube",
+    requiredScopes: ["https://www.googleapis.com/auth/youtube.force-ssl"],
+    category: "Social",
+    isTrigger: false,
+    configSchema: [
+      { name: "videoId", label: "Video", type: "select", dynamic: "youtube_videos", required: true, placeholder: "Select a video to delete" }
+    ]
+  },
+  {
+    type: "youtube_action_get_video_analytics",
+    title: "Get Video Analytics (YouTube)",
+    description: "Fetch analytics for a selected video",
+    icon: BarChart,
+    providerId: "youtube",
+    requiredScopes: ["https://www.googleapis.com/auth/youtube.readonly"],
+    category: "Social",
+    isTrigger: false,
+    configSchema: [
+      { name: "videoId", label: "Video", type: "select", dynamic: "youtube_videos", required: true, placeholder: "Select a video to get analytics for" }
+    ]
+  },
+  {
+    type: "youtube_action_add_to_playlist",
+    title: "Add Video to Playlist (YouTube)",
+    description: "Add a video to a playlist",
+    icon: Plus,
+    providerId: "youtube",
+    requiredScopes: ["https://www.googleapis.com/auth/youtube"],
+    category: "Social",
+    isTrigger: false,
+    configSchema: [
+      { name: "videoId", label: "Video", type: "select", dynamic: "youtube_videos", required: true, placeholder: "Select a video to add" },
+      { name: "playlistId", label: "Playlist", type: "select", dynamic: "youtube_playlists", required: true, placeholder: "Select a playlist" }
+    ]
+  },
+  {
+    type: "youtube_action_list_playlists",
+    title: "List My Playlists (YouTube)",
+    description: "List all playlists from your YouTube account",
+    icon: Video,
+    providerId: "youtube",
+    requiredScopes: ["https://www.googleapis.com/auth/youtube.readonly"],
+    category: "Social",
+    isTrigger: false,
+    configSchema: []
   },
 
   // Shopify
@@ -1781,14 +2017,1327 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     isTrigger: false,
   },
 
-  // New Google Docs Actions
+  // Google Docs Actions
   {
     type: "google_docs_action_create_document",
     title: "Create Document (Google Docs)",
-    description: "Create a new Google Document",
+    description: "Create a new Google Document with customizable content and properties",
     icon: PenSquare,
     providerId: "google-docs",
     category: "Productivity",
     isTrigger: false,
+    requiredScopes: ["https://www.googleapis.com/auth/documents"],
+    configSchema: [
+      {
+        name: "title",
+        label: "Document Title",
+        type: "text",
+        required: true,
+        placeholder: "e.g., Meeting Notes, Project Report, Documentation",
+        description: "The title of the new document"
+      },
+      {
+        name: "content",
+        label: "Initial Content",
+        type: "textarea",
+        required: false,
+        placeholder: "Enter the initial content for your document...",
+        description: "The initial content to add to the document (supports basic formatting)"
+      },
+      {
+        name: "templateId",
+        label: "Use Template",
+        type: "select",
+        required: false,
+        dynamic: "google-docs_templates",
+        placeholder: "Select a template (optional)",
+        description: "Create document from an existing template"
+      },
+      {
+        name: "folderId",
+        label: "Destination Folder",
+        type: "select",
+        required: false,
+        dynamic: "google-drive-folders",
+        placeholder: "Select a folder (optional, defaults to root)",
+        description: "Choose where to create the document"
+      },
+      {
+        name: "shareWith",
+        label: "Share With",
+        type: "text",
+        required: false,
+        placeholder: "email@example.com (comma-separated for multiple)",
+        description: "Email addresses to share the document with (optional)"
+      },
+      {
+        name: "permission",
+        label: "Permission Level",
+        type: "select",
+        required: false,
+        defaultValue: "writer",
+        options: [
+          { value: "reader", label: "Reader (view only)" },
+          { value: "commenter", label: "Commenter (view and comment)" },
+          { value: "writer", label: "Writer (view, comment, and edit)" }
+        ],
+        description: "Permission level for shared users"
+      }
+    ],
+  },
+  {
+    type: "google_docs_action_read_document",
+    title: "Read Document (Google Docs)",
+    description: "Read content from an existing Google Document",
+    icon: FileText,
+    providerId: "google-docs",
+    category: "Productivity",
+    isTrigger: false,
+    requiredScopes: ["https://www.googleapis.com/auth/documents.readonly"],
+    configSchema: [
+      {
+        name: "documentId",
+        label: "Document",
+        type: "select",
+        dynamic: "google-docs_documents",
+        required: true,
+        placeholder: "Select a document from your Google Docs",
+        description: "Choose from your connected Google Docs documents"
+      },
+      {
+        name: "includeFormatting",
+        label: "Include Formatting",
+        type: "boolean",
+        required: false,
+        defaultValue: false,
+        description: "Whether to include text formatting information"
+      },
+      {
+        name: "includeComments",
+        label: "Include Comments",
+        type: "boolean",
+        required: false,
+        defaultValue: false,
+        description: "Whether to include document comments"
+      },
+      {
+        name: "outputFormat",
+        label: "Output Format",
+        type: "select",
+        required: false,
+        defaultValue: "text",
+        options: [
+          { value: "text", label: "Plain Text" },
+          { value: "html", label: "HTML" },
+          { value: "json", label: "JSON (with formatting)" }
+        ],
+        description: "How to format the output content"
+      }
+    ],
+  },
+  {
+    type: "google_docs_action_update_document",
+    title: "Update Document (Google Docs)",
+    description: "Update content in an existing Google Document",
+    icon: Edit,
+    providerId: "google-docs",
+    category: "Productivity",
+    isTrigger: false,
+    requiredScopes: ["https://www.googleapis.com/auth/documents"],
+    configSchema: [
+      {
+        name: "documentId",
+        label: "Document",
+        type: "select",
+        dynamic: "google-docs_documents",
+        required: true,
+        placeholder: "Select a document from your Google Docs",
+        description: "Choose from your connected Google Docs documents"
+      },
+      {
+        name: "operation",
+        label: "Operation Type",
+        type: "select",
+        required: true,
+        defaultValue: "insert",
+        options: [
+          { value: "insert", label: "Insert Text" },
+          { value: "replace", label: "Replace Text" },
+          { value: "delete", label: "Delete Text" },
+          { value: "append", label: "Append to End" }
+        ],
+        description: "Type of operation to perform on the document"
+      },
+      {
+        name: "content",
+        label: "Content",
+        type: "textarea",
+        required: true,
+        placeholder: "Enter the content to insert, replace, or append...",
+        description: "The content to add to the document"
+      },
+      {
+        name: "location",
+        label: "Location (for insert/replace)",
+        type: "text",
+        required: false,
+        placeholder: "e.g., 'Hello' or '1:100' (start:end index)",
+        description: "Text to find or index range for the operation"
+      },
+      {
+        name: "formatting",
+        label: "Apply Formatting",
+        type: "select",
+        required: false,
+        defaultValue: "none",
+        options: [
+          { value: "none", label: "No formatting" },
+          { value: "bold", label: "Bold" },
+          { value: "italic", label: "Italic" },
+          { value: "underline", label: "Underline" },
+          { value: "heading1", label: "Heading 1" },
+          { value: "heading2", label: "Heading 2" },
+          { value: "heading3", label: "Heading 3" }
+        ],
+        description: "Text formatting to apply"
+      }
+    ],
+  },
+  {
+    type: "google_docs_action_share_document",
+    title: "Share Document (Google Docs)",
+    description: "Share a Google Document with specific users or make it public",
+    icon: Share,
+    providerId: "google-docs",
+    category: "Productivity",
+    isTrigger: false,
+    requiredScopes: ["https://www.googleapis.com/auth/drive"],
+    configSchema: [
+      {
+        name: "documentId",
+        label: "Document",
+        type: "select",
+        dynamic: "google-docs_documents",
+        required: true,
+        placeholder: "Select a document from your Google Docs",
+        description: "Choose from your connected Google Docs documents"
+      },
+      {
+        name: "shareWith",
+        label: "Share With",
+        type: "text",
+        required: true,
+        placeholder: "email@example.com (comma-separated for multiple)",
+        description: "Email addresses to share the document with"
+      },
+      {
+        name: "permission",
+        label: "Permission Level",
+        type: "select",
+        required: true,
+        defaultValue: "writer",
+        options: [
+          { value: "reader", label: "Reader (view only)" },
+          { value: "commenter", label: "Commenter (view and comment)" },
+          { value: "writer", label: "Writer (view, comment, and edit)" },
+          { value: "owner", label: "Owner (full control)" }
+        ],
+        description: "Permission level for shared users"
+      },
+      {
+        name: "sendNotification",
+        label: "Send Notification Email",
+        type: "boolean",
+        required: false,
+        defaultValue: true,
+        description: "Whether to send an email notification to shared users"
+      },
+      {
+        name: "message",
+        label: "Custom Message",
+        type: "textarea",
+        required: false,
+        placeholder: "Optional message to include in the sharing notification...",
+        description: "Custom message to include in the sharing email"
+      }
+    ],
+  },
+  {
+    type: "google_docs_action_export_document",
+    title: "Export Document (Google Docs)",
+    description: "Export a Google Doc to various formats (PDF, DOCX, etc.)",
+    icon: Download,
+    providerId: "google-docs",
+    requiredScopes: ["https://www.googleapis.com/auth/documents", "https://www.googleapis.com/auth/drive.readonly"],
+    category: "Productivity",
+    isTrigger: false,
+    configSchema: [
+      { name: "documentId", label: "Document", type: "select", dynamic: "google-docs_documents", required: true, placeholder: "Select a document to export" },
+      { name: "exportFormat", label: "Export Format", type: "select", required: true, defaultValue: "pdf", options: [
+        { value: "pdf", label: "PDF" },
+        { value: "docx", label: "Microsoft Word (.docx)" },
+        { value: "txt", label: "Plain Text (.txt)" },
+        { value: "html", label: "HTML" },
+        { value: "rtf", label: "Rich Text Format (.rtf)" }
+      ] },
+      { name: "fileName", label: "File Name", type: "text", required: false, placeholder: "Custom file name (optional)" }
+    ]
+  },
+
+  // GitHub Actions
+  {
+    type: "github_action_create_repository",
+    title: "Create Repository (GitHub)",
+    description: "Create a new GitHub repository",
+    icon: GitBranch,
+    providerId: "github",
+    requiredScopes: ["repo"],
+    category: "Developer",
+    isTrigger: false,
+    configSchema: [
+      { name: "name", label: "Repository Name", type: "text", required: true, placeholder: "Enter repository name" },
+      { name: "description", label: "Description", type: "textarea", required: false, placeholder: "Repository description" },
+      { name: "isPrivate", label: "Private Repository", type: "boolean", required: false, defaultValue: false },
+      { name: "autoInit", label: "Initialize with README", type: "boolean", required: false, defaultValue: true },
+      { name: "license", label: "License", type: "select", required: false, options: [
+        { value: "mit", label: "MIT License" },
+        { value: "apache-2.0", label: "Apache License 2.0" },
+        { value: "gpl-3.0", label: "GNU General Public License v3.0" },
+        { value: "bsd-3-clause", label: "BSD 3-Clause License" }
+      ] }
+    ]
+  },
+  {
+    type: "github_action_create_pull_request",
+    title: "Create Pull Request (GitHub)",
+    description: "Create a new pull request",
+    icon: GitPullRequest,
+    providerId: "github",
+    requiredScopes: ["repo"],
+    category: "Developer",
+    isTrigger: false,
+    configSchema: [
+      { name: "repo", label: "Repository", type: "text", required: true, placeholder: "owner/repo-name" },
+      { name: "title", label: "Title", type: "text", required: true, placeholder: "Pull request title" },
+      { name: "body", label: "Description", type: "textarea", required: false, placeholder: "Pull request description" },
+      { name: "head", label: "Source Branch", type: "text", required: true, placeholder: "feature-branch" },
+      { name: "base", label: "Target Branch", type: "text", required: true, defaultValue: "main", placeholder: "main" }
+    ]
+  },
+  {
+    type: "github_action_create_gist",
+    title: "Create Gist (GitHub)",
+    description: "Create a new GitHub Gist",
+    icon: FileText,
+    providerId: "github",
+    requiredScopes: ["gist"],
+    category: "Developer",
+    isTrigger: false,
+    configSchema: [
+      { name: "description", label: "Description", type: "text", required: false, placeholder: "Gist description" },
+      { name: "filename", label: "Filename", type: "text", required: true, placeholder: "example.js" },
+      { name: "content", label: "Content", type: "textarea", required: true, placeholder: "Enter file content" },
+      { name: "isPublic", label: "Public Gist", type: "boolean", required: false, defaultValue: false }
+    ]
+  },
+  {
+    type: "github_action_add_comment",
+    title: "Add Comment (GitHub)",
+    description: "Add a comment to an issue or pull request",
+    icon: MessageSquare,
+    providerId: "github",
+    requiredScopes: ["repo"],
+    category: "Developer",
+    isTrigger: false,
+    configSchema: [
+      { name: "repo", label: "Repository", type: "text", required: true, placeholder: "owner/repo-name" },
+      { name: "issueNumber", label: "Issue/PR Number", type: "number", required: true, placeholder: "123" },
+      { name: "body", label: "Comment", type: "textarea", required: true, placeholder: "Enter your comment" }
+    ]
+  },
+
+  // GitLab Actions
+  {
+    type: "gitlab_action_create_project",
+    title: "Create Project (GitLab)",
+    description: "Create a new GitLab project",
+    icon: GitBranch,
+    providerId: "gitlab",
+    requiredScopes: ["api"],
+    category: "Developer",
+    isTrigger: false,
+    configSchema: [
+      { name: "name", label: "Project Name", type: "text", required: true, placeholder: "Enter project name" },
+      { name: "description", label: "Description", type: "textarea", required: false, placeholder: "Project description" },
+      { name: "visibility", label: "Visibility", type: "select", required: true, defaultValue: "private", options: [
+        { value: "private", label: "Private" },
+        { value: "internal", label: "Internal" },
+        { value: "public", label: "Public" }
+      ] },
+      { name: "initializeWithReadme", label: "Initialize with README", type: "boolean", required: false, defaultValue: true }
+    ]
+  },
+  {
+    type: "gitlab_action_create_merge_request",
+    title: "Create Merge Request (GitLab)",
+    description: "Create a new merge request",
+    icon: GitPullRequest,
+    providerId: "gitlab",
+    requiredScopes: ["api"],
+    category: "Developer",
+    isTrigger: false,
+    configSchema: [
+      { name: "projectId", label: "Project ID", type: "number", required: true, placeholder: "123" },
+      { name: "title", label: "Title", type: "text", required: true, placeholder: "Merge request title" },
+      { name: "description", label: "Description", type: "textarea", required: false, placeholder: "Merge request description" },
+      { name: "sourceBranch", label: "Source Branch", type: "text", required: true, placeholder: "feature-branch" },
+      { name: "targetBranch", label: "Target Branch", type: "text", required: true, defaultValue: "main", placeholder: "main" }
+    ]
+  },
+  {
+    type: "gitlab_action_create_issue",
+    title: "Create Issue (GitLab)",
+    description: "Create a new issue in a GitLab project",
+    icon: AlertCircle,
+    providerId: "gitlab",
+    requiredScopes: ["api"],
+    category: "Developer",
+    isTrigger: false,
+    configSchema: [
+      { name: "projectId", label: "Project ID", type: "number", required: true, placeholder: "123" },
+      { name: "title", label: "Title", type: "text", required: true, placeholder: "Issue title" },
+      { name: "description", label: "Description", type: "textarea", required: false, placeholder: "Issue description" },
+      { name: "labels", label: "Labels", type: "text", required: false, placeholder: "bug,urgent" }
+    ]
+  },
+
+  // Facebook Actions
+  {
+    type: "facebook_action_create_post",
+    title: "Create Post (Facebook)",
+    description: "Create a new post on a Facebook page",
+    icon: Share,
+    providerId: "facebook",
+    requiredScopes: ["pages_manage_posts"],
+    category: "Social",
+    isTrigger: false,
+    configSchema: [
+      { name: "pageId", label: "Page ID", type: "text", required: true, placeholder: "Enter Facebook page ID" },
+      { name: "message", label: "Message", type: "textarea", required: true, placeholder: "Enter your post message" },
+      { name: "link", label: "Link", type: "text", required: false, placeholder: "https://example.com" },
+      { name: "scheduledPublishTime", label: "Schedule Publish Time", type: "datetime", required: false }
+    ]
+  },
+  {
+    type: "facebook_action_get_page_insights",
+    title: "Get Page Insights (Facebook)",
+    description: "Get analytics data for a Facebook page",
+    icon: BarChart,
+    providerId: "facebook",
+    requiredScopes: ["pages_read_engagement"],
+    category: "Social",
+    isTrigger: false,
+    configSchema: [
+      { name: "pageId", label: "Page ID", type: "text", required: true, placeholder: "Enter Facebook page ID" },
+      { name: "metric", label: "Metric", type: "select", required: true, defaultValue: "page_impressions", options: [
+        { value: "page_impressions", label: "Page Impressions" },
+        { value: "page_engaged_users", label: "Engaged Users" },
+        { value: "page_post_engagements", label: "Post Engagements" },
+        { value: "page_fans", label: "Page Fans" }
+      ] },
+      { name: "period", label: "Period", type: "select", required: true, defaultValue: "day", options: [
+        { value: "day", label: "Day" },
+        { value: "week", label: "Week" },
+        { value: "month", label: "Month" }
+      ] }
+    ]
+  },
+
+  // Instagram Actions
+  {
+    type: "instagram_action_create_story",
+    title: "Create Story (Instagram)",
+    description: "Create a new Instagram story",
+    icon: Camera,
+    providerId: "instagram",
+    requiredScopes: ["instagram_business_content_publish"],
+    category: "Social",
+    isTrigger: false,
+    configSchema: [
+      { name: "imageUrl", label: "Image URL", type: "text", required: true, placeholder: "https://example.com/image.jpg" },
+      { name: "caption", label: "Caption", type: "textarea", required: false, placeholder: "Story caption" },
+      { name: "locationId", label: "Location ID", type: "text", required: false, placeholder: "Instagram location ID" }
+    ]
+  },
+  {
+    type: "instagram_action_get_media_insights",
+    title: "Get Media Insights (Instagram)",
+    description: "Get analytics for Instagram media",
+    icon: BarChart,
+    providerId: "instagram",
+    requiredScopes: ["instagram_basic"],
+    category: "Social",
+    isTrigger: false,
+    configSchema: [
+      { name: "mediaId", label: "Media ID", type: "text", required: true, placeholder: "Enter Instagram media ID" },
+      { name: "metric", label: "Metric", type: "select", required: true, defaultValue: "impressions", options: [
+        { value: "impressions", label: "Impressions" },
+        { value: "reach", label: "Reach" },
+        { value: "engagement", label: "Engagement" },
+        { value: "saved", label: "Saved" }
+      ] }
+    ]
+  },
+
+  // LinkedIn Actions
+  {
+    type: "linkedin_action_share_post",
+    title: "Share Post (LinkedIn)",
+    description: "Share a post on LinkedIn",
+    icon: Share,
+    providerId: "linkedin",
+    requiredScopes: ["w_member_social"],
+    category: "Social",
+    isTrigger: false,
+    configSchema: [
+      { name: "text", label: "Post Text", type: "textarea", required: true, placeholder: "Enter your LinkedIn post" },
+      { name: "visibility", label: "Visibility", type: "select", required: true, defaultValue: "PUBLIC", options: [
+        { value: "PUBLIC", label: "Public" },
+        { value: "CONNECTIONS", label: "Connections" }
+      ] }
+    ]
+  },
+  {
+    type: "linkedin_action_create_company_post",
+    title: "Create Company Post (LinkedIn)",
+    description: "Create a post on a LinkedIn company page",
+    icon: Building,
+    providerId: "linkedin",
+    requiredScopes: ["w_organization_social"],
+    category: "Social",
+    isTrigger: false,
+    configSchema: [
+      { name: "organizationId", label: "Organization ID", type: "text", required: true, placeholder: "Enter organization ID" },
+      { name: "text", label: "Post Text", type: "textarea", required: true, placeholder: "Enter your company post" },
+      { name: "visibility", label: "Visibility", type: "select", required: true, defaultValue: "PUBLIC", options: [
+        { value: "PUBLIC", label: "Public" },
+        { value: "LOGGED_IN", label: "Logged-in users" }
+      ] }
+    ]
+  },
+
+  // TikTok Actions
+  {
+    type: "tiktok_action_get_user_info",
+    title: "Get User Info (TikTok)",
+    description: "Get information about a TikTok user",
+    icon: User,
+    providerId: "tiktok",
+    requiredScopes: ["user.info.basic"],
+    category: "Social",
+    isTrigger: false,
+    configSchema: [
+      { name: "username", label: "Username", type: "text", required: true, placeholder: "Enter TikTok username" }
+    ]
+  },
+  {
+    type: "tiktok_action_get_video_list",
+    title: "Get Video List (TikTok)",
+    description: "Get a list of videos from a TikTok user",
+    icon: Video,
+    providerId: "tiktok",
+    requiredScopes: ["video.list"],
+    category: "Social",
+    isTrigger: false,
+    configSchema: [
+      { name: "username", label: "Username", type: "text", required: true, placeholder: "Enter TikTok username" },
+      { name: "maxCount", label: "Max Count", type: "number", required: false, defaultValue: 20, placeholder: "20" }
+    ]
+  },
+
+  // Notion Actions
+  {
+    type: "notion_action_create_database",
+    title: "Create Database (Notion)",
+    description: "Create a new database in Notion",
+    icon: Database,
+    providerId: "notion",
+    requiredScopes: ["content.write"],
+    category: "Productivity",
+    isTrigger: false,
+    configSchema: [
+      { name: "parentPageId", label: "Parent Page ID", type: "text", required: true, placeholder: "Enter parent page ID" },
+      { name: "title", label: "Database Title", type: "text", required: true, placeholder: "Enter database title" },
+      { name: "properties", label: "Properties (JSON)", type: "textarea", required: false, placeholder: '{"Name": {"title": {}}, "Status": {"select": {"options": [{"name": "Not Started"}, {"name": "In Progress"}, {"name": "Done"}]}}}' }
+    ]
+  },
+  {
+    type: "notion_action_search_pages",
+    title: "Search Pages (Notion)",
+    description: "Search for pages in Notion",
+    icon: Search,
+    providerId: "notion",
+    requiredScopes: ["content.read"],
+    category: "Productivity",
+    isTrigger: false,
+    configSchema: [
+      { name: "query", label: "Search Query", type: "text", required: false, placeholder: "Enter search terms" },
+      { name: "filter", label: "Filter", type: "select", required: false, options: [
+        { value: "page", label: "Pages" },
+        { value: "database", label: "Databases" }
+      ] },
+      { name: "maxResults", label: "Max Results", type: "number", required: false, defaultValue: 10, placeholder: "10" }
+    ]
+  },
+  {
+    type: "notion_action_update_page",
+    title: "Update Page (Notion)",
+    description: "Update an existing Notion page",
+    icon: Edit,
+    providerId: "notion",
+    requiredScopes: ["content.write"],
+    category: "Productivity",
+    isTrigger: false,
+    configSchema: [
+      { name: "pageId", label: "Page ID", type: "text", required: true, placeholder: "Enter page ID" },
+      { name: "title", label: "New Title", type: "text", required: false, placeholder: "New page title" },
+      { name: "content", label: "Content", type: "textarea", required: false, placeholder: "New page content" }
+    ]
+  },
+
+  // Trello Actions
+  {
+    type: "trello_action_create_board",
+    title: "Create Board (Trello)",
+    description: "Create a new Trello board",
+    icon: Layout,
+    providerId: "trello",
+    requiredScopes: ["write"],
+    category: "Productivity",
+    isTrigger: false,
+    configSchema: [
+      { name: "name", label: "Board Name", type: "text", required: true, placeholder: "Enter board name" },
+      { name: "description", label: "Description", type: "textarea", required: false, placeholder: "Board description" },
+      { name: "visibility", label: "Visibility", type: "select", required: true, defaultValue: "private", options: [
+        { value: "private", label: "Private" },
+        { value: "public", label: "Public" }
+      ] }
+    ]
+  },
+  {
+    type: "trello_action_create_list",
+    title: "Create List (Trello)",
+    description: "Create a new list on a Trello board",
+    icon: List,
+    providerId: "trello",
+    requiredScopes: ["write"],
+    category: "Productivity",
+    isTrigger: false,
+    configSchema: [
+      { name: "boardId", label: "Board ID", type: "text", required: true, placeholder: "Enter board ID" },
+      { name: "name", label: "List Name", type: "text", required: true, placeholder: "Enter list name" },
+      { name: "position", label: "Position", type: "select", required: false, defaultValue: "bottom", options: [
+        { value: "top", label: "Top" },
+        { value: "bottom", label: "Bottom" }
+      ] }
+    ]
+  },
+  {
+    type: "trello_action_move_card",
+    title: "Move Card (Trello)",
+    description: "Move a card to a different list",
+    icon: Move,
+    providerId: "trello",
+    requiredScopes: ["write"],
+    category: "Productivity",
+    isTrigger: false,
+    configSchema: [
+      { name: "cardId", label: "Card ID", type: "text", required: true, placeholder: "Enter card ID" },
+      { name: "listId", label: "Target List ID", type: "text", required: true, placeholder: "Enter target list ID" },
+      { name: "position", label: "Position", type: "select", required: false, defaultValue: "bottom", options: [
+        { value: "top", label: "Top" },
+        { value: "bottom", label: "Bottom" }
+      ] }
+    ]
+  },
+
+  // HubSpot Actions
+  {
+    type: "hubspot_action_create_company",
+    title: "Create Company (HubSpot)",
+    description: "Create a new company in HubSpot",
+    icon: Building,
+    providerId: "hubspot",
+    requiredScopes: ["crm.objects.companies.write"],
+    category: "CRM",
+    isTrigger: false,
+    configSchema: [
+      { name: "name", label: "Company Name", type: "text", required: true, placeholder: "Enter company name" },
+      { name: "domain", label: "Domain", type: "text", required: false, placeholder: "example.com" },
+      { name: "phone", label: "Phone", type: "text", required: false, placeholder: "+1-555-123-4567" },
+      { name: "address", label: "Address", type: "textarea", required: false, placeholder: "Company address" },
+      { name: "industry", label: "Industry", type: "text", required: false, placeholder: "Technology" }
+    ]
+  },
+  {
+    type: "hubspot_action_create_deal",
+    title: "Create Deal (HubSpot)",
+    description: "Create a new deal in HubSpot",
+    icon: DollarSign,
+    providerId: "hubspot",
+    requiredScopes: ["crm.objects.deals.write"],
+    category: "CRM",
+    isTrigger: false,
+    configSchema: [
+      { name: "dealName", label: "Deal Name", type: "text", required: true, placeholder: "Enter deal name" },
+      { name: "amount", label: "Amount", type: "number", required: false, placeholder: "10000" },
+      { name: "pipeline", label: "Pipeline", type: "text", required: false, placeholder: "default" },
+      { name: "stage", label: "Stage", type: "text", required: false, placeholder: "appointmentscheduled" },
+      { name: "closeDate", label: "Close Date", type: "date", required: false }
+    ]
+  },
+  {
+    type: "hubspot_action_add_contact_to_list",
+    title: "Add Contact to List (HubSpot)",
+    description: "Add a contact to a HubSpot list",
+    icon: Users,
+    providerId: "hubspot",
+    requiredScopes: ["lists.read", "lists.write"],
+    category: "CRM",
+    isTrigger: false,
+    configSchema: [
+      { name: "contactId", label: "Contact ID", type: "text", required: true, placeholder: "Enter contact ID" },
+      { name: "listId", label: "List ID", type: "text", required: true, placeholder: "Enter list ID" }
+    ]
+  },
+
+  // Airtable Actions
+  {
+    type: "airtable_action_update_record",
+    title: "Update Record (Airtable)",
+    description: "Update an existing record in Airtable",
+    icon: Edit,
+    providerId: "airtable",
+    requiredScopes: ["data.records:write"],
+    category: "Productivity",
+    isTrigger: false,
+    configSchema: [
+      { name: "baseId", label: "Base ID", type: "text", required: true, placeholder: "Enter base ID" },
+      { name: "tableName", label: "Table Name", type: "text", required: true, placeholder: "Enter table name" },
+      { name: "recordId", label: "Record ID", type: "text", required: true, placeholder: "Enter record ID" },
+      { name: "fields", label: "Fields (JSON)", type: "textarea", required: true, placeholder: '{"Name": "Updated Name", "Status": "Complete"}' }
+    ]
+  },
+  {
+    type: "airtable_action_delete_record",
+    title: "Delete Record (Airtable)",
+    description: "Delete a record from Airtable",
+    icon: Trash2,
+    providerId: "airtable",
+    requiredScopes: ["data.records:write"],
+    category: "Productivity",
+    isTrigger: false,
+    configSchema: [
+      { name: "baseId", label: "Base ID", type: "text", required: true, placeholder: "Enter base ID" },
+      { name: "tableName", label: "Table Name", type: "text", required: true, placeholder: "Enter table name" },
+      { name: "recordId", label: "Record ID", type: "text", required: true, placeholder: "Enter record ID" }
+    ]
+  },
+  {
+    type: "airtable_action_list_records",
+    title: "List Records (Airtable)",
+    description: "List records from an Airtable table",
+    icon: List,
+    providerId: "airtable",
+    requiredScopes: ["data.records:read"],
+    category: "Productivity",
+    isTrigger: false,
+    configSchema: [
+      { name: "baseId", label: "Base ID", type: "text", required: true, placeholder: "Enter base ID" },
+      { name: "tableName", label: "Table Name", type: "text", required: true, placeholder: "Enter table name" },
+      { name: "maxRecords", label: "Max Records", type: "number", required: false, defaultValue: 100, placeholder: "100" },
+      { name: "filterByFormula", label: "Filter Formula", type: "text", required: false, placeholder: "{Status} = 'Active'" }
+    ]
+  },
+
+  // Shopify Actions
+  {
+    type: "shopify_action_create_order",
+    title: "Create Order (Shopify)",
+    description: "Create a new order in Shopify",
+    icon: ShoppingCart,
+    providerId: "shopify",
+    requiredScopes: ["write_orders"],
+    category: "E-commerce",
+    isTrigger: false,
+    configSchema: [
+      { name: "email", label: "Customer Email", type: "email", required: true, placeholder: "customer@example.com" },
+      { name: "lineItems", label: "Line Items (JSON)", type: "textarea", required: true, placeholder: '[{"variant_id": 123, "quantity": 1}]' },
+      { name: "financialStatus", label: "Financial Status", type: "select", required: false, defaultValue: "pending", options: [
+        { value: "pending", label: "Pending" },
+        { value: "paid", label: "Paid" },
+        { value: "refunded", label: "Refunded" }
+      ] },
+      { name: "fulfillmentStatus", label: "Fulfillment Status", type: "select", required: false, defaultValue: "unfulfilled", options: [
+        { value: "unfulfilled", label: "Unfulfilled" },
+        { value: "fulfilled", label: "Fulfilled" }
+      ] }
+    ]
+  },
+  {
+    type: "shopify_action_update_product",
+    title: "Update Product (Shopify)",
+    description: "Update an existing product in Shopify",
+    icon: Edit,
+    providerId: "shopify",
+    requiredScopes: ["write_products"],
+    category: "E-commerce",
+    isTrigger: false,
+    configSchema: [
+      { name: "productId", label: "Product ID", type: "text", required: true, placeholder: "Enter product ID" },
+      { name: "title", label: "Title", type: "text", required: false, placeholder: "New product title" },
+      { name: "description", label: "Description", type: "textarea", required: false, placeholder: "New product description" },
+      { name: "status", label: "Status", type: "select", required: false, options: [
+        { value: "active", label: "Active" },
+        { value: "draft", label: "Draft" },
+        { value: "archived", label: "Archived" }
+      ] }
+    ]
+  },
+  {
+    type: "shopify_action_create_customer",
+    title: "Create Customer (Shopify)",
+    description: "Create a new customer in Shopify",
+    icon: UserPlus,
+    providerId: "shopify",
+    requiredScopes: ["write_customers"],
+    category: "E-commerce",
+    isTrigger: false,
+    configSchema: [
+      { name: "email", label: "Email", type: "email", required: true, placeholder: "customer@example.com" },
+      { name: "firstName", label: "First Name", type: "text", required: false, placeholder: "John" },
+      { name: "lastName", label: "Last Name", type: "text", required: false, placeholder: "Doe" },
+      { name: "phone", label: "Phone", type: "text", required: false, placeholder: "+1-555-123-4567" },
+      { name: "tags", label: "Tags", type: "text", required: false, placeholder: "vip,wholesale" }
+    ]
+  },
+
+  // Stripe Actions
+  {
+    type: "stripe_action_create_payment_intent",
+    title: "Create Payment Intent (Stripe)",
+    description: "Create a new payment intent in Stripe",
+    icon: CreditCard,
+    providerId: "stripe",
+    requiredScopes: ["write"],
+    category: "E-commerce",
+    isTrigger: false,
+    configSchema: [
+      { name: "amount", label: "Amount (cents)", type: "number", required: true, placeholder: "1000" },
+      { name: "currency", label: "Currency", type: "select", required: true, defaultValue: "usd", options: [
+        { value: "usd", label: "USD" },
+        { value: "eur", label: "EUR" },
+        { value: "gbp", label: "GBP" }
+      ] },
+      { name: "customerId", label: "Customer ID", type: "text", required: false, placeholder: "cus_1234567890" },
+      { name: "description", label: "Description", type: "text", required: false, placeholder: "Payment description" }
+    ]
+  },
+  {
+    type: "stripe_action_create_invoice",
+    title: "Create Invoice (Stripe)",
+    description: "Create a new invoice in Stripe",
+    icon: FileText,
+    providerId: "stripe",
+    requiredScopes: ["write"],
+    category: "E-commerce",
+    isTrigger: false,
+    configSchema: [
+      { name: "customerId", label: "Customer ID", type: "text", required: true, placeholder: "cus_1234567890" },
+      { name: "description", label: "Description", type: "text", required: false, placeholder: "Invoice description" },
+      { name: "autoAdvance", label: "Auto Advance", type: "boolean", required: false, defaultValue: true }
+    ]
+  },
+  {
+    type: "stripe_action_create_subscription",
+    title: "Create Subscription (Stripe)",
+    description: "Create a new subscription in Stripe",
+    icon: Repeat,
+    providerId: "stripe",
+    requiredScopes: ["write"],
+    category: "E-commerce",
+    isTrigger: false,
+    configSchema: [
+      { name: "customerId", label: "Customer ID", type: "text", required: true, placeholder: "cus_1234567890" },
+      { name: "priceId", label: "Price ID", type: "text", required: true, placeholder: "price_1234567890" },
+      { name: "trialPeriodDays", label: "Trial Period (days)", type: "number", required: false, placeholder: "7" }
+    ]
+  },
+
+  // PayPal Actions
+  {
+    type: "paypal_action_create_order",
+    title: "Create Order (PayPal)",
+    description: "Create a new PayPal order",
+    icon: ShoppingCart,
+    providerId: "paypal",
+    requiredScopes: ["openid"],
+    category: "E-commerce",
+    isTrigger: false,
+    configSchema: [
+      { name: "intent", label: "Intent", type: "select", required: true, defaultValue: "CAPTURE", options: [
+        { value: "CAPTURE", label: "Capture" },
+        { value: "AUTHORIZE", label: "Authorize" }
+      ] },
+      { name: "amount", label: "Amount", type: "number", required: true, placeholder: "10.00" },
+      { name: "currency", label: "Currency", type: "select", required: true, defaultValue: "USD", options: [
+        { value: "USD", label: "USD" },
+        { value: "EUR", label: "EUR" },
+        { value: "GBP", label: "GBP" }
+      ] },
+      { name: "description", label: "Description", type: "text", required: false, placeholder: "Order description" }
+    ]
+  },
+  {
+    type: "paypal_action_create_payout",
+    title: "Create Payout (PayPal)",
+    description: "Create a payout to a PayPal account",
+    icon: Send,
+    providerId: "paypal",
+    requiredScopes: ["openid"],
+    category: "E-commerce",
+    isTrigger: false,
+    configSchema: [
+      { name: "email", label: "PayPal Email", type: "email", required: true, placeholder: "recipient@example.com" },
+      { name: "amount", label: "Amount", type: "number", required: true, placeholder: "10.00" },
+      { name: "currency", label: "Currency", type: "select", required: true, defaultValue: "USD", options: [
+        { value: "USD", label: "USD" },
+        { value: "EUR", label: "EUR" },
+        { value: "GBP", label: "GBP" }
+      ] },
+      { name: "note", label: "Note", type: "text", required: false, placeholder: "Payout note" }
+    ]
+  },
+
+  // Box Actions
+  {
+    type: "box_action_upload_file",
+    title: "Upload File (Box)",
+    description: "Upload a file to Box",
+    icon: Upload,
+    providerId: "box",
+    requiredScopes: ["root_readwrite"],
+    category: "Storage",
+    isTrigger: false,
+    configSchema: [
+      { name: "parentFolderId", label: "Parent Folder ID", type: "text", required: true, placeholder: "Enter folder ID" },
+      { name: "fileName", label: "File Name", type: "text", required: true, placeholder: "Enter file name" },
+      { name: "fileContent", label: "File Content", type: "textarea", required: true, placeholder: "Enter file content" }
+    ]
+  },
+  {
+    type: "box_action_create_folder",
+    title: "Create Folder (Box)",
+    description: "Create a new folder in Box",
+    icon: FolderPlus,
+    providerId: "box",
+    requiredScopes: ["root_readwrite"],
+    category: "Storage",
+    isTrigger: false,
+    configSchema: [
+      { name: "parentFolderId", label: "Parent Folder ID", type: "text", required: true, placeholder: "Enter parent folder ID" },
+      { name: "folderName", label: "Folder Name", type: "text", required: true, placeholder: "Enter folder name" }
+    ]
+  },
+  {
+    type: "box_action_share_file",
+    title: "Share File (Box)",
+    description: "Share a file from Box",
+    icon: Share,
+    providerId: "box",
+    requiredScopes: ["root_readwrite"],
+    category: "Storage",
+    isTrigger: false,
+    configSchema: [
+      { name: "fileId", label: "File ID", type: "text", required: true, placeholder: "Enter file ID" },
+      { name: "access", label: "Access Level", type: "select", required: true, defaultValue: "open", options: [
+        { value: "open", label: "Open" },
+        { value: "company", label: "Company" },
+        { value: "collaborators", label: "Collaborators" }
+      ] },
+      { name: "expiresAt", label: "Expires At", type: "datetime", required: false }
+    ]
+  },
+
+  // Microsoft Outlook Actions
+  {
+    type: "microsoft-outlook_action_send_email",
+    title: "Send Email (Outlook)",
+    description: "Send an email through Microsoft Outlook",
+    icon: Mail,
+    providerId: "microsoft-outlook",
+    requiredScopes: ["Mail.Send"],
+    category: "Communication",
+    isTrigger: false,
+    configSchema: [
+      { name: "to", label: "To", type: "text", required: true, placeholder: "recipient@example.com" },
+      { name: "subject", label: "Subject", type: "text", required: true, placeholder: "Email subject" },
+      { name: "body", label: "Body", type: "textarea", required: true, placeholder: "Email body" },
+      { name: "cc", label: "CC", type: "text", required: false, placeholder: "cc@example.com" },
+      { name: "bcc", label: "BCC", type: "text", required: false, placeholder: "bcc@example.com" },
+      { name: "isHtml", label: "HTML Body", type: "boolean", required: false, defaultValue: false }
+    ]
+  },
+  {
+    type: "microsoft-outlook_action_create_calendar_event",
+    title: "Create Calendar Event (Outlook)",
+    description: "Create a new calendar event in Outlook",
+    icon: Calendar,
+    providerId: "microsoft-outlook",
+    requiredScopes: ["Calendars.ReadWrite"],
+    category: "Communication",
+    isTrigger: false,
+    configSchema: [
+      { name: "subject", label: "Subject", type: "text", required: true, placeholder: "Event subject" },
+      { name: "startTime", label: "Start Time", type: "datetime", required: true },
+      { name: "endTime", label: "End Time", type: "datetime", required: true },
+      { name: "body", label: "Description", type: "textarea", required: false, placeholder: "Event description" },
+      { name: "attendees", label: "Attendees", type: "text", required: false, placeholder: "attendee1@example.com,attendee2@example.com" },
+      { name: "location", label: "Location", type: "text", required: false, placeholder: "Meeting location" }
+    ]
+  },
+  {
+    type: "microsoft-outlook_action_create_contact",
+    title: "Create Contact (Outlook)",
+    description: "Create a new contact in Outlook",
+    icon: UserPlus,
+    providerId: "microsoft-outlook",
+    requiredScopes: ["Contacts.ReadWrite"],
+    category: "Communication",
+    isTrigger: false,
+    configSchema: [
+      { name: "givenName", label: "First Name", type: "text", required: true, placeholder: "John" },
+      { name: "surname", label: "Last Name", type: "text", required: true, placeholder: "Doe" },
+      { name: "emailAddresses", label: "Email Addresses", type: "text", required: false, placeholder: "john.doe@example.com" },
+      { name: "businessPhones", label: "Business Phone", type: "text", required: false, placeholder: "+1-555-123-4567" },
+      { name: "companyName", label: "Company", type: "text", required: false, placeholder: "Company Name" },
+      { name: "jobTitle", label: "Job Title", type: "text", required: false, placeholder: "Software Engineer" }
+    ]
+  },
+
+  // Microsoft OneNote Actions
+  {
+    type: "microsoft-onenote_action_create_page",
+    title: "Create Page (OneNote)",
+    description: "Create a new page in OneNote",
+    icon: FileText,
+    providerId: "microsoft-onenote",
+    requiredScopes: ["Notes.ReadWrite.All"],
+    category: "Productivity",
+    isTrigger: false,
+    configSchema: [
+      { name: "sectionId", label: "Section ID", type: "text", required: true, placeholder: "Enter section ID" },
+      { name: "title", label: "Page Title", type: "text", required: true, placeholder: "Enter page title" },
+      { name: "content", label: "Content", type: "textarea", required: false, placeholder: "Enter page content" }
+    ]
+  },
+  {
+    type: "microsoft-onenote_action_create_section",
+    title: "Create Section (OneNote)",
+    description: "Create a new section in OneNote",
+    icon: FolderPlus,
+    providerId: "microsoft-onenote",
+    requiredScopes: ["Notes.ReadWrite.All"],
+    category: "Productivity",
+    isTrigger: false,
+    configSchema: [
+      { name: "notebookId", label: "Notebook ID", type: "text", required: true, placeholder: "Enter notebook ID" },
+      { name: "displayName", label: "Section Name", type: "text", required: true, placeholder: "Enter section name" }
+    ]
+  },
+  {
+    type: "microsoft-onenote_action_update_page",
+    title: "Update Page (OneNote)",
+    description: "Update an existing OneNote page",
+    icon: Edit,
+    providerId: "microsoft-onenote",
+    requiredScopes: ["Notes.ReadWrite.All"],
+    category: "Productivity",
+    isTrigger: false,
+    configSchema: [
+      { name: "pageId", label: "Page ID", type: "text", required: true, placeholder: "Enter page ID" },
+      { name: "title", label: "New Title", type: "text", required: false, placeholder: "New page title" },
+      { name: "content", label: "New Content", type: "textarea", required: false, placeholder: "New page content" }
+    ]
+  },
+
+  // TikTok Triggers
+  {
+    type: "tiktok_trigger_new_video",
+    title: "New Video (TikTok)",
+    description: "Triggers when a new video is uploaded to TikTok",
+    icon: Video,
+    providerId: "tiktok",
+    category: "Social",
+    isTrigger: true,
+    configSchema: [
+      { name: "username", label: "Username", type: "text", required: true, placeholder: "Enter TikTok username to monitor" }
+    ]
+  },
+  {
+    type: "tiktok_trigger_new_comment",
+    title: "New Comment (TikTok)",
+    description: "Triggers when a new comment is posted on a TikTok video",
+    icon: MessageSquare,
+    providerId: "tiktok",
+    category: "Social",
+    isTrigger: true,
+    configSchema: [
+      { name: "videoId", label: "Video ID", type: "text", required: true, placeholder: "Enter TikTok video ID to monitor" }
+    ]
+  },
+
+  // TikTok Actions
+  {
+    type: "tiktok_action_upload_video",
+    title: "Upload Video (TikTok)",
+    description: "Upload a new video to TikTok",
+    icon: Upload,
+    providerId: "tiktok",
+    requiredScopes: ["video.upload"],
+    category: "Social",
+    isTrigger: false,
+    configSchema: [
+      { name: "videoFile", label: "Video File", type: "file", required: true, accept: "video/*", maxSize: 100 * 1024 * 1024 },
+      { name: "description", label: "Description", type: "textarea", required: false, placeholder: "Video description" },
+      { name: "privacy", label: "Privacy", type: "select", required: false, defaultValue: "public", options: [
+        { value: "public", label: "Public" },
+        { value: "private", label: "Private" }
+      ] }
+    ]
+  },
+  {
+    type: "tiktok_action_get_video_analytics",
+    title: "Get Video Analytics (TikTok)",
+    description: "Get analytics data for a TikTok video",
+    icon: BarChart,
+    providerId: "tiktok",
+    requiredScopes: ["video.list"],
+    category: "Social",
+    isTrigger: false,
+    configSchema: [
+      { name: "videoId", label: "Video ID", type: "text", required: true, placeholder: "Enter TikTok video ID" },
+      { name: "metric", label: "Metric", type: "select", required: true, defaultValue: "views", options: [
+        { value: "views", label: "Views" },
+        { value: "likes", label: "Likes" },
+        { value: "comments", label: "Comments" },
+        { value: "shares", label: "Shares" }
+      ] }
+    ]
+  },
+
+  // YouTube Studio Triggers
+  {
+    type: "youtube-studio_trigger_new_comment",
+    title: "New Comment (YouTube Studio)",
+    description: "Triggers when a new comment is posted on your YouTube video",
+    icon: MessageSquare,
+    providerId: "youtube-studio",
+    category: "Social",
+    isTrigger: true,
+    configSchema: [
+      { name: "videoId", label: "Video", type: "select", dynamic: "youtube_videos", required: true, placeholder: "Select a video to monitor" }
+    ]
+  },
+  {
+    type: "youtube-studio_trigger_channel_analytics",
+    title: "Channel Analytics Update (YouTube Studio)",
+    description: "Triggers when channel analytics reach certain thresholds",
+    icon: BarChart,
+    providerId: "youtube-studio",
+    category: "Social",
+    isTrigger: true,
+    configSchema: [
+      { name: "metric", label: "Metric", type: "select", required: true, defaultValue: "subscribers", options: [
+        { value: "subscribers", label: "Subscribers" },
+        { value: "views", label: "Views" },
+        { value: "watch_time", label: "Watch Time" }
+      ] },
+      { name: "threshold", label: "Threshold", type: "number", required: true, placeholder: "Enter threshold value" }
+    ]
+  },
+
+  // YouTube Studio Actions
+  {
+    type: "youtube-studio_action_moderate_comment",
+    title: "Moderate Comment (YouTube Studio)",
+    description: "Moderate a comment on your YouTube video",
+    icon: Shield,
+    providerId: "youtube-studio",
+    requiredScopes: ["https://www.googleapis.com/auth/youtube.force-ssl"],
+    category: "Social",
+    isTrigger: false,
+    configSchema: [
+      { name: "commentId", label: "Comment ID", type: "text", required: true, placeholder: "Enter comment ID" },
+      { name: "action", label: "Action", type: "select", required: true, defaultValue: "approve", options: [
+        { value: "approve", label: "Approve" },
+        { value: "reject", label: "Reject" },
+        { value: "spam", label: "Mark as Spam" }
+      ] }
+    ]
+  },
+  {
+    type: "youtube-studio_action_get_channel_analytics",
+    title: "Get Channel Analytics (YouTube Studio)",
+    description: "Get detailed analytics for your YouTube channel",
+    icon: BarChart,
+    providerId: "youtube-studio",
+    requiredScopes: ["https://www.googleapis.com/auth/youtube.readonly"],
+    category: "Social",
+    isTrigger: false,
+    configSchema: [
+      { name: "startDate", label: "Start Date", type: "date", required: true },
+      { name: "endDate", label: "End Date", type: "date", required: true },
+      { name: "metrics", label: "Metrics", type: "select", required: true, defaultValue: "views", options: [
+        { value: "views", label: "Views" },
+        { value: "subscribers", label: "Subscribers" },
+        { value: "watch_time", label: "Watch Time" },
+        { value: "revenue", label: "Revenue" }
+      ] }
+    ]
+  },
+
+  // Blackbaud Triggers
+  {
+    type: "blackbaud_trigger_new_donor",
+    title: "New Donor (Blackbaud)",
+    description: "Triggers when a new donor is added to the system",
+    icon: UserPlus,
+    providerId: "blackbaud",
+    category: "Other",
+    isTrigger: true,
+    configSchema: [
+      { name: "constituentType", label: "Constituent Type", type: "select", required: false, options: [
+        { value: "Individual", label: "Individual" },
+        { value: "Organization", label: "Organization" }
+      ] }
+    ]
+  },
+  {
+    type: "blackbaud_trigger_new_donation",
+    title: "New Donation (Blackbaud)",
+    description: "Triggers when a new donation is received",
+    icon: DollarSign,
+    providerId: "blackbaud",
+    category: "Other",
+    isTrigger: true,
+    configSchema: [
+      { name: "minimumAmount", label: "Minimum Amount", type: "number", required: false, placeholder: "Minimum donation amount" },
+      { name: "fundId", label: "Fund ID", type: "text", required: false, placeholder: "Specific fund ID to monitor" }
+    ]
+  },
+
+  // Blackbaud Actions
+  {
+    type: "blackbaud_action_create_constituent",
+    title: "Create Constituent (Blackbaud)",
+    description: "Create a new constituent in Blackbaud",
+    icon: UserPlus,
+    providerId: "blackbaud",
+    requiredScopes: [],
+    category: "Other",
+    isTrigger: false,
+    configSchema: [
+      { name: "firstName", label: "First Name", type: "text", required: true, placeholder: "Enter first name" },
+      { name: "lastName", label: "Last Name", type: "text", required: true, placeholder: "Enter last name" },
+      { name: "email", label: "Email", type: "email", required: false, placeholder: "Enter email address" },
+      { name: "phone", label: "Phone", type: "text", required: false, placeholder: "Enter phone number" },
+      { name: "address", label: "Address", type: "textarea", required: false, placeholder: "Enter address" }
+    ]
+  },
+  {
+    type: "blackbaud_action_create_donation",
+    title: "Create Donation (Blackbaud)",
+    description: "Create a new donation record in Blackbaud",
+    icon: DollarSign,
+    providerId: "blackbaud",
+    requiredScopes: [],
+    category: "Other",
+    isTrigger: false,
+    configSchema: [
+      { name: "constituentId", label: "Constituent ID", type: "text", required: true, placeholder: "Enter constituent ID" },
+      { name: "amount", label: "Amount", type: "number", required: true, placeholder: "Enter donation amount" },
+      { name: "fundId", label: "Fund ID", type: "text", required: false, placeholder: "Enter fund ID" },
+      { name: "date", label: "Donation Date", type: "date", required: true },
+      { name: "notes", label: "Notes", type: "textarea", required: false, placeholder: "Additional notes" }
+    ]
+  },
+
+  // Gumroad Triggers
+  {
+    type: "gumroad_trigger_new_sale",
+    title: "New Sale (Gumroad)",
+    description: "Triggers when a new sale is made on Gumroad",
+    icon: ShoppingCart,
+    providerId: "gumroad",
+    category: "E-commerce",
+    isTrigger: true,
+    configSchema: [
+      { name: "productId", label: "Product ID", type: "text", required: false, placeholder: "Specific product ID to monitor" },
+      { name: "minimumAmount", label: "Minimum Amount", type: "number", required: false, placeholder: "Minimum sale amount" }
+    ]
+  },
+  {
+    type: "gumroad_trigger_new_subscriber",
+    title: "New Subscriber (Gumroad)",
+    description: "Triggers when someone subscribes to your Gumroad product",
+    icon: UserPlus,
+    providerId: "gumroad",
+    category: "E-commerce",
+    isTrigger: true,
+    configSchema: [
+      { name: "productId", label: "Product ID", type: "text", required: false, placeholder: "Specific product ID to monitor" }
+    ]
+  },
+
+  // Gumroad Actions
+  {
+    type: "gumroad_action_create_product",
+    title: "Create Product (Gumroad)",
+    description: "Create a new product on Gumroad",
+    icon: Package,
+    providerId: "gumroad",
+    requiredScopes: ["edit_products"],
+    category: "E-commerce",
+    isTrigger: false,
+    configSchema: [
+      { name: "name", label: "Product Name", type: "text", required: true, placeholder: "Enter product name" },
+      { name: "description", label: "Description", type: "textarea", required: false, placeholder: "Product description" },
+      { name: "price", label: "Price (cents)", type: "number", required: true, placeholder: "Price in cents (e.g., 1000 for $10)" },
+      { name: "currency", label: "Currency", type: "select", required: true, defaultValue: "USD", options: [
+        { value: "USD", label: "USD" },
+        { value: "EUR", label: "EUR" },
+        { value: "GBP", label: "GBP" }
+      ] },
+      { name: "productType", label: "Product Type", type: "select", required: true, defaultValue: "standard", options: [
+        { value: "standard", label: "Standard" },
+        { value: "subscription", label: "Subscription" }
+      ] }
+    ]
+  },
+  {
+    type: "gumroad_action_get_sales_analytics",
+    title: "Get Sales Analytics (Gumroad)",
+    description: "Get sales analytics data from Gumroad",
+    icon: BarChart,
+    providerId: "gumroad",
+    requiredScopes: ["view_sales"],
+    category: "E-commerce",
+    isTrigger: false,
+    configSchema: [
+      { name: "startDate", label: "Start Date", type: "date", required: true },
+      { name: "endDate", label: "End Date", type: "date", required: true },
+      { name: "productId", label: "Product ID", type: "text", required: false, placeholder: "Specific product ID (optional)" }
+    ]
   },
 ]

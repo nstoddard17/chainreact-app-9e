@@ -78,6 +78,7 @@ export interface IntegrationStore {
   reconnectIntegration: (integrationId: string) => Promise<void>
   deleteIntegration: (integrationId: string) => Promise<void>
   setCurrentUserId: (userId: string | null) => void
+  checkIntegrationScopes: (providerId: string) => { needsReconnection: boolean; reason: string; missingScopes?: string[] }
 }
 
 export const useIntegrationStore = create<IntegrationStore>()(
@@ -583,6 +584,78 @@ export const useIntegrationStore = create<IntegrationStore>()(
             url = "/api/integrations/fetch-user-data"
             dataType = "google-sheets_sheets"
             break
+          case "google-docs_documents":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "google-docs_documents"
+            break
+          case "google-docs_templates":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "google-docs_templates"
+            break
+          case "youtube_channels":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "youtube_channels"
+            break
+          case "youtube_videos":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "youtube_videos"
+            break
+          case "youtube_playlists":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "youtube_playlists"
+            break
+          case "teams_chats":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "teams_chats"
+            break
+          case "teams_teams":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "teams_teams"
+            break
+          case "teams_channels":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "teams_channels"
+            break
+          case "github_repositories":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "github_repositories"
+            break
+          case "gitlab_projects":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "gitlab_projects"
+            break
+          case "notion_databases":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "notion_databases"
+            break
+          case "notion_pages":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "notion_pages"
+            break
+          case "trello_boards":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "trello_boards"
+            break
+          case "trello_lists":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "trello_lists"
+            break
+          case "hubspot_companies":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "hubspot_companies"
+            break
+          case "airtable_bases":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "airtable_bases"
+            break
+          case "gumroad_products":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "gumroad_products"
+            break
+          case "blackbaud_constituents":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "blackbaud_constituents"
+            break
           default:
             throw new Error(`Loading data for ${providerId} is not supported.`)
         }
@@ -717,6 +790,41 @@ export const useIntegrationStore = create<IntegrationStore>()(
       })
       
       set({ loadingStates: newLoadingStates, error: null })
+    },
+
+    // Helper function to check if integration needs reconnection due to missing scopes
+    checkIntegrationScopes: (providerId: string) => {
+      const { integrations } = get()
+      const integration = integrations.find(i => i.provider === providerId)
+      
+      if (!integration || integration.status !== "connected") {
+        return { needsReconnection: false, reason: "Integration not connected" }
+      }
+
+      const grantedScopes = integration.scopes || []
+      console.log(`🔍 Checking scopes for ${providerId}:`, grantedScopes)
+      
+      // Check for Google Docs specific scope requirements
+      if (providerId === "google-docs") {
+        const requiredScopes = [
+          "https://www.googleapis.com/auth/documents",
+          "https://www.googleapis.com/auth/drive.readonly"
+        ]
+        
+        const missingScopes = requiredScopes.filter(scope => !grantedScopes.includes(scope))
+        
+        if (missingScopes.length > 0) {
+          console.warn(`❌ Missing scopes for ${providerId}:`, missingScopes)
+          return {
+            needsReconnection: true,
+            reason: `Missing required scopes: ${missingScopes.join(", ")}`,
+            missingScopes
+          }
+        }
+      }
+      
+      console.log(`✅ All required scopes present for ${providerId}`)
+      return { needsReconnection: false, reason: "All required scopes present" }
     },
   })
 )

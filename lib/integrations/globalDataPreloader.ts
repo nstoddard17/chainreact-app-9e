@@ -43,6 +43,12 @@ class GlobalDataPreloader {
       batchSize: 50,
     },
     {
+      provider: "google-docs",
+      dataTypes: ["google-docs_documents", "google-docs_templates"],
+      priority: 2,
+      batchSize: 50,
+    },
+    {
       provider: "google-calendar",
       dataTypes: ["google-calendar_calendars"],
       priority: 3,
