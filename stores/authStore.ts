@@ -361,6 +361,30 @@ export const useAuthStore = create<AuthState>()(
                 }, 100)
               }
             })
+
+            // Add visibility change listener to handle tab switching
+            if (typeof window !== 'undefined') {
+              const handleVisibilityChange = () => {
+                if (document.visibilityState === 'visible') {
+                  console.log("🔄 Tab became visible, checking auth state...")
+                  // Re-check session when tab becomes visible
+                  setTimeout(async () => {
+                    const { data: { session } } = await supabase.auth.getSession()
+                    const currentState = get()
+                    
+                    if (session?.user && !currentState.user) {
+                      console.log("🔄 Restoring session from tab visibility change")
+                      // Re-initialize if session exists but user state is missing
+                      setTimeout(() => {
+                        get().initialize()
+                      }, 100)
+                    }
+                  }, 500)
+                }
+              }
+
+              document.addEventListener('visibilitychange', handleVisibilityChange)
+            }
           }
         } catch (error: any) {
           console.error("💥 Auth initialization error:", error)
@@ -372,30 +396,42 @@ export const useAuthStore = create<AuthState>()(
 
       signOut: async () => {
         try {
-          set({ loading: true })
+          set({ loading: true, error: null })
+
+          // Clear local state first
+          set({ user: null, profile: null, error: null })
+
+          // Clear integration store immediately
+          try {
+            const { useIntegrationStore } = await import("./integrationStore")
+            const integrationStore = useIntegrationStore.getState()
+            integrationStore.setCurrentUserId(null)
+            integrationStore.clearAllData()
+            console.log("✅ Integration store cleared on logout")
+          } catch (error) {
+            console.error("Error clearing integration data:", error)
+          }
+          
+          // Sign out from Supabase
           const { error } = await supabase.auth.signOut()
-          if (error) throw error
+          if (error) {
+            console.error("Supabase sign out error:", error)
+            // Don't throw here, we've already cleared local state
+          }
 
-          set({ user: null, loading: false, error: null })
-
-          // Clear integration store properly
-          setTimeout(async () => {
-            try {
-              const { useIntegrationStore } = await import("./integrationStore")
-              const integrationStore = useIntegrationStore.getState()
-              
-              // Set current user to null first, then clear all data
-              integrationStore.setCurrentUserId(null)
-              integrationStore.clearAllData()
-              
-              console.log("✅ Integration store cleared on logout")
-            } catch (error) {
-              console.error("Error clearing integration data:", error)
-            }
-          }, 100)
+          set({ loading: false })
+          
+          // Force a page reload to ensure clean state
+          if (typeof window !== 'undefined') {
+            window.location.href = '/'
+          }
         } catch (error: any) {
           console.error("Sign out error:", error)
           set({ error: error.message, loading: false })
+          // Still redirect even if there's an error
+          if (typeof window !== 'undefined') {
+            window.location.href = '/'
+          }
         }
       },
 
