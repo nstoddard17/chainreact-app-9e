@@ -5,6 +5,7 @@ import { Inter } from "next/font/google"
 import { ThemeProvider } from "@/components/theme-provider"
 import SupabaseProvider from "@/components/providers/SupabaseProvider"
 import AuthInitializer from "@/components/auth/AuthInitializer"
+import { UserActivityTracker } from "@/components/UserActivityTracker"
 import { Toaster } from "@/components/ui/toaster"
 import { ReAuthNotification } from "@/components/integrations/ReAuthNotification"
 
@@ -30,6 +31,7 @@ export default function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
           <SupabaseProvider>
             <AuthInitializer />
+            <UserActivityTracker />
             <ReAuthNotification />
             <Toaster />
             {children}

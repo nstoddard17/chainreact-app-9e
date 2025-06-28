@@ -28,6 +28,7 @@ interface Profile {
   secondary_email?: string
   phone_number?: string
   provider?: string
+  role?: string
   created_at?: string
   updated_at?: string
 }
@@ -163,74 +164,112 @@ export const useAuthStore = create<AuthState>()(
               avatar: session.user.user_metadata?.avatar_url,
             }
 
-            // Fetch additional profile data from user_profiles table with timeout
+            // Check if profile exists first, create if it doesn't
+            console.log("🔍 Checking if profile exists for user:", session.user.id)
+            
+            let profile: Profile | null = null
+            
             try {
-              const profilePromise = supabase
+              // First, try to fetch existing profile
+              console.log("🔄 Attempting to fetch existing profile...")
+              const fetchResult = await supabase
                 .from('user_profiles')
-                .select('id, first_name, last_name, full_name, company, job_title, username, secondary_email, phone_number, avatar_url, provider, created_at, updated_at')
+                .select('id, first_name, last_name, full_name, company, job_title, username, secondary_email, phone_number, avatar_url, provider, role, created_at, updated_at')
                 .eq('id', session.user.id)
                 .single()
-              
-              const profileTimeout = new Promise<never>((_, reject) => 
-                setTimeout(() => reject(new Error('Profile fetch timeout')), 2000) // Reduced from 3 seconds to 2 seconds
-              )
-              
-              const profileResult = await Promise.race([profilePromise, profileTimeout])
-              const { data: profileData } = profileResult
 
-              if (profileData) {
-                user.first_name = profileData.first_name
-                user.last_name = profileData.last_name
-                user.full_name = profileData.full_name || user.name
-              }
-
-              // If no profile exists, create one
-              let profile: Profile
-              if (!profileData) {
-                // For new users, detect provider from auth.users metadata as fallback
-                const detectedProvider = session.user.app_metadata?.provider || 
-                                       session.user.app_metadata?.providers?.[0] || 
-                                       (session.user.identities?.some(id => id.provider === 'google') ? 'google' : 'email')
+              if (fetchResult.error) {
+                console.error("❌ Profile fetch error:", fetchResult.error)
+                console.error("❌ Error details:", JSON.stringify(fetchResult.error, null, 2))
                 
-                profile = {
+                // If fetch fails, try to create a new profile
+                console.log("🔄 Attempting to create new profile...")
+                const createProfileData = {
                   id: session.user.id,
                   full_name: user.name,
                   avatar_url: user.avatar,
-                  provider: detectedProvider
+                  provider: session.user.app_metadata?.provider || 
+                           session.user.app_metadata?.providers?.[0] || 
+                           (session.user.identities?.some(id => id.provider === 'google') ? 'google' : 'email'),
+                  role: 'free',
+                  created_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString(),
                 }
 
-                // Save the profile to database with timeout
-                try {
-                  const createPromise = supabase
-                    .from('user_profiles')
-                    .insert({
-                      id: session.user.id,
-                      full_name: user.name,
-                      avatar_url: user.avatar,
-                      provider: detectedProvider,
-                      created_at: new Date().toISOString(),
-                      updated_at: new Date().toISOString(),
-                    })
-                  
-                  const createTimeout = new Promise<never>((_, reject) => 
-                    setTimeout(() => reject(new Error('Profile creation timeout')), 2000) // Reduced from 3 seconds to 2 seconds
-                  )
-                  
-                  const createResult = await Promise.race([createPromise, createTimeout])
-                  const { error: createError } = createResult
+                const createResult = await supabase
+                  .from('user_profiles')
+                  .insert(createProfileData)
+                  .select('id, first_name, last_name, full_name, company, job_title, username, secondary_email, phone_number, avatar_url, provider, role, created_at, updated_at')
+                  .single()
 
-                  if (createError) {
-                    console.error('Error creating user profile:', createError)
-                  } else {
-                    console.log('✅ Created user profile with provider:', detectedProvider)
+                if (createResult.error) {
+                  console.error("❌ Profile creation error:", createResult.error)
+                  console.error("❌ Creation error details:", JSON.stringify(createResult.error, null, 2))
+                  
+                  // Create a fallback profile from auth metadata
+                  console.log("🔄 Creating fallback profile from auth metadata...")
+                  const detectedProvider = session.user.app_metadata?.provider || 
+                                         session.user.app_metadata?.providers?.[0] || 
+                                         (session.user.identities?.some(id => id.provider === 'google') ? 'google' : 'email')
+                      
+                  // Extract name from user metadata
+                  const fullName = session.user.user_metadata?.full_name || 
+                                  session.user.user_metadata?.name || 
+                                  session.user.email?.split('@')[0] || 'User'
+                      
+                  const nameParts = fullName.split(' ')
+                  const firstName = nameParts[0] || ''
+                  const lastName = nameParts.slice(1).join(' ') || ''
+                      
+                  profile = {
+                    id: session.user.id,
+                    full_name: fullName,
+                    first_name: firstName,
+                    last_name: lastName,
+                    avatar_url: session.user.user_metadata?.avatar_url,
+                    provider: detectedProvider,
+                    role: 'free',
+                    username: session.user.email?.split('@')[0] || 'user',
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
                   }
-                } catch (profileCreateError) {
-                  console.error('Profile creation failed:', profileCreateError)
-                  // Continue without profile creation - don't fail the whole auth
+                      
+                  // Update user object with extracted data
+                  user.first_name = firstName
+                  user.last_name = lastName
+                  user.full_name = fullName
+                      
+                  console.log("✅ Created fallback profile:", profile)
+                } else {
+                  console.log("✅ Profile creation successful:", createResult.data)
+                  const createdProfileData = createResult.data
+                  
+                  if (createdProfileData) {
+                    user.first_name = createdProfileData.first_name
+                    user.last_name = createdProfileData.last_name
+                    user.full_name = createdProfileData.full_name || user.name
+                    profile = createdProfileData
+                  } else {
+                    throw new Error('No profile data returned from creation')
+                  }
                 }
               } else {
-                profile = profileData
-                console.log('✅ Using existing profile with provider:', profile.provider)
+                console.log("✅ Profile fetch successful:", fetchResult.data)
+                const fetchedProfileData = fetchResult.data
+                
+                if (fetchedProfileData) {
+                  user.first_name = fetchedProfileData.first_name
+                  user.last_name = fetchedProfileData.last_name
+                  user.full_name = fetchedProfileData.full_name || user.name
+                  profile = fetchedProfileData
+                } else {
+                  throw new Error('No profile data found')
+                }
+              }
+
+              // Ensure profile is set before continuing
+              if (!profile) {
+                throw new Error('Profile was not properly initialized')
               }
 
               set({ user, profile, loading: false, initialized: true })
@@ -300,22 +339,66 @@ export const useAuthStore = create<AuthState>()(
                 }
 
                 // Fetch additional profile data from user_profiles table
-                const { data: profileData } = await supabase
+                const { data: profileData, error: profileError } = await supabase
                   .from('user_profiles')
-                  .select('id, first_name, last_name, full_name, company, job_title, username, secondary_email, phone_number, avatar_url, provider, created_at, updated_at')
+                  .select('id, first_name, last_name, full_name, company, job_title, username, secondary_email, phone_number, avatar_url, provider, role, created_at, updated_at')
                   .eq('id', session.user.id)
                   .single()
 
-                if (profileData) {
+                let profile: Profile
+                
+                if (profileError) {
+                  console.error("❌ Profile fetch error in auth state change:", profileError)
+                  // Try fetching without the role column in case it doesn't exist yet
+                  const fallbackResult = await supabase
+                    .from('user_profiles')
+                    .select('id, first_name, last_name, full_name, company, job_title, username, secondary_email, phone_number, avatar_url, provider, created_at, updated_at')
+                    .eq('id', session.user.id)
+                    .single()
+                  
+                  if (fallbackResult.error) {
+                    console.error("❌ Fallback profile fetch also failed:", fallbackResult.error)
+                    // Create a new profile if none exists
+                    const detectedProvider = session.user.app_metadata?.provider || 
+                                           session.user.app_metadata?.providers?.[0] || 
+                                           (session.user.identities?.some(id => id.provider === 'google') ? 'google' : 'email')
+                    
+                    profile = {
+                      id: session.user.id,
+                      full_name: user.name,
+                      avatar_url: user.avatar,
+                      provider: detectedProvider,
+                      role: 'free'
+                    }
+                  } else {
+                    const fallbackProfileData = fallbackResult.data
+                    if (fallbackProfileData) {
+                      user.first_name = fallbackProfileData.first_name
+                      user.last_name = fallbackProfileData.last_name
+                      user.full_name = fallbackProfileData.full_name || user.name
+                      profile = { ...fallbackProfileData, role: 'free' }
+                    } else {
+                      // Create a new profile if none exists
+                      const detectedProvider = session.user.app_metadata?.provider || 
+                                             session.user.app_metadata?.providers?.[0] || 
+                                             (session.user.identities?.some(id => id.provider === 'google') ? 'google' : 'email')
+                      
+                      profile = {
+                        id: session.user.id,
+                        full_name: user.name,
+                        avatar_url: user.avatar,
+                        provider: detectedProvider,
+                        role: 'free'
+                      }
+                    }
+                  }
+                } else if (profileData) {
                   user.first_name = profileData.first_name
                   user.last_name = profileData.last_name
                   user.full_name = profileData.full_name || user.name
-                }
-
-                // If no profile exists, create one
-                let profile: Profile
-                if (!profileData) {
-                  // For new users, detect provider from auth.users metadata as fallback
+                  profile = profileData
+                } else {
+                  // Create a new profile if none exists
                   const detectedProvider = session.user.app_metadata?.provider || 
                                          session.user.app_metadata?.providers?.[0] || 
                                          (session.user.identities?.some(id => id.provider === 'google') ? 'google' : 'email')
@@ -324,29 +407,9 @@ export const useAuthStore = create<AuthState>()(
                     id: session.user.id,
                     full_name: user.name,
                     avatar_url: user.avatar,
-                    provider: detectedProvider
+                    provider: detectedProvider,
+                    role: 'free'
                   }
-
-                  // Save the profile to database
-                  const { error: createError } = await supabase
-                    .from('user_profiles')
-                    .insert({
-                      id: session.user.id,
-                      full_name: user.name,
-                      avatar_url: user.avatar,
-                      provider: detectedProvider,
-                      created_at: new Date().toISOString(),
-                      updated_at: new Date().toISOString(),
-                    })
-
-                  if (createError) {
-                    console.error('Error creating user profile:', createError)
-                  } else {
-                    console.log('✅ Created user profile with provider:', detectedProvider)
-                  }
-                } else {
-                  profile = profileData
-                  console.log('✅ Using existing profile with provider:', profile.provider)
                 }
 
                 set({ user, profile, error: null })
