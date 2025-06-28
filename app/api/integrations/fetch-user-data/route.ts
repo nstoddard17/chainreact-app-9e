@@ -95,6 +95,16 @@ export async function POST(request: NextRequest) {
       fetcherKey = dataType
     }
     
+    // Special case for gmail-recent-recipients
+    if (provider === "gmail" && dataType === "gmail-recent-recipients") {
+      fetcherKey = "gmail-recent-recipients"
+    }
+    
+    // Special case for google-calendars
+    if (provider === "google-calendar" && dataType === "google-calendars") {
+      fetcherKey = "google-calendars"
+    }
+    
     const fetcher = dataFetchers[fetcherKey]
 
     if (!fetcher) {
@@ -483,7 +493,7 @@ const dataFetchers: DataFetcher = {
     }
   },
 
-  "google-calendar_calendars": async (integration: any) => {
+  "google-calendars": async (integration: any) => {
     try {
       const response = await fetch("https://www.googleapis.com/calendar/v3/users/me/calendarList", {
         headers: {
@@ -818,6 +828,109 @@ const dataFetchers: DataFetcher = {
     } catch (error: any) {
       console.error("Error fetching Gmail recent senders/recipients:", error)
       throw error
+    }
+  },
+
+  "gmail-recent-recipients": async (integration: any) => {
+    try {
+      // Validate integration has access token
+      if (!integration.access_token) {
+        throw new Error("Gmail authentication required. Please reconnect your account.")
+      }
+
+      // Get recent sent messages (last 100)
+      const messagesResponse = await fetch(
+        `https://gmail.googleapis.com/gmail/v1/users/me/messages?labelIds=SENT&maxResults=100`,
+        {
+          headers: {
+            Authorization: `Bearer ${integration.access_token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      )
+
+      if (!messagesResponse.ok) {
+        if (messagesResponse.status === 401) {
+          throw new Error("Gmail authentication expired. Please reconnect your account.")
+        }
+        const errorText = await messagesResponse.text().catch(() => "Unknown error")
+        throw new Error(`Gmail API error: ${messagesResponse.status} - ${errorText}`)
+      }
+
+      const messagesData = await messagesResponse.json()
+      const messages = messagesData.messages || []
+
+      if (messages.length === 0) {
+        return []
+      }
+
+      // Get detailed information for each message
+      const messageDetails = await Promise.all(
+        messages.slice(0, 50).map(async (message: { id: string }) => {
+          try {
+            const response = await fetch(
+              `https://gmail.googleapis.com/gmail/v1/users/me/messages/${message.id}?format=metadata&metadataHeaders=To&metadataHeaders=Cc&metadataHeaders=Bcc`,
+              {
+                headers: {
+                  Authorization: `Bearer ${integration.access_token}`,
+                  "Content-Type": "application/json",
+                },
+              }
+            )
+
+            if (!response.ok) return null
+            
+            const data = await response.json()
+            return data.payload?.headers || []
+          } catch (error) {
+            console.warn(`Failed to fetch message ${message.id}:`, error)
+            return null
+          }
+        })
+      )
+
+      // Extract unique email addresses from To, Cc, Bcc headers
+      const emailSet = new Set<string>()
+      const emailData: { email: string; name?: string; frequency: number }[] = []
+
+      messageDetails.forEach((headers) => {
+        if (!headers || !Array.isArray(headers)) return
+        
+        headers.forEach((header: { name: string; value: string }) => {
+          try {
+            if (['To', 'Cc', 'Bcc'].includes(header.name) && header.value && typeof header.value === 'string') {
+              const emailAddresses = extractEmailAddresses(header.value)
+              emailAddresses.forEach(({ email, name }) => {
+                if (email && !emailSet.has(email.toLowerCase())) {
+                  emailSet.add(email.toLowerCase())
+                  emailData.push({ email, name, frequency: 1 })
+                } else if (email) {
+                  // Increment frequency for recurring emails
+                  const existing = emailData.find(e => e.email.toLowerCase() === email.toLowerCase())
+                  if (existing) existing.frequency++
+                }
+              })
+            }
+          } catch (error) {
+            console.warn(`Failed to process header ${header.name}:`, error)
+          }
+        })
+      })
+
+      // Sort by frequency (most used first) and return formatted results
+      return emailData
+        .sort((a, b) => b.frequency - a.frequency)
+        .slice(0, 20) // Return top 20 recent recipients
+        .map(({ email, name }) => ({
+          value: email,
+          label: name ? `${name} <${email}>` : email,
+          email,
+          name
+        }))
+
+    } catch (error: any) {
+      console.error("Failed to get Gmail recent recipients:", error)
+      throw new Error(`Failed to get Gmail recent recipients: ${error.message}`)
     }
   },
 
@@ -1461,82 +1574,6 @@ const dataFetchers: DataFetcher = {
       throw error
     }
   },
-  "notion_databases": async (integration: any) => {
-    try {
-      const response = await fetch(
-        "https://api.notion.com/v1/search",
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${integration.access_token}`,
-            "Notion-Version": "2022-06-28",
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            filter: {
-              property: "object",
-              value: "database",
-            },
-            page_size: 100,
-          }),
-        },
-      )
-      if (!response.ok) {
-        if (response.status === 401) {
-          throw new Error("Notion authentication expired. Please reconnect your account.")
-        }
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(`Notion API error: ${response.status} - ${errorData.message || "Unknown error"}`)
-      }
-      const data = await response.json()
-      return data.results?.map((database: any) => ({
-        value: database.id,
-        label: getDatabaseTitle(database),
-        description: database.description?.[0]?.plain_text,
-      })) || []
-    } catch (error: any) {
-      console.error("Error fetching Notion databases:", error)
-      throw error
-    }
-  },
-  "notion_pages": async (integration: any) => {
-    try {
-      const response = await fetch(
-        "https://api.notion.com/v1/search",
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${integration.access_token}`,
-            "Notion-Version": "2022-06-28",
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            filter: {
-              property: "object",
-              value: "page",
-            },
-            page_size: 100,
-          }),
-        },
-      )
-      if (!response.ok) {
-        if (response.status === 401) {
-          throw new Error("Notion authentication expired. Please reconnect your account.")
-        }
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(`Notion API error: ${response.status} - ${errorData.message || "Unknown error"}`)
-      }
-      const data = await response.json()
-      return data.results?.map((page: any) => ({
-        value: page.id,
-        label: getPageTitle(page),
-        description: page.properties?.Description?.rich_text?.[0]?.plain_text,
-      })) || []
-    } catch (error: any) {
-      console.error("Error fetching Notion pages:", error)
-      throw error
-    }
-  },
   "trello_lists": async (integration: any) => {
     try {
       // First get all boards, then get lists for each board
@@ -1609,4 +1646,49 @@ function getDatabaseTitle(database: any): string {
     return database.title[0].plain_text
   }
   return "Untitled Database"
+}
+
+function extractEmailAddresses(headerValue: string): { email: string; name?: string }[] {
+  const emails: { email: string; name?: string }[] = []
+  
+  try {
+    if (!headerValue || typeof headerValue !== 'string') {
+      return emails
+    }
+
+    // Split by comma and clean up each email
+    const parts = headerValue.split(',').map(part => part.trim()).filter(Boolean)
+    
+    parts.forEach(part => {
+      try {
+        // Match patterns like "Name <email@domain.com>" or just "email@domain.com"
+        const nameEmailMatch = part.match(/^(.+?)\s*<([^>]+)>$/)
+        const emailOnlyMatch = part.match(/^([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})$/)
+        
+        if (nameEmailMatch) {
+          const name = nameEmailMatch[1].replace(/['"]/g, '').trim()
+          const email = nameEmailMatch[2].trim()
+          if (isValidEmail(email)) {
+            emails.push({ email, name })
+          }
+        } else if (emailOnlyMatch) {
+          const email = emailOnlyMatch[1].trim()
+          if (isValidEmail(email)) {
+            emails.push({ email })
+          }
+        }
+      } catch (error) {
+        console.warn(`Failed to parse email part: ${part}`, error)
+      }
+    })
+  } catch (error) {
+    console.warn(`Failed to extract emails from header: ${headerValue}`, error)
+  }
+  
+  return emails
+}
+
+function isValidEmail(email: string): boolean {
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
+  return emailRegex.test(email)
 }
