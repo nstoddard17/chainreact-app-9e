@@ -92,3 +92,22 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+/* Hide scrollbar for Chrome, Safari, Opera, Edge, and Firefox for all descendants */
+.hide-scrollbar,
+.hide-scrollbar * {
+  scrollbar-width: none !important;      /* Firefox */
+  -ms-overflow-style: none !important;   /* IE and Edge */
+}
+.hide-scrollbar::-webkit-scrollbar,
+.hide-scrollbar *::-webkit-scrollbar {
+  display: none !important;              /* Chrome, Safari, Opera */
+}
+/* Radix UI ScrollArea custom scrollbar override */
+.hide-scrollbar [data-radix-scroll-area-viewport] {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+.hide-scrollbar [data-radix-scroll-area-viewport]::-webkit-scrollbar {
+  display: none !important;
+}
