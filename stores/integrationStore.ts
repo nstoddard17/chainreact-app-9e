@@ -159,6 +159,8 @@ export const useIntegrationStore = create<IntegrationStore>()(
 
       set({ loading: true, error: null })
 
+      let timeoutId: NodeJS.Timeout | null = null
+
       try {
         const supabase = getSupabaseClient()
         if (!supabase) throw new Error("Supabase client not available")
@@ -212,7 +214,8 @@ export const useIntegrationStore = create<IntegrationStore>()(
 
         const controller = new AbortController()
         currentAbortController = controller
-        const timeoutId = setTimeout(() => {
+        
+        timeoutId = setTimeout(() => {
           try {
             controller.abort('Request timeout')
           } catch (error) {
@@ -230,7 +233,10 @@ export const useIntegrationStore = create<IntegrationStore>()(
           cache: 'no-store',
         })
 
-        clearTimeout(timeoutId)
+        if (timeoutId) {
+          clearTimeout(timeoutId)
+          timeoutId = null
+        }
         currentAbortController = null
 
         if (!response.ok) {
@@ -247,10 +253,15 @@ export const useIntegrationStore = create<IntegrationStore>()(
           lastRefreshTime: new Date().toISOString(),
         })
       } catch (error: any) {
-        if (currentAbortController) {
+        // Clean up timeout and abort controller in case of error
+        if (timeoutId) {
           clearTimeout(timeoutId)
+          timeoutId = null
+        }
+        if (currentAbortController) {
           currentAbortController = null
         }
+        
         console.error("Failed to fetch integrations:", error)
         set({
           error: error.name === "AbortError" ? "Request timed out - please try again" : error.message,

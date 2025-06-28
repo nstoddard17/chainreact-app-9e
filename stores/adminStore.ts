@@ -15,6 +15,7 @@ interface AdminState {
   loading: boolean
   error: string | null
   fetchUserStats: () => Promise<void>
+  clearAllData: () => void
 }
 
 export const useAdminStore = create<AdminState>((set) => ({
@@ -66,5 +67,19 @@ export const useAdminStore = create<AdminState>((set) => ({
         error: "Failed to load user stats",
       })
     }
+  },
+  clearAllData: () => {
+    set({
+      userStats: {
+        totalUsers: 0,
+        freeUsers: 0,
+        proUsers: 0,
+        businessUsers: 0,
+        enterpriseUsers: 0,
+        adminUsers: 0,
+      },
+      loading: false,
+      error: null,
+    })
   },
 })) 

@@ -98,6 +98,18 @@ export function UserActivityTracker() {
       timeoutId = setTimeout(updatePresence, 10000)
     }
 
+    // Handle signout event
+    const handleSignout = () => {
+      console.log('UserActivityTracker: Signout event received, stopping all activities')
+      isActiveRef.current = false
+      clearTimeout(timeoutId)
+      clearInterval(intervalId)
+      events.forEach(event => {
+        document.removeEventListener(event, handleActivity)
+      })
+      window.removeEventListener('user-signout', handleSignout)
+    }
+
     // Track various user activities
     const events = [
       'mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click',
@@ -107,6 +119,9 @@ export function UserActivityTracker() {
     events.forEach(event => {
       document.addEventListener(event, handleActivity, { passive: true })
     })
+
+    // Listen for signout event
+    window.addEventListener('user-signout', handleSignout)
 
     // Update presence immediately and then every 2 minutes
     updatePresence()
@@ -120,6 +135,7 @@ export function UserActivityTracker() {
       events.forEach(event => {
         document.removeEventListener(event, handleActivity)
       })
+      window.removeEventListener('user-signout', handleSignout)
     }
   }, [user])
 
