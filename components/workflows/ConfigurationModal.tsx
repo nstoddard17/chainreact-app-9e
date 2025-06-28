@@ -57,9 +57,9 @@ export default function ConfigurationModal({
     } catch (error) {
       // Fallback to UTC if timezone detection fails
       return "UTC"
-        }
-      }
-      
+    }
+  }
+  
   // Function to check if a field should be shown based on dependencies
   const shouldShowField = (field: ConfigField): boolean => {
     if (!field.dependsOn) return true
@@ -103,8 +103,8 @@ export default function ConfigurationModal({
   const fetchDynamicData = useCallback(async () => {
     if (!nodeInfo || !nodeInfo.providerId) return
 
-        const integration = getIntegrationByProvider(nodeInfo.providerId)
-        if (!integration) return
+    const integration = getIntegrationByProvider(nodeInfo.providerId)
+    if (!integration) return
 
     // Check if integration needs reconnection due to missing scopes
     const scopeCheck = checkIntegrationScopes(nodeInfo.providerId)
@@ -114,16 +114,16 @@ export default function ConfigurationModal({
       return
     }
 
-        setLoadingDynamic(true)
+    setLoadingDynamic(true)
     const newOptions: Record<string, any[]> = {}
     let hasData = false
 
-        for (const field of nodeInfo.configSchema || []) {
+    for (const field of nodeInfo.configSchema || []) {
       if (field.dynamic) {
         try {
           console.log(`Fetching dynamic data for ${field.dynamic}`)
           const data = await loadIntegrationData(field.dynamic, integration.id)
-            if (data) {
+          if (data) {
             hasData = true
             if (field.dynamic === "slack-channels") {
               newOptions[field.name] = data.map((channel: any) => ({
@@ -145,12 +145,12 @@ export default function ConfigurationModal({
                 value: file.id,
                 label: file.name,
               }))
-          } else if (field.dynamic === "gmail-recent-recipients") {
+            } else if (field.dynamic === "gmail-recent-recipients") {
               newOptions[field.name] = data.map((recipient: any) => ({
                 value: recipient.email,
                 label: recipient.email,
               }))
-          } else if (field.dynamic === "gmail-enhanced-recipients") {
+            } else if (field.dynamic === "gmail-enhanced-recipients") {
               newOptions[field.name] = data.map((recipient: any) => ({
                 value: recipient.email,
                 label: recipient.email,
@@ -202,51 +202,51 @@ export default function ConfigurationModal({
                 description: `${label.messages_total} messages`,
               }))
             } else if (field.dynamic === "google-sheets_spreadsheets") {
-            const data = await loadIntegrationData(
+              const data = await loadIntegrationData(
                 field.dynamic,
-              integration.id,
-            )
-            if (data) {
+                integration.id,
+              )
+              if (data) {
                 newOptions[field.name] = data.map((spreadsheet: any) => ({
                   value: spreadsheet.id,
                   label: spreadsheet.name,
-              }))
-            }
+                }))
+              }
             } else if (field.dynamic === "google-sheets_sheets") {
-            const data = await loadIntegrationData(
+              const data = await loadIntegrationData(
                 field.dynamic,
-              integration.id,
-            )
-            if (data) {
+                integration.id,
+              )
+              if (data) {
                 newOptions[field.name] = data.map((sheet: any) => ({
                   value: sheet.title,
                   label: sheet.title,
-              }))
-            }
+                }))
+              }
             } else if (field.dynamic === "google-docs_documents") {
-            const data = await loadIntegrationData(
+              const data = await loadIntegrationData(
                 field.dynamic,
-              integration.id,
-            )
-            if (data) {
+                integration.id,
+              )
+              if (data) {
                 newOptions[field.name] = data.map((document: any) => ({
                   value: document.id,
                   label: document.name,
-              }))
-            }
+                }))
+              }
             } else if (field.dynamic === "google-docs_templates") {
-            const data = await loadIntegrationData(
+              const data = await loadIntegrationData(
                 field.dynamic,
-              integration.id,
-            )
-            if (data) {
+                integration.id,
+              )
+              if (data) {
                 newOptions[field.name] = data.map((template: any) => ({
                   value: template.id,
                   label: template.name,
-              }))
+                }))
+              }
             }
           }
-        }
         } catch (error: any) {
           console.error(`Error fetching dynamic data for ${field.dynamic}:`, error)
           // Show specific error for scope issues
@@ -271,8 +271,8 @@ export default function ConfigurationModal({
     }
 
     if (hasData) {
-        setDynamicOptions(newOptions)
-      }
+      setDynamicOptions(newOptions)
+    }
     setLoadingDynamic(false)
   }, [nodeInfo, loadIntegrationData, checkIntegrationScopes])
 
@@ -641,6 +641,39 @@ export default function ConfigurationModal({
             )
           }
           
+          // Special handling for calendar dropdowns to show better labels
+          if (field.dynamic === "google-calendars") {
+            const calendarOptions = finalOptions.map((option: any) => ({
+              ...option,
+              label: option.summary || option.name || option.id,
+            }))
+            
+            return (
+              <div className="space-y-1">
+                <div className={hasError ? 'ring-2 ring-red-500 rounded-md' : ''}>
+                  <Combobox
+                    options={calendarOptions}
+                    value={value}
+                    onChange={handleSelectChange}
+                    placeholder={field.placeholder || "Select a calendar"}
+                    searchPlaceholder="Search calendars..."
+                    emptyPlaceholder={loadingDynamic ? "Loading calendars..." : "No calendars found."}
+                    disabled={loadingDynamic}
+                  />
+                </div>
+                {field.description && (
+                  <p className="text-xs text-muted-foreground">{field.description}</p>
+                )}
+                {hasError && (
+                  <div className="flex items-center gap-1 text-sm text-red-600">
+                    <AlertCircle className="h-4 w-4" />
+                    {errors[field.name]}
+                  </div>
+                )}
+              </div>
+            )
+          }
+          
           return (
             <div className="space-y-1">
               <div className={hasError ? 'ring-2 ring-red-500 rounded-md' : ''}>
@@ -720,31 +753,36 @@ export default function ConfigurationModal({
         )
       case "email-autocomplete":
         if (field.name === "attendees" && nodeInfo?.type === "google_calendar_action_create_event") {
-        const emailOptions = dynamicOptions[field.name] || []
-        const emailSuggestions = emailOptions.map((opt: any) => ({
-          value: opt.value,
-          label: opt.label,
-          email: opt.email || opt.value,
-          name: opt.name,
-          type: opt.type,
-          isGroup: opt.isGroup,
-          groupId: opt.groupId,
-          members: opt.members
-        }))
+          const emailOptions = dynamicOptions[field.name] || []
+          const emailSuggestions = emailOptions.map((opt: any) => ({
+            value: opt.value,
+            label: opt.label,
+            email: opt.email || opt.value,
+            name: opt.name,
+            type: opt.type,
+            isGroup: opt.isGroup,
+            groupId: opt.groupId,
+            members: opt.members
+          }))
+          
           // Always use a string value for EmailAutocomplete
           const attendeesValue = typeof value === "string" ? value : Array.isArray(value) ? value.join(", ") : ""
-        return (
-          <div className="space-y-1">
-            <EmailAutocomplete
+          
+          return (
+            <div className="space-y-1">
+              <EmailAutocomplete
                 value={attendeesValue}
                 onChange={(newValue) => setConfig({ ...config, [field.name]: newValue })}
                 suggestions={emailSuggestions}
-                placeholder={field.placeholder}
+                placeholder={field.placeholder || "Select guests from your contacts"}
                 disabled={loadingDynamic}
                 isLoading={loadingDynamic}
                 multiple={true}
                 className={inputClassName}
               />
+              {field.description && (
+                <p className="text-xs text-muted-foreground">{field.description}</p>
+              )}
               {hasError && (
                 <div className="flex items-center gap-1 text-sm text-red-600">
                   <AlertCircle className="h-4 w-4" />
