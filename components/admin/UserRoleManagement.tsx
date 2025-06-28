@@ -46,6 +46,8 @@ export default function UserRoleManagement() {
   const [showUpdateDialog, setShowUpdateDialog] = useState(false)
   const [isLiveMode, setIsLiveMode] = useState(false)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  const [roleFilter, setRoleFilter] = useState<string>('all')
+  const [statusFilter, setStatusFilter] = useState<string>('all')
 
   // Check if current user is admin
   const isAdmin = profile?.role === 'admin'
@@ -125,11 +127,24 @@ export default function UserRoleManagement() {
     }
   }
 
-  const filteredUsers = users.filter(user =>
-    user.displayEmail?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.username?.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const filteredUsers = users.filter(user => {
+    // Search term filter
+    const matchesSearch = 
+      user.displayEmail?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.username?.toLowerCase().includes(searchTerm.toLowerCase())
+    
+    // Role filter
+    const matchesRole = roleFilter === 'all' || user.role === roleFilter
+    
+    // Status filter
+    const matchesStatus = 
+      statusFilter === 'all' || 
+      (statusFilter === 'online' && user.isOnline) ||
+      (statusFilter === 'offline' && !user.isOnline)
+    
+    return matchesSearch && matchesRole && matchesStatus
+  })
 
   const onlineCount = users.filter(user => user.isOnline).length
   const totalCount = users.length
@@ -221,6 +236,88 @@ export default function UserRoleManagement() {
                 />
               </div>
             </div>
+
+            {/* Filter Controls */}
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                <Label htmlFor="role-filter" className="text-sm font-medium">
+                  Role:
+                </Label>
+                <Select value={roleFilter} onValueChange={setRoleFilter}>
+                  <SelectTrigger className="w-32">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Roles</SelectItem>
+                    {Object.entries(ROLES).map(([role, info]) => (
+                      <SelectItem key={role} value={role}>
+                        <div className="flex items-center space-x-2">
+                          <RoleBadge role={role as UserRole} size="sm" />
+                          <span>{info.description}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Label htmlFor="status-filter" className="text-sm font-medium">
+                  Status:
+                </Label>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-32">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Users</SelectItem>
+                    <SelectItem value="online">
+                      <div className="flex items-center space-x-2">
+                        <Circle className="w-3 h-3 text-green-500 fill-green-500" />
+                        <span>Online</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="offline">
+                      <div className="flex items-center space-x-2">
+                        <Circle className="w-3 h-3 text-red-500 fill-red-500" />
+                        <span>Offline</span>
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Clear Filters Button */}
+              {(roleFilter !== 'all' || statusFilter !== 'all' || searchTerm) && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setRoleFilter('all')
+                    setStatusFilter('all')
+                    setSearchTerm('')
+                  }}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  Clear Filters
+                </Button>
+              )}
+            </div>
+
+            {/* Filter Summary */}
+            {(roleFilter !== 'all' || statusFilter !== 'all' || searchTerm) && (
+              <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border border-border">
+                <div className="text-sm text-muted-foreground">
+                  Showing {filteredUsers.length} of {totalCount} users
+                  {roleFilter !== 'all' && ` • Role: ${getRoleInfo(roleFilter as UserRole)?.description || roleFilter}`}
+                  {statusFilter !== 'all' && ` • Status: ${statusFilter}`}
+                  {searchTerm && ` • Search: "${searchTerm}"`}
+                </div>
+                <Badge variant="secondary" className="text-xs">
+                  {filteredUsers.length} results
+                </Badge>
+              </div>
+            )}
 
             {loading ? (
               <div className="flex items-center justify-center py-8">

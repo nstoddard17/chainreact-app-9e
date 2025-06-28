@@ -14,8 +14,8 @@ export const ROLES: Record<UserRole, RoleInfo> = {
   free: {
     name: 'free',
     displayName: 'Free',
-    color: 'text-gray-600',
-    badgeColor: 'bg-gray-100 text-gray-800',
+    color: 'text-gray-600 dark:text-gray-300',
+    badgeColor: 'bg-orange-500 text-white dark:bg-orange-600 dark:text-white border border-orange-600 dark:border-orange-500',
     description: 'Basic features for individual users',
     features: [
       'Up to 3 workflows',
@@ -31,8 +31,8 @@ export const ROLES: Record<UserRole, RoleInfo> = {
   pro: {
     name: 'pro',
     displayName: 'Pro',
-    color: 'text-blue-600',
-    badgeColor: 'bg-blue-100 text-blue-800',
+    color: 'text-blue-600 dark:text-blue-400',
+    badgeColor: 'bg-blue-500 text-white dark:bg-blue-600 dark:text-white border border-blue-600 dark:border-blue-500',
     description: 'Advanced features for power users',
     features: [
       'Up to 20 workflows',
@@ -49,8 +49,8 @@ export const ROLES: Record<UserRole, RoleInfo> = {
   business: {
     name: 'business',
     displayName: 'Business',
-    color: 'text-purple-600',
-    badgeColor: 'bg-purple-100 text-purple-800',
+    color: 'text-purple-600 dark:text-purple-400',
+    badgeColor: 'bg-indigo-500 text-white dark:bg-indigo-600 dark:text-white border border-indigo-600 dark:border-indigo-500',
     description: 'Team collaboration and advanced features',
     features: [
       'Unlimited workflows',
@@ -68,8 +68,8 @@ export const ROLES: Record<UserRole, RoleInfo> = {
   enterprise: {
     name: 'enterprise',
     displayName: 'Enterprise',
-    color: 'text-emerald-600',
-    badgeColor: 'bg-emerald-100 text-emerald-800',
+    color: 'text-emerald-600 dark:text-emerald-400',
+    badgeColor: 'bg-pink-500 text-white dark:bg-pink-600 dark:text-white border border-pink-600 dark:border-pink-500',
     description: 'Full enterprise features and support',
     features: [
       'Everything in Business',
@@ -87,8 +87,8 @@ export const ROLES: Record<UserRole, RoleInfo> = {
   admin: {
     name: 'admin',
     displayName: 'Admin',
-    color: 'text-red-600',
-    badgeColor: 'bg-red-100 text-red-800',
+    color: 'text-red-600 dark:text-red-400',
+    badgeColor: 'bg-red-500 text-white dark:bg-red-600 dark:text-white border border-red-600 dark:border-red-500',
     description: 'Full system access and privileges',
     features: [
       'All features',
