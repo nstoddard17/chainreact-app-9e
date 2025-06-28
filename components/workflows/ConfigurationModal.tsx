@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog"
 import { ConfigField, NodeComponent } from "@/lib/workflows/availableNodes"
 import { useIntegrationStore } from "@/stores/integrationStore"
-import { Combobox, MultiCombobox } from "@/components/ui/combobox"
+import { Combobox, MultiCombobox, HierarchicalCombobox } from "@/components/ui/combobox"
 import { EmailAutocomplete } from "@/components/ui/email-autocomplete"
 import { ConfigurationLoadingScreen } from "@/components/ui/loading-screen"
 import { FileUpload } from "@/components/ui/file-upload"
@@ -161,11 +161,40 @@ export default function ConfigurationModal({
                 label: group.name,
               }))
             } else if (field.dynamic === "gmail_messages") {
-              newOptions[field.name] = data.map((message: any) => ({
-                value: message.id,
-                label: message.subject || "No Subject",
-                description: message.description,
-              }))
+              // Handle new grouped structure: data is array of label groups
+              if (Array.isArray(data) && data.length > 0 && data[0].labelId) {
+                // New grouped structure - create hierarchical dropdown
+                const groupedOptions: any[] = []
+                data.forEach((group: any) => {
+                  if (group.emails && Array.isArray(group.emails) && group.emails.length > 0) {
+                    // Create a group option with the folder/label name
+                    const groupOption = {
+                      value: `group_${group.labelId}`,
+                      label: group.labelName,
+                      description: `${group.emails.length} emails`,
+                      isGroup: true,
+                      groupId: group.labelId,
+                      groupName: group.labelName,
+                      emails: group.emails.map((email: any) => ({
+                        value: email.id,
+                        label: email.subject || "No Subject",
+                        description: email.description,
+                        groupId: group.labelId,
+                        groupName: group.labelName,
+                      }))
+                    }
+                    groupedOptions.push(groupOption)
+                  }
+                })
+                newOptions[field.name] = groupedOptions
+              } else {
+                // Fallback to old flat structure
+                newOptions[field.name] = data.map((message: any) => ({
+                  value: message.id,
+                  label: message.subject || "No Subject",
+                  description: message.description,
+                }))
+              }
             } else if (field.dynamic === "gmail_labels") {
               newOptions[field.name] = data.map((label: any) => ({
                 value: label.id,
@@ -570,10 +599,36 @@ export default function ConfigurationModal({
                     value={multiValue}
                     onChange={handleMultiSelectChange}
                     placeholder={field.placeholder}
-                    searchPlaceholder="Search or type..."
-                    emptyPlaceholder={loadingDynamic ? "Loading..." : "No results found."}
+                    searchPlaceholder={field.placeholder}
+                    emptyPlaceholder="No options found."
+                  />
+                </div>
+                {field.description && (
+                  <p className="text-xs text-muted-foreground">{field.description}</p>
+                )}
+                {hasError && (
+                  <div className="flex items-center gap-1 text-sm text-red-600">
+                    <AlertCircle className="h-4 w-4" />
+                    {errors[field.name]}
+                  </div>
+                )}
+              </div>
+            )
+          }
+          
+          // Use HierarchicalCombobox for gmail_messages, regular Combobox for others
+          if (field.dynamic === "gmail_messages") {
+            return (
+              <div className="space-y-1">
+                <div className={hasError ? 'ring-2 ring-red-500 rounded-md' : ''}>
+                  <HierarchicalCombobox
+                    options={finalOptions}
+                    value={value}
+                    onChange={handleSelectChange}
+                    placeholder={field.placeholder}
+                    searchPlaceholder="Search emails or folders..."
+                    emptyPlaceholder={loadingDynamic ? "Loading..." : "No emails found."}
                     disabled={loadingDynamic}
-                    creatable={field.creatable}
                   />
                 </div>
                 {hasError && (
@@ -712,7 +767,7 @@ export default function ConfigurationModal({
           groupId: opt.groupId,
           members: opt.members
         }))
-        if ((field.name === "attendees" && nodeInfo?.type === "google_calendar_action_create_event") || field.name === "to") {
+        if ((field.name === "attendees" && nodeInfo?.type === "google_calendar_action_create_event") || field.name === "to" || (field.name === "emailAddress" && nodeInfo?.type === "gmail_action_search_email")) {
           const multiValue = typeof value === 'string' ? value : Array.isArray(value) ? value.join(', ') : ''
           return (
             <div className="space-y-1">

@@ -55,7 +55,7 @@ export function EmailAutocomplete({
 
   // Filter suggestions based on input and exclude already selected emails
   const filteredSuggestions = useMemo(() => {
-    if (!inputValue.trim()) return suggestions.slice(0, 8)
+    if (!inputValue.trim()) return suggestions.slice(0, 50)
     
     const query = inputValue.toLowerCase()
     const filtered = suggestions.filter(suggestion => {
@@ -69,7 +69,7 @@ export function EmailAutocomplete({
       return matchesQuery && notSelected
     })
     
-    return filtered.slice(0, 8)
+    return filtered.slice(0, 50)
   }, [inputValue, suggestions, selectedEmails, multiple])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {

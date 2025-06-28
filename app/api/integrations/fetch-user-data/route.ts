@@ -557,28 +557,80 @@ const dataFetchers: DataFetcher = {
 
   gmail_messages: async (integration: any) => {
     try {
-      // Fetch recent messages from Gmail
-      const response = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=50", {
+      // Fetch all labels
+      const labelsResponse = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/labels", {
         headers: {
           Authorization: `Bearer ${integration.access_token}`,
           "Content-Type": "application/json",
         },
       })
+      if (!labelsResponse.ok) throw new Error("Failed to fetch Gmail labels")
+      const labelsData = await labelsResponse.json()
+      const labels = labelsData.labels || []
 
-      if (!response.ok) {
-        if (response.status === 401) {
-          throw new Error("Gmail authentication expired. Please reconnect your account.")
-        }
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(`Gmail API error: ${response.status} - ${errorData.error?.message || response.statusText}`)
+      // Helper to fetch up to 100 emails for a label
+      const fetchEmailsForLabel = async (labelId: string) => {
+        const url = `https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=100&labelIds=${labelId}`
+        const response = await fetch(url, {
+          headers: {
+            Authorization: `Bearer ${integration.access_token}`,
+            "Content-Type": "application/json",
+          },
+        })
+        if (!response.ok) return []
+        const data = await response.json()
+        const messages = data.messages || []
+        // Fetch details for each message
+        const detailedMessages = await Promise.all(
+          messages.slice(0, 100).map(async (message: any) => {
+            try {
+              const detailResponse = await fetch(
+                `https://gmail.googleapis.com/gmail/v1/users/me/messages/${message.id}?format=metadata&metadataHeaders=Subject&metadataHeaders=From&metadataHeaders=Date`,
+                {
+                  headers: {
+                    Authorization: `Bearer ${integration.access_token}`,
+                    "Content-Type": "application/json",
+                  },
+                }
+              )
+              if (detailResponse.ok) {
+                const detailData = await detailResponse.json()
+                const headers = detailData.payload?.headers || []
+                const subject = headers.find((h: any) => h.name === "Subject")?.value || "No Subject"
+                const from = headers.find((h: any) => h.name === "From")?.value || "Unknown Sender"
+                const date = headers.find((h: any) => h.name === "Date")?.value || ""
+                return {
+                  id: message.id,
+                  value: message.id,
+                  label: subject,
+                  description: `From: ${from}${date ? ` • ${new Date(date).toLocaleDateString()}` : ""}`,
+                  subject,
+                  from,
+                  date,
+                  snippet: detailData.snippet || "",
+                  labelIds: detailData.labelIds || [],
+                }
+              }
+              return null
+            } catch (error) {
+              return null
+            }
+          })
+        )
+        return detailedMessages.filter(Boolean)
       }
 
-      const data = await response.json()
-      const messages = data.messages || []
-
-      // Fetch detailed information for each message
-      const detailedMessages = await Promise.all(
-        messages.slice(0, 50).map(async (message: any) => {
+      // Fetch most recent 100 emails from all folders
+      const allMailResponse = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=100", {
+        headers: {
+          Authorization: `Bearer ${integration.access_token}`,
+          "Content-Type": "application/json",
+        },
+      })
+      const allMailData = await allMailResponse.json()
+      const allMailMessages = allMailData.messages || []
+      const allMailDetailed = await Promise.all(
+        allMailMessages.slice(0, 100).map(async (message: any) => {
           try {
             const detailResponse = await fetch(
               `https://gmail.googleapis.com/gmail/v1/users/me/messages/${message.id}?format=metadata&metadataHeaders=Subject&metadataHeaders=From&metadataHeaders=Date`,
@@ -589,15 +641,12 @@ const dataFetchers: DataFetcher = {
                 },
               }
             )
-
             if (detailResponse.ok) {
               const detailData = await detailResponse.json()
               const headers = detailData.payload?.headers || []
-              
               const subject = headers.find((h: any) => h.name === "Subject")?.value || "No Subject"
               const from = headers.find((h: any) => h.name === "From")?.value || "Unknown Sender"
               const date = headers.find((h: any) => h.name === "Date")?.value || ""
-              
               return {
                 id: message.id,
                 value: message.id,
@@ -607,19 +656,279 @@ const dataFetchers: DataFetcher = {
                 from,
                 date,
                 snippet: detailData.snippet || "",
+                labelIds: detailData.labelIds || [],
               }
             }
             return null
           } catch (error) {
-            console.warn(`Failed to fetch details for message ${message.id}:`, error)
             return null
           }
         })
       )
 
-      return detailedMessages.filter(Boolean)
+      // For each label, fetch up to 100 recent emails
+      const labelGroups = await Promise.all(
+        labels.map(async (label: any) => {
+          try {
+            const emails = await fetchEmailsForLabel(label.id)
+            return {
+              labelId: label.id,
+              labelName: label.name,
+              emails,
+            }
+          } catch (error) {
+            console.warn(`Failed to fetch emails for label ${label.name}:`, error)
+            // Return empty group instead of failing completely
+            return {
+              labelId: label.id,
+              labelName: label.name,
+              emails: [],
+            }
+          }
+        })
+      )
+
+      // Add the 'All Mail' group at the top
+      return [
+        {
+          labelId: "ALL",
+          labelName: "All Mail",
+          emails: allMailDetailed.filter(Boolean),
+        },
+        ...labelGroups,
+      ]
     } catch (error: any) {
       console.error("Error fetching Gmail messages:", error)
+      throw error
+    }
+  },
+
+  gmail_recent_senders: async (integration: any) => {
+    try {
+      // Fetch 100 most recent from INBOX
+      const inboxResponse = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=100&labelIds=INBOX", {
+        headers: {
+          Authorization: `Bearer ${integration.access_token}`,
+          "Content-Type": "application/json",
+        },
+      })
+      const inboxData = await inboxResponse.json()
+      const inboxMessages = inboxData.messages || []
+
+      // Fetch 100 most recent from SENT
+      const sentResponse = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=100&labelIds=SENT", {
+        headers: {
+          Authorization: `Bearer ${integration.access_token}`,
+          "Content-Type": "application/json",
+        },
+      })
+      const sentData = await sentResponse.json()
+      const sentMessages = sentData.messages || []
+
+      // Extract unique senders from INBOX and recipients from SENT
+      const addressMap = new Map<string, { email: string; name: string; count: number; type: string }>()
+
+      // Helper to add or update address in the map
+      const addAddress = (email: string, name: string, type: string) => {
+        if (!email) return
+        if (addressMap.has(email)) {
+          addressMap.get(email)!.count++
+        } else {
+          addressMap.set(email, { email, name, count: 1, type })
+        }
+      }
+
+      // Process INBOX (senders)
+      await Promise.all(
+        inboxMessages.slice(0, 100).map(async (message: any) => {
+          try {
+            const detailResponse = await fetch(
+              `https://gmail.googleapis.com/gmail/v1/users/me/messages/${message.id}?format=metadata&metadataHeaders=From`,
+              {
+                headers: {
+                  Authorization: `Bearer ${integration.access_token}`,
+                  "Content-Type": "application/json",
+                },
+              }
+            )
+            if (detailResponse.ok) {
+              const detailData = await detailResponse.json()
+              const headers = detailData.payload?.headers || []
+              const fromHeader = headers.find((h: any) => h.name === "From")?.value || ""
+              const emailMatch = fromHeader.match(/<(.+?)>/) || fromHeader.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/)
+              const nameMatch = fromHeader.match(/^(.+?)\s*</)
+              if (emailMatch) {
+                const email = emailMatch[1]
+                const name = nameMatch ? nameMatch[1].trim() : email
+                addAddress(email, name, "sender")
+              }
+            }
+          } catch {}
+        })
+      )
+
+      // Process SENT (recipients)
+      await Promise.all(
+        sentMessages.slice(0, 100).map(async (message: any) => {
+          try {
+            const detailResponse = await fetch(
+              `https://gmail.googleapis.com/gmail/v1/users/me/messages/${message.id}?format=metadata&metadataHeaders=To`,
+              {
+                headers: {
+                  Authorization: `Bearer ${integration.access_token}`,
+                  "Content-Type": "application/json",
+                },
+              }
+            )
+            if (detailResponse.ok) {
+              const detailData = await detailResponse.json()
+              const headers = detailData.payload?.headers || []
+              const toHeader = headers.find((h: any) => h.name === "To")?.value || ""
+              // Split multiple recipients
+              const addresses = toHeader.split(/,|;/).map((addr: string) => addr.trim()).filter(Boolean)
+              for (const addr of addresses as string[]) {
+                const emailMatch = addr.match(/<(.+?)>/) || addr.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/)
+                const nameMatch = addr.match(/^(.+?)\s*</)
+                if (emailMatch) {
+                  const email = emailMatch[1]
+                  const name = nameMatch ? nameMatch[1].trim() : email
+                  addAddress(email, name, "recipient")
+                }
+              }
+            }
+          } catch {}
+        })
+      )
+
+      // Convert to array and sort by frequency
+      const addresses = Array.from(addressMap.values())
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 100)
+        .map((addr, index) => ({
+          value: addr.email,
+          label: addr.name,
+          description: `${addr.email} (${addr.count} emails, ${addr.type})`,
+          email: addr.email,
+          name: addr.name,
+          count: addr.count,
+          type: addr.type
+        }))
+
+      return addresses
+    } catch (error: any) {
+      console.error("Error fetching Gmail recent senders/recipients:", error)
+      throw error
+    }
+  },
+
+  "gmail-enhanced-recipients": async (integration: any) => {
+    try {
+      // Fetch recent emails to extract unique recipients (both senders and recipients)
+      const inboxResponse = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=100&labelIds=INBOX", {
+        headers: {
+          Authorization: `Bearer ${integration.access_token}`,
+          "Content-Type": "application/json",
+        },
+      })
+      const inboxData = await inboxResponse.json()
+      const inboxMessages = inboxData.messages || []
+
+      const sentResponse = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=100&labelIds=SENT", {
+        headers: {
+          Authorization: `Bearer ${integration.access_token}`,
+          "Content-Type": "application/json",
+        },
+      })
+      const sentData = await sentResponse.json()
+      const sentMessages = sentData.messages || []
+
+      // Extract unique addresses from both INBOX and SENT
+      const addressMap = new Map<string, { email: string; name: string; count: number; type: string }>()
+
+      const addAddress = (email: string, name: string, type: string) => {
+        if (!email) return
+        if (addressMap.has(email)) {
+          addressMap.get(email)!.count++
+        } else {
+          addressMap.set(email, { email, name, count: 1, type })
+        }
+      }
+
+      // Process INBOX (senders)
+      await Promise.all(
+        inboxMessages.slice(0, 100).map(async (message: any) => {
+          try {
+            const detailResponse = await fetch(
+              `https://gmail.googleapis.com/gmail/v1/users/me/messages/${message.id}?format=metadata&metadataHeaders=From`,
+              {
+                headers: {
+                  Authorization: `Bearer ${integration.access_token}`,
+                  "Content-Type": "application/json",
+                },
+              }
+            )
+            if (detailResponse.ok) {
+              const detailData = await detailResponse.json()
+              const headers = detailData.payload?.headers || []
+              const fromHeader = headers.find((h: any) => h.name === "From")?.value || ""
+              const emailMatch = fromHeader.match(/<(.+?)>/) || fromHeader.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/)
+              const nameMatch = fromHeader.match(/^(.+?)\s*</)
+              if (emailMatch) {
+                const email = emailMatch[1]
+                const name = nameMatch ? nameMatch[1].trim() : email
+                addAddress(email, name, "sender")
+              }
+            }
+          } catch {}
+        })
+      )
+
+      // Process SENT (recipients)
+      await Promise.all(
+        sentMessages.slice(0, 100).map(async (message: any) => {
+          try {
+            const detailResponse = await fetch(
+              `https://gmail.googleapis.com/gmail/v1/users/me/messages/${message.id}?format=metadata&metadataHeaders=To`,
+              {
+                headers: {
+                  Authorization: `Bearer ${integration.access_token}`,
+                  "Content-Type": "application/json",
+                },
+              }
+            )
+            if (detailResponse.ok) {
+              const detailData = await detailResponse.json()
+              const headers = detailData.payload?.headers || []
+              const toHeader = headers.find((h: any) => h.name === "To")?.value || ""
+              const addresses = toHeader.split(/,|;/).map((addr: string) => addr.trim()).filter(Boolean)
+              for (const addr of addresses as string[]) {
+                const emailMatch = addr.match(/<(.+?)>/) || addr.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/)
+                const nameMatch = addr.match(/^(.+?)\s*</)
+                if (emailMatch) {
+                  const email = emailMatch[1]
+                  const name = nameMatch ? nameMatch[1].trim() : email
+                  addAddress(email, name, "recipient")
+                }
+              }
+            }
+          } catch {}
+        })
+      )
+
+      // Convert to array and sort by frequency
+      const addresses = Array.from(addressMap.values())
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 100)
+        .map((addr) => ({
+          value: addr.email,
+          label: addr.name,
+          type: addr.type,
+          description: `${addr.email} (${addr.count} emails)`
+        }))
+
+      return addresses
+    } catch (error: any) {
+      console.error("Error fetching Gmail enhanced recipients:", error)
       throw error
     }
   },

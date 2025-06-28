@@ -89,9 +89,9 @@ async function getDecryptedAccessToken(userId: string, provider: string): Promis
     })
     
     try {
-      const decryptedToken = decrypt(accessToken, secret)
-      console.log(`Successfully decrypted access token for ${provider}`)
-      return decryptedToken
+    const decryptedToken = decrypt(accessToken, secret)
+    console.log(`Successfully decrypted access token for ${provider}`)
+    return decryptedToken
     } catch (decryptError: any) {
       console.error(`Decryption failed for ${provider}:`, {
         error: decryptError.message,
@@ -418,6 +418,67 @@ async function addGmailLabels(config: any, userId: string, input: Record<string,
   }
 }
 
+async function searchGmailEmails(config: any, userId: string, input: Record<string, any>): Promise<ActionResult> {
+  try {
+    const accessToken = await getDecryptedAccessToken(userId, "gmail")
+    const messageId = resolveValue(config.messageId, input)
+    const query = resolveValue(config.query, input)
+
+    // If a specific messageId is provided, fetch that email
+    if (messageId) {
+      const response = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${messageId}?format=full`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+      })
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        return { success: false, message: `Failed to fetch email: ${errorData.error?.message || response.statusText}` }
+      }
+      const data = await response.json()
+      return { success: true, output: { emails: [data] }, message: "Fetched specific email." }
+    }
+
+    // Use the search query if provided, otherwise fetch recent emails
+    const searchQuery = query || ""
+    const listUrl = `https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=100${searchQuery ? `&q=${encodeURIComponent(searchQuery)}` : ""}`
+    const listResponse = await fetch(listUrl, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+    })
+    if (!listResponse.ok) {
+      const errorData = await listResponse.json().catch(() => ({}))
+      return { success: false, message: `Failed to fetch emails: ${errorData.error?.message || listResponse.statusText}` }
+    }
+    const listData = await listResponse.json()
+    const messages = listData.messages || []
+
+    // Fetch details for each message (up to 100)
+    const detailedEmails = await Promise.all(
+      messages.slice(0, 100).map(async (msg: any) => {
+        try {
+          const detailResp = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}?format=full`, {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "Content-Type": "application/json",
+            },
+          })
+          if (detailResp.ok) {
+            return await detailResp.json()
+          }
+        } catch (e) {}
+        return null
+      })
+    )
+    return { success: true, output: { emails: detailedEmails.filter(Boolean) }, message: `Fetched ${detailedEmails.length} emails.` }
+  } catch (error: any) {
+    return { success: false, message: `Gmail search failed: ${error.message}` }
+  }
+}
+
 // Add other action handlers here e.g. sendSlackMessage, createGoogleDoc etc.
 
 export async function executeAction(params: ExecuteActionParams): Promise<ActionResult> {
@@ -468,6 +529,16 @@ export async function executeAction(params: ExecuteActionParams): Promise<Action
         }
       }
       return addGmailLabels(config, userId, input)
+    case "gmail_action_search_email":
+      if (!hasEncryptionKey) {
+        console.warn("Encryption key missing, running Gmail search email action in test mode")
+        return { 
+          success: true, 
+          output: { test: true, emails: [] }, 
+          message: "Test mode: Gmail search email executed (missing encryption key)" 
+        }
+      }
+      return searchGmailEmails(config, userId, input)
     // Future actions will be added here
     // case "slack_action_send_message":
     //   return sendSlackMessage(config, userId, input)

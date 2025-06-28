@@ -53,7 +53,7 @@ export interface ConfigField {
   placeholder?: string
   description?: string
   options?: { value: string; label: string }[] | string[]
-  dynamic?: "slack-channels" | "google-calendars" | "google-drive-folders" | "google-drive-files" | "gmail-recent-recipients" | "gmail-enhanced-recipients" | "gmail-contact-groups" | "gmail_messages" | "gmail_labels" | "google-sheets_spreadsheets" | "google-sheets_sheets" | "google-docs_documents" | "google-docs_templates" | "youtube_channels" | "youtube_videos" | "youtube_playlists" | "teams_chats" | "teams_teams" | "teams_channels" | "github_repositories" | "gitlab_projects" | "notion_databases" | "notion_pages" | "trello_boards" | "trello_lists" | "hubspot_companies" | "airtable_bases" | "gumroad_products" | "blackbaud_constituents"
+  dynamic?: "slack-channels" | "google-calendars" | "google-drive-folders" | "google-drive-files" | "gmail-recent-recipients" | "gmail-enhanced-recipients" | "gmail-contact-groups" | "gmail_messages" | "gmail_labels" | "gmail_recent_senders" | "google-sheets_spreadsheets" | "google-sheets_sheets" | "google-docs_documents" | "google-docs_templates" | "youtube_channels" | "youtube_videos" | "youtube_playlists" | "teams_chats" | "teams_teams" | "teams_channels" | "github_repositories" | "gitlab_projects" | "notion_databases" | "notion_pages" | "trello_boards" | "trello_lists" | "hubspot_companies" | "airtable_bases" | "gumroad_products" | "blackbaud_constituents"
   accept?: string // For file inputs, specify accepted file types
   maxSize?: number // For file inputs, specify max file size in bytes
   defaultValue?: string | number | boolean // Default value for the field
@@ -1839,17 +1839,6 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     ],
   },
   {
-    type: "gmail_action_archive_email",
-    title: "Archive Email (Gmail)",
-    description: "Archive an email",
-    icon: Edit,
-    providerId: "gmail",
-    category: "Email",
-    isTrigger: false,
-    requiredScopes: ["https://www.googleapis.com/auth/gmail.modify"],
-    configSchema: [{ name: "messageId", label: "Message ID", type: "text" }],
-  },
-  {
     type: "gmail_action_search_email",
     title: "Search Email (Gmail)",
     description: "Search for a specific email",
@@ -1858,7 +1847,52 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Email",
     isTrigger: false,
     requiredScopes: ["https://www.googleapis.com/auth/gmail.readonly"],
-    configSchema: [{ name: "query", label: "Search Query", type: "text" }],
+    configSchema: [
+      { 
+        name: "emailAddress", 
+        label: "Email Address", 
+        type: "email-autocomplete", 
+        dynamic: "gmail-enhanced-recipients",
+        required: false,
+        placeholder: "Enter email addresses...",
+        description: "Choose from recent recipients or type custom email addresses"
+      },
+      { 
+        name: "quantity", 
+        label: "Number of Emails", 
+        type: "select",
+        required: false,
+        placeholder: "Select how many emails to fetch",
+        description: "Choose how many recent emails to fetch from this sender",
+        options: [
+          { value: "1", label: "Most recent email" },
+          { value: "5", label: "Last 5 emails" },
+          { value: "10", label: "Last 10 emails" },
+          { value: "20", label: "Last 20 emails" },
+          { value: "50", label: "Last 50 emails" },
+          { value: "100", label: "Last 100 emails" },
+          { value: "all", label: "All emails" }
+        ],
+        defaultValue: "1"
+      },
+      { 
+        name: "messageId", 
+        label: "Specific Email", 
+        type: "select", 
+        dynamic: "gmail_messages",
+        required: false,
+        placeholder: "Select a specific email (optional)",
+        description: "Choose a specific email from your Gmail account"
+      },
+      { 
+        name: "query", 
+        label: "Search Query", 
+        type: "text",
+        required: false,
+        placeholder: "Enter Gmail search query (optional)",
+        description: "Use Gmail search operators like 'from:', 'to:', 'subject:', 'has:attachment', etc."
+      },
+    ],
   },
   {
     type: "microsoft-outlook_action_add_folder",

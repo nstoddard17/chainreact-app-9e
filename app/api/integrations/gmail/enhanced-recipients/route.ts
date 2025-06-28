@@ -185,6 +185,11 @@ async function getEnhancedEmailRecipients(accessToken: string, integrationId: st
     ]
 
     console.log("✅ Final recipients count:", allRecipients.length)
+    console.log("📊 Recipients breakdown:", {
+      groups: groupEntries.length,
+      individual: individualContacts.length,
+      total: allRecipients.length
+    })
     
     // 7. Try to initialize cache in background for future requests (don't block)
     try {
@@ -220,35 +225,49 @@ async function getEnhancedEmailRecipients(accessToken: string, integrationId: st
 // Re-implement the functions locally to avoid circular dependencies
 async function getGmailRecentRecipients(accessToken: string) {
   try {
-    const messagesResponse = await fetch(
-      `https://gmail.googleapis.com/gmail/v1/users/me/messages?labelIds=SENT&maxResults=100`,
-      {
+    // Fetch from both SENT and INBOX to get more comprehensive data
+    const [sentResponse, inboxResponse] = await Promise.all([
+      fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages?labelIds=SENT&maxResults=100`, {
         headers: {
           Authorization: `Bearer ${accessToken}`,
           "Content-Type": "application/json",
         },
-      }
-    )
+      }),
+      fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages?labelIds=INBOX&maxResults=100`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+      })
+    ])
 
-    if (!messagesResponse.ok) {
-      if (messagesResponse.status === 401) {
+    if (!sentResponse.ok || !inboxResponse.ok) {
+      if (sentResponse.status === 401 || inboxResponse.status === 401) {
         throw new Error("Gmail authentication expired. Please reconnect your account.")
       }
-      throw new Error(`Gmail API error: ${messagesResponse.status}`)
+      throw new Error(`Gmail API error: ${sentResponse.status} or ${inboxResponse.status}`)
     }
 
-    const messagesData = await messagesResponse.json()
-    const messages = messagesData.messages || []
+    const [sentData, inboxData] = await Promise.all([
+      sentResponse.json(),
+      inboxResponse.json()
+    ])
 
-    if (messages.length === 0) {
+    const sentMessages = sentData.messages || []
+    const inboxMessages = inboxData.messages || []
+
+    // Combine messages from both sources
+    const allMessages = [...sentMessages, ...inboxMessages]
+
+    if (allMessages.length === 0) {
       return []
     }
 
     const messageDetails = await Promise.all(
-      messages.slice(0, 50).map(async (message: { id: string }) => {
+      allMessages.slice(0, 100).map(async (message: { id: string }) => {
         try {
           const response = await fetch(
-            `https://gmail.googleapis.com/gmail/v1/users/me/messages/${message.id}?format=metadata&metadataHeaders=To&metadataHeaders=Cc&metadataHeaders=Bcc`,
+            `https://gmail.googleapis.com/gmail/v1/users/me/messages/${message.id}?format=metadata&metadataHeaders=To&metadataHeaders=Cc&metadataHeaders=Bcc&metadataHeaders=From`,
             {
               headers: {
                 Authorization: `Bearer ${accessToken}`,
@@ -274,7 +293,7 @@ async function getGmailRecentRecipients(accessToken: string) {
       if (!headers) return
       
       headers.forEach((header: { name: string; value: string }) => {
-        if (['To', 'Cc', 'Bcc'].includes(header.name)) {
+        if (['To', 'Cc', 'Bcc', 'From'].includes(header.name)) {
           const emailAddresses = extractEmailAddresses(header.value)
           emailAddresses.forEach(({ email, name }) => {
             if (!emailSet.has(email.toLowerCase())) {
