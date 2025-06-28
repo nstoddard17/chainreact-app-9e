@@ -27,6 +27,21 @@ export default function AppLayout({ children, title, subtitle }: AppLayoutProps)
     initialize()
   }, [initialize])
 
+  // Load sidebar collapsed state from localStorage on mount
+  useEffect(() => {
+    const savedState = localStorage.getItem('sidebarCollapsed')
+    if (savedState !== null) {
+      setIsSidebarCollapsed(JSON.parse(savedState))
+    }
+  }, [])
+
+  // Save sidebar collapsed state to localStorage when it changes
+  const handleToggleCollapse = () => {
+    const newState = !isSidebarCollapsed
+    setIsSidebarCollapsed(newState)
+    localStorage.setItem('sidebarCollapsed', JSON.stringify(newState))
+  }
+
   // Set default theme to dark for dashboard users (non-blocking)
   useEffect(() => {
     if (user && theme === "system") {
@@ -60,7 +75,7 @@ export default function AppLayout({ children, title, subtitle }: AppLayoutProps)
           isMobileMenuOpen={isMobileMenuOpen} 
           onMobileMenuChange={setIsMobileMenuOpen}
           isCollapsed={isSidebarCollapsed}
-          onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+          onToggleCollapse={handleToggleCollapse}
         />
         {isMobileMenuOpen && (
           <div
