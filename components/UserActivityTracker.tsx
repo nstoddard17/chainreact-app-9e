@@ -7,7 +7,10 @@ export function UserActivityTracker() {
   const { user } = useAuthStore()
 
   useEffect(() => {
-    if (!user?.id) return
+    if (!user?.id) {
+      console.log('UserActivityTracker: No user, skipping setup')
+      return
+    }
 
     const sendHeartbeat = async () => {
       try {
@@ -27,6 +30,13 @@ export function UserActivityTracker() {
     const UPDATE_INTERVAL = 30000 // Update every 30 seconds max
 
     const updatePresence = async () => {
+      // Check if user still exists before making the call
+      const currentUser = useAuthStore.getState().user
+      if (!currentUser?.id) {
+        console.log('UserActivityTracker: User no longer exists, stopping updates')
+        return
+      }
+
       const now = Date.now()
       
       // Only update if enough time has passed since last update
@@ -50,6 +60,13 @@ export function UserActivityTracker() {
     }
 
     const handleActivity = () => {
+      // Check if user still exists before setting timeout
+      const currentUser = useAuthStore.getState().user
+      if (!currentUser?.id) {
+        console.log('UserActivityTracker: User no longer exists, skipping activity')
+        return
+      }
+
       // Clear existing timeout
       clearTimeout(timeoutId)
       
