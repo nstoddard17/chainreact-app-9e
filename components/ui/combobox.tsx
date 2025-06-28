@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Check, ChevronsUpDown, X } from "lucide-react"
+import { Check, ChevronsUpDown, X, ChevronRight } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -45,6 +45,26 @@ interface MultiComboboxProps {
   emptyPlaceholder?: string;
   disabled?: boolean;
   creatable?: boolean;
+}
+
+export interface HierarchicalComboboxOption {
+  value: string;
+  label: string;
+  description?: string;
+  isGroup?: boolean;
+  groupId?: string;
+  groupName?: string;
+  emails?: ComboboxOption[];
+}
+
+interface HierarchicalComboboxProps {
+  options: HierarchicalComboboxOption[];
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  searchPlaceholder?: string;
+  emptyPlaceholder?: string;
+  disabled?: boolean;
 }
 
 export function Combobox({
@@ -288,6 +308,186 @@ export function MultiCombobox({
                   <span className="text-primary">Create "{inputValue.trim()}"</span>
                 </CommandItem>
               )}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+export function HierarchicalCombobox({
+  options,
+  value,
+  onChange,
+  placeholder,
+  searchPlaceholder,
+  emptyPlaceholder,
+  disabled,
+}: HierarchicalComboboxProps) {
+  const [open, setOpen] = React.useState(false)
+  const [inputValue, setInputValue] = React.useState("")
+  const [expandedGroups, setExpandedGroups] = React.useState<Set<string>>(new Set())
+
+  const selectedOption = options.flatMap(option => 
+    option.isGroup && option.emails ? option.emails : [option]
+  ).find(option => option.value === value)
+
+  const handleSelect = (currentValue: string) => {
+    // Check if this is a group value
+    if (currentValue.startsWith('group_')) {
+      // Toggle group expansion
+      setExpandedGroups(prev => {
+        const newSet = new Set(prev)
+        if (newSet.has(currentValue)) {
+          newSet.delete(currentValue)
+        } else {
+          newSet.add(currentValue)
+        }
+        return newSet
+      })
+      return
+    }
+    
+    // Handle email selection
+    onChange(currentValue)
+    setOpen(false)
+  }
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setInputValue(e.target.value)
+  }
+
+  const handleCommandInputChange = (search: string) => {
+    setInputValue(search)
+  }
+
+  // Flatten all options for search
+  const allOptions = options.flatMap(option => {
+    if (option.isGroup && option.emails) {
+      return [option, ...option.emails]
+    }
+    return [option]
+  })
+
+  const filteredOptions = allOptions.filter((option) =>
+    option.label.toLowerCase().includes(inputValue.toLowerCase()) ||
+    option.description?.toLowerCase().includes(inputValue.toLowerCase())
+  )
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full justify-between min-h-10"
+          disabled={disabled}
+        >
+          {selectedOption ? (
+            <div className="flex flex-col items-start">
+              <span>{selectedOption.label}</span>
+              {selectedOption.description && (
+                <span className="text-sm text-muted-foreground">{selectedOption.description}</span>
+              )}
+            </div>
+          ) : (
+            <span className="text-muted-foreground">{placeholder || "Select option..."}</span>
+          )}
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0 max-h-80">
+        <Command>
+          <CommandInput 
+            placeholder={searchPlaceholder || "Search..."}
+            value={inputValue}
+            onValueChange={handleCommandInputChange}
+          />
+          <CommandList 
+            className="max-h-60 overflow-y-auto" 
+            style={{ maxHeight: '240px', overflowY: 'auto' }}
+            onWheel={(e) => {
+              e.preventDefault();
+              const target = e.currentTarget;
+              target.scrollTop += e.deltaY;
+            }}
+          >
+            <CommandEmpty>{emptyPlaceholder || "No results found."}</CommandEmpty>
+            <CommandGroup>
+              {options.map((option) => {
+                if (option.isGroup && option.emails) {
+                  const isExpanded = expandedGroups.has(option.value)
+                  return (
+                    <div key={option.value}>
+                      <CommandItem
+                        value={option.value}
+                        onSelect={handleSelect}
+                        className="font-medium"
+                      >
+                        <ChevronRight 
+                          className={cn(
+                            "mr-2 h-4 w-4 transition-transform",
+                            isExpanded && "rotate-90"
+                          )}
+                        />
+                        <div className="flex flex-col">
+                          <span>{option.label}</span>
+                          {option.description && (
+                            <span className="text-sm text-muted-foreground">{option.description}</span>
+                          )}
+                        </div>
+                      </CommandItem>
+                      {isExpanded && (
+                        <div className="ml-4">
+                          {option.emails.map((email) => (
+                            <CommandItem
+                              key={email.value}
+                              value={email.value}
+                              onSelect={handleSelect}
+                              className="pl-8"
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  value === email.value ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              <div className="flex flex-col">
+                                <span>{email.label}</span>
+                                {email.description && (
+                                  <span className="text-sm text-muted-foreground">{email.description}</span>
+                                )}
+                              </div>
+                            </CommandItem>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )
+                }
+                return (
+                  <CommandItem
+                    key={option.value}
+                    value={option.value}
+                    onSelect={handleSelect}
+                  >
+                    <Check
+                      className={cn(
+                        "mr-2 h-4 w-4",
+                        value === option.value ? "opacity-100" : "opacity-0"
+                      )}
+                    />
+                    <div className="flex flex-col">
+                      <span>{option.label}</span>
+                      {option.description && (
+                        <span className="text-sm text-muted-foreground">{option.description}</span>
+                      )}
+                    </div>
+                  </CommandItem>
+                )
+              })}
             </CommandGroup>
           </CommandList>
         </Command>
