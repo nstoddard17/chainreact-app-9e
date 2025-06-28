@@ -436,14 +436,51 @@ export const useAuthStore = create<AuthState>()(
           // Clear local state immediately to prevent loading screens
           set({ user: null, profile: null, loading: false, error: null })
 
-          // Clear integration store immediately
+          // Clear all stores synchronously
           try {
+            // Clear integration store
             const { useIntegrationStore } = await import("./integrationStore")
             const integrationStore = useIntegrationStore.getState()
             integrationStore.setCurrentUserId(null)
             integrationStore.clearAllData()
+            
+            // Clear other stores if they exist
+            try {
+              const { useWorkflowStore } = await import("./workflowStore")
+              const workflowStore = useWorkflowStore.getState()
+              if (workflowStore.clearAllData) {
+                workflowStore.clearAllData()
+              }
+            } catch (e) {
+              // Workflow store might not exist, ignore
+            }
+            
+            try {
+              const { useAnalyticsStore } = await import("./analyticsStore")
+              const analyticsStore = useAnalyticsStore.getState()
+              if (analyticsStore.clearAllData) {
+                analyticsStore.clearAllData()
+              }
+            } catch (e) {
+              // Analytics store might not exist, ignore
+            }
+            
+            try {
+              const { useAdminStore } = await import("./adminStore")
+              const adminStore = useAdminStore.getState()
+              if (adminStore.clearAllData) {
+                adminStore.clearAllData()
+              }
+            } catch (e) {
+              // Admin store might not exist, ignore
+            }
           } catch (error) {
-            console.error("Error clearing integration data:", error)
+            console.error("Error clearing stores:", error)
+          }
+          
+          // Stop any ongoing activities by dispatching a custom event
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('user-signout'))
           }
           
           // Sign out from Supabase (don't wait for this to complete)

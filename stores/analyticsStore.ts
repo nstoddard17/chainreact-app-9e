@@ -35,6 +35,7 @@ interface AnalyticsState {
   fetchMetrics: () => Promise<void>
   fetchChartData: () => Promise<void>
   fetchExecutions: () => Promise<void>
+  clearAllData: () => void
 }
 
 export const useAnalyticsStore = create<AnalyticsState>((set) => ({
@@ -146,5 +147,19 @@ export const useAnalyticsStore = create<AnalyticsState>((set) => ({
       console.error("Error fetching executions:", error)
       set({ executions: [], loading: false, error: "Failed to load executions" })
     }
+  },
+  clearAllData: () => {
+    set({
+      metrics: {
+        workflowsRun: 0,
+        hoursSaved: 0,
+        integrations: 0,
+        aiCommands: 0,
+      },
+      chartData: [],
+      executions: [],
+      loading: false,
+      error: null,
+    })
   },
 }))
