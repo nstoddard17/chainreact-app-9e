@@ -388,7 +388,7 @@ export const useAuthStore = create<AuthState>()(
                   }
                 }, 100)
               } else if (event === "SIGNED_OUT") {
-                set({ user: null, error: null })
+                set({ user: null, profile: null, loading: false, error: null })
                 
                 // Clear integration store when user signs out
                 setTimeout(async () => {
@@ -433,10 +433,8 @@ export const useAuthStore = create<AuthState>()(
 
       signOut: async () => {
         try {
-          set({ loading: true, error: null })
-
-          // Clear local state first
-          set({ user: null, profile: null, error: null })
+          // Clear local state immediately to prevent loading screens
+          set({ user: null, profile: null, loading: false, error: null })
 
           // Clear integration store immediately
           try {
@@ -448,14 +446,12 @@ export const useAuthStore = create<AuthState>()(
             console.error("Error clearing integration data:", error)
           }
           
-          // Sign out from Supabase
-          const { error } = await supabase.auth.signOut()
-          if (error) {
-          }
+          // Sign out from Supabase (don't wait for this to complete)
+          supabase.auth.signOut().catch(error => {
+            console.error("Supabase sign out error:", error)
+          })
 
-          set({ loading: false })
-          
-          // Force a page reload to ensure clean state
+          // Redirect immediately
           if (typeof window !== 'undefined') {
             window.location.href = '/'
           }
