@@ -1,16 +1,20 @@
 "use client"
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useAuthStore } from '@/stores/authStore'
 
 export function UserActivityTracker() {
   const { user } = useAuthStore()
+  const isActiveRef = useRef(false)
 
   useEffect(() => {
     if (!user?.id) {
       console.log('UserActivityTracker: No user, skipping setup')
+      isActiveRef.current = false
       return
     }
+
+    isActiveRef.current = true
 
     const sendHeartbeat = async () => {
       try {
@@ -30,10 +34,16 @@ export function UserActivityTracker() {
     const UPDATE_INTERVAL = 30000 // Update every 30 seconds max
 
     const updatePresence = async () => {
-      // Check if user still exists before making the call
+      // Check if component is still active and user still exists
+      if (!isActiveRef.current) {
+        console.log('UserActivityTracker: Component no longer active, stopping updates')
+        return
+      }
+
       const currentUser = useAuthStore.getState().user
       if (!currentUser?.id) {
         console.log('UserActivityTracker: User no longer exists, stopping updates')
+        isActiveRef.current = false
         return
       }
 
@@ -48,6 +58,13 @@ export function UserActivityTracker() {
       try {
         console.log('UserActivityTracker: Updating presence...')
         const response = await fetch('/api/user/presence', { method: 'POST' })
+        
+        if (response.status === 401) {
+          console.log('UserActivityTracker: Unauthorized, user likely signed out, stopping updates')
+          isActiveRef.current = false
+          return
+        }
+        
         if (response.ok) {
           console.log('UserActivityTracker: Presence updated successfully')
         } else {
@@ -56,14 +73,21 @@ export function UserActivityTracker() {
         lastUpdate = now
       } catch (error) {
         console.error('UserActivityTracker: Error updating presence', error)
+        // If we get a network error, it might be because user signed out
+        // Don't stop tracking for network errors, only for auth errors
       }
     }
 
     const handleActivity = () => {
-      // Check if user still exists before setting timeout
+      // Check if component is still active and user still exists
+      if (!isActiveRef.current) {
+        return
+      }
+
       const currentUser = useAuthStore.getState().user
       if (!currentUser?.id) {
         console.log('UserActivityTracker: User no longer exists, skipping activity')
+        isActiveRef.current = false
         return
       }
 
@@ -90,6 +114,7 @@ export function UserActivityTracker() {
 
     return () => {
       console.log('UserActivityTracker: Cleaning up')
+      isActiveRef.current = false
       clearTimeout(timeoutId)
       clearInterval(intervalId)
       events.forEach(event => {
