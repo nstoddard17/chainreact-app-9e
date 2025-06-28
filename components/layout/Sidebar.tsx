@@ -17,6 +17,7 @@ import {
   ChevronRight,
   Crown,
   Star,
+  Bot,
 } from "lucide-react"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
@@ -35,6 +36,7 @@ interface SidebarProps {
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, minRole: 'free' },
+  { name: "AI Assistant", href: "/ai-assistant", icon: Bot, minRole: 'free' },
   { name: "Workflows", href: "/workflows", icon: Workflow, minRole: 'free' },
   { name: "Integrations", href: "/integrations", icon: Puzzle, minRole: 'free' },
   { name: "Analytics", href: "/analytics", icon: BarChart3, minRole: 'pro' },
