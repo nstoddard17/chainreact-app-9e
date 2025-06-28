@@ -222,11 +222,11 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         label: "To",
         type: "email-autocomplete",
         required: true,
-        dynamic: "gmail-enhanced-recipients",
+        dynamic: "gmail-recent-recipients",
         placeholder: "Enter recipient email addresses...",
       },
-      { name: "cc", label: "CC", type: "email-autocomplete", placeholder: "optional: cc@example.com", dynamic: "gmail-enhanced-recipients" },
-      { name: "bcc", label: "BCC", type: "email-autocomplete", placeholder: "optional: bcc@example.com", dynamic: "gmail-enhanced-recipients" },
+      { name: "cc", label: "CC", type: "email-autocomplete", placeholder: "optional: cc@example.com", dynamic: "gmail-recent-recipients" },
+      { name: "bcc", label: "BCC", type: "email-autocomplete", placeholder: "optional: bcc@example.com", dynamic: "gmail-recent-recipients" },
       { name: "subject", label: "Subject", type: "text", placeholder: "Your email subject", required: true },
       { name: "body", label: "Body", type: "textarea", placeholder: "Your email body", required: true },
       { 
@@ -1852,7 +1852,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         name: "emailAddress", 
         label: "Email Address", 
         type: "email-autocomplete", 
-        dynamic: "gmail-enhanced-recipients",
+        dynamic: "gmail-recent-recipients",
         required: false,
         placeholder: "Enter email addresses...",
         description: "Choose from recent recipients or type custom email addresses"

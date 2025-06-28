@@ -59,7 +59,7 @@ export default function ConfigurationModal({
       return "UTC"
     }
   }
-  
+
   // Function to check if a field should be shown based on dependencies
   const shouldShowField = (field: ConfigField): boolean => {
     if (!field.dependsOn) return true
@@ -85,15 +85,15 @@ export default function ConfigurationModal({
       
       if (data) {
         setDynamicOptions(prev => ({
-                  ...prev,
+          ...prev,
           [field.name]: data.map((item: any) => ({
             value: item.value || item.id || item.name,
             label: item.name || item.label || item.title,
             ...item
           }))
-                }))
-              }
-            } catch (error) {
+        }))
+      }
+    } catch (error) {
       console.error(`Error fetching dependent data for ${field.name}:`, error)
     } finally {
       setLoadingDynamic(false)
@@ -133,7 +133,7 @@ export default function ConfigurationModal({
             } else if (field.dynamic === "google-calendars") {
               newOptions[field.name] = data.map((calendar: any) => ({
                 value: calendar.id,
-                label: calendar.summary,
+                label: calendar.name,
               }))
             } else if (field.dynamic === "google-drive-folders") {
               newOptions[field.name] = data.map((folder: any) => ({
@@ -181,7 +181,7 @@ export default function ConfigurationModal({
                         description: email.description,
                         groupId: group.labelId,
                         groupName: group.labelName,
-                      }))
+                      })),
                     }
                     groupedOptions.push(groupOption)
                   }
@@ -202,10 +202,6 @@ export default function ConfigurationModal({
                 description: `${label.messages_total} messages`,
               }))
             } else if (field.dynamic === "google-sheets_spreadsheets") {
-              const data = await loadIntegrationData(
-                field.dynamic,
-                integration.id,
-              )
               if (data) {
                 newOptions[field.name] = data.map((spreadsheet: any) => ({
                   value: spreadsheet.id,
@@ -213,10 +209,6 @@ export default function ConfigurationModal({
                 }))
               }
             } else if (field.dynamic === "google-sheets_sheets") {
-              const data = await loadIntegrationData(
-                field.dynamic,
-                integration.id,
-              )
               if (data) {
                 newOptions[field.name] = data.map((sheet: any) => ({
                   value: sheet.title,
@@ -224,10 +216,6 @@ export default function ConfigurationModal({
                 }))
               }
             } else if (field.dynamic === "google-docs_documents") {
-              const data = await loadIntegrationData(
-                field.dynamic,
-                integration.id,
-              )
               if (data) {
                 newOptions[field.name] = data.map((document: any) => ({
                   value: document.id,
@@ -235,10 +223,6 @@ export default function ConfigurationModal({
                 }))
               }
             } else if (field.dynamic === "google-docs_templates") {
-              const data = await loadIntegrationData(
-                field.dynamic,
-                integration.id,
-              )
               if (data) {
                 newOptions[field.name] = data.map((template: any) => ({
                   value: template.id,
@@ -641,39 +625,6 @@ export default function ConfigurationModal({
             )
           }
           
-          // Special handling for calendar dropdowns to show better labels
-          if (field.dynamic === "google-calendars") {
-            const calendarOptions = finalOptions.map((option: any) => ({
-              ...option,
-              label: option.summary || option.name || option.id,
-            }))
-            
-            return (
-              <div className="space-y-1">
-                <div className={hasError ? 'ring-2 ring-red-500 rounded-md' : ''}>
-                  <Combobox
-                    options={calendarOptions}
-                    value={value}
-                    onChange={handleSelectChange}
-                    placeholder={field.placeholder || "Select a calendar"}
-                    searchPlaceholder="Search calendars..."
-                    emptyPlaceholder={loadingDynamic ? "Loading calendars..." : "No calendars found."}
-                    disabled={loadingDynamic}
-                  />
-                </div>
-                {field.description && (
-                  <p className="text-xs text-muted-foreground">{field.description}</p>
-                )}
-                {hasError && (
-                  <div className="flex items-center gap-1 text-sm text-red-600">
-                    <AlertCircle className="h-4 w-4" />
-                    {errors[field.name]}
-                  </div>
-                )}
-              </div>
-            )
-          }
-          
           return (
             <div className="space-y-1">
               <div className={hasError ? 'ring-2 ring-red-500 rounded-md' : ''}>
@@ -753,36 +704,31 @@ export default function ConfigurationModal({
         )
       case "email-autocomplete":
         if (field.name === "attendees" && nodeInfo?.type === "google_calendar_action_create_event") {
-          const emailOptions = dynamicOptions[field.name] || []
-          const emailSuggestions = emailOptions.map((opt: any) => ({
-            value: opt.value,
-            label: opt.label,
-            email: opt.email || opt.value,
-            name: opt.name,
-            type: opt.type,
-            isGroup: opt.isGroup,
-            groupId: opt.groupId,
-            members: opt.members
-          }))
-          
+        const emailOptions = dynamicOptions[field.name] || []
+        const emailSuggestions = emailOptions.map((opt: any) => ({
+          value: opt.value,
+          label: opt.label,
+          email: opt.email || opt.value,
+          name: opt.name,
+          type: opt.type,
+          isGroup: opt.isGroup,
+          groupId: opt.groupId,
+          members: opt.members
+        }))
           // Always use a string value for EmailAutocomplete
           const attendeesValue = typeof value === "string" ? value : Array.isArray(value) ? value.join(", ") : ""
-          
-          return (
-            <div className="space-y-1">
-              <EmailAutocomplete
+        return (
+          <div className="space-y-1">
+            <EmailAutocomplete
                 value={attendeesValue}
                 onChange={(newValue) => setConfig({ ...config, [field.name]: newValue })}
                 suggestions={emailSuggestions}
-                placeholder={field.placeholder || "Select guests from your contacts"}
+                placeholder={field.placeholder}
                 disabled={loadingDynamic}
                 isLoading={loadingDynamic}
                 multiple={true}
                 className={inputClassName}
               />
-              {field.description && (
-                <p className="text-xs text-muted-foreground">{field.description}</p>
-              )}
               {hasError && (
                 <div className="flex items-center gap-1 text-sm text-red-600">
                   <AlertCircle className="h-4 w-4" />

@@ -538,12 +538,8 @@ export const useIntegrationStore = create<IntegrationStore>()(
       }
     },
 
-    loadIntegrationData: async (
-      providerId: string,
-      integrationId: string,
-      params?: Record<string, any>,
-    ) => {
-      const { setLoading, setError, integrationData } = get()
+    loadIntegrationData: async (providerId, integrationId, params) => {
+      const { setLoading, setError } = get()
       setLoading(`data-${providerId}`, true)
 
       try {
@@ -551,46 +547,38 @@ export const useIntegrationStore = create<IntegrationStore>()(
         let dataType = providerId // Default to providerId
         
         switch (providerId) {
-          case "slack":
-            url = "/api/integrations/slack/load-data"
-            break
-          case "gmail":
-            url = "/api/integrations/gmail/load-data"
-            break
-          case "gmail-recent-recipients":
-            url = "/api/integrations/gmail/recent-recipients"
-            break
           case "gmail-enhanced-recipients":
             url = "/api/integrations/gmail/enhanced-recipients"
             break
-          case "gmail-contact-groups":
-            url = "/api/integrations/gmail/contact-groups"
-            break
           case "gmail_messages":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "gmail_messages"
+            url = "/api/integrations/gmail/messages"
             break
           case "gmail_labels":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "gmail_labels"
+            url = "/api/integrations/gmail/labels"
             break
-          case "google-calendar":
-            url = "/api/integrations/google-calendar/load-data"
+          case "gmail-recent-recipients":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "gmail-recent-recipients"
             break
           case "google-calendars":
             url = "/api/integrations/fetch-user-data"
-            dataType = "google-calendar_calendars"
+            dataType = "google-calendars"
             break
-          case "google-drive":
-            url = "/api/integrations/google-drive/load-data"
-            break
-          case "google-sheets":
+          case "google-calendar":
             url = "/api/integrations/fetch-user-data"
-            dataType = "google-sheets_spreadsheets" // Default to spreadsheets
+            dataType = "google-calendar"
+            break
+          case "google-drive-folders":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "google-drive-folders"
+            break
+          case "google-drive-files":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "google-drive-files"
             break
           case "google-sheets_spreadsheets":
             url = "/api/integrations/fetch-user-data"
-            dataType = "google-sheets_spreadsheets"
+            dataType = "spreadsheets"
             break
           case "google-sheets_sheets":
             url = "/api/integrations/fetch-user-data"
@@ -673,9 +661,12 @@ export const useIntegrationStore = create<IntegrationStore>()(
         }
 
         const response = await apiClient.post(url, { 
-          ...(url.includes('/gmail/') ? { integrationId } : { 
-            provider: providerId === 'google-calendars' ? 'google-calendar' : 
-                     (providerId.includes('_') ? providerId.split('_')[0] : providerId), // Extract base provider name
+          ...(url.includes('/gmail/') && !url.includes('/fetch-user-data') ? { integrationId } : { 
+            provider: providerId.includes('_') ? providerId.split('_')[0] : 
+                     providerId === 'gmail-recent-recipients' ? 'gmail' :
+                     providerId === 'google-calendars' ? 'google-calendar' :
+                     providerId.includes('-') ? providerId.split('-')[0] : 
+                     providerId, // Extract base provider name
             dataType: params?.dataType || dataType, // Allow override via params
           }),
           ...params 
