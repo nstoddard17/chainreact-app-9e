@@ -1,72 +1,57 @@
-import { NextResponse } from "next/server"
-import type { NextRequest } from "next/server"
+import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs'
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
 import { updateSession } from "@/utils/supabase/middleware"
 
-export async function middleware(request: NextRequest) {
-  try {
-    const url = request.nextUrl
-    const hostname = request.headers.get("host") || ""
-    const pathname = request.nextUrl.pathname
+// Define page access rules
+const pageAccessRules = {
+  '/dashboard': ['free', 'pro', 'business', 'enterprise', 'admin'],
+  '/workflows': ['free', 'pro', 'business', 'enterprise', 'admin'],
+  '/integrations': ['free', 'pro', 'business', 'enterprise', 'admin'],
+  '/learn': ['free', 'pro', 'business', 'enterprise', 'admin'],
+  '/community': ['free', 'pro', 'business', 'enterprise', 'admin'],
+  '/analytics': ['pro', 'business', 'enterprise', 'admin'],
+  '/teams': ['business', 'enterprise', 'admin'],
+  '/enterprise': ['enterprise', 'admin'],
+  '/admin': ['admin'],
+  '/setup-username': ['free', 'pro', 'business', 'enterprise', 'admin'],
+  '/profile': ['free', 'pro', 'business', 'enterprise', 'admin'],
+  '/settings': ['free', 'pro', 'business', 'enterprise', 'admin'],
+}
 
-    // Handle www to non-www redirect
-    if (hostname.startsWith("www.")) {
-      const newHostname = hostname.replace(/^www\./, "")
-      return NextResponse.redirect(new URL(url.pathname + url.search, `https://${newHostname}`), 301)
-    }
+export async function middleware(req: NextRequest) {
+  const res = NextResponse.next()
+  const supabase = createMiddlewareClient({ req, res })
 
-    // The new matcher in config is good, but this is an extra layer of safety
-    if (
-      pathname.startsWith("/_next") ||
-      pathname.startsWith("/auth") ||
-      pathname.includes(".")
-    ) {
-      return NextResponse.next()
-    }
+  // Check if user is authenticated
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
-    const { response, supabase, user } = await updateSession(request)
-
-    // Protected routes
-    const protectedRoutes = [
-      "/dashboard",
-      "/workflows",
-      "/integrations",
-      "/analytics",
-      "/settings",
-      "/teams",
-      "/templates",
-      "/enterprise",
-      "/learn",
-      "/community",
-    ]
-
-    const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route))
-
-    // Only redirect if no user and accessing protected route
-    if (!user && isProtectedRoute) {
-      const redirectUrl = new URL("/auth/login", request.url)
-      redirectUrl.searchParams.set("redirectTo", pathname)
-      return NextResponse.redirect(redirectUrl)
-    }
-
-    // Track API usage if user exists
-    // Note: The matcher for this middleware excludes /api routes, so this tracking logic might not be hit.
-    // We may need to adjust the matcher if we want to track API usage here.
-    if (user && pathname.startsWith("/api/")) {
-      if (pathname.startsWith("/api/workflows/execute")) {
-        await trackUsage(supabase, user.id, "execution", "run")
-      } else if (pathname.startsWith("/api/workflows") && request.method === "POST") {
-        await trackUsage(supabase, user.id, "workflow", "create")
-      } else if (pathname.startsWith("/api/integrations") && request.method === "POST") {
-        await trackUsage(supabase, user.id, "integration", "connect")
-      }
-    }
-
-    return response
-  } catch (error) {
-    console.error("Middleware error:", error)
-    // Don't redirect on middleware errors, let the app handle it
-    return NextResponse.next()
+  // If no user, allow the request (auth pages will handle redirect)
+  if (!user) {
+    return res
   }
+
+  // Get user profile to check role
+  const { data: profile } = await supabase
+    .from('user_profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  const userRole = profile?.role || 'free'
+  const pathname = req.nextUrl.pathname
+
+  // Check if the page has access rules
+  const allowedRoles = pageAccessRules[pathname as keyof typeof pageAccessRules]
+  
+  if (allowedRoles && !allowedRoles.includes(userRole)) {
+    // Redirect to dashboard if user doesn't have access
+    return NextResponse.redirect(new URL('/dashboard', req.url))
+  }
+
+  return res
 }
 
 async function trackUsage(supabase: any, userId: string, resourceType: string, action: string) {
@@ -112,15 +97,17 @@ function getUsageField(resourceType: string): string | null {
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     *
-     * We are explicitly NOT excluding /api routes here to allow for usage tracking,
-     * but we are excluding static assets and auth routes.
-     */
-    "/((?!_next/static|_next/image|favicon.ico|auth/login).*)",
+    '/dashboard/:path*',
+    '/workflows/:path*',
+    '/integrations/:path*',
+    '/analytics/:path*',
+    '/teams/:path*',
+    '/enterprise/:path*',
+    '/admin/:path*',
+    '/learn/:path*',
+    '/community/:path*',
+    '/setup-username',
+    '/profile',
+    '/settings/:path*',
   ],
 }

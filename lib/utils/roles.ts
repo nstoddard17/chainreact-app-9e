@@ -8,6 +8,7 @@ export interface RoleInfo {
   description: string
   features: string[]
   limits: Record<string, number>
+  allowedPages: string[]
 }
 
 export const ROLES: Record<UserRole, RoleInfo> = {
@@ -26,7 +27,8 @@ export const ROLES: Record<UserRole, RoleInfo> = {
       workflows: 3,
       integrations: 5,
       executions: 100
-    }
+    },
+    allowedPages: ['/dashboard', '/workflows', '/integrations', '/learn', '/community', '/profile', '/settings']
   },
   pro: {
     name: 'pro',
@@ -44,7 +46,8 @@ export const ROLES: Record<UserRole, RoleInfo> = {
       workflows: 20,
       integrations: 15,
       executions: 1000
-    }
+    },
+    allowedPages: ['/dashboard', '/workflows', '/integrations', '/learn', '/community', '/analytics', '/profile', '/settings']
   },
   business: {
     name: 'business',
@@ -63,7 +66,8 @@ export const ROLES: Record<UserRole, RoleInfo> = {
       workflows: -1, // unlimited
       integrations: 50,
       executions: 10000
-    }
+    },
+    allowedPages: ['/dashboard', '/workflows', '/integrations', '/learn', '/community', '/analytics', '/teams', '/profile', '/settings']
   },
   enterprise: {
     name: 'enterprise',
@@ -82,7 +86,8 @@ export const ROLES: Record<UserRole, RoleInfo> = {
       workflows: -1, // unlimited
       integrations: -1, // unlimited
       executions: -1 // unlimited
-    }
+    },
+    allowedPages: ['/dashboard', '/workflows', '/integrations', '/learn', '/community', '/analytics', '/teams', '/enterprise', '/profile', '/settings']
   },
   admin: {
     name: 'admin',
@@ -100,7 +105,8 @@ export const ROLES: Record<UserRole, RoleInfo> = {
       workflows: -1,
       integrations: -1,
       executions: -1
-    }
+    },
+    allowedPages: ['/dashboard', '/workflows', '/integrations', '/learn', '/community', '/analytics', '/teams', '/enterprise', '/admin', '/profile', '/settings']
   }
 }
 
@@ -143,4 +149,19 @@ export function getRoleLimit(userRole: UserRole, limitType: string): number {
 
 export function isUnlimited(userRole: UserRole, limitType: string): boolean {
   return getRoleLimit(userRole, limitType) === -1
+}
+
+export function canAccessPage(userRole: UserRole, pagePath: string): boolean {
+  const roleInfo = getRoleInfo(userRole)
+  
+  // Admin has access to all pages
+  if (userRole === 'admin') return true
+  
+  // Check if the page is in the allowed pages list
+  return roleInfo.allowedPages.includes(pagePath)
+}
+
+export function getAccessiblePages(userRole: UserRole): string[] {
+  const roleInfo = getRoleInfo(userRole)
+  return roleInfo.allowedPages
 } 

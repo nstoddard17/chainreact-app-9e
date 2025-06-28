@@ -8,6 +8,7 @@ import TopBar from "./TopBar"
 import { useIntegrationStore } from "@/stores/integrationStore"
 import { Loader2 } from "lucide-react"
 import { useTheme } from "next-themes"
+import PageProtection from "@/components/auth/PageProtection"
 
 interface AppLayoutProps {
   children: React.ReactNode
@@ -45,43 +46,45 @@ export default function AppLayout({ children, title, subtitle }: AppLayoutProps)
   }
 
   return (
-    <div className="min-h-screen bg-background flex">
-      {/* Hidden dummy password field to trap browser autofill globally */}
-      <input
-        type="password"
-        name="fake-password-global"
-        autoComplete="new-password"
-        style={{ display: 'none' }}
-        tabIndex={-1}
-      />
-      <Sidebar 
-        isMobileMenuOpen={isMobileMenuOpen} 
-        onMobileMenuChange={setIsMobileMenuOpen}
-        isCollapsed={isSidebarCollapsed}
-        onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-      />
-      {isMobileMenuOpen && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
-          onClick={() => setIsMobileMenuOpen(false)}
+    <PageProtection>
+      <div className="min-h-screen bg-background flex">
+        {/* Hidden dummy password field to trap browser autofill globally */}
+        <input
+          type="password"
+          name="fake-password-global"
+          autoComplete="new-password"
+          style={{ display: 'none' }}
+          tabIndex={-1}
         />
-      )}
-      <div className={`flex-1 flex flex-col transition-all duration-200 ${isSidebarCollapsed ? 'lg:ml-16' : 'lg:ml-64'}`}>
-        <TopBar 
-          onMobileMenuChange={setIsMobileMenuOpen} 
-          title={title}
-          subtitle={subtitle}
+        <Sidebar 
+          isMobileMenuOpen={isMobileMenuOpen} 
+          onMobileMenuChange={setIsMobileMenuOpen}
+          isCollapsed={isSidebarCollapsed}
+          onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
         />
-        {globalPreloadingData && (
-          <div className="bg-blue-50 border-b border-blue-200 px-6 py-2">
-            <div className="flex items-center gap-2 text-sm text-blue-700">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              <span>Loading your integration data in the background...</span>
-            </div>
-          </div>
+        {isMobileMenuOpen && (
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+            onClick={() => setIsMobileMenuOpen(false)}
+          />
         )}
-        <main className="flex-1 p-6">{children}</main>
+        <div className={`flex-1 flex flex-col transition-all duration-200 ${isSidebarCollapsed ? 'lg:ml-16' : 'lg:ml-64'}`}>
+          <TopBar 
+            onMobileMenuChange={setIsMobileMenuOpen} 
+            title={title}
+            subtitle={subtitle}
+          />
+          {globalPreloadingData && (
+            <div className="bg-blue-50 border-b border-blue-200 px-6 py-2">
+              <div className="flex items-center gap-2 text-sm text-blue-700">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Loading your integration data in the background...</span>
+              </div>
+            </div>
+          )}
+          <main className="flex-1 p-6">{children}</main>
+        </div>
       </div>
-    </div>
+    </PageProtection>
   )
 }
