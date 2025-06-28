@@ -100,6 +100,11 @@ export async function POST(request: NextRequest) {
       fetcherKey = "gmail-recent-recipients"
     }
     
+    // Special case for gmail-enhanced-recipients
+    if (provider === "gmail" && dataType === "gmail-enhanced-recipients") {
+      fetcherKey = "gmail-enhanced-recipients"
+    }
+    
     // Special case for google-calendars
     if (provider === "google-calendar" && dataType === "google-calendars") {
       fetcherKey = "google-calendars"

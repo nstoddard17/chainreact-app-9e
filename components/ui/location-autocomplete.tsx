@@ -1,8 +1,8 @@
 "use client"
 
-import React, { useState, useEffect, useRef } from "react"
+import React, { useState, useEffect, useRef, useMemo } from "react"
 import { Input } from "@/components/ui/input"
-import { MapPin, Search } from "lucide-react"
+import { MapPin, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface LocationSuggestion {
@@ -12,6 +12,7 @@ interface LocationSuggestion {
     main_text: string
     secondary_text: string
   }
+  types: string[]
 }
 
 interface LocationAutocompleteProps {
@@ -25,74 +26,75 @@ interface LocationAutocompleteProps {
 export function LocationAutocomplete({
   value,
   onChange,
-  placeholder = "Enter location or address...",
+  placeholder = "Enter an address...",
   disabled = false,
   className
 }: LocationAutocompleteProps) {
-  const [inputValue, setInputValue] = useState(value)
-  const [suggestions, setSuggestions] = useState<LocationSuggestion[]>([])
+  const [inputValue, setInputValue] = useState(value || "")
   const [isOpen, setIsOpen] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState(-1)
+  const [suggestions, setSuggestions] = useState<LocationSuggestion[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
-  const suggestionsRef = useRef<HTMLDivElement>(null)
+  const listRef = useRef<HTMLUListElement>(null)
+  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-  // Update input value when external value changes
+  // Update input value when prop changes
   useEffect(() => {
-    setInputValue(value)
+    setInputValue(value || "")
   }, [value])
 
   // Debounced search function
-  useEffect(() => {
-    if (!inputValue.trim() || inputValue.length < 3) {
-      setSuggestions([])
-      setIsOpen(false)
-      return
-    }
-
-    const timeoutId = setTimeout(async () => {
-      await searchPlaces(inputValue)
-    }, 300)
-
-    return () => clearTimeout(timeoutId)
-  }, [inputValue])
-
-  const searchPlaces = async (query: string) => {
-    if (!query.trim() || query.length < 3) return
-
-    setIsLoading(true)
-    try {
-      const response = await fetch(`/api/places/autocomplete?query=${encodeURIComponent(query)}`)
-      if (response.ok) {
-        const data = await response.json()
-        if (data.error) {
-          console.warn('Places API error:', data.error)
-          // Don't show suggestions if there's an API error, but don't break the component
-          setSuggestions([])
-          setIsOpen(false)
-        } else {
-          setSuggestions(data.predictions || [])
-          setIsOpen(true)
-          setSelectedIndex(-1)
+  const searchPlaces = useMemo(
+    () => {
+      return (query: string) => {
+        if (debounceTimeoutRef.current) {
+          clearTimeout(debounceTimeoutRef.current)
         }
-      } else {
-        console.error('Failed to fetch place suggestions:', response.status)
-        setSuggestions([])
-        setIsOpen(false)
+
+        debounceTimeoutRef.current = setTimeout(async () => {
+          if (!query.trim()) {
+            setSuggestions([])
+            setIsLoading(false)
+            return
+          }
+
+          setIsLoading(true)
+          try {
+            // Use Google Maps Places API Autocomplete
+            const response = await fetch(`/api/places/autocomplete?input=${encodeURIComponent(query)}`)
+            if (response.ok) {
+              const data = await response.json()
+              setSuggestions(data.predictions || [])
+            } else {
+              console.error('Failed to fetch place suggestions')
+              setSuggestions([])
+            }
+          } catch (error) {
+            console.error('Error fetching place suggestions:', error)
+            setSuggestions([])
+          } finally {
+            setIsLoading(false)
+          }
+        }, 300) // 300ms debounce
       }
-    } catch (error) {
-      console.error('Failed to fetch place suggestions:', error)
-      setSuggestions([])
-      setIsOpen(false)
-    } finally {
-      setIsLoading(false)
-    }
-  }
+    },
+    []
+  )
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value
     setInputValue(newValue)
     onChange(newValue)
+    setIsOpen(true)
+    setSelectedIndex(-1)
+    
+    if (newValue.trim()) {
+      searchPlaces(newValue)
+    } else {
+      setSuggestions([])
+      setIsLoading(false)
+    }
   }
 
   const handleSuggestionSelect = (suggestion: LocationSuggestion) => {
@@ -105,8 +107,8 @@ export function LocationAutocomplete({
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (!isOpen) {
-      if (e.key === 'ArrowDown') {
+    if (!isOpen || suggestions.length === 0) {
+      if (e.key === 'ArrowDown' && suggestions.length > 0) {
         setIsOpen(true)
         return
       }
@@ -151,9 +153,31 @@ export function LocationAutocomplete({
     }, 200)
   }
 
+  // Scroll selected item into view
+  useEffect(() => {
+    if (selectedIndex >= 0 && listRef.current) {
+      const selectedElement = listRef.current.children[selectedIndex] as HTMLElement
+      if (selectedElement) {
+        selectedElement.scrollIntoView({ block: "nearest" })
+      }
+    }
+  }, [selectedIndex])
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  const showSuggestions = isOpen && (suggestions.length > 0 || isLoading)
+
   return (
     <div className={cn("relative", className)}>
       <div className="relative">
+        <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
         <Input
           ref={inputRef}
           type="text"
@@ -164,52 +188,54 @@ export function LocationAutocomplete({
           onBlur={handleInputBlur}
           placeholder={placeholder}
           disabled={disabled}
-          className="pr-10"
+          className={cn("pl-10 pr-10", className)}
           autoComplete="off"
-          autoCorrect="off"
-          autoCapitalize="off"
-          spellCheck="false"
         />
-        <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-          {isLoading ? (
-            <div className="w-4 h-4 border-2 border-border border-t-primary rounded-full animate-spin"></div>
-          ) : (
-            <MapPin className="w-4 h-4 text-muted-foreground" />
-          )}
-        </div>
+        {isLoading && (
+          <Loader2 className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+        )}
       </div>
 
-      {/* Suggestions dropdown */}
-      {isOpen && suggestions.length > 0 && (
-        <div
-          ref={suggestionsRef}
-          className="absolute z-50 w-full mt-1 bg-background border border-border rounded-md shadow-lg max-h-60 overflow-y-auto"
-        >
-          {suggestions.map((suggestion, index) => (
-            <button
-              key={suggestion.place_id}
-              type="button"
-              className={cn(
-                "w-full px-3 py-2 text-left hover:bg-accent focus:bg-accent focus:outline-none",
-                index === selectedIndex && "bg-accent"
-              )}
-              onClick={() => handleSuggestionSelect(suggestion)}
-            >
-              <div className="flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium truncate">
-                    {suggestion.structured_formatting?.main_text || suggestion.description}
+      {showSuggestions && (
+        <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-md shadow-lg max-h-60 overflow-auto">
+          <ul ref={listRef} className="py-1">
+            {isLoading && suggestions.length === 0 && (
+              <li className="px-3 py-2 text-sm text-muted-foreground flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Searching for places...
+              </li>
+            )}
+            {suggestions.map((suggestion, index) => (
+              <li
+                key={suggestion.place_id}
+                className={cn(
+                  "px-3 py-2 text-sm cursor-pointer transition-colors",
+                  "hover:bg-accent hover:text-accent-foreground",
+                  selectedIndex === index && "bg-accent text-accent-foreground"
+                )}
+                onClick={() => handleSuggestionSelect(suggestion)}
+                onMouseEnter={() => setSelectedIndex(index)}
+              >
+                <div className="flex items-start gap-2">
+                  <MapPin className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    {suggestion.structured_formatting ? (
+                      <div>
+                        <div className="font-medium truncate">
+                          {suggestion.structured_formatting.main_text}
+                        </div>
+                        <div className="text-xs text-muted-foreground truncate">
+                          {suggestion.structured_formatting.secondary_text}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="truncate">{suggestion.description}</div>
+                    )}
                   </div>
-                  {suggestion.structured_formatting?.secondary_text && (
-                    <div className="text-xs text-muted-foreground truncate">
-                      {suggestion.structured_formatting.secondary_text}
-                    </div>
-                  )}
                 </div>
-              </div>
-            </button>
-          ))}
+              </li>
+            ))}
+          </ul>
         </div>
       )}
     </div>

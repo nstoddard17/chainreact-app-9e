@@ -11,6 +11,7 @@ import { ConfigField, NodeComponent } from "@/lib/workflows/availableNodes"
 import { useIntegrationStore } from "@/stores/integrationStore"
 import { Combobox, MultiCombobox, HierarchicalCombobox } from "@/components/ui/combobox"
 import { EmailAutocomplete } from "@/components/ui/email-autocomplete"
+import { LocationAutocomplete } from "@/components/ui/location-autocomplete"
 import { ConfigurationLoadingScreen } from "@/components/ui/loading-screen"
 import { FileUpload } from "@/components/ui/file-upload"
 import { DatePicker } from "@/components/ui/date-picker"
@@ -18,7 +19,6 @@ import { TimePicker } from "@/components/ui/time-picker"
 import { AlertCircle, Video } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 import { cn } from "@/lib/utils"
-import { LocationAutocomplete } from "@/components/ui/location-autocomplete"
 import GoogleMeetCard from "@/components/ui/google-meet-card"
 
 interface ConfigurationModalProps {
@@ -49,6 +49,8 @@ export default function ConfigurationModal({
   const [meetLoading, setMeetLoading] = useState(false)
   const meetDraftRef = useRef<string | null>(null)
   const previousDependentValues = useRef<Record<string, any>>({})
+  const hasInitializedTimezone = useRef<boolean>(false)
+  const hasInitializedDefaults = useRef<boolean>(false)
 
   // Function to get user's timezone
   const getUserTimezone = () => {
@@ -58,6 +60,25 @@ export default function ConfigurationModal({
       // Fallback to UTC if timezone detection fails
       return "UTC"
     }
+  }
+
+  // Function to round time to nearest 5 minutes
+  const roundToNearest5Minutes = (date: Date): Date => {
+    const minutes = date.getMinutes()
+    const roundedMinutes = Math.round(minutes / 5) * 5
+    const newDate = new Date(date)
+    newDate.setMinutes(roundedMinutes, 0, 0)
+    return newDate
+  }
+
+  // Function to format time as HH:MM
+  const formatTime = (date: Date): string => {
+    return date.toTimeString().slice(0, 5)
+  }
+
+  // Function to format date as YYYY-MM-DD
+  const formatDate = (date: Date): string => {
+    return date.toISOString().split('T')[0]
   }
 
   // Function to check if a field should be shown based on dependencies
@@ -151,10 +172,23 @@ export default function ConfigurationModal({
                 label: recipient.email,
               }))
             } else if (field.dynamic === "gmail-enhanced-recipients") {
-              newOptions[field.name] = data.map((recipient: any) => ({
-                value: recipient.email,
-                label: recipient.email,
-              }))
+              // Handle both enhanced recipients and fallback data formats
+              if (Array.isArray(data) && data.length > 0) {
+                newOptions[field.name] = data.map((recipient: any) => ({
+                  value: recipient.email || recipient.value,
+                  label: recipient.email || recipient.label || recipient.value,
+                  email: recipient.email || recipient.value,
+                  name: recipient.name,
+                  type: recipient.type,
+                  isGroup: recipient.isGroup,
+                  groupId: recipient.groupId,
+                  members: recipient.members
+                }))
+                console.log(`✅ Gmail enhanced recipients loaded: ${data.length} contacts`)
+              } else {
+                newOptions[field.name] = []
+                console.log(`⚠️ Gmail enhanced recipients returned empty or invalid data:`, data)
+              }
             } else if (field.dynamic === "gmail-contact-groups") {
               newOptions[field.name] = data.map((group: any) => ({
                 value: group.id,
@@ -233,11 +267,42 @@ export default function ConfigurationModal({
           }
         } catch (error: any) {
           console.error(`Error fetching dynamic data for ${field.dynamic}:`, error)
+          
+          // For Gmail enhanced recipients, try fallback to basic recipients
+          if (field.dynamic === "gmail-enhanced-recipients") {
+            try {
+              console.log("Attempting fallback to gmail-recent-recipients...")
+              const fallbackData = await loadIntegrationData("gmail-recent-recipients", integration.id)
+              if (fallbackData && Array.isArray(fallbackData) && fallbackData.length > 0) {
+                newOptions[field.name] = fallbackData.map((recipient: any) => ({
+                  value: recipient.email || recipient.value,
+                  label: recipient.email || recipient.label || recipient.value,
+                  email: recipient.email || recipient.value,
+                  name: recipient.name,
+                  type: recipient.type || "contact"
+                }))
+                hasData = true
+                console.log("Successfully loaded fallback recipients:", fallbackData.length)
+                continue // Skip the error handling below
+              } else {
+                // Even fallback failed, provide empty array but allow manual entry
+                newOptions[field.name] = []
+                hasData = true // Still count as having "data" so the field renders properly
+                console.log("Both enhanced and fallback recipients failed, allowing manual entry only")
+                continue
+              }
+            } catch (fallbackError) {
+              console.error("Fallback to basic recipients also failed:", fallbackError)
+            }
+          }
+          
           // Show specific error for scope issues
           if (error.message && error.message.includes("insufficient authentication scopes")) {
             setErrors(prev => ({
               ...prev,
-              [field.name]: `This integration needs to be reconnected to access ${field.dynamic}. Please reconnect your ${nodeInfo.providerId} integration.`
+              [field.name]: field.dynamic === "gmail-enhanced-recipients" 
+                ? `Contact access requires additional permissions. You can still enter email addresses manually.`
+                : `This integration needs to be reconnected to access ${field.dynamic}. Please reconnect your ${nodeInfo.providerId} integration.`
             }))
           } else if (error.message && error.message.includes("authentication expired")) {
             setErrors(prev => ({
@@ -305,13 +370,75 @@ export default function ConfigurationModal({
     fetchDependentFields()
   }, [isOpen, nodeInfo, config.spreadsheetId, fetchDependentData])
 
-  // Force timezone update for Google Calendar events
+  // Initialize timezone for Google Calendar events (only on first open)
   useEffect(() => {
-    if (isOpen && nodeInfo?.type === "google_calendar_action_create_event" && !config.timeZone) {
-      const userTimezone = getUserTimezone()
-      setConfig(prev => ({ ...prev, timeZone: userTimezone }))
+    if (isOpen && nodeInfo?.type === "google_calendar_action_create_event" && !hasInitializedTimezone.current) {
+      // Always set current timezone as default if not already set
+      const currentTimezone = config.timeZone || initialData.timeZone
+      if (!currentTimezone || currentTimezone === "auto") {
+        const userTimezone = getUserTimezone()
+        setConfig(prev => ({ ...prev, timeZone: userTimezone }))
+      }
+      hasInitializedTimezone.current = true
     }
-  }, [isOpen, nodeInfo?.type, config.timeZone])
+    
+    // Reset initialization flag when nodeInfo type changes
+    if (nodeInfo?.type !== "google_calendar_action_create_event") {
+      hasInitializedTimezone.current = false
+    }
+  }, [isOpen, nodeInfo?.type, initialData.timeZone])
+
+  // Initialize default values for Google Calendar events (only on first open)
+  useEffect(() => {
+    if (isOpen && nodeInfo?.type === "google_calendar_action_create_event" && !hasInitializedDefaults.current) {
+      const now = new Date()
+      const startTime = roundToNearest5Minutes(now)
+      const endTime = new Date(startTime.getTime() + 60 * 60 * 1000) // 1 hour later
+      const userTimezone = getUserTimezone()
+      
+      const defaults = {
+        timeZone: userTimezone,
+        startDate: formatDate(now),
+        startTime: formatTime(startTime),
+        endDate: formatDate(now),
+        endTime: formatTime(endTime),
+        allDay: false,
+        createMeetLink: false,
+        sendNotifications: "all",
+        guestsCanInviteOthers: true,
+        guestsCanSeeOtherGuests: true,
+        guestsCanModify: false,
+        visibility: "default",
+        transparency: "transparent",
+        colorId: "default",
+        reminderMinutes: "30",
+        reminderMethod: "popup",
+        recurrence: "none"
+      }
+      
+      // Only set defaults for fields that don't already have values
+      const newConfig = { ...config }
+      let hasChanges = false
+      
+      Object.entries(defaults).forEach(([key, value]) => {
+        if (newConfig[key] === undefined && initialData[key] === undefined) {
+          newConfig[key] = value
+          hasChanges = true
+        }
+      })
+      
+      if (hasChanges) {
+        setConfig(newConfig)
+      }
+      
+      hasInitializedDefaults.current = true
+    }
+    
+    // Reset initialization flag when nodeInfo type changes
+    if (nodeInfo?.type !== "google_calendar_action_create_event") {
+      hasInitializedDefaults.current = false
+    }
+  }, [isOpen, nodeInfo?.type, initialData])
 
   // Clean up draft event if modal closes with a draft present
   useEffect(() => {
@@ -328,6 +455,8 @@ export default function ConfigurationModal({
     // Reset previous dependent values when modal closes
     if (!isOpen) {
       previousDependentValues.current = {}
+      hasInitializedTimezone.current = false
+      hasInitializedDefaults.current = false
     }
   }, [isOpen])
 
@@ -522,7 +651,13 @@ export default function ConfigurationModal({
     }
 
     const handleSelectChange = (newValue: string) => {
-      setConfig({ ...config, [field.name]: newValue })
+      // Special handling for timezone auto-detection
+      if (field.name === "timeZone" && newValue === "auto") {
+        const userTimezone = getUserTimezone()
+        setConfig({ ...config, [field.name]: userTimezone })
+      } else {
+        setConfig({ ...config, [field.name]: newValue })
+      }
       
       // Clear error when user selects a value
       if (hasError && newValue) {
@@ -703,11 +838,11 @@ export default function ConfigurationModal({
           </div>
         )
       case "email-autocomplete":
-        if (field.name === "attendees" && nodeInfo?.type === "google_calendar_action_create_event") {
         const emailOptions = dynamicOptions[field.name] || []
+        console.log(`📧 EmailAutocomplete for ${field.name}: ${emailOptions.length} options`, emailOptions)
         const emailSuggestions = emailOptions.map((opt: any) => ({
-          value: opt.value,
-          label: opt.label,
+          value: opt.value || opt.email,
+          label: opt.label || opt.email || opt.value,
           email: opt.email || opt.value,
           name: opt.name,
           type: opt.type,
@@ -715,43 +850,12 @@ export default function ConfigurationModal({
           groupId: opt.groupId,
           members: opt.members
         }))
-          // Always use a string value for EmailAutocomplete
-          const attendeesValue = typeof value === "string" ? value : Array.isArray(value) ? value.join(", ") : ""
-        return (
-          <div className="space-y-1">
-            <EmailAutocomplete
-                value={attendeesValue}
-                onChange={(newValue) => setConfig({ ...config, [field.name]: newValue })}
-                suggestions={emailSuggestions}
-                placeholder={field.placeholder}
-                disabled={loadingDynamic}
-                isLoading={loadingDynamic}
-                multiple={true}
-                className={inputClassName}
-              />
-              {hasError && (
-                <div className="flex items-center gap-1 text-sm text-red-600">
-                  <AlertCircle className="h-4 w-4" />
-                  {errors[field.name]}
-                </div>
-              )}
-            </div>
-          )
-        }
+        console.log(`📧 EmailAutocomplete suggestions for ${field.name}:`, emailSuggestions)
         
-        // Regular email-autocomplete for other fields
-        const emailOptions = dynamicOptions[field.name] || []
-        const emailSuggestions = emailOptions.map((opt: any) => ({
-          value: opt.value,
-          label: opt.label,
-          email: opt.email || opt.value,
-          name: opt.name,
-          type: opt.type,
-          isGroup: opt.isGroup,
-          groupId: opt.groupId,
-          members: opt.members
-        }))
-        if ((field.name === "attendees" && nodeInfo?.type === "google_calendar_action_create_event") || field.name === "to" || (field.name === "emailAddress" && nodeInfo?.type === "gmail_action_search_email")) {
+        // Fields that support multiple emails
+        const isMultipleEmail = field.name === "attendees" || field.name === "to" || field.name === "cc" || field.name === "bcc"
+        
+        if (isMultipleEmail) {
           const multiValue = typeof value === 'string' ? value : Array.isArray(value) ? value.join(', ') : ''
           return (
             <div className="space-y-1">
@@ -778,22 +882,22 @@ export default function ConfigurationModal({
             <div className="space-y-1">
               <EmailAutocomplete
                 value={typeof value === 'string' ? value : ''}
-              onChange={handleSelectChange}
-              suggestions={emailSuggestions}
-              placeholder={field.placeholder}
-              disabled={loadingDynamic}
-              isLoading={loadingDynamic}
+                onChange={handleSelectChange}
+                suggestions={emailSuggestions}
+                placeholder={field.placeholder}
+                disabled={loadingDynamic}
+                isLoading={loadingDynamic}
                 multiple={false}
-              className={inputClassName}
-            />
-            {hasError && (
-              <div className="flex items-center gap-1 text-sm text-red-600">
-                <AlertCircle className="h-4 w-4" />
-                {errors[field.name]}
-              </div>
-            )}
-          </div>
-        )
+                className={inputClassName}
+              />
+              {hasError && (
+                <div className="flex items-center gap-1 text-sm text-red-600">
+                  <AlertCircle className="h-4 w-4" />
+                  {errors[field.name]}
+                </div>
+              )}
+            </div>
+          )
         }
       case "file":
         const handleFileChange = async (files: FileList | File[]) => {

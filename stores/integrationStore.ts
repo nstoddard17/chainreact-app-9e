@@ -548,7 +548,8 @@ export const useIntegrationStore = create<IntegrationStore>()(
         
         switch (providerId) {
           case "gmail-enhanced-recipients":
-            url = "/api/integrations/gmail/enhanced-recipients"
+            url = "/api/integrations/fetch-user-data"
+            dataType = "gmail-enhanced-recipients"
             break
           case "gmail_messages":
             url = "/api/integrations/gmail/messages"
@@ -664,6 +665,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
           ...(url.includes('/gmail/') && !url.includes('/fetch-user-data') ? { integrationId } : { 
             provider: providerId.includes('_') ? providerId.split('_')[0] : 
                      providerId === 'gmail-recent-recipients' ? 'gmail' :
+                     providerId === 'gmail-enhanced-recipients' ? 'gmail' :
                      providerId === 'google-calendars' ? 'google-calendar' :
                      providerId.includes('-') ? providerId.split('-')[0] : 
                      providerId, // Extract base provider name
