@@ -11,9 +11,10 @@ interface RoleBadgeProps {
   className?: string
 }
 
-const roleIcons = {
+const roleIcons: Record<UserRole, any> = {
   free: null,
   pro: Star,
+  'beta-pro': Star,
   business: Building,
   enterprise: Shield,
   admin: Crown
@@ -21,7 +22,7 @@ const roleIcons = {
 
 export function RoleBadge({ role, size = 'md', showIcon = true, className = '' }: RoleBadgeProps) {
   const roleInfo = getRoleInfo(role)
-  const Icon = roleIcons[role]
+  const Icon = roleIcons[role as keyof typeof roleIcons]
   
   const sizeClasses = {
     sm: 'text-xs px-2 py-0.5',
@@ -41,7 +42,7 @@ export function RoleBadge({ role, size = 'md', showIcon = true, className = '' }
 
 export function RoleBadgeCompact({ role, className = '' }: { role: UserRole; className?: string }) {
   const roleInfo = getRoleInfo(role)
-  const Icon = roleIcons[role]
+  const Icon = roleIcons[role as keyof typeof roleIcons]
   
   return (
     <div className={`inline-flex items-center space-x-1 ${roleInfo.color} ${className}`}>

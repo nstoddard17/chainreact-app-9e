@@ -31,6 +31,7 @@ import {
   Target,
   Layers,
   ChevronDown,
+  ChevronUp,
   LogOut,
   Puzzle,
   Crown,
@@ -48,6 +49,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { useState } from "react"
+import { CollapsibleFooterSection } from "@/components/ui/collapsible-footer-section"
 
 // 3D Chain Link Component
 const ChainLink = ({ className = "", delay = 0 }: { className?: string; delay?: number }) => (
@@ -863,6 +866,7 @@ export default function LandingPage() {
         <footer className="relative z-10 bg-slate-950/50 backdrop-blur-sm border-t border-white/10 text-white py-12">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+              {/* Company Info - Always visible */}
               <div>
                 <h3 className="text-2xl font-bold mb-4 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
                   ChainReact
@@ -872,8 +876,11 @@ export default function LandingPage() {
                 </p>
               </div>
 
-              <div>
-                <h4 className="font-semibold mb-4 text-blue-300">Product</h4>
+              {/* Product Section - Collapsible on mobile */}
+              <CollapsibleFooterSection 
+                title="Product" 
+                className="md:block"
+              >
                 <ul className="space-y-2 text-blue-200">
                   <li>
                     <Link href="#features" className="hover:text-white transition-colors duration-200">
@@ -898,10 +905,13 @@ export default function LandingPage() {
                     </Link>
                   </li>
                 </ul>
-              </div>
+              </CollapsibleFooterSection>
 
-              <div>
-                <h4 className="font-semibold mb-4 text-blue-300">Company</h4>
+              {/* Company Section - Collapsible on mobile */}
+              <CollapsibleFooterSection 
+                title="Company" 
+                className="md:block"
+              >
                 <ul className="space-y-2 text-blue-200">
                   <li>
                     <Link href="/community" className="hover:text-white transition-colors duration-200">
@@ -924,10 +934,13 @@ export default function LandingPage() {
                     </Link>
                   </li>
                 </ul>
-              </div>
+              </CollapsibleFooterSection>
 
-              <div>
-                <h4 className="font-semibold mb-4 text-blue-300">Legal</h4>
+              {/* Legal Section - Collapsible on mobile */}
+              <CollapsibleFooterSection 
+                title="Legal" 
+                className="md:block"
+              >
                 <ul className="space-y-2 text-blue-200">
                   <li>
                     <Link href="/privacy" className="hover:text-white transition-colors duration-200">
@@ -945,11 +958,11 @@ export default function LandingPage() {
                     </Link>
                   </li>
                 </ul>
-              </div>
+              </CollapsibleFooterSection>
             </div>
 
             <div className="border-t border-white/10 mt-8 pt-8 text-center text-blue-200">
-              <p>&copy; 2024 ChainReact. All rights reserved.</p>
+              <p>&copy; 2025 ChainReact. All rights reserved.</p>
             </div>
           </div>
         </footer>

@@ -51,14 +51,16 @@ const adminNavigation = [
 const roleIcons = {
   free: null,
   pro: Star,
+  'beta-pro': Star,
   business: Building2,
   enterprise: Shield,
   admin: Crown
 }
 
 const roleColors = {
-  free: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200',
+  free: 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300',
   pro: 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300',
+  'beta-pro': 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300',
   business: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300',
   enterprise: 'bg-pink-100 text-pink-800 dark:bg-pink-900/50 dark:text-pink-300',
   admin: 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300'
