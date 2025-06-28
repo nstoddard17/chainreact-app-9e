@@ -77,19 +77,21 @@ export function Combobox({
   disabled,
 }: ComboboxProps) {
   const [open, setOpen] = React.useState(false)
-  const [inputValue, setInputValue] = React.useState(value)
+  const [inputValue, setInputValue] = React.useState("")
 
   React.useEffect(() => {
-    // If the external value changes, update our internal input value
-    setInputValue(value)
-  }, [value])
+    // Clear input value when dropdown opens to show all options
+    if (open) {
+      setInputValue("")
+    }
+  }, [open])
   
-  const selectedOption = options.find((option) => option.value.toLowerCase() === inputValue?.toLowerCase());
+  const selectedOption = options.find((option) => option.value.toLowerCase() === value?.toLowerCase());
 
   const handleSelect = (currentValue: string) => {
     const newValue = currentValue === value ? "" : currentValue
     onChange(newValue)
-    setInputValue(newValue)
+    setInputValue("")
     setOpen(false)
   }
 

@@ -357,8 +357,9 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         name: "timeZone", 
         label: "Time Zone", 
         type: "select",
-        defaultValue: "America/New_York",
+        defaultValue: "auto", // Will be set to user's timezone in ConfigurationModal
         options: [
+          { value: "auto", label: "Auto-detect (recommended)" },
           { value: "America/New_York", label: "Eastern Time" },
           { value: "America/Chicago", label: "Central Time" },
           { value: "America/Denver", label: "Mountain Time" },
@@ -453,6 +454,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         name: "colorId", 
         label: "Color", 
         type: "select",
+        defaultValue: "default",
         placeholder: "Calendar color",
         options: [
           { value: "default", label: "Calendar color" },
@@ -473,7 +475,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         name: "reminderMinutes", 
         label: "Notification", 
         type: "select",
-        defaultValue: "10",
+        defaultValue: "30",
         options: [
           { value: "0", label: "None" },
           { value: "5", label: "5 minutes before" },
