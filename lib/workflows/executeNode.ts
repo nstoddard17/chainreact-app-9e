@@ -38,14 +38,6 @@ async function getDecryptedAccessToken(userId: string, provider: string): Promis
       throw new Error(`No integration found for ${provider}`)
     }
 
-    console.log(`Found integration for ${provider}:`, {
-      id: integration.id,
-      hasAccessToken: !!integration.access_token,
-      hasRefreshToken: !!integration.refresh_token,
-      expiresAt: integration.expires_at,
-      status: integration.status
-    })
-
     // Check if token needs refresh
     const shouldRefresh = TokenRefreshService.shouldRefreshToken(integration, {
       accessTokenExpiryThreshold: 5 // Refresh if expiring within 5 minutes
@@ -341,26 +333,17 @@ async function addGmailLabels(config: any, userId: string, input: Record<string,
     const existingLabelIds = new Set(existingLabels.map((l: any) => l.id))
     const existingLabelNames = new Map(existingLabels.map((l: any) => [l.name.toLowerCase(), l.id]))
     
-    console.log("Existing labels found:", existingLabels.length)
-    console.log("Existing label IDs:", Array.from(existingLabelIds))
-    console.log("Existing label names:", Array.from(existingLabelNames.keys()))
-    
     // For each label, if it's not an ID or name in existingLabels, create it
     const finalLabelIds: string[] = []
     for (const label of labelIds) {
-      console.log(`Processing label: "${label}"`)
       if (existingLabelIds.has(label)) {
-        console.log(`Label "${label}" found as existing ID`)
         finalLabelIds.push(label)
       } else if (existingLabelNames.has(label.toLowerCase())) {
         const existingId = existingLabelNames.get(label.toLowerCase())!
-        console.log(`Label "${label}" found as existing name, using ID: ${existingId}`)
         finalLabelIds.push(existingId)
       } else {
         // Create the label
-        console.log(`Creating new label: "${label}"`)
         const newLabel = await createGmailLabel(accessToken, label)
-        console.log(`Created new label with ID: ${newLabel.id}`)
         finalLabelIds.push(newLabel.id)
       }
     }

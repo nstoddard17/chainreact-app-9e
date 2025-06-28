@@ -99,19 +99,12 @@ export const useIntegrationStore = create<IntegrationStore>()(
     setCurrentUserId: (userId: string | null) => {
       const currentUserId = get().currentUserId
       if (currentUserId !== userId) {
-        console.log(`🔄 User changed, clearing integration data`)
-        set({
-          currentUserId: userId,
-          integrations: [],
-          apiKeyIntegrations: [],
-          loading: false,
-          error: null,
-          loadingStates: {},
-          debugInfo: null,
-          globalPreloadingData: false,
-          preloadStarted: false,
-          lastRefreshTime: null,
-        })
+        if (userId) {
+          set({ currentUserId: userId })
+        } else {
+          set({ currentUserId: null })
+          get().clearAllData()
+        }
       }
     },
 
@@ -233,8 +226,6 @@ export const useIntegrationStore = create<IntegrationStore>()(
           debugInfo: data.debug || {},
           lastRefreshTime: new Date().toISOString(),
         })
-
-        console.log(`✅ Integrations fetched:`, data.data?.length || 0)
       } catch (error: any) {
         console.error("Failed to fetch integrations:", error)
         set({
@@ -389,8 +380,6 @@ export const useIntegrationStore = create<IntegrationStore>()(
           const errorData = await response.json()
           throw new Error(errorData.error || "Failed to save API key")
         }
-
-        console.log(`✅ API key connected for ${providerId}`)
         
         // Log the integration connection via API
         try {
@@ -428,61 +417,42 @@ export const useIntegrationStore = create<IntegrationStore>()(
       const integration = integrations.find((i) => i.id === integrationId)
       if (!integration) return
 
-      setLoading(`disconnect-${integration.provider}`, true)
+      setLoading(`disconnect-${integrationId}`, true)
       setError(null)
-      try {
-        console.log(`🗑️ Disconnecting integration: ${integration.provider}`)
 
+      try {
         const supabase = getSupabaseClient()
         if (!supabase) throw new Error("Supabase client not available")
 
         const {
           data: { session },
         } = await supabase.auth.getSession()
+        if (!session?.access_token) {
+          throw new Error("No valid session found. Please log in again.")
+        }
 
-        if (!session) throw new Error("No valid session")
-
-        const response = await fetch(`/api/integrations/${integrationId}`, {
+        const response = await fetch("/api/integrations/token-management", {
           method: "DELETE",
           headers: {
+            "Content-Type": "application/json",
             Authorization: `Bearer ${session.access_token}`,
           },
+          body: JSON.stringify({
+            integrationId: integrationId,
+          }),
         })
 
         if (!response.ok) {
-          throw new Error("Failed to disconnect integration")
+          const errorData = await response.json()
+          throw new Error(errorData.error || "Failed to disconnect integration")
         }
 
-        console.log(`✅ Disconnected ${integration.provider}`)
-        
-        // Log the integration disconnection via API
-        try {
-          const { data: { user } } = await supabase.auth.getUser()
-          if (user) {
-            await fetch("/api/audit/log-integration-event", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${session.access_token}`,
-              },
-              body: JSON.stringify({
-                integrationId: integrationId,
-                provider: integration.provider,
-                eventType: "disconnect",
-                details: { method: "oauth" }
-              })
-            })
-          }
-        } catch (auditError) {
-          console.warn("Failed to log integration disconnection:", auditError)
-        }
-        
-        fetchIntegrations(true)
+        await fetchIntegrations(true)
       } catch (error: any) {
-        console.error("Error disconnecting integration:", error)
+        console.error(`Failed to disconnect ${integration.provider}:`, error)
         setError(error.message)
       } finally {
-        setLoading(`disconnect-${integration.provider}`, false)
+        setLoading(`disconnect-${integrationId}`, false)
       }
     },
 
@@ -497,13 +467,10 @@ export const useIntegrationStore = create<IntegrationStore>()(
           const errorData = await response.json()
           throw new Error(errorData.error || "Failed to refresh tokens")
         }
-        console.log("✅ All tokens refreshed successfully")
-        await fetchIntegrations(true)
+        set({ loading: false })
       } catch (error: any) {
-        console.error("Failed to refresh tokens:", error)
-        setError(error.message)
-      } finally {
-        setLoading("refresh-all", false)
+        console.error("Error refreshing tokens:", error)
+        set({ loading: false, error: error.message })
       }
     },
 
@@ -708,48 +675,47 @@ export const useIntegrationStore = create<IntegrationStore>()(
     },
 
     reconnectIntegration: async (integrationId: string) => {
-      const { integrations, connectIntegration, setError } = get()
+      const { setLoading, fetchIntegrations, integrations, setError } = get()
       const integration = integrations.find((i) => i.id === integrationId)
       if (!integration) return
 
-      try {
-        console.log(`🔄 Reconnecting integration: ${integration.provider}`)
+      setLoading(`reconnect-${integrationId}`, true)
+      setError(null)
 
+      try {
         const supabase = getSupabaseClient()
         if (!supabase) throw new Error("Supabase client not available")
 
         const {
           data: { session },
         } = await supabase.auth.getSession()
-
-        if (!session) throw new Error("No valid session")
-
-        await connectIntegration(integration.provider)
-        
-        // Log the integration reconnection via API
-        try {
-          const { data: { user } } = await supabase.auth.getUser()
-          if (user) {
-            await fetch("/api/audit/log-integration-event", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${session.access_token}`,
-              },
-              body: JSON.stringify({
-                integrationId: integrationId,
-                provider: integration.provider,
-                eventType: "reconnect",
-                details: { method: "oauth" }
-              })
-            })
-          }
-        } catch (auditError) {
-          console.warn("Failed to log integration reconnection:", auditError)
+        if (!session?.access_token) {
+          throw new Error("No valid session found. Please log in again.")
         }
+
+        const response = await fetch("/api/integrations/token-management", {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            integrationId: integrationId,
+            action: "reconnect",
+          }),
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(errorData.error || "Failed to reconnect integration")
+        }
+
+        await fetchIntegrations(true)
       } catch (error: any) {
         console.error(`Failed to reconnect ${integration.provider}:`, error)
         setError(error.message)
+      } finally {
+        setLoading(`reconnect-${integrationId}`, false)
       }
     },
 

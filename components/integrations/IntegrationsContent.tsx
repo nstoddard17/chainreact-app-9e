@@ -58,6 +58,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
     connectIntegration,
     disconnectIntegration,
     reconnectIntegration,
+    connectApiKeyIntegration,
   } = useIntegrationStore()
   const { user } = useAuthStore()
   const router = useRouter()
@@ -257,7 +258,19 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
   )
 
   const handleApiKeyConnect = async (providerId: string, apiKey: string) => {
-    console.log(`Connecting ${providerId} with API key...`)
+    try {
+      setLoadingStates(prev => ({ ...prev, [`connect-${providerId}`]: true }))
+      await connectApiKeyIntegration(providerId, apiKey)
+    } catch (error: any) {
+      console.error(`Failed to connect ${providerId}:`, error)
+      toast({
+        title: "Connection Failed",
+        description: error.message,
+        variant: "destructive",
+      })
+    } finally {
+      setLoadingStates(prev => ({ ...prev, [`connect-${providerId}`]: false }))
+    }
   }
 
   const providersWithStatus = useMemo(() => {

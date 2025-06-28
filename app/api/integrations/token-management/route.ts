@@ -31,10 +31,6 @@ export async function POST(request: NextRequest) {
 
     const { provider, apiKey } = await request.json()
 
-    // Debug: Log incoming request data
-    console.log("[API] Saving API key for provider:", provider)
-    console.log("[API] Request body:", { provider, apiKey: apiKey ? "[REDACTED]" : null })
-
     if (!provider || !apiKey) {
       return NextResponse.json({ error: "Provider and API key are required" }, { status: 400 })
     }
@@ -53,8 +49,6 @@ export async function POST(request: NextRequest) {
       status: "connected",
       updated_at: new Date().toISOString(),
     }
-    // Debug: Log upsert data
-    console.log("[API] Upsert data:", upsertData)
 
     const { error } = await adminSupabase.from("integrations").upsert(
       upsertData,

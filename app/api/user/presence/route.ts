@@ -2,92 +2,100 @@ import { NextResponse } from "next/server"
 import { createSupabaseServerClient } from "@/utils/supabase/server"
 
 export async function GET() {
-    return NextResponse.json({ message: "User presence API is working" });
+    const supabase = await createSupabaseServerClient()
+
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    try {
+        const { data: presence, error } = await supabase
+            .from('user_presence')
+            .select('*')
+            .eq('id', user.id)
+            .single()
+
+        if (error) {
+            return NextResponse.json({ error: "Failed to fetch presence" }, { status: 500 })
+        }
+
+        return NextResponse.json({ success: true, data: presence })
+    } catch (error) {
+        return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    }
 }
 
 export async function POST() {
-    console.log("User presence POST called");
-    
-    const supabase = await createSupabaseServerClient();
+    const supabase = await createSupabaseServerClient()
 
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
-        console.log("No user found");
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    console.log("User found:", user.id);
+    try {
+        // Get user profile
+        const { data: userProfile, error: profileError } = await supabase
+            .from('user_profiles')
+            .select('full_name, username, role')
+            .eq('id', user.id)
+            .single()
 
-    // Get user profile - using the correct column names
-    const { data: userProfile, error: profileError } = await supabase
-        .from('user_profiles')
-        .select('full_name, username, role')
-        .eq('id', user.id)
-        .single();
+        if (profileError) {
+            // Create basic profile if not found
+            const { data: newProfile, error: createError } = await supabase
+                .from('user_profiles')
+                .insert({
+                    id: user.id,
+                    full_name: user.user_metadata?.full_name || 'Unknown User',
+                    username: user.user_metadata?.username || 'user',
+                    role: 'free'
+                })
+                .select('full_name, username, role')
+                .single()
 
-    if (profileError) {
-        console.log("Error fetching user profile:", profileError);
-        return NextResponse.json({ error: "Failed to fetch user profile", details: profileError.message }, { status: 500 });
-    }
+            if (createError) {
+                return NextResponse.json({ error: "Failed to create user profile" }, { status: 500 })
+            }
 
-    if (!userProfile) {
-        console.log("User profile not found, creating basic profile");
-        // Create a basic profile if it doesn't exist
-        const basicProfile = {
-            full_name: user.email?.split('@')[0] || 'Unknown User',
-            email: user.email || '',
-            role: 'free'
-        };
-        
-        try {
-            // Upsert user presence with basic info
-            const { error } = await supabase
+            // Update presence with basic profile
+            const { error: presenceError } = await supabase
                 .from('user_presence')
                 .upsert({
                     id: user.id,
-                    full_name: basicProfile.full_name,
-                    email: basicProfile.email,
-                    role: basicProfile.role,
+                    full_name: newProfile.full_name,
+                    email: user.email,
+                    role: newProfile.role,
                     last_seen: new Date().toISOString()
-                });
+                })
 
-            if (error) {
-                console.error("Error updating user presence:", error);
-                return NextResponse.json({ error: "Failed to update presence", details: error.message }, { status: 500 });
+            if (presenceError) {
+                return NextResponse.json({ error: "Failed to update presence" }, { status: 500 })
             }
 
-            console.log("User presence updated successfully with basic profile");
-            return NextResponse.json({ success: true });
-        } catch (error) {
-            console.error("Error updating user presence:", error);
-            return NextResponse.json({ error: "Failed to update presence" }, { status: 500 });
+            return NextResponse.json({ success: true })
         }
-    }
 
-    console.log("User profile found:", userProfile);
-
-    try {
-        // Upsert user presence
-        const { error } = await supabase
+        // Update presence with existing profile
+        const { error: presenceError } = await supabase
             .from('user_presence')
             .upsert({
                 id: user.id,
                 full_name: userProfile.full_name,
-                email: user.email || '', // Use auth user email since user_profiles doesn't have email column
+                email: user.email,
                 role: userProfile.role,
                 last_seen: new Date().toISOString()
-            });
+            })
 
-        if (error) {
-            console.error("Error updating user presence:", error);
-            return NextResponse.json({ error: "Failed to update presence", details: error.message }, { status: 500 });
+        if (presenceError) {
+            return NextResponse.json({ error: "Failed to update presence" }, { status: 500 })
         }
 
-        console.log("User presence updated successfully");
-        return NextResponse.json({ success: true });
+        return NextResponse.json({ success: true })
     } catch (error) {
-        console.error("Error updating user presence:", error);
-        return NextResponse.json({ error: "Failed to update presence" }, { status: 500 });
+        return NextResponse.json({ error: "Internal server error" }, { status: 500 })
     }
 } 

@@ -33,6 +33,7 @@ import {
   ChevronDown,
   LogOut,
   Puzzle,
+  Crown,
 } from "lucide-react"
 import Link from "next/link"
 import { useAuth } from "@/hooks/use-auth"
@@ -225,6 +226,7 @@ export default function LandingPage() {
   const router = useRouter()
 
   const userRole = (profile?.role as UserRole) || 'free'
+  const isAdmin = userRole === 'admin'
 
   const handleSignOut = async () => {
     try {
@@ -426,6 +428,15 @@ export default function LandingPage() {
                         <Settings className="w-4 h-4 mr-2" />
                         Settings
                       </DropdownMenuItem>
+                      {isAdmin && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => router.push("/admin")}>
+                            <Crown className="w-4 h-4 mr-2" />
+                            Admin Panel
+                          </DropdownMenuItem>
+                        </>
+                      )}
                       <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={handleSignOut}>
                         <LogOut className="w-4 h-4 mr-2" />
@@ -482,6 +493,15 @@ export default function LandingPage() {
                         <Settings className="w-4 h-4 mr-2" />
                         Settings
                       </DropdownMenuItem>
+                      {isAdmin && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => router.push("/admin")}>
+                            <Crown className="w-4 h-4 mr-2" />
+                            Admin Panel
+                          </DropdownMenuItem>
+                        </>
+                      )}
                       <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={handleSignOut}>
                         <LogOut className="w-4 h-4 mr-2" />

@@ -5,6 +5,7 @@ import { persist, createJSONStorage } from "zustand/middleware"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 import { supabase } from "@/utils/supabaseClient"
+import { useEffect } from "react"
 
 interface User {
   id: string
@@ -67,57 +68,41 @@ export const useAuthStore = create<AuthState>()(
       initialize: async () => {
         const state = get()
         if (state.initialized || state.loading) {
-          console.log("Auth already initialized or initializing")
           return
         }
 
         // Add timeout protection for initialization
         const initTimeout = setTimeout(() => {
-          console.error("Auth initialization timed out - forcing completion")
           set({ loading: false, initialized: true, error: "Initialization timed out" })
         }, 12000) // Increased from 5 seconds to 12 seconds
 
         try {
           set({ loading: true, error: null })
-          console.log("🔄 Starting auth initialization...")
 
           // Handle hash fragment for magic links
           if (typeof window !== 'undefined') {
             const hash = window.location.hash
-            console.log("🔍 Checking for magic link hash:", hash ? 'Found hash' : 'No hash');
             if (hash && hash.includes('access_token')) {
-              console.log("🔗 Processing magic link hash...")
-              console.log("🔍 Hash content:", hash.substring(0, 100) + "...");
-              
               // Extract access token from hash
               const urlParams = new URLSearchParams(hash.substring(1));
               const accessToken = urlParams.get('access_token');
               const refreshToken = urlParams.get('refresh_token');
               
               if (accessToken && refreshToken) {
-                console.log("🔑 Setting session from tokens...");
                 const { data, error } = await supabase.auth.setSession({
                   access_token: accessToken,
                   refresh_token: refreshToken,
                 });
                 
                 if (error) {
-                  console.error("Error setting session from magic link:", error);
                 } else if (data.session) {
-                  console.log("✅ Magic link session established")
-                  console.log("🔍 Session user:", data.session.user.email);
                   // Clear the hash
                   window.location.hash = ''
                   // Redirect to dashboard
-                  console.log("🔄 Redirecting to dashboard...");
                   window.location.href = '/dashboard'
                   clearTimeout(initTimeout)
                   return
-                } else {
-                  console.log("❌ No session found after setting tokens");
                 }
-              } else {
-                console.log("❌ Missing tokens in hash");
               }
             }
           }
@@ -132,13 +117,10 @@ export const useAuthStore = create<AuthState>()(
           try {
             sessionResult = await Promise.race([sessionPromise, sessionTimeout])
           } catch (timeoutError) {
-            console.warn("Session fetch timed out, continuing without session:", timeoutError)
             // Try one more time without timeout as fallback
             try {
-              console.log("🔄 Retrying session fetch without timeout...")
               sessionResult = await sessionPromise
             } catch (fallbackError) {
-              console.warn("Fallback session fetch also failed:", fallbackError)
               set({ user: null, loading: false, initialized: true })
               clearTimeout(initTimeout)
               return
@@ -148,15 +130,12 @@ export const useAuthStore = create<AuthState>()(
           const { data: { session }, error: sessionError } = sessionResult
 
           if (sessionError) {
-            console.error("Session error:", sessionError)
-            // Don't fail completely on session error, just set user to null
             set({ user: null, loading: false, initialized: true })
             clearTimeout(initTimeout)
             return
           }
 
           if (session?.user) {
-            console.log("✅ Found valid session for user")
             const user: User = {
               id: session.user.id,
               email: session.user.email || "",
@@ -165,13 +144,10 @@ export const useAuthStore = create<AuthState>()(
             }
 
             // Check if profile exists first, create if it doesn't
-            console.log("🔍 Checking if profile exists for user:", session.user.id)
-            
             let profile: Profile | null = null
             
             try {
               // First, try to fetch existing profile
-              console.log("🔄 Attempting to fetch existing profile...")
               const fetchResult = await supabase
                 .from('user_profiles')
                 .select('id, first_name, last_name, full_name, company, job_title, username, secondary_email, phone_number, avatar_url, provider, role, created_at, updated_at')
@@ -179,11 +155,7 @@ export const useAuthStore = create<AuthState>()(
                 .single()
 
               if (fetchResult.error) {
-                console.error("❌ Profile fetch error:", fetchResult.error)
-                console.error("❌ Error details:", JSON.stringify(fetchResult.error, null, 2))
-                
                 // If fetch fails, try to create a new profile
-                console.log("🔄 Attempting to create new profile...")
                 const createProfileData = {
                   id: session.user.id,
                   full_name: user.name,
@@ -203,11 +175,7 @@ export const useAuthStore = create<AuthState>()(
                   .single()
 
                 if (createResult.error) {
-                  console.error("❌ Profile creation error:", createResult.error)
-                  console.error("❌ Creation error details:", JSON.stringify(createResult.error, null, 2))
-                  
                   // Create a fallback profile from auth metadata
-                  console.log("🔄 Creating fallback profile from auth metadata...")
                   const detectedProvider = session.user.app_metadata?.provider || 
                                          session.user.app_metadata?.providers?.[0] || 
                                          (session.user.identities?.some(id => id.provider === 'google') ? 'google' : 'email')
@@ -238,10 +206,7 @@ export const useAuthStore = create<AuthState>()(
                   user.first_name = firstName
                   user.last_name = lastName
                   user.full_name = fullName
-                      
-                  console.log("✅ Created fallback profile:", profile)
                 } else {
-                  console.log("✅ Profile creation successful:", createResult.data)
                   const createdProfileData = createResult.data
                   
                   if (createdProfileData) {
@@ -254,7 +219,6 @@ export const useAuthStore = create<AuthState>()(
                   }
                 }
               } else {
-                console.log("✅ Profile fetch successful:", fetchResult.data)
                 const fetchedProfileData = fetchResult.data
                 
                 if (fetchedProfileData) {
@@ -279,14 +243,12 @@ export const useAuthStore = create<AuthState>()(
                 try {
                   const { useIntegrationStore } = await import("./integrationStore")
                   useIntegrationStore.getState().setCurrentUserId(session.user.id)
-                  console.log("✅ Integration store updated with existing user ID")
                 } catch (error) {
                   console.error("Error updating integration store user ID on init:", error)
                 }
               }, 50) // Reduced from 100ms to 50ms
 
               // Start lightweight background data preloading (only essential data)
-              console.log("🚀 Starting lightweight background preload...")
               setTimeout(async () => {
                 try {
                   const { useIntegrationStore } = await import("./integrationStore")
@@ -295,7 +257,6 @@ export const useAuthStore = create<AuthState>()(
                   // Only start if not already started and only fetch basic integration list
                   if (!integrationStore.preloadStarted && !integrationStore.globalPreloadingData) {
                     await integrationStore.fetchIntegrations(true)
-                    console.log("✅ Lightweight preload completed")
                   }
                 } catch (error) {
                   console.error("❌ Lightweight preload failed:", error)
@@ -303,12 +264,9 @@ export const useAuthStore = create<AuthState>()(
                 }
               }, 2000) // Increased delay to prioritize UI responsiveness
             } catch (profileError) {
-              console.error("Profile fetch failed:", profileError)
-              // Continue with basic user data - don't fail auth initialization
               set({ user, profile: null, loading: false, initialized: true })
             }
           } else {
-            console.log("❌ No valid session found")
             set({ user: null, loading: false, initialized: true })
             
             // Clear integration store when no user is found
@@ -318,7 +276,6 @@ export const useAuthStore = create<AuthState>()(
                 const integrationStore = useIntegrationStore.getState()
                 integrationStore.setCurrentUserId(null)
                 integrationStore.clearAllData()
-                console.log("✅ Integration store cleared - no user session")
               } catch (error) {
                 console.error("Error clearing integration store on init:", error)
               }
@@ -328,8 +285,6 @@ export const useAuthStore = create<AuthState>()(
           // Set up auth state listener (only once)
           if (!state.initialized) {
             supabase.auth.onAuthStateChange(async (event, session) => {
-              console.log("🔄 Auth state changed:", event)
-
               if (event === "SIGNED_IN" && session?.user) {
                 const user: User = {
                   id: session.user.id,
@@ -348,7 +303,6 @@ export const useAuthStore = create<AuthState>()(
                 let profile: Profile
                 
                 if (profileError) {
-                  console.error("❌ Profile fetch error in auth state change:", profileError)
                   // Try fetching without the role column in case it doesn't exist yet
                   const fallbackResult = await supabase
                     .from('user_profiles')
@@ -357,7 +311,6 @@ export const useAuthStore = create<AuthState>()(
                     .single()
                   
                   if (fallbackResult.error) {
-                    console.error("❌ Fallback profile fetch also failed:", fallbackResult.error)
                     // Create a new profile if none exists
                     const detectedProvider = session.user.app_metadata?.provider || 
                                            session.user.app_metadata?.providers?.[0] || 
@@ -419,13 +372,11 @@ export const useAuthStore = create<AuthState>()(
                   try {
                     const { useIntegrationStore } = await import("./integrationStore")
                     useIntegrationStore.getState().setCurrentUserId(session.user.id)
-                    console.log("✅ Integration store updated with new user ID")
                   } catch (error) {
                     console.error("Error updating integration store user ID:", error)
                   }
                 }, 100)
               } else if (event === "SIGNED_OUT") {
-                console.log("👋 User signed out")
                 set({ user: null, error: null })
                 
                 // Clear integration store when user signs out
@@ -435,7 +386,6 @@ export const useAuthStore = create<AuthState>()(
                     const integrationStore = useIntegrationStore.getState()
                     integrationStore.setCurrentUserId(null)
                     integrationStore.clearAllData()
-                    console.log("✅ Integration store cleared on auth state change")
                   } catch (error) {
                     console.error("Error clearing integration store on sign out:", error)
                   }
@@ -447,15 +397,11 @@ export const useAuthStore = create<AuthState>()(
             if (typeof window !== 'undefined') {
               const handleVisibilityChange = () => {
                 if (document.visibilityState === 'visible') {
-                  console.log("🔄 Tab became visible, checking auth state...")
-                  // Re-check session when tab becomes visible
                   setTimeout(async () => {
                     const { data: { session } } = await supabase.auth.getSession()
                     const currentState = get()
                     
                     if (session?.user && !currentState.user) {
-                      console.log("🔄 Restoring session from tab visibility change")
-                      // Re-initialize if session exists but user state is missing
                       setTimeout(() => {
                         get().initialize()
                       }, 100)
@@ -468,7 +414,6 @@ export const useAuthStore = create<AuthState>()(
             }
           }
         } catch (error: any) {
-          console.error("💥 Auth initialization error:", error)
           set({ user: null, error: error.message, loading: false, initialized: true })
         } finally {
           clearTimeout(initTimeout)
@@ -488,7 +433,6 @@ export const useAuthStore = create<AuthState>()(
             const integrationStore = useIntegrationStore.getState()
             integrationStore.setCurrentUserId(null)
             integrationStore.clearAllData()
-            console.log("✅ Integration store cleared on logout")
           } catch (error) {
             console.error("Error clearing integration data:", error)
           }
@@ -496,8 +440,6 @@ export const useAuthStore = create<AuthState>()(
           // Sign out from Supabase
           const { error } = await supabase.auth.signOut()
           if (error) {
-            console.error("Supabase sign out error:", error)
-            // Don't throw here, we've already cleared local state
           }
 
           set({ loading: false })
@@ -636,8 +578,6 @@ export const useAuthStore = create<AuthState>()(
               });
 
             if (profileError) {
-              console.error('Error creating user profile:', profileError);
-              // Don't throw here as the user creation was successful
             }
 
             set({ user, loading: false })
@@ -693,12 +633,10 @@ export const useAuthStore = create<AuthState>()(
         user: state.user,
       }),
       onRehydrateStorage: () => (state) => {
-        console.log("🔄 Auth store rehydrated")
         state?.setHydrated()
 
         // Only initialize if not already initialized
         if (state && !state.initialized) {
-          console.log("🔄 Triggering initialization after rehydration...")
           setTimeout(() => {
             state.initialize()
           }, 100)

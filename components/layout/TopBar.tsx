@@ -2,7 +2,7 @@
 
 import { useAuthStore } from "@/stores/authStore"
 import { Button } from "@/components/ui/button"
-import { LogOut, User, Menu, Settings, ChevronDown } from "lucide-react"
+import { LogOut, User, Menu, Settings, ChevronDown, Crown } from "lucide-react"
 import { useRouter } from "next/navigation"
 import {
   DropdownMenu,
@@ -38,6 +38,7 @@ export default function TopBar({ onMobileMenuChange, title, subtitle }: TopBarPr
   }
 
   const userRole = (profile?.role as UserRole) || 'free'
+  const isAdmin = userRole === 'admin'
 
   return (
     <header className="h-16 bg-background border-b border-border flex items-center justify-between px-6 shrink-0">
@@ -80,6 +81,15 @@ export default function TopBar({ onMobileMenuChange, title, subtitle }: TopBarPr
               <Settings className="w-4 h-4 mr-2" />
               Settings
             </DropdownMenuItem>
+            {isAdmin && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => router.push("/admin")}>
+                  <Crown className="w-4 h-4 mr-2" />
+                  Admin Panel
+                </DropdownMenuItem>
+              </>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleSignOut}>
               <LogOut className="w-4 h-4 mr-2" />
