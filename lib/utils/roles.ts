@@ -29,7 +29,7 @@ export const ROLES: Record<UserRole, RoleInfo> = {
       integrations: 5,
       executions: 100
     },
-    allowedPages: ['/dashboard', '/workflows', '/integrations', '/learn', '/community', '/profile', '/settings']
+    allowedPages: ['/dashboard', '/workflows', '/integrations', '/learn', '/community', '/profile', '/settings', '/ai-assistant']
   },
   pro: {
     name: 'pro',
@@ -48,7 +48,7 @@ export const ROLES: Record<UserRole, RoleInfo> = {
       integrations: 15,
       executions: 1000
     },
-    allowedPages: ['/dashboard', '/workflows', '/integrations', '/learn', '/community', '/analytics', '/profile', '/settings']
+    allowedPages: ['/dashboard', '/workflows', '/integrations', '/learn', '/community', '/analytics', '/profile', '/settings', '/ai-assistant']
   },
   'beta-pro': {
     name: 'beta-pro',
@@ -68,7 +68,7 @@ export const ROLES: Record<UserRole, RoleInfo> = {
       integrations: 15,
       executions: 1000
     },
-    allowedPages: ['/dashboard', '/workflows', '/integrations', '/learn', '/community', '/analytics', '/profile', '/settings'],
+    allowedPages: ['/dashboard', '/workflows', '/integrations', '/learn', '/community', '/analytics', '/profile', '/settings', '/ai-assistant'],
     isSecret: true
   },
   business: {
@@ -89,7 +89,7 @@ export const ROLES: Record<UserRole, RoleInfo> = {
       integrations: 50,
       executions: 10000
     },
-    allowedPages: ['/dashboard', '/workflows', '/integrations', '/learn', '/community', '/analytics', '/teams', '/profile', '/settings']
+    allowedPages: ['/dashboard', '/workflows', '/integrations', '/learn', '/community', '/analytics', '/teams', '/profile', '/settings', '/ai-assistant']
   },
   enterprise: {
     name: 'enterprise',
@@ -109,7 +109,7 @@ export const ROLES: Record<UserRole, RoleInfo> = {
       integrations: -1, // unlimited
       executions: -1 // unlimited
     },
-    allowedPages: ['/dashboard', '/workflows', '/integrations', '/learn', '/community', '/analytics', '/teams', '/enterprise', '/profile', '/settings']
+    allowedPages: ['/dashboard', '/workflows', '/integrations', '/learn', '/community', '/analytics', '/teams', '/enterprise', '/profile', '/settings', '/ai-assistant']
   },
   admin: {
     name: 'admin',
@@ -128,7 +128,7 @@ export const ROLES: Record<UserRole, RoleInfo> = {
       integrations: -1,
       executions: -1
     },
-    allowedPages: ['/dashboard', '/workflows', '/integrations', '/learn', '/community', '/analytics', '/teams', '/enterprise', '/admin', '/profile', '/settings']
+    allowedPages: ['/dashboard', '/workflows', '/integrations', '/learn', '/community', '/analytics', '/teams', '/enterprise', '/admin', '/profile', '/settings', '/ai-assistant']
   }
 }
 
