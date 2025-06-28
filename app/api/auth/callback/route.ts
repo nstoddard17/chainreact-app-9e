@@ -195,6 +195,7 @@ export async function GET(request: NextRequest) {
         full_name: userInfo.name,
         avatar_url: userInfo.picture,
         provider: 'google',
+        role: 'free',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       });
@@ -208,12 +209,12 @@ export async function GET(request: NextRequest) {
 
     console.log('✅ New user and profile created successfully');
 
-    // Create session for new user
+    // Create session for new user and redirect to username setup
     const { data: sessionData, error: sessionError } = await supabase.auth.admin.generateLink({
       type: 'magiclink',
       email: userInfo.email,
       options: {
-        redirectTo: `${getBaseUrl()}/dashboard`,
+        redirectTo: `${getBaseUrl()}/setup-username`,
       },
     });
 

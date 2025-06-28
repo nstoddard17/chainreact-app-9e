@@ -572,7 +572,11 @@ export const useAuthStore = create<AuthState>()(
               .insert({
                 id: data.user.id,
                 full_name: user.name,
+                first_name: metadata?.first_name,
+                last_name: metadata?.last_name,
+                username: metadata?.username,
                 provider: 'email',
+                role: 'free',
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString(),
               });
