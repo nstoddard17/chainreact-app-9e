@@ -577,6 +577,10 @@ export const useIntegrationStore = create<IntegrationStore>()(
           case "google-calendar":
             url = "/api/integrations/google-calendar/load-data"
             break
+          case "google-calendars":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "google-calendar_calendars"
+            break
           case "google-drive":
             url = "/api/integrations/google-drive/load-data"
             break
@@ -670,7 +674,8 @@ export const useIntegrationStore = create<IntegrationStore>()(
 
         const response = await apiClient.post(url, { 
           ...(url.includes('/gmail/') ? { integrationId } : { 
-            provider: providerId.includes('_') ? providerId.split('_')[0] : providerId, // Extract base provider name
+            provider: providerId === 'google-calendars' ? 'google-calendar' : 
+                     (providerId.includes('_') ? providerId.split('_')[0] : providerId), // Extract base provider name
             dataType: params?.dataType || dataType, // Allow override via params
           }),
           ...params 
