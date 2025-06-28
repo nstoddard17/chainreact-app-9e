@@ -25,13 +25,6 @@ export default function SetupUsernamePage() {
     }
   }, [profile, router])
 
-  // Redirect if not authenticated
-  useEffect(() => {
-    if (!user) {
-      router.push('/auth/login')
-    }
-  }, [user, router])
-
   const checkUsername = async (username: string) => {
     if (!username || username.length < 3) {
       setUsernameError('');
@@ -126,7 +119,7 @@ export default function SetupUsernamePage() {
     }
   }
 
-  if (!user || profile?.username) {
+  if (profile?.username) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 flex items-center justify-center p-4">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>

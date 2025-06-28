@@ -49,6 +49,7 @@ interface AuthState {
   signInWithGoogle: () => Promise<void>
   getCurrentUserId: () => string | null
   setHydrated: () => void
+  checkUsernameAndRedirect: () => void
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -238,6 +239,11 @@ export const useAuthStore = create<AuthState>()(
 
               set({ user, profile, loading: false, initialized: true })
 
+              // Check for missing username and redirect if needed
+              setTimeout(() => {
+                get().checkUsernameAndRedirect()
+              }, 100)
+
               // Set current user ID in integration store (reduced delay)
               setTimeout(async () => {
                 try {
@@ -367,6 +373,11 @@ export const useAuthStore = create<AuthState>()(
 
                 set({ user, profile, error: null })
                 
+                // Check for missing username and redirect if needed
+                setTimeout(() => {
+                  get().checkUsernameAndRedirect()
+                }, 100)
+                
                 // Update integration store with new user ID
                 setTimeout(async () => {
                   try {
@@ -481,6 +492,7 @@ export const useAuthStore = create<AuthState>()(
               full_name: updates.full_name,
               first_name: updates.first_name,
               last_name: updates.last_name,
+              username: updates.username,
               company: updates.company,
               job_title: updates.job_title,
               secondary_email: updates.secondary_email,
@@ -628,6 +640,16 @@ export const useAuthStore = create<AuthState>()(
 
       getCurrentUserId: () => {
         return get().user?.id ?? null
+      },
+
+      checkUsernameAndRedirect: () => {
+        const state = get()
+        if (state.profile && (!state.profile.username || state.profile.username.trim() === '')) {
+          // Only redirect if we're not already on the setup-username page
+          if (typeof window !== 'undefined' && window.location.pathname !== '/setup-username') {
+            window.location.href = '/setup-username'
+          }
+        }
       },
     }),
     {

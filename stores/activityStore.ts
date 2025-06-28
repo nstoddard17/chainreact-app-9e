@@ -141,6 +141,7 @@ export const useActivityStore = create<ActivityState>((set) => ({
         .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
         .slice(0, 20)
 
+      // Only set activities if we have real data, otherwise keep empty
       set({ activities: sortedActivities, loading: false })
     } catch (error: any) {
       console.error("Error fetching activities:", error)
