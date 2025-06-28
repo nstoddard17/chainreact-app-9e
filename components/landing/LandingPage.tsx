@@ -38,6 +38,8 @@ import Link from "next/link"
 import { useAuth } from "@/hooks/use-auth"
 import { useAuthStore } from "@/stores/authStore"
 import { useRouter } from "next/navigation"
+import { RoleBadgeCompact } from "@/components/ui/role-badge"
+import { type UserRole } from "@/lib/utils/roles"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -221,6 +223,8 @@ export default function LandingPage() {
   const { isAuthenticated, user, isReady } = useAuth()
   const { signOut, profile } = useAuthStore()
   const router = useRouter()
+
+  const userRole = (profile?.role as UserRole) || 'free'
 
   const handleSignOut = async () => {
     try {
@@ -406,7 +410,10 @@ export default function LandingPage() {
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" className="flex items-center space-x-2 text-blue-200 hover:text-white hover:bg-white/10">
                         <User className="w-4 h-4" />
-                        <span className="hidden sm:inline">{profile?.username || user?.email}</span>
+                        <div className="hidden sm:flex items-center space-x-2">
+                          <span>{profile?.username || user?.email}</span>
+                          <RoleBadgeCompact role={userRole} />
+                        </div>
                         <ChevronDown className="w-4 h-4" />
                       </Button>
                     </DropdownMenuTrigger>

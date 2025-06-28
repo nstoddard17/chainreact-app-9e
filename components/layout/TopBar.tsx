@@ -12,6 +12,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { ThemeToggle } from "@/components/ui/theme-toggle"
+import { RoleBadgeCompact } from "@/components/ui/role-badge"
+import { type UserRole } from "@/lib/utils/roles"
 
 interface TopBarProps {
   onMobileMenuChange: (isOpen: boolean) => void
@@ -34,6 +36,8 @@ export default function TopBar({ onMobileMenuChange, title, subtitle }: TopBarPr
       router.push("/")
     }
   }
+
+  const userRole = (profile?.role as UserRole) || 'free'
 
   return (
     <header className="h-16 bg-background border-b border-border flex items-center justify-between px-6 shrink-0">
@@ -60,7 +64,10 @@ export default function TopBar({ onMobileMenuChange, title, subtitle }: TopBarPr
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="flex items-center space-x-2">
               <User className="w-4 h-4" />
-              <span className="hidden sm:inline">{profile?.username || user?.email}</span>
+              <div className="hidden sm:flex items-center space-x-2">
+                <span>{profile?.username || user?.email}</span>
+                <RoleBadgeCompact role={userRole} />
+              </div>
               <ChevronDown className="w-4 h-4" />
             </Button>
           </DropdownMenuTrigger>

@@ -14,10 +14,12 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  Crown,
 } from "lucide-react"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import { useAuthStore } from "@/stores/authStore"
 
 interface SidebarProps {
   isMobileMenuOpen: boolean
@@ -37,8 +39,14 @@ const navigation = [
   { name: "Enterprise", href: "/enterprise", icon: Shield },
 ]
 
+const adminNavigation = [
+  { name: "Admin Panel", href: "/admin", icon: Crown },
+]
+
 export default function Sidebar({ isMobileMenuOpen, onMobileMenuChange, isCollapsed, onToggleCollapse }: SidebarProps) {
   const pathname = usePathname()
+  const { profile } = useAuthStore()
+  const isAdmin = profile?.role === 'admin'
 
   return (
     <div
@@ -122,6 +130,40 @@ export default function Sidebar({ isMobileMenuOpen, onMobileMenuChange, isCollap
             </Link>
           )
         })}
+
+        {/* Admin Navigation */}
+        {isAdmin && (
+          <>
+            <div className="pt-4 border-t border-border">
+              {!isCollapsed && (
+                <div className="px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Admin
+                </div>
+              )}
+            </div>
+            {adminNavigation.map((item) => {
+              const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
+              return (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  onClick={() => onMobileMenuChange(false)}
+                  className={cn(
+                    "flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200",
+                    isCollapsed && "justify-center px-2",
+                    isActive
+                      ? "bg-gradient-to-r from-red-500 to-orange-600 text-white shadow-lg"
+                      : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                  )}
+                  title={isCollapsed ? item.name : undefined}
+                >
+                  <item.icon className="w-5 h-5" />
+                  {!isCollapsed && <span className="font-medium">{item.name}</span>}
+                </Link>
+              )
+            })}
+          </>
+        )}
       </nav>
     </div>
   )

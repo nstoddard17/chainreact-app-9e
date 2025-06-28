@@ -8,6 +8,8 @@ import { useState } from "react"
 import { useAuth } from "@/hooks/use-auth"
 import { useAuthStore } from "@/stores/authStore"
 import { useRouter } from "next/navigation"
+import { RoleBadgeCompact } from "@/components/ui/role-badge"
+import { type UserRole } from "@/lib/utils/roles"
 
 interface PublicLayoutProps {
   children: React.ReactNode
@@ -62,6 +64,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
   }
 
   const displayName = getDisplayName()
+  const userRole = (profile?.role as UserRole) || 'free'
 
   return (
     <div className="min-h-screen bg-white">
@@ -123,6 +126,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
                   <div className="flex items-center space-x-2 text-sm text-slate-600 whitespace-nowrap">
                     <User className="h-4 w-4 flex-shrink-0" />
                     <span className="font-medium">Welcome, {displayName}!</span>
+                    <RoleBadgeCompact role={userRole} />
                   </div>
                   <Link href="/dashboard">
                     <Button
@@ -181,6 +185,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
               {isAuthenticated ? (
                 <div className="flex items-center space-x-2">
                   <span className="text-sm text-slate-600">Hi, {displayName}!</span>
+                  <RoleBadgeCompact role={userRole} />
                   <Link href="/dashboard">
                     <Button size="sm" className="bg-indigo-600 text-white hover:bg-indigo-700">
                       Dashboard
@@ -275,6 +280,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
                     <div className="flex items-center space-x-2 text-slate-600">
                       <User className="h-4 w-4" />
                       <span className="font-medium">Welcome, {displayName}!</span>
+                      <RoleBadgeCompact role={userRole} />
                     </div>
                     <div className="flex space-x-3">
                       <Link href="/dashboard" className="flex-1">
