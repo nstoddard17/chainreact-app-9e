@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { RoleBadge } from "@/components/ui/role-badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Search, Users, Crown, Loader2, Circle } from "lucide-react"
+import { Search, Users, Crown, Loader2, Circle, RefreshCw, Wifi, WifiOff } from "lucide-react"
 import { supabase } from "@/utils/supabaseClient"
 import { type UserRole, getRoleInfo, ROLES } from "@/lib/utils/roles"
 import {
@@ -21,6 +21,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { Switch } from "@/components/ui/switch"
 
 interface User {
   id: string
@@ -43,6 +44,8 @@ export default function UserRoleManagement() {
   const [newRole, setNewRole] = useState<UserRole>('free')
   const [updating, setUpdating] = useState(false)
   const [showUpdateDialog, setShowUpdateDialog] = useState(false)
+  const [isLiveMode, setIsLiveMode] = useState(false)
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
 
   // Check if current user is admin
   const isAdmin = profile?.role === 'admin'
@@ -50,67 +53,47 @@ export default function UserRoleManagement() {
   useEffect(() => {
     if (isAdmin) {
       fetchUsers()
-      // Refresh users every 30 seconds to get online status
-      const interval = setInterval(fetchUsers, 30000)
-      return () => clearInterval(interval)
     }
   }, [isAdmin])
+
+  // Live mode effect
+  useEffect(() => {
+    if (!isAdmin || !isLiveMode) return
+
+    // Initial fetch
+    fetchUsers()
+    
+    // Set up interval for live updates (every 2 minutes)
+    const interval = setInterval(fetchUsers, 120000) // 2 minutes
+    
+    return () => clearInterval(interval)
+  }, [isAdmin, isLiveMode])
 
   const fetchUsers = async () => {
     try {
       setLoading(true)
-      
-      console.log('UserRoleManagement: Fetching users...')
-      
-      // Use user_profiles directly with the fixed RLS policies
-      const { data, error } = await supabase
-        .from('user_profiles')
-        .select('id, full_name, username, role, created_at, avatar_url')
-        .order('created_at', { ascending: false })
+      const response = await fetch('/api/admin/users-list')
+      const data = await response.json()
 
-      if (error) {
-        console.error('Error fetching users:', error)
-        throw error
-      }
-      
-      console.log('UserRoleManagement: Found', data?.length, 'users')
-      
-      // Get online users
-      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000)
-      console.log('UserRoleManagement: Checking for users active since', fiveMinutesAgo.toISOString())
-      
-      const { data: onlineUsers, error: onlineError } = await supabase
-        .from('user_presence')
-        .select('id')
-        .gte('last_seen', fiveMinutesAgo.toISOString())
-
-      if (onlineError) {
-        console.error('Error fetching online users:', onlineError)
+      if (data.success) {
+        setUsers(data.users || [])
+        setLastUpdated(new Date())
       } else {
-        console.log('UserRoleManagement: Found', onlineUsers?.length, 'online users')
+        console.error('Failed to fetch users:', data.error)
       }
-
-      const onlineUserIds = new Set(onlineUsers?.map(u => u.id) || [])
-      console.log('UserRoleManagement: Online user IDs:', Array.from(onlineUserIds))
-      
-      // Format the data for the component
-      const usersWithBasicInfo = data?.map((user: any) => ({
-        ...user,
-        email: user.username ? `${user.username}@example.com` : 'No email available',
-        displayEmail: user.username || 'No username set',
-        isOnline: onlineUserIds.has(user.id)
-      })) || []
-      
-      console.log('UserRoleManagement: Final users with online status:', usersWithBasicInfo.map(u => ({ id: u.id, name: u.full_name, online: u.isOnline })))
-      
-      setUsers(usersWithBasicInfo)
     } catch (error) {
       console.error('Error fetching users:', error)
-      // Set empty array to prevent infinite loading state
-      setUsers([])
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleRefresh = () => {
+    fetchUsers()
+  }
+
+  const handleLiveModeToggle = (enabled: boolean) => {
+    setIsLiveMode(enabled)
   }
 
   const handleUpdateRole = async () => {
@@ -173,6 +156,12 @@ export default function UserRoleManagement() {
             <div className="flex items-center space-x-2">
               <Users className="w-5 h-5" />
               <span>User Management</span>
+              {isLiveMode && (
+                <div className="flex items-center space-x-1">
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                  <span className="text-xs text-green-600 font-medium">LIVE</span>
+                </div>
+              )}
             </div>
             <div className="text-sm text-muted-foreground">
               {onlineCount}/{totalCount} online
@@ -181,6 +170,46 @@ export default function UserRoleManagement() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
+            {/* Controls Row */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <Button
+                  onClick={handleRefresh}
+                  disabled={loading}
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center space-x-2"
+                >
+                  <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                  <span>Refresh</span>
+                </Button>
+                
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    checked={isLiveMode}
+                    onCheckedChange={handleLiveModeToggle}
+                    id="live-mode"
+                  />
+                  <Label htmlFor="live-mode" className="text-sm">
+                    <div className="flex items-center space-x-1">
+                      {isLiveMode ? (
+                        <Wifi className="w-4 h-4 text-green-500" />
+                      ) : (
+                        <WifiOff className="w-4 h-4 text-muted-foreground" />
+                      )}
+                      <span>Live Updates</span>
+                    </div>
+                  </Label>
+                </div>
+              </div>
+              
+              {lastUpdated && (
+                <div className="text-xs text-muted-foreground">
+                  Last updated: {lastUpdated.toLocaleTimeString()}
+                </div>
+              )}
+            </div>
+
             <div className="flex items-center space-x-2">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />

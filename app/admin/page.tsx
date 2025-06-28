@@ -62,6 +62,31 @@ export default function AdminPage() {
             <span className="font-medium">{user?.email}</span>
             <RoleBadge role={userRole} />
           </div>
+          
+          {/* External Status Links */}
+          <div className="mt-4 pt-4 border-t border-red-200/20">
+            <div className="flex items-center space-x-4 text-sm">
+              <span className="text-muted-foreground">Infrastructure Status:</span>
+              <a 
+                href="https://status.vercel.com" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="flex items-center space-x-1 text-blue-600 hover:text-blue-700 transition-colors"
+              >
+                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                <span>Vercel</span>
+              </a>
+              <a 
+                href="https://status.supabase.com" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="flex items-center space-x-1 text-blue-600 hover:text-blue-700 transition-colors"
+              >
+                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                <span>Supabase</span>
+              </a>
+            </div>
+          </div>
         </div>
 
         {/* Admin Stats - First Row */}
@@ -128,7 +153,7 @@ export default function AdminPage() {
         </div>
 
         {/* Admin Stats - Second Row */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <Card className="bg-card rounded-2xl shadow-lg border border-border">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Enterprise Users</CardTitle>
@@ -155,19 +180,6 @@ export default function AdminPage() {
               </div>
               <p className="text-xs text-muted-foreground">
                 System administrators
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-card rounded-2xl shadow-lg border border-border">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">System Status</CardTitle>
-              <Settings className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">Healthy</div>
-              <p className="text-xs text-muted-foreground">
-                All systems operational
               </p>
             </CardContent>
           </Card>

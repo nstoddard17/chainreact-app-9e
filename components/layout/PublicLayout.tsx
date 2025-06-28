@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { Button } from "@/components/ui/button"
-import { Menu, X, User, LogOut } from "lucide-react"
+import { Menu, X, User, LogOut, Crown } from "lucide-react"
 import Link from "next/link"
 import { useState } from "react"
 import { useAuth } from "@/hooks/use-auth"
@@ -65,6 +65,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
 
   const displayName = getDisplayName()
   const userRole = (profile?.role as UserRole) || 'free'
+  const isAdmin = userRole === 'admin'
 
   return (
     <div className="min-h-screen bg-white">
@@ -136,6 +137,18 @@ export function PublicLayout({ children }: PublicLayoutProps) {
                       Dashboard
                     </Button>
                   </Link>
+                  {isAdmin && (
+                    <Link href="/admin">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-red-300 text-red-600 hover:bg-red-50 transition-colors duration-200"
+                      >
+                        <Crown className="h-4 w-4 mr-1" />
+                        Admin
+                      </Button>
+                    </Link>
+                  )}
                   <Button
                     size="sm"
                     variant="outline"
@@ -191,6 +204,18 @@ export function PublicLayout({ children }: PublicLayoutProps) {
                       Dashboard
                     </Button>
                   </Link>
+                  {isAdmin && (
+                    <Link href="/admin">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-red-300 text-red-600 hover:bg-red-50"
+                      >
+                        <Crown className="h-4 w-4 mr-1" />
+                        Admin
+                      </Button>
+                    </Link>
+                  )}
                   <Button
                     size="sm"
                     variant="outline"
@@ -286,6 +311,17 @@ export function PublicLayout({ children }: PublicLayoutProps) {
                       <Link href="/dashboard" className="flex-1">
                         <Button className="w-full bg-indigo-600 text-white hover:bg-indigo-700">Dashboard</Button>
                       </Link>
+                      {isAdmin && (
+                        <Link href="/admin" className="flex-1">
+                          <Button
+                            variant="outline"
+                            className="w-full border-red-300 text-red-600 hover:bg-red-50"
+                          >
+                            <Crown className="h-4 w-4 mr-1" />
+                            Admin
+                          </Button>
+                        </Link>
+                      )}
                       <Button
                         variant="outline"
                         onClick={handleSignOut}

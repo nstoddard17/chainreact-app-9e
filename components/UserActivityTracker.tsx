@@ -7,12 +7,20 @@ export function UserActivityTracker() {
   const { user } = useAuthStore()
 
   useEffect(() => {
-    if (!user) {
-      console.log('UserActivityTracker: No user, skipping')
-      return
-    }
+    if (!user?.id) return
 
-    console.log('UserActivityTracker: Starting for user', user.id)
+    const sendHeartbeat = async () => {
+      try {
+        await fetch('/api/user/presence', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        })
+      } catch (error) {
+        console.error('Failed to send heartbeat:', error)
+      }
+    }
 
     let timeoutId: NodeJS.Timeout
     let lastUpdate = 0
