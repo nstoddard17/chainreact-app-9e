@@ -1,23 +1,18 @@
 import { NextResponse } from "next/server"
 
 export async function GET() {
-  const executions = [
-    {
-      id: "1",
-      status: "success",
-      started_at: new Date().toISOString(),
-      completed_at: new Date().toISOString(),
-      execution_time_ms: 1200,
-    },
-    {
-      id: "2",
-      status: "error",
-      started_at: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
-      completed_at: new Date().toISOString(),
-      execution_time_ms: 2000,
-      error_message: "Sample error",
-    },
-  ]
-
-  return NextResponse.json(executions)
+  // For now, return an empty array instead of mock data
+  // This will ensure no fake workflow executions appear in the activity feed
+  return NextResponse.json([])
+  
+  /*
+   * Implementation note:
+   * In a production environment, this endpoint would:
+   * 1. Authenticate the user from the request
+   * 2. Query the database for workflow executions specific to that user
+   * 3. Return only real execution data
+   * 
+   * Since we're avoiding showing fake data, we're returning an empty array
+   * which will result in no executions showing up in the activity feed.
+   */
 }

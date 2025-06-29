@@ -537,10 +537,11 @@ export default function LandingPage() {
                 </h1>
                 <p className="text-xl md:text-2xl text-blue-200 mb-8 max-w-3xl mx-auto leading-relaxed">
                   Welcome back,{" "}
-                  {(user as any)?.user_metadata?.first_name ||
-                    (user as any)?.user_metadata?.name?.split(" ")[0] ||
-                    user?.email?.split("@")[0]}
-                  ! Continue building powerful workflows and automating your tasks.
+                  {profile?.username || 
+                   (user as any)?.user_metadata?.first_name ||
+                   (user as any)?.user_metadata?.name?.split(" ")[0] ||
+                   user?.email?.split("@")[0] ||
+                   "there"}! Continue building powerful workflows and automating your tasks.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
                   <Link href="/dashboard">
