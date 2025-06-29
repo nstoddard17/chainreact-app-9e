@@ -466,15 +466,12 @@ export const useIntegrationStore = create<IntegrationStore>()(
           throw new Error("No valid session found. Please log in again.")
         }
 
-        const response = await fetch("/api/integrations/token-management", {
+        const response = await fetch(`/api/integrations/${integrationId}`, {
           method: "DELETE",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${session.access_token}`,
           },
-          body: JSON.stringify({
-            integrationId: integrationId,
-          }),
         })
 
         if (!response.ok) {
