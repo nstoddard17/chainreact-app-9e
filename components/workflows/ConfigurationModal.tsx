@@ -16,10 +16,11 @@ import { ConfigurationLoadingScreen } from "@/components/ui/loading-screen"
 import { FileUpload } from "@/components/ui/file-upload"
 import { DatePicker } from "@/components/ui/date-picker"
 import { TimePicker } from "@/components/ui/time-picker"
-import { AlertCircle, Video } from "lucide-react"
+import { AlertCircle, Video, HelpCircle } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 import { cn } from "@/lib/utils"
 import GoogleMeetCard from "@/components/ui/google-meet-card"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 interface ConfigurationModalProps {
   isOpen: boolean
@@ -89,6 +90,21 @@ export default function ConfigurationModal({
       if (nodeInfo?.type === "google_sheets_unified_action") {
         // Only show selectedRow field for update/delete actions
         if (field.name === "selectedRow" && config.action === "add") {
+          return false
+        }
+      }
+      // Special logic for read data action
+      if (nodeInfo?.type === "google_sheets_action_read_data") {
+        // Only show range field when readMode is "range"
+        if (field.name === "range" && config.readMode !== "range") {
+          return false
+        }
+        // Only show selectedRows field when readMode is "rows"
+        if (field.name === "selectedRows" && config.readMode !== "rows") {
+          return false
+        }
+        // Only show selectedCells field when readMode is "cells"
+        if (field.name === "selectedCells" && config.readMode !== "cells") {
           return false
         }
       }
@@ -380,10 +396,16 @@ export default function ConfigurationModal({
     fetchDependentFields()
   }, [isOpen, nodeInfo, config.spreadsheetId, fetchDependentData])
 
-  // Auto-load sheet data when action changes to update/delete (for unified Google Sheets action)
+  // Auto-load sheet data when action changes to update/delete (for unified Google Sheets action) or readMode is "rows" (for read data action)
   useEffect(() => {
-    if (!isOpen || !nodeInfo || nodeInfo.type !== "google_sheets_unified_action") return
-    if (!config.action || config.action === "add") return
+    if (!isOpen || !nodeInfo) return
+    
+    // Check if we need to load sheet data
+    const shouldLoadData = 
+      (nodeInfo.type === "google_sheets_unified_action" && config.action && config.action !== "add") ||
+      (nodeInfo.type === "google_sheets_action_read_data" && (config.readMode === "rows" || config.readMode === "cells" || config.readMode === "all"))
+    
+    if (!shouldLoadData) return
     if (!config.spreadsheetId || !config.sheetName) return
     
     const loadSheetData = async () => {
@@ -412,11 +434,11 @@ export default function ConfigurationModal({
     }
     
     loadSheetData()
-  }, [isOpen, nodeInfo, config.action, config.spreadsheetId, config.sheetName, getIntegrationByProvider, loadIntegrationData])
+  }, [isOpen, nodeInfo, config.action, config.readMode, config.spreadsheetId, config.sheetName, getIntegrationByProvider, loadIntegrationData])
 
   // Fetch sheet preview when both spreadsheet and sheet are selected (for Google Sheets actions)
   useEffect(() => {
-    if (!isOpen || !nodeInfo || !["google_sheets_action_append_row", "google_sheets_unified_action"].includes(nodeInfo.type)) return
+    if (!isOpen || !nodeInfo || !["google_sheets_action_append_row", "google_sheets_unified_action", "google_sheets_action_read_data"].includes(nodeInfo.type)) return
     
     const fetchSheetPreview = async () => {
       if (config.spreadsheetId && config.sheetName) {
@@ -529,6 +551,39 @@ export default function ConfigurationModal({
     
     // Reset initialization flag when nodeInfo type changes
     if (nodeInfo?.type !== "google_calendar_action_create_event") {
+      hasInitializedDefaults.current = false
+    }
+  }, [isOpen, nodeInfo?.type, initialData])
+
+  // Initialize default values for Google Sheets read data action (only on first open)
+  useEffect(() => {
+    if (isOpen && nodeInfo?.type === "google_sheets_action_read_data" && !hasInitializedDefaults.current) {
+      const defaults = {
+        includeHeaders: true,
+        outputFormat: "objects",
+        maxRows: 1000
+      }
+      
+      // Only set defaults for fields that don't already have values
+      const newConfig = { ...config }
+      let hasChanges = false
+      
+      Object.entries(defaults).forEach(([key, value]) => {
+        if (newConfig[key] === undefined && initialData[key] === undefined) {
+          newConfig[key] = value
+          hasChanges = true
+        }
+      })
+      
+      if (hasChanges) {
+        setConfig(newConfig)
+      }
+      
+      hasInitializedDefaults.current = true
+    }
+    
+    // Reset initialization flag when nodeInfo type changes
+    if (nodeInfo?.type !== "google_sheets_action_read_data") {
       hasInitializedDefaults.current = false
     }
   }, [isOpen, nodeInfo?.type, initialData])
@@ -1321,13 +1376,61 @@ export default function ConfigurationModal({
   const hasRequiredFields = nodeInfo.configSchema?.some(field => field.required) || false
   const hasErrors = Object.keys(errors).length > 0
 
+  // Function to render output format tooltip content
+  const renderOutputFormatTooltip = () => (
+    <div className="space-y-3 max-w-md">
+      <div className="text-sm font-medium">Output Format Examples:</div>
+      
+      <div className="space-y-2">
+        <div>
+          <div className="text-xs font-medium text-blue-600 mb-1">Array of Objects (Recommended)</div>
+          <div className="text-xs bg-muted p-2 rounded font-mono">
+            {`[
+  { "Name": "John", "Age": "30" },
+  { "Name": "Jane", "Age": "25" }
+]`}
+          </div>
+          <div className="text-xs text-muted-foreground mt-1">
+            ✅ Easy to use with {`{{data.Name}}`} syntax
+          </div>
+        </div>
+
+        <div>
+          <div className="text-xs font-medium text-orange-600 mb-1">Array of Arrays</div>
+          <div className="text-xs bg-muted p-2 rounded font-mono">
+            {`[
+  ["Name", "Age"],
+  ["John", "30"],
+  ["Jane", "25"]
+]`}
+          </div>
+          <div className="text-xs text-muted-foreground mt-1">
+            Access with {`{{data[0][1]}}`} for specific positions
+          </div>
+        </div>
+
+        <div>
+          <div className="text-xs font-medium text-green-600 mb-1">CSV String</div>
+          <div className="text-xs bg-muted p-2 rounded font-mono">
+            {`"Name,Age\\nJohn,30\\nJane,25"`}
+          </div>
+          <div className="text-xs text-muted-foreground mt-1">
+            Raw CSV format for file exports
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className={`${
-        nodeInfo?.type === "google_sheets_unified_action" && config.action
-          ? "max-w-[95vw] w-[95vw]" 
-          : "max-w-2xl"
-      } max-h-[90vh] overflow-hidden flex flex-col`}>
+    <TooltipProvider>
+      <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+        <DialogContent className={`${
+          ((nodeInfo?.type === "google_sheets_unified_action" && config.action) || 
+           (nodeInfo?.type === "google_sheets_action_read_data" && config.spreadsheetId && config.sheetName && config.readMode))
+            ? "max-w-[95vw] w-[95vw]" 
+            : "max-w-2xl"
+        } max-h-[90vh] overflow-hidden flex flex-col`}>
         <DialogHeader>
           <DialogTitle>
             Configure {nodeInfo?.title} on {integrationName}
@@ -1369,13 +1472,16 @@ export default function ConfigurationModal({
         
         {loadingDynamic ? (
           <ConfigurationLoadingScreen integrationName={integrationName} />
-        ) : nodeInfo?.type === "google_sheets_unified_action" ? (
+        ) : (nodeInfo?.type === "google_sheets_unified_action" || 
+             (nodeInfo?.type === "google_sheets_action_read_data" && config.spreadsheetId && config.sheetName && config.readMode)) ? (
           // Special layout for unified Google Sheets action
           <div className="flex flex-col flex-1 min-h-0">
             {/* Basic Configuration Fields - Always Visible */}
             <div className="space-y-4 pb-4 border-b flex-shrink-0">
               {nodeInfo.configSchema?.filter(field => 
-                ["spreadsheetId", "sheetName", "action"].includes(field.name)
+                nodeInfo?.type === "google_sheets_unified_action" 
+                  ? ["spreadsheetId", "sheetName", "action"].includes(field.name)
+                  : ["spreadsheetId", "sheetName", "readMode"].includes(field.name)
               ).map((field) => {
                 if (!shouldShowField(field)) {
                   return null
@@ -1397,14 +1503,26 @@ export default function ConfigurationModal({
             </div>
 
             {/* Scrollable Content Area */}
-            <div className="flex-1 overflow-y-auto space-y-4 pt-4 min-h-0">
-                          {/* Row Selector Table (if update/delete and data available) */}
-            {config.action !== "add" && dynamicOptions.sheetData && (dynamicOptions.sheetData as any).headers && Array.isArray((dynamicOptions.sheetData as any).headers) && (dynamicOptions.sheetData as any).data && Array.isArray((dynamicOptions.sheetData as any).data) && (
+            <div className="flex-1 space-y-4 pt-4 min-h-0">
+                          {/* Data Preview Table (for unified action update/delete OR read data with any mode) */}
+            {((nodeInfo?.type === "google_sheets_unified_action" && config.action !== "add") || 
+              (nodeInfo?.type === "google_sheets_action_read_data" && config.readMode && config.spreadsheetId && config.sheetName)) && 
+             dynamicOptions.sheetData && (dynamicOptions.sheetData as any).headers && Array.isArray((dynamicOptions.sheetData as any).headers) && (dynamicOptions.sheetData as any).data && Array.isArray((dynamicOptions.sheetData as any).data) && (
             <div className="space-y-3 border-b pb-4">
-              <div className="text-sm font-medium">
-                Select row to {config.action}:
-                {loadingDynamic && <span className="text-muted-foreground ml-2">(Loading...)</span>}
-              </div>
+                              <div className="text-sm font-medium">
+                  {nodeInfo?.type === "google_sheets_action_read_data" 
+                    ? config.readMode === "all" 
+                      ? "Data Preview (all data will be read):"
+                      : config.readMode === "range"
+                        ? "Data Preview (select range above):"
+                        : config.readMode === "rows"
+                          ? "Select rows to read:"
+                          : config.readMode === "cells"
+                            ? "Select individual cells to read:"
+                            : "Data Preview:"
+                    : `Select row to ${config.action}:`}
+                  {loadingDynamic && <span className="text-muted-foreground ml-2">(Loading...)</span>}
+                </div>
               
               <div className="border rounded-lg">
                 <div className="bg-muted/50 p-2 border-b">
@@ -1420,23 +1538,56 @@ export default function ConfigurationModal({
                   {(dynamicOptions.sheetData as any).data.map((row: any, index: number) => (
                       <div
                         key={index}
-                        className={`grid gap-2 p-2 rounded cursor-pointer hover:bg-muted/50 ${
-                          config.selectedRow?.rowIndex === row.rowIndex ? "bg-primary/10 border border-primary" : "border border-transparent"
+                        className={`grid gap-2 p-2 rounded ${
+                          // Only make clickable and highlight if in row selection mode
+                          nodeInfo?.type === "google_sheets_action_read_data" && config.readMode === "rows"
+                            ? `cursor-pointer hover:bg-muted/50 ${
+                                (config.selectedRows || []).some((r: any) => r.rowIndex === row.rowIndex) 
+                                  ? "bg-primary/10 border border-primary" 
+                                  : "border border-transparent"
+                              }`
+                            : nodeInfo?.type === "google_sheets_action_read_data"
+                              ? "border border-transparent" // Preview only, no interaction
+                              : `cursor-pointer hover:bg-muted/50 ${
+                                  config.selectedRow?.rowIndex === row.rowIndex 
+                                    ? "bg-primary/10 border border-primary" 
+                                    : "border border-transparent"
+                                }`
                         }`}
                         style={{ gridTemplateColumns: `repeat(${(dynamicOptions.sheetData as any).headers.length}, minmax(120px, 1fr))` }}
                         onClick={() => {
-                          const newSelectedRow = row
-                          setConfig(prev => ({
-                            ...prev,
-                            selectedRow: newSelectedRow,
-                            // For update action, populate column mappings with selected row data
-                            ...(config.action === "update" && {
-                              columnMappings: (dynamicOptions.sheetData as any).headers.reduce((mappings: any, header: any, headerIndex: number) => {
-                                mappings[header.column] = row.values[headerIndex] || ""
-                                return mappings
-                              }, {})
-                            })
-                          }))
+                          if (nodeInfo?.type === "google_sheets_action_read_data") {
+                            // For read data action, support different selection modes
+                            if (config.readMode === "rows") {
+                              const currentSelectedRows = config.selectedRows || []
+                              const isSelected = currentSelectedRows.some((r: any) => r.rowIndex === row.rowIndex)
+                              
+                              const newSelectedRows = isSelected
+                                ? currentSelectedRows.filter((r: any) => r.rowIndex !== row.rowIndex)
+                                : [...currentSelectedRows, row]
+                              
+                              setConfig(prev => ({
+                                ...prev,
+                                selectedRows: newSelectedRows
+                              }))
+                            }
+                            // For "all" and "range" modes, clicking does nothing (just preview)
+                            // For "cells" mode, we'll handle individual cell clicks separately
+                          } else {
+                            // For unified action (update/delete), single row selection
+                            const newSelectedRow = row
+                            setConfig(prev => ({
+                              ...prev,
+                              selectedRow: newSelectedRow,
+                              // For update action, populate column mappings with selected row data
+                              ...(config.action === "update" && {
+                                columnMappings: (dynamicOptions.sheetData as any).headers.reduce((mappings: any, header: any, headerIndex: number) => {
+                                  mappings[header.column] = row.values[headerIndex] || ""
+                                  return mappings
+                                }, {})
+                              })
+                            }))
+                          }
                           
                           // Show the "Row Selected!" message
                           setShowRowSelected(true)
@@ -1447,11 +1598,59 @@ export default function ConfigurationModal({
                           }, 2000)
                         }}
                       >
-                        {row.values.map((cell: string, cellIndex: number) => (
-                          <div key={cellIndex} className="text-sm truncate p-1">
-                            {cell || ""}
-                          </div>
-                        ))}
+                        {row.values.map((cell: string, cellIndex: number) => {
+                          const cellKey = `${row.rowIndex}-${cellIndex}`
+                          const isCellSelected = nodeInfo?.type === "google_sheets_action_read_data" && 
+                            config.readMode === "cells" && 
+                            (config.selectedCells || []).some((cell: any) => cell.key === cellKey)
+                          
+                          return (
+                            <div 
+                              key={cellIndex} 
+                              className={`text-sm truncate p-1 ${
+                                nodeInfo?.type === "google_sheets_action_read_data" && config.readMode === "cells"
+                                  ? `cursor-pointer hover:bg-muted/50 ${
+                                      isCellSelected 
+                                        ? "bg-primary/10 border border-primary" 
+                                        : "border border-transparent"
+                                    }`
+                                  : ""
+                              }`}
+                              onClick={(e) => {
+                                if (nodeInfo?.type === "google_sheets_action_read_data" && config.readMode === "cells") {
+                                  e.stopPropagation() // Prevent row click
+                                  const currentSelectedCells = config.selectedCells || []
+                                  const isSelected = currentSelectedCells.some((cell: any) => cell.key === cellKey)
+                                  
+                                  const newSelectedCells = isSelected
+                                    ? currentSelectedCells.filter((cell: any) => cell.key !== cellKey)
+                                    : [...currentSelectedCells, {
+                                        key: cellKey,
+                                        rowIndex: row.rowIndex,
+                                        columnIndex: cellIndex,
+                                        columnName: (dynamicOptions.sheetData as any).headers[cellIndex]?.name || `Column ${cellIndex + 1}`,
+                                        columnLetter: (dynamicOptions.sheetData as any).headers[cellIndex]?.column || String.fromCharCode(65 + cellIndex),
+                                        value: cell || "",
+                                        cellReference: `${(dynamicOptions.sheetData as any).headers[cellIndex]?.column || String.fromCharCode(65 + cellIndex)}${row.rowIndex + 1}` // A1, B1, etc.
+                                      }]
+                                  
+                                  setConfig(prev => ({
+                                    ...prev,
+                                    selectedCells: newSelectedCells
+                                  }))
+                                  
+                                  // Show the "Cell Selected!" message
+                                  setShowRowSelected(true)
+                                  setTimeout(() => {
+                                    setShowRowSelected(false)
+                                  }, 2000)
+                                }
+                              }}
+                            >
+                              {cell || ""}
+                            </div>
+                          )
+                        })}
                       </div>
                     ))}
                   </div>
@@ -1459,14 +1658,90 @@ export default function ConfigurationModal({
                 
                 {showRowSelected && (
                   <div className="text-sm text-green-600 bg-green-50 p-2 rounded animate-in fade-in-0 duration-300">
-                    ✓ Row Selected!
+                    {nodeInfo?.type === "google_sheets_action_read_data"
+                      ? config.readMode === "cells"
+                        ? `✓ ${(config.selectedCells || []).length} cell(s) selected for reading!`
+                        : `✓ ${(config.selectedRows || []).length} row(s) selected for reading!`
+                      : "✓ Row Selected!"}
                   </div>
                 )}
               </div>
-            )}
+                          )}
 
-            {/* Column Mapping Fields (horizontal layout) */}
-            {(config.action === "add" || config.action === "update") && dynamicOptions.sheetPreview && (dynamicOptions.sheetPreview as any).headers && Array.isArray((dynamicOptions.sheetPreview as any).headers) && (
+              {/* Selected Cells Display (for cells read mode) */}
+              {nodeInfo?.type === "google_sheets_action_read_data" && config.readMode === "cells" && config.selectedCells && Array.isArray(config.selectedCells) && config.selectedCells.length > 0 && (
+                <div className="space-y-3 border-b pb-4">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm font-medium">Selected Cells ({config.selectedCells.length}):</div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setConfig(prev => ({ ...prev, selectedCells: [] }))}
+                      className="text-xs h-7 px-2"
+                    >
+                      Clear All
+                    </Button>
+                  </div>
+                  <div className="bg-muted/30 p-3 rounded-lg">
+                    <div className="grid gap-2 max-h-48 overflow-y-auto">
+                      {config.selectedCells.map((cell: any, index: number) => {
+                        // Use stored cell reference and column name
+                        const cellReference = cell.cellReference
+                        const columnName = cell.columnName
+                        
+                        return (
+                          <div key={cell.key} className="flex items-center justify-between p-2 bg-background rounded border text-sm">
+                            <div className="flex items-center gap-3">
+                              <div className="font-mono text-xs bg-muted px-2 py-1 rounded">
+                                {cellReference}
+                              </div>
+                              <div className="text-muted-foreground">
+                                {columnName}
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="font-medium max-w-48 truncate">
+                                {cell.value || '(empty)'}
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-2">
+                      💡 These cells will be read when the workflow executes
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Read Data Summary (for read data action) */}
+              {nodeInfo?.type === "google_sheets_action_read_data" && config.spreadsheetId && config.sheetName && (
+                <div className="space-y-3 border-b pb-4">
+                  <div className="text-sm font-medium">Read Configuration Summary:</div>
+                  <div className="bg-muted/30 p-3 rounded-lg space-y-2 text-sm">
+                    <div><strong>Mode:</strong> {
+                      config.readMode === "all" ? "Read all data" :
+                      config.readMode === "range" ? `Read range: ${config.range || "Not specified"}` :
+                      config.readMode === "rows" ? `Read ${(config.selectedRows || []).length} selected row(s)` :
+                      config.readMode === "cells" ? `Read ${(config.selectedCells || []).length} selected cell(s)` :
+                      "Not configured"
+                    }</div>
+                    <div><strong>Output Format:</strong> {
+                      config.outputFormat === "array" ? "Array of arrays" :
+                      config.outputFormat === "objects" ? "Array of objects (with headers as keys)" :
+                      config.outputFormat === "csv" ? "CSV string" :
+                      "Array of objects (default)"
+                    }</div>
+                    <div><strong>Include Headers:</strong> {config.includeHeaders !== false ? "Yes" : "No"}</div>
+                    {config.maxRows && <div><strong>Max Rows:</strong> {config.maxRows}</div>}
+                    {config.filterConditions && <div><strong>Filters:</strong> Applied</div>}
+                  </div>
+                </div>
+              )}
+
+              {/* Column Mapping Fields (horizontal layout) - Only for unified action */}
+            {nodeInfo?.type === "google_sheets_unified_action" && (config.action === "add" || config.action === "update") && dynamicOptions.sheetPreview && (dynamicOptions.sheetPreview as any).headers && Array.isArray((dynamicOptions.sheetPreview as any).headers) && (
               <div className="space-y-3">
                 <div className="text-sm font-medium">Map your data to sheet columns:</div>
                 
@@ -1512,19 +1787,35 @@ export default function ConfigurationModal({
 
               {/* Other configuration fields */}
               <div className="space-y-4">
-                {nodeInfo.configSchema?.filter(field => 
-                  !["spreadsheetId", "sheetName", "action", "columnMappings", "selectedRow"].includes(field.name)
-                ).map((field) => {
+                {nodeInfo.configSchema?.filter(field => {
+                  if (nodeInfo?.type === "google_sheets_unified_action") {
+                    return !["spreadsheetId", "sheetName", "action", "columnMappings", "selectedRow"].includes(field.name)
+                  } else {
+                    return !["spreadsheetId", "sheetName", "readMode", "selectedRows", "selectedCells"].includes(field.name)
+                  }
+                }).map((field) => {
                   if (!shouldShowField(field)) {
                     return null
                   }
                   
                   return (
                     <div key={field.name} className="flex flex-col space-y-2">
-                      <Label htmlFor={field.name} className="text-sm font-medium">
-                        {field.label}
-                        {field.required && <span className="text-red-500 ml-1">*</span>}
-                      </Label>
+                      <div className="flex items-center gap-1">
+                        <Label htmlFor={field.name} className="text-sm font-medium">
+                          {field.label}
+                          {field.required && <span className="text-red-500 ml-1">*</span>}
+                        </Label>
+                        {field.name === "outputFormat" && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <HelpCircle className="w-4 h-4 text-muted-foreground hover:text-foreground cursor-help" />
+                            </TooltipTrigger>
+                            <TooltipContent side="right" className="max-w-none">
+                              {renderOutputFormatTooltip()}
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
+                      </div>
                       {renderField(field)}
                       {errors[field.name] && (
                         <p className="text-red-500 text-sm">{errors[field.name]}</p>
@@ -1548,6 +1839,76 @@ export default function ConfigurationModal({
               <Button 
                 onClick={handleSave} 
                 disabled={loadingDynamic || hasErrors}
+                className={hasErrors ? 'opacity-50 cursor-not-allowed' : ''}
+              >
+                Save Configuration
+              </Button>
+            </DialogFooter>
+          </div>
+        ) : nodeInfo?.type === "google_sheets_action_read_data" ? (
+          // Compact layout for Google Sheets read data action when required fields not selected
+          <div className="flex flex-col flex-1 min-h-0">
+            {/* Basic Configuration Fields - Always Visible */}
+            <div className="space-y-4 pb-4 border-b flex-shrink-0">
+              {nodeInfo.configSchema?.filter(field => 
+                ["spreadsheetId", "sheetName", "readMode"].includes(field.name)
+              ).map((field) => {
+                if (!shouldShowField(field)) {
+                  return null
+                }
+                
+                return (
+                  <div key={field.name} className="flex flex-col space-y-2">
+                    <div className="flex items-center gap-1">
+                      <Label htmlFor={field.name} className="text-sm font-medium">
+                        {field.label}
+                        {field.required && <span className="text-red-500 ml-1">*</span>}
+                      </Label>
+                      {field.name === "outputFormat" && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <HelpCircle className="w-4 h-4 text-muted-foreground hover:text-foreground cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent side="right" className="max-w-none">
+                            {renderOutputFormatTooltip()}
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                    </div>
+                    {renderField(field)}
+                    {errors[field.name] && (
+                      <p className="text-red-500 text-sm">{errors[field.name]}</p>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Instruction text when required fields are not complete */}
+            {(!config.spreadsheetId || !config.sheetName || !config.readMode) && (
+              <div className="flex-1 flex items-center justify-center py-8">
+                <div className="text-center text-muted-foreground">
+                  <div className="text-sm font-medium mb-2">Configure Required Fields</div>
+                  <div className="text-xs">
+                    Select a spreadsheet, sheet, and read mode to continue configuration
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {hasRequiredFields && (
+              <div className="text-xs text-muted-foreground px-1 pt-2 flex-shrink-0">
+                * Required fields must be filled out before saving
+              </div>
+            )}
+            
+            <DialogFooter className="flex-shrink-0 pt-4">
+              <Button variant="outline" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleSave} 
+                disabled={loadingDynamic || hasErrors || !config.spreadsheetId || !config.sheetName || !config.readMode}
                 className={hasErrors ? 'opacity-50 cursor-not-allowed' : ''}
               >
                 Save Configuration
@@ -1590,18 +1951,30 @@ export default function ConfigurationModal({
                   return (
                     <div key={field.name} className="flex flex-col space-y-3 pb-4 border-b border-border/50 last:border-b-0 last:pb-0">
                       <div className="flex items-center justify-between">
-                        <Label htmlFor={field.name} className="text-sm font-medium text-foreground min-w-0 flex-shrink-0 pr-4">
-                      {field.label}
-                          {field.required && <span className="text-red-500 ml-1">*</span>}
-                    </Label>
+                        <div className="flex items-center gap-1">
+                          <Label htmlFor={field.name} className="text-sm font-medium text-foreground min-w-0 flex-shrink-0 pr-4">
+                            {field.label}
+                            {field.required && <span className="text-red-500 ml-1">*</span>}
+                          </Label>
+                          {field.name === "outputFormat" && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <HelpCircle className="w-4 h-4 text-muted-foreground hover:text-foreground cursor-help" />
+                              </TooltipTrigger>
+                              <TooltipContent side="right" className="max-w-none">
+                                {renderOutputFormatTooltip()}
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
+                        </div>
                       </div>
                       <div className="w-full">
                         {renderField(field)}
                       </div>
-                    {errors[field.name] && (
+                      {errors[field.name] && (
                         <p className="text-red-500 text-sm mt-1">{errors[field.name]}</p>
-                    )}
-                  </div>
+                      )}
+                    </div>
                   )
                 })}
               </div>
@@ -1628,7 +2001,8 @@ export default function ConfigurationModal({
             </DialogFooter>
           </>
         )}
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+    </TooltipProvider>
   )
 }

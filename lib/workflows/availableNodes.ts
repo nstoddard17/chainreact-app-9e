@@ -762,12 +762,42 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         dependsOn: "spreadsheetId"
       },
       {
+        name: "readMode",
+        label: "Read Mode",
+        type: "select",
+        required: true,
+        options: [
+          { value: "all", label: "Read all data" },
+          { value: "range", label: "Read specific range" },
+          { value: "rows", label: "Select specific rows" },
+          { value: "cells", label: "Select specific cells" }
+        ],
+        description: "How do you want to read the data?"
+      },
+      {
         name: "range",
         label: "Range",
         type: "text",
         required: false,
         placeholder: "e.g., A1:D10, A:A (entire column), 1:1 (entire row)",
-        description: "Specific range to read (optional - reads entire sheet if not specified)"
+        description: "Specific range to read",
+        dependsOn: "readMode"
+      },
+      {
+        name: "selectedRows",
+        label: "Selected Rows",
+        type: "custom",
+        required: false,
+        description: "Rows selected from the data preview",
+        dependsOn: "readMode"
+      },
+      {
+        name: "selectedCells",
+        label: "Selected Cells",
+        type: "custom",
+        required: false,
+        description: "Individual cells selected from the data preview",
+        dependsOn: "readMode"
       },
       {
         name: "includeHeaders",
@@ -775,7 +805,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         type: "boolean",
         required: false,
         defaultValue: true,
-        description: "Whether to include the first row as headers"
+        description: "Whether to include the first row as headers (recommended for most use cases)"
       },
       {
         name: "maxRows",
@@ -790,13 +820,21 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         label: "Output Format",
         type: "select",
         required: false,
-        defaultValue: "array",
+        defaultValue: "objects",
         options: [
-          { value: "array", label: "Array of arrays" },
-          { value: "objects", label: "Array of objects (with headers as keys)" },
-          { value: "csv", label: "CSV string" }
+          { value: "objects", label: "Array of Objects (Recommended)" },
+          { value: "array", label: "Array of Arrays" },
+          { value: "csv", label: "CSV String" }
         ],
-        description: "How to format the output data"
+        description: "Choose how to format the output data. Objects format is easiest to use in subsequent actions."
+      },
+      {
+        name: "filterConditions",
+        label: "Filter Conditions",
+        type: "textarea",
+        required: false,
+        placeholder: 'e.g., [{"column": "Status", "operator": "equals", "value": "Active"}]',
+        description: "JSON array of filter conditions to apply to the data"
       }
     ],
   },
