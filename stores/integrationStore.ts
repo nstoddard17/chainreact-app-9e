@@ -6,6 +6,9 @@ import { apiClient } from "@/lib/apiClient"
 let currentOAuthPopup: Window | null = null
 let windowHasLostFocus = false
 
+// Track ongoing requests for cleanup
+let currentAbortController: AbortController | null = null
+
 // Helper function to check if popup is still valid
 function isPopupValid(popup: Window | null): boolean {
   return !!(popup && !popup.closed)
@@ -156,6 +159,8 @@ export const useIntegrationStore = create<IntegrationStore>()(
 
       set({ loading: true, error: null })
 
+      let timeoutId: NodeJS.Timeout | null = null
+
       try {
         const supabase = getSupabaseClient()
         if (!supabase) throw new Error("Supabase client not available")
@@ -198,8 +203,25 @@ export const useIntegrationStore = create<IntegrationStore>()(
           return
         }
 
+        // Cancel any ongoing request
+        if (currentAbortController) {
+          try {
+            currentAbortController.abort('New request started')
+          } catch (error) {
+            console.warn('Failed to abort previous request:', error)
+          }
+        }
+
         const controller = new AbortController()
-        const timeoutId = setTimeout(() => controller.abort(), 15000)
+        currentAbortController = controller
+        
+        timeoutId = setTimeout(() => {
+          try {
+            controller.abort('Request timeout')
+          } catch (error) {
+            console.warn('AbortController already aborted:', error)
+          }
+        }, 15000)
 
         const cacheBustingUrl = `/api/integrations?timestamp=${Date.now()}`
 
@@ -211,7 +233,11 @@ export const useIntegrationStore = create<IntegrationStore>()(
           cache: 'no-store',
         })
 
-        clearTimeout(timeoutId)
+        if (timeoutId) {
+          clearTimeout(timeoutId)
+          timeoutId = null
+        }
+        currentAbortController = null
 
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}))
@@ -227,6 +253,15 @@ export const useIntegrationStore = create<IntegrationStore>()(
           lastRefreshTime: new Date().toISOString(),
         })
       } catch (error: any) {
+        // Clean up timeout and abort controller in case of error
+        if (timeoutId) {
+          clearTimeout(timeoutId)
+          timeoutId = null
+        }
+        if (currentAbortController) {
+          currentAbortController = null
+        }
+        
         console.error("Failed to fetch integrations:", error)
         set({
           error: error.name === "AbortError" ? "Request timed out - please try again" : error.message,
@@ -659,6 +694,16 @@ export const useIntegrationStore = create<IntegrationStore>()(
     },
 
     clearAllData: () => {
+      // Cancel any ongoing requests
+      if (currentAbortController) {
+        try {
+          currentAbortController.abort('Store cleared')
+          currentAbortController = null
+        } catch (error) {
+          console.warn('Failed to abort request during clear:', error)
+        }
+      }
+
       set({
         integrations: [],
         providers: [],

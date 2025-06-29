@@ -49,6 +49,7 @@ interface AuthState {
   signInWithGoogle: () => Promise<void>
   getCurrentUserId: () => string | null
   setHydrated: () => void
+  checkUsernameAndRedirect: () => void
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -238,6 +239,11 @@ export const useAuthStore = create<AuthState>()(
 
               set({ user, profile, loading: false, initialized: true })
 
+              // Check for missing username and redirect if needed
+              setTimeout(() => {
+                get().checkUsernameAndRedirect()
+              }, 100)
+
               // Set current user ID in integration store (reduced delay)
               setTimeout(async () => {
                 try {
@@ -367,6 +373,11 @@ export const useAuthStore = create<AuthState>()(
 
                 set({ user, profile, error: null })
                 
+                // Check for missing username and redirect if needed
+                setTimeout(() => {
+                  get().checkUsernameAndRedirect()
+                }, 100)
+                
                 // Update integration store with new user ID
                 setTimeout(async () => {
                   try {
@@ -377,7 +388,7 @@ export const useAuthStore = create<AuthState>()(
                   }
                 }, 100)
               } else if (event === "SIGNED_OUT") {
-                set({ user: null, error: null })
+                set({ user: null, profile: null, loading: false, error: null })
                 
                 // Clear integration store when user signs out
                 setTimeout(async () => {
@@ -422,29 +433,62 @@ export const useAuthStore = create<AuthState>()(
 
       signOut: async () => {
         try {
-          set({ loading: true, error: null })
+          // Clear local state immediately to prevent loading screens
+          set({ user: null, profile: null, loading: false, error: null })
 
-          // Clear local state first
-          set({ user: null, profile: null, error: null })
-
-          // Clear integration store immediately
+          // Clear all stores synchronously
           try {
+            // Clear integration store
             const { useIntegrationStore } = await import("./integrationStore")
             const integrationStore = useIntegrationStore.getState()
             integrationStore.setCurrentUserId(null)
             integrationStore.clearAllData()
+            
+            // Clear other stores if they exist
+            try {
+              const { useWorkflowStore } = await import("./workflowStore")
+              const workflowStore = useWorkflowStore.getState()
+              if (workflowStore.clearAllData) {
+                workflowStore.clearAllData()
+              }
+            } catch (e) {
+              // Workflow store might not exist, ignore
+            }
+            
+            try {
+              const { useAnalyticsStore } = await import("./analyticsStore")
+              const analyticsStore = useAnalyticsStore.getState()
+              if (analyticsStore.clearAllData) {
+                analyticsStore.clearAllData()
+              }
+            } catch (e) {
+              // Analytics store might not exist, ignore
+            }
+            
+            try {
+              const { useAdminStore } = await import("./adminStore")
+              const adminStore = useAdminStore.getState()
+              if (adminStore.clearAllData) {
+                adminStore.clearAllData()
+              }
+            } catch (e) {
+              // Admin store might not exist, ignore
+            }
           } catch (error) {
-            console.error("Error clearing integration data:", error)
+            console.error("Error clearing stores:", error)
           }
           
-          // Sign out from Supabase
-          const { error } = await supabase.auth.signOut()
-          if (error) {
+          // Stop any ongoing activities by dispatching a custom event
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('user-signout'))
           }
+          
+          // Sign out from Supabase (don't wait for this to complete)
+          supabase.auth.signOut().catch(error => {
+            console.error("Supabase sign out error:", error)
+          })
 
-          set({ loading: false })
-          
-          // Force a page reload to ensure clean state
+          // Redirect immediately
           if (typeof window !== 'undefined') {
             window.location.href = '/'
           }
@@ -481,6 +525,7 @@ export const useAuthStore = create<AuthState>()(
               full_name: updates.full_name,
               first_name: updates.first_name,
               last_name: updates.last_name,
+              username: updates.username,
               company: updates.company,
               job_title: updates.job_title,
               secondary_email: updates.secondary_email,
@@ -628,6 +673,16 @@ export const useAuthStore = create<AuthState>()(
 
       getCurrentUserId: () => {
         return get().user?.id ?? null
+      },
+
+      checkUsernameAndRedirect: () => {
+        const state = get()
+        if (state.profile && (!state.profile.username || state.profile.username.trim() === '')) {
+          // Only redirect if we're not already on the setup-username page
+          if (typeof window !== 'undefined' && window.location.pathname !== '/setup-username') {
+            window.location.href = '/setup-username'
+          }
+        }
       },
     }),
     {

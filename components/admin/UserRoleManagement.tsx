@@ -11,7 +11,6 @@ import { Badge } from "@/components/ui/badge"
 import { RoleBadge } from "@/components/ui/role-badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Search, Users, Crown, Loader2, Circle, RefreshCw, Wifi, WifiOff } from "lucide-react"
-import { supabase } from "@/utils/supabaseClient"
 import { type UserRole, getRoleInfo, ROLES } from "@/lib/utils/roles"
 import {
   Dialog,
@@ -104,12 +103,22 @@ export default function UserRoleManagement() {
     try {
       setUpdating(true)
       
-      const { error } = await supabase
-        .from('user_profiles')
-        .update({ role: newRole })
-        .eq('id', selectedUser.id)
+      const response = await fetch('/api/admin/update-user-role', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: selectedUser.id,
+          newRole: newRole
+        })
+      })
 
-      if (error) throw error
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to update user role')
+      }
 
       // Update local state
       setUsers(users.map(user => 
@@ -122,6 +131,7 @@ export default function UserRoleManagement() {
       setSelectedUser(null)
     } catch (error) {
       console.error('Error updating user role:', error)
+      // You might want to show a toast notification here
     } finally {
       setUpdating(false)
     }

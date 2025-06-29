@@ -5,18 +5,18 @@ import { updateSession } from "@/utils/supabase/middleware"
 
 // Define page access rules
 const pageAccessRules = {
-  '/dashboard': ['free', 'pro', 'business', 'enterprise', 'admin'],
-  '/workflows': ['free', 'pro', 'business', 'enterprise', 'admin'],
-  '/integrations': ['free', 'pro', 'business', 'enterprise', 'admin'],
-  '/learn': ['free', 'pro', 'business', 'enterprise', 'admin'],
-  '/community': ['free', 'pro', 'business', 'enterprise', 'admin'],
-  '/analytics': ['pro', 'business', 'enterprise', 'admin'],
+  '/dashboard': ['free', 'pro', 'beta-pro', 'business', 'enterprise', 'admin'],
+  '/workflows': ['free', 'pro', 'beta-pro', 'business', 'enterprise', 'admin'],
+  '/integrations': ['free', 'pro', 'beta-pro', 'business', 'enterprise', 'admin'],
+  '/learn': ['free', 'pro', 'beta-pro', 'business', 'enterprise', 'admin'],
+  '/community': ['free', 'pro', 'beta-pro', 'business', 'enterprise', 'admin'],
+  '/analytics': ['pro', 'beta-pro', 'business', 'enterprise', 'admin'],
   '/teams': ['business', 'enterprise', 'admin'],
   '/enterprise': ['enterprise', 'admin'],
   '/admin': ['admin'],
-  '/setup-username': ['free', 'pro', 'business', 'enterprise', 'admin'],
-  '/profile': ['free', 'pro', 'business', 'enterprise', 'admin'],
-  '/settings': ['free', 'pro', 'business', 'enterprise', 'admin'],
+  '/setup-username': ['free', 'pro', 'beta-pro', 'business', 'enterprise', 'admin'],
+  '/profile': ['free', 'pro', 'beta-pro', 'business', 'enterprise', 'admin'],
+  '/settings': ['free', 'pro', 'beta-pro', 'business', 'enterprise', 'admin'],
 }
 
 export async function middleware(req: NextRequest) {
