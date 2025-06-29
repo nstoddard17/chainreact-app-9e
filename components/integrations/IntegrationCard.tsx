@@ -156,7 +156,11 @@ export function IntegrationCard({
 
   const handleConnectClick = () => {
     if (isConfigured) {
-      onConnect()
+      if (status === "expired") {
+        onReconnect();
+      } else {
+        onConnect();
+      }
     }
   }
 
@@ -242,7 +246,7 @@ export function IntegrationCard({
               onClick={handleConnectClick}
             >
               <LinkIcon className="mr-2 h-4 w-4" />
-              Connect
+              {status === "expired" ? "Reconnect" : "Connect"}
             </Button>
           )}
 
