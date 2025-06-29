@@ -868,20 +868,41 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         description: "A brief description of what this spreadsheet is for"
       },
       {
-        name: "initialData",
-        label: "Initial Data",
-        type: "textarea",
-        required: false,
-        placeholder: '[["Header1", "Header2"], ["Row1Col1", "Row1Col2"]]',
-        description: "JSON array of arrays to populate the first sheet with initial data"
-      },
-      {
         name: "sheetName",
         label: "First Sheet Name",
         type: "text",
         required: false,
         placeholder: "Sheet1",
         description: "Name for the first sheet (defaults to 'Sheet1')"
+      },
+      {
+        name: "columnCount",
+        label: "Number of Columns",
+        type: "number",
+        required: true,
+        placeholder: "e.g., 5",
+        description: "How many columns do you want in your spreadsheet?"
+      },
+      {
+        name: "addHeaders",
+        label: "Add Headers",
+        type: "boolean",
+        defaultValue: false,
+        description: "Add column names as the first row of the spreadsheet"
+      },
+      {
+        name: "columnNames",
+        label: "Column Names",
+        type: "custom",
+        required: false,
+        description: "Define the names for each column"
+      },
+      {
+        name: "spreadsheetData",
+        label: "Spreadsheet Data",
+        type: "custom",
+        required: false,
+        description: "Add rows of data to your spreadsheet"
       },
       {
         name: "locale",
@@ -908,8 +929,9 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         label: "Time Zone",
         type: "select",
         required: false,
-        defaultValue: "America/New_York",
+        defaultValue: "auto",
         options: [
+          { value: "auto", label: "Auto-detect (Current Timezone)" },
           { value: "America/New_York", label: "Eastern Time" },
           { value: "America/Chicago", label: "Central Time" },
           { value: "America/Denver", label: "Mountain Time" },

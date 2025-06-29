@@ -53,6 +53,10 @@ export default function ConfigurationModal({
   const previousDependentValues = useRef<Record<string, any>>({})
   const hasInitializedTimezone = useRef<boolean>(false)
   const hasInitializedDefaults = useRef<boolean>(false)
+  
+  // Create Spreadsheet specific state
+  const [spreadsheetRows, setSpreadsheetRows] = useState<Record<string, string>[]>([{}])
+  const [columnNames, setColumnNames] = useState<string[]>([])
 
   // Function to get user's timezone
   const getUserTimezone = () => {
@@ -548,6 +552,36 @@ export default function ConfigurationModal({
       
       hasInitializedDefaults.current = true
     }
+  }, [isOpen, nodeInfo?.type, initialData])
+
+  // Initialize default values for Google Sheets create spreadsheet (only on first open)
+  useEffect(() => {
+    if (isOpen && nodeInfo?.type === "google_sheets_action_create_spreadsheet" && !hasInitializedDefaults.current) {
+      const userTimezone = getUserTimezone()
+      
+      const defaults = {
+        locale: "en_US",
+        timeZone: userTimezone,
+        addHeaders: false
+      }
+      
+      // Only set defaults for fields that don't already have values
+      const newConfig = { ...config }
+      let hasChanges = false
+      
+      Object.entries(defaults).forEach(([key, value]) => {
+        if (newConfig[key] === undefined && initialData[key] === undefined) {
+          newConfig[key] = value
+          hasChanges = true
+        }
+      })
+      
+      if (hasChanges) {
+        setConfig(newConfig)
+      }
+      
+      hasInitializedDefaults.current = true
+    }
     
     // Reset initialization flag when nodeInfo type changes
     if (nodeInfo?.type !== "google_calendar_action_create_event") {
@@ -583,7 +617,7 @@ export default function ConfigurationModal({
     }
     
     // Reset initialization flag when nodeInfo type changes
-    if (nodeInfo?.type !== "google_sheets_action_read_data") {
+    if (!["google_calendar_action_create_event", "google_sheets_action_read_data", "google_sheets_action_create_spreadsheet"].includes(nodeInfo?.type || "")) {
       hasInitializedDefaults.current = false
     }
   }, [isOpen, nodeInfo?.type, initialData])
@@ -607,6 +641,31 @@ export default function ConfigurationModal({
       hasInitializedDefaults.current = false
     }
   }, [isOpen])
+
+  // Initialize create spreadsheet state
+  useEffect(() => {
+    if (nodeInfo?.type === "google_sheets_action_create_spreadsheet") {
+      // Initialize column count and names when changed
+      const columnCount = config.columnCount
+      if (columnCount && columnCount > 0 && columnNames.length !== columnCount) {
+        const newColumnNames = Array.from({ length: columnCount }, (_, i) => 
+          columnNames[i] || `Column ${i + 1}`
+        )
+        setColumnNames(newColumnNames)
+        
+        // Always update config with column names (needed for data structure even without headers)
+        setConfig(prev => ({
+          ...prev,
+          columnNames: newColumnNames
+        }))
+      }
+
+      // Initialize rows if empty
+      if (spreadsheetRows.length === 0) {
+        setSpreadsheetRows([{}])
+      }
+    }
+  }, [nodeInfo?.type, config.columnCount, config.addHeaders, columnNames.length, spreadsheetRows.length])
 
   if (!nodeInfo) {
     return null
@@ -1304,6 +1363,126 @@ export default function ConfigurationModal({
         if (nodeInfo?.type === "google_sheets_unified_action") {
           return null
         }
+        
+        // Custom fields for create spreadsheet action
+        if (nodeInfo?.type === "google_sheets_action_create_spreadsheet") {
+          if (field.name === "columnNames") {
+            // Only show column names fields if addHeaders is true
+            if (!config.addHeaders) {
+              return null
+            }
+            
+            return (
+              <div className="space-y-3">
+                <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${columnNames.length}, 1fr)` }}>
+                  {columnNames.map((name, index) => (
+                    <div key={index} className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Column {index + 1}</Label>
+                      <Input
+                        value={name}
+                        placeholder={`Column ${index + 1}`}
+                        onChange={(e) => {
+                          const newNames = [...columnNames]
+                          newNames[index] = e.target.value
+                          setColumnNames(newNames)
+                          setConfig(prev => ({ ...prev, columnNames: newNames }))
+                        }}
+                        className="text-sm"
+                      />
+                    </div>
+                  ))}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  💡 These will be used as column headers in your spreadsheet
+                </div>
+              </div>
+            )
+          }
+          
+          if (field.name === "spreadsheetData") {
+            return (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const newRow: Record<string, string> = {}
+                      columnNames.forEach((_, index) => {
+                        newRow[`col_${index}`] = ""
+                      })
+                      setSpreadsheetRows([...spreadsheetRows, newRow])
+                    }}
+                    className="text-xs ml-auto"
+                  >
+                    Add Row
+                  </Button>
+                </div>
+                
+                {/* Column headers */}
+                <div className="border rounded-lg">
+                  <div className="bg-muted/50 p-2 border-b">
+                    <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${columnNames.length}, 1fr) auto` }}>
+                      {columnNames.map((name, index) => (
+                        <div key={index} className="text-xs font-medium text-muted-foreground p-1">
+                          {config.addHeaders ? (name || `Column ${index + 1}`) : `Column ${index + 1}`}
+                        </div>
+                      ))}
+                      <div className="text-xs font-medium text-muted-foreground p-1 w-8">
+                        Actions
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Data rows */}
+                  <div className="p-2 space-y-2">
+                    {spreadsheetRows.map((row, rowIndex) => (
+                      <div key={rowIndex} className="grid gap-2" style={{ gridTemplateColumns: `repeat(${columnNames.length}, 1fr) auto` }}>
+                        {columnNames.map((_, colIndex) => (
+                          <div key={colIndex} className="relative">
+                            <Input
+                              value={row[`col_${colIndex}`] || ""}
+                              placeholder={`Enter value or {{variable}}`}
+                              onChange={(e) => {
+                                const newRows = [...spreadsheetRows]
+                                newRows[rowIndex][`col_${colIndex}`] = e.target.value
+                                setSpreadsheetRows(newRows)
+                                setConfig(prev => ({ ...prev, spreadsheetData: newRows }))
+                              }}
+                              className="text-sm"
+                            />
+                          </div>
+                        ))}
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            const newRows = spreadsheetRows.filter((_, i) => i !== rowIndex)
+                            setSpreadsheetRows(newRows)
+                            setConfig(prev => ({ ...prev, spreadsheetData: newRows }))
+                          }}
+                          className="h-8 w-8 p-0 text-muted-foreground hover:text-red-600"
+                          disabled={spreadsheetRows.length === 1}
+                        >
+                          ×
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                
+
+                
+                <div className="text-xs text-muted-foreground">
+                  💡 Use template variables like <code>{"{{data.fieldName}}"}</code> to make your data dynamic
+                </div>
+              </div>
+            )
+          }
+        }
+        
         return null
       case "string":
       case "text":
@@ -1447,7 +1626,8 @@ export default function ConfigurationModal({
       <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
         <DialogContent className={`${
           ((nodeInfo?.type === "google_sheets_unified_action" && config.action) || 
-           (nodeInfo?.type === "google_sheets_action_read_data" && config.spreadsheetId && config.sheetName && config.readMode))
+           (nodeInfo?.type === "google_sheets_action_read_data" && config.spreadsheetId && config.sheetName && config.readMode) ||
+           (nodeInfo?.type === "google_sheets_action_create_spreadsheet" && config.columnCount && config.columnCount > 0))
             ? "max-w-[95vw] w-[95vw]" 
             : "max-w-2xl"
         } max-h-[90vh] overflow-y-auto flex flex-col`}>
