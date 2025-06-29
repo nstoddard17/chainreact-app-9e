@@ -2652,22 +2652,54 @@ async function executeSheetsCreateSpreadsheetNode(node: any, context: any) {
 
     // Add initial data if provided
     let initialDataResult = null
-    if (config.initialData) {
+    const shouldAddData = config.columnNames && config.spreadsheetData && Array.isArray(config.spreadsheetData)
+    
+    if (shouldAddData || config.initialData) {
       try {
-        const parsedData = JSON.parse(config.initialData)
-        if (Array.isArray(parsedData) && parsedData.length > 0) {
+        let processedData: any[][] = []
+        
+        if (shouldAddData) {
+          // Use new column-based structure
+          const columnNames = config.columnNames || []
+          const spreadsheetRows = config.spreadsheetData || []
+          
+          // Add headers if addHeaders is true (default)
+          if (config.addHeaders !== false) {
+            processedData.push(columnNames.map((name: string) => 
+              renderTemplate(name || "", context, "handlebars")
+            ))
+          }
+          
+          // Add data rows
+          spreadsheetRows.forEach((row: Record<string, string>) => {
+            const rowData = columnNames.map((_: string, index: number) => {
+              const cellValue = row[`col_${index}`] || ""
+              return renderTemplate(cellValue, context, "handlebars")
+            })
+            processedData.push(rowData)
+          })
+        } else if (config.initialData) {
+          // Fallback to old initialData format
+          const parsedData = JSON.parse(config.initialData)
+          if (Array.isArray(parsedData) && parsedData.length > 0) {
+            processedData = parsedData.map((row: any[]) => 
+              row.map((value: string) => renderTemplate(value, context, "handlebars"))
+            )
+          }
+        }
+
+        if (processedData.length > 0) {
           console.log("Adding initial data to spreadsheet:", {
-            rows: parsedData.length,
-            columns: parsedData[0]?.length || 0
+            rows: processedData.length,
+            columns: processedData[0]?.length || 0,
+            addHeaders: config.addHeaders !== false
           })
 
-          // Render template variables in the data
-          const processedData = parsedData.map((row: any[]) => 
-            row.map((value: string) => renderTemplate(value, context, "handlebars"))
-          )
+          const endColumn = String.fromCharCode(65 + (processedData[0]?.length || 1) - 1)
+          const range = `${sheetName}!A1:${endColumn}${processedData.length}`
 
           const dataResponse = await fetch(
-            `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${sheetName}!A1:${String.fromCharCode(65 + (processedData[0]?.length || 1) - 1)}${processedData.length}?valueInputOption=RAW`,
+            `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}?valueInputOption=RAW`,
             {
               method: "PUT",
               headers: {
@@ -2691,7 +2723,7 @@ async function executeSheetsCreateSpreadsheetNode(node: any, context: any) {
           }
         }
       } catch (error) {
-        console.warn("Error parsing initial data, but spreadsheet was created successfully:", error)
+        console.warn("Error processing initial data, but spreadsheet was created successfully:", error)
       }
     }
 
