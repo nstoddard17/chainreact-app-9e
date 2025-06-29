@@ -578,11 +578,19 @@ export const useIntegrationStore = create<IntegrationStore>()(
             break
           case "google-sheets_spreadsheets":
             url = "/api/integrations/fetch-user-data"
-            dataType = "spreadsheets"
+            dataType = "google-sheets_spreadsheets"
             break
           case "google-sheets_sheets":
             url = "/api/integrations/fetch-user-data"
             dataType = "google-sheets_sheets"
+            break
+          case "google-sheets_sheet-preview":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "google-sheets_sheet-preview"
+            break
+          case "google-sheets_sheet-data":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "google-sheets_sheet-data"
             break
           case "google-docs_documents":
             url = "/api/integrations/fetch-user-data"
@@ -668,6 +676,10 @@ export const useIntegrationStore = create<IntegrationStore>()(
                      providerId === 'google-calendars' ? 'google-calendar' :
                      providerId === 'google-drive-folders' ? 'google-drive' :
                      providerId === 'google-drive-files' ? 'google-drive' :
+                     providerId === 'google-sheets_spreadsheets' ? 'google-sheets' :
+                     providerId === 'google-sheets_sheets' ? 'google-sheets' :
+                     providerId === 'google-sheets_sheet-preview' ? 'google-sheets' :
+                     providerId === 'google-sheets_sheet-data' ? 'google-sheets' :
                      providerId.includes('-') ? providerId.split('-')[0] : 
                      providerId, // Extract base provider name
             dataType: params?.dataType || dataType, // Allow override via params

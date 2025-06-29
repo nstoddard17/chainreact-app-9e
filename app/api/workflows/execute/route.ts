@@ -305,6 +305,9 @@ async function executeNodeAdvanced(node: any, allNodes: any[], connections: any[
       case "google_docs_action_update_document":
         nodeResult = await executeGoogleDocsUpdateDocumentNode(node, context)
         break
+      case "google_sheets_unified_action":
+        nodeResult = await executeGoogleSheetsUnifiedAction(node, context)
+        break
       case "send_email":
         nodeResult = await executeSendEmailNode(node, context)
         break
@@ -2260,6 +2263,247 @@ async function executeGoogleDriveUploadFileNode(node: any, context: any) {
     }
   } catch (error: any) {
     throw new Error(`Failed to upload file to Google Drive: ${error.message}`)
+  }
+}
+
+async function executeGoogleSheetsUnifiedAction(node: any, context: any) {
+  if (context.testMode) {
+    return {
+      type: "google_sheets_unified",
+      action: node.data.config?.action || "add",
+      spreadsheet_id: node.data.config?.spreadsheetId || "test-sheet",
+      sheet_name: node.data.config?.sheetName || "Sheet1",
+      test: true,
+    }
+  }
+
+  console.log("Starting Google Sheets unified action execution...")
+
+  // Get Google Sheets integration
+  const supabase = await createSupabaseRouteHandlerClient()
+  const { data: integration } = await supabase
+    .from("integrations")
+    .select("*")
+    .eq("user_id", context.userId)
+    .eq("provider", "google-sheets")
+    .eq("status", "connected")
+    .single()
+
+  if (!integration) {
+    throw new Error("Google Sheets integration not connected")
+  }
+
+  // Ensure we have a valid access token
+  let accessToken = integration.access_token
+
+  // Refresh token if needed
+  if (integration.refresh_token) {
+    try {
+      const { TokenRefreshService } = await import("@/lib/integrations/tokenRefreshService")
+      
+      const shouldRefresh = TokenRefreshService.shouldRefreshToken(integration, {
+        accessTokenExpiryThreshold: 5
+      })
+      
+      if (shouldRefresh) {
+        const refreshResult = await TokenRefreshService.refreshTokenForProvider(
+          "google-sheets",
+          integration.refresh_token,
+          integration.id
+        )
+        
+        if (refreshResult.success && refreshResult.accessToken) {
+          accessToken = refreshResult.accessToken
+        } else {
+          throw new Error("Failed to refresh Google Sheets access token")
+        }
+      }
+    } catch (error) {
+      throw new Error("Failed to refresh Google Sheets access token")
+    }
+  }
+
+  const config = node.data.config || {}
+  const action = config.action || "add"
+  const spreadsheetId = config.spreadsheetId
+  const sheetName = config.sheetName
+  const columnMappings = config.columnMappings || {}
+  const valueInputOption = config.valueInputOption || "USER_ENTERED"
+
+  if (!spreadsheetId || !sheetName) {
+    throw new Error("Spreadsheet ID and sheet name are required")
+  }
+
+  switch (action) {
+    case "add":
+      return await executeAddRowAction(accessToken, spreadsheetId, sheetName, columnMappings, valueInputOption, context)
+    
+    case "update":
+      const selectedRow = config.selectedRow
+      
+      if (!selectedRow || !selectedRow.rowIndex) {
+        throw new Error("A row must be selected for update operations")
+      }
+      
+      return await executeUpdateRowAction(accessToken, spreadsheetId, sheetName, columnMappings, selectedRow.rowIndex, context)
+    
+    case "delete":
+      const deleteSelectedRow = config.selectedRow
+      
+      if (!deleteSelectedRow || !deleteSelectedRow.rowIndex) {
+        throw new Error("A row must be selected for delete operations")
+      }
+      
+      return await executeDeleteRowAction(accessToken, spreadsheetId, sheetName, deleteSelectedRow.rowIndex, context)
+    
+    default:
+      throw new Error(`Unsupported action: ${action}`)
+  }
+}
+
+async function executeAddRowAction(accessToken: string, spreadsheetId: string, sheetName: string, columnMappings: any, valueInputOption: string, context: any) {
+  // Convert column mappings to row values
+  const sortedColumns = Object.keys(columnMappings).sort()
+  const values = sortedColumns.map(column => {
+    const value = columnMappings[column]
+    return renderTemplate(value || "", context, "handlebars")
+  })
+
+  const response = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${sheetName}:append?valueInputOption=${valueInputOption}&insertDataOption=INSERT_ROWS`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        values: [values],
+      }),
+    },
+  )
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}))
+    throw new Error(`Google Sheets API error: ${response.status} - ${errorData.error?.message || response.statusText}`)
+  }
+
+  const result = await response.json()
+
+  return {
+    type: "google_sheets_unified",
+    action: "add",
+    spreadsheet_id: spreadsheetId,
+    sheet_name: sheetName,
+    values,
+    range: result.updates?.updatedRange,
+    updated_rows: result.updates?.updatedRows,
+    updated_cells: result.updates?.updatedCells
+  }
+}
+
+async function executeUpdateRowAction(accessToken: string, spreadsheetId: string, sheetName: string, columnMappings: any, rowIndex: number, context: any) {
+  // Update the specific cells in the selected row
+  const updatePromises = Object.entries(columnMappings).map(async ([column, value]) => {
+    const cellValue = renderTemplate(value as string || "", context, "handlebars")
+    const range = `${sheetName}!${column}${rowIndex}`
+    
+    return fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}?valueInputOption=USER_ENTERED`,
+      {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          values: [[cellValue]],
+        }),
+      },
+    )
+  })
+
+  const updateResponses = await Promise.all(updatePromises)
+  
+  // Check if all updates were successful
+  for (const response of updateResponses) {
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(`Failed to update row: ${response.status} - ${errorData.error?.message || response.statusText}`)
+    }
+  }
+
+  return {
+    type: "google_sheets_unified",
+    action: "update",
+    spreadsheet_id: spreadsheetId,
+    sheet_name: sheetName,
+    row_number: rowIndex,
+    updated_columns: Object.keys(columnMappings)
+  }
+}
+
+async function executeDeleteRowAction(accessToken: string, spreadsheetId: string, sheetName: string, rowIndex: number, context: any) {
+  // First, get the sheet ID
+  const sheetResponse = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties`,
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+  )
+
+  if (!sheetResponse.ok) {
+    throw new Error("Failed to get sheet information")
+  }
+
+  const sheetData = await sheetResponse.json()
+  const sheet = sheetData.sheets.find((s: any) => s.properties.title === sheetName)
+  
+  if (!sheet) {
+    throw new Error(`Sheet "${sheetName}" not found`)
+  }
+
+  const sheetId = sheet.properties.sheetId
+
+  // Delete the row using batchUpdate (convert to 0-based index for API)
+  const deleteResponse = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        requests: [
+          {
+            deleteDimension: {
+              range: {
+                sheetId: sheetId,
+                dimension: "ROWS",
+                startIndex: rowIndex - 1, // Convert to 0-based index
+                endIndex: rowIndex // endIndex is exclusive
+              }
+            }
+          }
+        ]
+      }),
+    },
+  )
+
+  if (!deleteResponse.ok) {
+    const errorData = await deleteResponse.json().catch(() => ({}))
+    throw new Error(`Failed to delete row: ${deleteResponse.status} - ${errorData.error?.message || deleteResponse.statusText}`)
+  }
+
+  return {
+    type: "google_sheets_unified",
+    action: "delete",
+    spreadsheet_id: spreadsheetId,
+    sheet_name: sheetName,
+    deleted_row: rowIndex
   }
 }
 

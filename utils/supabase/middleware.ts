@@ -14,21 +14,35 @@ export async function updateSession(request: NextRequest) {
     {
       cookies: {
         getAll() {
-          return request.cookies.getAll()
+          try {
+            return request.cookies.getAll()
+          } catch (error) {
+            console.warn("Failed to get cookies:", error)
+            return []
+          }
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            request.cookies.set(name, value)
-            response.cookies.set(name, value, options)
-          })
+          try {
+            cookiesToSet.forEach(({ name, value, options }) => {
+              request.cookies.set(name, value)
+              response.cookies.set(name, value, options)
+            })
+          } catch (error) {
+            console.warn("Failed to set cookies:", error)
+          }
         },
       },
     }
   )
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
 
-  return { response, supabase, user }
+    return { response, supabase, user }
+  } catch (error) {
+    console.warn("Failed to get user from Supabase:", error)
+    return { response, supabase, user: null }
+  }
 }

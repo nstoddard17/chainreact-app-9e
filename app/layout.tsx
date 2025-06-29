@@ -8,6 +8,7 @@ import AuthInitializer from "@/components/auth/AuthInitializer"
 import { UserActivityTracker } from "@/components/UserActivityTracker"
 import { Toaster } from "@/components/ui/toaster"
 import { ReAuthNotification } from "@/components/integrations/ReAuthNotification"
+import { GlobalErrorHandler } from "@/components/GlobalErrorHandler"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -30,6 +31,7 @@ export default function RootLayout({
       <body className={inter.className} suppressHydrationWarning>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
           <SupabaseProvider>
+            <GlobalErrorHandler />
             <AuthInitializer />
             <UserActivityTracker />
             <ReAuthNotification />

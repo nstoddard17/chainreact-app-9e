@@ -1,40 +1,45 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { createSupabaseServerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
-import { TokenAuditLogger } from "@/lib/integrations/TokenAuditLogger"
 
 export async function POST(request: NextRequest) {
   try {
     cookies()
-    const supabase = createSupabaseServerClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const supabase = await createSupabaseServerClient()
+    
+    // Get authenticated user
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
 
-    if (!user) {
+    if (userError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { integrationId, provider, eventType, details } = await request.json()
+    const { eventType, eventData, integrationId } = await request.json()
 
-    if (!integrationId || !provider || !eventType) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
+    if (!eventType) {
+      return NextResponse.json({ error: "Event type is required" }, { status: 400 })
     }
 
-    // Log the event using TokenAuditLogger (server-side)
-    const result = await TokenAuditLogger.logEvent(
-      integrationId,
-      user.id,
-      provider,
-      eventType,
-      details || {}
-    )
+    // Log the integration event
+    const { error } = await supabase.from("integration_audit_log").insert({
+      user_id: user.id,
+      event_type: eventType,
+      event_data: eventData || {},
+      integration_id: integrationId,
+      timestamp: new Date().toISOString(),
+    })
 
-    if (!result) {
+    if (error) {
+      console.error("Error logging integration event:", error)
       return NextResponse.json({ error: "Failed to log event" }, { status: 500 })
     }
 
-    return NextResponse.json({ success: true, eventId: result })
-  } catch (error: any) {
-    console.error("Error logging integration event:", error)
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error("Audit log error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

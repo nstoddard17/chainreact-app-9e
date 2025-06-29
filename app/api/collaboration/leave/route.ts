@@ -5,7 +5,7 @@ import { cookies } from "next/headers"
 export async function POST(request: NextRequest) {
   try {
     cookies()
-    const supabase = createSupabaseServerClient()
+    const supabase = await createSupabaseServerClient()
     
     // Get the current user
     const {

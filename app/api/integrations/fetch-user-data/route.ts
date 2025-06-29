@@ -12,7 +12,8 @@ interface DataFetcher {
 // Add comprehensive error handling and fix API calls
 export async function POST(request: NextRequest) {
   try {
-    const { provider, dataType, batchSize = 100, preload = false } = await request.json()
+    const requestBody = await request.json()
+    const { provider, dataType, batchSize = 100, preload = false, ...additionalParams } = requestBody
 
     if (!provider || !dataType) {
       return NextResponse.json(
@@ -136,7 +137,7 @@ export async function POST(request: NextRequest) {
     const startTime = Date.now()
 
           const data = await fetchWithRetry(
-        () => fetcher({ ...integration, access_token: validToken }, { batchSize }),
+        () => fetcher({ ...integration, access_token: validToken }, { batchSize, ...additionalParams }),
         3, // max retries
         2000, // initial delay
       )
@@ -503,6 +504,118 @@ const dataFetchers: DataFetcher = {
       }))
     } catch (error: any) {
       console.error("Error fetching Google Sheets sheets:", error)
+      throw error
+    }
+  },
+
+  "google-sheets_sheet-preview": async (integration: any, options: any) => {
+    try {
+      const { spreadsheetId, sheetName } = options || {}
+      
+      if (!spreadsheetId || !sheetName) {
+        throw new Error("Spreadsheet ID and sheet name are required to fetch sheet preview")
+      }
+
+      // Get the first 10 rows to show structure and sample data
+      const response = await fetch(
+        `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!1:10?majorDimension=ROWS`,
+        {
+          headers: {
+            Authorization: `Bearer ${integration.access_token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      )
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("Google Sheets authentication expired. Please reconnect your account.")
+        }
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(
+          `Google Sheets API error: ${response.status} - ${errorData.error?.message || response.statusText}`,
+        )
+      }
+
+      const data = await response.json()
+      const rows = data.values || []
+      
+      // Extract headers (first row) and sample data
+      const headers = rows.length > 0 ? rows[0] : []
+      const sampleData = rows.slice(1, 6) // Get up to 5 sample rows
+      
+      return [{
+        headers: headers.map((header: string, index: number) => ({
+          column: String.fromCharCode(65 + index), // A, B, C, etc.
+          name: header || `Column ${index + 1}`,
+          index: index,
+        })),
+        sampleData: sampleData,
+        totalRows: rows.length,
+        hasHeaders: headers.length > 0 && headers.some((h: string) => h && h.trim() !== ''),
+      }]
+    } catch (error: any) {
+      console.error("Error fetching Google Sheets sheet preview:", error)
+      throw error
+    }
+  },
+
+  "google-sheets_sheet-data": async (integration: any, options: any) => {
+    try {
+      const { spreadsheetId, sheetName } = options || {}
+      
+      if (!spreadsheetId || !sheetName) {
+        throw new Error("Spreadsheet ID and sheet name are required to fetch sheet data")
+      }
+
+      // Get all rows from the sheet (limit to first 1000 rows for performance)
+      const response = await fetch(
+        `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!1:1000?majorDimension=ROWS`,
+        {
+          headers: {
+            Authorization: `Bearer ${integration.access_token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      )
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("Google Sheets authentication expired. Please reconnect your account.")
+        }
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(
+          `Google Sheets API error: ${response.status} - ${errorData.error?.message || response.statusText}`,
+        )
+      }
+
+      const data = await response.json()
+      const rows = data.values || []
+      
+      if (rows.length === 0) {
+        return [{ headers: [], data: [], totalRows: 0 }]
+      }
+
+      // Extract headers (first row) and data rows
+      const headers = rows[0] || []
+      const dataRows = rows.slice(1)
+      
+      return [{
+        headers: headers.map((header: string, index: number) => ({
+          column: String.fromCharCode(65 + index), // A, B, C, etc.
+          name: header || `Column ${index + 1}`,
+          index: index,
+        })),
+        data: dataRows.map((row: any[], index: number) => ({
+          rowIndex: index + 2, // +2 because we skip header row and convert to 1-based indexing
+          values: row,
+          // Add a preview of the row for easy identification
+          preview: row.slice(0, 3).join(" • ") || `Row ${index + 2}`
+        })),
+        totalRows: dataRows.length,
+      }]
+    } catch (error: any) {
+      console.error("Error fetching Google Sheets sheet data:", error)
       throw error
     }
   },

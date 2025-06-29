@@ -24,10 +24,12 @@ interface Collaborator {
 
 interface WorkflowChange {
   id: string
+  workflow_id: string
+  user_id: string
   change_type: string
   change_data: any
-  user_id: string
-  timestamp: string
+  change_timestamp: string
+  version_hash: string
 }
 
 interface Conflict {
@@ -40,8 +42,8 @@ interface Conflict {
 
 interface ExecutionEvent {
   id: string
+  workflow_id: string
   event_type: string
-  node_id?: string
   event_data: any
   timestamp: string
 }
@@ -54,6 +56,7 @@ interface CollaborationState {
   executionEvents: ExecutionEvent[]
   loading: boolean
   error: string | null
+  pollingInterval: NodeJS.Timeout | null
 }
 
 interface CollaborationActions {
@@ -68,6 +71,7 @@ interface CollaborationActions {
   clearExecutionEvents: () => void
   setupRealtimeSubscriptions: (workflowId: string) => void
   pollCollaboratorUpdates: (workflowId: string) => void
+  cleanupPolling: () => void
 }
 
 export const useCollaborationStore = create<CollaborationState & CollaborationActions>((set, get) => ({
@@ -78,6 +82,7 @@ export const useCollaborationStore = create<CollaborationState & CollaborationAc
   executionEvents: [],
   loading: false,
   error: null,
+  pollingInterval: null,
 
   joinCollaboration: async (workflowId: string) => {
     set({ loading: true, error: null })
@@ -110,8 +115,13 @@ export const useCollaborationStore = create<CollaborationState & CollaborationAc
   },
 
   leaveCollaboration: async () => {
-    const { collaborationSession } = get()
+    const { collaborationSession, pollingInterval } = get()
     if (!collaborationSession) return
+
+    // Clean up polling
+    if (pollingInterval) {
+      clearInterval(pollingInterval)
+    }
 
     try {
       await fetch("/api/collaboration/leave", {
@@ -130,6 +140,7 @@ export const useCollaborationStore = create<CollaborationState & CollaborationAc
         pendingChanges: [],
         conflicts: [],
         executionEvents: [],
+        pollingInterval: null,
       })
     } catch (error) {
       console.error("Failed to leave collaboration:", error)
@@ -277,32 +288,53 @@ export const useCollaborationStore = create<CollaborationState & CollaborationAc
   },
 
   setupRealtimeSubscriptions: (workflowId) => {
+    // Clean up any existing polling
+    const { pollingInterval } = get()
+    if (pollingInterval) {
+      clearInterval(pollingInterval)
+    }
+
     // Placeholder for real-time logic
     // e.g., using Supabase real-time
     console.log(`Setting up real-time subscriptions for workflow ${workflowId}`)
 
-    // Start polling for collaborator updates
+    // Start polling for collaborator updates with reduced frequency
     const intervalId = setInterval(() => {
         get().pollCollaboratorUpdates(workflowId);
-    }, 5000); // Poll every 5 seconds
+    }, 10000); // Poll every 10 seconds instead of 5
 
-    // When store is unmounted, clear interval
-    return () => {
-        console.log(`Clearing real-time subscriptions for workflow ${workflowId}`);
-        clearInterval(intervalId);
-    };
+    set({ pollingInterval: intervalId })
   },
 
   pollCollaboratorUpdates: async (workflowId: string) => {
     try {
       const response = await fetch(`/api/collaboration/collaborators?workflowId=${workflowId}`)
+      
+      if (!response.ok) {
+        console.error("Failed to fetch collaborators:", response.status, response.statusText)
+        return
+      }
+
       const result = await response.json()
 
-      if (result.success) {
+      // Handle both array response and success object response
+      if (Array.isArray(result)) {
+        set({ collaborators: result })
+      } else if (result.success && Array.isArray(result.collaborators)) {
         set({ collaborators: result.collaborators })
+      } else {
+        console.warn("Unexpected collaborators response format:", result)
       }
     } catch (error) {
       console.error("Failed to poll collaborator updates:", error)
+    }
+  },
+
+  cleanupPolling: () => {
+    const { pollingInterval } = get()
+    if (pollingInterval) {
+      clearInterval(pollingInterval)
+      set({ pollingInterval: null })
     }
   },
 }))

@@ -21,6 +21,19 @@ const nextConfig = {
     }
     config.ignoreWarnings.push(/Serializing big strings/)
     
+    // Handle Supabase Realtime critical dependency warnings
+    config.ignoreWarnings.push(/Critical dependency: the request of a dependency is an expression/)
+    
+    // Configure webpack to handle dynamic imports in Supabase Realtime
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        net: false,
+        tls: false,
+      }
+    }
+    
     return config
   },
 }

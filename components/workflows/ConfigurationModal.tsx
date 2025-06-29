@@ -45,6 +45,7 @@ export default function ConfigurationModal({
     Record<string, { value: string; label: string }[]>
   >({})
   const [loadingDynamic, setLoadingDynamic] = useState(false)
+  const [showRowSelected, setShowRowSelected] = useState(false)
   const [meetDraft, setMeetDraft] = useState<{ eventId: string; meetUrl: string } | null>(null)
   const [meetLoading, setMeetLoading] = useState(false)
   const meetDraftRef = useRef<string | null>(null)
@@ -83,7 +84,16 @@ export default function ConfigurationModal({
 
   // Function to check if a field should be shown based on dependencies
   const shouldShowField = (field: ConfigField): boolean => {
-    if (!field.dependsOn) return true
+    if (!field.dependsOn) {
+      // Special logic for unified Google Sheets action
+      if (nodeInfo?.type === "google_sheets_unified_action") {
+        // Only show selectedRow field for update/delete actions
+        if (field.name === "selectedRow" && config.action === "add") {
+          return false
+        }
+      }
+      return true
+    }
     
     const dependentValue = config[field.dependsOn]
     return !!dependentValue
@@ -140,7 +150,7 @@ export default function ConfigurationModal({
     let hasData = false
 
     for (const field of nodeInfo.configSchema || []) {
-      if (field.dynamic) {
+      if (field.dynamic && !field.dependsOn) { // Skip dependent fields during initial load
         try {
           console.log(`Fetching dynamic data for ${field.dynamic}`)
           const data = await loadIntegrationData(field.dynamic, integration.id)
@@ -369,6 +379,89 @@ export default function ConfigurationModal({
 
     fetchDependentFields()
   }, [isOpen, nodeInfo, config.spreadsheetId, fetchDependentData])
+
+  // Auto-load sheet data when action changes to update/delete (for unified Google Sheets action)
+  useEffect(() => {
+    if (!isOpen || !nodeInfo || nodeInfo.type !== "google_sheets_unified_action") return
+    if (!config.action || config.action === "add") return
+    if (!config.spreadsheetId || !config.sheetName) return
+    
+    const loadSheetData = async () => {
+      try {
+        setLoadingDynamic(true)
+        const integration = getIntegrationByProvider(nodeInfo?.providerId || "")
+        if (!integration) return
+        
+        const data = await loadIntegrationData(
+          "google-sheets_sheet-data",
+          integration.id,
+          { spreadsheetId: config.spreadsheetId, sheetName: config.sheetName }
+        )
+        
+        if (data && data.length > 0) {
+          setDynamicOptions(prev => ({
+            ...prev,
+            sheetData: data[0]
+          }))
+        }
+      } catch (error) {
+        console.error("Error auto-loading sheet data:", error)
+      } finally {
+        setLoadingDynamic(false)
+      }
+    }
+    
+    loadSheetData()
+  }, [isOpen, nodeInfo, config.action, config.spreadsheetId, config.sheetName, getIntegrationByProvider, loadIntegrationData])
+
+  // Fetch sheet preview when both spreadsheet and sheet are selected (for Google Sheets actions)
+  useEffect(() => {
+    if (!isOpen || !nodeInfo || !["google_sheets_action_append_row", "google_sheets_unified_action"].includes(nodeInfo.type)) return
+    
+    const fetchSheetPreview = async () => {
+      if (config.spreadsheetId && config.sheetName) {
+        const integration = getIntegrationByProvider("google-sheets")
+        if (!integration) return
+
+        try {
+          setLoadingDynamic(true)
+          const previewData = await loadIntegrationData(
+            "google-sheets_sheet-preview",
+            integration.id,
+            { spreadsheetId: config.spreadsheetId, sheetName: config.sheetName }
+          )
+          
+                      if (previewData && previewData.length > 0) {
+              const preview = previewData[0]
+              setDynamicOptions(prev => ({
+                ...prev,
+                sheetPreview: preview,
+                // Also populate search column options for the unified action
+                ...(nodeInfo.type === "google_sheets_unified_action" && {
+                  searchColumn: preview.headers.map((header: any) => ({
+                    value: header.column,
+                    label: `${header.column} - ${header.name}`
+                  }))
+                })
+              }))
+            }
+        } catch (error) {
+          console.error("Error fetching sheet preview:", error)
+        } finally {
+          setLoadingDynamic(false)
+        }
+      } else {
+        // Clear preview when dependencies are not met
+        setDynamicOptions(prev => {
+          const newOptions = { ...prev }
+          delete newOptions.sheetPreview
+          return newOptions
+        })
+      }
+    }
+
+    fetchSheetPreview()
+  }, [isOpen, nodeInfo, config.spreadsheetId, config.sheetName, getIntegrationByProvider, loadIntegrationData])
 
   // Initialize timezone for Google Calendar events (only on first open)
   useEffect(() => {
@@ -1151,6 +1244,12 @@ export default function ConfigurationModal({
             )}
           </div>
         )
+      case "custom":
+        // Custom fields for unified Google Sheets action are handled in the special layout
+        if (nodeInfo?.type === "google_sheets_unified_action") {
+          return null
+        }
+        return null
       case "string":
       case "text":
       case "email":
@@ -1224,7 +1323,11 @@ export default function ConfigurationModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className={`${
+        nodeInfo?.type === "google_sheets_unified_action" && config.action
+          ? "max-w-[95vw] w-[95vw]" 
+          : "max-w-2xl"
+      } max-h-[90vh] overflow-hidden flex flex-col`}>
         <DialogHeader>
           <DialogTitle>
             Configure {nodeInfo?.title} on {integrationName}
@@ -1266,8 +1369,193 @@ export default function ConfigurationModal({
         
         {loadingDynamic ? (
           <ConfigurationLoadingScreen integrationName={integrationName} />
+        ) : nodeInfo?.type === "google_sheets_unified_action" ? (
+          // Special layout for unified Google Sheets action
+          <div className="flex flex-col flex-1 min-h-0">
+            {/* Basic Configuration Fields - Always Visible */}
+            <div className="space-y-4 pb-4 border-b flex-shrink-0">
+              {nodeInfo.configSchema?.filter(field => 
+                ["spreadsheetId", "sheetName", "action"].includes(field.name)
+              ).map((field) => {
+                if (!shouldShowField(field)) {
+                  return null
+                }
+                
+                return (
+                  <div key={field.name} className="flex flex-col space-y-2">
+                    <Label htmlFor={field.name} className="text-sm font-medium">
+                      {field.label}
+                      {field.required && <span className="text-red-500 ml-1">*</span>}
+                    </Label>
+                    {renderField(field)}
+                    {errors[field.name] && (
+                      <p className="text-red-500 text-sm">{errors[field.name]}</p>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Scrollable Content Area */}
+            <div className="flex-1 overflow-y-auto space-y-4 pt-4 min-h-0">
+                          {/* Row Selector Table (if update/delete and data available) */}
+            {config.action !== "add" && dynamicOptions.sheetData && (dynamicOptions.sheetData as any).headers && Array.isArray((dynamicOptions.sheetData as any).headers) && (dynamicOptions.sheetData as any).data && Array.isArray((dynamicOptions.sheetData as any).data) && (
+            <div className="space-y-3 border-b pb-4">
+              <div className="text-sm font-medium">
+                Select row to {config.action}:
+                {loadingDynamic && <span className="text-muted-foreground ml-2">(Loading...)</span>}
+              </div>
+              
+              <div className="border rounded-lg">
+                <div className="bg-muted/50 p-2 border-b">
+                  <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${(dynamicOptions.sheetData as any).headers.length}, minmax(120px, 1fr))` }}>
+                    {(dynamicOptions.sheetData as any).headers.map((header: any, index: number) => (
+                      <div key={index} className="text-xs font-medium text-muted-foreground p-1">
+                        {header.column} - {header.name}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="p-2 space-y-1">
+                  {(dynamicOptions.sheetData as any).data.map((row: any, index: number) => (
+                      <div
+                        key={index}
+                        className={`grid gap-2 p-2 rounded cursor-pointer hover:bg-muted/50 ${
+                          config.selectedRow?.rowIndex === row.rowIndex ? "bg-primary/10 border border-primary" : "border border-transparent"
+                        }`}
+                        style={{ gridTemplateColumns: `repeat(${(dynamicOptions.sheetData as any).headers.length}, minmax(120px, 1fr))` }}
+                        onClick={() => {
+                          const newSelectedRow = row
+                          setConfig(prev => ({
+                            ...prev,
+                            selectedRow: newSelectedRow,
+                            // For update action, populate column mappings with selected row data
+                            ...(config.action === "update" && {
+                              columnMappings: (dynamicOptions.sheetData as any).headers.reduce((mappings: any, header: any, headerIndex: number) => {
+                                mappings[header.column] = row.values[headerIndex] || ""
+                                return mappings
+                              }, {})
+                            })
+                          }))
+                          
+                          // Show the "Row Selected!" message
+                          setShowRowSelected(true)
+                          
+                          // Hide it after 2 seconds
+                          setTimeout(() => {
+                            setShowRowSelected(false)
+                          }, 2000)
+                        }}
+                      >
+                        {row.values.map((cell: string, cellIndex: number) => (
+                          <div key={cellIndex} className="text-sm truncate p-1">
+                            {cell || ""}
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                
+                {showRowSelected && (
+                  <div className="text-sm text-green-600 bg-green-50 p-2 rounded animate-in fade-in-0 duration-300">
+                    ✓ Row Selected!
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Column Mapping Fields (horizontal layout) */}
+            {(config.action === "add" || config.action === "update") && dynamicOptions.sheetPreview && (dynamicOptions.sheetPreview as any).headers && Array.isArray((dynamicOptions.sheetPreview as any).headers) && (
+              <div className="space-y-3">
+                <div className="text-sm font-medium">Map your data to sheet columns:</div>
+                
+                {/* Header Row */}
+                <div className="grid gap-2 p-2 bg-muted/50 rounded-t-lg" style={{ gridTemplateColumns: `repeat(${(dynamicOptions.sheetPreview as any).headers.length}, minmax(120px, 1fr))` }}>
+                  {(dynamicOptions.sheetPreview as any).headers.map((header: any, index: number) => (
+                    <div key={index} className="text-xs font-medium text-center p-1">
+                      <div className="font-mono bg-background px-2 py-1 rounded mb-1">
+                        {header.column}
+                      </div>
+                      <div className="truncate">{header.name}</div>
+                    </div>
+                  ))}
+                </div>
+                
+                {/* Input Row */}
+                <div className="grid gap-2 p-2 border rounded-b-lg" style={{ gridTemplateColumns: `repeat(${(dynamicOptions.sheetPreview as any).headers.length}, minmax(120px, 1fr))` }}>
+                  {(dynamicOptions.sheetPreview as any).headers.map((header: any, index: number) => (
+                    <div key={index} className="space-y-1">
+                      <Input
+                        placeholder={`${header.name}`}
+                        value={config.columnMappings?.[header.column] || ""}
+                        onChange={(e) => {
+                          setConfig(prev => ({
+                            ...prev,
+                            columnMappings: {
+                              ...prev.columnMappings,
+                              [header.column]: e.target.value
+                            }
+                          }))
+                        }}
+                        className="text-sm h-8"
+                      />
+                    </div>
+                  ))}
+                </div>
+                
+                <div className="text-xs text-muted-foreground">
+                  💡 Use template variables like <code>{"{{data.fieldName}}"}</code> or enter static values
+                </div>
+              </div>
+            )}
+
+              {/* Other configuration fields */}
+              <div className="space-y-4">
+                {nodeInfo.configSchema?.filter(field => 
+                  !["spreadsheetId", "sheetName", "action", "columnMappings", "selectedRow"].includes(field.name)
+                ).map((field) => {
+                  if (!shouldShowField(field)) {
+                    return null
+                  }
+                  
+                  return (
+                    <div key={field.name} className="flex flex-col space-y-2">
+                      <Label htmlFor={field.name} className="text-sm font-medium">
+                        {field.label}
+                        {field.required && <span className="text-red-500 ml-1">*</span>}
+                      </Label>
+                      {renderField(field)}
+                      {errors[field.name] && (
+                        <p className="text-red-500 text-sm">{errors[field.name]}</p>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+            
+            {hasRequiredFields && (
+              <div className="text-xs text-muted-foreground px-1 pt-2 flex-shrink-0">
+                * Required fields must be filled out before saving
+              </div>
+            )}
+            
+            <DialogFooter className="flex-shrink-0 pt-4">
+              <Button variant="outline" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleSave} 
+                disabled={loadingDynamic || hasErrors}
+                className={hasErrors ? 'opacity-50 cursor-not-allowed' : ''}
+              >
+                Save Configuration
+              </Button>
+            </DialogFooter>
+          </div>
         ) : (
-          // Configuration form once data is loaded
+          // Default configuration form for other node types
           <>
             <div className="space-y-6 py-4 max-h-96 overflow-y-auto pr-2" style={{ paddingRight: '8px' }}>
               <div className="space-y-6">
@@ -1318,6 +1606,7 @@ export default function ConfigurationModal({
                 })}
               </div>
             </div>
+
             
             {hasRequiredFields && (
               <div className="text-xs text-muted-foreground px-1">

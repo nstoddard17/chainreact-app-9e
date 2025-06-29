@@ -10,14 +10,20 @@ export async function createSupabaseServerClient() {
     {
       cookies: {
         getAll() {
-          return cookieStore.getAll()
+          try {
+            return cookieStore.getAll()
+          } catch (error) {
+            console.warn("Failed to get cookies in server client:", error)
+            return []
+          }
         },
         setAll(cookiesToSet) {
           try {
             cookiesToSet.forEach(({ name, value, options }) =>
               cookieStore.set(name, value, options)
             )
-          } catch {
+          } catch (error) {
+            console.warn("Failed to set cookies in server client:", error)
             // The `setAll` method was called from a Server Component.
             // This can be ignored if you have middleware refreshing
             // user sessions.
@@ -36,14 +42,20 @@ export async function createSupabaseServerActionClient() {
     {
       cookies: {
         getAll() {
-          return cookieStore.getAll()
+          try {
+            return cookieStore.getAll()
+          } catch (error) {
+            console.warn("Failed to get cookies in server action client:", error)
+            return []
+          }
         },
         setAll(cookiesToSet) {
           try {
             cookiesToSet.forEach(({ name, value, options }) =>
               cookieStore.set(name, value, options)
             )
-          } catch {
+          } catch (error) {
+            console.warn("Failed to set cookies in server action client:", error)
             // The `setAll` method was called from a Server Component.
             // This can be ignored if you have middleware refreshing
             // user sessions.
@@ -62,14 +74,20 @@ export async function createSupabaseRouteHandlerClient() {
     {
       cookies: {
         getAll() {
-          return cookieStore.getAll()
+          try {
+            return cookieStore.getAll()
+          } catch (error) {
+            console.warn("Failed to get cookies in route handler client:", error)
+            return []
+          }
         },
         setAll(cookiesToSet) {
           try {
             cookiesToSet.forEach(({ name, value, options }) =>
               cookieStore.set(name, value, options)
             )
-          } catch {
+          } catch (error) {
+            console.warn("Failed to set cookies in route handler client:", error)
             // The `setAll` method was called from a Server Component.
             // This can be ignored if you have middleware refreshing
             // user sessions.

@@ -1,31 +1,33 @@
+import { NextRequest, NextResponse } from "next/server"
 import { createSupabaseServerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
-import { type NextRequest, NextResponse } from "next/server"
 import { generateWorkflow } from "@/lib/ai/workflowAI"
 
 export async function POST(request: NextRequest) {
   try {
     cookies()
-    const supabase = createSupabaseServerClient()
+    const supabase = await createSupabaseServerClient()
+    
+    // Get authenticated user
     const {
-      data: { session },
-      error: sessionError,
-    } = await supabase.auth.getSession()
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
 
-    if (sessionError || !session) {
+    if (userError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     const { prompt } = await request.json()
 
-    if (!prompt || typeof prompt !== "string") {
+    if (!prompt) {
       return NextResponse.json({ error: "Prompt is required" }, { status: 400 })
     }
 
     // Generate workflow using AI
     const generatedWorkflow = await generateWorkflow({
       prompt,
-      userId: session.user.id,
+      userId: user.id,
     })
 
     // Save the generated workflow to the database
@@ -34,7 +36,7 @@ export async function POST(request: NextRequest) {
       .insert({
         name: generatedWorkflow.name,
         description: generatedWorkflow.description,
-        user_id: session.user.id,
+        user_id: user.id,
         nodes: generatedWorkflow.nodes,
         connections: generatedWorkflow.connections,
         status: "draft",

@@ -1,59 +1,49 @@
+import { NextRequest, NextResponse } from "next/server"
 import { createSupabaseServerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
-import { type NextRequest, NextResponse } from "next/server"
-import { chatWithAI } from "@/lib/ai/workflowAI"
 
 export async function POST(request: NextRequest) {
   try {
     cookies()
-    const supabase = createSupabaseServerClient()
+    const supabase = await createSupabaseServerClient()
+    
+    // Get authenticated user
     const {
-      data: { session },
-      error: sessionError,
-    } = await supabase.auth.getSession()
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
 
-    if (sessionError || !session) {
+    if (userError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { message, context } = await request.json()
+    const { message } = await request.json()
 
-    if (!message || typeof message !== "string") {
+    if (!message) {
       return NextResponse.json({ error: "Message is required" }, { status: 400 })
     }
 
-    // Get user's workflows for context (only their own due to RLS)
-    const { data: userWorkflows } = await supabase.from("workflows").select("name, description, status").limit(10)
-
-    // Enhance context with user's workflow data
-    const enhancedContext = {
-      ...context,
-      userWorkflows: userWorkflows || [],
+    // For now, return a simple response
+    // In a real implementation, you'd call an AI service here
+    const response = {
+      content: `I received your message: "${message}". This is a placeholder response.`,
+      metadata: {
+        timestamp: new Date().toISOString(),
+        userId: user.id,
+      },
     }
-
-    // Get AI response
-    const response = await chatWithAI(message, enhancedContext)
 
     // Save chat history
     await supabase.from("ai_chat_history").insert({
-      user_id: session.user.id,
+      user_id: user.id,
       message,
-      response,
-      context: enhancedContext,
+      response: response.content,
+      timestamp: new Date().toISOString(),
     })
 
-    return NextResponse.json({
-      success: true,
-      response,
-    })
-  } catch (error: any) {
-    console.error("Error in AI chat:", error)
-    return NextResponse.json(
-      {
-        error: "Failed to get AI response",
-        details: error.message,
-      },
-      { status: 500 },
-    )
+    return NextResponse.json(response)
+  } catch (error) {
+    console.error("AI chat error:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
