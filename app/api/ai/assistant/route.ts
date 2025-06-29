@@ -1048,123 +1048,106 @@ async function handleProductivityQuery(intent: any, integrations: Integration[],
       console.log(`Processing ${integration.provider} integration...`)
       
       if (integration.provider === "notion") {
-        // Notion search endpoint
-        const response = await fetch("https://api.notion.com/v1/search", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${integration.access_token}`,
-            "Notion-Version": "2022-06-28",
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            filter: {
-              value: "page",
-              property: "object"
-            },
-            page_size: 100, // Increased from 10 to 100
-            sort: {
-              direction: "descending",
-              timestamp: "last_edited_time"
-            }
-          }),
-        })
+        // Only do this for the 'what notion pages do I have' intent or similar
+        if (intent.message && /what.*notion.*pages.*have|list.*notion.*pages/i.test(intent.message)) {
+          try {
+            console.log("[Notion Debug] Intent: ", intent.message);
+            console.log("[Notion Debug] Found Notion integration: ", !!integration);
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 15000); // 15s timeout
 
-        if (response.ok) {
-          const responseData = await response.json()
-          console.log(`Found ${responseData.results?.length || 0} Notion pages`)
-          
-          const pages = (responseData.results || []).map((page: any) => {
-            // Try multiple ways to extract the title
-            let title = "Untitled Page"
-            
-            // First, check if there's a title directly on the page object
-            if (page.title && page.title.length > 0) {
-              title = page.title[0].plain_text
-            } else if (page.properties) {
-              // Debug: Log the first page structure to understand the format
-              if (page.id === responseData.results[0].id) {
-                console.log("Sample Notion page structure:", {
-                  id: page.id,
-                  url: page.url,
-                  properties: Object.keys(page.properties),
-                  firstProperty: page.properties[Object.keys(page.properties)[0]]
-                })
-              }
-              
-              // Priority order for title properties - project name/title fields first
-              const titleProperties = [
-                'Project Name', 'project name', 'Project', 'project',
-                'Name', 'name', 'Title', 'title', 
-                'Page', 'page', 'Task', 'task',
-                'Description', 'description'
-              ]
-              
-              // First pass: look for title properties
-              for (const propName of titleProperties) {
-                const prop = page.properties[propName]
-                if (prop) {
-                  if (prop.title && prop.title.length > 0) {
-                    title = prop.title[0].plain_text
-                    break
-                  } else if (prop.rich_text && prop.rich_text.length > 0) {
-                    title = prop.rich_text[0].plain_text
-                    break
-                  } else if (prop.select && prop.select.name) {
-                    title = prop.select.name
-                    break
-                  } else if (prop.multi_select && prop.multi_select.length > 0) {
-                    title = prop.multi_select[0].name
-                    break
-                  }
-                }
-              }
-              
-              // If still untitled, try to find any property with a title (excluding priority, status, etc.)
-              if (title === "Untitled Page") {
-                const excludeProperties = ['priority', 'status', 'type', 'category', 'tags', 'assignee', 'due date', 'created', 'updated']
-                
+            // Fetch all top-level pages
+            const searchResponse = await fetch("https://api.notion.com/v1/search", {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${integration.access_token}`,
+                "Notion-Version": "2022-06-28",
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                filter: { value: "page", property: "object" },
+                page_size: 100,
+                sort: { direction: "descending", timestamp: "last_edited_time" }
+              }),
+              signal: controller.signal,
+            })
+
+            clearTimeout(timeout);
+
+            if (!searchResponse.ok) {
+              throw new Error(`Notion search failed: ${searchResponse.status}`);
+            }
+            const pagesData = await searchResponse.json();
+            console.log("[Notion Debug] Raw Notion API results:", JSON.stringify(pagesData.results, null, 2));
+            const mainPages = [];
+
+            for (const page of pagesData.results || []) {
+              // Get page title
+              let pageTitle = "Untitled Page";
+              if (page.title && page.title.length > 0) {
+                pageTitle = page.title[0].plain_text;
+              } else if (page.properties) {
                 for (const [key, prop] of Object.entries(page.properties)) {
-                  // Skip properties that are likely not titles
-                  if (excludeProperties.some(exclude => key.toLowerCase().includes(exclude))) {
-                    continue
-                  }
-                  
-                  if (prop && typeof prop === 'object') {
-                    const typedProp = prop as any
-                    if (typedProp.title && typedProp.title.length > 0) {
-                      title = typedProp.title[0].plain_text
-                      break
-                    } else if (typedProp.rich_text && typedProp.rich_text.length > 0) {
-                      title = typedProp.rich_text[0].plain_text
-                      break
-                    } else if (typedProp.select && typedProp.select.name) {
-                      title = typedProp.select.name
-                      break
-                    }
+                  const typedProp = prop as any;
+                  if (typedProp.title && typedProp.title.length > 0) {
+                    pageTitle = typedProp.title[0].plain_text;
+                    break;
+                  } else if (typedProp.rich_text && typedProp.rich_text.length > 0) {
+                    pageTitle = typedProp.rich_text[0].plain_text;
+                    break;
                   }
                 }
               }
-            }
-            
-            return {
-              id: page.id,
-              title: title,
-              url: page.url,
-              last_edited: page.last_edited_time,
-              created: page.created_time,
-              provider: "Notion",
-              // Add debug info
-              debug: {
-                hasProperties: !!page.properties,
-                propertyKeys: page.properties ? Object.keys(page.properties) : [],
-                firstProperty: page.properties ? Object.values(page.properties)[0] : null
+
+              // Fetch subpages (children) with error handling and timeout
+              let subpages = [];
+              try {
+                const subController = new AbortController();
+                const subTimeout = setTimeout(() => subController.abort(), 15000);
+                const childrenResponse = await fetch(`https://api.notion.com/v1/blocks/${page.id}/children`, {
+                  method: "GET",
+                  headers: {
+                    Authorization: `Bearer ${integration.access_token}`,
+                    "Notion-Version": "2022-06-28",
+                  },
+                  signal: subController.signal,
+                });
+                clearTimeout(subTimeout);
+                if (childrenResponse.ok) {
+                  const childrenData = await childrenResponse.json();
+                  subpages = (childrenData.results || [])
+                    .filter((block: any) => block.type === 'child_page')
+                    .map((block: any) => ({
+                      id: block.id,
+                      title: block.child_page?.title || "Untitled Subpage",
+                      url: `https://notion.so/${block.id.replace(/-/g, '')}`
+                    }));
+                }
+              } catch (subErr) {
+                console.error("Notion subpage fetch error:", subErr);
               }
+
+              mainPages.push({
+                id: page.id,
+                title: pageTitle,
+                url: page.url,
+                subpages
+              });
             }
-          })
-          
-          data.push(...pages)
-        } else {
-          console.error(`Notion API error: ${response.status}`, await response.text())
+
+            console.log("[Notion Debug] Pages fetched: ", mainPages.length);
+
+            return {
+              content: `Here are your Notion pages:`,
+              metadata: { type: "notion_page_hierarchy", pages: mainPages }
+            };
+          } catch (err) {
+            console.error("Notion fetch error:", err);
+            return {
+              content: "Sorry, I couldn't fetch your Notion pages. Please try again.",
+              metadata: { type: "notion_page_hierarchy", pages: [] }
+            };
+          }
         }
       } else if (integration.provider === "trello") {
         // Trello boards endpoint

@@ -35,11 +35,12 @@ interface Message {
   content: string
   timestamp: Date
   metadata?: {
-    type?: "calendar" | "email" | "file" | "confirmation" | "social" | "crm" | "ecommerce" | "developer" | "productivity" | "communication" | "integration_not_connected" | "error"
+    type?: "calendar" | "email" | "file" | "confirmation" | "social" | "crm" | "ecommerce" | "developer" | "productivity" | "communication" | "integration_not_connected" | "error" | "notion_page_hierarchy"
     data?: any
     requiresConfirmation?: boolean
     integration?: string
     action?: string
+    pages?: any[]
   }
 }
 
@@ -608,35 +609,130 @@ export default function AIAssistantContent() {
                           <FileText className="w-4 h-4" />
                           <span className="font-medium">Productivity Items</span>
                         </div>
-                        <div className="space-y-2">
+                        <div className="space-y-3">
                           {message.metadata.data.map((item: any, index: number) => (
-                            <div key={index} className="flex items-start gap-3 p-2 bg-muted/50 rounded-md">
-                              <div className="flex-shrink-0 w-2 h-2 bg-primary rounded-full mt-2"></div>
-                              <div className="flex-1 min-w-0">
-                                <div className="font-medium text-sm mb-1">
-                                  {item.url ? (
-                                    <a 
-                                      href={item.url} 
-                                      target="_blank" 
-                                      rel="noopener noreferrer"
-                                      className="text-blue-600 hover:text-blue-800 underline"
-                                    >
-                                      {item.title}
-                                    </a>
-                                  ) : (
-                                    item.title
-                                  )}
-                                </div>
-                                <div className="text-xs text-muted-foreground">
-                                  {item.provider}
-                                  {item.last_edited && (
-                                    <span> • Last edited {new Date(item.last_edited).toLocaleDateString()}</span>
-                                  )}
-                                  {item.created && !item.last_edited && (
-                                    <span> • Created {new Date(item.created).toLocaleDateString()}</span>
-                                  )}
+                            <div key={index} className="space-y-2">
+                              {/* Main page */}
+                              <div className="flex items-start gap-3 p-3 bg-muted/50 rounded-md">
+                                <div className="flex-shrink-0 w-2 h-2 bg-primary rounded-full mt-2"></div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="font-medium text-sm mb-1">
+                                    {item.url ? (
+                                      <a 
+                                        href={item.url} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="text-blue-600 hover:text-blue-800 underline"
+                                      >
+                                        {item.title}
+                                      </a>
+                                    ) : (
+                                      item.title
+                                    )}
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">
+                                    {item.provider}
+                                    {item.last_edited && (
+                                      <span> • Last edited {new Date(item.last_edited).toLocaleDateString()}</span>
+                                    )}
+                                    {item.created && !item.last_edited && (
+                                      <span> • Created {new Date(item.created).toLocaleDateString()}</span>
+                                    )}
+                                    {item.subpageCount > 0 && (
+                                      <span> • {item.subpageCount} subpage{item.subpageCount !== 1 ? 's' : ''}</span>
+                                    )}
+                                    {item.databaseCount > 0 && (
+                                      <span> • {item.databaseCount} database{item.databaseCount !== 1 ? 's' : ''}</span>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
+                              
+                              {/* Databases with entries by status */}
+                              {item.databases && item.databases.length > 0 && (
+                                <div className="ml-6 space-y-3">
+                                  {item.databases.map((database: any, dbIndex: number) => (
+                                    <div key={dbIndex} className="space-y-2">
+                                      <div className="flex items-start gap-3 p-2 bg-blue-50 dark:bg-blue-950/20 rounded-md border-l-2 border-blue-200 dark:border-blue-800">
+                                        <div className="flex-shrink-0 w-1.5 h-1.5 bg-blue-500 rounded-full mt-2"></div>
+                                        <div className="flex-1 min-w-0">
+                                          <div className="font-medium text-xs mb-1 text-blue-700 dark:text-blue-300">
+                                            📊 {database.title}
+                                          </div>
+                                          <div className="text-xs text-blue-600 dark:text-blue-400">
+                                            {database.totalEntries} entries
+                                          </div>
+                                        </div>
+                                      </div>
+                                      
+                                      {/* Status categories */}
+                                      {Object.entries(database.entriesByStatus || {}).map(([status, entries]) => (
+                                        <div key={status} className="ml-4 space-y-1">
+                                          <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                                            {status} ({(entries as any[]).length})
+                                          </div>
+                                          {(entries as any[]).map((entry: any, entryIndex: number) => (
+                                            <div key={entryIndex} className="flex items-start gap-3 p-2 bg-background/50 rounded-md border-l border-muted">
+                                              <div className="flex-shrink-0 w-1 h-1 bg-muted-foreground/30 rounded-full mt-2"></div>
+                                              <div className="flex-1 min-w-0">
+                                                <div className="font-medium text-xs mb-1">
+                                                  {entry.url ? (
+                                                    <a 
+                                                      href={entry.url} 
+                                                      target="_blank" 
+                                                      rel="noopener noreferrer"
+                                                      className="text-blue-600 hover:text-blue-800 underline"
+                                                    >
+                                                      {entry.title}
+                                                    </a>
+                                                  ) : (
+                                                    entry.title
+                                                  )}
+                                                </div>
+                                                <div className="text-xs text-muted-foreground">
+                                                  {entry.last_edited && (
+                                                    <span>Last edited {new Date(entry.last_edited).toLocaleDateString()}</span>
+                                                  )}
+                                                </div>
+                                              </div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              
+                              {/* Subpages */}
+                              {item.subpages && item.subpages.length > 0 && (
+                                <div className="ml-6 space-y-1">
+                                  {item.subpages.map((subpage: any, subIndex: number) => (
+                                    <div key={subIndex} className="flex items-start gap-3 p-2 bg-background/50 rounded-md border-l-2 border-muted">
+                                      <div className="flex-shrink-0 w-1.5 h-1.5 bg-muted-foreground/50 rounded-full mt-2"></div>
+                                      <div className="flex-1 min-w-0">
+                                        <div className="font-medium text-xs mb-1">
+                                          {subpage.url ? (
+                                            <a 
+                                              href={subpage.url} 
+                                              target="_blank" 
+                                              rel="noopener noreferrer"
+                                              className="text-blue-600 hover:text-blue-800 underline"
+                                            >
+                                              {subpage.title}
+                                            </a>
+                                          ) : (
+                                            subpage.title
+                                          )}
+                                        </div>
+                                        <div className="text-xs text-muted-foreground">
+                                          {subpage.type === 'child_database' ? 'Database' : 'Page'}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           ))}
                         </div>
@@ -679,6 +775,42 @@ export default function AIAssistantContent() {
                           <CheckCircle className="w-4 h-4" />
                           <span className="font-medium">Action completed successfully</span>
                         </div>
+                      </div>
+                    )}
+                    
+                    {message.metadata?.type === "notion_page_hierarchy" && message.metadata.pages && (
+                      <div className="mt-3 p-3 bg-background rounded-lg border">
+                        <div className="font-medium mb-2 text-lg text-blue-700">Notion Page Hierarchy</div>
+                        <ul className="space-y-4">
+                          {message.metadata.pages.map((page: any) => (
+                            <li key={page.id}>
+                              <a
+                                href={page.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-lg font-semibold text-blue-500 hover:underline"
+                              >
+                                {page.title}
+                              </a>
+                              {page.subpages && page.subpages.length > 0 && (
+                                <ul className="ml-6 mt-2 space-y-1 list-disc">
+                                  {page.subpages.map((sub: any) => (
+                                    <li key={sub.id}>
+                                      <a
+                                        href={sub.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-blue-400 hover:underline"
+                                      >
+                                        {sub.title}
+                                      </a>
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
                       </div>
                     )}
                   </div>
