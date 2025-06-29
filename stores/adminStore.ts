@@ -34,7 +34,7 @@ export const useAdminStore = create<AdminState>((set) => ({
     try {
       const response = await apiClient.get<any>("/api/admin/user-stats")
 
-      if (response.error) {
+      if (!response.success) {
         console.warn("Failed to fetch user stats:", response.error)
         set({
           userStats: {
