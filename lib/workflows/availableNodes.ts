@@ -48,7 +48,7 @@ import {
 export interface ConfigField {
   name: string
   label: string
-  type: "string" | "number" | "boolean" | "select" | "textarea" | "text" | "email" | "password" | "email-autocomplete" | "location-autocomplete" | "file" | "date" | "time" | "datetime"
+  type: "string" | "number" | "boolean" | "select" | "textarea" | "text" | "email" | "password" | "email-autocomplete" | "location-autocomplete" | "file" | "date" | "time" | "datetime" | "custom"
   required?: boolean
   placeholder?: string
   description?: string
@@ -673,9 +673,9 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     ],
   },
   {
-    type: "google_sheets_action_append_row",
-    title: "Add Row to Sheet",
-    description: "Adds a new row to a Google Sheet with comprehensive configuration options.",
+    type: "google_sheets_unified_action",
+    title: "Manage Sheet Data",
+    description: "Add, update, or remove data in Google Sheets with visual column mapping.",
     isTrigger: false,
     providerId: "google-sheets",
     requiredScopes: ["https://www.googleapis.com/auth/spreadsheets"],
@@ -701,55 +701,36 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         dependsOn: "spreadsheetId"
       },
       {
-        name: "valueInputOption",
-        label: "Value Input Option",
+        name: "action",
+        label: "Action",
         type: "select",
-        required: false,
-        defaultValue: "RAW",
-        options: [
-          { value: "RAW", label: "Raw (values as entered)" },
-          { value: "USER_ENTERED", label: "User Entered (formulas and formatting)" }
-        ],
-        description: "How the input data should be interpreted"
-      },
-      {
-        name: "insertDataOption",
-        label: "Insert Option",
-        type: "select",
-        required: false,
-        defaultValue: "INSERT_ROWS",
-        options: [
-          { value: "INSERT_ROWS", label: "Insert new rows" },
-          { value: "OVERWRITE", label: "Overwrite existing data" }
-        ],
-        description: "Whether to insert new rows or overwrite existing data"
-      },
-      {
-        name: "rowData",
-        label: "Row Data",
-        type: "textarea",
         required: true,
-        placeholder: '["Name", "Email", "Date"] or use templates like ["{{data.name}}", "{{data.email}}", "{{data.timestamp}}"]',
-        description: "JSON array of values for the row. Supports template variables from previous nodes."
+        defaultValue: "add",
+        options: [
+          { value: "add", label: "Add new row" },
+          { value: "update", label: "Update existing row" },
+          { value: "delete", label: "Delete row" }
+        ],
+        description: "What operation to perform on the sheet"
       },
       {
-        name: "includeTimestamp",
-        label: "Include Timestamp",
-        type: "boolean",
-        required: false,
-        defaultValue: false,
-        description: "Automatically add a timestamp column to the row"
+        name: "columnMappings",
+        label: "Column Mappings",
+        type: "custom",
+        required: true,
+        description: "Map your data to sheet columns"
       },
       {
-        name: "timestampColumn",
-        label: "Timestamp Column Name",
-        type: "text",
+        name: "selectedRow",
+        label: "Select Row",
+        type: "custom",
         required: false,
-        placeholder: "Timestamp",
-        description: "Name for the timestamp column (only used if Include Timestamp is enabled)"
+        description: "Select the row to update or delete"
       }
     ],
   },
+
+
 
   // Google Sheets Read Action
   {
@@ -820,65 +801,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     ],
   },
 
-  // Google Sheets Update Action
-  {
-    type: "google_sheets_action_update_data",
-    title: "Update Data in Sheet",
-    description: "Updates existing data in a Google Sheet with cell-level precision.",
-    isTrigger: false,
-    providerId: "google-sheets",
-    requiredScopes: ["https://www.googleapis.com/auth/spreadsheets"],
-    category: "Productivity",
-    configSchema: [
-      {
-        name: "spreadsheetId",
-        label: "Spreadsheet",
-        type: "select",
-        dynamic: "google-sheets_spreadsheets",
-        required: true,
-        placeholder: "Select a spreadsheet from your Google Sheets account",
-        description: "Choose from your connected Google Sheets spreadsheets"
-      },
-      {
-        name: "sheetName",
-        label: "Sheet Name",
-        type: "select",
-        dynamic: "google-sheets_sheets",
-        required: true,
-        placeholder: "Select a sheet from the spreadsheet",
-        description: "Choose from the sheets/tabs in the selected spreadsheet",
-        dependsOn: "spreadsheetId"
-      },
-      {
-        name: "range",
-        label: "Range to Update",
-        type: "text",
-        required: true,
-        placeholder: "e.g., A1:D10, B2, C:C (entire column)",
-        description: "The specific range of cells to update"
-      },
-      {
-        name: "updateData",
-        label: "Update Data",
-        type: "textarea",
-        required: true,
-        placeholder: '["New Value 1", "New Value 2"] or [["Row1Col1", "Row1Col2"], ["Row2Col1", "Row2Col2"]]',
-        description: "JSON array of values. For single row: [\"val1\", \"val2\"]. For multiple rows: [[\"row1col1\", \"row1col2\"], [\"row2col1\", \"row2col2\"]]"
-      },
-      {
-        name: "valueInputOption",
-        label: "Value Input Option",
-        type: "select",
-        required: false,
-        defaultValue: "RAW",
-        options: [
-          { value: "RAW", label: "Raw (values as entered)" },
-          { value: "USER_ENTERED", label: "User Entered (formulas and formatting)" }
-        ],
-        description: "How the input data should be interpreted"
-      }
-    ],
-  },
+
 
   // Google Sheets Create Spreadsheet Action
   {

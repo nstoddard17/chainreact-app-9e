@@ -993,6 +993,12 @@ const useWorkflowBuilderState = () => {
   // Add global error handler to prevent stuck loading states
   useEffect(() => {
     const handleGlobalError = (event: ErrorEvent) => {
+      // Skip null or undefined errors
+      if (event.error === null || event.error === undefined) {
+        console.debug("🔍 Workflow builder ignoring null/undefined error event")
+        return
+      }
+      
       console.error("Global error caught:", event.error)
       // Reset loading states on any global error
       setIsSaving(false)

@@ -1,67 +1,87 @@
+import { NextRequest, NextResponse } from "next/server"
 import { createSupabaseServerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
-import { type NextRequest, NextResponse } from "next/server"
 
 export async function POST(request: NextRequest) {
   try {
     cookies()
-    const supabase = createSupabaseServerClient()
+    const supabase = await createSupabaseServerClient()
+    
+    // Get authenticated user
     const {
-      data: { session },
-    } = await supabase.auth.getSession()
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
 
-    if (!session) {
+    if (userError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const body = await request.json()
-    const { prompt, generated_workflow, confidence_score } = body
+    const { prompt, workflowId } = await request.json()
 
-    const { data, error } = await supabase
-      .from("ai_workflow_generations")
-      .insert({
-        user_id: session.user.id,
-        prompt,
-        generated_workflow,
-        confidence_score,
-        status: "generated",
-      })
-      .select()
-      .single()
+    if (!prompt) {
+      return NextResponse.json({ error: "Prompt is required" }, { status: 400 })
+    }
 
-    if (error) throw error
+    // For now, return a simple response
+    // In a real implementation, you'd call an AI service here
+    const generatedWorkflow = {
+      nodes: [
+        {
+          id: "trigger",
+          type: "custom",
+          position: { x: 400, y: 100 },
+          data: {
+            type: "trigger-example",
+            name: "Example Trigger",
+            isTrigger: true,
+          },
+        },
+      ],
+      connections: [],
+    }
 
-    return NextResponse.json({ success: true, generation: data })
-  } catch (error: any) {
-    console.error("Error saving workflow generation:", error)
-    return NextResponse.json({ error: "Failed to save workflow generation" }, { status: 500 })
+    return NextResponse.json({ workflow: generatedWorkflow })
+  } catch (error) {
+    console.error("Workflow generation error:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
 
 export async function GET(request: NextRequest) {
   try {
     cookies()
-    const supabase = createSupabaseServerClient()
+    const supabase = await createSupabaseServerClient()
+    
+    // Get authenticated user
     const {
-      data: { session },
-    } = await supabase.auth.getSession()
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
 
-    if (!session) {
+    if (userError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { data, error } = await supabase
-      .from("ai_workflow_generations")
-      .select("*")
-      .eq("user_id", session.user.id)
-      .order("created_at", { ascending: false })
-      .limit(20)
+    // Return available workflow templates
+    const templates = [
+      {
+        id: "email-to-slack",
+        name: "Email to Slack",
+        description: "Send email notifications to Slack",
+        category: "Communication",
+      },
+      {
+        id: "calendar-reminder",
+        name: "Calendar Reminder",
+        description: "Create calendar reminders from form submissions",
+        category: "Productivity",
+      },
+    ]
 
-    if (error) throw error
-
-    return NextResponse.json({ generations: data })
-  } catch (error: any) {
-    console.error("Error fetching workflow generations:", error)
-    return NextResponse.json({ error: "Failed to fetch workflow generations" }, { status: 500 })
+    return NextResponse.json({ templates })
+  } catch (error) {
+    console.error("Template fetch error:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
