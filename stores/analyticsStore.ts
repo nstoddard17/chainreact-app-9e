@@ -54,7 +54,7 @@ export const useAnalyticsStore = create<AnalyticsState>((set) => ({
     try {
       const response = await apiClient.get<any>("/api/analytics/metrics")
 
-      if (response.error) {
+      if (!response.success) {
         console.warn("Failed to fetch metrics, using defaults:", response.error)
         // Provide default metrics if API fails
         set({
@@ -91,7 +91,7 @@ export const useAnalyticsStore = create<AnalyticsState>((set) => ({
     try {
       const response = await apiClient.get<any>("/api/analytics/chart-data")
 
-      if (response.error) {
+      if (!response.success) {
         console.warn("Failed to fetch chart data, using defaults:", response.error)
         // Provide default chart data if API fails
         set({
@@ -136,7 +136,7 @@ export const useAnalyticsStore = create<AnalyticsState>((set) => ({
         "/api/analytics/executions",
       )
 
-      if (response.error) {
+      if (!response.success) {
         console.warn("Failed to fetch executions, using defaults:", response.error)
         set({ executions: [], loading: false })
         return

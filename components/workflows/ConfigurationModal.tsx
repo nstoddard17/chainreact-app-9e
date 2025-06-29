@@ -158,8 +158,8 @@ export default function ConfigurationModal({
               }))
             } else if (field.dynamic === "google-drive-folders") {
               newOptions[field.name] = data.map((folder: any) => ({
-                value: folder.id,
-                label: folder.name,
+                value: folder.id || folder.value,
+                label: folder.name || folder.label || folder.id || folder.value,
               }))
             } else if (field.dynamic === "google-drive-files") {
               newOptions[field.name] = data.map((file: any) => ({

@@ -669,12 +669,20 @@ export const useIntegrationStore = create<IntegrationStore>()(
                      providerId === 'gmail-recent-recipients' ? 'gmail' :
                      providerId === 'gmail-enhanced-recipients' ? 'gmail' :
                      providerId === 'google-calendars' ? 'google-calendar' :
+                     providerId === 'google-drive-folders' ? 'google-drive' :
+                     providerId === 'google-drive-files' ? 'google-drive' :
                      providerId.includes('-') ? providerId.split('-')[0] : 
                      providerId, // Extract base provider name
             dataType: params?.dataType || dataType, // Allow override via params
           }),
           ...params 
         })
+        
+        // Handle the structured response from apiClient
+        if (!response.success) {
+          throw new Error(response.error || 'Failed to load integration data')
+        }
+        
         const data = response.data
 
         set((state) => ({

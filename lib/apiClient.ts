@@ -56,10 +56,41 @@ class ApiClient {
       const response = await fetch(url, config)
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+        // Try to get error details from response body
+        let errorMessage = `HTTP ${response.status}: ${response.statusText}`
+        let errorDetails: any = undefined
+
+        try {
+          const errorData = await response.json()
+          if (errorData.error) {
+            errorMessage = errorData.error
+          } else if (errorData.message) {
+            errorMessage = errorData.message
+          }
+          errorDetails = errorData
+        } catch (e) {
+          // If response is not JSON, use status text
+          console.warn("Failed to parse error response as JSON")
+        }
+
+        console.error(`❌ API Error: ${endpoint}`, { status: response.status, message: errorMessage })
+
+        return {
+          success: false,
+          error: errorMessage,
+          data: undefined,
+          ...(errorDetails && { details: errorDetails })
+        }
       }
 
-      const data = await response.json()
+      let data: any
+      try {
+        data = await response.json()
+      } catch (e) {
+        console.warn("Failed to parse response as JSON, returning empty data")
+        data = {}
+      }
+
       console.log(`✅ API Response: ${endpoint}`, data)
 
       return {
@@ -68,12 +99,12 @@ class ApiClient {
         message: data.message,
       }
     } catch (error: any) {
-      console.error(`❌ API Error: ${endpoint}`, error)
+      console.error(`❌ API Network Error: ${endpoint}`, error)
 
-      // Return a structured error response instead of throwing
+      // Return a structured error response for network errors
       return {
         success: false,
-        error: error.message || "Network error",
+        error: error.message || "Network error occurred",
         data: undefined,
       }
     }

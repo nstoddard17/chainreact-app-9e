@@ -110,6 +110,15 @@ export async function POST(request: NextRequest) {
       fetcherKey = "google-calendars"
     }
     
+    // Special cases for google-drive
+    if (provider === "google-drive" && dataType === "google-drive-folders") {
+      fetcherKey = "google-drive-folders"
+    }
+    
+    if (provider === "google-drive" && dataType === "google-drive-files") {
+      fetcherKey = "google-drive-files"
+    }
+    
     const fetcher = dataFetchers[fetcherKey]
 
     if (!fetcher) {
@@ -126,14 +135,14 @@ export async function POST(request: NextRequest) {
     console.log(`🌐 Fetching ${dataType} for ${provider}${preload ? " (preload)" : ""}`)
     const startTime = Date.now()
 
-    const data = await fetchWithRetry(
-      () => fetcher({ ...integration, access_token: validToken }, { batchSize }),
-      3, // max retries
-      2000, // initial delay
-    )
+          const data = await fetchWithRetry(
+        () => fetcher({ ...integration, access_token: validToken }, { batchSize }),
+        3, // max retries
+        2000, // initial delay
+      )
 
-    const endTime = Date.now()
-    console.log(`✅ Fetched ${data.length} ${dataType} for ${provider} in ${endTime - startTime}ms`)
+      const endTime = Date.now()
+      console.log(`✅ Fetched ${data.length} ${dataType} for ${provider} in ${endTime - startTime}ms`)
 
     return NextResponse.json(
       {
@@ -423,7 +432,7 @@ const dataFetchers: DataFetcher = {
   "google-sheets_spreadsheets": async (integration: any) => {
     try {
       const response = await fetch(
-        "https://www.googleapis.com/drive/v3/files?q=mimeType='application/vnd.google-apps.spreadsheet'&pageSize=100&fields=files(id,name,createdTime,modifiedTime)",
+        "https://www.googleapis.com/drive/v3/files?q=mimeType='application/vnd.google-apps.spreadsheet' and trashed=false&pageSize=100&fields=files(id,name,createdTime,modifiedTime)",
         {
           headers: {
             Authorization: `Bearer ${integration.access_token}`,
@@ -1630,6 +1639,95 @@ const dataFetchers: DataFetcher = {
       return allLists
     } catch (error: any) {
       console.error("Error fetching Trello lists:", error)
+      throw error
+    }
+  },
+
+  "google-drive-folders": async (integration: any) => {
+    try {
+      const response = await fetch(
+        "https://www.googleapis.com/drive/v3/files?q=mimeType='application/vnd.google-apps.folder' and trashed=false&pageSize=100&fields=files(id,name,parents,createdTime,modifiedTime)&orderBy=name",
+        {
+          headers: {
+            Authorization: `Bearer ${integration.access_token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      )
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("Google Drive authentication expired. Please reconnect your account.")
+        }
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(
+          `Google Drive API error: ${response.status} - ${errorData.error?.message || response.statusText}`,
+        )
+      }
+
+      const data = await response.json()
+      const folders = (data.files || []).map((folder: any) => ({
+        id: folder.id,
+        name: folder.name,
+        value: folder.id,
+        parents: folder.parents,
+        created_time: folder.createdTime,
+        modified_time: folder.modifiedTime,
+      }))
+
+      // Add root folder as an option
+      folders.unshift({
+        id: "root",
+        name: "My Drive (Root)",
+        value: "root",
+        parents: [],
+        created_time: null,
+        modified_time: null,
+      })
+
+      return folders
+    } catch (error: any) {
+      console.error("Error fetching Google Drive folders:", error)
+      throw error
+    }
+  },
+
+  "google-drive-files": async (integration: any) => {
+    try {
+      const response = await fetch(
+        "https://www.googleapis.com/drive/v3/files?q=mimeType!='application/vnd.google-apps.folder' and trashed=false&pageSize=100&fields=files(id,name,mimeType,size,parents,createdTime,modifiedTime,webViewLink)&orderBy=modifiedTime desc",
+        {
+          headers: {
+            Authorization: `Bearer ${integration.access_token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      )
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("Google Drive authentication expired. Please reconnect your account.")
+        }
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(
+          `Google Drive API error: ${response.status} - ${errorData.error?.message || response.statusText}`,
+        )
+      }
+
+      const data = await response.json()
+      return (data.files || []).map((file: any) => ({
+        id: file.id,
+        name: file.name,
+        value: file.id,
+        mimeType: file.mimeType,
+        size: file.size,
+        parents: file.parents,
+        created_time: file.createdTime,
+        modified_time: file.modifiedTime,
+        web_view_link: file.webViewLink,
+      }))
+    } catch (error: any) {
+      console.error("Error fetching Google Drive files:", error)
       throw error
     }
   },

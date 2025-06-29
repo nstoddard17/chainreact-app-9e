@@ -251,7 +251,7 @@ function generateGoogleAuthUrl(service: string, state: string): string {
       scopes += " https://www.googleapis.com/auth/drive"
       break
     case "google-sheets":
-      scopes += " https://www.googleapis.com/auth/spreadsheets"
+      scopes += " https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.readonly"
       break
     case "google-docs":
       scopes += " https://www.googleapis.com/auth/documents"
