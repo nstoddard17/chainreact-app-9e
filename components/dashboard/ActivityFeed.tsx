@@ -74,7 +74,9 @@ export default function ActivityFeed() {
   return (
     <Card className="bg-card rounded-2xl shadow-lg border border-border h-full">
       <CardHeader className="pb-2">
-        <CardTitle className="text-lg font-semibold text-card-foreground">Recent Activity</CardTitle>
+        <div className="flex justify-between items-center">
+          <CardTitle className="text-lg font-semibold text-card-foreground">Your Recent Activity</CardTitle>
+        </div>
       </CardHeader>
       <CardContent className="pt-2">
         {loading ? (
