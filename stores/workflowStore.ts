@@ -68,6 +68,7 @@ interface WorkflowActions {
       is_public: boolean
     },
   ) => Promise<void>
+  clearAllData: () => void
 }
 
 export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, get) => ({
@@ -373,5 +374,15 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
       console.error("Error creating template:", error)
       throw error
     }
+  },
+
+  clearAllData: () => {
+    set({
+      workflows: [],
+      currentWorkflow: null,
+      selectedNode: null,
+      loading: false,
+      error: null,
+    })
   },
 }))

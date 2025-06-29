@@ -1,4 +1,4 @@
-export type UserRole = 'free' | 'pro' | 'business' | 'enterprise' | 'admin'
+export type UserRole = 'free' | 'pro' | 'beta-pro' | 'business' | 'enterprise' | 'admin'
 
 export interface RoleInfo {
   name: string
@@ -9,14 +9,15 @@ export interface RoleInfo {
   features: string[]
   limits: Record<string, number>
   allowedPages: string[]
+  isSecret?: boolean
 }
 
 export const ROLES: Record<UserRole, RoleInfo> = {
   free: {
     name: 'free',
     displayName: 'Free',
-    color: 'text-gray-600 dark:text-gray-300',
-    badgeColor: 'bg-orange-500 text-white dark:bg-orange-600 dark:text-white border border-orange-600 dark:border-orange-500',
+    color: 'text-green-600 dark:text-green-400',
+    badgeColor: 'bg-green-500 text-white dark:bg-green-600 dark:text-white border border-green-600 dark:border-green-500',
     description: 'Basic features for individual users',
     features: [
       'Up to 3 workflows',
@@ -28,7 +29,7 @@ export const ROLES: Record<UserRole, RoleInfo> = {
       integrations: 5,
       executions: 100
     },
-    allowedPages: ['/dashboard', '/workflows', '/integrations', '/learn', '/community', '/profile', '/settings']
+    allowedPages: ['/dashboard', '/workflows', '/integrations', '/learn', '/community', '/profile', '/settings', '/ai-assistant']
   },
   pro: {
     name: 'pro',
@@ -47,7 +48,28 @@ export const ROLES: Record<UserRole, RoleInfo> = {
       integrations: 15,
       executions: 1000
     },
-    allowedPages: ['/dashboard', '/workflows', '/integrations', '/learn', '/community', '/analytics', '/profile', '/settings']
+    allowedPages: ['/dashboard', '/workflows', '/integrations', '/learn', '/community', '/analytics', '/profile', '/settings', '/ai-assistant']
+  },
+  'beta-pro': {
+    name: 'beta-pro',
+    displayName: 'Beta-Pro',
+    color: 'text-blue-600 dark:text-blue-400',
+    badgeColor: 'bg-blue-500 text-white dark:bg-blue-600 dark:text-white border border-blue-600 dark:border-blue-500',
+    description: 'Beta testing Pro features',
+    features: [
+      'Up to 20 workflows',
+      'Advanced integrations',
+      'Priority support',
+      'Custom templates',
+      'Early access to new features'
+    ],
+    limits: {
+      workflows: 20,
+      integrations: 15,
+      executions: 1000
+    },
+    allowedPages: ['/dashboard', '/workflows', '/integrations', '/learn', '/community', '/analytics', '/profile', '/settings', '/ai-assistant'],
+    isSecret: true
   },
   business: {
     name: 'business',
@@ -67,7 +89,7 @@ export const ROLES: Record<UserRole, RoleInfo> = {
       integrations: 50,
       executions: 10000
     },
-    allowedPages: ['/dashboard', '/workflows', '/integrations', '/learn', '/community', '/analytics', '/teams', '/profile', '/settings']
+    allowedPages: ['/dashboard', '/workflows', '/integrations', '/learn', '/community', '/analytics', '/teams', '/profile', '/settings', '/ai-assistant']
   },
   enterprise: {
     name: 'enterprise',
@@ -87,7 +109,7 @@ export const ROLES: Record<UserRole, RoleInfo> = {
       integrations: -1, // unlimited
       executions: -1 // unlimited
     },
-    allowedPages: ['/dashboard', '/workflows', '/integrations', '/learn', '/community', '/analytics', '/teams', '/enterprise', '/profile', '/settings']
+    allowedPages: ['/dashboard', '/workflows', '/integrations', '/learn', '/community', '/analytics', '/teams', '/enterprise', '/profile', '/settings', '/ai-assistant']
   },
   admin: {
     name: 'admin',
@@ -106,11 +128,11 @@ export const ROLES: Record<UserRole, RoleInfo> = {
       integrations: -1,
       executions: -1
     },
-    allowedPages: ['/dashboard', '/workflows', '/integrations', '/learn', '/community', '/analytics', '/teams', '/enterprise', '/admin', '/profile', '/settings']
+    allowedPages: ['/dashboard', '/workflows', '/integrations', '/learn', '/community', '/analytics', '/teams', '/enterprise', '/admin', '/profile', '/settings', '/ai-assistant']
   }
 }
 
-export const ROLE_HIERARCHY: UserRole[] = ['free', 'pro', 'business', 'enterprise', 'admin']
+export const ROLE_HIERARCHY: UserRole[] = ['free', 'pro', 'beta-pro', 'business', 'enterprise', 'admin']
 
 export function hasPermission(userRole: UserRole, requiredRole: UserRole): boolean {
   if (userRole === 'admin') return true

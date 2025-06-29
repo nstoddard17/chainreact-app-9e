@@ -14,7 +14,7 @@ interface PageProtectionProps {
 }
 
 export default function PageProtection({ children, requiredRole }: PageProtectionProps) {
-  const { profile, user } = useAuthStore()
+  const { profile, user, loading, initialized } = useAuthStore()
   const pathname = usePathname()
   const router = useRouter()
   
@@ -27,14 +27,13 @@ export default function PageProtection({ children, requiredRole }: PageProtectio
       return
     }
 
-    // Allow access to setup-username page for users without usernames
-    if (pathname === '/setup-username' && !profile?.username) {
+    // Wait for profile to be loaded before making checks
+    if (loading || !initialized) {
       return
     }
 
-    // Redirect users without usernames to setup page (except for setup-username page itself)
-    if (!profile?.username && pathname !== '/setup-username') {
-      router.push('/setup-username')
+    // Allow access to setup-username page
+    if (pathname === '/setup-username') {
       return
     }
 
@@ -53,10 +52,10 @@ export default function PageProtection({ children, requiredRole }: PageProtectio
     if (!canAccessPage(userRole, pathname)) {
       router.push('/dashboard')
     }
-  }, [user, userRole, pathname, router, requiredRole, profile])
+  }, [user, userRole, pathname, router, requiredRole, profile, loading, initialized])
 
-  // Show loading while checking permissions
-  if (!user) {
+  // Show loading while checking permissions or loading profile
+  if (!user || loading || !initialized) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background to-muted flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>

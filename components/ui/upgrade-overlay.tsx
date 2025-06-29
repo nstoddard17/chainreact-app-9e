@@ -16,22 +16,25 @@ interface UpgradeOverlayProps {
 const roleIcons = {
   free: null,
   pro: Star,
+  'beta-pro': Star,
   business: Building2,
   enterprise: Shield,
   admin: Crown
 }
 
 const roleColors = {
-  free: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200',
+  free: 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300',
   pro: 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300',
+  'beta-pro': 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300',
   business: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300',
   enterprise: 'bg-pink-100 text-pink-800 dark:bg-pink-900/50 dark:text-pink-300',
   admin: 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300'
 }
 
 const roleGradients = {
-  free: 'from-gray-500 to-gray-600',
+  free: 'from-green-500 to-green-600',
   pro: 'from-blue-500 to-blue-600',
+  'beta-pro': 'from-blue-500 to-blue-600',
   business: 'from-indigo-500 to-purple-600',
   enterprise: 'from-pink-500 to-rose-600',
   admin: 'from-red-500 to-orange-600'
@@ -44,8 +47,10 @@ export function UpgradeOverlay({ requiredRole, currentRole, featureName, onClose
   const currentRoleInfo = getRoleInfo(currentRole)
   
   // Get all plans including free, excluding admin
+  // Show secret roles only to admins
   const availablePlans = Object.entries(ROLES).filter(([role, info]) => {
     if (role === 'admin') return false // Don't show admin as a purchasable plan
+    if (info.isSecret && currentRole !== 'admin') return false // Don't show secret roles to non-admins
     return true
   })
 
@@ -67,7 +72,7 @@ export function UpgradeOverlay({ requiredRole, currentRole, featureName, onClose
   }
 
   const isUpgrade = (planRole: UserRole) => {
-    const roleHierarchy = ['free', 'pro', 'business', 'enterprise', 'admin']
+    const roleHierarchy = ['free', 'pro', 'beta-pro', 'business', 'enterprise', 'admin']
     const currentIndex = roleHierarchy.indexOf(currentRole)
     const planIndex = roleHierarchy.indexOf(planRole)
     return planIndex > currentIndex

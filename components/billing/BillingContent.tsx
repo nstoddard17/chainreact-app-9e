@@ -5,7 +5,6 @@ import { useBillingStore } from "@/stores/billingStore"
 import PlanSelector from "./PlanSelector"
 import SubscriptionDetails from "./SubscriptionDetails"
 import UsageStats from "./UsageStats"
-import StripeSetupGuide from "./StripeSetupGuide"
 import { Card, CardContent } from "@/components/ui/card"
 import { Loader2 } from "lucide-react"
 
@@ -43,8 +42,6 @@ export default function BillingContent() {
         <h1 className="text-3xl font-bold">Billing & Subscription</h1>
         <p className="text-gray-600 mt-2">Manage your subscription and view usage statistics</p>
       </div>
-
-      <StripeSetupGuide />
 
       {currentSubscription && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
