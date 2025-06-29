@@ -462,6 +462,233 @@ async function searchGmailEmails(config: any, userId: string, input: Record<stri
   }
 }
 
+async function readGoogleSheetsData(config: any, userId: string, input: Record<string, any>): Promise<ActionResult> {
+  try {
+    console.log("Starting Google Sheets read data process", { userId, config })
+    
+    const accessToken = await getDecryptedAccessToken(userId, "google-sheets")
+
+    const spreadsheetId = resolveValue(config.spreadsheetId, input)
+    const sheetName = resolveValue(config.sheetName, input)
+    const readMode = config.readMode || "all"
+    const outputFormat = config.outputFormat || "objects"
+    const includeHeaders = config.includeHeaders !== false
+    const maxRows = config.maxRows || 0
+
+    console.log("Resolved Google Sheets values:", { 
+      spreadsheetId, 
+      sheetName, 
+      readMode, 
+      outputFormat, 
+      includeHeaders, 
+      maxRows 
+    })
+
+    if (!spreadsheetId || !sheetName) {
+      const missingFields = []
+      if (!spreadsheetId) missingFields.push("Spreadsheet ID")
+      if (!sheetName) missingFields.push("Sheet Name")
+      
+      const message = `Missing required fields for reading Google Sheets data: ${missingFields.join(", ")}`
+      console.error(message)
+      return { success: false, message }
+    }
+
+    let range = sheetName
+    
+    // Determine the range based on read mode
+    if (readMode === "range" && config.range) {
+      range = `${sheetName}!${config.range}`
+    } else if (readMode === "rows" && config.selectedRows && Array.isArray(config.selectedRows)) {
+      // For specific rows, we'll read the entire sheet first and then filter
+      range = sheetName
+    } else {
+      // For "all" mode, read entire sheet
+      range = sheetName
+    }
+
+    console.log("Reading from Google Sheets range:", range)
+
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}`
+    
+    const response = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+    })
+
+    console.log("Google Sheets API response status:", response.status)
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      console.error("Google Sheets API error:", {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorData.error
+      })
+      
+      const errorMessage = errorData.error?.message || `Failed to read Google Sheets data (${response.status})`
+      throw new Error(errorMessage)
+    }
+
+    const result = await response.json()
+    let data = result.values || []
+
+    console.log(`Retrieved ${data.length} rows from Google Sheets`)
+
+    // Handle headers
+    let headers: string[] = []
+    let dataRows = data
+    
+    if (includeHeaders && data.length > 0) {
+      headers = data[0]
+      dataRows = data.slice(1)
+    }
+
+    // Filter by selected rows if in "rows" mode
+    if (readMode === "rows" && config.selectedRows && Array.isArray(config.selectedRows)) {
+      const selectedRowIndices = config.selectedRows.map((row: any) => row.rowIndex - (includeHeaders ? 2 : 1)) // Adjust for header and 0-based indexing
+      dataRows = dataRows.filter((row: any, index: number) => selectedRowIndices.includes(index))
+      console.log(`Filtered to ${dataRows.length} selected rows`)
+    }
+
+    // Filter by selected cells if in "cells" mode
+    if (readMode === "cells" && config.selectedCells && Array.isArray(config.selectedCells)) {
+      // For cells mode, we'll create a structured output with just the selected cells
+      const selectedCellsData = config.selectedCells.map((cell: any) => {
+        const rowIndex = cell.rowIndex - (includeHeaders ? 2 : 1) // Adjust for header and 0-based indexing
+        const row = dataRows[rowIndex]
+        return {
+          cellReference: cell.cellReference,
+          columnName: cell.columnName,
+          value: row && row[cell.columnIndex] ? row[cell.columnIndex] : "",
+          rowIndex: cell.rowIndex,
+          columnIndex: cell.columnIndex
+        }
+      })
+      
+      // For cells mode, we'll override the normal data processing
+      console.log(`Selected ${selectedCellsData.length} individual cells`)
+      
+      return { 
+        success: true, 
+        output: { 
+          data: selectedCellsData,
+          format: "cells",
+          cellsRead: selectedCellsData.length,
+          spreadsheetId,
+          sheetName,
+          readMode,
+          readAt: new Date().toISOString()
+        },
+        message: `Successfully read ${selectedCellsData.length} cells from Google Sheets`
+      }
+    }
+
+    // Apply max rows limit
+    if (maxRows > 0) {
+      dataRows = dataRows.slice(0, maxRows)
+      console.log(`Limited to ${maxRows} rows`)
+    }
+
+    // Apply filter conditions if provided
+    if (config.filterConditions) {
+      try {
+        const filters = JSON.parse(config.filterConditions)
+        if (Array.isArray(filters) && filters.length > 0 && headers.length > 0) {
+          dataRows = dataRows.filter((row: any[]) => {
+            return filters.every((filter: any) => {
+              const columnIndex = headers.indexOf(filter.column)
+              if (columnIndex === -1) return true // Skip filter if column not found
+              
+              const cellValue = row[columnIndex] || ""
+              const filterValue = filter.value || ""
+              
+              switch (filter.operator) {
+                case "equals":
+                  return cellValue.toString().toLowerCase() === filterValue.toString().toLowerCase()
+                case "contains":
+                  return cellValue.toString().toLowerCase().includes(filterValue.toString().toLowerCase())
+                case "not_equals":
+                  return cellValue.toString().toLowerCase() !== filterValue.toString().toLowerCase()
+                case "greater_than":
+                  return parseFloat(cellValue) > parseFloat(filterValue)
+                case "less_than":
+                  return parseFloat(cellValue) < parseFloat(filterValue)
+                default:
+                  return true
+              }
+            })
+          })
+          console.log(`Applied filters, ${dataRows.length} rows remaining`)
+        }
+      } catch (error) {
+        console.warn("Failed to parse filter conditions:", error)
+      }
+    }
+
+    // Format output according to outputFormat
+    let outputData: any
+    
+    switch (outputFormat) {
+      case "array":
+        outputData = includeHeaders ? [headers, ...dataRows] : dataRows
+        break
+      case "objects":
+        if (headers.length > 0) {
+          outputData = dataRows.map((row: any[]) => {
+            const obj: any = {}
+            headers.forEach((header, index) => {
+              obj[header] = row[index] || ""
+            })
+            return obj
+          })
+        } else {
+          outputData = dataRows
+        }
+        break
+      case "csv":
+        const csvRows = includeHeaders ? [headers, ...dataRows] : dataRows
+        outputData = csvRows.map((row: any[]) => 
+          row.map((cell: any) => `"${(cell || "").toString().replace(/"/g, '""')}"`).join(",")
+        ).join("\n")
+        break
+      default:
+        outputData = dataRows
+    }
+
+    console.log("Google Sheets read data successful:", { 
+      rowsRead: dataRows.length, 
+      outputFormat,
+      hasHeaders: includeHeaders && headers.length > 0
+    })
+
+    return { 
+      success: true, 
+      output: { 
+        data: outputData,
+        headers: includeHeaders ? headers : undefined,
+        format: outputFormat,
+        rowsRead: dataRows.length,
+        spreadsheetId,
+        sheetName,
+        readMode,
+        readAt: new Date().toISOString()
+      },
+      message: `Successfully read ${dataRows.length} rows from Google Sheets`
+    }
+  } catch (error: any) {
+    console.error("Google Sheets read data error:", {
+      message: error.message,
+      stack: error.stack,
+      userId,
+      config
+    })
+    return { success: false, message: `Google Sheets read data action failed: ${error.message}` }
+  }
+}
+
 // Add other action handlers here e.g. sendSlackMessage, createGoogleDoc etc.
 
 export async function executeAction(params: ExecuteActionParams): Promise<ActionResult> {
@@ -522,6 +749,25 @@ export async function executeAction(params: ExecuteActionParams): Promise<Action
         }
       }
       return searchGmailEmails(config, userId, input)
+    case "google_sheets_action_read_data":
+      if (!hasEncryptionKey) {
+        console.warn("Encryption key missing, running Google Sheets read data action in test mode")
+        return { 
+          success: true, 
+          output: { 
+            test: true, 
+            data: [
+              { "Name": "John Doe", "Email": "john@example.com", "Status": "Active" },
+              { "Name": "Jane Smith", "Email": "jane@example.com", "Status": "Inactive" }
+            ],
+            format: config?.outputFormat || "objects",
+            rowsRead: 2
+          }, 
+          message: "Test mode: Google Sheets data read successfully (missing encryption key)" 
+        }
+      }
+      return readGoogleSheetsData(config, userId, input)
+      
     // Future actions will be added here
     // case "slack_action_send_message":
     //   return sendSlackMessage(config, userId, input)
