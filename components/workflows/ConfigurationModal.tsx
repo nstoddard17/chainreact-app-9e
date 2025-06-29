@@ -1378,46 +1378,66 @@ export default function ConfigurationModal({
 
   // Function to render output format tooltip content
   const renderOutputFormatTooltip = () => (
-    <div className="space-y-3 max-w-md">
-      <div className="text-sm font-medium">Output Format Examples:</div>
+    <div className="space-y-4 max-w-lg">
+      <div className="flex items-center gap-2">
+        <div className="text-sm font-semibold">Output Format Guide</div>
+        <div className="h-4 w-px bg-border" />
+        <div className="text-xs text-muted-foreground">Choose the best format for your workflow</div>
+      </div>
       
-      <div className="space-y-2">
-        <div>
-          <div className="text-xs font-medium text-blue-600 mb-1">Array of Objects (Recommended)</div>
-          <div className="text-xs bg-muted p-2 rounded font-mono">
+      <div className="space-y-3">
+        <div className="border rounded-lg p-3 bg-blue-50/50 border-blue-200">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="text-sm font-medium text-blue-700">Array of Objects</div>
+            <div className="px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded-full">Recommended</div>
+          </div>
+          <div className="text-xs bg-background p-2 rounded font-mono border mb-2">
             {`[
-  { "Name": "John", "Age": "30" },
-  { "Name": "Jane", "Age": "25" }
+  { "Name": "John", "Age": "30", "City": "NYC" },
+  { "Name": "Jane", "Age": "25", "City": "LA" }
 ]`}
           </div>
-          <div className="text-xs text-muted-foreground mt-1">
-            ✅ Easy to use with {`{{data.Name}}`} syntax
+          <div className="text-xs text-muted-foreground">
+            <div className="font-medium mb-1">✅ Best for workflows:</div>
+            <div>• Use {`{{data.Name}}`} to access values</div>
+            <div>• Perfect for emails, databases, APIs</div>
+            <div>• Most intuitive and flexible</div>
           </div>
         </div>
 
-        <div>
-          <div className="text-xs font-medium text-orange-600 mb-1">Array of Arrays</div>
-          <div className="text-xs bg-muted p-2 rounded font-mono">
+        <div className="border rounded-lg p-3">
+          <div className="text-sm font-medium text-orange-600 mb-2">Array of Arrays</div>
+          <div className="text-xs bg-muted p-2 rounded font-mono border mb-2">
             {`[
-  ["Name", "Age"],
-  ["John", "30"],
-  ["Jane", "25"]
+  ["Name", "Age", "City"],
+  ["John", "30", "NYC"],
+  ["Jane", "25", "LA"]
 ]`}
           </div>
-          <div className="text-xs text-muted-foreground mt-1">
-            Access with {`{{data[0][1]}}`} for specific positions
+          <div className="text-xs text-muted-foreground">
+            <div className="font-medium mb-1">📊 Good for:</div>
+            <div>• Use {`{{data[0][1]}}`} for position-based access</div>
+            <div>• Raw data processing</div>
+            <div>• When you need array structure</div>
           </div>
         </div>
 
-        <div>
-          <div className="text-xs font-medium text-green-600 mb-1">CSV String</div>
-          <div className="text-xs bg-muted p-2 rounded font-mono">
-            {`"Name,Age\\nJohn,30\\nJane,25"`}
+        <div className="border rounded-lg p-3">
+          <div className="text-sm font-medium text-green-600 mb-2">CSV String</div>
+          <div className="text-xs bg-muted p-2 rounded font-mono border mb-2">
+            {`"Name,Age,City\\nJohn,30,NYC\\nJane,25,LA"`}
           </div>
-          <div className="text-xs text-muted-foreground mt-1">
-            Raw CSV format for file exports
+          <div className="text-xs text-muted-foreground">
+            <div className="font-medium mb-1">📁 Perfect for:</div>
+            <div>• File exports and downloads</div>
+            <div>• Email attachments</div>
+            <div>• Direct CSV file creation</div>
           </div>
         </div>
+      </div>
+      
+      <div className="text-xs text-muted-foreground pt-2 border-t">
+        💡 <strong>Tip:</strong> You can always change this later in your workflow settings
       </div>
     </div>
   )
@@ -1430,7 +1450,7 @@ export default function ConfigurationModal({
            (nodeInfo?.type === "google_sheets_action_read_data" && config.spreadsheetId && config.sheetName && config.readMode))
             ? "max-w-[95vw] w-[95vw]" 
             : "max-w-2xl"
-        } max-h-[90vh] overflow-hidden flex flex-col`}>
+        } max-h-[90vh] overflow-y-auto flex flex-col`}>
         <DialogHeader>
           <DialogTitle>
             Configure {nodeInfo?.title} on {integrationName}
@@ -1475,7 +1495,7 @@ export default function ConfigurationModal({
         ) : (nodeInfo?.type === "google_sheets_unified_action" || 
              (nodeInfo?.type === "google_sheets_action_read_data" && config.spreadsheetId && config.sheetName && config.readMode)) ? (
           // Special layout for unified Google Sheets action
-          <div className="flex flex-col flex-1 min-h-0">
+          <div className="flex flex-col flex-1">
             {/* Basic Configuration Fields - Always Visible */}
             <div className="space-y-4 pb-4 border-b flex-shrink-0">
               {nodeInfo.configSchema?.filter(field => 
@@ -1502,8 +1522,8 @@ export default function ConfigurationModal({
               })}
             </div>
 
-            {/* Scrollable Content Area */}
-            <div className="flex-1 space-y-4 pt-4 min-h-0">
+            {/* Content Area */}
+            <div className="flex-1 space-y-4 pt-4">
                           {/* Data Preview Table (for unified action update/delete OR read data with any mode) */}
             {((nodeInfo?.type === "google_sheets_unified_action" && config.action !== "add") || 
               (nodeInfo?.type === "google_sheets_action_read_data" && config.readMode && config.spreadsheetId && config.sheetName)) && 
@@ -1806,11 +1826,13 @@ export default function ConfigurationModal({
                           {field.required && <span className="text-red-500 ml-1">*</span>}
                         </Label>
                         {field.name === "outputFormat" && (
-                          <Tooltip>
+                          <Tooltip delayDuration={0}>
                             <TooltipTrigger asChild>
-                              <HelpCircle className="w-4 h-4 text-muted-foreground hover:text-foreground cursor-help" />
+                              <button type="button" className="inline-flex items-center">
+                                <HelpCircle className="w-4 h-4 text-muted-foreground hover:text-primary cursor-pointer transition-colors" />
+                              </button>
                             </TooltipTrigger>
-                            <TooltipContent side="right" className="max-w-none">
+                            <TooltipContent side="right" className="max-w-none p-4" sideOffset={8}>
                               {renderOutputFormatTooltip()}
                             </TooltipContent>
                           </Tooltip>
@@ -1847,7 +1869,7 @@ export default function ConfigurationModal({
           </div>
         ) : nodeInfo?.type === "google_sheets_action_read_data" ? (
           // Compact layout for Google Sheets read data action when required fields not selected
-          <div className="flex flex-col flex-1 min-h-0">
+          <div className="flex flex-col flex-1">
             {/* Basic Configuration Fields - Always Visible */}
             <div className="space-y-4 pb-4 border-b flex-shrink-0">
               {nodeInfo.configSchema?.filter(field => 
@@ -1865,11 +1887,13 @@ export default function ConfigurationModal({
                         {field.required && <span className="text-red-500 ml-1">*</span>}
                       </Label>
                       {field.name === "outputFormat" && (
-                        <Tooltip>
+                        <Tooltip delayDuration={0}>
                           <TooltipTrigger asChild>
-                            <HelpCircle className="w-4 h-4 text-muted-foreground hover:text-foreground cursor-help" />
+                            <button type="button" className="inline-flex items-center">
+                              <HelpCircle className="w-4 h-4 text-muted-foreground hover:text-primary cursor-pointer transition-colors" />
+                            </button>
                           </TooltipTrigger>
-                          <TooltipContent side="right" className="max-w-none">
+                          <TooltipContent side="right" className="max-w-none p-4" sideOffset={8}>
                             {renderOutputFormatTooltip()}
                           </TooltipContent>
                         </Tooltip>
@@ -1918,7 +1942,7 @@ export default function ConfigurationModal({
         ) : (
           // Default configuration form for other node types
           <>
-            <div className="space-y-6 py-4 max-h-96 overflow-y-auto pr-2" style={{ paddingRight: '8px' }}>
+            <div className="space-y-6 py-4">
               <div className="space-y-6">
                 {nodeInfo.configSchema?.map((field) => {
                   // Hide time fields and their labels for Google Calendar when "All Day" is enabled
@@ -1957,11 +1981,13 @@ export default function ConfigurationModal({
                             {field.required && <span className="text-red-500 ml-1">*</span>}
                           </Label>
                           {field.name === "outputFormat" && (
-                            <Tooltip>
+                            <Tooltip delayDuration={0}>
                               <TooltipTrigger asChild>
-                                <HelpCircle className="w-4 h-4 text-muted-foreground hover:text-foreground cursor-help" />
+                                <button type="button" className="inline-flex items-center">
+                                  <HelpCircle className="w-4 h-4 text-muted-foreground hover:text-primary cursor-pointer transition-colors" />
+                                </button>
                               </TooltipTrigger>
-                              <TooltipContent side="right" className="max-w-none">
+                              <TooltipContent side="right" className="max-w-none p-4" sideOffset={8}>
                                 {renderOutputFormatTooltip()}
                               </TooltipContent>
                             </Tooltip>
