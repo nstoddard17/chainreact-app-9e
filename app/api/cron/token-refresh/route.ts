@@ -236,6 +236,11 @@ export async function GET(request: NextRequest) {
                 consecutive_failures: consecutiveFailures,
                 disconnect_reason: refreshResult.error || "Unknown error during token refresh",
                 last_failure_at: now.toISOString(),
+                // Only update status to needs_reauthorization if specifically indicated by the refresh result
+                // or if we've hit too many consecutive failures
+                ...(refreshResult.invalidRefreshToken || refreshResult.needsReauthorization || consecutiveFailures >= 3 
+                  ? { status: "needs_reauthorization" } 
+                  : {})
               })
               .eq("id", integration.id)
 
@@ -267,6 +272,8 @@ export async function GET(request: NextRequest) {
               consecutive_failures: supabase.rpc("increment", { row_id: integration.id, field: "consecutive_failures" }),
               disconnect_reason: `Unexpected error: ${error.message}`,
               last_failure_at: now.toISOString(),
+              // Only update status if we've hit too many consecutive failures
+              ...(integration.consecutive_failures >= 2 ? { status: "needs_reauthorization" } : {})
             })
             .eq("id", integration.id)
 
@@ -305,6 +312,20 @@ export async function GET(request: NextRequest) {
       Object.entries(failureReasons).forEach(([reason, count]) => {
         console.log(`     - ${reason}: ${count}`)
       })
+    }
+    
+    // Fix any integrations that have successful refreshes but incorrect statuses
+    try {
+      const { data: statusFixResult } = await supabase.rpc('fix_integration_statuses', {
+        threshold_minutes: 60 // Consider refreshes in the last hour
+      })
+      
+      const fixedCount = statusFixResult?.count || 0;
+      if (fixedCount > 0) {
+        console.log(`🔧 [${jobId}] Fixed statuses for ${fixedCount} integrations with recent successful refreshes`)
+      }
+    } catch (error) {
+      console.error(`⚠️ [${jobId}] Could not run status fix procedure:`, error)
     }
 
     return NextResponse.json({
