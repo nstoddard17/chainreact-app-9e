@@ -567,6 +567,22 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
   },
 
   // New Integrations End Here
+
+  // Logic & Control Flow
+  logic: {
+    id: "logic",
+    name: "Logic & Control",
+    description: "Control flow, conditions, and timing for your workflows",
+    category: "logic",
+    capabilities: ["Conditional Logic", "Wait/Delay", "Branching", "Data Processing"],
+    scopes: [],
+    isAvailable: true, // Always available
+    requiresClientId: "",
+    requiresClientSecret: "",
+    color: "#6B7280",
+    docsUrl: "",
+    authType: "none" as any,
+  },
 }
 
 /**

@@ -2,6 +2,7 @@ import { TokenRefreshService } from "../integrations/tokenRefreshService"
 import { createSupabaseServerClient } from "@/utils/supabase/server"
 import { decrypt } from "@/lib/security/encryption"
 import { getSecret } from "@/lib/secrets"
+import { createClient } from "@supabase/supabase-js"
 import { FileStorageService } from "@/lib/storage/fileStorage"
 
 interface ExecuteActionParams {
@@ -15,6 +16,8 @@ interface ActionResult {
   success: boolean
   output?: Record<string, any>
   message?: string
+  error?: string
+  pauseExecution?: boolean
 }
 
 async function getDecryptedAccessToken(userId: string, provider: string): Promise<string> {
@@ -689,6 +692,401 @@ async function readGoogleSheetsData(config: any, userId: string, input: Record<s
   }
 }
 
+// Condition evaluation helper function
+function evaluateCondition(field: any, operator: string, value: any): boolean {
+  switch (operator) {
+    case "equals":
+      return field == value
+    case "not_equals":
+      return field != value
+    case "greater_than":
+      return parseFloat(field) > parseFloat(value)
+    case "less_than":
+      return parseFloat(field) < parseFloat(value)
+    case "greater_equal":
+      return parseFloat(field) >= parseFloat(value)
+    case "less_equal":
+      return parseFloat(field) <= parseFloat(value)
+    case "contains":
+      return String(field).toLowerCase().includes(String(value).toLowerCase())
+    case "not_contains":
+      return !String(field).toLowerCase().includes(String(value).toLowerCase())
+    case "starts_with":
+      return String(field).toLowerCase().startsWith(String(value).toLowerCase())
+    case "ends_with":
+      return String(field).toLowerCase().endsWith(String(value).toLowerCase())
+    case "is_empty":
+      return !field || field === "" || (Array.isArray(field) && field.length === 0)
+    case "is_not_empty":
+      return field && field !== "" && (!Array.isArray(field) || field.length > 0)
+    case "exists":
+      return field !== undefined && field !== null
+    case "not_exists":
+      return field === undefined || field === null
+    default:
+      return false
+  }
+}
+
+async function executeIfThenCondition(config: any, userId: string, input: Record<string, any>): Promise<ActionResult> {
+  try {
+    console.log("Executing if/then condition", { config, inputKeys: Object.keys(input) })
+
+    const { conditionType, field, operator, value, logicOperator, additionalConditions, advancedExpression, continueOnFalse } = config
+
+    let conditionResult = false
+
+    if (conditionType === "advanced" && advancedExpression) {
+      // Advanced expression evaluation
+      try {
+        // Create a safe evaluation context
+        const context = { ...input, data: input.data || input }
+        
+        // Simple template replacement for safety
+        let expression = advancedExpression
+                 const templateRegex = /\{\{([^}]+)\}\}/g
+         expression = expression.replace(templateRegex, (match: string, key: string) => {
+           const value = key.split('.').reduce((obj: any, prop: string) => obj?.[prop], context)
+           return JSON.stringify(value)
+         })
+
+        console.log("Evaluating advanced expression:", expression)
+        
+        // Use Function constructor for safer evaluation than eval
+        const evaluator = new Function('return ' + expression)
+        conditionResult = !!evaluator()
+      } catch (error: any) {
+        console.error("Error evaluating advanced expression:", error)
+        return { 
+          success: false, 
+          message: `Failed to evaluate advanced expression: ${error.message}` 
+        }
+      }
+    } else {
+      // Simple or multiple conditions
+      const fieldValue = resolveValue(field, input)
+      const compareValue = resolveValue(value, input)
+      
+      console.log("Evaluating condition:", { fieldValue, operator, compareValue })
+      
+      conditionResult = evaluateCondition(fieldValue, operator, compareValue)
+      
+             // Handle additional conditions for multiple condition type
+       if (conditionType === "multiple" && additionalConditions) {
+         try {
+           const additionalConds = Array.isArray(additionalConditions) 
+             ? additionalConditions 
+             : JSON.parse(typeof additionalConditions === 'string' ? additionalConditions : JSON.stringify(additionalConditions) || "[]")
+          
+          for (const additionalCond of additionalConds) {
+            const addFieldValue = resolveValue(additionalCond.field, input)
+            const addCompareValue = resolveValue(additionalCond.value, input)
+            const addResult = evaluateCondition(addFieldValue, additionalCond.operator, addCompareValue)
+            
+            if (logicOperator === "and") {
+              conditionResult = conditionResult && addResult
+            } else {
+              conditionResult = conditionResult || addResult
+            }
+          }
+        } catch (error) {
+          console.warn("Failed to parse additional conditions:", error)
+        }
+      }
+    }
+
+    console.log("Condition evaluation result:", conditionResult)
+
+    if (conditionResult) {
+      return {
+        success: true,
+        output: { 
+          ...input, 
+          conditionMet: true,
+          conditionResult: true 
+        },
+        message: "Condition met, continuing workflow"
+      }
+    } else {
+      if (continueOnFalse) {
+        return {
+          success: true,
+          output: { 
+            ...input, 
+            conditionMet: false,
+            conditionResult: false 
+          },
+          message: "Condition not met, but continuing workflow"
+        }
+      } else {
+        return {
+          success: false,
+          output: { 
+            ...input, 
+            conditionMet: false,
+            conditionResult: false 
+          },
+          message: "Condition not met, stopping workflow"
+        }
+      }
+    }
+  } catch (error: any) {
+    console.error("If/then condition execution error:", error)
+    return { 
+      success: false, 
+      message: `If/then condition failed: ${error.message}` 
+    }
+  }
+}
+
+async function executeWaitForTime(config: any, userId: string, input: Record<string, any>, context?: any): Promise<ActionResult> {
+  try {
+    console.log("Executing wait for time", { config })
+
+    const { 
+      waitType, 
+      duration, 
+      durationUnit, 
+      specificTime, 
+      specificDate, 
+      businessHoursStart, 
+      businessHoursEnd, 
+      businessDays, 
+      customBusinessDays,
+      timezone,
+      maxWaitTime 
+    } = config
+
+    let waitUntil: Date
+    const now = new Date()
+
+    // Determine timezone
+    let targetTimezone = timezone
+    if (timezone === "auto") {
+      targetTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone
+    }
+
+    switch (waitType) {
+      case "duration":
+        const durationMs = convertToMilliseconds(duration || 0, durationUnit || "minutes")
+        waitUntil = new Date(now.getTime() + durationMs)
+        break
+
+      case "until_time":
+        if (!specificTime) {
+          return { success: false, message: "Specific time is required for 'until_time' wait type" }
+        }
+        
+        waitUntil = new Date()
+        const [hours, minutes] = specificTime.split(':').map(Number)
+        waitUntil.setHours(hours, minutes, 0, 0)
+        
+        // If the time has already passed today, wait until tomorrow
+        if (waitUntil <= now) {
+          waitUntil.setDate(waitUntil.getDate() + 1)
+        }
+        break
+
+      case "until_date":
+        if (!specificDate) {
+          return { success: false, message: "Specific date is required for 'until_date' wait type" }
+        }
+        
+        waitUntil = new Date(specificDate)
+        if (waitUntil <= now) {
+          return { success: false, message: "Specified date is in the past" }
+        }
+        break
+
+      case "business_hours":
+        waitUntil = calculateBusinessHoursWait(
+          now, 
+          businessHoursStart || "09:00", 
+          businessHoursEnd || "17:00",
+          businessDays === "custom" ? customBusinessDays : ["monday", "tuesday", "wednesday", "thursday", "friday"]
+        )
+        break
+
+      default:
+        return { success: false, message: `Invalid wait type: ${waitType}` }
+    }
+
+    // Apply maximum wait time limit
+    if (maxWaitTime) {
+      const maxWaitMs = maxWaitTime * 60 * 60 * 1000 // Convert hours to milliseconds
+      const maxWaitUntil = new Date(now.getTime() + maxWaitMs)
+      
+      if (waitUntil > maxWaitUntil) {
+        console.warn(`Wait time exceeds maximum limit of ${maxWaitTime} hours, limiting wait time`)
+        waitUntil = maxWaitUntil
+      }
+    }
+
+    const waitDurationMs = waitUntil.getTime() - now.getTime()
+    const waitDurationMinutes = Math.round(waitDurationMs / (1000 * 60))
+
+    console.log("Wait calculation:", {
+      waitType,
+      waitUntil: waitUntil.toISOString(),
+      waitDurationMinutes,
+      timezone: targetTimezone
+    })
+
+    // Create scheduled execution record for real wait functionality
+    console.log(`Scheduling wait for ${waitDurationMinutes} minutes until ${waitUntil.toISOString()}`)
+
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+    
+    // Use provided context or empty object
+    const executionContext = context || {}
+    
+    const scheduledExecution = {
+      workflow_execution_id: executionContext.executionId || null,
+      workflow_id: executionContext.workflowId || null,
+      user_id: userId,
+      scheduled_for: waitUntil.toISOString(),
+      schedule_type: 'wait' as const,
+      current_node_id: executionContext.nodeId || 'unknown',
+      next_node_id: executionContext.nextNodeId || null,
+      execution_context: {
+        ...executionContext,
+        waitType,
+        timezone: targetTimezone,
+        originalInput: input
+      },
+      input_data: input,
+      wait_config: config
+    }
+    
+    const { data: scheduled, error } = await supabase
+      .from('scheduled_workflow_executions')
+      .insert(scheduledExecution)
+      .select()
+      .single()
+    
+    if (error) {
+      console.error("❌ Failed to create scheduled execution:", error)
+      return {
+        success: false,
+        message: `Failed to schedule wait: ${error.message}`
+      }
+    }
+    
+    console.log(`✅ Created scheduled execution ${scheduled.id} for ${waitUntil.toISOString()}`)
+    
+    // Update the main workflow execution to indicate it's waiting
+    if (executionContext.executionId) {
+      await supabase
+        .from('workflow_executions')
+        .update({ 
+          status: 'pending', // Keep as pending since it will resume
+          metadata: { 
+            ...executionContext.metadata,
+            paused_at: new Date().toISOString(),
+            scheduled_execution_id: scheduled.id,
+            wait_until: waitUntil.toISOString(),
+            wait_type: waitType
+          }
+        })
+        .eq('id', executionContext.executionId)
+    }
+    
+    return {
+      success: true,
+      output: {
+        ...input,
+        waitScheduled: true,
+        scheduledExecutionId: scheduled.id,
+        waitType,
+        waitUntil: waitUntil.toISOString(),
+        waitDurationMinutes,
+        timezone: targetTimezone,
+        scheduledAt: new Date().toISOString()
+      },
+      message: `Wait scheduled - execution will resume in ${waitDurationMinutes} minutes at ${waitUntil.toLocaleString()}`,
+      // Special flag to indicate this execution should pause here
+      pauseExecution: true
+    }
+  } catch (error: any) {
+    console.error("Wait for time execution error:", error)
+    return { 
+      success: false, 
+      message: `Wait for time failed: ${error.message}` 
+    }
+  }
+}
+
+function convertToMilliseconds(duration: number, unit: string): number {
+  switch (unit) {
+    case "seconds":
+      return duration * 1000
+    case "minutes":
+      return duration * 60 * 1000
+    case "hours":
+      return duration * 60 * 60 * 1000
+    case "days":
+      return duration * 24 * 60 * 60 * 1000
+    case "weeks":
+      return duration * 7 * 24 * 60 * 60 * 1000
+    default:
+      return duration * 60 * 1000 // Default to minutes
+  }
+}
+
+function calculateBusinessHoursWait(
+  now: Date, 
+  startTime: string, 
+  endTime: string, 
+  businessDays: string[]
+): Date {
+  const [startHours, startMinutes] = startTime.split(':').map(Number)
+  const [endHours, endMinutes] = endTime.split(':').map(Number)
+  
+  const dayNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]
+  const businessDayIndices = businessDays.map(day => dayNames.indexOf(day.toLowerCase()))
+  
+  let checkDate = new Date(now)
+  
+  // Find the next business day and time
+  for (let i = 0; i < 14; i++) { // Check up to 2 weeks ahead
+    const dayOfWeek = checkDate.getDay()
+    
+    if (businessDayIndices.includes(dayOfWeek)) {
+      // This is a business day
+      const businessStart = new Date(checkDate)
+      businessStart.setHours(startHours, startMinutes, 0, 0)
+      
+      const businessEnd = new Date(checkDate)
+      businessEnd.setHours(endHours, endMinutes, 0, 0)
+      
+      if (checkDate.getTime() === now.getTime()) {
+        // Same day as now
+        if (now < businessStart) {
+          // Before business hours, wait until start
+          return businessStart
+        } else if (now < businessEnd) {
+          // During business hours, continue immediately
+          return now
+        }
+        // After business hours, check next day
+      } else {
+        // Future business day, wait until business hours start
+        return businessStart
+      }
+    }
+    
+    // Move to next day
+    checkDate.setDate(checkDate.getDate() + 1)
+    checkDate.setHours(0, 0, 0, 0)
+  }
+  
+  // Fallback: wait 24 hours
+  return new Date(now.getTime() + 24 * 60 * 60 * 1000)
+}
+
 // Add other action handlers here e.g. sendSlackMessage, createGoogleDoc etc.
 
 export async function executeAction(params: ExecuteActionParams): Promise<ActionResult> {
@@ -767,6 +1165,15 @@ export async function executeAction(params: ExecuteActionParams): Promise<Action
         }
       }
       return readGoogleSheetsData(config, userId, input)
+      
+    case "if_then_condition":
+      return executeIfThenCondition(config, userId, input)
+      
+    case "wait_for_time":
+      return executeWaitForTime(config, userId, input, { 
+        workflowId: params.workflowId,
+        nodeId: node.id
+      })
       
     // Future actions will be added here
     // case "slack_action_send_message":
