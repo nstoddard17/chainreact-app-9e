@@ -155,7 +155,8 @@ export async function GET(request: NextRequest) {
           const refreshResult = await refreshTokenForProvider(
             integration.provider,
             integration.refresh_token,
-            integration
+            integration,
+            { verbose }
           )
 
           if (refreshResult.success) {
@@ -168,6 +169,7 @@ export async function GET(request: NextRequest) {
               last_refresh_success: now.toISOString(),
               consecutive_failures: 0,
               disconnect_reason: null,
+              status: "connected",
             }
 
             // Add refresh token if provided
