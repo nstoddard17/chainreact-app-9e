@@ -82,7 +82,14 @@ const getIntegrationsFromNodes = (): IntegrationInfo[] => {
       }
     }
   })
-  return Object.values(integrationMap)
+  const integrations = Object.values(integrationMap)
+  
+  // Sort integrations to put logic first, then alphabetically
+  return integrations.sort((a, b) => {
+    if (a.id === 'logic') return -1
+    if (b.id === 'logic') return 1
+    return a.name.localeCompare(b.name)
+  })
 }
 
 const nodeTypes: NodeTypes = {
@@ -141,6 +148,9 @@ const useWorkflowBuilderState = () => {
   }
 
   const isIntegrationConnected = useCallback((integrationId: string): boolean => {
+    // Logic integration is always "connected" since it doesn't require authentication
+    if (integrationId === 'logic') return true;
+    
     // Use the integration store to check if this integration is connected
     const connectedProviders = getConnectedProviders();
     return connectedProviders.includes(integrationId);
