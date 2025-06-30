@@ -540,35 +540,34 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
  * @param provider The provider ID
  * @returns The OAuth configuration for the provider or undefined if not found
  */
-export function getOAuthConfig(provider: string): OAuthProviderConfig | undefined {
-  if (!provider) {
-    console.error("❌ Provider is undefined or null");
-    return undefined;
-  }
-  
+export function getOAuthConfig(provider: string): OAuthProviderConfig | null {
+  // Normalize the provider name to lowercase
   const normalizedProvider = provider.toLowerCase();
-  
-  // Handle Google service-specific aliases
-  if (normalizedProvider.startsWith("google-") || normalizedProvider === "gmail" || normalizedProvider === "youtube" || normalizedProvider === "youtube-studio") {
+
+  // Direct lookup
+  if (OAUTH_PROVIDERS[normalizedProvider]) {
+    return OAUTH_PROVIDERS[normalizedProvider];
+  }
+
+  // Special case for Microsoft-related providers
+  if (
+    normalizedProvider.startsWith("microsoft") ||
+    normalizedProvider === "onedrive" ||
+    normalizedProvider === "teams"
+  ) {
+    // Use the microsoft config as a base
+    // This is useful for providers like microsoft-outlook, microsoft-onenote, etc.
+    // that use the same OAuth config as microsoft
+    return OAUTH_PROVIDERS["microsoft"];
+  }
+
+  // Special case for Google-related providers
+  if (normalizedProvider.startsWith("google")) {
     return OAUTH_PROVIDERS["google"];
   }
   
-  // Handle Microsoft service-specific aliases
-  if (normalizedProvider === "teams" || normalizedProvider === "onedrive" || normalizedProvider === "microsoft-outlook" || normalizedProvider === "microsoft-onenote") {
-    console.log(`🔄 Using Microsoft OAuth config for ${provider}`);
-    return OAUTH_PROVIDERS["microsoft"];
-  }
-  
-  // Direct lookup for all providers
-  const config = OAUTH_PROVIDERS[normalizedProvider];
-  
-  if (config) {
-    console.log(`✅ Found OAuth config for ${provider}: ${config.id}`);
-    return config;
-  }
-  
-  console.error(`❌ No OAuth config found for provider: ${provider}`);
-  return undefined;
+  console.error(`No OAuth config found for provider: ${provider}`);
+  return null;
 }
 
 /**
