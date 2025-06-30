@@ -643,7 +643,26 @@ export async function refreshTokenForProvider(
                 body: responseText.substring(0, 200) // Only include the first 200 chars to avoid huge logs
               }
             }
-          } else {
+          }
+          // Special handling for Kit
+          else if (provider === 'kit') {
+            console.log(`🔄 Attempting to handle non-JSON Kit response`)
+            
+            // Kit is returning an HTML page instead of JSON
+            if (responseText.includes('<!doctype html>') || responseText.includes('<html')) {
+              data = { 
+                error: "invalid_response", 
+                error_description: "Kit returned HTML instead of JSON. The refresh token might be invalid or expired."
+              }
+            } else {
+              data = { 
+                error: "invalid_response_format", 
+                error_description: "Kit returned an invalid response format",
+                body: responseText.substring(0, 200) // Only include the first 200 chars to avoid huge logs
+              }
+            }
+          }
+          else {
             data = { error: "Invalid JSON response", body: responseText }
           }
         }
@@ -705,6 +724,19 @@ export async function refreshTokenForProvider(
             needsReauth = true; // HTML responses usually indicate an expired token
           } else if (response.status === 401) {
             finalErrorMessage = "TikTok authorization failed. The refresh token may be expired."
+            needsReauth = true;
+          }
+        }
+        
+        // Special handling for Kit
+        else if (provider === "kit") {
+          console.log(`🔄 Kit error details: ${JSON.stringify(data)}`)
+          
+          if (data.error === "invalid_response" || data.error === "invalid_response_format") {
+            finalErrorMessage = data.error_description || "Kit returned an invalid response."
+            needsReauth = true; // HTML responses usually indicate an expired token
+          } else if (response.status === 401) {
+            finalErrorMessage = "Kit authorization failed. The refresh token may be expired."
             needsReauth = true;
           }
         }

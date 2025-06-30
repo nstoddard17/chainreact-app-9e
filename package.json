@@ -10,6 +10,7 @@
     "refresh-tokens:dry-run": "node scripts/scheduled-token-refresh.js --dry-run",
     "refresh-tokens:verbose": "node scripts/test-token-refresh.js --verbose",
     "refresh-tokens:batch": "node scripts/test-token-refresh.js --limit=50 --batch=10",
+    "refresh-tokens:quiet": "node scripts/test-token-refresh.js",
     "start": "next start",
     "fix-integrations": "node scripts/fix-problem-integrations.js"
   },

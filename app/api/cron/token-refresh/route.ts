@@ -49,6 +49,7 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get("limit") || "100", 10)
     const batchSize = parseInt(searchParams.get("batchSize") || "10", 10) // Process in batches of 10 by default
     const offset = parseInt(searchParams.get("offset") || "0", 10) // Support pagination
+    const verbose = searchParams.get("verbose") === "true" // Enable verbose logging
 
     const supabase = getAdminSupabaseClient()
     if (!supabase) {
@@ -78,14 +79,23 @@ export async function GET(request: NextRequest) {
     query = query.order("expires_at", { ascending: true, nullsFirst: false })
 
     // Execute the query
-    const { data: integrations, error: fetchError } = await query
-
-    if (fetchError) {
-      console.error(`❌ [${jobId}] Error fetching integrations:`, fetchError)
-      throw new Error(`Error fetching integrations: ${fetchError.message}`)
+    let integrations: any[] = []
+    try {
+      if (verbose) console.log(`🔍 [${jobId}] Executing database query to find integrations needing refresh...`)
+      
+      const { data, error: fetchError } = await query
+      
+      if (fetchError) {
+        console.error(`❌ [${jobId}] Error fetching integrations:`, fetchError)
+        throw new Error(`Error fetching integrations: ${fetchError.message}`)
+      }
+      
+      integrations = data || []
+      console.log(`✅ [${jobId}] Found ${integrations.length} integrations that need token refresh`)
+    } catch (queryError: any) {
+      console.error(`💥 [${jobId}] Database query error:`, queryError)
+      throw new Error(`Database query error: ${queryError.message}`)
     }
-
-    console.log(`✅ [${jobId}] Found ${integrations?.length || 0} integrations that need token refresh`)
 
     if (!integrations || integrations.length === 0) {
       const endTime = Date.now()
@@ -106,6 +116,7 @@ export async function GET(request: NextRequest) {
     let successful = 0
     let failed = 0
     const results = []
+    const failureReasons: Record<string, number> = {}
 
     // Process integrations in batches to avoid overwhelming the system
     const batches = []
@@ -122,9 +133,11 @@ export async function GET(request: NextRequest) {
       // Process each integration in the batch
       for (const integration of batch) {
         try {
-          console.log(
-            `🔍 [${jobId}] Processing ${integration.provider} for user ${integration.user_id}`
-          )
+          if (verbose) {
+            console.log(
+              `🔍 [${jobId}] Processing ${integration.provider} for user ${integration.user_id}`
+            )
+          }
 
           // Always update the last_refresh_attempt timestamp
           await supabase
@@ -134,7 +147,7 @@ export async function GET(request: NextRequest) {
 
           // Skip if no refresh token
           if (!integration.refresh_token) {
-            console.log(`⏭️ [${jobId}] Skipping ${integration.provider} - no refresh token`)
+            if (verbose) console.log(`⏭️ [${jobId}] Skipping ${integration.provider} - no refresh token`)
             continue
           }
 
@@ -175,7 +188,7 @@ export async function GET(request: NextRequest) {
 
             if (updateError) {
               console.error(`❌ [${jobId}] Error updating integration after successful refresh:`, updateError)
-            } else {
+            } else if (verbose) {
               console.log(`✅ [${jobId}] Successfully refreshed ${integration.provider}`)
             }
 
@@ -186,6 +199,10 @@ export async function GET(request: NextRequest) {
             })
           } else {
             failed++
+
+            // Track failure reasons
+            const reason = refreshResult.error || "Unknown error"
+            failureReasons[reason] = (failureReasons[reason] || 0) + 1
 
             // Get current consecutive failures
             const { data } = await supabase
@@ -208,7 +225,7 @@ export async function GET(request: NextRequest) {
 
             if (updateError) {
               console.error(`❌ [${jobId}] Error updating integration after failed refresh:`, updateError)
-            } else {
+            } else if (verbose) {
               console.log(`⚠️ [${jobId}] Failed to refresh ${integration.provider}: ${refreshResult.error}`)
             }
 
@@ -222,6 +239,10 @@ export async function GET(request: NextRequest) {
         } catch (error: any) {
           failed++
           console.error(`💥 [${jobId}] Error processing ${integration.provider}:`, error)
+
+          // Track failure reasons
+          const reason = `Unexpected error: ${error.message}`
+          failureReasons[reason] = (failureReasons[reason] || 0) + 1
 
           // Update integration with error details
           const { error: updateError } = await supabase
@@ -248,7 +269,7 @@ export async function GET(request: NextRequest) {
       
       // Add a small delay between batches to avoid overwhelming external APIs
       if (batchIndex < batches.length - 1) {
-        console.log(`⏱️ [${jobId}] Pausing briefly between batches...`)
+        if (verbose) console.log(`⏱️ [${jobId}] Pausing briefly between batches...`)
         await new Promise(resolve => setTimeout(resolve, 1000)) // 1 second delay between batches
       }
     }
@@ -257,9 +278,18 @@ export async function GET(request: NextRequest) {
     const durationMs = endTime - startTime
     const duration = durationMs / 1000
 
+    // Log summary of results
     console.log(`🏁 [${jobId}] Token refresh job completed in ${duration.toFixed(2)}s`)
     console.log(`   - Successful refreshes: ${successful}`)
     console.log(`   - Failed: ${failed}`)
+    
+    // Log failure reasons if any
+    if (failed > 0) {
+      console.log(`   - Failure reasons:`)
+      Object.entries(failureReasons).forEach(([reason, count]) => {
+        console.log(`     - ${reason}: ${count}`)
+      })
+    }
 
     return NextResponse.json({
       success: true,
