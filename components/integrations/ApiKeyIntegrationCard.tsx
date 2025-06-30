@@ -78,13 +78,16 @@ export function ApiKeyIntegrationCard({ provider, integration, status, open, onO
 
   const renderLogo = () => {
     const logoPath = `/integrations/${provider.id}.svg`
+    // Add special class for icons that need inverted colors in dark mode
+    const needsInversion = ['airtable', 'github', 'google-docs', 'instagram', 'tiktok', 'x'].includes(provider.id)
+    
     return (
       <Image
         src={logoPath}
         alt={provider.name}
         width={48}
         height={48}
-        className="object-contain"
+        className={cn("object-contain", needsInversion && "dark:invert")}
       />
     )
   }

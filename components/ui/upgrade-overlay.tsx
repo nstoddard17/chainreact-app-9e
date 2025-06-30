@@ -41,8 +41,8 @@ const roleGradients = {
 }
 
 export function UpgradeOverlay({ requiredRole, currentRole, featureName, onClose }: UpgradeOverlayProps) {
-  const [selectedPlan, setSelectedPlan] = useState<UserRole | null>(null)
-  const [expandedPlans, setExpandedPlans] = useState<Set<UserRole>>(new Set())
+  const [selectedPlan, setSelectedPlan] = useState<UserRole | null>(requiredRole)
+  const [expandedPlans, setExpandedPlans] = useState<Set<UserRole>>(new Set([requiredRole]))
   
   const currentRoleInfo = getRoleInfo(currentRole)
   
@@ -218,6 +218,9 @@ export function UpgradeOverlay({ requiredRole, currentRole, featureName, onClose
                             "w-full",
                             getActionButtonStyle(role as UserRole)
                           )}
+                          onClick={() => {
+                            window.location.href = `/settings/billing?plan=${role}`;
+                          }}
                         >
                           {getActionText(role as UserRole)}
                         </Button>
