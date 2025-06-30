@@ -132,6 +132,13 @@ export async function POST(request: Request) {
   try {
     const { workflowData, targetNodeId, triggerData } = await request.json()
 
+    console.log('Received test request:', { 
+      hasWorkflowData: !!workflowData, 
+      targetNodeId,
+      nodesCount: workflowData?.nodes?.length || 0,
+      edgesCount: workflowData?.edges?.length || 0
+    })
+
     if (!workflowData || !targetNodeId) {
       return NextResponse.json({ error: "Workflow data and target node ID are required" }, { status: 400 })
     }
@@ -158,6 +165,8 @@ export async function POST(request: Request) {
     // Find the target node
     const targetNode = nodes.find((node: any) => node.id === targetNodeId)
     if (!targetNode) {
+      console.log('Available node IDs:', nodes.map((n: any) => n.id))
+      console.log('Looking for target node ID:', targetNodeId)
       return NextResponse.json({ error: "Target node not found" }, { status: 400 })
     }
 
