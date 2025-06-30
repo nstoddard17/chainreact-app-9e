@@ -430,13 +430,18 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     clientIdEnv: "NEXT_PUBLIC_TIKTOK_CLIENT_ID",
     clientSecretEnv: "TIKTOK_CLIENT_SECRET",
     authEndpoint: "https://www.tiktok.com/v2/auth/authorize",
-    tokenEndpoint: "https://open.tiktokapis.com/v2/oauth/token",
+    tokenEndpoint: "https://open.tiktokapis.com/v2/oauth/token/",
     refreshRequiresClientAuth: true,
     authMethod: "body",
-    refreshTokenExpirationSupported: false,
+    refreshTokenExpirationSupported: true,
     accessTokenExpiryBuffer: 30,
-    sendRedirectUriWithRefresh: true,
+    refreshTokenExpiryBuffer: 1440, // 1 day before refresh token expires
+    sendRedirectUriWithRefresh: false, // Don't send redirect_uri during refresh for TikTok
     redirectUriPath: "/api/integrations/tiktok/callback",
+    additionalRefreshParams: {
+      grant_type: "refresh_token",
+      client_key: "PLACEHOLDER" // Will be replaced with clientId
+    }
   },
   gumroad: {
     id: "gumroad",
@@ -485,14 +490,35 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     name: "PayPal",
     clientIdEnv: "NEXT_PUBLIC_PAYPAL_CLIENT_ID",
     clientSecretEnv: "PAYPAL_CLIENT_SECRET",
-    authEndpoint: "https://www.paypal.com/webapps/merchantboarding/webflow/externalpartnerflow",
-    tokenEndpoint: "https://api.paypal.com/v1/oauth2/token",
+    authEndpoint: "https://www.paypal.com/signin/authorize",
+    tokenEndpoint: "https://api-m.paypal.com/v1/oauth2/token",
+    refreshRequiresClientAuth: true,
+    authMethod: "basic",
+    refreshTokenExpirationSupported: true,
+    accessTokenExpiryBuffer: 30,
+    refreshTokenExpiryBuffer: 1440, // 1 day before refresh token expires
+    sendRedirectUriWithRefresh: false, // PayPal doesn't want redirect_uri for refresh
+    redirectUriPath: "/api/integrations/paypal/callback",
+    additionalRefreshParams: {
+      grant_type: "refresh_token"
+    }
+  },
+  kit: {
+    id: "kit",
+    name: "Kit",
+    clientIdEnv: "NEXT_PUBLIC_KIT_CLIENT_ID",
+    clientSecretEnv: "KIT_CLIENT_SECRET",
+    authEndpoint: "https://kit.co/oauth/authorize",
+    tokenEndpoint: "https://kit.co/oauth/token",
     refreshRequiresClientAuth: true,
     authMethod: "basic",
     refreshTokenExpirationSupported: false,
     accessTokenExpiryBuffer: 30,
     sendRedirectUriWithRefresh: true,
-    redirectUriPath: "/api/integrations/paypal/callback",
+    redirectUriPath: "/api/integrations/kit/callback",
+    additionalRefreshParams: {
+      grant_type: "refresh_token"
+    }
   },
   mailchimp: {
     id: "mailchimp",
@@ -516,20 +542,29 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
  * @returns The OAuth configuration for the provider or undefined if not found
  */
 export function getOAuthConfig(provider: string): OAuthProviderConfig | undefined {
+  if (!provider) {
+    console.error("❌ Provider is undefined or null");
+    return undefined;
+  }
+  
+  const normalizedProvider = provider.toLowerCase();
+  
   // Handle Google service-specific aliases
-  if (provider.startsWith("google-") || provider === "gmail" || provider === "youtube" || provider === "youtube-studio") {
+  if (normalizedProvider.startsWith("google-") || normalizedProvider === "gmail" || normalizedProvider === "youtube" || normalizedProvider === "youtube-studio") {
     return OAUTH_PROVIDERS["google"];
   }
   
   // Handle Microsoft service-specific aliases
-  if (provider === "teams" || provider === "onedrive" || provider === "microsoft-outlook" || provider === "microsoft-onenote") {
+  if (normalizedProvider === "teams" || normalizedProvider === "onedrive" || normalizedProvider === "microsoft-outlook" || normalizedProvider === "microsoft-onenote") {
     console.log(`🔄 Using Microsoft OAuth config for ${provider}`);
     return OAUTH_PROVIDERS["microsoft"];
   }
   
-  const config = OAUTH_PROVIDERS[provider.toLowerCase()];
+  // Direct lookup for all providers
+  const config = OAUTH_PROVIDERS[normalizedProvider];
+  
   if (config) {
-    console.log(`🔄 Found OAuth config for ${provider}: ${config.id}`);
+    console.log(`✅ Found OAuth config for ${provider}: ${config.id}`);
     return config;
   }
   

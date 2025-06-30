@@ -1,7 +1,7 @@
 {
   "crons": [
     {
-      "path": "/api/cron/refresh-tokens-simple",
+      "path": "/api/cron/token-refresh",
       "schedule": "*/20 * * * *"
     }
   ]

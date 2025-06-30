@@ -36,8 +36,12 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams
     const cleanupMode = searchParams.get("cleanupMode") === "true"
     const provider = searchParams.get("provider") || undefined
-    const includeInactive = searchParams.get("includeInactive") === "true"
+    const reactivateProblemProviders = searchParams.get("reactivateProblemProviders") !== "false" // Default to true
+    const problemProvidersOnly = searchParams.get("problemProvidersOnly") === "true" // Only process problematic providers
 
+    // Define the list of problematic providers
+    const problemProviders = ['kit', 'tiktok', 'paypal']
+    
     // Determine thresholds based on cleanup mode
     const accessTokenExpiryThreshold = cleanupMode ? 2880 : 30 // 48 hours for cleanup, 30 mins otherwise
     const refreshTokenExpiryThreshold = cleanupMode ? 43200 : 30 // 30 days for cleanup, 30 mins otherwise
@@ -45,6 +49,66 @@ export async function GET(request: NextRequest) {
     const supabase = getAdminSupabaseClient()
     if (!supabase) {
       return NextResponse.json({ error: "Failed to create database client" }, { status: 500 })
+    }
+
+    // Pre-processing step: Reactivate problematic integrations
+    if (reactivateProblemProviders) {
+      console.log(`🔧 [${jobId}] Pre-processing: Reactivating problematic integrations...`)
+      
+      const providerFilter = provider ? [provider].filter(p => problemProviders.includes(p)) : problemProviders
+      
+      if (providerFilter.length > 0) {
+        try {
+          // Find problematic integrations that need reactivation - use a more targeted query
+          const { data: problemIntegrations, error: findError } = await supabase
+            .from("integrations")
+            .select("id, provider, user_id")
+            .in("provider", providerFilter)
+            .not("refresh_token", "is", null)
+            .or("status.eq.needs_reauthorization,status.eq.expired")
+            .limit(10) // Limit to 10 integrations at a time to avoid timeouts
+            
+          if (findError) {
+            console.error(`❌ [${jobId}] Error finding problematic integrations:`, findError)
+          } else if (problemIntegrations && problemIntegrations.length > 0) {
+            console.log(`🔄 [${jobId}] Found ${problemIntegrations.length} problematic integrations to reactivate`)
+            
+            // Process in smaller batches to avoid timeouts
+            const batchSize = 3;
+            for (let i = 0; i < problemIntegrations.length; i += batchSize) {
+              const batch = problemIntegrations.slice(i, i + batchSize);
+              
+              // Update these integrations to be active and set to expire soon
+              const { error: updateError, count } = await supabase
+                .from("integrations")
+                .update({
+                  status: "connected",
+                  consecutive_failures: 0,
+                  disconnect_reason: null,
+                  disconnected_at: null,
+                  // Set to expire in 15 minutes to ensure they get processed
+                  expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+                  updated_at: new Date().toISOString()
+                })
+                .in("id", batch.map(i => i.id))
+                
+              if (updateError) {
+                console.error(`❌ [${jobId}] Error reactivating batch of problematic integrations:`, updateError)
+              } else {
+                console.log(`✅ [${jobId}] Successfully reactivated ${count} problematic integrations in batch ${Math.floor(i/batchSize) + 1}`)
+              }
+              
+              // Small delay between batches to avoid rate limiting
+              await new Promise(resolve => setTimeout(resolve, 100));
+            }
+          } else {
+            console.log(`ℹ️ [${jobId}] No problematic integrations found that need reactivation`)
+          }
+        } catch (reactivationError) {
+          console.error(`❌ [${jobId}] Error during reactivation process:`, reactivationError)
+          // Continue with the rest of the job even if reactivation fails
+        }
+      }
     }
 
     console.log(`📊 [${jobId}] Getting integrations that need token refresh...`)
@@ -56,14 +120,12 @@ export async function GET(request: NextRequest) {
     // Build the query to get integrations with refresh tokens
     let query = supabase.from("integrations").select("*").not("refresh_token", "is", null)
 
-    // Filter by status
-    if (!includeInactive) {
-      query = query.eq("is_active", true)
-    }
-
     // Filter by provider if specified
     if (provider) {
       query = query.eq("provider", provider)
+    } else if (problemProvidersOnly) {
+      // If problemProvidersOnly is true, only process the problematic providers
+      query = query.in("provider", problemProviders)
     }
 
     // Get tokens where:
@@ -77,16 +139,28 @@ export async function GET(request: NextRequest) {
 
     // Order by expiration time
     query = query.order("expires_at", { ascending: true, nullsFirst: false })
+    
+    // Limit the number of records to avoid timeouts
+    query = query.limit(20)
 
     // Execute the query
-    const { data: integrations, error: fetchError } = await query
-
-    if (fetchError) {
-      console.error(`❌ [${jobId}] Error fetching integrations:`, fetchError)
-      throw new Error(`Error fetching integrations: ${fetchError.message}`)
+    let integrations: any[] = []
+    try {
+      console.log(`🔍 [${jobId}] Executing database query to find integrations needing refresh...`)
+      
+      const { data, error: fetchError } = await query
+      
+      if (fetchError) {
+        console.error(`❌ [${jobId}] Error fetching integrations:`, fetchError)
+        throw new Error(`Error fetching integrations: ${fetchError.message}`)
+      }
+      
+      integrations = data || []
+      console.log(`✅ [${jobId}] Found ${integrations.length} integrations that need token refresh`)
+    } catch (queryError: any) {
+      console.error(`💥 [${jobId}] Database query error:`, queryError)
+      throw new Error(`Database query error: ${queryError.message}`)
     }
-
-    console.log(`✅ [${jobId}] Found ${integrations?.length || 0} integrations that need token refresh`)
 
     if (!integrations || integrations.length === 0) {
       console.log(`ℹ️ [${jobId}] No integrations to process`)
@@ -280,6 +354,15 @@ function shouldRefreshToken(
   const now = new Date()
   const accessThreshold = options.accessTokenExpiryThreshold || 30 // Default 30 minutes
   const refreshThreshold = 30 // Always 30 minutes for refresh tokens
+  
+  // Special handling for known problematic providers
+  const problemProviders = ['kit', 'tiktok', 'paypal']
+  if (problemProviders.includes(integration.provider)) {
+    return {
+      shouldRefresh: true,
+      reason: `Provider ${integration.provider} is in the problematic list - always refreshing`,
+    }
+  }
 
   // Check refresh token expiration first (highest priority)
   if (integration.refresh_token_expires_at) {
