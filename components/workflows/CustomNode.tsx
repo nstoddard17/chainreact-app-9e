@@ -3,9 +3,10 @@
 import React, { memo } from "react"
 import { Handle, Position, type NodeProps } from "@xyflow/react"
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/availableNodes"
-import { Settings, Trash2 } from "lucide-react"
+import { Settings, Trash2, TestTube } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { useWorkflowTestStore } from "@/stores/workflowTestStore"
 
 // The data object passed to the node will now contain these callbacks.
 interface CustomNodeData {
@@ -36,18 +37,20 @@ function CustomNode({ id, data, selected }: NodeProps) {
   const component = ALL_NODE_COMPONENTS.find((c) => c.type === type)
   const hasMultipleOutputs = ["if_condition", "switch_case", "try_catch"].includes(type)
   
+  // Check if this node has test data available
+  const { isNodeInExecutionPath, getNodeTestResult } = useWorkflowTestStore()
+  const hasTestData = isNodeInExecutionPath(id)
+  const testResult = getNodeTestResult(id)
+  
   // Check if this node has configuration options
   const nodeHasConfiguration = (): boolean => {
     if (!component) return false
     
-    // Check if the node has configuration fields that require user input
-    const hasConfigFields = !!(component.config && Object.keys(component.config).length > 0)
-    const hasRequiredFields = !!(component.requiredFields && component.requiredFields.length > 0)
+    // Check if the node has configuration schema
     const hasConfigSchema = !!(component.configSchema && component.configSchema.length > 0)
-    const hasSettings = !!(component.settings && Object.keys(component.settings).length > 0)
     
-    // Node needs configuration if it has any configuration properties
-    return hasConfigFields || hasRequiredFields || hasConfigSchema || hasSettings
+    // Node needs configuration if it has configuration schema
+    return hasConfigSchema
   }
 
   const handleConfigure = (e: React.MouseEvent) => {
@@ -85,6 +88,24 @@ function CustomNode({ id, data, selected }: NodeProps) {
       {error && (
         <div className="bg-destructive/10 border-b border-destructive/20 px-4 py-2">
           <p className="text-sm text-destructive font-medium">{error}</p>
+        </div>
+      )}
+      
+      {hasTestData && (
+        <div className="bg-blue-50 border-b border-blue-200 px-4 py-2">
+          <div className="flex items-center gap-2 text-xs text-blue-700">
+            <TestTube className="w-3 h-3" />
+            <span>Test data available</span>
+            {testResult && (
+              <span className={`px-1.5 py-0.5 rounded text-xs ${
+                testResult.success 
+                  ? 'bg-green-100 text-green-700' 
+                  : 'bg-red-100 text-red-700'
+              }`}>
+                {testResult.success ? '✓' : '✗'}
+              </span>
+            )}
+          </div>
         </div>
       )}
       <div className="p-4">

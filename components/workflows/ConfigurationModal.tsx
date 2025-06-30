@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog"
-import { ConfigField, NodeComponent } from "@/lib/workflows/availableNodes"
+import { ConfigField, NodeComponent, NodeField } from "@/lib/workflows/availableNodes"
 import { useIntegrationStore } from "@/stores/integrationStore"
 import { Combobox, MultiCombobox, HierarchicalCombobox } from "@/components/ui/combobox"
 import { EmailAutocomplete } from "@/components/ui/email-autocomplete"
@@ -16,7 +16,7 @@ import { ConfigurationLoadingScreen } from "@/components/ui/loading-screen"
 import { FileUpload } from "@/components/ui/file-upload"
 import { DatePicker } from "@/components/ui/date-picker"
 import { TimePicker } from "@/components/ui/time-picker"
-import { AlertCircle, Video, HelpCircle } from "lucide-react"
+import { AlertCircle, Video, HelpCircle, ChevronLeft, ChevronRight } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 import { cn } from "@/lib/utils"
 import GoogleMeetCard from "@/components/ui/google-meet-card"
@@ -29,6 +29,9 @@ interface ConfigurationModalProps {
   nodeInfo: NodeComponent | null
   integrationName: string
   initialData?: Record<string, any>
+  // Enhanced testing props
+  workflowData?: { nodes: any[], edges: any[] }
+  currentNodeId?: string
 }
 
 export default function ConfigurationModal({
@@ -38,6 +41,8 @@ export default function ConfigurationModal({
   nodeInfo,
   integrationName,
   initialData = {},
+  workflowData,
+  currentNodeId,
 }: ConfigurationModalProps) {
   const [config, setConfig] = useState<Record<string, any>>(initialData)
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -57,6 +62,16 @@ export default function ConfigurationModal({
   // Create Spreadsheet specific state
   const [spreadsheetRows, setSpreadsheetRows] = useState<Record<string, string>[]>([{}])
   const [columnNames, setColumnNames] = useState<string[]>([])
+  
+  // Test functionality state
+  const [testResult, setTestResult] = useState<any>(null)
+  const [isTestLoading, setIsTestLoading] = useState(false)
+  const [showTestOutput, setShowTestOutput] = useState(false)
+  
+  // Enhanced workflow segment testing state
+  const [segmentTestResult, setSegmentTestResult] = useState<any>(null)
+  const [isSegmentTestLoading, setIsSegmentTestLoading] = useState(false)
+  const [showDataFlowPanels, setShowDataFlowPanels] = useState(false)
 
   // Function to get user's timezone
   const getUserTimezone = () => {
@@ -88,7 +103,7 @@ export default function ConfigurationModal({
   }
 
   // Function to check if a field should be shown based on dependencies
-  const shouldShowField = (field: ConfigField): boolean => {
+  const shouldShowField = (field: ConfigField | NodeField): boolean => {
     if (!field.dependsOn) {
       // Special logic for unified Google Sheets action
       if (nodeInfo?.type === "google_sheets_unified_action") {
@@ -120,7 +135,7 @@ export default function ConfigurationModal({
   }
 
   // Function to fetch dynamic data for dependent fields
-  const fetchDependentData = useCallback(async (field: ConfigField, dependentValue: any) => {
+  const fetchDependentData = useCallback(async (field: ConfigField | NodeField, dependentValue: any) => {
     if (!field.dynamic || !field.dependsOn) return
     
     const integration = getIntegrationByProvider(nodeInfo?.providerId || "")
@@ -711,6 +726,55 @@ export default function ConfigurationModal({
       }
       onSave(configToSave)
       onClose()
+    }
+  }
+
+  // Enhanced workflow segment testing
+  const handleTestWorkflowSegment = async () => {
+    if (!nodeInfo?.testable || !workflowData || !currentNodeId) return
+    
+    setIsSegmentTestLoading(true)
+    setSegmentTestResult(null)
+    
+    try {
+      const response = await fetch('/api/workflows/test-workflow-segment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workflowData,
+          targetNodeId: currentNodeId,
+          triggerData: {
+            // Sample trigger data
+            name: "John Doe",
+            email: "john@example.com",
+            status: "active",
+            amount: 100,
+            date: new Date().toISOString(),
+            id: "test-123"
+          }
+        })
+      })
+      
+      const result = await response.json()
+      
+      if (result.success) {
+        setSegmentTestResult(result)
+        setShowDataFlowPanels(true)
+      } else {
+        setSegmentTestResult({
+          success: false,
+          error: result.error || "Test failed"
+        })
+        setShowDataFlowPanels(true)
+      }
+    } catch (error: any) {
+      setSegmentTestResult({
+        success: false,
+        error: `Test failed: ${error.message}`
+      })
+      setShowDataFlowPanels(true)
+    } finally {
+      setIsSegmentTestLoading(false)
     }
   }
 
@@ -2474,17 +2538,85 @@ export default function ConfigurationModal({
               </div>
             )}
             
+            {/* Test Output Display */}
+            {showTestOutput && testResult && (
+              <div className="border-t pt-4">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-medium">Test Output</h4>
+                    <Button variant="ghost" size="sm" onClick={() => setShowTestOutput(false)}>
+                      ×
+                    </Button>
+                  </div>
+                  
+                  {testResult.success ? (
+                    <div className="space-y-3">
+                      <div className="text-sm text-green-600 bg-green-50 p-2 rounded">
+                        {testResult.message}
+                      </div>
+                      
+                      {testResult.output && (
+                        <div className="space-y-2">
+                          <div className="text-xs font-medium text-muted-foreground">Sample Output Data:</div>
+                          <div className="bg-muted/50 p-3 rounded text-xs font-mono max-h-32 overflow-y-auto">
+                            <pre>{JSON.stringify(testResult.output, null, 2)}</pre>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {nodeInfo?.outputSchema && (
+                        <div className="space-y-2">
+                          <div className="text-xs font-medium text-muted-foreground">Available Output Fields:</div>
+                          <div className="space-y-1">
+                            {nodeInfo.outputSchema.map((field) => (
+                              <div key={field.name} className="text-xs border rounded p-2">
+                                <div className="font-medium">{field.label} ({field.type})</div>
+                                <div className="text-muted-foreground">{field.description}</div>
+                                {field.example && (
+                                  <div className="text-blue-600 font-mono mt-1">
+                                    Example: {typeof field.example === 'object' ? JSON.stringify(field.example) : field.example}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-sm text-red-600 bg-red-50 p-2 rounded">
+                      {testResult.message}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             <DialogFooter>
-              <Button variant="outline" onClick={onClose}>
-                Cancel
-              </Button>
-              <Button 
-                onClick={handleSave} 
-                disabled={loadingDynamic || hasErrors}
-                className={hasErrors ? 'opacity-50 cursor-not-allowed' : ''}
-              >
-                Save Configuration
-              </Button>
+              <div className="flex items-center gap-2 w-full">
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={onClose}>
+                    Cancel
+                  </Button>
+                  {nodeInfo?.testable && workflowData && currentNodeId && (
+                    <Button 
+                      variant="secondary"
+                      onClick={handleTestWorkflowSegment}
+                      disabled={isSegmentTestLoading || loadingDynamic}
+                    >
+                      {isSegmentTestLoading ? "Testing..." : "Test Workflow"}
+                    </Button>
+                  )}
+                </div>
+                <div className="flex-1" />
+                <Button 
+                  onClick={handleSave} 
+                  disabled={loadingDynamic || hasErrors}
+                  className={hasErrors ? 'opacity-50 cursor-not-allowed' : ''}
+                >
+                  Save Configuration
+                </Button>
+              </div>
             </DialogFooter>
           </>
         )}

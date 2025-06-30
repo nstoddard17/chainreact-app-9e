@@ -60,16 +60,53 @@ export interface ConfigField {
   [key: string]: any
 }
 
+export interface NodeField {
+  name: string
+  label: string
+  type: "text" | "textarea" | "number" | "boolean" | "select" | "file" | "custom" | "email" | "time" | "datetime" | "email-autocomplete" | "date" | "location-autocomplete"
+  required?: boolean
+  placeholder?: string
+  defaultValue?: any
+  options?: { value: string; label: string }[] | string[]
+  description?: string
+  dependsOn?: string
+  // Additional properties used in the codebase
+  accept?: string
+  dynamic?: boolean | string
+  maxSize?: string | number
+  multiple?: boolean
+  creatable?: boolean
+  // New field for output data descriptions
+  outputType?: "string" | "number" | "array" | "object" | "boolean"
+}
+
+export interface NodeOutputField {
+  name: string
+  label: string
+  type: "string" | "number" | "array" | "object" | "boolean" | "file"
+  description: string
+  example?: any
+}
+
 export interface NodeComponent {
   type: string
   title: string
   description: string
-  isTrigger?: boolean
-  providerId?: string
+  icon?: any
   category: string
-  configSchema?: ConfigField[]
-  icon?: ComponentType<any>
-  [key: string]: any
+  providerId?: string
+  isTrigger?: boolean
+  configSchema?: NodeField[]
+  // Additional properties used in the codebase
+  triggerType?: string
+  payloadSchema?: any
+  requiredScopes?: string[]
+  actionParamsSchema?: any
+  // New properties for data flow and testing
+  outputSchema?: NodeOutputField[]
+  testable?: boolean
+  // Test function that returns sample output data
+  testFunction?: (config: any) => Promise<any> | any
 }
 
 export const ALL_NODE_COMPONENTS: NodeComponent[] = [
@@ -126,6 +163,37 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Productivity",
     providerId: "logic",
     isTrigger: false,
+    testable: true,
+    outputSchema: [
+      {
+        name: "conditionMet",
+        label: "Condition Met",
+        type: "boolean",
+        description: "Whether the condition evaluated to true or false",
+        example: true
+      },
+      {
+        name: "conditionType",
+        label: "Condition Type",
+        type: "string",
+        description: "The type of condition that was evaluated (simple, multiple, or advanced)",
+        example: "simple"
+      },
+      {
+        name: "evaluatedExpression",
+        label: "Evaluated Expression",
+        type: "string",
+        description: "The condition expression that was evaluated",
+        example: "{{data.status}} === 'active'"
+      },
+      {
+        name: "success",
+        label: "Success Status",
+        type: "boolean",
+        description: "Whether the condition evaluation was successful",
+        example: true
+      }
+    ],
     configSchema: [
       {
         name: "conditionType",
@@ -218,6 +286,37 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Productivity",
     providerId: "logic",
     isTrigger: false,
+    testable: true,
+    outputSchema: [
+      {
+        name: "delayDuration",
+        label: "Delay Duration",
+        type: "number",
+        description: "The duration of the delay in seconds",
+        example: 60
+      },
+      {
+        name: "startTime",
+        label: "Start Time",
+        type: "string",
+        description: "When the delay started (ISO 8601 format)",
+        example: "2024-01-15T10:30:00Z"
+      },
+      {
+        name: "endTime",
+        label: "End Time",
+        type: "string",
+        description: "When the delay ended (ISO 8601 format)",
+        example: "2024-01-15T10:31:00Z"
+      },
+      {
+        name: "success",
+        label: "Success Status",
+        type: "boolean",
+        description: "Whether the delay completed successfully",
+        example: true
+      }
+    ],
     configSchema: [
       { name: "duration", label: "Duration (seconds)", type: "number", placeholder: "e.g., 60" },
     ],
@@ -438,8 +537,46 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     description: "Sends an email from your Gmail account.",
     isTrigger: false,
     providerId: "gmail",
+    testable: true,
     requiredScopes: ["https://www.googleapis.com/auth/gmail.send"],
     category: "Email",
+    outputSchema: [
+      {
+        name: "messageId",
+        label: "Message ID", 
+        type: "string",
+        description: "Unique identifier for the sent email",
+        example: "17c123456789abcd"
+      },
+      {
+        name: "to",
+        label: "To Recipients",
+        type: "array",
+        description: "List of email addresses the message was sent to",
+        example: ["user@example.com", "another@example.com"]
+      },
+      {
+        name: "subject",
+        label: "Subject",
+        type: "string", 
+        description: "The email subject line",
+        example: "Your order confirmation"
+      },
+      {
+        name: "timestamp",
+        label: "Sent Time",
+        type: "string",
+        description: "When the email was sent (ISO 8601 format)",
+        example: "2024-01-15T10:30:00Z"
+      },
+      {
+        name: "success",
+        label: "Success Status",
+        type: "boolean",
+        description: "Whether the email was sent successfully",
+        example: true
+      }
+    ],
     configSchema: [
       {
         name: "to",
@@ -902,8 +1039,53 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     description: "Add, update, or remove data in Google Sheets with visual column mapping.",
     isTrigger: false,
     providerId: "google-sheets",
+    testable: true,
     requiredScopes: ["https://www.googleapis.com/auth/spreadsheets"],
     category: "Productivity",
+    outputSchema: [
+      {
+        name: "action",
+        label: "Action Performed",
+        type: "string",
+        description: "The action that was performed (add, update, or delete)",
+        example: "add"
+      },
+      {
+        name: "spreadsheetId",
+        label: "Spreadsheet ID",
+        type: "string",
+        description: "The ID of the spreadsheet that was modified",
+        example: "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms"
+      },
+      {
+        name: "sheetName",
+        label: "Sheet Name",
+        type: "string",
+        description: "The name of the sheet that was modified",
+        example: "Sheet1"
+      },
+      {
+        name: "range",
+        label: "Updated Range",
+        type: "string",
+        description: "The range of cells that were affected (for add/update actions)",
+        example: "Sheet1!A2:D2"
+      },
+      {
+        name: "updatedRows",
+        label: "Updated Rows",
+        type: "number",
+        description: "Number of rows that were modified",
+        example: 1
+      },
+      {
+        name: "success",
+        label: "Success Status",
+        type: "boolean",
+        description: "Whether the operation was completed successfully",
+        example: true
+      }
+    ],
     configSchema: [
       {
         name: "spreadsheetId",
@@ -963,8 +1145,56 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     description: "Reads data from a Google Sheet with filtering and formatting options.",
     isTrigger: false,
     providerId: "google-sheets",
+    testable: true,
     requiredScopes: ["https://www.googleapis.com/auth/spreadsheets"],
     category: "Productivity",
+    outputSchema: [
+      {
+        name: "data",
+        label: "Sheet Data",
+        type: "array",
+        description: "The actual data read from the sheet (format depends on Output Format setting)",
+        example: [
+          { "Name": "John Doe", "Email": "john@example.com", "Status": "Active" },
+          { "Name": "Jane Smith", "Email": "jane@example.com", "Status": "Inactive" }
+        ]
+      },
+      {
+        name: "headers",
+        label: "Column Headers",
+        type: "array",
+        description: "The column headers from the sheet (when Include Headers is enabled)",
+        example: ["Name", "Email", "Status"]
+      },
+      {
+        name: "rowsRead",
+        label: "Rows Read",
+        type: "number",
+        description: "Number of data rows that were read",
+        example: 25
+      },
+      {
+        name: "format",
+        label: "Data Format",
+        type: "string",
+        description: "The format of the returned data (objects, array, or csv)",
+        example: "objects"
+      },
+      {
+        name: "spreadsheetId",
+        label: "Spreadsheet ID",
+        type: "string",
+        description: "The ID of the spreadsheet that was read",
+        example: "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms"
+      },
+      {
+        name: "sheetName",
+        label: "Sheet Name",
+        type: "string",
+        description: "The name of the sheet that was read",
+        example: "Sheet1"
+      }
+    ],
     configSchema: [
       {
         name: "spreadsheetId",

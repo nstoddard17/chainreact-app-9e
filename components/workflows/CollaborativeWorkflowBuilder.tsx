@@ -25,7 +25,8 @@ import "@xyflow/react/dist/style.css"
 import { useWorkflowStore, type Workflow, type WorkflowNode, type WorkflowConnection } from "@/stores/workflowStore"
 import { useCollaborationStore } from "@/stores/collaborationStore"
 import { useIntegrationStore } from "@/stores/integrationStore"
-import ConfigurationModal from "./ConfigurationModal"
+import { useWorkflowTestStore } from "@/stores/workflowTestStore"
+import EnhancedConfigurationModal from "./EnhancedConfigurationModal"
 import CustomNode from "./CustomNode"
 import { AddActionNode } from "./AddActionNode"
 import { CollaboratorCursors } from "./CollaboratorCursors"
@@ -1525,7 +1526,7 @@ function WorkflowBuilderContent() {
       </Dialog>
 
       {configuringNode && (
-        <ConfigurationModal
+        <EnhancedConfigurationModal
           isOpen={!!configuringNode}
           onClose={() => {
             setConfiguringNode(null);
@@ -1535,6 +1536,8 @@ function WorkflowBuilderContent() {
           nodeInfo={configuringNode.nodeComponent}
           integrationName={configuringNode.integration.name}
           initialData={configuringNode.config}
+          workflowData={{ nodes, edges }}
+          currentNodeId={configuringNode.id}
         />
       )}
 
