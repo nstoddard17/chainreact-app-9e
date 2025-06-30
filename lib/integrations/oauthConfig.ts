@@ -31,6 +31,7 @@ export interface OAuthProviderConfig {
   additionalRefreshParams?: Record<string, string>;
   // When a refresh happens, should we update scopes in the database?
   updateScopes?: boolean;
+  scope?: string;
 }
 
 /**
@@ -508,17 +509,15 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     name: "Kit",
     clientIdEnv: "NEXT_PUBLIC_KIT_CLIENT_ID",
     clientSecretEnv: "KIT_CLIENT_SECRET",
-    authEndpoint: "https://kit.co/oauth/authorize",
-    tokenEndpoint: "https://kit.co/oauth/token",
-    refreshRequiresClientAuth: true,
-    authMethod: "basic",
+    authEndpoint: "https://app.kit.com/oauth/authorize",
+    tokenEndpoint: "https://app.kit.com/oauth/token",
+    refreshRequiresClientAuth: false, // Kit only needs client_id for refresh, not client_secret
+    authMethod: "body",
+    redirectUriPath: "/api/integrations/kit/callback",
+    scope: "public",
     refreshTokenExpirationSupported: false,
     accessTokenExpiryBuffer: 30,
-    sendRedirectUriWithRefresh: true,
-    redirectUriPath: "/api/integrations/kit/callback",
-    additionalRefreshParams: {
-      grant_type: "refresh_token"
-    }
+    sendRedirectUriWithRefresh: false, // Don't send redirect_uri with refresh based on docs
   },
   mailchimp: {
     id: "mailchimp",

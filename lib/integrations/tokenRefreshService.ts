@@ -312,6 +312,18 @@ async function updateIntegrationWithRefreshResult(integrationId: string, refresh
   }
 
   try {
+    // First, get the current integration data to access the metadata
+    const { data: integration, error: fetchError } = await db
+      .from("integrations")
+      .select("metadata")
+      .eq("id", integrationId)
+      .single()
+
+    if (fetchError) {
+      console.error(`Error fetching integration ${integrationId}:`, fetchError.message)
+      throw fetchError
+    }
+
     // Calculate the new expiration dates
     const now = new Date()
     let expiresAt: Date | null = null
@@ -342,6 +354,23 @@ async function updateIntegrationWithRefreshResult(integrationId: string, refresh
       // Continue with unencrypted tokens as fallback
     }
 
+    // Update metadata to clear any error information
+    let updatedMetadata = integration?.metadata || {}
+    if (typeof updatedMetadata === 'string') {
+      try {
+        updatedMetadata = JSON.parse(updatedMetadata)
+      } catch (e) {
+        updatedMetadata = {}
+      }
+    }
+    
+    // Remove error information from metadata
+    if (updatedMetadata) {
+      delete updatedMetadata.last_error
+      delete updatedMetadata.last_error_at
+      delete updatedMetadata.requires_reauth
+    }
+
     // Prepare the update data
     const updateData: Record<string, any> = {
       access_token: encryptedAccessToken,
@@ -350,6 +379,8 @@ async function updateIntegrationWithRefreshResult(integrationId: string, refresh
       last_refresh_success: now.toISOString(),
       consecutive_failures: 0,
       status: "connected",
+      disconnect_reason: null,
+      metadata: updatedMetadata
     }
 
     if (expiresAt) {
@@ -395,7 +426,7 @@ async function updateIntegrationWithError(
     // Get the current integration data
     const { data: integration, error: fetchError } = await db
       .from("integrations")
-      .select("consecutive_failures")
+      .select("consecutive_failures, metadata")
       .eq("id", integrationId)
       .single()
 
@@ -407,11 +438,30 @@ async function updateIntegrationWithError(
     // Increment the failure counter
     const consecutiveFailures = (integration?.consecutive_failures || 0) + 1
 
+    // Update metadata with error information
+    let updatedMetadata = integration?.metadata || {}
+    if (typeof updatedMetadata === 'string') {
+      try {
+        updatedMetadata = JSON.parse(updatedMetadata)
+      } catch (e) {
+        updatedMetadata = {}
+      }
+    }
+    
+    // Add error information to metadata
+    updatedMetadata = {
+      ...updatedMetadata,
+      last_error: errorMessage,
+      last_error_at: new Date().toISOString(),
+      requires_reauth: consecutiveFailures >= 3 || additionalData.status === "needs_reauthorization"
+    }
+
     // Prepare the update data
     const updateData: Record<string, any> = {
       consecutive_failures: consecutiveFailures,
       disconnect_reason: errorMessage,
       updated_at: new Date().toISOString(),
+      metadata: updatedMetadata,
       ...additionalData,
     }
 
@@ -496,6 +546,14 @@ export async function refreshTokenForProvider(
         bodyParams.client_id = clientId
         bodyParams.client_secret = clientSecret
         if (verbose) console.log(`✅ Added client auth to body for ${provider}`)
+      }
+    } else {
+      // Some providers like Kit only need client_id, not client_secret for refresh
+      if (provider.toLowerCase() === "kit") {
+        bodyParams.client_id = clientId
+        // Remove any client_secret if it was added
+        delete bodyParams.client_secret
+        if (verbose) console.log(`✅ Special handling for Kit: added only client_id to body`)
       }
     }
 
@@ -618,79 +676,42 @@ export async function refreshTokenForProvider(
       if (verbose) console.log(`🔄 Received response from ${provider}: ${response.status} ${response.statusText}`)
 
       // Try to parse the response as JSON, but handle non-JSON responses gracefully
-      let data: any
-      let responseText: string
-      
+      let responseData: any
       try {
-        responseText = await response.text()
-        try {
-          data = JSON.parse(responseText)
-          if (verbose) console.log(`✅ Parsed JSON response from ${provider}`)
-        } catch (error) {
-          // If parsing fails, the body might not be JSON. We'll use the raw text.
-          console.error(`❌ Failed to parse JSON response from ${provider}: ${responseText}`)
-          
-          // Special handling for TikTok
-          if (provider === 'tiktok') {
-            if (verbose) console.log(`🔄 Attempting to handle non-JSON TikTok response`)
-            
-            // Check if it's an HTML response (common with TikTok errors)
-            if (responseText.includes('<!DOCTYPE html>') || responseText.includes('<html>')) {
-              data = { 
-                error: "invalid_response", 
-                error_description: "TikTok returned HTML instead of JSON. The refresh token might be invalid or expired."
-              }
-            } else {
-              // Try to extract information from the response if possible
-              data = { 
-                error: "invalid_response_format", 
-                error_description: "TikTok returned an invalid response format",
-                body: responseText.substring(0, 200) // Only include the first 200 chars to avoid huge logs
-              }
-            }
-          }
-          // Special handling for Kit
-          else if (provider === 'kit') {
-            if (verbose) console.log(`🔄 Attempting to handle non-JSON Kit response`)
-            
-            // Kit is returning an HTML page instead of JSON
-            if (responseText.includes('<!doctype html>') || responseText.includes('<html')) {
-              data = { 
-                error: "invalid_response", 
-                error_description: "Kit returned HTML instead of JSON. The refresh token might be invalid or expired."
-              }
-            } else {
-              data = { 
-                error: "invalid_response_format", 
-                error_description: "Kit returned an invalid response format",
-                body: responseText.substring(0, 200) // Only include the first 200 chars to avoid huge logs
-              }
-            }
-          }
-          else {
-            data = { error: "Invalid JSON response", body: responseText }
+        responseData = await response.json()
+      } catch (parseError: any) {
+        const responseText = await response.text()
+        
+        // Check if the response is HTML (common with Kit and some other providers)
+        if (responseText.trim().startsWith("<!doctype html>") || responseText.trim().startsWith("<html")) {
+          console.error(`❌ Failed to parse JSON response from ${provider}: ${responseText.substring(0, 200)}...`)
+          return {
+            success: false,
+            error: `Provider returned HTML instead of JSON. The refresh token may be invalid or the provider's API may have changed.`,
+            statusCode: response.status,
+            needsReauthorization: true
           }
         }
-      } catch (error: any) {
-        console.error(`❌ Error reading response body from ${provider}: ${error.message}`)
+        
+        console.error(`❌ Failed to parse JSON response from ${provider}:`, parseError)
         return {
           success: false,
-          error: `Error reading response body: ${error.message}`,
-          statusCode: response.status,
+          error: `Failed to parse response: ${parseError.message}`,
+          statusCode: response.status
         }
       }
 
       if (!response.ok) {
-        const errorMessage = data.error_description || data.error || `HTTP ${response.status} - ${response.statusText}`
+        const errorMessage = responseData.error_description || responseData.error || `HTTP ${response.status} - ${response.statusText}`
         console.error(
           `Failed to refresh token for ${provider} (ID: ${integration.id}). ` +
             `Status: ${response.status}. ` +
             `Error: ${errorMessage}. ` +
-            `Response: ${JSON.stringify(data)}`,
+            `Response: ${JSON.stringify(responseData)}`,
         )
 
         // Check for specific error codes that indicate an invalid refresh token
-        const isInvalidGrant = data.error === "invalid_grant"
+        const isInvalidGrant = responseData.error === "invalid_grant"
         const isInvalidOrExpiredToken = isInvalidGrant || response.status === 401
 
         // Provider-specific error handling
@@ -699,8 +720,8 @@ export async function refreshTokenForProvider(
 
         // Special handling for Airtable errors
         if (provider === "airtable") {
-          if (verbose) console.log(`🔄 Airtable error details: ${JSON.stringify(data)}`)
-          if (data.error === "invalid_grant") {
+          if (verbose) console.log(`🔄 Airtable error details: ${JSON.stringify(responseData)}`)
+          if (responseData.error === "invalid_grant") {
             finalErrorMessage = "Airtable refresh token expired or invalid. User must re-authorize."
             needsReauth = true
           }
@@ -708,8 +729,8 @@ export async function refreshTokenForProvider(
 
         // Special handling for Microsoft-related providers (Teams, OneDrive)
         if (provider === "teams" || provider === "onedrive" || provider.startsWith("microsoft")) {
-          if (verbose) console.log(`🔄 Microsoft error details: ${JSON.stringify(data)}`)
-          if (data.error === "invalid_grant") {
+          if (verbose) console.log(`🔄 Microsoft error details: ${JSON.stringify(responseData)}`)
+          if (responseData.error === "invalid_grant") {
             finalErrorMessage = `${provider} refresh token expired or invalid. User must re-authorize.`
             needsReauth = true
           }
@@ -717,15 +738,15 @@ export async function refreshTokenForProvider(
         
         // Special handling for TikTok
         else if (provider === "tiktok") {
-          if (verbose) console.log(`🔄 TikTok error details: ${JSON.stringify(data)}`)
+          if (verbose) console.log(`🔄 TikTok error details: ${JSON.stringify(responseData)}`)
           
           // Common TikTok error patterns
-          if (data.error === "invalid_client") {
+          if (responseData.error === "invalid_client") {
             finalErrorMessage = "TikTok client credentials are invalid or expired."
-          } else if (data.error === "invalid_request") {
+          } else if (responseData.error === "invalid_request") {
             finalErrorMessage = "TikTok refresh token request was invalid."
-          } else if (data.error === "invalid_response" || data.error === "invalid_response_format") {
-            finalErrorMessage = data.error_description || "TikTok returned an invalid response."
+          } else if (responseData.error === "invalid_response" || responseData.error === "invalid_response_format") {
+            finalErrorMessage = responseData.error_description || "TikTok returned an invalid response."
             needsReauth = true; // HTML responses usually indicate an expired token
           } else if (response.status === 401) {
             finalErrorMessage = "TikTok authorization failed. The refresh token may be expired."
@@ -735,10 +756,10 @@ export async function refreshTokenForProvider(
         
         // Special handling for Kit
         else if (provider === "kit") {
-          if (verbose) console.log(`🔄 Kit error details: ${JSON.stringify(data)}`)
+          if (verbose) console.log(`🔄 Kit error details: ${JSON.stringify(responseData)}`)
           
-          if (data.error === "invalid_response" || data.error === "invalid_response_format") {
-            finalErrorMessage = data.error_description || "Kit returned an invalid response."
+          if (responseData.error === "invalid_response" || responseData.error === "invalid_response_format") {
+            finalErrorMessage = responseData.error_description || "Kit returned an invalid response."
             needsReauth = true; // HTML responses usually indicate an expired token
           } else if (response.status === 401) {
             finalErrorMessage = "Kit authorization failed. The refresh token may be expired."
@@ -748,8 +769,8 @@ export async function refreshTokenForProvider(
         
         // Special handling for PayPal
         else if (provider === "paypal") {
-          if (verbose) console.log(`🔄 PayPal error details: ${JSON.stringify(data)}`)
-          if (data.error === "invalid_client") {
+          if (verbose) console.log(`🔄 PayPal error details: ${JSON.stringify(responseData)}`)
+          if (responseData.error === "invalid_client") {
             finalErrorMessage = "PayPal client credentials are invalid."
           }
         }
@@ -758,17 +779,17 @@ export async function refreshTokenForProvider(
           success: false,
           error: finalErrorMessage,
           statusCode: response.status,
-          providerResponse: data,
+          providerResponse: responseData,
           invalidRefreshToken: needsReauth,
           needsReauthorization: needsReauth,
         }
       }
 
-      const newAccessToken = data.access_token
-      const newRefreshToken = data.refresh_token
-      const expiresIn = data.expires_in
-      const refreshExpiresIn = data.refresh_expires_in
-      const newScope = data.scope
+      const newAccessToken = responseData.access_token
+      const newRefreshToken = responseData.refresh_token
+      const expiresIn = responseData.expires_in
+      const refreshExpiresIn = responseData.refresh_expires_in
+      const newScope = responseData.scope
 
       return {
         success: true,
@@ -777,7 +798,7 @@ export async function refreshTokenForProvider(
         accessTokenExpiresIn: expiresIn,
         refreshTokenExpiresIn: refreshExpiresIn,
         scope: newScope,
-        providerResponse: data,
+        providerResponse: responseData,
       }
     } catch (fetchError: any) {
       console.error(`❌ Network error during token refresh for ${provider}: ${fetchError.message}`)
