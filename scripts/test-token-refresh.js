@@ -25,6 +25,9 @@ async function testTokenRefresh() {
   
   // Build the URL with query parameters
   let url = `${BASE_URL}/api/cron/token-refresh?secret=${SECRET}&limit=${limit}&batchSize=${batchSize}&offset=${offset}`;
+  if (verbose) {
+    url += '&verbose=true';
+  }
   if (provider) {
     url += `&provider=${provider}`;
     console.log(`🔍 Filtering by provider: ${provider}`);
