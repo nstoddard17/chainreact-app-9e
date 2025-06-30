@@ -16,11 +16,12 @@ import { ConfigurationLoadingScreen } from "@/components/ui/loading-screen"
 import { FileUpload } from "@/components/ui/file-upload"
 import { DatePicker } from "@/components/ui/date-picker"
 import { TimePicker } from "@/components/ui/time-picker"
-import { AlertCircle, Video, HelpCircle, ChevronLeft, ChevronRight } from "lucide-react"
+import { AlertCircle, Video, HelpCircle, ChevronLeft, ChevronRight, Play } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 import { cn } from "@/lib/utils"
 import GoogleMeetCard from "@/components/ui/google-meet-card"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { useWorkflowTestStore } from "@/stores/workflowTestStore"
 
 interface ConfigurationModalProps {
   isOpen: boolean
@@ -72,6 +73,18 @@ export default function ConfigurationModal({
   const [segmentTestResult, setSegmentTestResult] = useState<any>(null)
   const [isSegmentTestLoading, setIsSegmentTestLoading] = useState(false)
   const [showDataFlowPanels, setShowDataFlowPanels] = useState(false)
+
+  // Test store integration
+  const { getNodeInputOutput, isNodeInExecutionPath, hasTestResults } = useWorkflowTestStore()
+  const hasTestData = currentNodeId ? isNodeInExecutionPath(currentNodeId) : false
+  const nodeTestData = currentNodeId ? getNodeInputOutput(currentNodeId) : null
+
+  // Auto-show data flow panels when test data is available
+  useEffect(() => {
+    if (hasTestData && nodeTestData) {
+      setShowDataFlowPanels(true)
+    }
+  }, [hasTestData, nodeTestData])
 
   // Function to get user's timezone
   const getUserTimezone = () => {
@@ -733,6 +746,30 @@ export default function ConfigurationModal({
   const handleTestWorkflowSegment = async () => {
     if (!nodeInfo?.testable || !workflowData || !currentNodeId) return
     
+    // Prevent testing pending nodes
+    if (currentNodeId.startsWith('pending-')) {
+      console.warn('Cannot test pending node:', currentNodeId)
+      return
+    }
+    
+    // Validate that the target node exists in the workflow
+    if (!workflowData.nodes?.find(n => n.id === currentNodeId)) {
+      console.error('Target node not found in workflow:', currentNodeId)
+      setSegmentTestResult({
+        success: false,
+        error: `Target node "${currentNodeId}" not found in workflow`
+      })
+      setShowDataFlowPanels(true)
+      return
+    }
+    
+    console.log('Debug: Test workflow segment request data:', {
+      currentNodeId,
+      workflowNodesCount: workflowData.nodes?.length || 0,
+      workflowEdgesCount: workflowData.edges?.length || 0,
+      availableNodeIds: workflowData.nodes?.map(n => n.id) || []
+    })
+    
     setIsSegmentTestLoading(true)
     setSegmentTestResult(null)
     
@@ -757,10 +794,13 @@ export default function ConfigurationModal({
       
       const result = await response.json()
       
+      console.log('Debug: Test workflow segment response:', result)
+      
       if (result.success) {
         setSegmentTestResult(result)
         setShowDataFlowPanels(true)
       } else {
+        console.error('Test failed:', result.error)
         setSegmentTestResult({
           success: false,
           error: result.error || "Test failed"
@@ -768,9 +808,10 @@ export default function ConfigurationModal({
         setShowDataFlowPanels(true)
       }
     } catch (error: any) {
+      console.error('Test error:', error)
       setSegmentTestResult({
         success: false,
-        error: `Test failed: ${error.message}`
+        error: `Test failed with error: "${error.message}"`
       })
       setShowDataFlowPanels(true)
     } finally {
@@ -1691,15 +1732,30 @@ export default function ConfigurationModal({
         <DialogContent className={`${
           ((nodeInfo?.type === "google_sheets_unified_action" && config.action) || 
            (nodeInfo?.type === "google_sheets_action_read_data" && config.spreadsheetId && config.sheetName && config.readMode) ||
-           (nodeInfo?.type === "google_sheets_action_create_spreadsheet" && config.columnCount && config.columnCount > 0))
+           (nodeInfo?.type === "google_sheets_action_create_spreadsheet" && config.columnCount && config.columnCount > 0) ||
+           showDataFlowPanels)
             ? "max-w-[95vw] w-[95vw]" 
             : "max-w-2xl"
         } max-h-[90vh] overflow-y-auto flex flex-col`}>
-        <DialogHeader>
-          <DialogTitle>
-            Configure {nodeInfo?.title} on {integrationName}
-          </DialogTitle>
-          <DialogDescription>{nodeInfo?.description}</DialogDescription>
+        <DialogHeader className="flex flex-row items-start justify-between space-y-0 pb-4">
+          <div className="space-y-1.5">
+            <DialogTitle>
+              Configure {nodeInfo?.title} on {integrationName}
+            </DialogTitle>
+            <DialogDescription>{nodeInfo?.description}</DialogDescription>
+          </div>
+          {nodeInfo?.testable && workflowData && currentNodeId && !currentNodeId.startsWith('pending-') && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleTestWorkflowSegment}
+              disabled={isSegmentTestLoading || loadingDynamic}
+              className="flex items-center gap-2 mt-0"
+            >
+              <Play className="w-4 h-4" />
+              {isSegmentTestLoading ? "Testing..." : "Test Step"}
+            </Button>
+          )}
         </DialogHeader>
         
         {nodeInfo?.type === "google-drive:create_file" && (
@@ -2467,9 +2523,26 @@ export default function ConfigurationModal({
         ) : (
           // Default configuration form for other node types
           <>
-            <div className="space-y-6 py-4">
-              <div className="space-y-6">
-                {nodeInfo.configSchema?.map((field) => {
+            {showDataFlowPanels && nodeTestData ? (
+              <div className="flex gap-6 flex-1">
+                {/* Input Panel */}
+                <div className="w-64 flex-shrink-0 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                    <h4 className="text-sm font-medium">Input Data</h4>
+                  </div>
+                  <div className="bg-blue-50 border border-blue-200 rounded p-3 max-h-[300px] overflow-y-auto">
+                    <pre className="text-xs whitespace-pre-wrap break-words">
+                      {JSON.stringify(nodeTestData.input, null, 2)}
+                    </pre>
+                  </div>
+                </div>
+
+                {/* Main Content */}
+                <div className="flex-1 min-w-0">
+                  <div className="space-y-6 py-4">
+                    <div className="space-y-6">
+                      {nodeInfo.configSchema?.map((field) => {
                   // Hide time fields and their labels for Google Calendar when "All Day" is enabled
                   if (nodeInfo?.type === "google_calendar_action_create_event" && field.type === "time" && config.allDay) {
                     return null
@@ -2591,6 +2664,147 @@ export default function ConfigurationModal({
                 </div>
               </div>
             )}
+                </div>
+
+                {/* Output Panel */}
+                <div className="w-64 flex-shrink-0 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                    <h4 className="text-sm font-medium">Output Data</h4>
+                  </div>
+                  <div className="bg-green-50 border border-green-200 rounded p-3 max-h-[300px] overflow-y-auto">
+                    <pre className="text-xs whitespace-pre-wrap break-words">
+                      {JSON.stringify(nodeTestData.output, null, 2)}
+                    </pre>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-6 py-4">
+                <div className="space-y-6">
+                  {nodeInfo.configSchema?.map((field) => {
+                    // Hide time fields and their labels for Google Calendar when "All Day" is enabled
+                    if (nodeInfo?.type === "google_calendar_action_create_event" && field.type === "time" && config.allDay) {
+                      return null
+                    }
+                    // Hide time zone field and label for Google Calendar when "All Day" is enabled
+                    if (nodeInfo?.type === "google_calendar_action_create_event" && field.name === "timeZone" && config.allDay) {
+                      return null
+                    }
+                    
+                    // Hide fields that depend on other fields that haven't been selected
+                    if (!shouldShowField(field)) {
+                      return null
+                    }
+                    
+                    // Special handling for boolean fields (checkboxes)
+                    if (field.type === "boolean") {
+                      return (
+                        <div key={field.name} className="flex flex-col space-y-2 pb-4 border-b border-border/50 last:border-b-0 last:pb-0">
+                          {renderField(field)}
+                          {errors[field.name] && (
+                            <p className="text-red-500 text-sm mt-1">{errors[field.name]}</p>
+                          )}
+                        </div>
+                      )
+                    }
+                    
+                    // For all other fields, use a more dynamic layout
+                    return (
+                      <div key={field.name} className="flex flex-col space-y-3 pb-4 border-b border-border/50 last:border-b-0 last:pb-0">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1">
+                            <Label htmlFor={field.name} className="text-sm font-medium text-foreground min-w-0 flex-shrink-0 pr-4">
+                              {field.label}
+                              {field.required && <span className="text-red-500 ml-1">*</span>}
+                            </Label>
+                            {field.name === "outputFormat" && (
+                              <Tooltip delayDuration={0}>
+                                <TooltipTrigger asChild>
+                                  <button type="button" className="inline-flex items-center">
+                                    <HelpCircle className="w-4 h-4 text-muted-foreground hover:text-primary cursor-pointer transition-colors" />
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent side="right" className="max-w-none p-4" sideOffset={8}>
+                                  {renderOutputFormatTooltip()}
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
+                          </div>
+                        </div>
+                        <div className="w-full">
+                          {renderField(field)}
+                        </div>
+                        {errors[field.name] && (
+                          <p className="text-red-500 text-sm mt-1">{errors[field.name]}</p>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              
+              {hasRequiredFields && (
+                <div className="text-xs text-muted-foreground px-1">
+                  * Required fields must be filled out before saving
+                </div>
+              )}
+              
+              {/* Test Output Display */}
+              {showTestOutput && testResult && (
+                <div className="border-t pt-4">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm font-medium">Test Output</h4>
+                      <Button variant="ghost" size="sm" onClick={() => setShowTestOutput(false)}>
+                        ×
+                      </Button>
+                    </div>
+                    
+                    {testResult.success ? (
+                      <div className="space-y-3">
+                        <div className="text-sm text-green-600 bg-green-50 p-2 rounded">
+                          {testResult.message}
+                        </div>
+                        
+                        {testResult.output && (
+                          <div className="space-y-2">
+                            <div className="text-xs font-medium text-muted-foreground">Sample Output Data:</div>
+                            <div className="bg-muted/50 p-3 rounded text-xs font-mono max-h-32 overflow-y-auto">
+                              <pre>{JSON.stringify(testResult.output, null, 2)}</pre>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {nodeInfo?.outputSchema && (
+                          <div className="space-y-2">
+                            <div className="text-xs font-medium text-muted-foreground">Available Output Fields:</div>
+                            <div className="space-y-1">
+                              {nodeInfo.outputSchema.map((field) => (
+                                <div key={field.name} className="text-xs border rounded p-2">
+                                  <div className="font-medium">{field.label} ({field.type})</div>
+                                  <div className="text-muted-foreground">{field.description}</div>
+                                  {field.example && (
+                                    <div className="text-blue-600 font-mono mt-1">
+                                      Example: {typeof field.example === 'object' ? JSON.stringify(field.example) : field.example}
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-sm text-red-600 bg-red-50 p-2 rounded">
+                        {testResult.message}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            )}
 
             <DialogFooter>
               <div className="flex items-center gap-2 w-full">
@@ -2598,15 +2812,7 @@ export default function ConfigurationModal({
                   <Button variant="outline" onClick={onClose}>
                     Cancel
                   </Button>
-                  {nodeInfo?.testable && workflowData && currentNodeId && (
-                    <Button 
-                      variant="secondary"
-                      onClick={handleTestWorkflowSegment}
-                      disabled={isSegmentTestLoading || loadingDynamic}
-                    >
-                      {isSegmentTestLoading ? "Testing..." : "Test Workflow"}
-                    </Button>
-                  )}
+                  {/* Removed duplicate test button since it's now in header */}
                 </div>
                 <div className="flex-1" />
                 <Button 

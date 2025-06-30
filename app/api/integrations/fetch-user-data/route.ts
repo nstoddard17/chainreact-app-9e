@@ -136,14 +136,14 @@ export async function POST(request: NextRequest) {
     console.log(`🌐 Fetching ${dataType} for ${provider}${preload ? " (preload)" : ""}`)
     const startTime = Date.now()
 
-          const data = await fetchWithRetry(
+    const data = await fetchWithRetry(
         () => fetcher({ ...integration, access_token: validToken }, { batchSize, ...additionalParams }),
-        3, // max retries
-        2000, // initial delay
-      )
+      3, // max retries
+      2000, // initial delay
+    )
 
-      const endTime = Date.now()
-      console.log(`✅ Fetched ${data.length} ${dataType} for ${provider} in ${endTime - startTime}ms`)
+    const endTime = Date.now()
+    console.log(`✅ Fetched ${data.length} ${dataType} for ${provider} in ${endTime - startTime}ms`)
 
     return NextResponse.json(
       {
