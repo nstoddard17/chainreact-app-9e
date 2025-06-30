@@ -12,12 +12,14 @@ import { Check, Loader2, AlertTriangle } from "lucide-react"
 interface PlanSelectorProps {
   plans: any[]
   currentSubscription: any
+  targetPlanId?: string
 }
 
-export default function PlanSelector({ plans, currentSubscription }: PlanSelectorProps) {
+export default function PlanSelector({ plans, currentSubscription, targetPlanId }: PlanSelectorProps) {
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly")
   const [processingPlanId, setProcessingPlanId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [expandedPlanId, setExpandedPlanId] = useState<string | null>(targetPlanId || null)
   const { createCheckoutSession } = useBillingStore()
 
   const handleSelectPlan = async (planId: string) => {
@@ -45,6 +47,10 @@ export default function PlanSelector({ plans, currentSubscription }: PlanSelecto
     } finally {
       setProcessingPlanId(null)
     }
+  }
+
+  const togglePlanExpansion = (planId: string) => {
+    setExpandedPlanId(expandedPlanId === planId ? null : planId)
   }
 
   const currentPlanId = currentSubscription?.plan_id
@@ -95,6 +101,8 @@ export default function PlanSelector({ plans, currentSubscription }: PlanSelecto
                 billingCycle="monthly"
                 isCurrentPlan={plan.id === currentPlanId}
                 isProcessing={processingPlanId === plan.id}
+                isExpanded={expandedPlanId === plan.id}
+                onToggleExpand={() => togglePlanExpansion(plan.id)}
                 isDisabled={!hasStripeConfig}
                 onSelect={() => handleSelectPlan(plan.id)}
               />
@@ -112,6 +120,8 @@ export default function PlanSelector({ plans, currentSubscription }: PlanSelecto
                 billingCycle="yearly"
                 isCurrentPlan={plan.id === currentPlanId}
                 isProcessing={processingPlanId === plan.id}
+                isExpanded={expandedPlanId === plan.id}
+                onToggleExpand={() => togglePlanExpansion(plan.id)}
                 isDisabled={!hasStripeConfig}
                 onSelect={() => handleSelectPlan(plan.id)}
               />
@@ -129,15 +139,27 @@ interface PlanCardProps {
   billingCycle: "monthly" | "yearly"
   isCurrentPlan: boolean
   isProcessing: boolean
+  isExpanded: boolean
+  onToggleExpand: () => void
   isDisabled: boolean
   onSelect: () => void
 }
 
-function PlanCard({ plan, price, billingCycle, isCurrentPlan, isProcessing, isDisabled, onSelect }: PlanCardProps) {
+function PlanCard({ 
+  plan, 
+  price, 
+  billingCycle, 
+  isCurrentPlan, 
+  isProcessing, 
+  isExpanded,
+  onToggleExpand,
+  isDisabled, 
+  onSelect 
+}: PlanCardProps) {
   return (
     <Card
       className={`bg-white rounded-2xl shadow-lg border transition-all duration-300 transform hover:-translate-y-1 ${
-        isCurrentPlan ? "border-blue-500 ring-2 ring-blue-200" : "border-slate-200"
+        isCurrentPlan ? "border-blue-500 ring-2 ring-blue-200" : isExpanded ? "border-blue-300" : "border-slate-200"
       } ${isDisabled ? "opacity-60" : ""}`}
     >
       <CardContent className="p-6">
@@ -150,33 +172,57 @@ function PlanCard({ plan, price, billingCycle, isCurrentPlan, isProcessing, isDi
           <p className="text-sm text-slate-500 mt-2">{plan.description}</p>
         </div>
 
-        <div className="space-y-4 mb-6">
-          {plan.features.map((feature: string, index: number) => (
-            <div key={index} className="flex items-center">
-              <Check className="w-5 h-5 text-green-500 mr-2 flex-shrink-0" />
-              <span className="text-sm text-slate-700">{feature}</span>
-            </div>
-          ))}
-        </div>
+        {isExpanded && (
+          <div className="space-y-4 mb-6">
+            {plan.features.map((feature: string, index: number) => (
+              <div key={index} className="flex items-center">
+                <Check className="w-5 h-5 text-green-500 mr-2 flex-shrink-0" />
+                <span className="text-sm text-slate-700">{feature}</span>
+              </div>
+            ))}
+          </div>
+        )}
 
-        <Button
-          className="w-full bg-white text-black border border-slate-200 hover:bg-slate-100 active:bg-slate-200"
-          disabled={isCurrentPlan || isProcessing || isDisabled}
-          onClick={onSelect}
-        >
-          {isProcessing ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Processing...
-            </>
-          ) : isCurrentPlan ? (
-            "Current Plan"
-          ) : isDisabled ? (
-            "Coming Soon"
-          ) : (
-            `Select ${plan.name}`
+        <div className="flex flex-col space-y-3">
+          {!isExpanded && (
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={onToggleExpand}
+            >
+              View Details
+            </Button>
           )}
-        </Button>
+
+          <Button
+            className="w-full bg-white text-black border border-slate-200 hover:bg-slate-100 active:bg-slate-200"
+            disabled={isCurrentPlan || isProcessing || isDisabled}
+            onClick={onSelect}
+          >
+            {isProcessing ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Processing...
+              </>
+            ) : isCurrentPlan ? (
+              "Current Plan"
+            ) : isDisabled ? (
+              "Coming Soon"
+            ) : (
+              `Select ${plan.name}`
+            )}
+          </Button>
+
+          {isExpanded && (
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={onToggleExpand}
+            >
+              Hide Details
+            </Button>
+          )}
+        </div>
       </CardContent>
     </Card>
   )
