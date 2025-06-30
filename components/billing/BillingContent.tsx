@@ -7,10 +7,13 @@ import SubscriptionDetails from "./SubscriptionDetails"
 import UsageStats from "./UsageStats"
 import { Card, CardContent } from "@/components/ui/card"
 import { Loader2 } from "lucide-react"
+import { useSearchParams } from "next/navigation"
 
 export default function BillingContent() {
   const { plans, currentSubscription, usage, loading, error, fetchPlans, fetchSubscription, fetchUsage } =
     useBillingStore()
+  const searchParams = useSearchParams()
+  const targetPlanId = searchParams.get("plan")
 
   useEffect(() => {
     fetchPlans()
@@ -52,7 +55,7 @@ export default function BillingContent() {
 
       <div>
         <h2 className="text-2xl font-bold mb-6">{currentSubscription ? "Change Plan" : "Choose Your Plan"}</h2>
-        <PlanSelector plans={plans} currentSubscription={currentSubscription} />
+        <PlanSelector plans={plans} currentSubscription={currentSubscription} targetPlanId={targetPlanId || undefined} />
       </div>
     </div>
   )

@@ -137,11 +137,17 @@ export function IntegrationCard({
       )
     }
 
+    // Add special class for icons that need inverted colors in dark mode
+    const needsInversion = ['airtable', 'github', 'google-docs', 'instagram', 'tiktok', 'x'].includes(provider.id)
+    
     return (
       <img
         src={logoPath}
         alt={`${provider.name} logo`}
-        className="w-6 h-6 object-contain"
+        className={cn(
+          "w-6 h-6 object-contain",
+          needsInversion && "dark:invert"
+        )}
         onError={handleImageError}
         onLoad={() => setImageError(false)}
       />
