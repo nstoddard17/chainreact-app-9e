@@ -670,12 +670,14 @@ async function readGoogleSheetsData(config: any, userId: string, input: Record<s
     return { 
       success: true, 
       output: { 
+        // Core output fields matching the schema
         data: outputData,
         headers: includeHeaders ? headers : undefined,
-        format: outputFormat,
         rowsRead: dataRows.length,
+        format: outputFormat,
         spreadsheetId,
         sheetName,
+        // Additional metadata
         readMode,
         readAt: new Date().toISOString()
       },
