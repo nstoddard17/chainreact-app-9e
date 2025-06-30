@@ -2119,6 +2119,287 @@ export default function ConfigurationModal({
               </Button>
             </DialogFooter>
           </div>
+        ) : nodeInfo?.type === "if_then_condition" ? (
+          // If/Then Condition Configuration
+          <div className="flex flex-col flex-1">
+            <div className="space-y-4 py-4">
+              <div className="text-sm font-medium text-foreground">Configure Condition</div>
+              
+              {/* Condition Type */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Condition Type</Label>
+                <Select value={config.conditionType || "simple"} onValueChange={(value) => setConfig(prev => ({ ...prev, conditionType: value }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select condition type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="simple">Simple Comparison</SelectItem>
+                    <SelectItem value="multiple">Multiple Conditions</SelectItem>
+                    <SelectItem value="advanced">Advanced Expression</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Simple Condition */}
+              {config.conditionType === "simple" && (
+                <div className="space-y-4 p-4 border rounded-lg bg-muted/20">
+                  <div className="text-sm font-medium">Simple Condition</div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <Input
+                      placeholder="Field to check"
+                      value={config.fieldName || ""}
+                      onChange={(e) => setConfig(prev => ({ ...prev, fieldName: e.target.value }))}
+                    />
+                    <Select value={config.operator || "equals"} onValueChange={(value) => setConfig(prev => ({ ...prev, operator: value }))}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="equals">equals</SelectItem>
+                        <SelectItem value="not_equals">not equals</SelectItem>
+                        <SelectItem value="greater_than">greater than</SelectItem>
+                        <SelectItem value="less_than">less than</SelectItem>
+                        <SelectItem value="greater_equal">greater or equal</SelectItem>
+                        <SelectItem value="less_equal">less or equal</SelectItem>
+                        <SelectItem value="contains">contains</SelectItem>
+                        <SelectItem value="not_contains">does not contain</SelectItem>
+                        <SelectItem value="starts_with">starts with</SelectItem>
+                        <SelectItem value="ends_with">ends with</SelectItem>
+                        <SelectItem value="is_empty">is empty</SelectItem>
+                        <SelectItem value="is_not_empty">is not empty</SelectItem>
+                        <SelectItem value="matches_regex">matches regex</SelectItem>
+                        <SelectItem value="not_matches_regex">does not match regex</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      placeholder="Value to compare"
+                      value={config.fieldValue || ""}
+                      onChange={(e) => setConfig(prev => ({ ...prev, fieldValue: e.target.value }))}
+                    />
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Use template variables like <code>{"{{data.fieldName}}"}</code>
+                  </div>
+                </div>
+              )}
+
+              {/* Multiple Conditions */}
+              {config.conditionType === "multiple" && (
+                <div className="space-y-4 p-4 border rounded-lg bg-muted/20">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm font-medium">Multiple Conditions</div>
+                    <Select value={config.logicalOperator || "AND"} onValueChange={(value) => setConfig(prev => ({ ...prev, logicalOperator: value }))}>
+                      <SelectTrigger className="w-20">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="AND">AND</SelectItem>
+                        <SelectItem value="OR">OR</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  {/* Additional conditions would be added here */}
+                  <div className="text-xs text-muted-foreground">
+                    Multiple condition configuration coming soon
+                  </div>
+                </div>
+              )}
+
+              {/* Advanced Expression */}
+              {config.conditionType === "advanced" && (
+                <div className="space-y-4 p-4 border rounded-lg bg-muted/20">
+                  <div className="text-sm font-medium">Advanced JavaScript Expression</div>
+                  <textarea
+                    className="w-full h-24 p-2 border rounded text-sm font-mono"
+                    placeholder="Enter JavaScript expression (e.g., data.age > 18 && data.status === 'active')"
+                    value={config.expression || ""}
+                    onChange={(e) => setConfig(prev => ({ ...prev, expression: e.target.value }))}
+                  />
+                  <div className="text-xs text-muted-foreground">
+                    Access workflow data using <code>data</code> object. Return true/false.
+                  </div>
+                </div>
+              )}
+
+              {/* Continue/Stop Action */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">If condition is false</Label>
+                <Select value={config.onFalse || "stop"} onValueChange={(value) => setConfig(prev => ({ ...prev, onFalse: value }))}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="stop">Stop workflow execution</SelectItem>
+                    <SelectItem value="continue">Continue to next action</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            
+            <DialogFooter className="flex-shrink-0 pt-4">
+              <Button variant="outline" onClick={onClose}>Cancel</Button>
+              <Button onClick={handleSave}>Save Configuration</Button>
+            </DialogFooter>
+          </div>
+        ) : nodeInfo?.type === "wait_for_time" ? (
+          // Wait for Time Configuration
+          <div className="flex flex-col flex-1">
+            <div className="space-y-4 py-4">
+              <div className="text-sm font-medium text-foreground">Configure Wait Time</div>
+              
+              {/* Wait Type */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Wait Type</Label>
+                <Select value={config.waitType || "duration"} onValueChange={(value) => setConfig(prev => ({ ...prev, waitType: value }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select wait type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="duration">Wait for duration</SelectItem>
+                    <SelectItem value="until_time">Wait until specific time</SelectItem>
+                    <SelectItem value="until_date">Wait until specific date</SelectItem>
+                    <SelectItem value="business_hours">Wait for business hours</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Duration Wait */}
+              {config.waitType === "duration" && (
+                <div className="space-y-4 p-4 border rounded-lg bg-muted/20">
+                  <div className="text-sm font-medium">Wait Duration</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      type="number"
+                      placeholder="Amount"
+                      min="1"
+                      value={config.duration || ""}
+                      onChange={(e) => setConfig(prev => ({ ...prev, duration: parseInt(e.target.value) || 1 }))}
+                    />
+                    <Select value={config.durationUnit || "minutes"} onValueChange={(value) => setConfig(prev => ({ ...prev, durationUnit: value }))}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="seconds">Seconds</SelectItem>
+                        <SelectItem value="minutes">Minutes</SelectItem>
+                        <SelectItem value="hours">Hours</SelectItem>
+                        <SelectItem value="days">Days</SelectItem>
+                        <SelectItem value="weeks">Weeks</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
+
+              {/* Until Time */}
+              {config.waitType === "until_time" && (
+                <div className="space-y-4 p-4 border rounded-lg bg-muted/20">
+                  <div className="text-sm font-medium">Wait Until Time</div>
+                  <Input
+                    type="time"
+                    value={config.specificTime || ""}
+                    onChange={(e) => setConfig(prev => ({ ...prev, specificTime: e.target.value }))}
+                  />
+                  <div className="text-xs text-muted-foreground">
+                    If the time has already passed today, will wait until tomorrow
+                  </div>
+                </div>
+              )}
+
+              {/* Until Date */}
+              {config.waitType === "until_date" && (
+                <div className="space-y-4 p-4 border rounded-lg bg-muted/20">
+                  <div className="text-sm font-medium">Wait Until Date</div>
+                  <Input
+                    type="datetime-local"
+                    value={config.specificDate || ""}
+                    onChange={(e) => setConfig(prev => ({ ...prev, specificDate: e.target.value }))}
+                  />
+                </div>
+              )}
+
+              {/* Business Hours */}
+              {config.waitType === "business_hours" && (
+                <div className="space-y-4 p-4 border rounded-lg bg-muted/20">
+                  <div className="text-sm font-medium">Business Hours Settings</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-xs">Start Time</Label>
+                      <Input
+                        type="time"
+                        value={config.businessHoursStart || "09:00"}
+                        onChange={(e) => setConfig(prev => ({ ...prev, businessHoursStart: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">End Time</Label>
+                      <Input
+                        type="time"
+                        value={config.businessHoursEnd || "17:00"}
+                        onChange={(e) => setConfig(prev => ({ ...prev, businessHoursEnd: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <Label className="text-xs">Business Days</Label>
+                    <Select value={config.businessDays || "weekdays"} onValueChange={(value) => setConfig(prev => ({ ...prev, businessDays: value }))}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="weekdays">Monday - Friday</SelectItem>
+                        <SelectItem value="custom">Custom Days</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
+
+              {/* Timezone */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Timezone</Label>
+                <Select value={config.timezone || "auto"} onValueChange={(value) => setConfig(prev => ({ ...prev, timezone: value }))}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="auto">Auto-detect (Current Timezone)</SelectItem>
+                    <SelectItem value="America/New_York">Eastern Time (EST/EDT)</SelectItem>
+                    <SelectItem value="America/Chicago">Central Time (CST/CDT)</SelectItem>
+                    <SelectItem value="America/Denver">Mountain Time (MST/MDT)</SelectItem>
+                    <SelectItem value="America/Los_Angeles">Pacific Time (PST/PDT)</SelectItem>
+                    <SelectItem value="UTC">UTC</SelectItem>
+                    <SelectItem value="Europe/London">London (GMT/BST)</SelectItem>
+                    <SelectItem value="Europe/Paris">Paris (CET/CEST)</SelectItem>
+                    <SelectItem value="Asia/Tokyo">Tokyo (JST)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Max Wait Time (Safety) */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Maximum Wait Time (hours)</Label>
+                <Input
+                  type="number"
+                  placeholder="24"
+                  min="1"
+                  max="8760"
+                  value={config.maxWaitTime || ""}
+                  onChange={(e) => setConfig(prev => ({ ...prev, maxWaitTime: parseInt(e.target.value) || undefined }))}
+                />
+                <div className="text-xs text-muted-foreground">
+                  Safety limit to prevent workflows from waiting too long (max 1 year)
+                </div>
+              </div>
+            </div>
+            
+            <DialogFooter className="flex-shrink-0 pt-4">
+              <Button variant="outline" onClick={onClose}>Cancel</Button>
+              <Button onClick={handleSave}>Save Configuration</Button>
+            </DialogFooter>
+          </div>
         ) : (
           // Default configuration form for other node types
           <>

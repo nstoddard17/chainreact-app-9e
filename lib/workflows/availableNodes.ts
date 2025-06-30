@@ -112,19 +112,240 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     description: "Filter data based on conditions",
     icon: Filter,
     category: "Logic",
+    providerId: "logic",
     isTrigger: false,
     configSchema: [
       { name: "condition", label: "Condition", type: "textarea", placeholder: "e.g., {{data.value}} > 100" },
     ],
   },
   {
+    type: "if_then_condition",
+    title: "If/Then",
+    description: "Execute actions only if conditions are met",
+    icon: GitBranch,
+    category: "Productivity",
+    providerId: "logic",
+    isTrigger: false,
+    configSchema: [
+      {
+        name: "conditionType",
+        label: "Condition Type",
+        type: "select",
+        required: true,
+        defaultValue: "simple",
+        options: [
+          { value: "simple", label: "Simple Comparison" },
+          { value: "multiple", label: "Multiple Conditions" },
+          { value: "advanced", label: "Advanced Expression" }
+        ],
+        description: "Choose how to define your condition"
+      },
+      {
+        name: "field",
+        label: "Field to Check",
+        type: "text",
+        required: true,
+        placeholder: "e.g., {{data.status}}, {{trigger.email}}, {{previous.result}}",
+        description: "The field or variable to evaluate"
+      },
+      {
+        name: "operator",
+        label: "Operator",
+        type: "select",
+        required: true,
+        options: [
+          { value: "equals", label: "Equals (=)" },
+          { value: "not_equals", label: "Not Equals (≠)" },
+          { value: "greater_than", label: "Greater Than (>)" },
+          { value: "less_than", label: "Less Than (<)" },
+          { value: "greater_equal", label: "Greater Than or Equal (≥)" },
+          { value: "less_equal", label: "Less Than or Equal (≤)" },
+          { value: "contains", label: "Contains" },
+          { value: "not_contains", label: "Does Not Contain" },
+          { value: "starts_with", label: "Starts With" },
+          { value: "ends_with", label: "Ends With" },
+          { value: "is_empty", label: "Is Empty" },
+          { value: "is_not_empty", label: "Is Not Empty" },
+          { value: "exists", label: "Exists" },
+          { value: "not_exists", label: "Does Not Exist" }
+        ],
+        description: "How to compare the field"
+      },
+      {
+        name: "value",
+        label: "Value to Compare",
+        type: "text",
+        placeholder: "e.g., 'approved', 100, {{data.threshold}}",
+        description: "The value to compare against (leave empty for existence checks)"
+      },
+      {
+        name: "logicOperator",
+        label: "Logic Operator",
+        type: "select",
+        defaultValue: "and",
+        options: [
+          { value: "and", label: "AND (all conditions must be true)" },
+          { value: "or", label: "OR (any condition can be true)" }
+        ],
+        description: "How to combine multiple conditions"
+      },
+      {
+        name: "additionalConditions",
+        label: "Additional Conditions",
+        type: "custom",
+        description: "Add more conditions for complex logic"
+      },
+      {
+        name: "advancedExpression",
+        label: "Advanced Expression",
+        type: "textarea",
+        placeholder: "e.g., {{data.score}} > 80 && {{data.status}} === 'active'",
+        description: "Write a custom JavaScript expression for complex conditions"
+      },
+      {
+        name: "continueOnFalse",
+        label: "Continue Workflow if False",
+        type: "boolean",
+        defaultValue: false,
+        description: "If unchecked, workflow stops when condition is false"
+      }
+    ],
+  },
+  {
     type: "delay",
     title: "Delay",
     description: "Pause the workflow for a specified amount of time",
-    category: "Logic",
+    category: "Productivity",
+    providerId: "logic",
     isTrigger: false,
     configSchema: [
       { name: "duration", label: "Duration (seconds)", type: "number", placeholder: "e.g., 60" },
+    ],
+  },
+  {
+    type: "wait_for_time",
+    title: "Wait for Time",
+    description: "Wait until a specific time or for a duration before continuing",
+    icon: Calendar,
+    category: "Logic",
+    providerId: "logic",
+    isTrigger: false,
+    configSchema: [
+      {
+        name: "waitType",
+        label: "Wait Type",
+        type: "select",
+        required: true,
+        defaultValue: "duration",
+        options: [
+          { value: "duration", label: "Wait for Duration" },
+          { value: "until_time", label: "Wait Until Specific Time" },
+          { value: "until_date", label: "Wait Until Specific Date" },
+          { value: "business_hours", label: "Wait for Business Hours" }
+        ],
+        description: "How long to wait"
+      },
+      {
+        name: "duration",
+        label: "Duration",
+        type: "number",
+        placeholder: "e.g., 30",
+        description: "How long to wait"
+      },
+      {
+        name: "durationUnit",
+        label: "Duration Unit",
+        type: "select",
+        defaultValue: "minutes",
+        options: [
+          { value: "seconds", label: "Seconds" },
+          { value: "minutes", label: "Minutes" },
+          { value: "hours", label: "Hours" },
+          { value: "days", label: "Days" },
+          { value: "weeks", label: "Weeks" }
+        ],
+        description: "Unit of time for the duration"
+      },
+      {
+        name: "specificTime",
+        label: "Specific Time",
+        type: "time",
+        placeholder: "14:30",
+        description: "Time to wait until (24-hour format)"
+      },
+      {
+        name: "specificDate",
+        label: "Specific Date",
+        type: "datetime",
+        description: "Exact date and time to wait until"
+      },
+      {
+        name: "businessHoursStart",
+        label: "Business Hours Start",
+        type: "time",
+        defaultValue: "09:00",
+        description: "When business hours start"
+      },
+      {
+        name: "businessHoursEnd",
+        label: "Business Hours End",
+        type: "time",
+        defaultValue: "17:00",
+        description: "When business hours end"
+      },
+      {
+        name: "businessDays",
+        label: "Business Days",
+        type: "select",
+        defaultValue: "weekdays",
+        options: [
+          { value: "weekdays", label: "Monday - Friday" },
+          { value: "custom", label: "Custom Days" }
+        ],
+        description: "Which days are considered business days"
+      },
+      {
+        name: "customBusinessDays",
+        label: "Custom Business Days",
+        type: "select",
+        options: [
+          { value: "monday", label: "Monday" },
+          { value: "tuesday", label: "Tuesday" },
+          { value: "wednesday", label: "Wednesday" },
+          { value: "thursday", label: "Thursday" },
+          { value: "friday", label: "Friday" },
+          { value: "saturday", label: "Saturday" },
+          { value: "sunday", label: "Sunday" }
+        ],
+        description: "Select which days are business days"
+      },
+      {
+        name: "timezone",
+        label: "Timezone",
+        type: "select",
+        defaultValue: "auto",
+        options: [
+          { value: "auto", label: "Auto-detect (Current Timezone)" },
+          { value: "America/New_York", label: "Eastern Time" },
+          { value: "America/Chicago", label: "Central Time" },
+          { value: "America/Denver", label: "Mountain Time" },
+          { value: "America/Los_Angeles", label: "Pacific Time" },
+          { value: "Europe/London", label: "London" },
+          { value: "Europe/Paris", label: "Paris" },
+          { value: "Asia/Tokyo", label: "Tokyo" },
+          { value: "Asia/Shanghai", label: "Shanghai" },
+          { value: "Australia/Sydney", label: "Sydney" },
+          { value: "UTC", label: "UTC" }
+        ],
+        description: "Timezone for time-based waits"
+      },
+      {
+        name: "maxWaitTime",
+        label: "Maximum Wait Time",
+        type: "number",
+        placeholder: "e.g., 24",
+        description: "Maximum hours to wait (optional safety limit)"
+      }
     ],
   },
   {
@@ -133,6 +354,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     description: "Branch workflow based on conditions",
     icon: GitBranch,
     category: "Logic",
+    providerId: "logic",
     isTrigger: false,
     configSchema: [
       { name: "condition", label: "Condition", type: "textarea", placeholder: "e.g., {{data.status}} === 'success'" },
@@ -144,6 +366,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     description: "Run custom Javascript code",
     icon: Code,
     category: "Logic",
+    providerId: "logic",
     isTrigger: false,
     configSchema: [
       { name: "script", label: "JavaScript Code", type: "textarea", placeholder: "return { value: 1 };" },
@@ -154,6 +377,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     title: "Loop",
     description: "Repeat a set of actions for each item in a list",
     category: "Logic",
+    providerId: "logic",
     isTrigger: false,
     configSchema: [
       { name: "items", label: "Items to loop over", type: "text", placeholder: "{{data.array}}" },

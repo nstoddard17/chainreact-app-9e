@@ -189,3 +189,25 @@ export interface WorkflowExecution {
   created_at: string
   updated_at: string
 }
+
+export interface ScheduledWorkflowExecution {
+  id: string
+  workflow_execution_id: string
+  workflow_id: string
+  user_id: string
+  scheduled_for: string
+  schedule_type: "wait" | "cron" | "webhook" | "manual"
+  status: "scheduled" | "processing" | "completed" | "failed" | "cancelled"
+  current_node_id: string
+  next_node_id?: string
+  execution_context: Record<string, any>
+  input_data: Record<string, any>
+  wait_config: Record<string, any>
+  retry_count: number
+  max_retries: number
+  error_message?: string
+  created_at: string
+  updated_at: string
+  processed_at?: string
+  completed_at?: string
+}
