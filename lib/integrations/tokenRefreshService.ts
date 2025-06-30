@@ -438,8 +438,11 @@ export async function refreshTokenForProvider(
   provider: string,
   refreshToken: string,
   integration: Integration,
+  options: { verbose?: boolean } = {}
 ): Promise<RefreshResult> {
-  console.log(`🔄 Starting token refresh for ${provider} (ID: ${integration.id})`)
+  const verbose = options.verbose ?? false;
+  
+  if (verbose) console.log(`🔄 Starting token refresh for ${provider} (ID: ${integration.id})`)
 
   try {
     // Decrypt the refresh token if it appears to be encrypted
@@ -451,7 +454,7 @@ export async function refreshTokenForProvider(
           throw new Error("Encryption secret is not configured")
         }
 
-        console.log(`🔐 Decrypting refresh token for ${provider} (ID: ${integration.id})`)
+        if (verbose) console.log(`🔐 Decrypting refresh token for ${provider} (ID: ${integration.id})`)
         decryptedRefreshToken = decrypt(refreshToken, secret)
       } catch (error: any) {
         console.error(`❌ Failed to decrypt refresh token for ${provider} (ID: ${integration.id}):`, error)
@@ -461,7 +464,7 @@ export async function refreshTokenForProvider(
         }
       }
     } else {
-      console.log(`⚠️ Refresh token for ${provider} (ID: ${integration.id}) does not appear to be encrypted`)
+      if (verbose) console.log(`⚠️ Refresh token for ${provider} (ID: ${integration.id}) does not appear to be encrypted`)
     }
 
     const config = getOAuthConfig(provider)
@@ -471,7 +474,7 @@ export async function refreshTokenForProvider(
       return { success: false, error: `No OAuth config found for provider: ${provider}` }
     }
 
-    console.log(`✅ Found OAuth config for ${provider}: ${config.id}`)
+    if (verbose) console.log(`✅ Found OAuth config for ${provider}: ${config.id}`)
 
     const { clientId, clientSecret } = getOAuthClientCredentials(config)
 
@@ -480,7 +483,7 @@ export async function refreshTokenForProvider(
       return { success: false, error: `Missing client credentials for provider: ${provider}` }
     }
 
-    console.log(`✅ Got client credentials for ${provider}`)
+    if (verbose) console.log(`✅ Got client credentials for ${provider}`)
 
     // Create a fresh URLSearchParams object to avoid "body used already" errors
     const bodyParams: Record<string, string> = {
@@ -492,7 +495,7 @@ export async function refreshTokenForProvider(
       if (config.authMethod === "body") {
         bodyParams.client_id = clientId
         bodyParams.client_secret = clientSecret
-        console.log(`✅ Added client auth to body for ${provider}`)
+        if (verbose) console.log(`✅ Added client auth to body for ${provider}`)
       }
     }
 
@@ -533,7 +536,7 @@ export async function refreshTokenForProvider(
     // Add scope if required by the provider and available in the integration
     if (config.sendScopeWithRefresh && scopeString) {
       bodyParams.scope = scopeString
-      console.log(`✅ Added scope to body for ${provider}: ${scopeString}`)
+      if (verbose) console.log(`✅ Added scope to body for ${provider}: ${scopeString}`)
     }
 
     // HACK: Force add redirect_uri for all Microsoft providers to fix refresh issues
@@ -550,7 +553,7 @@ export async function refreshTokenForProvider(
 
       const redirectUri = `${baseUrl}${redirectPath}`
       bodyParams.redirect_uri = redirectUri
-      console.log(`✅ Added redirect_uri to body for ${provider}: ${redirectUri}`)
+      if (verbose) console.log(`✅ Added redirect_uri to body for ${provider}: ${redirectUri}`)
     }
 
     // Special handling for Airtable
@@ -559,14 +562,14 @@ export async function refreshTokenForProvider(
       const baseUrl = getBaseUrl()
       const redirectUri = `${baseUrl}/api/integrations/airtable/callback`
       bodyParams.redirect_uri = redirectUri
-      console.log(`✅ Added redirect_uri to body for Airtable: ${redirectUri}`)
+      if (verbose) console.log(`✅ Added redirect_uri to body for Airtable: ${redirectUri}`)
 
       // Ensure we're using the correct grant_type for Airtable
       bodyParams.grant_type = "refresh_token"
 
       // Log the refresh token (first few chars) to help debug
       if (decryptedRefreshToken) {
-        console.log(`🔄 Airtable refresh token starts with: ${decryptedRefreshToken.substring(0, 10)}...`)
+        if (verbose) console.log(`🔄 Airtable refresh token starts with: ${decryptedRefreshToken.substring(0, 10)}...`)
       } else {
         console.error(`❌ Airtable refresh token is empty or undefined`)
       }
@@ -579,9 +582,9 @@ export async function refreshTokenForProvider(
         const baseUrl = getBaseUrl()
         const redirectUri = `${baseUrl}${config.redirectUriPath}`
         bodyParams.redirect_uri = redirectUri
-        console.log(`✅ Added redirect_uri to body for ${provider}: ${redirectUri}`)
+        if (verbose) console.log(`✅ Added redirect_uri to body for ${provider}: ${redirectUri}`)
       } else {
-        console.log(`ℹ️ Skipping redirect_uri for Dropbox as it's not supported during refresh`)
+        if (verbose) console.log(`ℹ️ Skipping redirect_uri for Dropbox as it's not supported during refresh`)
       }
     }
 
@@ -590,18 +593,20 @@ export async function refreshTokenForProvider(
     if (config.authMethod === "basic") {
       const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString("base64")
       headers.set("Authorization", `Basic ${basicAuth}`)
-      console.log(`✅ Added Basic auth header for ${provider}`)
+      if (verbose) console.log(`✅ Added Basic auth header for ${provider}`)
     } else if (config.authMethod === "header") {
       headers.set("Client-ID", clientId)
       headers.set("Authorization", `Bearer ${clientSecret}`)
-      console.log(`✅ Added header auth for ${provider}`)
+      if (verbose) console.log(`✅ Added header auth for ${provider}`)
     }
     headers.set("Content-Type", "application/x-www-form-urlencoded")
 
     // Convert bodyParams to URLSearchParams string - create a fresh instance to avoid "body used already"
     const bodyString = new URLSearchParams(bodyParams).toString()
-    console.log(`🔄 Sending refresh request to ${config.tokenEndpoint} for ${provider}`)
-    console.log(`🔄 Request body: ${bodyString}`)
+    if (verbose) {
+      console.log(`🔄 Sending refresh request to ${config.tokenEndpoint} for ${provider}`)
+      console.log(`🔄 Request body: ${bodyString}`)
+    }
 
     try {
       const response = await fetch(config.tokenEndpoint, {
@@ -610,7 +615,7 @@ export async function refreshTokenForProvider(
         body: bodyString,
       })
 
-      console.log(`🔄 Received response from ${provider}: ${response.status} ${response.statusText}`)
+      if (verbose) console.log(`🔄 Received response from ${provider}: ${response.status} ${response.statusText}`)
 
       // Try to parse the response as JSON, but handle non-JSON responses gracefully
       let data: any
@@ -620,14 +625,14 @@ export async function refreshTokenForProvider(
         responseText = await response.text()
         try {
           data = JSON.parse(responseText)
-          console.log(`✅ Parsed JSON response from ${provider}`)
+          if (verbose) console.log(`✅ Parsed JSON response from ${provider}`)
         } catch (error) {
           // If parsing fails, the body might not be JSON. We'll use the raw text.
           console.error(`❌ Failed to parse JSON response from ${provider}: ${responseText}`)
           
           // Special handling for TikTok
           if (provider === 'tiktok') {
-            console.log(`🔄 Attempting to handle non-JSON TikTok response`)
+            if (verbose) console.log(`🔄 Attempting to handle non-JSON TikTok response`)
             
             // Check if it's an HTML response (common with TikTok errors)
             if (responseText.includes('<!DOCTYPE html>') || responseText.includes('<html>')) {
@@ -646,7 +651,7 @@ export async function refreshTokenForProvider(
           }
           // Special handling for Kit
           else if (provider === 'kit') {
-            console.log(`🔄 Attempting to handle non-JSON Kit response`)
+            if (verbose) console.log(`🔄 Attempting to handle non-JSON Kit response`)
             
             // Kit is returning an HTML page instead of JSON
             if (responseText.includes('<!doctype html>') || responseText.includes('<html')) {
@@ -694,7 +699,7 @@ export async function refreshTokenForProvider(
 
         // Special handling for Airtable errors
         if (provider === "airtable") {
-          console.log(`🔄 Airtable error details: ${JSON.stringify(data)}`)
+          if (verbose) console.log(`🔄 Airtable error details: ${JSON.stringify(data)}`)
           if (data.error === "invalid_grant") {
             finalErrorMessage = "Airtable refresh token expired or invalid. User must re-authorize."
             needsReauth = true
@@ -703,7 +708,7 @@ export async function refreshTokenForProvider(
 
         // Special handling for Microsoft-related providers (Teams, OneDrive)
         if (provider === "teams" || provider === "onedrive" || provider.startsWith("microsoft")) {
-          console.log(`🔄 Microsoft error details: ${JSON.stringify(data)}`)
+          if (verbose) console.log(`🔄 Microsoft error details: ${JSON.stringify(data)}`)
           if (data.error === "invalid_grant") {
             finalErrorMessage = `${provider} refresh token expired or invalid. User must re-authorize.`
             needsReauth = true
@@ -711,8 +716,8 @@ export async function refreshTokenForProvider(
         }
         
         // Special handling for TikTok
-        if (provider === "tiktok") {
-          console.log(`🔄 TikTok error details: ${JSON.stringify(data)}`)
+        else if (provider === "tiktok") {
+          if (verbose) console.log(`🔄 TikTok error details: ${JSON.stringify(data)}`)
           
           // Common TikTok error patterns
           if (data.error === "invalid_client") {
@@ -730,7 +735,7 @@ export async function refreshTokenForProvider(
         
         // Special handling for Kit
         else if (provider === "kit") {
-          console.log(`🔄 Kit error details: ${JSON.stringify(data)}`)
+          if (verbose) console.log(`🔄 Kit error details: ${JSON.stringify(data)}`)
           
           if (data.error === "invalid_response" || data.error === "invalid_response_format") {
             finalErrorMessage = data.error_description || "Kit returned an invalid response."
@@ -742,8 +747,8 @@ export async function refreshTokenForProvider(
         }
         
         // Special handling for PayPal
-        if (provider === "paypal") {
-          console.log(`🔄 PayPal error details: ${JSON.stringify(data)}`)
+        else if (provider === "paypal") {
+          if (verbose) console.log(`🔄 PayPal error details: ${JSON.stringify(data)}`)
           if (data.error === "invalid_client") {
             finalErrorMessage = "PayPal client credentials are invalid."
           }
