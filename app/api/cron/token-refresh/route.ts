@@ -148,6 +148,20 @@ export async function GET(request: NextRequest) {
           // Skip if no refresh token
           if (!integration.refresh_token) {
             if (verbose) console.log(`⏭️ [${jobId}] Skipping ${integration.provider} - no refresh token`)
+            
+            // Check if the token is expired and update status if needed
+            if (integration.expires_at && new Date(integration.expires_at) <= now) {
+              if (verbose) console.log(`⚠️ [${jobId}] ${integration.provider} has expired without refresh token - marking as needs_reauthorization`)
+              
+              await supabase
+                .from("integrations")
+                .update({ 
+                  status: "needs_reauthorization",
+                  disconnect_reason: "Access token expired and no refresh token available"
+                })
+                .eq("id", integration.id)
+            }
+            
             continue
           }
 
