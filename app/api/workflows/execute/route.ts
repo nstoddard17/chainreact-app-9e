@@ -372,9 +372,38 @@ async function executeConnectedNodes(sourceNode: any, allNodes: any[], connectio
 
     const targetNode = allNodes.find((n: any) => n.id === connection.target)
     if (targetNode) {
-      // Update context with current node's output
-      context.data = { ...context.data, ...result }
-      await executeNodeAdvanced(targetNode, allNodes, connections, context)
+      // Enhanced data flow: Create a new context that includes the previous node's output
+      const newContext = {
+        ...context,
+        data: {
+          ...context.data,
+          // Add the current node's result as the main data
+          ...result,
+          // Keep track of previous nodes' outputs
+          previousNodeData: {
+            ...context.data.previousNodeData,
+            [sourceNode.id]: result
+          },
+          // Store all node results in a structured way
+          nodeOutputs: {
+            ...context.nodeOutputs,
+            [sourceNode.id]: result
+          }
+        },
+        // Store the immediate previous node for template variables
+        previousNode: {
+          id: sourceNode.id,
+          type: sourceNode.data.type,
+          output: result
+        }
+      }
+      
+      console.log(`Data flow: ${sourceNode.data.type} -> ${targetNode.data.type}`, {
+        sourceOutput: result,
+        availableData: Object.keys(newContext.data)
+      })
+      
+      await executeNodeAdvanced(targetNode, allNodes, connections, newContext)
     }
   }
 }
@@ -769,14 +798,87 @@ function applyTransformation(data: any, transformation: string): any {
 
 function renderTemplate(template: string, context: any, engine: string): string {
   try {
-    // Simple template rendering - in production, use Handlebars, Mustache, etc.
+    // Enhanced template rendering with better data access
     return template.replace(/\{\{([^}]+)\}\}/g, (match, path) => {
-      const value = evaluateExpression(path.trim(), context)
-      return String(value || "")
+      const trimmedPath = path.trim()
+      
+      try {
+        // Create enhanced template context with easy access to data
+        const templateContext = {
+          // Main data (current or most recent node output)
+          data: context.data,
+          // Access to specific node outputs by node ID
+          nodeOutputs: context.nodeOutputs || {},
+          // Previous node data
+          previousNode: context.previousNode || {},
+          // All previous node data
+          previousNodeData: context.data?.previousNodeData || {},
+          // Context variables
+          variables: context.variables || {},
+          // User information
+          userId: context.userId,
+          workflowId: context.workflowId,
+          // Helper functions for common operations
+          helpers: {
+            formatDate: (date: string | Date) => new Date(date).toLocaleDateString(),
+            formatTime: (date: string | Date) => new Date(date).toLocaleTimeString(),
+            formatDateTime: (date: string | Date) => new Date(date).toLocaleString(),
+            uppercase: (str: string) => String(str).toUpperCase(),
+            lowercase: (str: string) => String(str).toLowerCase(),
+            length: (arr: any[] | string) => arr?.length || 0
+          }
+        }
+        
+        // Enhanced path evaluation with better error handling
+        let value
+        
+        // Support for common template patterns
+        if (trimmedPath.startsWith('data.')) {
+          // Direct data access: {{data.email}}
+          const dataPath = trimmedPath.substring(5)
+          value = getNestedValue(context.data, dataPath)
+        } else if (trimmedPath.startsWith('previousNode.')) {
+          // Previous node access: {{previousNode.output.messageId}}
+          const nodePath = trimmedPath.substring(13)
+          value = getNestedValue(context.previousNode, nodePath)
+        } else if (trimmedPath.startsWith('nodeOutputs.')) {
+          // Specific node output access: {{nodeOutputs.node_123.data}}
+          const outputPath = trimmedPath.substring(12)
+          value = getNestedValue(context.nodeOutputs, outputPath)
+        } else if (trimmedPath.startsWith('helpers.')) {
+          // Helper function access: {{helpers.formatDate(data.timestamp)}}
+          value = evaluateExpression(trimmedPath, templateContext)
+        } else {
+          // Default evaluation with enhanced context
+          value = evaluateExpression(trimmedPath, templateContext)
+        }
+        
+        // Handle different value types
+        if (value === null || value === undefined) {
+          return ""
+        } else if (typeof value === 'object') {
+          return JSON.stringify(value)
+        } else {
+          return String(value)
+        }
+        
+      } catch (error) {
+        console.warn(`Template variable evaluation failed for "${trimmedPath}":`, error)
+        return match // Return original if evaluation fails
+      }
     })
   } catch (error) {
     throw new Error(`Template rendering error: ${error}`)
   }
+}
+
+// Helper function to safely access nested object properties
+function getNestedValue(obj: any, path: string): any {
+  if (!obj || !path) return undefined
+  
+  return path.split('.').reduce((current, key) => {
+    return current && current[key] !== undefined ? current[key] : undefined
+  }, obj)
 }
 
 function executeJavaScriptSafely(code: string, context: any, timeout: number): any {
@@ -1801,14 +1903,18 @@ async function executeGmailSendEmailNode(node: any, context: any) {
       workflowId: context.workflowId
     })
 
+    // Return standardized output that matches the output schema
     return {
       type: "gmail_action_send_email",
+      // Core output fields matching the schema
+      messageId: result.output?.messageId || `msg_${Date.now()}`,
+      to: Array.isArray(node.data.config?.to) ? node.data.config.to : [node.data.config?.to].filter(Boolean),
+      subject: renderTemplate(node.data.config?.subject || "", context, "handlebars"),
+      timestamp: new Date().toISOString(),
       success: result.success,
+      // Additional fields for internal use
       message: result.message,
       output: result.output,
-      to: node.data.config?.to,
-      subject: node.data.config?.subject,
-      timestamp: new Date().toISOString(),
     }
   } catch (error: any) {
     throw new Error(`Gmail send email failed: ${error.message}`)
@@ -2199,14 +2305,50 @@ async function executeGoogleDriveUploadFileNode(node: any, context: any) {
       })
       
       // Download the actual file content
-      const fileResponse = await drive.files.get({
-        fileId: fileId,
-        alt: 'media'
-      }, {
-        responseType: 'arraybuffer'
-      })
+      // Check if this is a Google Apps file that needs to be exported
+      if (mimeType.startsWith('application/vnd.google-apps.')) {
+        // This is a Google Apps file (Docs, Sheets, Slides, etc.) - need to export it
+        let exportMimeType = 'application/pdf' // Default to PDF
+        
+        // Map Google Apps MIME types to export formats
+        if (mimeType === 'application/vnd.google-apps.spreadsheet') {
+          exportMimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' // Excel format
+          actualFileName = actualFileName.replace(/\.[^.]*$/, '') + '.xlsx' // Change extension to .xlsx
+        } else if (mimeType === 'application/vnd.google-apps.document') {
+          exportMimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' // Word format
+          actualFileName = actualFileName.replace(/\.[^.]*$/, '') + '.docx'
+        } else if (mimeType === 'application/vnd.google-apps.presentation') {
+          exportMimeType = 'application/vnd.openxmlformats-officedocument.presentationml.presentation' // PowerPoint format
+          actualFileName = actualFileName.replace(/\.[^.]*$/, '') + '.pptx'
+        } else {
+          // For other Google Apps files, export as PDF
+          actualFileName = actualFileName.replace(/\.[^.]*$/, '') + '.pdf'
+        }
+        
+        console.log(`Exporting Google Apps file as ${exportMimeType}`)
+        
+        const exportResponse = await drive.files.export({
+          fileId: fileId,
+          mimeType: exportMimeType
+        }, {
+          responseType: 'arraybuffer'
+        })
+        
+        fileBuffer = Buffer.from(exportResponse.data as ArrayBuffer)
+        mimeType = exportMimeType // Update MIME type to the exported format
+        
+      } else {
+        // Regular file - download as media
+        const fileResponse = await drive.files.get({
+          fileId: fileId,
+          alt: 'media'
+        }, {
+          responseType: 'arraybuffer'
+        })
+        
+        fileBuffer = Buffer.from(fileResponse.data as ArrayBuffer)
+      }
       
-      fileBuffer = Buffer.from(fileResponse.data as ArrayBuffer)
       console.log(`Downloaded Google Drive file: ${actualFileName} (${fileBuffer.length} bytes, ${mimeType})`)
       
     } else {
