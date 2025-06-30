@@ -42,6 +42,7 @@ export interface RefreshTokensOptions {
   refreshTokenExpiryThreshold?: number // Minutes before refresh token expiry to refresh
   retryFailedInLast?: number // Only retry tokens that failed in the last X minutes
   includeInactive?: boolean // Include inactive integrations
+  verbose?: boolean
 }
 
 /**
@@ -88,6 +89,7 @@ export async function refreshTokens(options: RefreshTokensOptions = {}): Promise
 
   // Merge default options with provided options
   const config = { ...DEFAULT_REFRESH_OPTIONS, ...options }
+  const verbose = options.verbose ?? false
 
   // Initialize statistics
   const stats: RefreshStats = {
@@ -179,16 +181,16 @@ export async function refreshTokens(options: RefreshTokensOptions = {}): Promise
           })
 
           if (!needsRefresh.shouldRefresh) {
-            console.log(`No refresh needed for ${integration.provider} (ID: ${integration.id}): ${needsRefresh.reason}`)
+            if (verbose) console.log(`No refresh needed for ${integration.provider} (ID: ${integration.id}): ${needsRefresh.reason}`)
             stats.skipped++
             return
           }
 
-          console.log(`Refreshing token for ${integration.provider} (ID: ${integration.id}): ${needsRefresh.reason}`)
+          if (verbose) console.log(`Refreshing token for ${integration.provider} (ID: ${integration.id}): ${needsRefresh.reason}`)
 
           if (!integration.refresh_token) {
             console.error(
-              `Skipping refresh for ${integration.provider} (ID: ${integration.id}): Refresh token is null.`,
+              `Skipping refresh for ${integration.provider}: Refresh token is null.`,
             )
             stats.skipped++
             return
@@ -207,7 +209,7 @@ export async function refreshTokens(options: RefreshTokensOptions = {}): Promise
 
             if (!config.dryRun) {
               // Update the token in the database
-              await updateIntegrationWithRefreshResult(integration.id, refreshResult)
+              await updateIntegrationWithRefreshResult(integration.id, refreshResult, verbose)
             }
           } else {
             stats.failed++
@@ -225,6 +227,7 @@ export async function refreshTokens(options: RefreshTokensOptions = {}): Promise
                 integration.id,
                 refreshResult.error || "Unknown error during token refresh",
                 { status },
+                verbose
               )
             }
           }
@@ -236,7 +239,7 @@ export async function refreshTokens(options: RefreshTokensOptions = {}): Promise
 
           if (!config.dryRun) {
             // Update integration with error details
-            await updateIntegrationWithError(integration.id, `Unexpected error: ${error.message}`, {})
+            await updateIntegrationWithError(integration.id, `Unexpected error: ${error.message}`, {}, verbose)
           }
         }
       })
@@ -304,7 +307,7 @@ export function shouldRefreshToken(
 /**
  * Update an integration with a successful refresh result
  */
-async function updateIntegrationWithRefreshResult(integrationId: string, refreshResult: RefreshResult): Promise<void> {
+async function updateIntegrationWithRefreshResult(integrationId: string, refreshResult: RefreshResult, verbose: boolean = false): Promise<void> {
   const { accessToken, refreshToken, accessTokenExpiresIn, refreshTokenExpiresIn, scope } = refreshResult
 
   if (!accessToken) {
@@ -320,7 +323,7 @@ async function updateIntegrationWithRefreshResult(integrationId: string, refresh
       .single()
 
     if (fetchError) {
-      console.error(`Error fetching integration ${integrationId}:`, fetchError.message)
+      console.error(`Error fetching integration data:`, fetchError.message)
       throw fetchError
     }
 
@@ -348,9 +351,9 @@ async function updateIntegrationWithRefreshResult(integrationId: string, refresh
 
       encryptedAccessToken = newEncryptedAccessToken
       encryptedRefreshToken = newEncryptedRefreshToken || undefined
-      console.log(`🔐 Encrypted new tokens for integration ID: ${integrationId}`)
+      if (verbose) console.log(`Encrypted new tokens for integration ID: ${integrationId}`)
     } catch (error: any) {
-      console.error(`❌ Failed to encrypt new tokens for integration ID: ${integrationId}:`, error)
+      console.error(`Failed to encrypt tokens:`, error)
       // Continue with unencrypted tokens as fallback
     }
 
@@ -407,9 +410,9 @@ async function updateIntegrationWithRefreshResult(integrationId: string, refresh
       throw error
     }
 
-    console.log(`✅ Updated tokens for integration ID: ${integrationId}`)
+    if (verbose) console.log(`Updated tokens for integration ID: ${integrationId}`)
   } catch (error: any) {
-    console.error(`❌ Failed to update tokens for integration ID: ${integrationId}:`, error)
+    console.error(`Failed to update tokens:`, error)
     throw error
   }
 }
@@ -421,6 +424,7 @@ async function updateIntegrationWithError(
   integrationId: string,
   errorMessage: string,
   additionalData: Record<string, any> = {},
+  verbose: boolean = false
 ): Promise<void> {
   try {
     // Get the current integration data
@@ -431,7 +435,7 @@ async function updateIntegrationWithError(
       .single()
 
     if (fetchError) {
-      console.error(`Error fetching integration ${integrationId}:`, fetchError.message)
+      console.error(`Error fetching integration data:`, fetchError.message)
       throw fetchError
     }
 
@@ -474,10 +478,10 @@ async function updateIntegrationWithError(
     const { error: updateError } = await db.from("integrations").update(updateData).eq("id", integrationId)
 
     if (updateError) {
-      console.error(`Error updating integration ${integrationId} with error:`, updateError.message)
+      console.error(`Error updating integration with error:`, updateError.message)
     }
   } catch (error) {
-    console.error(`Unexpected error updating integration ${integrationId} with error:`, error)
+    console.error(`Unexpected error updating integration with error:`, error)
   }
 }
 
@@ -492,7 +496,8 @@ export async function refreshTokenForProvider(
 ): Promise<RefreshResult> {
   const verbose = options.verbose ?? false;
   
-  if (verbose) console.log(`🔄 Starting token refresh for ${provider} (ID: ${integration.id})`)
+  if (verbose) console.log(`Starting token refresh for ${provider} (ID: ${integration.id})`)
+  else console.log(`Refreshing token for ${provider}`) // No user ID in regular logs
 
   try {
     // Decrypt the refresh token if it appears to be encrypted
@@ -504,36 +509,36 @@ export async function refreshTokenForProvider(
           throw new Error("Encryption secret is not configured")
         }
 
-        if (verbose) console.log(`🔐 Decrypting refresh token for ${provider} (ID: ${integration.id})`)
+        if (verbose) console.log(`Decrypting refresh token for ${provider} (ID: ${integration.id})`)
         decryptedRefreshToken = decrypt(refreshToken, secret)
       } catch (error: any) {
-        console.error(`❌ Failed to decrypt refresh token for ${provider} (ID: ${integration.id}):`, error)
+        console.error(`Failed to decrypt refresh token for ${provider}:`, error)
         return {
           success: false,
           error: `Failed to decrypt refresh token: ${error.message}`,
         }
       }
     } else {
-      if (verbose) console.log(`⚠️ Refresh token for ${provider} (ID: ${integration.id}) does not appear to be encrypted`)
+      if (verbose) console.log(`Refresh token for ${provider} (ID: ${integration.id}) does not appear to be encrypted`)
     }
 
     const config = getOAuthConfig(provider)
 
     if (!config) {
-      console.error(`❌ No OAuth config found for provider: ${provider}`)
+      console.error(`No OAuth config found for provider: ${provider}`)
       return { success: false, error: `No OAuth config found for provider: ${provider}` }
     }
 
-    if (verbose) console.log(`✅ Found OAuth config for ${provider}: ${config.id}`)
+    if (verbose) console.log(`Found OAuth config for ${provider}`)
 
     const { clientId, clientSecret } = getOAuthClientCredentials(config)
 
     if (!clientId || !clientSecret) {
-      console.error(`❌ Missing client credentials for provider: ${provider}`)
+      console.error(`Missing client credentials for provider: ${provider}`)
       return { success: false, error: `Missing client credentials for provider: ${provider}` }
     }
 
-    if (verbose) console.log(`✅ Got client credentials for ${provider}`)
+    if (verbose) console.log(`Got client credentials for ${provider}`)
 
     // Create a fresh URLSearchParams object to avoid "body used already" errors
     const bodyParams: Record<string, string> = {
@@ -545,7 +550,7 @@ export async function refreshTokenForProvider(
       if (config.authMethod === "body") {
         bodyParams.client_id = clientId
         bodyParams.client_secret = clientSecret
-        if (verbose) console.log(`✅ Added client auth to body for ${provider}`)
+        if (verbose) console.log(`Added client auth to body for ${provider}`)
       }
     } else {
       // Some providers like Kit only need client_id, not client_secret for refresh
@@ -553,261 +558,196 @@ export async function refreshTokenForProvider(
         bodyParams.client_id = clientId
         // Remove any client_secret if it was added
         delete bodyParams.client_secret
-        if (verbose) console.log(`✅ Special handling for Kit: added only client_id to body`)
+        if (verbose) console.log(`Special handling for Kit: added only client_id to body`)
       }
     }
 
-    // Add client_id to body if required (for providers like Twitter that need it with Basic Auth)
-    if (config.sendClientIdWithRefresh) {
-      bodyParams.client_id = clientId
-    }
-
-    // Add custom parameters if they exist
-    if (config.additionalRefreshParams) {
-      Object.entries(config.additionalRefreshParams).forEach(([key, value]) => {
-        // Handle special placeholder values
-        if (value === "PLACEHOLDER") {
-          if (key === "fb_exchange_token" && integration.access_token) {
-            bodyParams[key] = integration.access_token
-          } else if (key === "client_key") {
-            bodyParams[key] = clientId
-          }
-        } else {
-          bodyParams[key] = value
-        }
-      })
-    }
-
-    // Determine the scope string from integration.scope or integration.scopes
-    let scopeString: string | undefined = undefined
-    if (integration.scope) {
-      scopeString = integration.scope
-    } else if (integration.scopes) {
-      // Handle both string and array types for scopes
-      if (Array.isArray(integration.scopes)) {
-        scopeString = integration.scopes.join(" ")
-      } else if (typeof integration.scopes === "string") {
-        scopeString = integration.scopes
-      }
-    }
-
-    // Add scope if required by the provider and available in the integration
-    if (config.sendScopeWithRefresh && scopeString) {
+    // Add scope if configured
+    if (config.scope) {
+      const scopeString = Array.isArray(config.scope) ? config.scope.join(" ") : config.scope
       bodyParams.scope = scopeString
-      if (verbose) console.log(`✅ Added scope to body for ${provider}: ${scopeString}`)
+      if (verbose) console.log(`Added scope to body for ${provider}: ${scopeString}`)
     }
 
-    // HACK: Force add redirect_uri for all Microsoft providers to fix refresh issues
-    if (provider.startsWith("microsoft") || provider === "onedrive" || provider === "teams") {
+    // Add redirect_uri if required
+    if (config.sendRedirectUriWithRefresh) {
       const baseUrl = getBaseUrl()
-      // Make sure we're using the correct callback path for each provider
-      let redirectPath = `/api/integrations/${provider}/callback`
-
-      // For Microsoft providers, ensure we're using the correct callback URL
-      // This is crucial as Microsoft is very strict about the redirect URI
-      if (config.redirectUriPath) {
-        redirectPath = config.redirectUriPath
-      }
-
-      const redirectUri = `${baseUrl}${redirectPath}`
+      const redirectUri = `${baseUrl}${config.redirectUriPath}`
       bodyParams.redirect_uri = redirectUri
-      if (verbose) console.log(`✅ Added redirect_uri to body for ${provider}: ${redirectUri}`)
+      if (verbose) console.log(`Added redirect_uri to body for ${provider}: ${redirectUri}`)
     }
 
     // Special handling for Airtable
-    if (provider === "airtable") {
-      // Airtable requires redirect_uri in refresh token requests
+    if (provider === "airtable" && config.redirectUriPath) {
       const baseUrl = getBaseUrl()
-      const redirectUri = `${baseUrl}/api/integrations/airtable/callback`
+      const redirectUri = `${baseUrl}${config.redirectUriPath}`
       bodyParams.redirect_uri = redirectUri
-      if (verbose) console.log(`✅ Added redirect_uri to body for Airtable: ${redirectUri}`)
-
-      // Ensure we're using the correct grant_type for Airtable
-      bodyParams.grant_type = "refresh_token"
-
-      // Log the refresh token (first few chars) to help debug
-      if (decryptedRefreshToken) {
-        if (verbose) console.log(`🔄 Airtable refresh token starts with: ${decryptedRefreshToken.substring(0, 10)}...`)
-      } else {
-        console.error(`❌ Airtable refresh token is empty or undefined`)
-      }
+      if (verbose) console.log(`Added redirect_uri to body for Airtable: ${redirectUri}`)
     }
 
-    // Add redirect_uri for providers that need it during refresh
-    if (config.sendRedirectUriWithRefresh && config.redirectUriPath) {
-      // Skip redirect_uri for Dropbox as it doesn't accept this parameter during refresh
-      if (provider !== 'dropbox') {
-        const baseUrl = getBaseUrl()
-        const redirectUri = `${baseUrl}${config.redirectUriPath}`
-        bodyParams.redirect_uri = redirectUri
-        if (verbose) console.log(`✅ Added redirect_uri to body for ${provider}: ${redirectUri}`)
-      } else {
-        if (verbose) console.log(`ℹ️ Skipping redirect_uri for Dropbox as it's not supported during refresh`)
-      }
+    // Special handling for Dropbox
+    if (provider === "dropbox") {
+      if (verbose) console.log(`Skipping redirect_uri for Dropbox as it's not supported during refresh`)
+      delete bodyParams.redirect_uri
     }
 
-    // Prepare the request
+    // Prepare the request headers
     const headers = new Headers()
     if (config.authMethod === "basic") {
       const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString("base64")
       headers.set("Authorization", `Basic ${basicAuth}`)
-      if (verbose) console.log(`✅ Added Basic auth header for ${provider}`)
+      if (verbose) console.log(`Added Basic auth header for ${provider}`)
     } else if (config.authMethod === "header") {
       headers.set("Client-ID", clientId)
       headers.set("Authorization", `Bearer ${clientSecret}`)
-      if (verbose) console.log(`✅ Added header auth for ${provider}`)
+      if (verbose) console.log(`Added header auth for ${provider}`)
     }
     headers.set("Content-Type", "application/x-www-form-urlencoded")
 
-    // Convert bodyParams to URLSearchParams string - create a fresh instance to avoid "body used already"
+    // Convert bodyParams to string
     const bodyString = new URLSearchParams(bodyParams).toString()
+
+    // Log the request details
     if (verbose) {
-      console.log(`🔄 Sending refresh request to ${config.tokenEndpoint} for ${provider}`)
-      console.log(`🔄 Request body: ${bodyString}`)
+      console.log(`Sending refresh request to ${config.tokenEndpoint} for ${provider}`)
+      console.log(`Request body: ${bodyString}`)
+    } else {
+      console.log(`Refreshing token for ${provider}`)
     }
 
+    // Make the request
+    const response = await fetch(config.tokenEndpoint, {
+      method: "POST",
+      headers,
+      body: bodyString,
+    })
+
+    if (verbose) console.log(`Received response from ${provider}: ${response.status} ${response.statusText}`)
+
+    // Try to parse the response as JSON, but handle non-JSON responses gracefully
+    let responseData: any
     try {
-      const response = await fetch(config.tokenEndpoint, {
-        method: "POST",
-        headers,
-        body: bodyString,
-      })
-
-      if (verbose) console.log(`🔄 Received response from ${provider}: ${response.status} ${response.statusText}`)
-
-      // Try to parse the response as JSON, but handle non-JSON responses gracefully
-      let responseData: any
-      try {
-        responseData = await response.json()
-      } catch (parseError: any) {
-        const responseText = await response.text()
-        
-        // Check if the response is HTML (common with Kit and some other providers)
-        if (responseText.trim().startsWith("<!doctype html>") || responseText.trim().startsWith("<html")) {
-          console.error(`❌ Failed to parse JSON response from ${provider}: ${responseText.substring(0, 200)}...`)
-          return {
-            success: false,
-            error: `Provider returned HTML instead of JSON. The refresh token may be invalid or the provider's API may have changed.`,
-            statusCode: response.status,
-            needsReauthorization: true
-          }
-        }
-        
-        console.error(`❌ Failed to parse JSON response from ${provider}:`, parseError)
+      responseData = await response.json()
+    } catch (parseError: any) {
+      const responseText = await response.text()
+      
+      // Check if the response is HTML (common with Kit and some other providers)
+      if (responseText.trim().startsWith("<!doctype html>") || responseText.trim().startsWith("<html")) {
+        console.error(`❌ Failed to parse JSON response from ${provider}: ${responseText.substring(0, 200)}...`)
         return {
           success: false,
-          error: `Failed to parse response: ${parseError.message}`,
-          statusCode: response.status
-        }
-      }
-
-      if (!response.ok) {
-        const errorMessage = responseData.error_description || responseData.error || `HTTP ${response.status} - ${response.statusText}`
-        console.error(
-          `Failed to refresh token for ${provider} (ID: ${integration.id}). ` +
-            `Status: ${response.status}. ` +
-            `Error: ${errorMessage}. ` +
-            `Response: ${JSON.stringify(responseData)}`,
-        )
-
-        // Check for specific error codes that indicate an invalid refresh token
-        const isInvalidGrant = responseData.error === "invalid_grant"
-        const isInvalidOrExpiredToken = isInvalidGrant || response.status === 401
-
-        // Provider-specific error handling
-        let finalErrorMessage = errorMessage
-        let needsReauth = isInvalidOrExpiredToken
-
-        // Special handling for Airtable errors
-        if (provider === "airtable") {
-          if (verbose) console.log(`🔄 Airtable error details: ${JSON.stringify(responseData)}`)
-          if (responseData.error === "invalid_grant") {
-            finalErrorMessage = "Airtable refresh token expired or invalid. User must re-authorize."
-            needsReauth = true
-          }
-        }
-
-        // Special handling for Microsoft-related providers (Teams, OneDrive)
-        if (provider === "teams" || provider === "onedrive" || provider.startsWith("microsoft")) {
-          if (verbose) console.log(`🔄 Microsoft error details: ${JSON.stringify(responseData)}`)
-          if (responseData.error === "invalid_grant") {
-            finalErrorMessage = `${provider} refresh token expired or invalid. User must re-authorize.`
-            needsReauth = true
-          }
-        }
-        
-        // Special handling for TikTok
-        else if (provider === "tiktok") {
-          if (verbose) console.log(`🔄 TikTok error details: ${JSON.stringify(responseData)}`)
-          
-          // Common TikTok error patterns
-          if (responseData.error === "invalid_client") {
-            finalErrorMessage = "TikTok client credentials are invalid or expired."
-          } else if (responseData.error === "invalid_request") {
-            finalErrorMessage = "TikTok refresh token request was invalid."
-          } else if (responseData.error === "invalid_response" || responseData.error === "invalid_response_format") {
-            finalErrorMessage = responseData.error_description || "TikTok returned an invalid response."
-            needsReauth = true; // HTML responses usually indicate an expired token
-          } else if (response.status === 401) {
-            finalErrorMessage = "TikTok authorization failed. The refresh token may be expired."
-            needsReauth = true;
-          }
-        }
-        
-        // Special handling for Kit
-        else if (provider === "kit") {
-          if (verbose) console.log(`🔄 Kit error details: ${JSON.stringify(responseData)}`)
-          
-          if (responseData.error === "invalid_response" || responseData.error === "invalid_response_format") {
-            finalErrorMessage = responseData.error_description || "Kit returned an invalid response."
-            needsReauth = true; // HTML responses usually indicate an expired token
-          } else if (response.status === 401) {
-            finalErrorMessage = "Kit authorization failed. The refresh token may be expired."
-            needsReauth = true;
-          }
-        }
-        
-        // Special handling for PayPal
-        else if (provider === "paypal") {
-          if (verbose) console.log(`🔄 PayPal error details: ${JSON.stringify(responseData)}`)
-          if (responseData.error === "invalid_client") {
-            finalErrorMessage = "PayPal client credentials are invalid."
-          }
-        }
-
-        return {
-          success: false,
-          error: finalErrorMessage,
+          error: `Provider returned HTML instead of JSON. The refresh token may be invalid or the provider's API may have changed.`,
           statusCode: response.status,
-          providerResponse: responseData,
-          invalidRefreshToken: needsReauth,
-          needsReauthorization: needsReauth,
+          needsReauthorization: true
         }
       }
-
-      const newAccessToken = responseData.access_token
-      const newRefreshToken = responseData.refresh_token
-      const expiresIn = responseData.expires_in
-      const refreshExpiresIn = responseData.refresh_expires_in
-      const newScope = responseData.scope
-
-      return {
-        success: true,
-        accessToken: newAccessToken,
-        refreshToken: newRefreshToken,
-        accessTokenExpiresIn: expiresIn,
-        refreshTokenExpiresIn: refreshExpiresIn,
-        scope: newScope,
-        providerResponse: responseData,
-      }
-    } catch (fetchError: any) {
-      console.error(`❌ Network error during token refresh for ${provider}: ${fetchError.message}`)
+      
+      console.error(`❌ Failed to parse JSON response from ${provider}:`, parseError)
       return {
         success: false,
-        error: `Network error during token refresh: ${fetchError.message}`,
-        statusCode: 0,
-        needsReauthorization: false,
+        error: `Failed to parse response: ${parseError.message}`,
+        statusCode: response.status
       }
+    }
+
+    if (!response.ok) {
+      const errorMessage = responseData.error_description || responseData.error || `HTTP ${response.status} - ${response.statusText}`
+      console.error(
+        `Failed to refresh token for ${provider} (ID: ${integration.id}). ` +
+          `Status: ${response.status}. ` +
+          `Error: ${errorMessage}. ` +
+          `Response: ${JSON.stringify(responseData)}`,
+      )
+
+      // Check for specific error codes that indicate an invalid refresh token
+      const isInvalidGrant = responseData.error === "invalid_grant"
+      const isInvalidOrExpiredToken = isInvalidGrant || response.status === 401
+
+      // Provider-specific error handling
+      let finalErrorMessage = errorMessage
+      let needsReauth = isInvalidOrExpiredToken
+
+      // Special handling for Airtable errors
+      if (provider === "airtable") {
+        if (verbose) console.log(`Airtable error details: ${JSON.stringify(responseData)}`)
+        if (responseData.error === "invalid_grant") {
+          finalErrorMessage = "Airtable refresh token expired or invalid. User must re-authorize."
+          needsReauth = true
+        }
+      }
+
+      // Special handling for Microsoft-related providers (Teams, OneDrive)
+      if (provider === "teams" || provider === "onedrive" || provider.startsWith("microsoft")) {
+        if (verbose) console.log(`Microsoft error details: ${JSON.stringify(responseData)}`)
+        if (responseData.error === "invalid_grant") {
+          finalErrorMessage = `${provider} refresh token expired or invalid. User must re-authorize.`
+          needsReauth = true
+        }
+      }
+      
+      // Special handling for TikTok
+      else if (provider === "tiktok") {
+        if (verbose) console.log(`TikTok error details: ${JSON.stringify(responseData)}`)
+        
+        // Common TikTok error patterns
+        if (responseData.error === "invalid_client") {
+          finalErrorMessage = "TikTok client credentials are invalid or expired."
+        } else if (responseData.error === "invalid_request") {
+          finalErrorMessage = "TikTok refresh token request was invalid."
+        } else if (responseData.error === "invalid_response" || responseData.error === "invalid_response_format") {
+          finalErrorMessage = responseData.error_description || "TikTok returned an invalid response."
+          needsReauth = true; // HTML responses usually indicate an expired token
+        } else if (response.status === 401) {
+          finalErrorMessage = "TikTok authorization failed. The refresh token may be expired."
+          needsReauth = true;
+        }
+      }
+      
+      // Special handling for Kit
+      else if (provider === "kit") {
+        if (verbose) console.log(`Kit error details: ${JSON.stringify(responseData)}`)
+        
+        if (responseData.error === "invalid_response" || responseData.error === "invalid_response_format") {
+          finalErrorMessage = responseData.error_description || "Kit returned an invalid response."
+          needsReauth = true; // HTML responses usually indicate an expired token
+        } else if (response.status === 401) {
+          finalErrorMessage = "Kit authorization failed. The refresh token may be expired."
+          needsReauth = true;
+        }
+      }
+      
+      // Special handling for PayPal
+      else if (provider === "paypal") {
+        if (verbose) console.log(`PayPal error details: ${JSON.stringify(responseData)}`)
+        if (responseData.error === "invalid_client") {
+          finalErrorMessage = "PayPal client credentials are invalid."
+        }
+      }
+
+      return {
+        success: false,
+        error: finalErrorMessage,
+        statusCode: response.status,
+        providerResponse: responseData,
+        invalidRefreshToken: needsReauth,
+        needsReauthorization: needsReauth,
+      }
+    }
+
+    const newAccessToken = responseData.access_token
+    const newRefreshToken = responseData.refresh_token
+    const expiresIn = responseData.expires_in
+    const refreshExpiresIn = responseData.refresh_expires_in
+    const newScope = responseData.scope
+
+    return {
+      success: true,
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken,
+      accessTokenExpiresIn: expiresIn,
+      refreshTokenExpiresIn: refreshExpiresIn,
+      scope: newScope,
+      providerResponse: responseData,
     }
   } catch (error: any) {
     console.error("Error during token refresh:", error)
