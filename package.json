@@ -6,9 +6,12 @@
     "build": "next build",
     "dev": "next dev",
     "lint": "next lint",
-    "refresh-tokens": "node scripts/scheduled-token-refresh.js",
+    "refresh-tokens": "node scripts/test-token-refresh.js",
     "refresh-tokens:dry-run": "node scripts/scheduled-token-refresh.js --dry-run",
-    "start": "next start"
+    "refresh-tokens:verbose": "node scripts/test-token-refresh.js --verbose",
+    "refresh-tokens:batch": "node scripts/test-token-refresh.js --limit=50 --batch=10",
+    "start": "next start",
+    "fix-integrations": "node scripts/fix-problem-integrations.js"
   },
   "dependencies": {
     "@ai-sdk/openai": "latest",
@@ -89,7 +92,7 @@
     "mysql2": "latest",
     "next": "15.2.4",
     "next-themes": "latest",
-    "node-fetch": "latest",
+    "node-fetch": "^3.3.2",
     "openai": "latest",
     "path": "latest",
     "pg": "latest",

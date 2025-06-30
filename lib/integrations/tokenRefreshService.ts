@@ -482,34 +482,37 @@ export async function refreshTokenForProvider(
 
     console.log(`✅ Got client credentials for ${provider}`)
 
-    const body = new URLSearchParams({
+    // Create a fresh URLSearchParams object to avoid "body used already" errors
+    const bodyParams: Record<string, string> = {
       grant_type: "refresh_token",
       refresh_token: decryptedRefreshToken,
-    })
+    }
 
     if (config.refreshRequiresClientAuth) {
       if (config.authMethod === "body") {
-        body.set("client_id", clientId)
-        body.set("client_secret", clientSecret)
+        bodyParams.client_id = clientId
+        bodyParams.client_secret = clientSecret
         console.log(`✅ Added client auth to body for ${provider}`)
       }
     }
 
     // Add client_id to body if required (for providers like Twitter that need it with Basic Auth)
     if (config.sendClientIdWithRefresh) {
-      body.set("client_id", clientId)
+      bodyParams.client_id = clientId
     }
 
     // Add custom parameters if they exist
     if (config.additionalRefreshParams) {
       Object.entries(config.additionalRefreshParams).forEach(([key, value]) => {
         // Handle special placeholder values
-        if (value === "PLACEHOLDER" && key === "fb_exchange_token") {
-          if (integration.access_token) {
-            body.set(key, integration.access_token)
+        if (value === "PLACEHOLDER") {
+          if (key === "fb_exchange_token" && integration.access_token) {
+            bodyParams[key] = integration.access_token
+          } else if (key === "client_key") {
+            bodyParams[key] = clientId
           }
         } else {
-          body.set(key, value)
+          bodyParams[key] = value
         }
       })
     }
@@ -529,7 +532,7 @@ export async function refreshTokenForProvider(
 
     // Add scope if required by the provider and available in the integration
     if (config.sendScopeWithRefresh && scopeString) {
-      body.set("scope", scopeString)
+      bodyParams.scope = scopeString
       console.log(`✅ Added scope to body for ${provider}: ${scopeString}`)
     }
 
@@ -546,7 +549,7 @@ export async function refreshTokenForProvider(
       }
 
       const redirectUri = `${baseUrl}${redirectPath}`
-      body.set("redirect_uri", redirectUri)
+      bodyParams.redirect_uri = redirectUri
       console.log(`✅ Added redirect_uri to body for ${provider}: ${redirectUri}`)
     }
 
@@ -555,17 +558,30 @@ export async function refreshTokenForProvider(
       // Airtable requires redirect_uri in refresh token requests
       const baseUrl = getBaseUrl()
       const redirectUri = `${baseUrl}/api/integrations/airtable/callback`
-      body.set("redirect_uri", redirectUri)
+      bodyParams.redirect_uri = redirectUri
       console.log(`✅ Added redirect_uri to body for Airtable: ${redirectUri}`)
 
       // Ensure we're using the correct grant_type for Airtable
-      body.set("grant_type", "refresh_token")
+      bodyParams.grant_type = "refresh_token"
 
       // Log the refresh token (first few chars) to help debug
       if (decryptedRefreshToken) {
         console.log(`🔄 Airtable refresh token starts with: ${decryptedRefreshToken.substring(0, 10)}...`)
       } else {
         console.error(`❌ Airtable refresh token is empty or undefined`)
+      }
+    }
+
+    // Add redirect_uri for providers that need it during refresh
+    if (config.sendRedirectUriWithRefresh && config.redirectUriPath) {
+      // Skip redirect_uri for Dropbox as it doesn't accept this parameter during refresh
+      if (provider !== 'dropbox') {
+        const baseUrl = getBaseUrl()
+        const redirectUri = `${baseUrl}${config.redirectUriPath}`
+        bodyParams.redirect_uri = redirectUri
+        console.log(`✅ Added redirect_uri to body for ${provider}: ${redirectUri}`)
+      } else {
+        console.log(`ℹ️ Skipping redirect_uri for Dropbox as it's not supported during refresh`)
       }
     }
 
@@ -582,88 +598,158 @@ export async function refreshTokenForProvider(
     }
     headers.set("Content-Type", "application/x-www-form-urlencoded")
 
+    // Convert bodyParams to URLSearchParams string - create a fresh instance to avoid "body used already"
+    const bodyString = new URLSearchParams(bodyParams).toString()
     console.log(`🔄 Sending refresh request to ${config.tokenEndpoint} for ${provider}`)
-    console.log(`🔄 Request body: ${body.toString()}`)
+    console.log(`🔄 Request body: ${bodyString}`)
 
-    const response = await fetch(config.tokenEndpoint, {
-      method: "POST",
-      headers,
-      body: body.toString(),
-    })
-
-    console.log(`🔄 Received response from ${provider}: ${response.status} ${response.statusText}`)
-
-    // Try to parse the response as JSON, but handle non-JSON responses gracefully
-    let data: any
     try {
-      data = await response.json()
-      console.log(`✅ Parsed JSON response from ${provider}`)
-    } catch (error) {
-      // If parsing fails, the body might not be JSON. We'll use the raw text.
-      const rawText = await response.text()
-      console.error(`❌ Failed to parse JSON response from ${provider}: ${rawText}`)
-      data = { error: "Invalid JSON response", body: rawText }
-    }
+      const response = await fetch(config.tokenEndpoint, {
+        method: "POST",
+        headers,
+        body: bodyString,
+      })
 
-    if (!response.ok) {
-      const errorMessage = data.error_description || data.error || `HTTP ${response.status} - ${response.statusText}`
-      console.error(
-        `Failed to refresh token for ${provider} (ID: ${integration.id}). ` +
-          `Status: ${response.status}. ` +
-          `Error: ${errorMessage}. ` +
-          `Response: ${JSON.stringify(data)}`,
-      )
+      console.log(`🔄 Received response from ${provider}: ${response.status} ${response.statusText}`)
 
-      // Check for specific error codes that indicate an invalid refresh token
-      const isInvalidGrant = data.error === "invalid_grant"
-      const isInvalidOrExpiredToken = isInvalidGrant || response.status === 401
-
-      // Provider-specific error handling
-      let finalErrorMessage = errorMessage
-      let needsReauth = isInvalidOrExpiredToken
-
-      // Special handling for Airtable errors
-      if (provider === "airtable") {
-        console.log(`🔄 Airtable error details: ${JSON.stringify(data)}`)
-        if (data.error === "invalid_grant") {
-          finalErrorMessage = "Airtable refresh token expired or invalid. User must re-authorize."
-          needsReauth = true
+      // Try to parse the response as JSON, but handle non-JSON responses gracefully
+      let data: any
+      let responseText: string
+      
+      try {
+        responseText = await response.text()
+        try {
+          data = JSON.parse(responseText)
+          console.log(`✅ Parsed JSON response from ${provider}`)
+        } catch (error) {
+          // If parsing fails, the body might not be JSON. We'll use the raw text.
+          console.error(`❌ Failed to parse JSON response from ${provider}: ${responseText}`)
+          
+          // Special handling for TikTok
+          if (provider === 'tiktok') {
+            console.log(`🔄 Attempting to handle non-JSON TikTok response`)
+            
+            // Check if it's an HTML response (common with TikTok errors)
+            if (responseText.includes('<!DOCTYPE html>') || responseText.includes('<html>')) {
+              data = { 
+                error: "invalid_response", 
+                error_description: "TikTok returned HTML instead of JSON. The refresh token might be invalid or expired."
+              }
+            } else {
+              // Try to extract information from the response if possible
+              data = { 
+                error: "invalid_response_format", 
+                error_description: "TikTok returned an invalid response format",
+                body: responseText.substring(0, 200) // Only include the first 200 chars to avoid huge logs
+              }
+            }
+          } else {
+            data = { error: "Invalid JSON response", body: responseText }
+          }
+        }
+      } catch (error: any) {
+        console.error(`❌ Error reading response body from ${provider}: ${error.message}`)
+        return {
+          success: false,
+          error: `Error reading response body: ${error.message}`,
+          statusCode: response.status,
         }
       }
 
-      // Special handling for Microsoft-related providers (Teams, OneDrive)
-      if (provider === "teams" || provider === "onedrive" || provider.startsWith("microsoft")) {
-        console.log(`🔄 Microsoft error details: ${JSON.stringify(data)}`)
-        if (data.error === "invalid_grant") {
-          finalErrorMessage = `${provider} refresh token expired or invalid. User must re-authorize.`
-          needsReauth = true
+      if (!response.ok) {
+        const errorMessage = data.error_description || data.error || `HTTP ${response.status} - ${response.statusText}`
+        console.error(
+          `Failed to refresh token for ${provider} (ID: ${integration.id}). ` +
+            `Status: ${response.status}. ` +
+            `Error: ${errorMessage}. ` +
+            `Response: ${JSON.stringify(data)}`,
+        )
+
+        // Check for specific error codes that indicate an invalid refresh token
+        const isInvalidGrant = data.error === "invalid_grant"
+        const isInvalidOrExpiredToken = isInvalidGrant || response.status === 401
+
+        // Provider-specific error handling
+        let finalErrorMessage = errorMessage
+        let needsReauth = isInvalidOrExpiredToken
+
+        // Special handling for Airtable errors
+        if (provider === "airtable") {
+          console.log(`🔄 Airtable error details: ${JSON.stringify(data)}`)
+          if (data.error === "invalid_grant") {
+            finalErrorMessage = "Airtable refresh token expired or invalid. User must re-authorize."
+            needsReauth = true
+          }
+        }
+
+        // Special handling for Microsoft-related providers (Teams, OneDrive)
+        if (provider === "teams" || provider === "onedrive" || provider.startsWith("microsoft")) {
+          console.log(`🔄 Microsoft error details: ${JSON.stringify(data)}`)
+          if (data.error === "invalid_grant") {
+            finalErrorMessage = `${provider} refresh token expired or invalid. User must re-authorize.`
+            needsReauth = true
+          }
+        }
+        
+        // Special handling for TikTok
+        if (provider === "tiktok") {
+          console.log(`🔄 TikTok error details: ${JSON.stringify(data)}`)
+          
+          // Common TikTok error patterns
+          if (data.error === "invalid_client") {
+            finalErrorMessage = "TikTok client credentials are invalid or expired."
+          } else if (data.error === "invalid_request") {
+            finalErrorMessage = "TikTok refresh token request was invalid."
+          } else if (data.error === "invalid_response" || data.error === "invalid_response_format") {
+            finalErrorMessage = data.error_description || "TikTok returned an invalid response."
+            needsReauth = true; // HTML responses usually indicate an expired token
+          } else if (response.status === 401) {
+            finalErrorMessage = "TikTok authorization failed. The refresh token may be expired."
+            needsReauth = true;
+          }
+        }
+        
+        // Special handling for PayPal
+        if (provider === "paypal") {
+          console.log(`🔄 PayPal error details: ${JSON.stringify(data)}`)
+          if (data.error === "invalid_client") {
+            finalErrorMessage = "PayPal client credentials are invalid."
+          }
+        }
+
+        return {
+          success: false,
+          error: finalErrorMessage,
+          statusCode: response.status,
+          providerResponse: data,
+          invalidRefreshToken: needsReauth,
+          needsReauthorization: needsReauth,
         }
       }
+
+      const newAccessToken = data.access_token
+      const newRefreshToken = data.refresh_token
+      const expiresIn = data.expires_in
+      const refreshExpiresIn = data.refresh_expires_in
+      const newScope = data.scope
 
       return {
-        success: false,
-        error: finalErrorMessage,
-        statusCode: response.status,
+        success: true,
+        accessToken: newAccessToken,
+        refreshToken: newRefreshToken,
+        accessTokenExpiresIn: expiresIn,
+        refreshTokenExpiresIn: refreshExpiresIn,
+        scope: newScope,
         providerResponse: data,
-        invalidRefreshToken: needsReauth,
-        needsReauthorization: needsReauth,
       }
-    }
-
-    const newAccessToken = data.access_token
-    const newRefreshToken = data.refresh_token
-    const expiresIn = data.expires_in
-    const refreshExpiresIn = data.refresh_expires_in
-    const newScope = data.scope
-
-    return {
-      success: true,
-      accessToken: newAccessToken,
-      refreshToken: newRefreshToken,
-      accessTokenExpiresIn: expiresIn,
-      refreshTokenExpiresIn: refreshExpiresIn,
-      scope: newScope,
-      providerResponse: data,
+    } catch (fetchError: any) {
+      console.error(`❌ Network error during token refresh for ${provider}: ${fetchError.message}`)
+      return {
+        success: false,
+        error: `Network error during token refresh: ${fetchError.message}`,
+        statusCode: 0,
+        needsReauthorization: false,
+      }
     }
   } catch (error: any) {
     console.error("Error during token refresh:", error)
