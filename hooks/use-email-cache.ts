@@ -1,129 +1,96 @@
-import { useState, useCallback } from 'react'
-import { EmailCacheService, EmailSuggestion } from '@/lib/services/emailCacheService'
+import { useState, useCallback, useEffect } from 'react'
+import { 
+  EmailSuggestion, 
+  EmailStats, 
+  loadFrequentEmails, 
+  loadEmailStats, 
+  trackEmailUsage as trackEmails,
+  useFrequentEmailsStore, 
+  useEmailStatsStore 
+} from '@/stores/emailCacheStore'
+import useCacheManager from './use-cache-manager'
 
 export interface UseEmailCacheReturn {
   trackEmailUsage: (emails: string[], source: string, integrationId?: string) => Promise<void>
   getFrequentEmails: (source?: string, limit?: number) => Promise<EmailSuggestion[]>
-  getEmailStats: () => Promise<{
-    totalEmails: number
-    totalUsage: number
-    topEmails: EmailSuggestion[]
-    sourceBreakdown: Record<string, number>
-  }>
+  getEmailStats: () => Promise<EmailStats>
+  frequentEmails: EmailSuggestion[] | null
+  emailStats: EmailStats | null
   isLoading: boolean
   error: string | null
+  refresh: () => Promise<void>
 }
 
 export function useEmailCache(): UseEmailCacheReturn {
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  // Initialize cache manager for auth state changes
+  useCacheManager()
+  
+  // Use our cached stores
+  const { 
+    data: frequentEmails, 
+    loading: loadingEmails, 
+    error: emailsError 
+  } = useFrequentEmailsStore()
+  
+  const { 
+    data: emailStats, 
+    loading: loadingStats, 
+    error: statsError 
+  } = useEmailStatsStore()
+  
+  // Combined loading and error states
+  const isLoading = loadingEmails || loadingStats
+  const error = emailsError || statsError
 
+  // Tracking email usage
   const trackEmailUsage = useCallback(async (
     emails: string[], 
     source: string, 
     integrationId?: string
   ): Promise<void> => {
-    try {
-      setIsLoading(true)
-      setError(null)
-
-      const response = await fetch('/api/integrations/email-cache/track-usage', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          emails,
-          source,
-          integrationId
-        })
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to track email usage')
-      }
-
-      const result = await response.json()
-      console.log(`Tracked ${result.tracked} emails successfully`)
-
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred'
-      setError(errorMessage)
-      console.error('Failed to track email usage:', err)
-    } finally {
-      setIsLoading(false)
-    }
+    await trackEmails(emails, source, integrationId)
   }, [])
 
+  // Get frequent emails with cache
   const getFrequentEmails = useCallback(async (
     source?: string, 
     limit: number = 50
   ): Promise<EmailSuggestion[]> => {
-    try {
-      setIsLoading(true)
-      setError(null)
-
-      const params = new URLSearchParams()
-      if (source) params.append('source', source)
-      params.append('limit', limit.toString())
-
-      const response = await fetch(`/api/integrations/email-cache/track-usage?${params}`)
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to get frequent emails')
-      }
-
-      const emails = await response.json()
-      return emails
-
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred'
-      setError(errorMessage)
-      console.error('Failed to get frequent emails:', err)
-      return []
-    } finally {
-      setIsLoading(false)
-    }
+    return await loadFrequentEmails(source, limit)
   }, [])
 
-  const getEmailStats = useCallback(async () => {
-    try {
-      setIsLoading(true)
-      setError(null)
-
-      const response = await fetch('/api/integrations/email-cache/track-usage?stats=true')
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to get email stats')
-      }
-
-      const stats = await response.json()
-      return stats
-
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred'
-      setError(errorMessage)
-      console.error('Failed to get email stats:', err)
-      return {
-        totalEmails: 0,
-        totalUsage: 0,
-        topEmails: [],
-        sourceBreakdown: {}
-      }
-    } finally {
-      setIsLoading(false)
-    }
+  // Get email stats with cache
+  const getEmailStats = useCallback(async (): Promise<EmailStats> => {
+    return await loadEmailStats()
   }, [])
+  
+  // Force refresh all email data
+  const refresh = useCallback(async (): Promise<void> => {
+    await Promise.all([
+      loadFrequentEmails(undefined, 50, true),
+      loadEmailStats(true)
+    ])
+  }, [])
+
+  // Load data on mount if needed
+  useEffect(() => {
+    const loadInitialData = async () => {
+      await getFrequentEmails()
+      await getEmailStats()
+    }
+    
+    loadInitialData()
+  }, [getFrequentEmails, getEmailStats])
 
   return {
     trackEmailUsage,
     getFrequentEmails,
     getEmailStats,
+    frequentEmails,
+    emailStats,
     isLoading,
-    error
+    error,
+    refresh
   }
 }
 
