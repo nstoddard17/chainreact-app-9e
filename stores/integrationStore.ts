@@ -206,6 +206,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
         // Cancel any ongoing request
         if (currentAbortController) {
           try {
+            console.log("Aborting previous integrations request")
             currentAbortController.abort('New request started')
           } catch (error) {
             console.warn('Failed to abort previous request:', error)
@@ -260,6 +261,15 @@ export const useIntegrationStore = create<IntegrationStore>()(
         }
         if (currentAbortController) {
           currentAbortController = null
+        }
+        
+        // Silently ignore AbortError since it's an expected behavior
+        // when multiple requests are made in quick succession
+        if (error.name === "AbortError") {
+          console.log("Fetch integrations request was aborted:", error.message)
+          // Don't update error state for aborted requests
+          set({ loading: false })
+          return
         }
         
         console.error("Failed to fetch integrations:", error)

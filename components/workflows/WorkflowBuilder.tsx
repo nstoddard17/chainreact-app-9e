@@ -83,9 +83,8 @@ const getIntegrationsFromNodes = () => {
 const AVAILABLE_INTEGRATIONS = getIntegrationsFromNodes()
 
 // TODO: Refactor TRIGGER_CONFIGS to be more dynamic
-const TRIGGER_CONFIGS: Record<string, any[]> = {
-  // This needs to be populated from a more dynamic source
-}
+const TRIGGER_CONFIGS: Record<string, any> = {}
+const ACTION_CONFIGS: Record<string, any> = {}
 
 interface WorkflowStep {
   id: string
@@ -185,6 +184,33 @@ export default function WorkflowBuilder() {
     setHasUnsavedChanges(true)
   }
 
+  const addActionStep = (action: any, config: Record<string, any>) => {
+    const newStep: WorkflowStep = {
+      id: `action_${Date.now()}`,
+      type: "action",
+      appId: selectedIntegration.id,
+      appName: selectedIntegration.name,
+      actionId: action.type,
+      actionName: action.title,
+      config,
+      isConfigured: (ACTION_CONFIGS[action.type] || []).length === 0,
+    }
+    setWorkflowSteps([...workflowSteps, newStep])
+    setHasUnsavedChanges(true)
+  }
+
+  const handleActionSelected = async (action: any) => {
+    setSelectedAction(action)
+    const configFields = ACTION_CONFIGS[action.type] || []
+
+    if (configFields.length > 0) {
+      setConfigStep({ ...action, config: {} })
+    } else {
+      addActionStep(action, {})
+      resetModalStates()
+    }
+  }
+
   const resetModalStates = () => {
     setShowTriggerModal(false)
     setShowActionModal(false)
@@ -267,7 +293,7 @@ export default function WorkflowBuilder() {
                     >
                       <CardContent className="p-4">
                         <h3 className="font-semibold">{trigger.title}</h3>
-                        <p className="text-sm text-muted-foreground">{trigger.description}</p>
+                        <p className="text-sm text-muted-foreground">{trigger.description || 'No description available'}</p>
                       </CardContent>
                     </Card>
                   ))}
@@ -321,7 +347,7 @@ export default function WorkflowBuilder() {
                   >
                     <CardContent className="p-4">
                       <h3 className="font-semibold">{action.title}</h3>
-                      <p className="text-sm text-muted-foreground">{action.description}</p>
+                      <p className="text-sm text-muted-foreground">{action.description || 'No description available'}</p>
                     </CardContent>
                   </Card>
                 ))}

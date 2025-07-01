@@ -635,7 +635,7 @@ const useWorkflowBuilderState = () => {
     const newNodeId = `node-${Date.now()}`
     const newActionNode: Node = {
       id: newNodeId, type: "custom", position: { x: parentNode.position.x, y: parentNode.position.y + 120 },
-      data: { ...action, name: action.name, onConfigure: handleConfigureNode, onDelete: handleDeleteNodeWithConfirmation, providerId: integration.id, config },
+      data: { ...action, name: action.name || 'Unnamed Action', onConfigure: handleConfigureNode, onDelete: handleDeleteNodeWithConfirmation, providerId: integration.id, config },
     }
     const newAddActionId = `add-action-${Date.now()}`
     const newAddActionNode: Node = {
@@ -1392,7 +1392,7 @@ function WorkflowBuilderContent() {
                   const query = searchQuery.toLowerCase()
                   const matchesIntegration = int.name.toLowerCase().includes(query) || int.description.toLowerCase().includes(query)
                   const matchesAction = int.actions.some(action => 
-                    action.name.toLowerCase().includes(query) || action.description.toLowerCase().includes(query)
+                    (action.name?.toLowerCase() || '').includes(query) || (action.description?.toLowerCase() || '').includes(query)
                   )
                   return matchesIntegration || matchesAction
                 }
@@ -1414,7 +1414,7 @@ function WorkflowBuilderContent() {
                   const query = searchQuery.toLowerCase()
                   const matchesIntegration = int.name.toLowerCase().includes(query) || int.description.toLowerCase().includes(query)
                   const matchesAction = int.actions.some(action => 
-                    action.name.toLowerCase().includes(query) || action.description.toLowerCase().includes(query)
+                    (action.name?.toLowerCase() || '').includes(query) || (action.description?.toLowerCase() || '').includes(query)
                   )
                   return matchesIntegration || matchesAction
                 }
@@ -1437,7 +1437,7 @@ function WorkflowBuilderContent() {
                       const query = searchQuery.toLowerCase()
                       const matchesIntegration = int.name.toLowerCase().includes(query) || int.description.toLowerCase().includes(query)
                       const matchesAction = int.actions.some(action => 
-                        action.name.toLowerCase().includes(query) || action.description.toLowerCase().includes(query)
+                        (action.name?.toLowerCase() || '').includes(query) || (action.description?.toLowerCase() || '').includes(query)
                       )
                       return matchesIntegration || matchesAction
                     }
@@ -1467,7 +1467,7 @@ function WorkflowBuilderContent() {
                         .filter(action => {
                           if (searchQuery) {
                             const query = searchQuery.toLowerCase()
-                            return action.name.toLowerCase().includes(query) || action.description.toLowerCase().includes(query)
+                            return (action.name?.toLowerCase() || '').includes(query) || (action.description?.toLowerCase() || '').includes(query)
                           }
                           return true
                         })
@@ -1483,8 +1483,8 @@ function WorkflowBuilderContent() {
                               }
                             }}
                           >
-                            <p className="font-medium">{action.name}</p>
-                            <p className="text-sm text-muted-foreground mt-1">{action.description}</p>
+                            <p className="font-medium">{action.name || 'Unnamed Action'}</p>
+                            <p className="text-sm text-muted-foreground mt-1">{action.description || 'No description available'}</p>
                           </div>
                         ))}
                     </div>
@@ -1505,7 +1505,7 @@ function WorkflowBuilderContent() {
               {selectedIntegration && (
                 <>
                   <span className="font-medium">Integration:</span> {selectedIntegration.name}
-                  {selectedAction && <span className="ml-4"><span className="font-medium">Action:</span> {selectedAction.name}</span>}
+                  {selectedAction && <span className="ml-4"><span className="font-medium">Action:</span> {selectedAction.name || 'Unnamed Action'}</span>}
                 </>
               )}
             </div>
