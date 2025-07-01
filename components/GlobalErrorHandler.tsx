@@ -20,9 +20,26 @@ export function GlobalErrorHandler() {
         )
       )
 
+      // Check if this is an AbortController abort error (common during navigation)
+      const isAbortError = args.some(arg => 
+        typeof arg === 'string' && (
+          arg.includes("AbortError") || 
+          arg.includes("The operation was aborted") ||
+          arg.includes("The user aborted a request") ||
+          arg.includes("New request started") ||
+          arg.includes("Request timeout")
+        )
+      )
+
       if (isCookieError) {
         // Don't log these errors - they're expected Supabase behavior
         console.debug("🍪 Supabase cookie parsing (expected behavior):", args)
+        return
+      }
+
+      if (isAbortError) {
+        // Don't log abort errors - they're expected during navigation
+        console.debug("🔍 AbortController abort (expected behavior):", args)
         return
       }
 
@@ -71,6 +88,19 @@ export function GlobalErrorHandler() {
         event.preventDefault()
         return
       }
+      
+      // Check if this is an AbortController abort error
+      if (event.message && (
+        event.message.includes("AbortError") || 
+        event.message.includes("The operation was aborted") ||
+        event.message.includes("The user aborted a request") ||
+        event.message.includes("New request started") ||
+        event.message.includes("Request timeout")
+      )) {
+        console.debug("🔍 Fetch AbortError (expected):", event.message)
+        event.preventDefault()
+        return
+      }
     }
 
     // Global unhandled rejection handler
@@ -83,6 +113,25 @@ export function GlobalErrorHandler() {
       )) {
         // Don't log these rejections - they're expected
         console.debug("🍪 Cookie-related promise rejection (expected):", event.reason)
+        event.preventDefault()
+        return
+      }
+      
+      // Check if this is an AbortController abort rejection
+      if (event.reason && (
+        (typeof event.reason === 'string' && (
+          event.reason.includes("AbortError") || 
+          event.reason.includes("The operation was aborted") ||
+          event.reason.includes("The user aborted a request") ||
+          event.reason.includes("New request started") ||
+          event.reason.includes("Request timeout")
+        )) ||
+        (event.reason instanceof Error && (
+          event.reason.name === "AbortError" ||
+          event.reason.message.includes("aborted")
+        ))
+      )) {
+        console.debug("🔍 AbortController rejection (expected):", event.reason)
         event.preventDefault()
         return
       }
