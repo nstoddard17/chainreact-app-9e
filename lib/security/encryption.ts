@@ -1,66 +1,72 @@
 import crypto from 'crypto';
 
+// Load encryption key from environment variable
+const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || "0123456789abcdef0123456789abcdef";
+const ENCRYPTION_IV_LENGTH = 16;
+
 /**
- * Encrypts a string using AES-256-CBC
+ * Encrypts sensitive data like OAuth tokens or API keys
  * 
- * @param text The text to encrypt
- * @param key The encryption key (must be 32 bytes/256 bits)
- * @returns The encrypted text as a base64 string
+ * @param text - The plain text to encrypt
+ * @param key - Optional custom encryption key
+ * @returns Encrypted text as a string
  */
-export function encrypt(text: string, key: string): string {
+export function encrypt(text: string, key: string = ENCRYPTION_KEY): string {
   try {
-    // Create a buffer from the key (must be 32 bytes for AES-256)
-    const keyBuffer = Buffer.from(key, 'hex');
+    // Create a random initialization vector
+    const iv = crypto.randomBytes(ENCRYPTION_IV_LENGTH);
     
-    // Generate a random initialization vector
-    const iv = crypto.randomBytes(16);
-    
-    // Create cipher
-    const cipher = crypto.createCipheriv('aes-256-cbc', keyBuffer, iv);
+    // Create cipher using AES-256-CBC
+    const cipher = crypto.createCipheriv(
+      "aes-256-cbc", 
+      Buffer.from(key.slice(0, 32)), 
+      iv
+    );
     
     // Encrypt the text
-    let encrypted = cipher.update(text, 'utf8', 'base64');
-    encrypted += cipher.final('base64');
+    let encrypted = cipher.update(text, "utf8", "hex");
+    encrypted += cipher.final("hex");
     
-    // Combine IV and encrypted data (IV needs to be stored with the encrypted data for decryption)
-    // Format: iv:encrypted
-    return `${iv.toString('base64')}:${encrypted}`;
+    // Return IV + encrypted text
+    return iv.toString("hex") + ":" + encrypted;
   } catch (error) {
-    console.error('Encryption error:', error);
-    throw new Error('Failed to encrypt data');
+    console.error("Encryption error:", error);
+    throw new Error("Failed to encrypt data");
   }
 }
 
 /**
- * Decrypts a string that was encrypted using AES-256-CBC
+ * Decrypts previously encrypted data
  * 
- * @param encryptedText The encrypted text (format: iv:encrypted)
- * @param key The encryption key (must be 32 bytes/256 bits)
- * @returns The decrypted text
+ * @param encryptedText - The encrypted text to decrypt
+ * @param key - Optional custom encryption key
+ * @returns Decrypted text as a string
  */
-export function decrypt(encryptedText: string, key: string): string {
+export function decrypt(encryptedText: string, key: string = ENCRYPTION_KEY): string {
   try {
-    // Split the IV and encrypted data
-    const [ivBase64, encrypted] = encryptedText.split(':');
-    
-    if (!ivBase64 || !encrypted) {
-      throw new Error('Invalid encrypted text format');
+    // Split IV and encrypted text
+    const textParts = encryptedText.split(":");
+    if (textParts.length !== 2) {
+      throw new Error("Invalid encrypted text format");
     }
     
-    // Create buffers from the key and IV
-    const keyBuffer = Buffer.from(key, 'hex');
-    const iv = Buffer.from(ivBase64, 'base64');
+    const iv = Buffer.from(textParts[0], "hex");
+    const encryptedData = textParts[1];
     
     // Create decipher
-    const decipher = crypto.createDecipheriv('aes-256-cbc', keyBuffer, iv);
+    const decipher = crypto.createDecipheriv(
+      "aes-256-cbc", 
+      Buffer.from(key.slice(0, 32)), 
+      iv
+    );
     
     // Decrypt the text
-    let decrypted = decipher.update(encrypted, 'base64', 'utf8');
-    decrypted += decipher.final('utf8');
+    let decrypted = decipher.update(encryptedData, "hex", "utf8");
+    decrypted += decipher.final("utf8");
     
     return decrypted;
   } catch (error) {
-    console.error('Decryption error:', error);
-    throw new Error('Failed to decrypt data');
+    console.error("Decryption error:", error);
+    throw new Error("Failed to decrypt data");
   }
 }

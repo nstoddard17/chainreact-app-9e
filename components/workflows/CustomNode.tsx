@@ -121,9 +121,11 @@ function CustomNode({ id, data, selected }: NodeProps) {
               component?.icon && React.createElement(component.icon, { className: "h-8 w-8 text-foreground" })
             )}
             <div className="min-w-0 flex-1">
-              <h3 className="text-xl font-medium text-foreground">{title}</h3>
+              <h3 className="text-xl font-medium text-foreground">
+                {title || (component && component.title) || 'Unnamed Action'}
+              </h3>
               {description && (
-                <p className="text-muted-foreground">{description}</p>
+                <p className="text-muted-foreground">{description || (component && component.description)}</p>
               )}
             </div>
           </div>
