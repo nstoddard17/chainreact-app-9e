@@ -551,24 +551,46 @@ const useWorkflowBuilderState = () => {
       
       // Add the "add action" node after the last action node
       const lastActionNode = restoredActionNodes[restoredActionNodes.length - 1];
-      const addActionNode: Node = {
-        id: `add-action-${Date.now()}`,
-        type: "addAction",
-        position: { x: lastActionNode.position.x, y: lastActionNode.position.y + 120 },
-        data: {
-          parentId: lastActionNode.id,
-          onClick: () => handleAddActionClick(`add-action-${Date.now()}`, lastActionNode.id)
-        }
-      };
-      
-      allNodes.push(addActionNode);
-      allEdges.push({
-        id: `${lastActionNode.id}-${addActionNode.id}`,
-        source: lastActionNode.id,
-        target: addActionNode.id,
-        animated: false,
-        style: { stroke: "#d1d5db", strokeWidth: 1, strokeDasharray: "5,5" }
-      });
+      if (lastActionNode) {
+        const addActionNode: Node = {
+          id: `add-action-${Date.now()}`,
+          type: "addAction",
+          position: { x: lastActionNode.position.x, y: lastActionNode.position.y + 120 },
+          data: {
+            parentId: lastActionNode.id,
+            onClick: () => handleAddActionClick(`add-action-${Date.now()}`, lastActionNode.id)
+          }
+        };
+        
+        allNodes.push(addActionNode);
+        allEdges.push({
+          id: `${lastActionNode.id}-${addActionNode.id}`,
+          source: lastActionNode.id,
+          target: addActionNode.id,
+          animated: false,
+          style: { stroke: "#d1d5db", strokeWidth: 1, strokeDasharray: "5,5" }
+        });
+      } else {
+        // If there are no action nodes after restoration, add a default add-action node connected to trigger
+        const addActionNode: Node = {
+          id: "add-action-1",
+          type: "addAction",
+          position: { x: 400, y: 240 },
+          data: {
+            parentId: "trigger",
+            onClick: () => handleAddActionClick("add-action-1", "trigger")
+          }
+        };
+        
+        allNodes.push(addActionNode);
+        allEdges.push({
+          id: "trigger-add-action-1",
+          source: "trigger",
+          target: "add-action-1",
+          animated: false,
+          style: { stroke: "#d1d5db", strokeWidth: 1, strokeDasharray: "5,5" }
+        });
+      }
       
       // Clear the preserved nodes from session storage
       sessionStorage.removeItem('preservedActionNodes');
