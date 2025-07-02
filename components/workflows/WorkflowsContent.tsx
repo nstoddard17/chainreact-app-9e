@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import AppLayout from "@/components/layout/AppLayout"
-import { useWorkflowStore } from "@/stores/workflowStore"
 import { AIChatAssistant } from "@/components/ai/AIChatAssistant"
 import { TemplateGallery } from "@/components/templates/TemplateGallery"
 import { Button } from "@/components/ui/button"
@@ -18,17 +17,19 @@ import { Switch } from "@/components/ui/switch"
 import { Play, Pause, Settings, Trash2, Loader2, Sparkles, LayoutTemplateIcon as Template, Plus } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import CreateWorkflowDialog from "./CreateWorkflowDialog"
+import { useWorkflows } from "@/hooks/use-workflows"
+import { Workflow } from "@/stores/cachedWorkflowStore"
 
 export default function WorkflowsContent() {
   const {
     workflows,
     loading,
-    fetchWorkflows,
-    updateWorkflow,
-    deleteWorkflow,
-    generateWorkflowWithAI,
-    createTemplateFromWorkflow,
-  } = useWorkflowStore()
+    error,
+    loadAllWorkflows,
+    updateWorkflowById,
+    deleteWorkflowById,
+  } = useWorkflows()
+  
   const [activeTab, setActiveTab] = useState("workflows")
   const [aiPrompt, setAiPrompt] = useState("")
   const [generatingAI, setGeneratingAI] = useState(false)
@@ -46,13 +47,25 @@ export default function WorkflowsContent() {
   const { toast } = useToast()
 
   useEffect(() => {
-    fetchWorkflows()
-  }, [fetchWorkflows])
+    const loadData = async () => {
+      try {
+        await loadAllWorkflows()
+      } catch (err) {
+        console.error("Failed to load workflows:", err)
+      }
+    }
+    
+    if (!workflows && !loading) {
+      loadData()
+    }
+  }, [workflows, loading, loadAllWorkflows])
 
-  const handleToggleStatus = async (id: string, currentStatus: string) => {
-    const newStatus = currentStatus === "active" ? "paused" : "active"
+  const handleToggleStatus = async (id: string, currentStatus?: string) => {
+    const status = currentStatus || "draft"
+    const newStatus = status === "active" ? "paused" : "active"
+    
     try {
-      await updateWorkflow(id, { status: newStatus })
+      await updateWorkflowById(id, { status: newStatus })
       toast({
         title: "Success",
         description: `Workflow ${newStatus === "active" ? "activated" : "paused"}`,
@@ -70,7 +83,7 @@ export default function WorkflowsContent() {
   const handleDeleteWorkflow = async (id: string) => {
     if (confirm("Are you sure you want to delete this workflow?")) {
       try {
-        await deleteWorkflow(id)
+        await deleteWorkflowById(id)
         toast({
           title: "Success",
           description: "Workflow deleted successfully",
@@ -91,14 +104,10 @@ export default function WorkflowsContent() {
 
     setGeneratingAI(true)
     try {
-      const workflow = await generateWorkflowWithAI(aiPrompt)
-      setAiPrompt("")
       toast({
-        title: "Success",
-        description: "AI workflow generated successfully!",
+        title: "Not implemented",
+        description: "AI workflow generation is not implemented in the cached version yet",
       })
-      // Navigate to the new workflow
-      window.location.href = `/workflows/builder?id=${workflow.id}`
     } catch (error) {
       console.error("Failed to generate workflow:", error)
       toast({
@@ -115,14 +124,6 @@ export default function WorkflowsContent() {
     if (!templateDialog.workflowId) return
 
     try {
-      await createTemplateFromWorkflow(templateDialog.workflowId, {
-        ...templateForm,
-        tags: templateForm.tags
-          .split(",")
-          .map((tag) => tag.trim())
-          .filter(Boolean),
-      })
-
       setTemplateDialog({ open: false, workflowId: null })
       setTemplateForm({
         name: "",
@@ -133,8 +134,8 @@ export default function WorkflowsContent() {
       })
 
       toast({
-        title: "Success",
-        description: "Template created successfully!",
+        title: "Not implemented",
+        description: "Template creation is not implemented in the cached version yet",
       })
     } catch (error) {
       console.error("Failed to create template:", error)
@@ -150,7 +151,19 @@ export default function WorkflowsContent() {
     return (
       <AppLayout title="Workflows">
         <div className="flex items-center justify-center h-64">
-                          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+        <AIChatAssistant />
+      </AppLayout>
+    )
+  }
+
+  if (error) {
+    return (
+      <AppLayout title="Workflows">
+        <div className="flex flex-col items-center justify-center h-64">
+          <div className="text-red-500 mb-4">Error loading workflows: {error}</div>
+          <Button onClick={() => loadAllWorkflows(true)}>Retry</Button>
         </div>
         <AIChatAssistant />
       </AppLayout>
@@ -181,12 +194,11 @@ export default function WorkflowsContent() {
           </TabsList>
 
           <TabsContent value="workflows" className="space-y-8">
-            {/* AI Generation Section */}
-                          <Card className="bg-gradient-to-br from-muted/30 via-muted/20 to-muted/10 border-border shadow-sm">
+            <Card className="bg-gradient-to-br from-muted/30 via-muted/20 to-muted/10 border-border shadow-sm">
               <CardHeader className="pb-4">
                 <CardTitle className="flex items-center gap-3 text-xl">
-                                      <div className="p-2 bg-primary/10 rounded-lg">
-                      <Sparkles className="h-5 w-5 text-primary" />
+                  <div className="p-2 bg-primary/10 rounded-lg">
+                    <Sparkles className="h-5 w-5 text-primary" />
                   </div>
                   Generate Workflow with AI
                 </CardTitle>
@@ -226,8 +238,7 @@ export default function WorkflowsContent() {
               </CardContent>
             </Card>
 
-            {/* Workflows Grid */}
-            {workflows.length === 0 ? (
+            {!workflows || workflows.length === 0 ? (
               <div className="text-center py-16">
                 <div className="max-w-md mx-auto space-y-6">
                   <div className="p-4 bg-slate-100 rounded-full w-16 h-16 mx-auto flex items-center justify-center">
@@ -253,89 +264,99 @@ export default function WorkflowsContent() {
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {workflows.map((workflow) => {
-                  const functionalNodes = workflow.nodes?.filter(n => n.type !== 'addAction') || [];
-                  
-                  return (
-                    <Card
-                      key={workflow.id}
-                      className="bg-card rounded-xl shadow-sm border border-border hover:shadow-lg hover:border-muted-foreground transition-all duration-300 transform hover:-translate-y-1 group"
-                    >
-                      <CardHeader className="pb-3">
-                        <div className="flex items-start justify-between">
-                          <CardTitle className="text-lg font-semibold text-foreground group-hover:text-primary transition-colors duration-200 line-clamp-1">
-                            {workflow.name}
-                          </CardTitle>
-                          <div
-                            className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ml-2 ${
-                              workflow.status === "active"
-                                ? "bg-green-100 text-green-700"
-                                : workflow.status === "paused"
-                                  ? "bg-yellow-100 text-yellow-700"
-                                  : "bg-slate-100 text-slate-700"
-                            }`}
-                          >
-                            {workflow.status}
-                          </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {workflows.map((workflow) => (
+                  <Card key={workflow.id} className="overflow-hidden border-border hover:border-primary/40 hover:shadow-md transition-all duration-200">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="font-semibold text-lg">{workflow.name}</CardTitle>
+                      {workflow.description && (
+                        <p className="text-sm text-slate-500 line-clamp-2">{workflow.description}</p>
+                      )}
+                    </CardHeader>
+                    <CardContent className="pt-0 pb-4">
+                      <div className="flex flex-wrap gap-2 text-xs mb-3">
+                        <div
+                          className={`px-2 py-0.5 rounded-full flex items-center gap-1 ${
+                            workflow.status === "active"
+                              ? "bg-green-100 text-green-800"
+                              : workflow.status === "paused"
+                              ? "bg-yellow-100 text-yellow-800"
+                              : "bg-slate-100 text-slate-800"
+                          }`}
+                        >
+                          {workflow.status === "active" ? (
+                            <>
+                              <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                              Active
+                            </>
+                          ) : workflow.status === "paused" ? (
+                            <>
+                              <div className="w-1.5 h-1.5 rounded-full bg-yellow-500" />
+                              Paused
+                            </>
+                          ) : (
+                            <>
+                              <div className="w-1.5 h-1.5 rounded-full bg-slate-500" />
+                              Draft
+                            </>
+                          )}
                         </div>
-                        <p className="text-sm text-slate-600 line-clamp-2 min-h-[2.5rem]">
-                          {workflow.description || "No description"}
-                        </p>
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                        <div className="flex items-center text-sm text-slate-500 bg-slate-50 p-2 rounded-lg">
-                          <div className="flex items-center gap-2">
-                            <div className={`w-2 h-2 rounded-full ${functionalNodes.length > 0 ? 'bg-primary' : 'bg-muted-foreground'}`}></div>
-                            <span>{functionalNodes.length} nodes</span>
-                          </div>
-                          <div className="flex-1 text-right">
-                            Updated: {new Date(workflow.updated_at).toLocaleDateString()}
-                          </div>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <div className="text-xs text-slate-500">
+                          {workflow.updated_at ? `Updated ${new Date(workflow.updated_at).toLocaleDateString()}` : 'Not yet updated'}
                         </div>
-
-                        <div className="flex items-center gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="flex-1 hover:bg-slate-50 hover:shadow-sm focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 transition-all duration-200"
-                            onClick={() => handleToggleStatus(workflow.id, workflow.status)}
-                          >
-                            {workflow.status === "active" ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-                          </Button>
-                          <Link href={`/workflows/builder?id=${workflow.id}`} className="flex-1">
+                        <div className="flex items-center gap-1.5">
+                          {workflow.status === "active" ? (
                             <Button
                               size="sm"
-                              variant="outline"
-                              className="w-full hover:bg-slate-50 hover:shadow-sm focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 transition-all duration-200"
+                              variant="ghost"
+                              onClick={(e) => {
+                                e.preventDefault()
+                                handleToggleStatus(workflow.id, workflow.status)
+                              }}
+                              className="h-8 w-8 p-0"
                             >
-                              <Settings className="w-4 h-4" />
+                              <Pause className="h-4 w-4 text-slate-500" />
+                              <span className="sr-only">Pause</span>
                             </Button>
-                          </Link>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={(e) => {
+                                e.preventDefault()
+                                handleToggleStatus(workflow.id, workflow.status)
+                              }}
+                              className="h-8 w-8 p-0"
+                            >
+                              <Play className="h-4 w-4 text-slate-500" />
+                              <span className="sr-only">Activate</span>
+                            </Button>
+                          )}
                           <Button
                             size="sm"
-                            variant="outline"
-                            className="flex-1 hover:bg-primary/5 hover:text-primary hover:border-primary/20 focus:ring-2 focus:ring-primary focus:ring-offset-1 transition-all duration-200"
-                            onClick={() => {
-                              setTemplateDialog({ open: true, workflowId: workflow.id })
-                              setTemplateForm((prev) => ({ ...prev, name: `${workflow.name} Template` }))
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.preventDefault()
+                              handleDeleteWorkflow(workflow.id)
                             }}
+                            className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
                           >
-                            <Template className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="flex-1 hover:bg-red-50 hover:text-red-600 hover:border-red-200 focus:ring-2 focus:ring-red-500 focus:ring-offset-1 transition-all duration-200"
-                            onClick={() => handleDeleteWorkflow(workflow.id)}
-                          >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="h-4 w-4" />
+                            <span className="sr-only">Delete</span>
                           </Button>
                         </div>
-                      </CardContent>
-                    </Card>
-                  )
-                })}
+                      </div>
+                    </CardContent>
+                    <Link
+                      href={`/workflows/builder?id=${workflow.id}`}
+                      className="block w-full bg-slate-50 hover:bg-slate-100 p-2 text-center text-sm font-medium border-t border-border transition-colors duration-200"
+                    >
+                      Edit Workflow
+                    </Link>
+                  </Card>
+                ))}
               </div>
             )}
           </TabsContent>
@@ -346,90 +367,88 @@ export default function WorkflowsContent() {
         </Tabs>
       </div>
 
-      {/* Template Creation Dialog */}
-      <Dialog open={templateDialog.open} onOpenChange={(open) => setTemplateDialog({ open, workflowId: null })}>
-        <DialogContent className="sm:max-w-md">
+      <Dialog
+        open={templateDialog.open}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) {
+            setTemplateDialog({ open: false, workflowId: null })
+          }
+        }}
+      >
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>Create Template</DialogTitle>
-            <DialogDescription>Share your workflow as a template for others to use</DialogDescription>
+            <DialogDescription>
+              Share your workflow as a template for other users. Templates can be public or private to your organization.
+            </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="template-name">Name</Label>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">Template Name</Label>
               <Input
-                id="template-name"
+                id="name"
+                placeholder="Enter template name"
                 value={templateForm.name}
-                onChange={(e) => setTemplateForm((prev) => ({ ...prev, name: e.target.value }))}
-                placeholder="Template name"
-                className="mt-1"
+                onChange={(e) => setTemplateForm({ ...templateForm, name: e.target.value })}
               />
             </div>
-            <div>
-              <Label htmlFor="template-description">Description</Label>
+            <div className="space-y-2">
+              <Label htmlFor="description">Description</Label>
               <Textarea
-                id="template-description"
-                value={templateForm.description}
-                onChange={(e) => setTemplateForm((prev) => ({ ...prev, description: e.target.value }))}
+                id="description"
                 placeholder="Describe what this template does"
+                value={templateForm.description}
+                onChange={(e) => setTemplateForm({ ...templateForm, description: e.target.value })}
                 rows={3}
-                className="mt-1"
               />
             </div>
-            <div>
-              <Label htmlFor="template-category">Category</Label>
+            <div className="space-y-2">
+              <Label htmlFor="category">Category</Label>
               <Select
                 value={templateForm.category}
-                onValueChange={(value) => setTemplateForm((prev) => ({ ...prev, category: value }))}
+                onValueChange={(value) => setTemplateForm({ ...templateForm, category: value })}
               >
-                <SelectTrigger className="mt-1">
+                <SelectTrigger id="category">
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Marketing">Marketing</SelectItem>
-                  <SelectItem value="CRM">CRM</SelectItem>
-                  <SelectItem value="DevOps">DevOps</SelectItem>
-                  <SelectItem value="Communication">Communication</SelectItem>
-                  <SelectItem value="Data Processing">Data Processing</SelectItem>
-                  <SelectItem value="E-commerce">E-commerce</SelectItem>
-                  <SelectItem value="HR">HR</SelectItem>
-                  <SelectItem value="Finance">Finance</SelectItem>
+                  <SelectItem value="productivity">Productivity</SelectItem>
+                  <SelectItem value="communication">Communication</SelectItem>
+                  <SelectItem value="data">Data Management</SelectItem>
+                  <SelectItem value="marketing">Marketing</SelectItem>
+                  <SelectItem value="sales">Sales</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <Label htmlFor="template-tags">Tags (comma-separated)</Label>
+            <div className="space-y-2">
+              <Label htmlFor="tags">Tags (comma separated)</Label>
               <Input
-                id="template-tags"
+                id="tags"
+                placeholder="e.g. email, automation, slack"
                 value={templateForm.tags}
-                onChange={(e) => setTemplateForm((prev) => ({ ...prev, tags: e.target.value }))}
-                placeholder="automation, slack, email"
-                className="mt-1"
+                onChange={(e) => setTemplateForm({ ...templateForm, tags: e.target.value })}
               />
             </div>
             <div className="flex items-center space-x-2">
               <Switch
-                id="template-public"
+                id="is_public"
                 checked={templateForm.is_public}
-                onCheckedChange={(checked) => setTemplateForm((prev) => ({ ...prev, is_public: checked }))}
+                onCheckedChange={(checked) => setTemplateForm({ ...templateForm, is_public: checked })}
               />
-              <Label htmlFor="template-public">Make public (visible to all users)</Label>
+              <Label htmlFor="is_public">Make this template public</Label>
             </div>
-            <div className="flex gap-3 pt-4">
-              <Button
-                variant="outline"
-                onClick={() => setTemplateDialog({ open: false, workflowId: null })}
-                className="flex-1 hover:bg-slate-50 focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 transition-all duration-200"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleCreateTemplate}
-                disabled={!templateForm.name || !templateForm.category}
-                className="flex-1 hover:shadow-lg focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200"
-              >
-                Create Template
-              </Button>
-            </div>
+          </div>
+          <div className="flex justify-end space-x-2">
+            <Button
+              variant="outline"
+              onClick={() => setTemplateDialog({ open: false, workflowId: null })}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleCreateTemplate} disabled={!templateForm.name}>
+              Create Template
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
