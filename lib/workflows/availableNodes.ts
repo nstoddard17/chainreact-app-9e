@@ -45,6 +45,11 @@ import {
   Package,
 } from "lucide-react"
 
+// Import Gmail action metadata
+import { ACTION_METADATA as GMAIL_SEND_EMAIL_METADATA } from "@/integrations/gmail/sendEmail"
+import { ACTION_METADATA as GMAIL_ADD_LABEL_METADATA } from "@/integrations/gmail/addLabel"
+import { ACTION_METADATA as GMAIL_SEARCH_EMAILS_METADATA } from "@/integrations/gmail/searchEmails"
+
 export interface ConfigField {
   name: string
   label: string
@@ -532,9 +537,10 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     isTrigger: true,
   },
   {
-    type: "gmail_action_send_email",
-    title: "Send Email",
-    description: "Sends an email from your Gmail account.",
+    type: GMAIL_SEND_EMAIL_METADATA.key,
+    title: GMAIL_SEND_EMAIL_METADATA.name,
+    description: GMAIL_SEND_EMAIL_METADATA.description,
+    icon: Mail,
     isTrigger: false,
     providerId: "gmail",
     testable: true,
@@ -2246,10 +2252,10 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
 
   // Gmail / Outlook Actions
   {
-    type: "gmail_action_add_label",
-    title: "Add Label (Gmail)",
-    description: "Add a label to an email",
-    icon: Edit,
+    type: GMAIL_ADD_LABEL_METADATA.key,
+    title: GMAIL_ADD_LABEL_METADATA.name,
+    description: GMAIL_ADD_LABEL_METADATA.description,
+    icon: Mail,
     providerId: "gmail",
     category: "Email",
     isTrigger: false,
@@ -2278,10 +2284,10 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     ],
   },
   {
-    type: "gmail_action_search_email",
-    title: "Search Email (Gmail)",
-    description: "Search for a specific email",
-    icon: Edit,
+    type: GMAIL_SEARCH_EMAILS_METADATA.key,
+    title: GMAIL_SEARCH_EMAILS_METADATA.name,
+    description: GMAIL_SEARCH_EMAILS_METADATA.description,
+    icon: Search,
     providerId: "gmail",
     category: "Email",
     isTrigger: false,

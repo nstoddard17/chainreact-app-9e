@@ -136,16 +136,11 @@ const useWorkflowBuilderState = () => {
   const availableIntegrations = useMemo(() => getIntegrationsFromNodes(), [])
 
   const nodeNeedsConfiguration = (nodeComponent: NodeComponent): boolean => {
-    // Check if the node has configuration fields that require user input
-    const hasConfigFields = !!(nodeComponent.config && Object.keys(nodeComponent.config).length > 0);
-    const hasRequiredFields = !!(nodeComponent.requiredFields && nodeComponent.requiredFields.length > 0);
-    const hasConfigSchema = !!(nodeComponent.configSchema);
-    const hasSettings = !!(nodeComponent.settings && Object.keys(nodeComponent.settings).length > 0);
+    // Check if the node has a configuration schema
+    const hasConfigSchema = !!(nodeComponent.configSchema && nodeComponent.configSchema.length > 0);
     
-    // Node needs configuration if it has any configuration properties
-    const needsConfig = hasConfigFields || hasRequiredFields || hasConfigSchema || hasSettings;
-    
-    return needsConfig;
+    // Node needs configuration if it has a config schema
+    return hasConfigSchema;
   }
 
   const isIntegrationConnected = useCallback((integrationId: string): boolean => {
@@ -421,18 +416,29 @@ const useWorkflowBuilderState = () => {
       const nodesChanged = JSON.stringify(currentNodeIds) !== JSON.stringify(workflowNodeIds)
       
       if (getNodes().length === 0 || nodesChanged) {
-        const customNodes: Node[] = (currentWorkflow.nodes || []).map((node: WorkflowNode) => ({
-          id: node.id, type: "custom", position: node.position,
-          data: {
-              ...node.data, 
-              name: node.data.label, 
+        const customNodes: Node[] = (currentWorkflow.nodes || []).map((node: WorkflowNode) => {
+          // Get the component definition to ensure we have the correct title
+          const nodeComponent = ALL_NODE_COMPONENTS.find(c => c.type === node.data.type);
+          
+          return {
+            id: node.id, 
+            type: "custom", 
+            position: node.position,
+            data: {
+              ...node.data,
+              // Use title from multiple sources in order of preference 
+              title: node.data.title || (nodeComponent ? nodeComponent.title : undefined),
+              // Set name for backwards compatibility (used by UI)
+              name: node.data.title || (nodeComponent ? nodeComponent.title : node.data.label || 'Unnamed Action'),
+              description: node.data.description || (nodeComponent ? nodeComponent.description : undefined),
               onConfigure: handleConfigureNode,
               onDelete: handleDeleteNodeWithConfirmation,
               onChangeTrigger: node.data.type.includes('trigger') ? handleChangeTrigger : undefined,
               // Use the saved providerId directly, fallback to extracting from type if not available
               providerId: node.data.providerId || node.data.type.split('-')[0]
-          },
-        }))
+            },
+          };
+        })
 
         let allNodes: Node[] = [...customNodes]
         const lastNode = customNodes.length > 0 ? customNodes.sort((a,b) => b.position.y - a.position.y)[0] : null
@@ -495,7 +501,9 @@ const useWorkflowBuilderState = () => {
       position: { x: 400, y: 100 },
       data: {
         ...trigger,
-        name: trigger.name,
+        title: trigger.title,
+        name: trigger.title,
+        description: trigger.description,
         isTrigger: true,
         onConfigure: handleConfigureNode,
         onDelete: handleDeleteNodeWithConfirmation,
@@ -657,7 +665,16 @@ const useWorkflowBuilderState = () => {
     const newNodeId = `node-${Date.now()}`
     const newActionNode: Node = {
       id: newNodeId, type: "custom", position: { x: parentNode.position.x, y: parentNode.position.y + 120 },
-      data: { ...action, name: action.name || 'Unnamed Action', onConfigure: handleConfigureNode, onDelete: handleDeleteNodeWithConfirmation, providerId: integration.id, config },
+      data: { 
+        ...action, 
+        title: action.title, 
+        name: action.title || 'Unnamed Action',
+        description: action.description,
+        onConfigure: handleConfigureNode, 
+        onDelete: handleDeleteNodeWithConfirmation, 
+        providerId: integration.id, 
+        config 
+      },
     }
     const newAddActionId = `add-action-${Date.now()}`
     const newAddActionNode: Node = {
@@ -1489,7 +1506,7 @@ function WorkflowBuilderContent() {
                         .filter(action => {
                           if (searchQuery) {
                             const query = searchQuery.toLowerCase()
-                            return (action.name?.toLowerCase() || '').includes(query) || (action.description?.toLowerCase() || '').includes(query)
+                            return (action.title?.toLowerCase() || '').includes(query) || (action.description?.toLowerCase() || '').includes(query)
                           }
                           return true
                         })
@@ -1505,7 +1522,7 @@ function WorkflowBuilderContent() {
                               }
                             }}
                           >
-                            <p className="font-medium">{action.name || 'Unnamed Action'}</p>
+                            <p className="font-medium">{action.title || 'Unnamed Action'}</p>
                             <p className="text-sm text-muted-foreground mt-1">{action.description || 'No description available'}</p>
                           </div>
                         ))}
@@ -1527,7 +1544,7 @@ function WorkflowBuilderContent() {
               {selectedIntegration && (
                 <>
                   <span className="font-medium">Integration:</span> {selectedIntegration.name}
-                  {selectedAction && <span className="ml-4"><span className="font-medium">Action:</span> {selectedAction.name || 'Unnamed Action'}</span>}
+                  {selectedAction && <span className="ml-4"><span className="font-medium">Action:</span> {selectedAction.title || 'Unnamed Action'}</span>}
                 </>
               )}
             </div>
