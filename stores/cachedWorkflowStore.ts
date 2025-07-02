@@ -1,5 +1,5 @@
 import { createCacheStore, loadOnce, registerStore } from "./cacheStore"
-import { supabase } from "@/utils/supabaseClient"
+import { createClient } from "@/utils/supabaseClient"
 import { v4 as uuidv4 } from "uuid"
 
 // Define interfaces for workflow data
@@ -21,6 +21,7 @@ export interface Workflow {
   created_at?: string
   updated_at?: string
   user_id?: string
+  status?: string
 }
 
 // Create cache stores for workflow data
@@ -40,6 +41,7 @@ registerStore({
  * Fetch all workflows for the current user
  */
 async function fetchWorkflows(): Promise<Workflow[]> {
+  const supabase = createClient()
   if (!supabase) {
     throw new Error("Supabase client not available")
   }
@@ -60,6 +62,7 @@ async function fetchWorkflows(): Promise<Workflow[]> {
  * Fetch a single workflow by ID
  */
 async function fetchWorkflow(id: string): Promise<Workflow> {
+  const supabase = createClient()
   if (!supabase) {
     throw new Error("Supabase client not available")
   }
@@ -125,6 +128,7 @@ export async function loadWorkflow(id: string, forceRefresh = false): Promise<Wo
  * Create a new workflow
  */
 export async function createWorkflow(name: string, description?: string): Promise<Workflow> {
+  const supabase = createClient()
   if (!supabase) {
     throw new Error("Supabase client not available")
   }
@@ -165,6 +169,7 @@ export async function createWorkflow(name: string, description?: string): Promis
  * Update a workflow
  */
 export async function updateWorkflow(id: string, updates: Partial<Workflow>): Promise<Workflow> {
+  const supabase = createClient()
   if (!supabase) {
     throw new Error("Supabase client not available")
   }
@@ -207,6 +212,7 @@ export async function updateWorkflow(id: string, updates: Partial<Workflow>): Pr
  * Delete a workflow
  */
 export async function deleteWorkflow(id: string): Promise<void> {
+  const supabase = createClient()
   if (!supabase) {
     throw new Error("Supabase client not available")
   }

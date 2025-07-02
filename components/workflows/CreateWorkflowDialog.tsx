@@ -4,7 +4,6 @@ import type React from "react"
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { useWorkflowStore } from "@/stores/workflowStore"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -19,13 +18,14 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Plus, Loader2 } from "lucide-react"
+import { useWorkflows } from "@/hooks/use-workflows"
 
 export default function CreateWorkflowDialog() {
   const [open, setOpen] = useState(false)
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
   const [loading, setLoading] = useState(false)
-  const { createWorkflow } = useWorkflowStore()
+  const { createNewWorkflow } = useWorkflows()
   const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -34,7 +34,7 @@ export default function CreateWorkflowDialog() {
 
     setLoading(true)
     try {
-      const workflow = await createWorkflow(name.trim(), description.trim())
+      const workflow = await createNewWorkflow(name.trim(), description.trim())
       setOpen(false)
       setName("")
       setDescription("")
