@@ -5,7 +5,7 @@ import { Inter } from "next/font/google"
 import { ThemeProvider } from "@/components/theme-provider"
 import SupabaseProvider from "@/components/providers/SupabaseProvider"
 import AuthInitializer from "@/components/auth/AuthInitializer"
-import { UserActivityTracker } from "@/components/UserActivityTracker"
+import { PresenceProvider } from "@/components/providers/PresenceProvider"
 import { Toaster } from "@/components/ui/toaster"
 import { ReAuthNotification } from "@/components/integrations/ReAuthNotification"
 import { GlobalErrorHandler } from "@/components/GlobalErrorHandler"
@@ -57,10 +57,11 @@ export default function RootLayout({
           <SupabaseProvider>
             <GlobalErrorHandler />
             <AuthInitializer />
-            <UserActivityTracker />
-            <ReAuthNotification />
-            <Toaster />
-            {children}
+            <PresenceProvider>
+              <ReAuthNotification />
+              <Toaster />
+              {children}
+            </PresenceProvider>
           </SupabaseProvider>
         </ThemeProvider>
       </body>
