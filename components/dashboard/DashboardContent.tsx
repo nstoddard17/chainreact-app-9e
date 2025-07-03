@@ -9,6 +9,7 @@ import AppLayout from "@/components/layout/AppLayout"
 import MetricCard from "@/components/dashboard/MetricCard"
 import ActivityFeed from "@/components/dashboard/ActivityFeed"
 import WorkflowChart from "@/components/dashboard/WorkflowChart"
+import { OnlineStatusIndicator } from "@/components/providers/PresenceProvider"
 import { Workflow, Clock, Puzzle, Zap } from "lucide-react"
 
 export default function DashboardContent() {
@@ -80,6 +81,7 @@ export default function DashboardContent() {
           </div>
         </div>
       </div>
+      <OnlineStatusIndicator />
     </AppLayout>
   )
 }
