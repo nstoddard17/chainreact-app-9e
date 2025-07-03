@@ -59,6 +59,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
     disconnectIntegration,
     reconnectIntegration,
     connectApiKeyIntegration,
+    setLoading,
   } = useIntegrationStore()
   const { user } = useAuthStore()
   const router = useRouter()
@@ -107,7 +108,9 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
   }, [providers.length, initializeProviders])
 
   useEffect(() => {
+    console.log("🔍 IntegrationsContent useEffect", { user: !!user, loading })
     if (user) {
+      console.log("👤 User found, calling fetchIntegrations and fetchMetrics")
       fetchIntegrations()
       fetchMetrics()
     }
@@ -176,7 +179,9 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
               return
             }
             
-            if (event.data.status === "success") {
+            console.log("📨 Received OAuth message:", event.data)
+            
+            if (event.data.type === "oauth-success") {
               toast({
                 title: "Integration Connected",
                 description: `${event.data.provider || "Integration"} has been connected successfully.`,
@@ -184,10 +189,16 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
               })
               fetchIntegrations()
               fetchMetrics()
-            } else if (event.data.status === "error") {
+            } else if (event.data.type === "oauth-error") {
               toast({
                 title: "Integration Error",
                 description: event.data.message || "An unknown error occurred.",
+                variant: "destructive",
+              })
+            } else if (event.data.type === "oauth-cancelled") {
+              toast({
+                title: "Connection Cancelled",
+                description: "The OAuth connection was cancelled.",
                 variant: "destructive",
               })
             }
@@ -259,7 +270,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
 
   const handleApiKeyConnect = async (providerId: string, apiKey: string) => {
     try {
-      setLoadingStates(prev => ({ ...prev, [`connect-${providerId}`]: true }))
+      setLoading(`connect-${providerId}`, true)
       await connectApiKeyIntegration(providerId, apiKey)
     } catch (error: any) {
       console.error(`Failed to connect ${providerId}:`, error)
@@ -269,7 +280,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
         variant: "destructive",
       })
     } finally {
-      setLoadingStates(prev => ({ ...prev, [`connect-${providerId}`]: false }))
+      setLoading(`connect-${providerId}`, false)
     }
   }
 
@@ -386,8 +397,19 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
                 status={p.status}
                 isConfigured={isConfigured}
                 onConnect={() => connectIntegration(p.id)}
-                onDisconnect={() => (p.integration ? disconnectIntegration(p.integration.id) : {})}
-                onReconnect={() => (p.integration ? reconnectIntegration(p.integration.id) : {})}
+                onDisconnect={() => {
+                  if (p.integration) {
+                    disconnectIntegration(p.integration.id)
+                  }
+                }}
+                onReconnect={() => {
+                  if (p.integration) {
+                    console.log("🔄 Calling reconnectIntegration for:", p.integration.id)
+                    reconnectIntegration(p.integration.id)
+                  } else {
+                    console.warn("⚠️ No integration found for reconnect")
+                  }
+                }}
               />
             )
           })

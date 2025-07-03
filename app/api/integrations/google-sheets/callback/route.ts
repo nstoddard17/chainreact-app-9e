@@ -21,7 +21,8 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const { userId, code_verifier } = JSON.parse(atob(state))
+    const stateObject = JSON.parse(atob(state))
+    const { userId, provider: stateProvider, reconnect, integrationId } = stateObject
     if (!userId) {
       throw new Error('Missing userId in Google Sheets state')
     }

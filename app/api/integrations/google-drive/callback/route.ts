@@ -22,10 +22,14 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const { userId, code_verifier } = JSON.parse(atob(state))
+    const stateObject = JSON.parse(atob(state))
+    const { userId, provider: stateProvider, reconnect, integrationId } = stateObject
+    
     if (!userId) {
       throw new Error('Missing userId in Google Drive state')
     }
+
+    console.log('Google Drive OAuth callback state:', { userId, provider: stateProvider, reconnect, integrationId })
 
     const supabase = createAdminClient()
 
@@ -87,6 +91,7 @@ export async function GET(request: NextRequest) {
       throw new Error(`Failed to save Google Drive integration: ${upsertError.message}`)
     }
 
+    console.log('✅ Google Drive integration successfully saved with status: connected')
     return createPopupResponse('success', provider, 'You can now close this window.', baseUrl)
   } catch (e: any) {
     console.error('Google Drive callback error:', e)

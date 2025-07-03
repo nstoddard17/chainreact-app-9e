@@ -24,10 +24,14 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const { userId, code_verifier } = JSON.parse(atob(state))
+    const stateObject = JSON.parse(atob(state))
+    const { userId, provider: stateProvider, reconnect, integrationId } = stateObject
+    
     if (!userId) {
       return createPopupResponse('error', provider, 'Missing userId in Gmail state.', baseUrl)
     }
+
+    console.log('Gmail OAuth callback state:', { userId, provider: stateProvider, reconnect, integrationId })
 
     const supabase = createAdminClient()
 
@@ -46,7 +50,7 @@ export async function GET(request: NextRequest) {
         client_secret: clientSecret!,
         redirect_uri: redirectUri,
         grant_type: 'authorization_code',
-        code_verifier: code_verifier || '',
+        code_verifier: '',
       }),
     })
 
@@ -92,6 +96,7 @@ export async function GET(request: NextRequest) {
       return createPopupResponse('error', provider, `Database Error: ${upsertError.message}`, baseUrl)
     }
 
+    console.log('✅ Gmail integration successfully saved with status: connected')
     return createPopupResponse('success', provider, 'Gmail account connected successfully.', baseUrl)
   } catch (error) {
     console.error('Error during Gmail OAuth callback:', error)

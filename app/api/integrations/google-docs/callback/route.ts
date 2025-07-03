@@ -21,7 +21,8 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const { userId, code_verifier } = JSON.parse(atob(state))
+    const stateObject = JSON.parse(atob(state))
+    const { userId, provider: stateProvider, reconnect, integrationId } = stateObject
     if (!userId) {
       return createPopupResponse('error', provider, 'Missing userId in Google Docs state.', baseUrl)
     }
@@ -43,7 +44,7 @@ export async function GET(request: NextRequest) {
         client_secret: clientSecret!,
         redirect_uri: redirectUri,
         grant_type: 'authorization_code',
-        code_verifier: code_verifier || '',
+        code_verifier: '',
       }),
     })
 
