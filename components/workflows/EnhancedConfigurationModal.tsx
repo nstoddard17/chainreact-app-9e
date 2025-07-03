@@ -92,6 +92,25 @@ export default function EnhancedConfigurationModal({
     setConfig(initialData)
   }, [initialData])
 
+  // Initialize default values from schema
+  useEffect(() => {
+    if (!nodeInfo || hasInitializedDefaults.current) return
+
+    const defaultValues: Record<string, any> = {}
+    
+    // Apply default values from configSchema
+    nodeInfo.configSchema?.forEach((field: any) => {
+      if (field.defaultValue !== undefined && config[field.name] === undefined) {
+        defaultValues[field.name] = field.defaultValue
+      }
+    })
+
+    if (Object.keys(defaultValues).length > 0) {
+      setConfig(prev => ({ ...defaultValues, ...prev }))
+      hasInitializedDefaults.current = true
+    }
+  }, [nodeInfo, config])
+
   // Check if this node has test data available
   const nodeTestData = currentNodeId ? getNodeInputOutput(currentNodeId) : null
   const isInExecutionPath = currentNodeId ? isNodeInExecutionPath(currentNodeId) : false
