@@ -91,7 +91,12 @@ class ApiClient {
         data = {}
       }
 
-      console.log(`✅ API Response: ${endpoint}`, data)
+      // Log successful API responses without sensitive data
+      if (endpoint.includes('gmail') || endpoint.includes('recipients') || endpoint.includes('contacts')) {
+        console.log(`✅ API Response: ${endpoint} - ${Array.isArray(data.data) ? data.data.length : 'Unknown'} items`)
+      } else {
+        console.log(`✅ API Response: ${endpoint}`)
+      }
 
       return {
         success: true,

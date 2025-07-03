@@ -4,6 +4,7 @@ import { useAuthStore } from "@/stores/authStore"
 import { Button } from "@/components/ui/button"
 import { LogOut, User, Menu, Settings, ChevronDown, Crown } from "lucide-react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -66,32 +67,46 @@ export default function TopBar({ onMobileMenuChange, title, subtitle }: TopBarPr
             <Button variant="ghost" className="flex items-center space-x-2">
               <User className="w-4 h-4" />
               <div className="hidden sm:flex items-center space-x-2">
-                <span>{profile?.username || user?.email}</span>
+                <span>{profile?.username || profile?.full_name || user?.email}</span>
                 <RoleBadgeCompact role={userRole} />
               </div>
               <ChevronDown className="w-4 h-4" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuItem onClick={() => router.push("/profile")}>
-              <User className="w-4 h-4 mr-2" />
-              Profile
+          <DropdownMenuContent align="end" className="w-56 bg-gray-900/95 backdrop-blur-sm border border-gray-700">
+            <div className="px-2 py-1.5 text-sm text-gray-300">
+              <div className="font-medium">{profile?.username || profile?.full_name || "User"}</div>
+              <div className="text-xs text-gray-400 truncate">{user?.email}</div>
+            </div>
+            <DropdownMenuSeparator className="bg-gray-700" />
+            <DropdownMenuItem asChild>
+              <Link href="/profile" className="flex items-center text-gray-200 hover:text-white hover:bg-gray-700">
+                <User className="w-4 h-4 mr-2" />
+                Profile
+              </Link>
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => router.push("/settings")}>
-              <Settings className="w-4 h-4 mr-2" />
-              Settings
+            <DropdownMenuItem asChild>
+              <Link href="/settings" className="flex items-center text-gray-200 hover:text-white hover:bg-gray-700">
+                <Settings className="w-4 h-4 mr-2" />
+                Settings
+              </Link>
             </DropdownMenuItem>
             {isAdmin && (
               <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => router.push("/admin")}>
-                  <Crown className="w-4 h-4 mr-2" />
-                  Admin Panel
+                <DropdownMenuSeparator className="bg-gray-700" />
+                <DropdownMenuItem asChild>
+                  <Link href="/admin" className="flex items-center text-yellow-400 hover:text-yellow-300 hover:bg-gray-700">
+                    <Crown className="w-4 h-4 mr-2" />
+                    Admin Panel
+                  </Link>
                 </DropdownMenuItem>
               </>
             )}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleSignOut}>
+            <DropdownMenuSeparator className="bg-gray-700" />
+            <DropdownMenuItem 
+              onClick={handleSignOut}
+              className="flex items-center text-red-400 hover:text-red-300 hover:bg-gray-700 cursor-pointer"
+            >
               <LogOut className="w-4 h-4 mr-2" />
               Sign Out
             </DropdownMenuItem>
