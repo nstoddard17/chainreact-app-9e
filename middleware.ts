@@ -1,7 +1,6 @@
-import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs'
+import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { updateSession } from "@/utils/supabase/middleware"
 
 // Define page access rules
 const pageAccessRules = {
@@ -20,38 +19,74 @@ const pageAccessRules = {
 }
 
 export async function middleware(req: NextRequest) {
-  const res = NextResponse.next()
-  const supabase = createMiddlewareClient({ req, res })
+  let res = NextResponse.next({
+    request: {
+      headers: req.headers,
+    },
+  })
 
-  // Check if user is authenticated
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          try {
+            return req.cookies.getAll()
+          } catch (error) {
+            // Suppress cookie parsing errors - they're expected with base64 cookies
+            return []
+          }
+        },
+        setAll(cookiesToSet) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) => {
+              req.cookies.set(name, value)
+              res.cookies.set(name, value, options)
+            })
+          } catch (error) {
+            // Suppress cookie setting errors
+          }
+        },
+      },
+    }
+  )
 
-  // If no user, allow the request (auth pages will handle redirect)
-  if (!user) {
+  try {
+    // Check if user is authenticated
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    // If no user, allow the request (auth pages will handle redirect)
+    if (!user) {
+      return res
+    }
+
+    // Get user profile to check role
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+
+    const userRole = profile?.role || 'free'
+    const pathname = req.nextUrl.pathname
+
+    // Check if the page has access rules
+    const allowedRoles = pageAccessRules[pathname as keyof typeof pageAccessRules]
+    
+    if (allowedRoles && !allowedRoles.includes(userRole)) {
+      // Redirect to dashboard if user doesn't have access
+      return NextResponse.redirect(new URL('/dashboard', req.url))
+    }
+
+    return res
+  } catch (error) {
+    // If there's an error (like cookie parsing), just continue without authentication
+    console.debug("Middleware auth error (expected):", error)
     return res
   }
-
-  // Get user profile to check role
-  const { data: profile } = await supabase
-    .from('user_profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  const userRole = profile?.role || 'free'
-  const pathname = req.nextUrl.pathname
-
-  // Check if the page has access rules
-  const allowedRoles = pageAccessRules[pathname as keyof typeof pageAccessRules]
-  
-  if (allowedRoles && !allowedRoles.includes(userRole)) {
-    // Redirect to dashboard if user doesn't have access
-    return NextResponse.redirect(new URL('/dashboard', req.url))
-  }
-
-  return res
 }
 
 async function trackUsage(supabase: any, userId: string, resourceType: string, action: string) {

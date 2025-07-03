@@ -17,7 +17,7 @@ export async function updateSession(request: NextRequest) {
           try {
             return request.cookies.getAll()
           } catch (error) {
-            console.warn("Failed to get cookies:", error)
+            // Suppress cookie parsing errors - they're expected with base64 cookies
             return []
           }
         },

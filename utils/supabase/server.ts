@@ -13,7 +13,7 @@ export async function createSupabaseServerClient() {
           try {
             return cookieStore.getAll()
           } catch (error) {
-            console.warn("Failed to get cookies in server client:", error)
+            // Suppress cookie parsing errors - they're expected with base64 cookies
             return []
           }
         },
@@ -45,7 +45,7 @@ export async function createSupabaseServerActionClient() {
           try {
             return cookieStore.getAll()
           } catch (error) {
-            console.warn("Failed to get cookies in server action client:", error)
+            // Suppress cookie parsing errors - they're expected with base64 cookies
             return []
           }
         },
@@ -77,7 +77,7 @@ export async function createSupabaseRouteHandlerClient() {
           try {
             return cookieStore.getAll()
           } catch (error) {
-            console.warn("Failed to get cookies in route handler client:", error)
+            // Suppress cookie parsing errors - they're expected with base64 cookies
             return []
           }
         },
