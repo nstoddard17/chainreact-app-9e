@@ -155,8 +155,14 @@ export const useIntegrationStore = create<IntegrationStore>()(
 
     fetchIntegrations: async (force = false) => {
       const { loading, currentUserId } = get()
-      if (loading && !force) return
+      console.log("🔄 fetchIntegrations called", { loading, force, currentUserId })
+      
+      if (loading && !force) {
+        console.log("⏸️ Skipping fetch - already loading and not forced")
+        return
+      }
 
+      console.log("🚀 Starting fetchIntegrations")
       set({ loading: true, error: null })
 
       let timeoutId: NodeJS.Timeout | null = null
@@ -247,8 +253,11 @@ export const useIntegrationStore = create<IntegrationStore>()(
 
         const data = await response.json()
 
+        const integrations = Array.isArray(data.data) ? data.data : data.integrations || []
+        console.log("✅ fetchIntegrations completed", { count: integrations.length })
+        
         set({
-          integrations: Array.isArray(data.data) ? data.data : data.integrations || [],
+          integrations,
           loading: false,
           debugInfo: data.debug || {},
           lastRefreshTime: new Date().toISOString(),
@@ -753,10 +762,16 @@ export const useIntegrationStore = create<IntegrationStore>()(
     },
 
     reconnectIntegration: async (integrationId: string) => {
+      console.log("🔄 reconnectIntegration called with:", integrationId)
       const { setLoading, fetchIntegrations, integrations, setError } = get()
       const integration = integrations.find((i) => i.id === integrationId)
-      if (!integration) return
+      
+      if (!integration) {
+        console.error("❌ Integration not found for ID:", integrationId)
+        return
+      }
 
+      console.log("✅ Found integration:", integration.provider)
       setLoading(`reconnect-${integrationId}`, true)
       setError(null)
 
@@ -771,35 +786,188 @@ export const useIntegrationStore = create<IntegrationStore>()(
           throw new Error("No valid session found. Please log in again.")
         }
 
-        const response = await fetch("/api/integrations/token-management", {
-          method: "PUT",
+        // Generate OAuth URL for reconnection
+        console.log("🔄 Generating OAuth URL for reconnection...")
+        const authResponse = await fetch("/api/integrations/auth/generate-url", {
+          method: "POST",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${session.access_token}`,
           },
           body: JSON.stringify({
+            provider: integration.provider,
+            reconnect: true,
             integrationId: integrationId,
-            action: "reconnect",
           }),
         })
 
-        if (!response.ok) {
-          let errorMessage = "Failed to reconnect integration"
-          try {
-            const errorData = await response.json()
-            errorMessage = errorData.error || errorMessage
-          } catch (parseError) {
-            // If response.json() fails, use the status text
-            errorMessage = response.statusText || errorMessage
-          }
-          throw new Error(errorMessage)
+        if (!authResponse.ok) {
+          const errorData = await authResponse.json().catch(() => ({}))
+          throw new Error(errorData.error || "Failed to generate OAuth URL")
         }
 
-        await fetchIntegrations(true)
+        const authData = await authResponse.json()
+        
+        if (!authData.success || !authData.authUrl) {
+          throw new Error("Failed to generate OAuth URL for reconnection")
+        }
+
+        console.log("✅ OAuth URL generated, opening popup...")
+        
+        // Open OAuth popup
+        const width = 600
+        const height = 700
+        const left = window.screen.width / 2 - width / 2
+        const top = window.screen.height / 2 - height / 2
+        const popupName = `oauth_reconnect_${integration.provider}_${Date.now()}`
+        
+        const popup = window.open(
+          authData.authUrl,
+          popupName,
+          `width=${width},height=${height},left=${left},top=${top}`,
+        )
+
+        if (!popup) {
+          throw new Error("Failed to open OAuth popup. Please allow popups and try again.")
+        }
+
+        // Wait for OAuth completion
+        await new Promise((resolve, reject) => {
+          let messageReceived = false
+          
+          const handleMessage = (event: MessageEvent) => {
+            if (event.origin !== window.location.origin) {
+              return
+            }
+            
+            console.log("📨 Received OAuth message:", event.data)
+            messageReceived = true
+            
+            if (event.data.type === "oauth-success") {
+              console.log("✅ OAuth reconnection successful")
+              try {
+                popup.close()
+              } catch (e) {
+                console.warn("Failed to close popup:", e)
+              }
+              window.removeEventListener("message", handleMessage)
+              fetchIntegrations(true)
+              resolve(undefined)
+            } else if (event.data.type === "oauth-error") {
+              console.error("❌ OAuth reconnection failed:", event.data.message)
+              try {
+                popup.close()
+              } catch (e) {
+                console.warn("Failed to close popup:", e)
+              }
+              window.removeEventListener("message", handleMessage)
+              reject(new Error(event.data.message || "OAuth reconnection failed"))
+            } else if (event.data.type === "oauth-cancelled") {
+              console.log("🚫 OAuth reconnection cancelled")
+              try {
+                popup.close()
+              } catch (e) {
+                console.warn("Failed to close popup:", e)
+              }
+              window.removeEventListener("message", handleMessage)
+              reject(new Error("OAuth reconnection was cancelled"))
+            }
+          }
+
+          window.addEventListener("message", handleMessage)
+          
+          // Check if popup closes without sending a message
+          const checkPopupClosed = setInterval(() => {
+            if (popup.closed && !messageReceived) {
+              console.log("❌ Popup closed without sending message")
+              clearInterval(checkPopupClosed)
+              window.removeEventListener("message", handleMessage)
+              reject(new Error("OAuth popup closed unexpectedly"))
+            }
+          }, 1000)
+          
+          // Timeout after 5 minutes
+          const timeout = setTimeout(() => {
+            console.log("⏰ OAuth reconnection timed out")
+            clearInterval(checkPopupClosed)
+            try {
+              popup.close()
+            } catch (e) {
+              console.warn("Failed to close popup on timeout:", e)
+            }
+            window.removeEventListener("message", handleMessage)
+            reject(new Error("OAuth reconnection timed out"))
+          }, 5 * 60 * 1000)
+          
+          // Clean up timeout and interval when message is received
+          const originalResolve = resolve
+          const originalReject = reject
+          
+          // Override resolve/reject to clean up timers
+          const wrappedResolve = (value: any) => {
+            clearTimeout(timeout)
+            clearInterval(checkPopupClosed)
+            originalResolve(value)
+          }
+          
+          const wrappedReject = (error: any) => {
+            clearTimeout(timeout)
+            clearInterval(checkPopupClosed)
+            originalReject(error)
+          }
+          
+          // Replace the resolve/reject in the message handler
+          const originalHandleMessage = handleMessage
+          window.removeEventListener("message", originalHandleMessage)
+          
+          const newHandleMessage = (event: MessageEvent) => {
+            if (event.origin !== window.location.origin) {
+              return
+            }
+            
+            console.log("📨 Received OAuth message:", event.data)
+            messageReceived = true
+            
+            if (event.data.type === "oauth-success") {
+              console.log("✅ OAuth reconnection successful")
+              try {
+                popup.close()
+              } catch (e) {
+                console.warn("Failed to close popup:", e)
+              }
+              window.removeEventListener("message", newHandleMessage)
+              fetchIntegrations(true)
+              wrappedResolve(undefined)
+            } else if (event.data.type === "oauth-error") {
+              console.error("❌ OAuth reconnection failed:", event.data.message)
+              try {
+                popup.close()
+              } catch (e) {
+                console.warn("Failed to close popup:", e)
+              }
+              window.removeEventListener("message", newHandleMessage)
+              wrappedReject(new Error(event.data.message || "OAuth reconnection failed"))
+            } else if (event.data.type === "oauth-cancelled") {
+              console.log("🚫 OAuth reconnection cancelled")
+              try {
+                popup.close()
+              } catch (e) {
+                console.warn("Failed to close popup:", e)
+              }
+              window.removeEventListener("message", newHandleMessage)
+              wrappedReject(new Error("OAuth reconnection was cancelled"))
+            }
+          }
+          
+          window.addEventListener("message", newHandleMessage)
+        })
+
       } catch (error: any) {
-        console.error(`Failed to reconnect ${integration.provider}:`, error)
+        console.error(`❌ Failed to reconnect ${integration.provider}:`, error)
         setError(error.message)
+        throw error
       } finally {
+        console.log("🏁 Reconnection process finished")
         setLoading(`reconnect-${integrationId}`, false)
       }
     },

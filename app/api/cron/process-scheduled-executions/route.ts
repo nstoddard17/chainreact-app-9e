@@ -4,6 +4,10 @@ import { executeAction } from "@/lib/workflows/executeNode"
 
 // This endpoint processes scheduled workflow executions (wait actions)
 // It should be called by a cron job every minute
+export async function GET(request: Request) {
+  return await POST(request)
+}
+
 export async function POST(request: Request) {
   try {
     console.log("🔄 Processing scheduled workflow executions...")

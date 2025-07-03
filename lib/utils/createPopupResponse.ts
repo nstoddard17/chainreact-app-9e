@@ -53,14 +53,38 @@ export function createPopupResponse(
           // Set flag to indicate we've sent a response
           window.sentResponse = true;
           
-          window.opener.postMessage({
-              type: 'oauth-${type}',
-              provider: '${safeProvider}',
-              message: '${safeMessage}'
-          }, '${baseUrl}');
+          // Send message with retry logic
+          let messageSent = false;
+          let retryCount = 0;
+          const maxRetries = 3;
           
-          // Ensure window closes even if postMessage fails
-          setTimeout(() => window.close(), 1000);
+          const sendMessage = () => {
+            try {
+              window.opener.postMessage({
+                  type: 'oauth-${type}',
+                  provider: '${safeProvider}',
+                  message: '${safeMessage}'
+              }, '${baseUrl}');
+              messageSent = true;
+              console.log('Message sent successfully to parent window');
+            } catch (e) {
+              console.error('Failed to send message:', e);
+              retryCount++;
+              if (retryCount < maxRetries) {
+                setTimeout(sendMessage, 500);
+              }
+            }
+          };
+          
+          sendMessage();
+          
+          // Ensure window closes after a delay, regardless of message success
+          setTimeout(() => {
+            if (!messageSent) {
+              console.warn('Closing window without confirming message was sent');
+            }
+            window.close();
+          }, 2000);
         } else {
            document.getElementById('message').innerText = 'Something went wrong. Please close this window and try again.';
         }
