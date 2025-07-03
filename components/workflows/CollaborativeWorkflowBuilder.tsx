@@ -143,6 +143,28 @@ const useWorkflowBuilderState = () => {
     return hasConfigSchema;
   }
 
+  // Helper function to get the current workflow's trigger
+  const getWorkflowTrigger = () => {
+    const triggerNode = getNodes().find(node => node.data?.isTrigger)
+    return triggerNode
+  }
+
+  // Helper function to check if action should be available based on trigger
+  const isActionCompatibleWithTrigger = (action: NodeComponent): boolean => {
+    const trigger = getWorkflowTrigger()
+    
+    // If no trigger yet, allow all actions
+    if (!trigger) return true
+    
+    // Gmail actions should only be available with Gmail triggers
+    if (action.providerId === 'gmail') {
+      return trigger.data?.providerId === 'gmail'
+    }
+    
+    // All other actions are available regardless of trigger
+    return true
+  }
+
   const isIntegrationConnected = useCallback((integrationId: string): boolean => {
     // Logic integration is always "connected" since it doesn't require authentication
     if (integrationId === 'logic') return true;
@@ -1427,15 +1449,27 @@ function WorkflowBuilderContent() {
               {availableIntegrations.filter(int => {
                 if (showConnectedOnly && !isIntegrationConnected(int.id)) return false
                 if (filterCategory !== 'all' && int.category !== filterCategory) return false
+                
+                // Filter out integrations that have no compatible actions
+                const trigger = nodes.find(node => node.data?.isTrigger)
+                const compatibleActions = int.actions.filter(action => {
+                  // Gmail actions should only be available with Gmail triggers
+                  if (action.providerId === 'gmail' && trigger && trigger.data?.providerId !== 'gmail') {
+                    return false
+                  }
+                  return true
+                })
+                if (compatibleActions.length === 0) return false
+                
                 if (searchQuery) {
                   const query = searchQuery.toLowerCase()
                   const matchesIntegration = int.name.toLowerCase().includes(query) || int.description.toLowerCase().includes(query)
-                  const matchesAction = int.actions.some(action => 
-                    (action.name?.toLowerCase() || '').includes(query) || (action.description?.toLowerCase() || '').includes(query)
+                  const matchesAction = compatibleActions.some(action => 
+                    (action.title?.toLowerCase() || '').includes(query) || (action.description?.toLowerCase() || '').includes(query)
                   )
                   return matchesIntegration || matchesAction
                 }
-                return int.actions.length > 0
+                return compatibleActions.length > 0
               }).length === 0 && showConnectedOnly ? (
                 <div className="flex flex-col items-center justify-center py-8 text-center">
                   <div className="text-muted-foreground mb-2">
@@ -1449,15 +1483,27 @@ function WorkflowBuilderContent() {
               ) : availableIntegrations.filter(int => {
                 if (showConnectedOnly && !isIntegrationConnected(int.id)) return false
                 if (filterCategory !== 'all' && int.category !== filterCategory) return false
+                
+                // Filter out integrations that have no compatible actions
+                const trigger = nodes.find(node => node.data?.isTrigger)
+                const compatibleActions = int.actions.filter(action => {
+                  // Gmail actions should only be available with Gmail triggers
+                  if (action.providerId === 'gmail' && trigger && trigger.data?.providerId !== 'gmail') {
+                    return false
+                  }
+                  return true
+                })
+                if (compatibleActions.length === 0) return false
+                
                 if (searchQuery) {
                   const query = searchQuery.toLowerCase()
                   const matchesIntegration = int.name.toLowerCase().includes(query) || int.description.toLowerCase().includes(query)
-                  const matchesAction = int.actions.some(action => 
-                    (action.name?.toLowerCase() || '').includes(query) || (action.description?.toLowerCase() || '').includes(query)
+                  const matchesAction = compatibleActions.some(action => 
+                    (action.title?.toLowerCase() || '').includes(query) || (action.description?.toLowerCase() || '').includes(query)
                   )
                   return matchesIntegration || matchesAction
                 }
-                return int.actions.length > 0
+                return compatibleActions.length > 0
               }).length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 text-center">
                   <div className="text-muted-foreground mb-2">
@@ -1472,15 +1518,27 @@ function WorkflowBuilderContent() {
                   .filter(int => {
                     if (showConnectedOnly && !isIntegrationConnected(int.id)) return false
                     if (filterCategory !== 'all' && int.category !== filterCategory) return false
+                    
+                    // Filter out integrations that have no compatible actions
+                    const trigger = nodes.find(node => node.data?.isTrigger)
+                    const compatibleActions = int.actions.filter(action => {
+                      // Gmail actions should only be available with Gmail triggers
+                      if (action.providerId === 'gmail' && trigger && trigger.data?.providerId !== 'gmail') {
+                        return false
+                      }
+                      return true
+                    })
+                    if (compatibleActions.length === 0) return false
+                    
                     if (searchQuery) {
                       const query = searchQuery.toLowerCase()
                       const matchesIntegration = int.name.toLowerCase().includes(query) || int.description.toLowerCase().includes(query)
-                      const matchesAction = int.actions.some(action => 
-                        (action.name?.toLowerCase() || '').includes(query) || (action.description?.toLowerCase() || '').includes(query)
+                      const matchesAction = compatibleActions.some(action => 
+                        (action.title?.toLowerCase() || '').includes(query) || (action.description?.toLowerCase() || '').includes(query)
                       )
                       return matchesIntegration || matchesAction
                     }
-                    return int.actions.length > 0
+                    return compatibleActions.length > 0
                   })
                   .map((integration) => (
                     <div
@@ -1504,6 +1562,12 @@ function WorkflowBuilderContent() {
                     <div className="grid grid-cols-1 gap-3">
                       {selectedIntegration.actions
                         .filter(action => {
+                          // First check if action is compatible with current trigger
+                          const trigger = nodes.find(node => node.data?.isTrigger)
+                          if (trigger && action.providerId === 'gmail' && trigger.data?.providerId !== 'gmail') {
+                            return false
+                          }
+                          
                           if (searchQuery) {
                             const query = searchQuery.toLowerCase()
                             return (action.title?.toLowerCase() || '').includes(query) || (action.description?.toLowerCase() || '').includes(query)
