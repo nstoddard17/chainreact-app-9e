@@ -5,4 +5,7 @@ export * from './core'
 export * from './gmail'
 
 // Google Sheets actions
-export * from './googleSheets' 
+export * from './googleSheets'
+
+// Airtable actions
+export * from './airtable' 

@@ -16,6 +16,9 @@ import {
   // Google Sheets actions
   readGoogleSheetsData,
   
+  // Airtable actions
+  moveAirtableRecord,
+  
   // Workflow control actions
   executeIfThenCondition,
   executeWaitForTime
@@ -263,6 +266,9 @@ export async function executeAction({ node, input, userId, workflowId }: Execute
     // Google Sheets actions
     "google_sheets_action_read_data": readGoogleSheetsData,
     
+    // Airtable actions
+    "airtable_action_move_record": moveAirtableRecord,
+    
     // Workflow control actions
     "if_then_condition": executeIfThenCondition,
     "wait_for_time": (cfg: any, uid: string, inp: any) => 
@@ -286,7 +292,8 @@ export async function executeAction({ node, input, userId, workflowId }: Execute
   if (!hasEncryptionKey && 
       (type.startsWith('gmail_') || 
        type.startsWith('google_sheets_') || 
-       type.startsWith('google_drive_'))) {
+       type.startsWith('google_drive_') ||
+       type.startsWith('airtable_'))) {
     console.warn(`Encryption key missing, running ${type} in test mode`)
     return { 
       success: true, 

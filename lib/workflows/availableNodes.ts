@@ -3229,18 +3229,20 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     ]
   },
   {
-    type: "airtable_action_delete_record",
-    title: "Delete Record (Airtable)",
-    description: "Delete a record from Airtable",
-    icon: Trash2,
+    type: "airtable_action_move_record",
+    title: "Move Record (Airtable)",
+    description: "Move a record from one table to another in Airtable",
+    icon: Move,
     providerId: "airtable",
     requiredScopes: ["data.records:write"],
     category: "Productivity",
     isTrigger: false,
     configSchema: [
       { name: "baseId", label: "Base ID", type: "text", required: true, placeholder: "Enter base ID" },
-      { name: "tableName", label: "Table Name", type: "text", required: true, placeholder: "Enter table name" },
-      { name: "recordId", label: "Record ID", type: "text", required: true, placeholder: "Enter record ID" }
+      { name: "sourceTableName", label: "Source Table Name", type: "text", required: true, placeholder: "Enter source table name" },
+      { name: "recordId", label: "Record ID", type: "text", required: true, placeholder: "Enter record ID" },
+      { name: "destinationTableName", label: "Destination Table Name", type: "text", required: true, placeholder: "Enter destination table name" },
+      { name: "preserveRecordId", label: "Preserve Record ID", type: "boolean", required: false, defaultValue: false, description: "Keep the same record ID in the destination table" }
     ]
   },
   {
