@@ -157,7 +157,7 @@ export async function PUT(request: NextRequest) {
     const { error: updateError } = await adminSupabase
       .from("integrations")
       .update({
-        status: "needs_reconnection",
+        status: "needs_reauthorization",
         updated_at: new Date().toISOString(),
         disconnect_reason: "Manual reconnection requested"
       })
@@ -172,11 +172,11 @@ export async function PUT(request: NextRequest) {
     // Log the reconnection request
     try {
       await TokenAuditLogger.logEvent(
-        "integration_reconnection",
+        integrationId,
         user.id,
         integration.provider,
         "reconnect",
-        { integrationId, reason: "Manual reconnection requested" }
+        { reason: "Manual reconnection requested" }
       )
     } catch (auditError) {
       console.warn("Failed to log reconnection request:", auditError)
