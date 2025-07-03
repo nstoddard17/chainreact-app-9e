@@ -242,6 +242,36 @@ export default function EnhancedConfigurationModal({
                 value: label.id,
                 label: label.name,
               }))
+            } else if (field.dynamic === "gmail-recent-recipients") {
+              console.log(`🔍 Processing gmail-recent-recipients for field: ${field.name}`, data)
+              const mappedData = data.map((recipient: any) => ({
+                value: recipient.email || recipient.value,
+                label: recipient.label || (recipient.name ? recipient.name + " <" + recipient.email + ">" : recipient.email),
+                email: recipient.email || recipient.value,
+                name: recipient.name,
+                type: recipient.type || "contact"
+              }))
+              console.log(`🔍 Mapped gmail-recent-recipients for ${field.name}:`, mappedData)
+              newOptions[field.name] = mappedData
+            } else if (field.dynamic === "gmail-enhanced-recipients") {
+              console.log(`🔍 Processing gmail-enhanced-recipients for field: ${field.name}`, data)
+              if (Array.isArray(data) && data.length > 0) {
+                const mappedData = data.map((recipient: any) => ({
+                  value: recipient.email || recipient.value,
+                  label: recipient.label || (recipient.name ? recipient.name + " <" + recipient.email + ">" : recipient.email),
+                  email: recipient.email || recipient.value,
+                  name: recipient.name,
+                  type: recipient.type,
+                  isGroup: recipient.isGroup,
+                  groupId: recipient.groupId,
+                  members: recipient.members
+                }))
+                console.log(`🔍 Mapped gmail-enhanced-recipients for ${field.name}:`, mappedData)
+                newOptions[field.name] = mappedData
+              } else {
+                newOptions[field.name] = []
+                console.log(`⚠️ Gmail enhanced recipients returned empty or invalid data:`, data)
+              }
             } else if (field.dynamic === "spreadsheets") {
               newOptions[field.name] = data.map((spreadsheet: any) => ({
                 value: spreadsheet.id,
@@ -756,13 +786,32 @@ export default function EnhancedConfigurationModal({
         )
 
       case "email-autocomplete":
+        const emailOptions = dynamicOptions[field.name] || []
+        console.log(`📧 EmailAutocomplete for ${field.name}: ${emailOptions.length} options`, emailOptions)
+        const emailSuggestions = emailOptions.map((opt: any) => ({
+          value: opt.value || opt.email,
+          label: opt.label || opt.email || opt.value,
+          email: opt.email || opt.value,
+          name: opt.name,
+          type: opt.type,
+          isGroup: opt.isGroup,
+          groupId: opt.groupId,
+          members: opt.members
+        }))
+        console.log(`📧 EmailAutocomplete suggestions for ${field.name}:`, emailSuggestions)
+        
+        // Fields that support multiple emails
+        const isMultipleEmail = field.name === "attendees" || field.name === "to" || field.name === "cc" || field.name === "bcc"
+        
         return (
           <EmailAutocomplete
             value={value}
             onChange={(newValue) => setConfig(prev => ({ ...prev, [field.name]: newValue }))}
-            suggestions={[]} // TODO: Load from Gmail contacts
+            suggestions={emailSuggestions}
             placeholder={field.placeholder}
-            multiple={field.multiple}
+            multiple={isMultipleEmail}
+            disabled={loadingDynamic}
+            isLoading={loadingDynamic}
             className={cn(hasError && "border-red-500")}
           />
         )

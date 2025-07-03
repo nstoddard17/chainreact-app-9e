@@ -225,10 +225,16 @@ export default function ConfigurationModal({
                 label: file.name,
               }))
             } else if (field.dynamic === "gmail-recent-recipients") {
-              newOptions[field.name] = data.map((recipient: any) => ({
-                value: recipient.email,
-                label: recipient.email,
+              console.log(`🔍 Processing gmail-recent-recipients for field: ${field.name}`, data)
+              const mappedData = data.map((recipient: any) => ({
+                value: recipient.email || recipient.value,
+                label: recipient.label || (recipient.name ? recipient.name + " <" + recipient.email + ">" : recipient.email),
+                email: recipient.email || recipient.value,
+                name: recipient.name,
+                type: recipient.type || "contact"
               }))
+              console.log(`🔍 Mapped gmail-recent-recipients for ${field.name}:`, mappedData)
+              newOptions[field.name] = mappedData
             } else if (field.dynamic === "gmail-enhanced-recipients") {
               // Handle both enhanced recipients and fallback data formats
               if (Array.isArray(data) && data.length > 0) {
@@ -1152,6 +1158,7 @@ export default function ConfigurationModal({
       case "email-autocomplete":
         const emailOptions = dynamicOptions[field.name] || []
         console.log(`📧 EmailAutocomplete for ${field.name}: ${emailOptions.length} options`, emailOptions)
+        console.log(`🔍 Loading state: ${loadingDynamic}, Field dynamic: ${field.dynamic}`)
         const emailSuggestions = emailOptions.map((opt: any) => ({
           value: opt.value || opt.email,
           label: opt.label || opt.email || opt.value,
