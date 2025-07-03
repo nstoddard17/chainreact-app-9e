@@ -4,7 +4,9 @@
   "private": true,
   "scripts": {
     "build": "next build",
+    "build:analyze": "ANALYZE=true next build",
     "dev": "next dev",
+    "dev:turbo": "next dev --turbo",
     "lint": "next lint",
     "refresh-tokens": "node scripts/test-token-refresh.js",
     "refresh-tokens:dry-run": "node scripts/scheduled-token-refresh.js --dry-run",
