@@ -115,3 +115,79 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
   }
 }
+
+// PUT - Reconnect an integration
+export async function PUT(request: NextRequest) {
+  try {
+    const supabase = await getSupabase()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const { integrationId, action } = await request.json()
+
+    if (!integrationId || !action) {
+      return NextResponse.json({ error: "Integration ID and action are required" }, { status: 400 })
+    }
+
+    if (action !== "reconnect") {
+      return NextResponse.json({ error: "Invalid action. Only 'reconnect' is supported" }, { status: 400 })
+    }
+
+    const adminSupabase = getAdminSupabase()
+    
+    // Get the current integration
+    const { data: integration, error: fetchError } = await adminSupabase
+      .from("integrations")
+      .select("*")
+      .eq("id", integrationId)
+      .eq("user_id", user.id)
+      .single()
+
+    if (fetchError || !integration) {
+      console.error("Failed to fetch integration:", fetchError)
+      return NextResponse.json({ error: "Integration not found" }, { status: 404 })
+    }
+
+    // Update the integration status to trigger reconnection
+    const { error: updateError } = await adminSupabase
+      .from("integrations")
+      .update({
+        status: "needs_reconnection",
+        updated_at: new Date().toISOString(),
+        disconnect_reason: "Manual reconnection requested"
+      })
+      .eq("id", integrationId)
+      .eq("user_id", user.id)
+
+    if (updateError) {
+      console.error("Failed to update integration for reconnection:", updateError)
+      return NextResponse.json({ error: "Failed to reconnect integration" }, { status: 500 })
+    }
+
+    // Log the reconnection request
+    try {
+      await TokenAuditLogger.logEvent(
+        "integration_reconnection",
+        user.id,
+        integration.provider,
+        "reconnect",
+        { integrationId, reason: "Manual reconnection requested" }
+      )
+    } catch (auditError) {
+      console.warn("Failed to log reconnection request:", auditError)
+    }
+
+    return NextResponse.json({ 
+      success: true, 
+      message: `${integration.provider} integration marked for reconnection.` 
+    })
+  } catch (error: any) {
+    console.error("Integration Reconnection Error (PUT):", error)
+    return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 })
+  }
+}

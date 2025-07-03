@@ -784,8 +784,15 @@ export const useIntegrationStore = create<IntegrationStore>()(
         })
 
         if (!response.ok) {
-          const errorData = await response.json()
-          throw new Error(errorData.error || "Failed to reconnect integration")
+          let errorMessage = "Failed to reconnect integration"
+          try {
+            const errorData = await response.json()
+            errorMessage = errorData.error || errorMessage
+          } catch (parseError) {
+            // If response.json() fails, use the status text
+            errorMessage = response.statusText || errorMessage
+          }
+          throw new Error(errorMessage)
         }
 
         await fetchIntegrations(true)
