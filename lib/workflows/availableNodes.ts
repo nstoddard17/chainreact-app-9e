@@ -498,9 +498,9 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Email",
     triggerType: 'webhook',
     configSchema: [
-      { name: "from", label: "From", type: "email", placeholder: "Optional: filter by sender" },
+      { name: "from", label: "From", type: "email-autocomplete", dynamic: "gmail-recent-recipients", placeholder: "Optional: filter by sender" },
       { name: "subject", label: "Subject", type: "text", placeholder: "Optional: filter by subject" },
-      { name: "hasAttachment", label: "Has Attachment", type: "select", options: ["any", "yes", "no"] },
+      { name: "hasAttachment", label: "Has Attachment", type: "select", options: ["any", "yes", "no"], defaultValue: "any" },
     ],
     payloadSchema: {
       id: "The unique ID of the email.",
@@ -523,7 +523,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "gmail",
     category: "Email",
     configSchema: [
-      { name: "from", label: "From", type: "email", placeholder: "Optional: filter by sender" },
+      { name: "from", label: "From", type: "email-autocomplete", dynamic: "gmail-recent-recipients", placeholder: "Optional: filter by sender" },
       { name: "attachmentName", label: "Attachment Name", type: "text", placeholder: "Optional: filter by attachment name" },
     ],
   },
