@@ -81,6 +81,7 @@ export interface NodeField {
   maxSize?: string | number
   multiple?: boolean
   creatable?: boolean
+  readonly?: boolean
   // New field for output data descriptions
   outputType?: "string" | "number" | "array" | "object" | "boolean"
 }
@@ -112,6 +113,8 @@ export interface NodeComponent {
   testable?: boolean
   // Test function that returns sample output data
   testFunction?: (config: any) => Promise<any> | any
+  // Conditional availability based on trigger
+  requiresTriggerProvider?: string
 }
 
 export const ALL_NODE_COMPONENTS: NodeComponent[] = [
@@ -2260,15 +2263,15 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Email",
     isTrigger: false,
     requiredScopes: ["https://www.googleapis.com/auth/gmail.modify"],
+    requiresTriggerProvider: "gmail", // Only available when workflow has Gmail trigger
     configSchema: [
       { 
         name: "messageId", 
         label: "Email", 
-        type: "select", 
-        dynamic: "gmail_messages",
+        type: "text", 
         required: true,
-        placeholder: "Select an email from your Gmail account",
-        description: "Choose from your recent emails"
+        description: "The sender's email address from the Gmail trigger",
+        placeholder: "Enter email address or use Variable Picker"
       },
       { 
         name: "labelIds", 

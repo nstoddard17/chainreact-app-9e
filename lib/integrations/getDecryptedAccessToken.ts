@@ -14,10 +14,11 @@ export async function getDecryptedAccessToken(
   
   // Get the integration record from the database
   const { data, error } = await supabase
-    .from("user_integrations")
+    .from("integrations")
     .select("*")
     .eq("user_id", userId)
-    .eq("provider_id", provider)
+    .eq("provider", provider)
+    .eq("status", "connected")
     .single()
   
   if (error || !data) {
@@ -67,21 +68,23 @@ export async function getIntegrationCredentials(
     // For API-key based integrations, you might have different fields
     const supabase = createClient()
     const { data, error } = await supabase
-      .from("user_integrations")
-      .select("api_key, api_secret, custom_fields")
+      .from("integrations")
+      .select("metadata")
       .eq("user_id", userId)
-      .eq("provider_id", provider)
+      .eq("provider", provider)
+      .eq("status", "connected")
       .single()
     
     if (error || !data) {
       throw new Error(`Integration credentials not found: ${provider}`)
     }
     
+    const metadata = data.metadata || {}
     return {
       accessToken,
-      apiKey: data.api_key ? decrypt(data.api_key) : undefined,
-      apiSecret: data.api_secret ? decrypt(data.api_secret) : undefined,
-      customFields: data.custom_fields || {}
+      apiKey: metadata.api_key ? decrypt(metadata.api_key) : undefined,
+      apiSecret: metadata.api_secret ? decrypt(metadata.api_secret) : undefined,
+      customFields: metadata.custom_fields || {}
     }
   } catch (error) {
     console.error(`Error getting ${provider} credentials:`, error)

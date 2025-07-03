@@ -17,12 +17,13 @@ import { ConfigurationLoadingScreen } from "@/components/ui/loading-screen"
 import { FileUpload } from "@/components/ui/file-upload"
 import { DatePicker } from "@/components/ui/date-picker"
 import { TimePicker } from "@/components/ui/time-picker"
-import { Play, X, Loader2, TestTube, Clock, HelpCircle, AlertCircle, Video, ChevronLeft, ChevronRight } from "lucide-react"
+import { Play, X, Loader2, TestTube, Clock, HelpCircle, AlertCircle, Video, ChevronLeft, ChevronRight, Database } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 import { cn } from "@/lib/utils"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import GoogleMeetCard from "@/components/ui/google-meet-card"
+import VariablePicker from "./VariablePicker"
 
 interface EnhancedConfigurationModalProps {
   isOpen: boolean
@@ -105,11 +106,95 @@ export default function EnhancedConfigurationModal({
       }
     })
 
+    // Auto-populate Gmail action fields from Gmail trigger
+    console.log('🔧 DEBUG: nodeInfo.providerId:', nodeInfo?.providerId)
+    console.log('🔧 DEBUG: nodeInfo.type:', nodeInfo?.type)
+    console.log('🔧 DEBUG: workflowData exists:', !!workflowData)
+    console.log('🔧 DEBUG: workflowData.nodes:', workflowData?.nodes)
+    
+    if (nodeInfo.providerId === 'gmail' && nodeInfo.type?.includes('action') && workflowData) {
+      console.log('🔍 Looking for Gmail trigger in workflow...')
+      
+      // Find the Gmail trigger node
+      const gmailTrigger = workflowData.nodes?.find(node => {
+        const isGmailTrigger = (
+          node.data?.isTrigger === true && node.data?.providerId === 'gmail'
+        ) || (
+          node.data?.type?.startsWith('gmail_trigger')
+        )
+        
+        if (isGmailTrigger) {
+          console.log('🔍 Found Gmail trigger:', {
+            id: node.id,
+            type: node.type,
+            dataType: node.data?.type,
+            providerId: node.data?.providerId,
+            isTrigger: node.data?.isTrigger,
+            config: node.data?.config
+          })
+        }
+        
+        return isGmailTrigger
+      })
+      
+      if (gmailTrigger) {
+        const messageIdField = nodeInfo.configSchema?.find(field => field.name === 'messageId')
+        if (messageIdField && config[messageIdField.name] === undefined) {
+          let fromEmail = ''
+          
+          // METHOD 1: Try to get email from trigger's EXECUTION OUTPUT (if it has been tested/run)
+          const triggerTestData = getNodeInputOutput(gmailTrigger.id)
+          if (triggerTestData?.output) {
+            console.log('🔍 Gmail trigger execution output:', triggerTestData.output)
+            fromEmail = triggerTestData.output.from || triggerTestData.output.sender || ''
+            if (fromEmail) {
+              console.log('✅ Got email from trigger EXECUTION output:', fromEmail)
+            }
+          }
+          
+          // METHOD 2: Fallback to trigger's CONFIGURATION (static filter)
+          if (!fromEmail) {
+            const triggerConfig = gmailTrigger.data?.config || {}
+            fromEmail = triggerConfig.from || ''
+            console.log('🔍 Gmail trigger config:', triggerConfig)
+            if (fromEmail) {
+              console.log('✅ Got email from trigger CONFIG:', fromEmail)
+            }
+          }
+          
+          // METHOD 3: If no email found anywhere, try trigger output for other email fields
+          if (!fromEmail && triggerTestData?.output) {
+            fromEmail = triggerTestData.output.fromEmail || triggerTestData.output.email || ''
+            if (fromEmail) {
+              console.log('✅ Got email from trigger output alternative fields:', fromEmail)
+            }
+          }
+          
+          if (fromEmail && fromEmail.trim() !== '') {
+            defaultValues[messageIdField.name] = fromEmail
+            console.log('✅ Auto-populated email field with:', fromEmail)
+          } else {
+            defaultValues[messageIdField.name] = ''
+            console.log('ℹ️ No email found in trigger config OR execution output')
+          }
+        }
+      } else {
+        console.log('❌ No Gmail trigger found in workflow')
+        console.log('📋 Available nodes:', workflowData.nodes?.map(n => ({ 
+          id: n.id, 
+          type: n.type, 
+          dataType: n.data?.type, 
+          providerId: n.data?.providerId,
+          isTrigger: n.data?.isTrigger 
+        })))
+      }
+    }
+
     if (Object.keys(defaultValues).length > 0) {
       setConfig(prev => ({ ...defaultValues, ...prev }))
       hasInitializedDefaults.current = true
     }
-  }, [nodeInfo, config])
+  }, [nodeInfo, config, workflowData])
 
   // Check if this node has test data available
   const nodeTestData = currentNodeId ? getNodeInputOutput(currentNodeId) : null
@@ -662,18 +747,59 @@ export default function EnhancedConfigurationModal({
       setConfig(prev => ({ ...prev, [field.name]: time }))
     }
 
+    const handleVariableSelect = (variable: string) => {
+      const currentValue = config[field.name] || ""
+      
+      // If there's existing text and it doesn't already end with the variable, append it
+      let newValue = variable
+      if (currentValue && !currentValue.includes(variable)) {
+        newValue = currentValue + variable
+      }
+      
+      setConfig({ ...config, [field.name]: newValue })
+      
+      // Clear any validation errors
+      if (hasError) {
+        setErrors(prev => {
+          const newErrors = { ...prev }
+          delete newErrors[field.name]
+          return newErrors
+        })
+      }
+    }
+
     switch (field.type) {
       case "text":
       case "email":
       case "password":
         return (
-          <Input
-            type={field.type}
-            value={value}
-            onChange={handleChange}
-            placeholder={field.placeholder}
-            className={cn("w-full", hasError && "border-red-500")}
-          />
+          <div className="flex gap-2 w-full">
+            <Input
+              type={field.type}
+              value={value}
+              onChange={handleChange}
+              placeholder={field.placeholder}
+              readOnly={field.readonly}
+              className={cn(
+                "flex-1", 
+                hasError && "border-red-500",
+                field.readonly && "bg-muted/50 cursor-not-allowed"
+              )}
+            />
+            {!field.readonly && (
+              <VariablePicker
+                workflowData={workflowData}
+                currentNodeId={currentNodeId}
+                onVariableSelect={handleVariableSelect}
+                fieldType={field.type}
+                trigger={
+                  <Button variant="outline" size="sm" className="flex-shrink-0 px-3">
+                    <Database className="w-4 h-4" />
+                  </Button>
+                }
+              />
+            )}
+          </div>
         )
 
       case "number":
@@ -689,12 +815,28 @@ export default function EnhancedConfigurationModal({
 
       case "textarea":
         return (
-          <Textarea
-            value={value}
-            onChange={handleChange}
-            placeholder={field.placeholder}
-            className={cn("w-full min-h-[100px] resize-y", hasError && "border-red-500")}
-          />
+          <div className="w-full space-y-2">
+            <Textarea
+              value={value}
+              onChange={handleChange}
+              placeholder={field.placeholder}
+              className={cn("w-full min-h-[100px] resize-y", hasError && "border-red-500")}
+            />
+            <div className="flex justify-end">
+              <VariablePicker
+                workflowData={workflowData}
+                currentNodeId={currentNodeId}
+                onVariableSelect={handleVariableSelect}
+                fieldType={field.type}
+                trigger={
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <Database className="w-4 h-4" />
+                    Insert Variable
+                  </Button>
+                }
+              />
+            </div>
+          </div>
         )
 
       case "select":
@@ -844,7 +986,12 @@ export default function EnhancedConfigurationModal({
             value={value}
             onChange={handleChange}
             placeholder={field.placeholder}
-            className={cn("w-full", hasError && "border-red-500")}
+            readOnly={field.readonly}
+            className={cn(
+              "w-full", 
+              hasError && "border-red-500",
+              field.readonly && "bg-muted/50 cursor-not-allowed"
+            )}
           />
         )
     }

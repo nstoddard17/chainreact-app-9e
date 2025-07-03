@@ -678,22 +678,28 @@ export const useIntegrationStore = create<IntegrationStore>()(
             throw new Error(`Loading data for ${providerId} is not supported.`)
         }
 
+        const requestBody = url.includes('/gmail/') && !url.includes('/fetch-user-data') 
+          ? { integrationId } 
+          : { 
+              provider: providerId.includes('_') ? providerId.split('_')[0] : 
+                       providerId === 'gmail-recent-recipients' ? 'gmail' :
+                       providerId === 'gmail-enhanced-recipients' ? 'gmail' :
+                       providerId === 'google-calendars' ? 'google-calendar' :
+                       providerId === 'google-drive-folders' ? 'google-drive' :
+                       providerId === 'google-drive-files' ? 'google-drive' :
+                       providerId === 'google-sheets_spreadsheets' ? 'google-sheets' :
+                       providerId === 'google-sheets_sheets' ? 'google-sheets' :
+                       providerId === 'google-sheets_sheet-preview' ? 'google-sheets' :
+                       providerId === 'google-sheets_sheet-data' ? 'google-sheets' :
+                       providerId.includes('-') ? providerId.split('-')[0] : 
+                       providerId, // Extract base provider name
+              dataType: params?.dataType || dataType, // Allow override via params
+            }
+
+        console.log(`🌐 Integration Store: Loading data for ${providerId}, URL: ${url}, integrationId: ${integrationId}, requestBody:`, requestBody)
+
         const response = await apiClient.post(url, { 
-          ...(url.includes('/gmail/') && !url.includes('/fetch-user-data') ? { integrationId } : { 
-            provider: providerId.includes('_') ? providerId.split('_')[0] : 
-                     providerId === 'gmail-recent-recipients' ? 'gmail' :
-                     providerId === 'gmail-enhanced-recipients' ? 'gmail' :
-                     providerId === 'google-calendars' ? 'google-calendar' :
-                     providerId === 'google-drive-folders' ? 'google-drive' :
-                     providerId === 'google-drive-files' ? 'google-drive' :
-                     providerId === 'google-sheets_spreadsheets' ? 'google-sheets' :
-                     providerId === 'google-sheets_sheets' ? 'google-sheets' :
-                     providerId === 'google-sheets_sheet-preview' ? 'google-sheets' :
-                     providerId === 'google-sheets_sheet-data' ? 'google-sheets' :
-                     providerId.includes('-') ? providerId.split('-')[0] : 
-                     providerId, // Extract base provider name
-            dataType: params?.dataType || dataType, // Allow override via params
-          }),
+          ...requestBody,
           ...params 
         })
         
