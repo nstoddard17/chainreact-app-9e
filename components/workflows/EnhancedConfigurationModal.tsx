@@ -1085,19 +1085,6 @@ export default function EnhancedConfigurationModal({
 
   if (!nodeInfo) return null
 
-  // Show loading screen while fetching dynamic data
-  if (loadingDynamic && Object.keys(dynamicOptions).length === 0) {
-    return (
-      <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-4xl w-full h-[90vh] p-0 gap-0 overflow-hidden">
-          <ConfigurationLoadingScreen 
-            integrationName={nodeInfo.title || nodeInfo.type || integrationName}
-          />
-        </DialogContent>
-      </Dialog>
-    )
-  }
-
   return (
     <TooltipProvider>
       <Dialog open={isOpen} onOpenChange={onClose}>
@@ -1137,6 +1124,9 @@ export default function EnhancedConfigurationModal({
                   <DialogTitle className="text-lg font-semibold">
                     Configure {nodeInfo.title || nodeInfo.type}
                   </DialogTitle>
+                  <DialogDescription className="sr-only">
+                    Configuration settings for {nodeInfo.title || nodeInfo.type}
+                  </DialogDescription>
                   
                   {/* Test Button in Top Right */}
                   <div className="flex items-center gap-2">
@@ -1612,6 +1602,15 @@ export default function EnhancedConfigurationModal({
               </div>
             )}
           </div>
+          
+          {/* Loading Overlay */}
+          {loadingDynamic && (
+            <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50">
+              <ConfigurationLoadingScreen 
+                integrationName={nodeInfo.title || nodeInfo.type || integrationName}
+              />
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </TooltipProvider>

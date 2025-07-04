@@ -1,1 +1,2 @@
-export * from './moveRecord' 
+export * from './moveRecord'
+export * from './createRecord' 

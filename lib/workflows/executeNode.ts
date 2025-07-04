@@ -18,6 +18,7 @@ import {
   
   // Airtable actions
   moveAirtableRecord,
+  createAirtableRecord,
   
   // Workflow control actions
   executeIfThenCondition,
@@ -266,8 +267,9 @@ export async function executeAction({ node, input, userId, workflowId }: Execute
     // Google Sheets actions
     "google_sheets_action_read_data": readGoogleSheetsData,
     
-    // Airtable actions
-    "airtable_action_move_record": moveAirtableRecord,
+      // Airtable actions
+  "airtable_action_move_record": moveAirtableRecord,
+  "airtable_action_create_record": createAirtableRecord,
     
     // Workflow control actions
     "if_then_condition": executeIfThenCondition,

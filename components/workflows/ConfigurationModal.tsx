@@ -156,10 +156,14 @@ export default function ConfigurationModal({
 
     try {
       setLoadingDynamic(true)
+      
+      // Handle dependent field options
+      let options = { [field.dependsOn]: dependentValue }
+      
       const data = await loadIntegrationData(
         field.dynamic,
         integration.id,
-        { [field.dependsOn]: dependentValue }
+        options
       )
       
       if (data) {
@@ -322,6 +326,14 @@ export default function ConfigurationModal({
                   label: template.name,
                 }))
               }
+            } else if (field.dynamic === "airtable_bases") {
+              if (data) {
+                newOptions[field.name] = data.map((base: any) => ({
+                  value: base.value,
+                  label: base.label,
+                  description: base.description,
+                }))
+              }
             }
           }
         } catch (error: any) {
@@ -424,7 +436,7 @@ export default function ConfigurationModal({
     }
 
     fetchDependentFields()
-  }, [isOpen, nodeInfo, config.spreadsheetId, fetchDependentData])
+  }, [isOpen, nodeInfo, config.spreadsheetId, config.baseId, fetchDependentData])
 
   // Auto-load sheet data when action changes to update/delete (for unified Google Sheets action) or readMode is "rows" (for read data action)
   useEffect(() => {
@@ -966,7 +978,24 @@ export default function ConfigurationModal({
         const userTimezone = getUserTimezone()
         setConfig({ ...config, [field.name]: userTimezone })
       } else {
-        setConfig({ ...config, [field.name]: newValue })
+        // For Airtable, when workspace or baseId changes, clear dependent fields
+        if (nodeInfo?.type === "airtable_action_create_record" && (field.name === "workspace" || field.name === "baseId")) {
+          setConfig(prev => ({ 
+            ...prev, 
+            [field.name]: newValue,
+            ...(field.name === "workspace" && {
+              baseId: undefined, // Clear base selection when workspace changes
+              tableName: undefined, // Clear table selection
+              fields: undefined // Clear field configuration
+            }),
+            ...(field.name === "baseId" && {
+              tableName: undefined, // Clear table selection
+              fields: undefined // Clear field configuration
+            })
+          }))
+        } else {
+          setConfig({ ...config, [field.name]: newValue })
+        }
       }
       
       // Clear error when user selects a value
@@ -1499,6 +1528,9 @@ export default function ConfigurationModal({
               </div>
             )
           }
+        }
+        
+
           
           if (field.name === "spreadsheetData") {
             return (
@@ -1582,6 +1614,163 @@ export default function ConfigurationModal({
               </div>
             )
           }
+        }
+        
+        // Custom fields for Airtable create record action
+        if (nodeInfo?.type === "airtable_action_create_record" && field.name === "fields") {
+          const selectedTable = dynamicOptions["tableName"]?.find((table: any) => table.value === config.tableName)
+          const tableFields = selectedTable?.fields || []
+          
+          if (!config.tableName) {
+            return (
+              <div className="space-y-2">
+                <div className="p-4 border border-dashed border-muted-foreground/25 rounded-lg">
+                  <p className="text-sm text-muted-foreground text-center">
+                    Please select a table first to configure record fields
+                  </p>
+                </div>
+              </div>
+            )
+          }
+          
+          return (
+            <div className="space-y-4">
+              <div className="text-sm text-muted-foreground">
+                Configure the fields for your new record. Available fields from "{config.tableName}":
+              </div>
+              
+              <div className="space-y-3">
+                {tableFields.map((fieldDef: any, index: number) => {
+                  const fieldValue = config.fields?.[fieldDef.name] || ""
+                  
+                  return (
+                    <div key={fieldDef.name} className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-sm font-medium">
+                          {fieldDef.name}
+                          {fieldDef.required && <span className="text-red-500 ml-1">*</span>}
+                        </Label>
+                        <span className="text-xs text-muted-foreground capitalize">
+                          {fieldDef.type}
+                        </span>
+                      </div>
+                      
+                      {fieldDef.type === "singleLineText" || fieldDef.type === "multilineText" || fieldDef.type === "email" || fieldDef.type === "url" || fieldDef.type === "phoneNumber" ? (
+                        <Input
+                          type={fieldDef.type === "email" ? "email" : "text"}
+                          value={fieldValue}
+                          placeholder={`Enter ${fieldDef.name.toLowerCase()}`}
+                          onChange={(e) => {
+                            const newFields = { ...config.fields, [fieldDef.name]: e.target.value }
+                            setConfig(prev => ({ ...prev, fields: newFields }))
+                          }}
+                          className="text-sm"
+                        />
+                      ) : fieldDef.type === "multilineText" ? (
+                        <Textarea
+                          value={fieldValue}
+                          placeholder={`Enter ${fieldDef.name.toLowerCase()}`}
+                          onChange={(e) => {
+                            const newFields = { ...config.fields, [fieldDef.name]: e.target.value }
+                            setConfig(prev => ({ ...prev, fields: newFields }))
+                          }}
+                          className="text-sm min-h-[80px]"
+                        />
+                      ) : fieldDef.type === "number" || fieldDef.type === "currency" ? (
+                        <Input
+                          type="number"
+                          value={fieldValue}
+                          placeholder={`Enter ${fieldDef.name.toLowerCase()}`}
+                          onChange={(e) => {
+                            const newFields = { ...config.fields, [fieldDef.name]: e.target.value }
+                            setConfig(prev => ({ ...prev, fields: newFields }))
+                          }}
+                          className="text-sm"
+                        />
+                      ) : fieldDef.type === "date" ? (
+                        <Input
+                          type="date"
+                          value={fieldValue}
+                          onChange={(e) => {
+                            const newFields = { ...config.fields, [fieldDef.name]: e.target.value }
+                            setConfig(prev => ({ ...prev, fields: newFields }))
+                          }}
+                          className="text-sm"
+                        />
+                      ) : fieldDef.type === "checkbox" ? (
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            checked={fieldValue || false}
+                            onCheckedChange={(checked) => {
+                              const newFields = { ...config.fields, [fieldDef.name]: checked }
+                              setConfig(prev => ({ ...prev, fields: newFields }))
+                            }}
+                          />
+                          <Label className="text-sm">Enable {fieldDef.name}</Label>
+                        </div>
+                      ) : fieldDef.type === "singleSelect" && fieldDef.options ? (
+                        <Select
+                          value={fieldValue}
+                          onValueChange={(value) => {
+                            const newFields = { ...config.fields, [fieldDef.name]: value }
+                            setConfig(prev => ({ ...prev, fields: newFields }))
+                          }}
+                        >
+                          <SelectTrigger className="text-sm">
+                            <SelectValue placeholder={`Select ${fieldDef.name.toLowerCase()}`} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {fieldDef.options.choices.map((choice: any) => (
+                              <SelectItem key={choice.name} value={choice.name}>
+                                {choice.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : fieldDef.type === "multipleSelects" && fieldDef.options ? (
+                        <div className="space-y-2">
+                          {fieldDef.options.choices.map((choice: any) => (
+                            <div key={choice.name} className="flex items-center space-x-2">
+                              <Checkbox
+                                checked={Array.isArray(fieldValue) ? fieldValue.includes(choice.name) : false}
+                                onCheckedChange={(checked) => {
+                                  const currentValues = Array.isArray(fieldValue) ? fieldValue : []
+                                  const newValues = checked 
+                                    ? [...currentValues, choice.name]
+                                    : currentValues.filter((v: string) => v !== choice.name)
+                                  const newFields = { ...config.fields, [fieldDef.name]: newValues }
+                                  setConfig(prev => ({ ...prev, fields: newFields }))
+                                }}
+                              />
+                              <Label className="text-sm">{choice.name}</Label>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <Input
+                          value={fieldValue}
+                          placeholder={`Enter ${fieldDef.name.toLowerCase()}`}
+                          onChange={(e) => {
+                            const newFields = { ...config.fields, [fieldDef.name]: e.target.value }
+                            setConfig(prev => ({ ...prev, fields: newFields }))
+                          }}
+                          className="text-sm"
+                        />
+                      )}
+                      
+                      {fieldDef.description && (
+                        <p className="text-xs text-muted-foreground">{fieldDef.description}</p>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+              
+              <div className="text-xs text-muted-foreground">
+                💡 Use template variables like <code>{"{{data.fieldName}}"}</code> to make your data dynamic
+              </div>
+            </div>
+          )
         }
         
         return null
@@ -1725,15 +1914,15 @@ export default function ConfigurationModal({
   return (
     <TooltipProvider>
       <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-        <DialogContent className={`${
+        <DialogContent className={`$${
           ((nodeInfo?.type === "google_sheets_unified_action" && config.action) || 
            (nodeInfo?.type === "google_sheets_action_read_data" && config.spreadsheetId && config.sheetName && config.readMode) ||
            (nodeInfo?.type === "google_sheets_action_create_spreadsheet" && config.columnCount && config.columnCount > 0) ||
            showDataFlowPanels)
             ? "max-w-[95vw] w-[95vw]" 
             : "max-w-2xl"
-        } max-h-[90vh] overflow-y-auto flex flex-col`}>
-        <DialogHeader className="flex flex-row items-start justify-between space-y-0 pb-4">
+        } flex flex-col h-[90vh] max-h-[90vh] p-0`}>
+        <DialogHeader className="flex flex-row items-start justify-between space-y-0 pb-4 px-6 pt-6">
           <div className="space-y-1.5">
             <DialogTitle>
               Configure {nodeInfo?.title} on {integrationName}
@@ -1753,79 +1942,77 @@ export default function ConfigurationModal({
             </Button>
           )}
         </DialogHeader>
-        
-        {nodeInfo?.type === "google-drive:create_file" && (
-          <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
-            <p className="text-sm text-blue-800">
-              <strong>Tip:</strong> You can either enter text content to create a text file, or upload existing files. 
-              If you upload files, the file name field will be automatically populated:
-            </p>
-            <ul className="text-sm text-blue-800 mt-1 ml-4 list-disc">
-              <li>Single file: Uses the uploaded file's name</li>
-              <li>Multiple files: Uses the first file's name (without extension) as a base name</li>
-              <li>Auto-population only occurs if you haven't manually entered a file name</li>
-              <li>You can always edit the file name manually if needed</li>
-            </ul>
-          </div>
-        )}
-        
-        
-        {nodeInfo?.type === "google_drive_action_upload_file" && (
-          <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
-            <p className="text-sm text-blue-800">
-              <strong>Tip:</strong> When you enter a file URL, the file name field will be automatically populated with the filename from the URL:
-            </p>
-            <ul className="text-sm text-blue-800 mt-1 ml-4 list-disc">
-              <li>The filename is extracted from the URL path (e.g., "document.pdf" from "https://example.com/files/document.pdf")</li>
-              <li>For Google Drive URLs, it extracts the file ID and creates a descriptive name</li>
-              <li>Auto-population only occurs if you haven't manually entered a file name</li>
-              <li><strong>Filename Priority:</strong> If you enter a filename in the textbox, it will be used. If you leave it blank, the original filename from the URL will be used.</li>
-              <li>You can always edit the file name manually if needed</li>
-              <li>If no filename can be extracted, it will default to "downloaded-file"</li>
-            </ul>
-          </div>
-        )}
-        
-        {loadingDynamic ? (
-          <ConfigurationLoadingScreen integrationName={integrationName} />
-        ) : (nodeInfo?.type === "google_sheets_unified_action" || 
-             (nodeInfo?.type === "google_sheets_action_read_data" && config.spreadsheetId && config.sheetName && config.readMode)) ? (
-          // Special layout for unified Google Sheets action
-          <div className="flex flex-col flex-1">
-            {/* Basic Configuration Fields - Always Visible */}
-            <div className="space-y-4 pb-4 border-b flex-shrink-0">
-              {nodeInfo.configSchema?.filter(field => 
-                nodeInfo?.type === "google_sheets_unified_action" 
-                  ? ["spreadsheetId", "sheetName", "action"].includes(field.name)
-                  : ["spreadsheetId", "sheetName", "readMode"].includes(field.name)
-              ).map((field) => {
-                if (!shouldShowField(field)) {
-                  return null
-                }
-                
-                return (
-                  <div key={field.name} className="flex flex-col space-y-2">
-                    <Label htmlFor={field.name} className="text-sm font-medium">
-                      {field.label}
-                      {field.required && <span className="text-red-500 ml-1">*</span>}
-                    </Label>
-                    {renderField(field)}
-                    {errors[field.name] && (
-                      <p className="text-red-500 text-sm">{errors[field.name]}</p>
-                    )}
-                  </div>
-                )
-              })}
+        <div className="flex-1 flex flex-col px-6 overflow-auto">
+          {nodeInfo?.type === "google-drive:create_file" && (
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+              <p className="text-sm text-blue-800">
+                <strong>Tip:</strong> You can either enter text content to create a text file, or upload existing files. 
+                If you upload files, the file name field will be automatically populated:
+              </p>
+              <ul className="text-sm text-blue-800 mt-1 ml-4 list-disc">
+                <li>Single file: Uses the uploaded file's name</li>
+                <li>Multiple files: Uses the first file's name (without extension) as a base name</li>
+                <li>Auto-population only occurs if you haven't manually entered a file name</li>
+                <li>You can always edit the file name manually if needed</li>
+              </ul>
             </div>
+          )}
+          
+          
+          {nodeInfo?.type === "google_drive_action_upload_file" && (
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+              <p className="text-sm text-blue-800">
+                <strong>Tip:</strong> When you enter a file URL, the file name field will be automatically populated with the filename from the URL:
+              </p>
+              <ul className="text-sm text-blue-800 mt-1 ml-4 list-disc">
+                <li>The filename is extracted from the URL path (e.g., "document.pdf" from "https://example.com/files/document.pdf")</li>
+                <li>For Google Drive URLs, it extracts the file ID and creates a descriptive name</li>
+                <li>Auto-population only occurs if you haven't manually entered a file name</li>
+                <li><strong>Filename Priority:</strong> If you enter a filename in the textbox, it will be used. If you leave it blank, the original filename from the URL will be used.</li>
+                <li>You can always edit the file name manually if needed</li>
+                <li>If no filename can be extracted, it will default to "downloaded-file"</li>
+              </ul>
+            </div>
+          )}
+          
+          {(nodeInfo?.type === "google_sheets_unified_action" || 
+               (nodeInfo?.type === "google_sheets_action_read_data" && config.spreadsheetId && config.sheetName && config.readMode)) ? (
+            // Special layout for unified Google Sheets action
+            <div className="flex flex-col flex-1">
+              {/* Basic Configuration Fields - Always Visible */}
+              <div className="space-y-4 pb-4 border-b flex-shrink-0">
+                {nodeInfo.configSchema?.filter(field => 
+                  nodeInfo?.type === "google_sheets_unified_action" 
+                    ? ["spreadsheetId", "sheetName", "action"].includes(field.name)
+                    : ["spreadsheetId", "sheetName", "readMode"].includes(field.name)
+                ).map((field) => {
+                  if (!shouldShowField(field)) {
+                    return null
+                  }
+                  
+                  return (
+                    <div key={field.name} className="flex flex-col space-y-2">
+                      <Label htmlFor={field.name} className="text-sm font-medium">
+                        {field.label}
+                        {field.required && <span className="text-red-500 ml-1">*</span>}
+                      </Label>
+                      {renderField(field)}
+                      {errors[field.name] && (
+                        <p className="text-red-500 text-sm">{errors[field.name]}</p>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
 
-            {/* Content Area */}
-            <div className="flex-1 space-y-4 pt-4">
-                          {/* Data Preview Table (for unified action update/delete OR read data with any mode) */}
-            {((nodeInfo?.type === "google_sheets_unified_action" && config.action !== "add") || 
-              (nodeInfo?.type === "google_sheets_action_read_data" && config.readMode && config.spreadsheetId && config.sheetName)) && 
-             dynamicOptions.sheetData && (dynamicOptions.sheetData as any).headers && Array.isArray((dynamicOptions.sheetData as any).headers) && (dynamicOptions.sheetData as any).data && Array.isArray((dynamicOptions.sheetData as any).data) && (
-            <div className="space-y-3 border-b pb-4">
-                              <div className="text-sm font-medium">
+              {/* Content Area */}
+              <div className="flex-1 space-y-4 pt-4">
+                            {/* Data Preview Table (for unified action update/delete OR read data with any mode) */}
+                {((nodeInfo?.type === "google_sheets_unified_action" && config.action !== "add") || 
+                  (nodeInfo?.type === "google_sheets_action_read_data" && config.readMode && config.spreadsheetId && config.sheetName)) && 
+                 dynamicOptions.sheetData && (dynamicOptions.sheetData as any).headers && Array.isArray((dynamicOptions.sheetData as any).headers) && (dynamicOptions.sheetData as any).data && Array.isArray((dynamicOptions.sheetData as any).data) && (
+                <div className="space-y-3 border-b pb-4">
+                          <div className="text-sm font-medium">
                   {nodeInfo?.type === "google_sheets_action_read_data" 
                     ? config.readMode === "all" 
                       ? "Data Preview (all data will be read):"
@@ -1840,737 +2027,284 @@ export default function ConfigurationModal({
                   {loadingDynamic && <span className="text-muted-foreground ml-2">(Loading...)</span>}
                 </div>
               
-              <div className="border rounded-lg">
-                <div className="bg-muted/50 p-2 border-b">
-                  <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${(dynamicOptions.sheetData as any).headers.length}, minmax(120px, 1fr))` }}>
-                    {(dynamicOptions.sheetData as any).headers.map((header: any, index: number) => (
-                      <div key={index} className="text-xs font-medium text-muted-foreground p-1">
-                        {header.column} - {header.name}
-                      </div>
-                    ))}
+                <div className="border rounded-lg">
+                  <div className="bg-muted/50 p-2 border-b">
+                    <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${(dynamicOptions.sheetData as any).headers.length}, minmax(120px, 1fr))` }}>
+                      {(dynamicOptions.sheetData as any).headers.map((header: any, index: number) => (
+                        <div key={index} className="text-xs font-medium text-muted-foreground p-1">
+                          {header.column} - {header.name}
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
-                <div className="p-2 space-y-1">
-                  {(dynamicOptions.sheetData as any).data.map((row: any, index: number) => (
-                      <div
-                        key={index}
-                        className={`grid gap-2 p-2 rounded ${
-                          // Only make clickable and highlight if in row selection mode
-                          nodeInfo?.type === "google_sheets_action_read_data" && config.readMode === "rows"
-                            ? `cursor-pointer hover:bg-muted/50 ${
-                                (config.selectedRows || []).some((r: any) => r.rowIndex === row.rowIndex) 
-                                  ? "bg-primary/10 border border-primary" 
-                                  : "border border-transparent"
-                              }`
-                            : nodeInfo?.type === "google_sheets_action_read_data"
-                              ? "border border-transparent" // Preview only, no interaction
-                              : `cursor-pointer hover:bg-muted/50 ${
-                                  config.selectedRow?.rowIndex === row.rowIndex 
+                  <div className="p-2 space-y-1">
+                    {(dynamicOptions.sheetData as any).data.map((row: any, index: number) => (
+                        <div
+                          key={index}
+                          className={`grid gap-2 p-2 rounded ${
+                            // Only make clickable and highlight if in row selection mode
+                            nodeInfo?.type === "google_sheets_action_read_data" && config.readMode === "rows"
+                              ? `cursor-pointer hover:bg-muted/50 ${
+                                  (config.selectedRows || []).some((r: any) => r.rowIndex === row.rowIndex) 
                                     ? "bg-primary/10 border border-primary" 
                                     : "border border-transparent"
                                 }`
-                        }`}
-                        style={{ gridTemplateColumns: `repeat(${(dynamicOptions.sheetData as any).headers.length}, minmax(120px, 1fr))` }}
-                        onClick={() => {
-                          if (nodeInfo?.type === "google_sheets_action_read_data") {
-                            // For read data action, support different selection modes
-                            if (config.readMode === "rows") {
-                              const currentSelectedRows = config.selectedRows || []
-                              const isSelected = currentSelectedRows.some((r: any) => r.rowIndex === row.rowIndex)
-                              
-                              const newSelectedRows = isSelected
-                                ? currentSelectedRows.filter((r: any) => r.rowIndex !== row.rowIndex)
-                                : [...currentSelectedRows, row]
-                              
+                              : nodeInfo?.type === "google_sheets_action_read_data"
+                                ? "border border-transparent" // Preview only, no interaction
+                                : `cursor-pointer hover:bg-muted/50 ${
+                                    config.selectedRow?.rowIndex === row.rowIndex 
+                                      ? "bg-primary/10 border border-primary" 
+                                      : "border border-transparent"
+                                  }`
+                          }`}
+                          style={{ gridTemplateColumns: `repeat(${(dynamicOptions.sheetData as any).headers.length}, minmax(120px, 1fr))` }}
+                          onClick={() => {
+                            if (nodeInfo?.type === "google_sheets_action_read_data") {
+                              // For read data action, support different selection modes
+                              if (config.readMode === "rows") {
+                                const currentSelectedRows = config.selectedRows || []
+                                const isSelected = currentSelectedRows.some((r: any) => r.rowIndex === row.rowIndex)
+                                
+                                const newSelectedRows = isSelected
+                                  ? currentSelectedRows.filter((r: any) => r.rowIndex !== row.rowIndex)
+                                  : [...currentSelectedRows, row]
+                                
+                                setConfig(prev => ({
+                                  ...prev,
+                                  selectedRows: newSelectedRows
+                                }))
+                              }
+                              // For "all" and "range" modes, clicking does nothing (just preview)
+                              // For "cells" mode, we'll handle individual cell clicks separately
+                            } else {
+                              // For unified action (update/delete), single row selection
+                              const newSelectedRow = row
                               setConfig(prev => ({
                                 ...prev,
-                                selectedRows: newSelectedRows
+                                selectedRow: newSelectedRow,
+                                // For update action, populate column mappings with selected row data
+                                ...(config.action === "update" && {
+                                  columnMappings: (dynamicOptions.sheetData as any).headers.reduce((mappings: any, header: any, headerIndex: number) => {
+                                    mappings[header.column] = row.values[headerIndex] || ""
+                                    return mappings
+                                  }, {})
+                                })
                               }))
                             }
-                            // For "all" and "range" modes, clicking does nothing (just preview)
-                            // For "cells" mode, we'll handle individual cell clicks separately
-                          } else {
-                            // For unified action (update/delete), single row selection
-                            const newSelectedRow = row
-                            setConfig(prev => ({
-                              ...prev,
-                              selectedRow: newSelectedRow,
-                              // For update action, populate column mappings with selected row data
-                              ...(config.action === "update" && {
-                                columnMappings: (dynamicOptions.sheetData as any).headers.reduce((mappings: any, header: any, headerIndex: number) => {
-                                  mappings[header.column] = row.values[headerIndex] || ""
-                                  return mappings
-                                }, {})
-                              })
-                            }))
-                          }
-                          
-                          // Show the "Row Selected!" message
-                          setShowRowSelected(true)
-                          
-                          // Hide it after 2 seconds
-                          setTimeout(() => {
-                            setShowRowSelected(false)
-                          }, 2000)
-                        }}
+                            
+                            // Show the "Row Selected!" message
+                            setShowRowSelected(true)
+                            
+                            // Hide it after 2 seconds
+                            setTimeout(() => {
+                              setShowRowSelected(false)
+                            }, 2000)
+                          }}
+                        >
+                          {row.values.map((cell: string, cellIndex: number) => {
+                            const cellKey = `${row.rowIndex}-${cellIndex}`
+                            const isCellSelected = nodeInfo?.type === "google_sheets_action_read_data" && 
+                              config.readMode === "cells" && 
+                              (config.selectedCells || []).some((cell: any) => cell.key === cellKey)
+                            
+                            return (
+                              <div 
+                                key={cellIndex} 
+                                className={`text-sm truncate p-1 ${
+                                  nodeInfo?.type === "google_sheets_action_read_data" && config.readMode === "cells"
+                                    ? `cursor-pointer hover:bg-muted/50 ${
+                                        isCellSelected 
+                                          ? "bg-primary/10 border border-primary" 
+                                          : "border border-transparent"
+                                      }`
+                                    : ""
+                                }`}
+                                onClick={(e) => {
+                                  if (nodeInfo?.type === "google_sheets_action_read_data" && config.readMode === "cells") {
+                                    e.stopPropagation() // Prevent row click
+                                    const currentSelectedCells = config.selectedCells || []
+                                    const isSelected = currentSelectedCells.some((cell: any) => cell.key === cellKey)
+                                    
+                                    const newSelectedCells = isSelected
+                                      ? currentSelectedCells.filter((cell: any) => cell.key !== cellKey)
+                                      : [...currentSelectedCells, {
+                                          key: cellKey,
+                                          rowIndex: row.rowIndex,
+                                          columnIndex: cellIndex,
+                                          columnName: (dynamicOptions.sheetData as any).headers[cellIndex]?.name || `Column ${cellIndex + 1}`,
+                                          columnLetter: (dynamicOptions.sheetData as any).headers[cellIndex]?.column || String.fromCharCode(65 + cellIndex),
+                                          value: cell || "",
+                                          cellReference: `${(dynamicOptions.sheetData as any).headers[cellIndex]?.column || String.fromCharCode(65 + cellIndex)}${row.rowIndex + 1}` // A1, B1, etc.
+                                        }]
+                                    
+                                    setConfig(prev => ({
+                                      ...prev,
+                                      selectedCells: newSelectedCells
+                                    }))
+                                    
+                                    // Show the "Cell Selected!" message
+                                    setShowRowSelected(true)
+                                    setTimeout(() => {
+                                      setShowRowSelected(false)
+                                    }, 2000)
+                                  }
+                                }}
+                              >
+                                {cell || ""}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  {showRowSelected && (
+                    <div className="text-sm text-green-600 bg-green-50 p-2 rounded animate-in fade-in-0 duration-300">
+                      {nodeInfo?.type === "google_sheets_action_read_data"
+                        ? config.readMode === "cells"
+                          ? `✓ ${(config.selectedCells || []).length} cell(s) selected for reading!`
+                          : `✓ ${(config.selectedRows || []).length} row(s) selected for reading!`
+                        : "✓ Row Selected!"}
+                    </div>
+                  )}
+                </div>
+                            )}
+
+                {/* Selected Cells Display (for cells read mode) */}
+                {nodeInfo?.type === "google_sheets_action_read_data" && config.readMode === "cells" && config.selectedCells && Array.isArray(config.selectedCells) && config.selectedCells.length > 0 && (
+                  <div className="space-y-3 border-b pb-4">
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm font-medium">Selected Cells ({config.selectedCells.length}):</div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setConfig(prev => ({ ...prev, selectedCells: [] }))}
+                        className="text-xs h-7 px-2"
                       >
-                        {row.values.map((cell: string, cellIndex: number) => {
-                          const cellKey = `${row.rowIndex}-${cellIndex}`
-                          const isCellSelected = nodeInfo?.type === "google_sheets_action_read_data" && 
-                            config.readMode === "cells" && 
-                            (config.selectedCells || []).some((cell: any) => cell.key === cellKey)
+                        Clear All
+                      </Button>
+                    </div>
+                    <div className="bg-muted/30 p-3 rounded-lg">
+                      <div className="grid gap-2 max-h-48 overflow-y-auto">
+                        {config.selectedCells.map((cell: any, index: number) => {
+                          // Use stored cell reference and column name
+                          const cellReference = cell.cellReference
+                          const columnName = cell.columnName
                           
                           return (
-                            <div 
-                              key={cellIndex} 
-                              className={`text-sm truncate p-1 ${
-                                nodeInfo?.type === "google_sheets_action_read_data" && config.readMode === "cells"
-                                  ? `cursor-pointer hover:bg-muted/50 ${
-                                      isCellSelected 
-                                        ? "bg-primary/10 border border-primary" 
-                                        : "border border-transparent"
-                                    }`
-                                  : ""
-                              }`}
-                              onClick={(e) => {
-                                if (nodeInfo?.type === "google_sheets_action_read_data" && config.readMode === "cells") {
-                                  e.stopPropagation() // Prevent row click
-                                  const currentSelectedCells = config.selectedCells || []
-                                  const isSelected = currentSelectedCells.some((cell: any) => cell.key === cellKey)
-                                  
-                                  const newSelectedCells = isSelected
-                                    ? currentSelectedCells.filter((cell: any) => cell.key !== cellKey)
-                                    : [...currentSelectedCells, {
-                                        key: cellKey,
-                                        rowIndex: row.rowIndex,
-                                        columnIndex: cellIndex,
-                                        columnName: (dynamicOptions.sheetData as any).headers[cellIndex]?.name || `Column ${cellIndex + 1}`,
-                                        columnLetter: (dynamicOptions.sheetData as any).headers[cellIndex]?.column || String.fromCharCode(65 + cellIndex),
-                                        value: cell || "",
-                                        cellReference: `${(dynamicOptions.sheetData as any).headers[cellIndex]?.column || String.fromCharCode(65 + cellIndex)}${row.rowIndex + 1}` // A1, B1, etc.
-                                      }]
-                                  
-                                  setConfig(prev => ({
-                                    ...prev,
-                                    selectedCells: newSelectedCells
-                                  }))
-                                  
-                                  // Show the "Cell Selected!" message
-                                  setShowRowSelected(true)
-                                  setTimeout(() => {
-                                    setShowRowSelected(false)
-                                  }, 2000)
-                                }
-                              }}
-                            >
-                              {cell || ""}
+                            <div key={cell.key} className="flex items-center justify-between p-2 bg-background rounded border text-sm">
+                              <div className="flex items-center gap-3">
+                                <div className="font-mono text-xs bg-muted px-2 py-1 rounded">
+                                  {cellReference}
+                                </div>
+                                <div className="text-muted-foreground">
+                                  {columnName}
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <div className="font-medium max-w-48 truncate">
+                                  {cell.value || '(empty)'}
+                                </div>
+                              </div>
                             </div>
                           )
                         })}
                       </div>
-                    ))}
-                  </div>
-                </div>
-                
-                {showRowSelected && (
-                  <div className="text-sm text-green-600 bg-green-50 p-2 rounded animate-in fade-in-0 duration-300">
-                    {nodeInfo?.type === "google_sheets_action_read_data"
-                      ? config.readMode === "cells"
-                        ? `✓ ${(config.selectedCells || []).length} cell(s) selected for reading!`
-                        : `✓ ${(config.selectedRows || []).length} row(s) selected for reading!`
-                      : "✓ Row Selected!"}
+                      <div className="text-xs text-muted-foreground mt-2">
+                        💡 These cells will be read when the workflow executes
+                      </div>
+                    </div>
                   </div>
                 )}
-              </div>
-                          )}
 
-              {/* Selected Cells Display (for cells read mode) */}
-              {nodeInfo?.type === "google_sheets_action_read_data" && config.readMode === "cells" && config.selectedCells && Array.isArray(config.selectedCells) && config.selectedCells.length > 0 && (
-                <div className="space-y-3 border-b pb-4">
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm font-medium">Selected Cells ({config.selectedCells.length}):</div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setConfig(prev => ({ ...prev, selectedCells: [] }))}
-                      className="text-xs h-7 px-2"
-                    >
-                      Clear All
-                    </Button>
-                  </div>
-                  <div className="bg-muted/30 p-3 rounded-lg">
-                    <div className="grid gap-2 max-h-48 overflow-y-auto">
-                      {config.selectedCells.map((cell: any, index: number) => {
-                        // Use stored cell reference and column name
-                        const cellReference = cell.cellReference
-                        const columnName = cell.columnName
-                        
-                        return (
-                          <div key={cell.key} className="flex items-center justify-between p-2 bg-background rounded border text-sm">
-                            <div className="flex items-center gap-3">
-                              <div className="font-mono text-xs bg-muted px-2 py-1 rounded">
-                                {cellReference}
-                              </div>
-                              <div className="text-muted-foreground">
-                                {columnName}
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <div className="font-medium max-w-48 truncate">
-                                {cell.value || '(empty)'}
-                              </div>
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-2">
-                      💡 These cells will be read when the workflow executes
+                {/* Read Data Summary (for read data action) */}
+                {nodeInfo?.type === "google_sheets_action_read_data" && config.spreadsheetId && config.sheetName && (
+                  <div className="space-y-3 border-b pb-4">
+                    <div className="text-sm font-medium">Read Configuration Summary:</div>
+                    <div className="bg-muted/30 p-3 rounded-lg space-y-2 text-sm">
+                      <div><strong>Mode:</strong> {
+                        config.readMode === "all" ? "Read all data" :
+                        config.readMode === "range" ? `Read range: ${config.range || "Not specified"}` :
+                        config.readMode === "rows" ? `Read ${(config.selectedRows || []).length} selected row(s)` :
+                        config.readMode === "cells" ? `Read ${(config.selectedCells || []).length} selected cell(s)` :
+                        "Not configured"
+                      }</div>
+                      <div><strong>Output Format:</strong> {
+                        config.outputFormat === "array" ? "Array of arrays" :
+                        config.outputFormat === "objects" ? "Array of objects (with headers as keys)" :
+                        config.outputFormat === "csv" ? "CSV string" :
+                        "Array of objects (default)"
+                      }</div>
+                      <div><strong>Include Headers:</strong> {config.includeHeaders !== false ? "Yes" : "No"}</div>
+                      {config.maxRows && <div><strong>Max Rows:</strong> {config.maxRows}</div>}
+                      {config.filterConditions && <div><strong>Filters:</strong> Applied</div>}
                     </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* Read Data Summary (for read data action) */}
-              {nodeInfo?.type === "google_sheets_action_read_data" && config.spreadsheetId && config.sheetName && (
-                <div className="space-y-3 border-b pb-4">
-                  <div className="text-sm font-medium">Read Configuration Summary:</div>
-                  <div className="bg-muted/30 p-3 rounded-lg space-y-2 text-sm">
-                    <div><strong>Mode:</strong> {
-                      config.readMode === "all" ? "Read all data" :
-                      config.readMode === "range" ? `Read range: ${config.range || "Not specified"}` :
-                      config.readMode === "rows" ? `Read ${(config.selectedRows || []).length} selected row(s)` :
-                      config.readMode === "cells" ? `Read ${(config.selectedCells || []).length} selected cell(s)` :
-                      "Not configured"
-                    }</div>
-                    <div><strong>Output Format:</strong> {
-                      config.outputFormat === "array" ? "Array of arrays" :
-                      config.outputFormat === "objects" ? "Array of objects (with headers as keys)" :
-                      config.outputFormat === "csv" ? "CSV string" :
-                      "Array of objects (default)"
-                    }</div>
-                    <div><strong>Include Headers:</strong> {config.includeHeaders !== false ? "Yes" : "No"}</div>
-                    {config.maxRows && <div><strong>Max Rows:</strong> {config.maxRows}</div>}
-                    {config.filterConditions && <div><strong>Filters:</strong> Applied</div>}
-                  </div>
-                </div>
-              )}
-
-              {/* Column Mapping Fields (horizontal layout) - Only for unified action */}
-            {nodeInfo?.type === "google_sheets_unified_action" && (config.action === "add" || config.action === "update") && dynamicOptions.sheetPreview && (dynamicOptions.sheetPreview as any).headers && Array.isArray((dynamicOptions.sheetPreview as any).headers) && (
-              <div className="space-y-3">
-                <div className="text-sm font-medium">Map your data to sheet columns:</div>
-                
-                {/* Header Row */}
-                <div className="grid gap-2 p-2 bg-muted/50 rounded-t-lg" style={{ gridTemplateColumns: `repeat(${(dynamicOptions.sheetPreview as any).headers.length}, minmax(120px, 1fr))` }}>
-                  {(dynamicOptions.sheetPreview as any).headers.map((header: any, index: number) => (
-                    <div key={index} className="text-xs font-medium text-center p-1">
-                      <div className="font-mono bg-background px-2 py-1 rounded mb-1">
-                        {header.column}
+                {/* Column Mapping Fields (horizontal layout) - Only for unified action */}
+              {nodeInfo?.type === "google_sheets_unified_action" && (config.action === "add" || config.action === "update") && dynamicOptions.sheetPreview && (dynamicOptions.sheetPreview as any).headers && Array.isArray((dynamicOptions.sheetPreview as any).headers) && (
+                <div className="space-y-3">
+                  <div className="text-sm font-medium">Map your data to sheet columns:</div>
+                  
+                  {/* Header Row */}
+                  <div className="grid gap-2 p-2 bg-muted/50 rounded-t-lg" style={{ gridTemplateColumns: `repeat(${(dynamicOptions.sheetPreview as any).headers.length}, minmax(120px, 1fr))` }}>
+                    {(dynamicOptions.sheetPreview as any).headers.map((header: any, index: number) => (
+                      <div key={index} className="text-xs font-medium text-center p-1">
+                        <div className="font-mono bg-background px-2 py-1 rounded mb-1">
+                          {header.column}
+                        </div>
+                        <div className="truncate">{header.name}</div>
                       </div>
-                      <div className="truncate">{header.name}</div>
-                    </div>
-                  ))}
-                </div>
-                
-                {/* Input Row */}
-                <div className="grid gap-2 p-2 border rounded-b-lg" style={{ gridTemplateColumns: `repeat(${(dynamicOptions.sheetPreview as any).headers.length}, minmax(120px, 1fr))` }}>
-                  {(dynamicOptions.sheetPreview as any).headers.map((header: any, index: number) => (
-                    <div key={index} className="space-y-1">
-                      <Input
-                        placeholder={`${header.name}`}
-                        value={config.columnMappings?.[header.column] || ""}
-                        onChange={(e) => {
-                          setConfig(prev => ({
-                            ...prev,
-                            columnMappings: {
-                              ...prev.columnMappings,
-                              [header.column]: e.target.value
-                            }
-                          }))
-                        }}
-                        className="text-sm h-8"
-                      />
-                    </div>
-                  ))}
-                </div>
-                
-                <div className="text-xs text-muted-foreground">
-                  💡 Use template variables like <code>{"{{data.fieldName}}"}</code> or enter static values
-                </div>
-              </div>
-            )}
-
-              {/* Other configuration fields */}
-              <div className="space-y-4">
-                {nodeInfo.configSchema?.filter(field => {
-                  if (nodeInfo?.type === "google_sheets_unified_action") {
-                    return !["spreadsheetId", "sheetName", "action", "columnMappings", "selectedRow"].includes(field.name)
-                  } else {
-                    return !["spreadsheetId", "sheetName", "readMode", "selectedRows", "selectedCells"].includes(field.name)
-                  }
-                }).map((field) => {
-                  if (!shouldShowField(field)) {
-                    return null
-                  }
+                    ))}
+                  </div>
                   
-                  return (
-                    <div key={field.name} className="flex flex-col space-y-2">
-                      <div className="flex items-center gap-1">
-                        <Label htmlFor={field.name} className="text-sm font-medium">
-                          {field.label}
-                          {field.required && <span className="text-red-500 ml-1">*</span>}
-                        </Label>
-                        {field.name === "outputFormat" && (
-                          <Tooltip delayDuration={0}>
-                            <TooltipTrigger asChild>
-                              <button type="button" className="inline-flex items-center">
-                                <HelpCircle className="w-4 h-4 text-muted-foreground hover:text-primary cursor-pointer transition-colors" />
-                              </button>
-                            </TooltipTrigger>
-                            <TooltipContent side="right" className="max-w-none p-4" sideOffset={8}>
-                              {renderOutputFormatTooltip()}
-                            </TooltipContent>
-                          </Tooltip>
-                        )}
+                  {/* Input Row */}
+                  <div className="grid gap-2 p-2 border rounded-b-lg" style={{ gridTemplateColumns: `repeat(${(dynamicOptions.sheetPreview as any).headers.length}, minmax(120px, 1fr))` }}>
+                    {(dynamicOptions.sheetPreview as any).headers.map((header: any, index: number) => (
+                      <div key={index} className="space-y-1">
+                        <Input
+                          placeholder={`${header.name}`}
+                          value={config.columnMappings?.[header.column] || ""}
+                          onChange={(e) => {
+                            setConfig(prev => ({
+                              ...prev,
+                              columnMappings: {
+                                ...prev.columnMappings,
+                                [header.column]: e.target.value
+                              }
+                            }))
+                          }}
+                          className="text-sm h-8"
+                        />
                       </div>
-                      {renderField(field)}
-                      {errors[field.name] && (
-                        <p className="text-red-500 text-sm">{errors[field.name]}</p>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-            
-            {hasRequiredFields && (
-              <div className="text-xs text-muted-foreground px-1 pt-2 flex-shrink-0">
-                * Required fields must be filled out before saving
-              </div>
-            )}
-            
-            <DialogFooter className="flex-shrink-0 pt-4">
-              <Button variant="outline" onClick={onClose}>
-                Cancel
-              </Button>
-              <Button 
-                onClick={handleSave} 
-                disabled={loadingDynamic || hasErrors}
-                className={hasErrors ? 'opacity-50 cursor-not-allowed' : ''}
-              >
-                Save Configuration
-              </Button>
-            </DialogFooter>
-          </div>
-        ) : nodeInfo?.type === "google_sheets_action_read_data" ? (
-          // Compact layout for Google Sheets read data action when required fields not selected
-          <div className="flex flex-col flex-1">
-            {/* Basic Configuration Fields - Always Visible */}
-            <div className="space-y-4 pb-4 border-b flex-shrink-0">
-              {nodeInfo.configSchema?.filter(field => 
-                ["spreadsheetId", "sheetName", "readMode"].includes(field.name)
-              ).map((field) => {
-                if (!shouldShowField(field)) {
-                  return null
-                }
-                
-                return (
-                  <div key={field.name} className="flex flex-col space-y-2">
-                    <div className="flex items-center gap-1">
-                      <Label htmlFor={field.name} className="text-sm font-medium">
-                        {field.label}
-                        {field.required && <span className="text-red-500 ml-1">*</span>}
-                      </Label>
-                      {field.name === "outputFormat" && (
-                        <Tooltip delayDuration={0}>
-                          <TooltipTrigger asChild>
-                            <button type="button" className="inline-flex items-center">
-                              <HelpCircle className="w-4 h-4 text-muted-foreground hover:text-primary cursor-pointer transition-colors" />
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent side="right" className="max-w-none p-4" sideOffset={8}>
-                            {renderOutputFormatTooltip()}
-                          </TooltipContent>
-                        </Tooltip>
-                      )}
-                    </div>
-                    {renderField(field)}
-                    {errors[field.name] && (
-                      <p className="text-red-500 text-sm">{errors[field.name]}</p>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-
-            {/* Instruction text when required fields are not complete */}
-            {(!config.spreadsheetId || !config.sheetName || !config.readMode) && (
-              <div className="flex-1 flex items-center justify-center py-8">
-                <div className="text-center text-muted-foreground">
-                  <div className="text-sm font-medium mb-2">Configure Required Fields</div>
-                  <div className="text-xs">
-                    Select a spreadsheet, sheet, and read mode to continue configuration
-                  </div>
-                </div>
-              </div>
-            )}
-            
-            {hasRequiredFields && (
-              <div className="text-xs text-muted-foreground px-1 pt-2 flex-shrink-0">
-                * Required fields must be filled out before saving
-              </div>
-            )}
-            
-            <DialogFooter className="flex-shrink-0 pt-4">
-              <Button variant="outline" onClick={onClose}>
-                Cancel
-              </Button>
-              <Button 
-                onClick={handleSave} 
-                disabled={loadingDynamic || hasErrors || !config.spreadsheetId || !config.sheetName || !config.readMode}
-                className={hasErrors ? 'opacity-50 cursor-not-allowed' : ''}
-              >
-                Save Configuration
-              </Button>
-            </DialogFooter>
-          </div>
-        ) : nodeInfo?.type === "if_then_condition" ? (
-          // If/Then Condition Configuration
-          <div className="flex flex-col flex-1">
-            <div className="space-y-4 py-4">
-              <div className="text-sm font-medium text-foreground">Configure Condition</div>
-              
-              {/* Condition Type */}
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Condition Type</Label>
-                <Select value={config.conditionType || "simple"} onValueChange={(value) => setConfig(prev => ({ ...prev, conditionType: value }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select condition type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="simple">Simple Comparison</SelectItem>
-                    <SelectItem value="multiple">Multiple Conditions</SelectItem>
-                    <SelectItem value="advanced">Advanced Expression</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Simple Condition */}
-              {config.conditionType === "simple" && (
-                <div className="space-y-4 p-4 border rounded-lg bg-muted/20">
-                  <div className="text-sm font-medium">Simple Condition</div>
-                  <div className="grid grid-cols-3 gap-2">
-                    <Input
-                      placeholder="Field to check"
-                      value={config.fieldName || ""}
-                      onChange={(e) => setConfig(prev => ({ ...prev, fieldName: e.target.value }))}
-                    />
-                    <Select value={config.operator || "equals"} onValueChange={(value) => setConfig(prev => ({ ...prev, operator: value }))}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="equals">equals</SelectItem>
-                        <SelectItem value="not_equals">not equals</SelectItem>
-                        <SelectItem value="greater_than">greater than</SelectItem>
-                        <SelectItem value="less_than">less than</SelectItem>
-                        <SelectItem value="greater_equal">greater or equal</SelectItem>
-                        <SelectItem value="less_equal">less or equal</SelectItem>
-                        <SelectItem value="contains">contains</SelectItem>
-                        <SelectItem value="not_contains">does not contain</SelectItem>
-                        <SelectItem value="starts_with">starts with</SelectItem>
-                        <SelectItem value="ends_with">ends with</SelectItem>
-                        <SelectItem value="is_empty">is empty</SelectItem>
-                        <SelectItem value="is_not_empty">is not empty</SelectItem>
-                        <SelectItem value="matches_regex">matches regex</SelectItem>
-                        <SelectItem value="not_matches_regex">does not match regex</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Input
-                      placeholder="Value to compare"
-                      value={config.fieldValue || ""}
-                      onChange={(e) => setConfig(prev => ({ ...prev, fieldValue: e.target.value }))}
-                    />
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    Use template variables like <code>{"{{data.fieldName}}"}</code>
-                  </div>
-                </div>
-              )}
-
-              {/* Multiple Conditions */}
-              {config.conditionType === "multiple" && (
-                <div className="space-y-4 p-4 border rounded-lg bg-muted/20">
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm font-medium">Multiple Conditions</div>
-                    <Select value={config.logicalOperator || "AND"} onValueChange={(value) => setConfig(prev => ({ ...prev, logicalOperator: value }))}>
-                      <SelectTrigger className="w-20">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="AND">AND</SelectItem>
-                        <SelectItem value="OR">OR</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    ))}
                   </div>
                   
-                  {/* Additional conditions would be added here */}
                   <div className="text-xs text-muted-foreground">
-                    Multiple condition configuration coming soon
+                    💡 Use template variables like <code>{"{{data.fieldName}}"}</code> or enter static values
                   </div>
                 </div>
               )}
 
-              {/* Advanced Expression */}
-              {config.conditionType === "advanced" && (
-                <div className="space-y-4 p-4 border rounded-lg bg-muted/20">
-                  <div className="text-sm font-medium">Advanced JavaScript Expression</div>
-                  <textarea
-                    className="w-full h-24 p-2 border rounded text-sm font-mono"
-                    placeholder="Enter JavaScript expression (e.g., data.age > 18 && data.status === 'active')"
-                    value={config.expression || ""}
-                    onChange={(e) => setConfig(prev => ({ ...prev, expression: e.target.value }))}
-                  />
-                  <div className="text-xs text-muted-foreground">
-                    Access workflow data using <code>data</code> object. Return true/false.
-                  </div>
-                </div>
-              )}
-
-              {/* Continue/Stop Action */}
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">If condition is false</Label>
-                <Select value={config.onFalse || "stop"} onValueChange={(value) => setConfig(prev => ({ ...prev, onFalse: value }))}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="stop">Stop workflow execution</SelectItem>
-                    <SelectItem value="continue">Continue to next action</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            
-            <DialogFooter className="flex-shrink-0 pt-4">
-              <Button variant="outline" onClick={onClose}>Cancel</Button>
-              <Button onClick={handleSave}>Save Configuration</Button>
-            </DialogFooter>
-          </div>
-        ) : nodeInfo?.type === "wait_for_time" ? (
-          // Wait for Time Configuration
-          <div className="flex flex-col flex-1">
-            <div className="space-y-4 py-4">
-              <div className="text-sm font-medium text-foreground">Configure Wait Time</div>
-              
-              {/* Wait Type */}
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Wait Type</Label>
-                <Select value={config.waitType || "duration"} onValueChange={(value) => setConfig(prev => ({ ...prev, waitType: value }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select wait type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="duration">Wait for duration</SelectItem>
-                    <SelectItem value="until_time">Wait until specific time</SelectItem>
-                    <SelectItem value="until_date">Wait until specific date</SelectItem>
-                    <SelectItem value="business_hours">Wait for business hours</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Duration Wait */}
-              {config.waitType === "duration" && (
-                <div className="space-y-4 p-4 border rounded-lg bg-muted/20">
-                  <div className="text-sm font-medium">Wait Duration</div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Input
-                      type="number"
-                      placeholder="Amount"
-                      min="1"
-                      value={config.duration || ""}
-                      onChange={(e) => setConfig(prev => ({ ...prev, duration: parseInt(e.target.value) || 1 }))}
-                    />
-                    <Select value={config.durationUnit || "minutes"} onValueChange={(value) => setConfig(prev => ({ ...prev, durationUnit: value }))}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="seconds">Seconds</SelectItem>
-                        <SelectItem value="minutes">Minutes</SelectItem>
-                        <SelectItem value="hours">Hours</SelectItem>
-                        <SelectItem value="days">Days</SelectItem>
-                        <SelectItem value="weeks">Weeks</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              )}
-
-              {/* Until Time */}
-              {config.waitType === "until_time" && (
-                <div className="space-y-4 p-4 border rounded-lg bg-muted/20">
-                  <div className="text-sm font-medium">Wait Until Time</div>
-                  <Input
-                    type="time"
-                    value={config.specificTime || ""}
-                    onChange={(e) => setConfig(prev => ({ ...prev, specificTime: e.target.value }))}
-                  />
-                  <div className="text-xs text-muted-foreground">
-                    If the time has already passed today, will wait until tomorrow
-                  </div>
-                </div>
-              )}
-
-              {/* Until Date */}
-              {config.waitType === "until_date" && (
-                <div className="space-y-4 p-4 border rounded-lg bg-muted/20">
-                  <div className="text-sm font-medium">Wait Until Date</div>
-                  <Input
-                    type="datetime-local"
-                    value={config.specificDate || ""}
-                    onChange={(e) => setConfig(prev => ({ ...prev, specificDate: e.target.value }))}
-                  />
-                </div>
-              )}
-
-              {/* Business Hours */}
-              {config.waitType === "business_hours" && (
-                <div className="space-y-4 p-4 border rounded-lg bg-muted/20">
-                  <div className="text-sm font-medium">Business Hours Settings</div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <Label className="text-xs">Start Time</Label>
-                      <Input
-                        type="time"
-                        value={config.businessHoursStart || "09:00"}
-                        onChange={(e) => setConfig(prev => ({ ...prev, businessHoursStart: e.target.value }))}
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-xs">End Time</Label>
-                      <Input
-                        type="time"
-                        value={config.businessHoursEnd || "17:00"}
-                        onChange={(e) => setConfig(prev => ({ ...prev, businessHoursEnd: e.target.value }))}
-                      />
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <Label className="text-xs">Business Days</Label>
-                    <Select value={config.businessDays || "weekdays"} onValueChange={(value) => setConfig(prev => ({ ...prev, businessDays: value }))}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="weekdays">Monday - Friday</SelectItem>
-                        <SelectItem value="custom">Custom Days</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              )}
-
-              {/* Timezone */}
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Timezone</Label>
-                <Select value={config.timezone || "auto"} onValueChange={(value) => setConfig(prev => ({ ...prev, timezone: value }))}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="auto">Auto-detect (Current Timezone)</SelectItem>
-                    <SelectItem value="America/New_York">Eastern Time (EST/EDT)</SelectItem>
-                    <SelectItem value="America/Chicago">Central Time (CST/CDT)</SelectItem>
-                    <SelectItem value="America/Denver">Mountain Time (MST/MDT)</SelectItem>
-                    <SelectItem value="America/Los_Angeles">Pacific Time (PST/PDT)</SelectItem>
-                    <SelectItem value="UTC">UTC</SelectItem>
-                    <SelectItem value="Europe/London">London (GMT/BST)</SelectItem>
-                    <SelectItem value="Europe/Paris">Paris (CET/CEST)</SelectItem>
-                    <SelectItem value="Asia/Tokyo">Tokyo (JST)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Max Wait Time (Safety) */}
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Maximum Wait Time (hours)</Label>
-                <Input
-                  type="number"
-                  placeholder="24"
-                  min="1"
-                  max="8760"
-                  value={config.maxWaitTime || ""}
-                  onChange={(e) => setConfig(prev => ({ ...prev, maxWaitTime: parseInt(e.target.value) || undefined }))}
-                />
-                <div className="text-xs text-muted-foreground">
-                  Safety limit to prevent workflows from waiting too long (max 1 year)
-                </div>
-              </div>
-            </div>
-            
-            <DialogFooter className="flex-shrink-0 pt-4">
-              <Button variant="outline" onClick={onClose}>Cancel</Button>
-              <Button onClick={handleSave}>Save Configuration</Button>
-            </DialogFooter>
-          </div>
-        ) : (
-          // Default configuration form for other node types
-          <>
-            {showDataFlowPanels && nodeTestData ? (
-              <div className="flex gap-6 flex-1">
-                {/* Input Panel */}
-                <div className="w-64 flex-shrink-0 space-y-3">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                    <h4 className="text-sm font-medium">Input Data</h4>
-                  </div>
-                  <div className="bg-blue-50 border border-blue-200 rounded p-3 max-h-[300px] overflow-y-auto">
-                    <pre className="text-xs whitespace-pre-wrap break-words">
-                      {JSON.stringify(nodeTestData.input, null, 2)}
-                    </pre>
-                  </div>
-                </div>
-
-                {/* Main Content */}
-                <div className="flex-1 min-w-0">
-                  <div className="space-y-6 py-4">
-                    <div className="space-y-6">
-                      {nodeInfo.configSchema?.map((field) => {
-                  // Hide time fields and their labels for Google Calendar when "All Day" is enabled
-                  if (nodeInfo?.type === "google_calendar_action_create_event" && field.type === "time" && config.allDay) {
-                    return null
-                  }
-                  // Hide time zone field and label for Google Calendar when "All Day" is enabled
-                  if (nodeInfo?.type === "google_calendar_action_create_event" && field.name === "timeZone" && config.allDay) {
-                    return null
-                  }
-                  
-                  // Hide fields that depend on other fields that haven't been selected
-                  if (!shouldShowField(field)) {
-                    return null
-                  }
-                  
-                  // Special handling for boolean fields (checkboxes)
-                  if (field.type === "boolean") {
+                {/* Other configuration fields */}
+                <div className="space-y-4">
+                  {nodeInfo.configSchema?.filter(field => {
+                    if (nodeInfo?.type === "google_sheets_unified_action") {
+                      return !["spreadsheetId", "sheetName", "action", "columnMappings", "selectedRow"].includes(field.name)
+                    } else {
+                      return !["spreadsheetId", "sheetName", "readMode", "selectedRows", "selectedCells"].includes(field.name)
+                    }
+                  }).map((field) => {
+                    if (!shouldShowField(field)) {
+                      return null
+                    }
+                    
                     return (
-                      <div key={field.name} className="flex flex-col space-y-2 pb-4 border-b border-border/50 last:border-b-0 last:pb-0">
-                        {renderField(field)}
-                        {errors[field.name] && (
-                          <p className="text-red-500 text-sm mt-1">{errors[field.name]}</p>
-                        )}
-                      </div>
-                    )
-                  }
-                  
-                  // For all other fields, use a more dynamic layout
-                  return (
-                    <div key={field.name} className="flex flex-col space-y-3 pb-4 border-b border-border/50 last:border-b-0 last:pb-0">
-                      <div className="flex items-center justify-between">
+                      <div key={field.name} className="flex flex-col space-y-2">
                         <div className="flex items-center gap-1">
-                          <Label htmlFor={field.name} className="text-sm font-medium text-foreground min-w-0 flex-shrink-0 pr-4">
+                          <Label htmlFor={field.name} className="text-sm font-medium">
                             {field.label}
                             {field.required && <span className="text-red-500 ml-1">*</span>}
                           </Label>
@@ -2587,19 +2321,22 @@ export default function ConfigurationModal({
                             </Tooltip>
                           )}
                         </div>
-                      </div>
-                      <div className="w-full">
                         {renderField(field)}
+                        {errors[field.name] && (
+                          <p className="text-red-500 text-sm">{errors[field.name]}</p>
+                        )}
                       </div>
-                      {errors[field.name] && (
-                        <p className="text-red-500 text-sm mt-1">{errors[field.name]}</p>
-                      )}
-                    </div>
-                  )
-                })}
+                    )
+                  })}
+                </div>
               </div>
+              
+              {hasRequiredFields && (
+                <div className="text-xs text-muted-foreground px-1 pt-2 flex-shrink-0">
+                  * Required fields must be filled out before saving
+                </div>
+              )}
             </div>
-
             
             {hasRequiredFields && (
               <div className="text-xs text-muted-foreground px-1">
@@ -2660,167 +2397,44 @@ export default function ConfigurationModal({
                 </div>
               </div>
             )}
-                </div>
+          </div>
 
-                {/* Output Panel */}
-                <div className="w-64 flex-shrink-0 space-y-3">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                    <h4 className="text-sm font-medium">Output Data</h4>
-                  </div>
-                  <div className="bg-green-50 border border-green-200 rounded p-3 max-h-[300px] overflow-y-auto">
-                    <pre className="text-xs whitespace-pre-wrap break-words">
-                      {JSON.stringify(nodeTestData.output, null, 2)}
-                    </pre>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-6 py-4">
-                <div className="space-y-6">
-                  {nodeInfo.configSchema?.map((field) => {
-                    // Hide time fields and their labels for Google Calendar when "All Day" is enabled
-                    if (nodeInfo?.type === "google_calendar_action_create_event" && field.type === "time" && config.allDay) {
-                      return null
-                    }
-                    // Hide time zone field and label for Google Calendar when "All Day" is enabled
-                    if (nodeInfo?.type === "google_calendar_action_create_event" && field.name === "timeZone" && config.allDay) {
-                      return null
-                    }
-                    
-                    // Hide fields that depend on other fields that haven't been selected
-                    if (!shouldShowField(field)) {
-                      return null
-                    }
-                    
-                    // Special handling for boolean fields (checkboxes)
-                    if (field.type === "boolean") {
-                      return (
-                        <div key={field.name} className="flex flex-col space-y-2 pb-4 border-b border-border/50 last:border-b-0 last:pb-0">
-                          {renderField(field)}
-                          {errors[field.name] && (
-                            <p className="text-red-500 text-sm mt-1">{errors[field.name]}</p>
-                          )}
-                        </div>
-                      )
-                    }
-                    
-                    // For all other fields, use a more dynamic layout
-                    return (
-                      <div key={field.name} className="flex flex-col space-y-3 pb-4 border-b border-border/50 last:border-b-0 last:pb-0">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1">
-                            <Label htmlFor={field.name} className="text-sm font-medium text-foreground min-w-0 flex-shrink-0 pr-4">
-                              {field.label}
-                              {field.required && <span className="text-red-500 ml-1">*</span>}
-                            </Label>
-                            {field.name === "outputFormat" && (
-                              <Tooltip delayDuration={0}>
-                                <TooltipTrigger asChild>
-                                  <button type="button" className="inline-flex items-center">
-                                    <HelpCircle className="w-4 h-4 text-muted-foreground hover:text-primary cursor-pointer transition-colors" />
-                                  </button>
-                                </TooltipTrigger>
-                                <TooltipContent side="right" className="max-w-none p-4" sideOffset={8}>
-                                  {renderOutputFormatTooltip()}
-                                </TooltipContent>
-                              </Tooltip>
-                            )}
-                          </div>
-                        </div>
-                        <div className="w-full">
-                          {renderField(field)}
-                        </div>
-                        {errors[field.name] && (
-                          <p className="text-red-500 text-sm mt-1">{errors[field.name]}</p>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
+          {/* Output Panel */}
+          <div className="w-64 flex-shrink-0 space-y-3">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+              <h4 className="text-sm font-medium">Output Data</h4>
+            </div>
+            <div className="bg-green-50 border border-green-200 rounded p-3 max-h-[300px] overflow-y-auto">
+              <pre className="text-xs whitespace-pre-wrap break-words">
+                {JSON.stringify(nodeTestData.output, null, 2)}
+              </pre>
+            </div>
+          </div>
+        </div>
 
-              
-              {hasRequiredFields && (
-                <div className="text-xs text-muted-foreground px-1">
-                  * Required fields must be filled out before saving
-                </div>
-              )}
-              
-              {/* Test Output Display */}
-              {showTestOutput && testResult && (
-                <div className="border-t pt-4">
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-sm font-medium">Test Output</h4>
-                      <Button variant="ghost" size="sm" onClick={() => setShowTestOutput(false)}>
-                        ×
-                      </Button>
-                    </div>
-                    
-                    {testResult.success ? (
-                      <div className="space-y-3">
-                        <div className="text-sm text-green-600 bg-green-50 p-2 rounded">
-                          {testResult.message}
-                        </div>
-                        
-                        {testResult.output && (
-                          <div className="space-y-2">
-                            <div className="text-xs font-medium text-muted-foreground">Sample Output Data:</div>
-                            <div className="bg-muted/50 p-3 rounded text-xs font-mono max-h-32 overflow-y-auto">
-                              <pre>{JSON.stringify(testResult.output, null, 2)}</pre>
-                            </div>
-                          </div>
-                        )}
-                        
-                        {nodeInfo?.outputSchema && (
-                          <div className="space-y-2">
-                            <div className="text-xs font-medium text-muted-foreground">Available Output Fields:</div>
-                            <div className="space-y-1">
-                              {nodeInfo.outputSchema.map((field) => (
-                                <div key={field.name} className="text-xs border rounded p-2">
-                                  <div className="font-medium">{field.label} ({field.type})</div>
-                                  <div className="text-muted-foreground">{field.description}</div>
-                                  {field.example && (
-                                    <div className="text-blue-600 font-mono mt-1">
-                                      Example: {typeof field.example === 'object' ? JSON.stringify(field.example) : field.example}
-                                    </div>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="text-sm text-red-600 bg-red-50 p-2 rounded">
-                        {testResult.message}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            )}
-
-            <DialogFooter>
-              <div className="flex items-center gap-2 w-full">
-                <div className="flex gap-2">
-                  <Button variant="outline" onClick={onClose}>
-                    Cancel
-                  </Button>
-                  {/* Removed duplicate test button since it's now in header */}
-                </div>
-                <div className="flex-1" />
-                <Button 
-                  onClick={handleSave} 
-                  disabled={loadingDynamic || hasErrors}
-                  className={hasErrors ? 'opacity-50 cursor-not-allowed' : ''}
-                >
-                  Save Configuration
-                </Button>
-              </div>
-            </DialogFooter>
-          </>
+        <DialogFooter className="px-6 pb-2 pt-4">
+          <div className="flex items-center gap-2 w-full">
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={onClose}>
+                Cancel
+              </Button>
+            </div>
+            <div className="flex-1" />
+            <Button 
+              onClick={handleSave} 
+              disabled={loadingDynamic || hasErrors}
+              className={hasErrors ? 'opacity-50 cursor-not-allowed' : ''}
+            >
+              Save Configuration
+            </Button>
+          </div>
+        </DialogFooter>
+        {/* Loading Overlay */}
+        {loadingDynamic && (
+          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50">
+            <ConfigurationLoadingScreen integrationName={integrationName} />
+          </div>
         )}
         </DialogContent>
       </Dialog>

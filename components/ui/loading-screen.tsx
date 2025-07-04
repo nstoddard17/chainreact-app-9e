@@ -67,37 +67,45 @@ export function LoadingScreen({
 // Specialized loading screens for common use cases
 export function DataLoadingScreen({ entityName = "data" }: { entityName?: string }) {
   return (
-    <LoadingScreen
-      title={`Loading ${entityName}`}
-      description={`Fetching ${entityName} from your connected integrations...`}
-    />
+    <div className="bg-background/80 backdrop-blur-sm">
+      <LoadingScreen
+        title={`Loading ${entityName}`}
+        description={`Fetching ${entityName} from your connected integrations...`}
+      />
+    </div>
   )
 }
 
 export function ConfigurationLoadingScreen({ integrationName }: { integrationName: string }) {
   return (
-    <LoadingScreen
-      title="Loading Configuration"
-      description={`Fetching ${integrationName} data for autocomplete suggestions...`}
-    />
+    <div className="bg-background/80 backdrop-blur-sm">
+      <LoadingScreen
+        title="Loading Configuration"
+        description={`Fetching ${integrationName} data for autocomplete suggestions...`}
+      />
+    </div>
   )
 }
 
 export function IntegrationLoadingScreen() {
   return (
-    <LoadingScreen
-      title="Loading Integrations"
-      description="Fetching your connected apps and services..."
-    />
+    <div className="bg-background/80 backdrop-blur-sm">
+      <LoadingScreen
+        title="Loading Integrations"
+        description="Fetching your connected apps and services..."
+      />
+    </div>
   )
 }
 
 export function WorkflowLoadingScreen() {
   return (
-    <LoadingScreen
-      title="Loading Workflow"
-      description="Setting up your workflow builder..."
-      size="lg"
-    />
+    <div className="bg-background/80 backdrop-blur-sm">
+      <LoadingScreen
+        title="Loading Workflow"
+        description="Setting up your workflow builder..."
+        size="lg"
+      />
+    </div>
   )
 } 

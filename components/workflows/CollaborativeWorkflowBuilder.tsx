@@ -1634,6 +1634,8 @@ function WorkflowBuilderContent() {
           onClose={() => {
             setConfiguringNode(null);
             setPendingNode(null);
+            // Reopen the action selection modal when canceling configuration
+            setShowActionDialog(true);
           }}
           onSave={(config) => handleSaveConfiguration(configuringNode, config)}
           nodeInfo={configuringNode.nodeComponent}
