@@ -56,7 +56,7 @@ class GlobalDataPreloader {
     },
     {
       provider: "airtable",
-      dataTypes: ["airtable_bases"],
+      dataTypes: ["airtable_workspaces", "airtable_bases", "airtable_tables"],
       priority: 2,
       batchSize: 30,
     },

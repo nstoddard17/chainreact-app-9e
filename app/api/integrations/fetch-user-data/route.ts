@@ -1217,17 +1217,59 @@ const dataFetchers: DataFetcher = {
         if (response.status === 401) {
           throw new Error("Airtable authentication expired. Please reconnect your account.")
         }
+        if (response.status === 429) {
+          throw new Error("Airtable API rate limit exceeded. Please wait a moment and try again.")
+        }
         const errorData = await response.json().catch(() => ({}))
         throw new Error(`Airtable API error: ${response.status} - ${errorData.message || "Unknown error"}`)
       }
       const data = await response.json()
-      return data.bases?.map((base: any) => ({
+      
+      const bases = data.bases || []
+      console.log(`🔍 Returning ${bases.length} Airtable bases`)
+      
+      return bases.map((base: any) => ({
         value: base.id,
         label: base.name,
-        description: base.description,
-      })) || []
+        description: base.description || "Airtable base"
+      }))
     } catch (error: any) {
       console.error("Error fetching Airtable bases:", error)
+      throw error
+    }
+  },
+
+  "airtable_tables": async (integration: any, options?: { baseId?: string }) => {
+    try {
+      if (!options?.baseId) {
+        return []
+      }
+      
+      const response = await fetch(
+        `https://api.airtable.com/v0/meta/bases/${options.baseId}/tables`,
+        {
+          headers: {
+            Authorization: `Bearer ${integration.access_token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      )
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("Airtable authentication expired. Please reconnect your account.")
+        }
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(`Airtable API error: ${response.status} - ${errorData.message || "Unknown error"}`)
+      }
+      const data = await response.json()
+      return data.tables?.map((table: any) => ({
+        value: table.name,
+        label: table.name,
+        description: `${table.fields?.length || 0} fields`,
+        fields: table.fields,
+      })) || []
+    } catch (error: any) {
+      console.error("Error fetching Airtable tables:", error)
       throw error
     }
   },
