@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils"
 import GoogleMeetCard from "@/components/ui/google-meet-card"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useWorkflowTestStore } from "@/stores/workflowTestStore"
+import { VariablePicker } from "@/components/ui/variable-picker"
 
 interface ConfigurationModalProps {
   isOpen: boolean
@@ -78,6 +79,9 @@ export default function ConfigurationModal({
   const { getNodeInputOutput, isNodeInExecutionPath, hasTestResults } = useWorkflowTestStore()
   const hasTestData = currentNodeId ? isNodeInExecutionPath(currentNodeId) : false
   const nodeTestData = currentNodeId ? getNodeInputOutput(currentNodeId) : null
+
+  // State for variable picker
+  const [variablePickerField, setVariablePickerField] = useState<string | null>(null);
 
   // Auto-show data flow panels when test data is available
   useEffect(() => {
@@ -399,6 +403,21 @@ export default function ConfigurationModal({
       fetchDynamicData()
     }
   }, [isOpen, nodeInfo, fetchDynamicData])
+
+  // Auto-retry loading if stuck for more than 5 seconds
+  useEffect(() => {
+    if (!loadingDynamic) {
+      setRetryCount(0);
+      return;
+    }
+    let retryTimeout = setTimeout(() => {
+      if (loadingDynamic && isOpen && nodeInfo) {
+        setRetryCount((c) => c + 1);
+        fetchDynamicData();
+      }
+    }, 5000);
+    return () => clearTimeout(retryTimeout);
+  }, [loadingDynamic, isOpen, nodeInfo, fetchDynamicData]);
 
   // Watch for changes in dependent fields and fetch their data
   useEffect(() => {
@@ -1655,7 +1674,7 @@ export default function ConfigurationModal({
                         </span>
                       </div>
                       
-                      {fieldDef.type === "singleLineText" || fieldDef.type === "multilineText" || fieldDef.type === "email" || fieldDef.type === "url" || fieldDef.type === "phoneNumber" ? (
+                      <div className="flex gap-2 items-center">
                         <Input
                           type={fieldDef.type === "email" ? "email" : "text"}
                           value={fieldValue}
@@ -1664,102 +1683,22 @@ export default function ConfigurationModal({
                             const newFields = { ...config.fields, [fieldDef.name]: e.target.value }
                             setConfig(prev => ({ ...prev, fields: newFields }))
                           }}
-                          className="text-sm"
+                          className="text-sm flex-1"
                         />
-                      ) : fieldDef.type === "multilineText" ? (
-                        <Textarea
-                          value={fieldValue}
-                          placeholder={`Enter ${fieldDef.name.toLowerCase()}`}
-                          onChange={(e) => {
-                            const newFields = { ...config.fields, [fieldDef.name]: e.target.value }
+                        <Button type="button" variant="outline" size="sm" onClick={() => setVariablePickerField(fieldDef.name)}>
+                          Select variable
+                        </Button>
+                      </div>
+                      {/* Variable Picker Modal */}
+                      {variablePickerField === fieldDef.name && (
+                        <VariablePicker
+                          onSelect={(variable) => {
+                            const newFields = { ...config.fields, [fieldDef.name]: (fieldValue ? fieldValue + ` {{${variable}}}` : `{{${variable}}}`) }
                             setConfig(prev => ({ ...prev, fields: newFields }))
+                            setVariablePickerField(null)
                           }}
-                          className="text-sm min-h-[80px]"
+                          onClose={() => setVariablePickerField(null)}
                         />
-                      ) : fieldDef.type === "number" || fieldDef.type === "currency" ? (
-                        <Input
-                          type="number"
-                          value={fieldValue}
-                          placeholder={`Enter ${fieldDef.name.toLowerCase()}`}
-                          onChange={(e) => {
-                            const newFields = { ...config.fields, [fieldDef.name]: e.target.value }
-                            setConfig(prev => ({ ...prev, fields: newFields }))
-                          }}
-                          className="text-sm"
-                        />
-                      ) : fieldDef.type === "date" ? (
-                        <Input
-                          type="date"
-                          value={fieldValue}
-                          onChange={(e) => {
-                            const newFields = { ...config.fields, [fieldDef.name]: e.target.value }
-                            setConfig(prev => ({ ...prev, fields: newFields }))
-                          }}
-                          className="text-sm"
-                        />
-                      ) : fieldDef.type === "checkbox" ? (
-                        <div className="flex items-center space-x-2">
-                          <Checkbox
-                            checked={fieldValue || false}
-                            onCheckedChange={(checked) => {
-                              const newFields = { ...config.fields, [fieldDef.name]: checked }
-                              setConfig(prev => ({ ...prev, fields: newFields }))
-                            }}
-                          />
-                          <Label className="text-sm">Enable {fieldDef.name}</Label>
-                        </div>
-                      ) : fieldDef.type === "singleSelect" && fieldDef.options ? (
-                        <Select
-                          value={fieldValue}
-                          onValueChange={(value) => {
-                            const newFields = { ...config.fields, [fieldDef.name]: value }
-                            setConfig(prev => ({ ...prev, fields: newFields }))
-                          }}
-                        >
-                          <SelectTrigger className="text-sm">
-                            <SelectValue placeholder={`Select ${fieldDef.name.toLowerCase()}`} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {fieldDef.options.choices.map((choice: any) => (
-                              <SelectItem key={choice.name} value={choice.name}>
-                                {choice.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      ) : fieldDef.type === "multipleSelects" && fieldDef.options ? (
-                        <div className="space-y-2">
-                          {fieldDef.options.choices.map((choice: any) => (
-                            <div key={choice.name} className="flex items-center space-x-2">
-                              <Checkbox
-                                checked={Array.isArray(fieldValue) ? fieldValue.includes(choice.name) : false}
-                                onCheckedChange={(checked) => {
-                                  const currentValues = Array.isArray(fieldValue) ? fieldValue : []
-                                  const newValues = checked 
-                                    ? [...currentValues, choice.name]
-                                    : currentValues.filter((v: string) => v !== choice.name)
-                                  const newFields = { ...config.fields, [fieldDef.name]: newValues }
-                                  setConfig(prev => ({ ...prev, fields: newFields }))
-                                }}
-                              />
-                              <Label className="text-sm">{choice.name}</Label>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <Input
-                          value={fieldValue}
-                          placeholder={`Enter ${fieldDef.name.toLowerCase()}`}
-                          onChange={(e) => {
-                            const newFields = { ...config.fields, [fieldDef.name]: e.target.value }
-                            setConfig(prev => ({ ...prev, fields: newFields }))
-                          }}
-                          className="text-sm"
-                        />
-                      )}
-                      
-                      {fieldDef.description && (
-                        <p className="text-xs text-muted-foreground">{fieldDef.description}</p>
                       )}
                     </div>
                   )
@@ -1910,6 +1849,11 @@ export default function ConfigurationModal({
       </div>
     </div>
   )
+
+  // In the main configSchema rendering, filter out the 'fields' meta-field for Airtable create record
+  const filteredConfigSchema = nodeInfo?.type === "airtable_action_create_record"
+    ? nodeInfo.configSchema?.filter(field => field.name !== "fields")
+    : nodeInfo.configSchema;
 
   return (
     <TooltipProvider>
@@ -2432,8 +2376,11 @@ export default function ConfigurationModal({
         </DialogFooter>
         {/* Loading Overlay */}
         {loadingDynamic && (
-          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex flex-col items-center justify-center z-50">
             <ConfigurationLoadingScreen integrationName={integrationName} />
+            {retryCount > 0 && (
+              <div className="mt-4 text-sm text-muted-foreground animate-pulse">Retrying... (attempt {retryCount + 1})</div>
+            )}
           </div>
         )}
         </DialogContent>
