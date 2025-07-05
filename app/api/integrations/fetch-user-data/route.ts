@@ -1386,6 +1386,8 @@ const dataFetchers: DataFetcher = {
       const tablesData = await tablesResponse.json()
       const tables = tablesData.tables || []
       
+      console.log(`🔍 Available tables in base ${options.baseId}:`, tables.map((t: any) => t.name))
+      
       // Look for feedback-related tables
       const feedbackTableNames = ['Feedback', 'Feedbacks', 'User Feedback', 'Customer Feedback', 'Support Feedback']
       let feedbackTable = null
@@ -1474,6 +1476,8 @@ const dataFetchers: DataFetcher = {
       
       const tablesData = await tablesResponse.json()
       const tables = tablesData.tables || []
+      
+      console.log(`🔍 Available tables in base ${options.baseId}:`, tables.map((t: any) => t.name))
       
       // Look for task-related tables
       const taskTableNames = ['Tasks', 'Task', 'To Do', 'Todo', 'Action Items', 'Work Items']
@@ -1564,6 +1568,8 @@ const dataFetchers: DataFetcher = {
       
       const tablesData = await tablesResponse.json()
       const tables = tablesData.tables || []
+      
+      console.log(`🔍 Available tables in base ${options.baseId}:`, tables.map((t: any) => t.name))
       
       // Look for project-related tables
       const projectTableNames = ['Projects', 'Project', 'Portfolio', 'Initiatives', 'Campaigns']
