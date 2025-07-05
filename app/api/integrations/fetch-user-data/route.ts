@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
+import { decrypt } from "@/lib/security/encryption"
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
@@ -73,6 +74,30 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // ------------------------------------------------------------
+    // Decrypt stored tokens *before* any validation / API calls
+    // ------------------------------------------------------------
+    try {
+      const encryptionKey = process.env.ENCRYPTION_KEY || ""
+
+      if (integration.access_token && integration.access_token.includes(":")) {
+        integration.access_token = decrypt(integration.access_token, encryptionKey)
+      }
+
+      if (integration.refresh_token && integration.refresh_token.includes(":")) {
+        integration.refresh_token = decrypt(integration.refresh_token, encryptionKey)
+      }
+    } catch (decryptionError) {
+      console.error("❌ Failed to decrypt integration tokens:", decryptionError)
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Failed to decrypt integration credentials. Please reconnect your integration.",
+        },
+        { status: 500 },
+      )
+    }
+
     // Validate and refresh token if needed
     const tokenValidation = await validateAndRefreshToken(integration)
     if (!tokenValidation.success) {
@@ -89,11 +114,11 @@ export async function POST(request: NextRequest) {
     const validToken = tokenValidation.token || integration.access_token
 
     // Get the appropriate data fetcher
-    let fetcherKey = `${provider}_${dataType}`
+    let fetcherKey = dataType
     
-    // Check if the dataType already includes the provider name (e.g., "google-sheets_spreadsheets")
-    if (dataType.startsWith(`${provider}_`)) {
-      fetcherKey = dataType
+    // If dataType doesn't include provider prefix, construct it
+    if (!dataType.includes('_') && !dataType.includes('-')) {
+      fetcherKey = `${provider}_${dataType}`
     }
     
     // Special case for gmail-recent-recipients
@@ -120,13 +145,17 @@ export async function POST(request: NextRequest) {
       fetcherKey = "google-drive-files"
     }
     
+    console.log(`🔍 API: provider=${provider}, dataType=${dataType}, fetcherKey=${fetcherKey}`)
+    console.log(`🔍 Available fetchers:`, Object.keys(dataFetchers))
+    
     const fetcher = dataFetchers[fetcherKey]
 
     if (!fetcher) {
+      console.error(`❌ No fetcher found for key: ${fetcherKey}`)
       return NextResponse.json(
         {
           success: false,
-          error: `No data fetcher found for ${provider} ${dataType}`,
+          error: `No data fetcher found for ${provider} ${dataType} (key: ${fetcherKey})`,
         },
         { status: 400 },
       )
@@ -1271,6 +1300,330 @@ const dataFetchers: DataFetcher = {
     } catch (error: any) {
       console.error("Error fetching Airtable tables:", error)
       throw error
+    }
+  },
+
+  "airtable_records": async (integration: any, options?: { baseId?: string; tableName?: string; maxRecords?: number }) => {
+    try {
+      if (!options?.baseId || !options?.tableName) {
+        return []
+      }
+      
+      const maxRecords = options.maxRecords || 100
+      const response = await fetch(
+        `https://api.airtable.com/v0/${options.baseId}/${encodeURIComponent(options.tableName)}?maxRecords=${maxRecords}`,
+        {
+          headers: {
+            Authorization: `Bearer ${integration.access_token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      )
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("Airtable authentication expired. Please reconnect your account.")
+        }
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(`Airtable API error: ${response.status} - ${errorData.message || "Unknown error"}`)
+      }
+      const data = await response.json()
+      return data.records?.map((record: any) => {
+        // Try to find a good display field (Name, Title, or first text field)
+        const fields = record.fields || {}
+        let label = record.id // fallback to record ID
+        
+        // Look for common name fields
+        if (fields.Name) label = fields.Name
+        else if (fields.Title) label = fields.Title
+        else if (fields.Subject) label = fields.Subject
+        else if (fields.Description) label = fields.Description
+        else {
+          // Find first text field
+          const firstTextField = Object.entries(fields).find(([key, value]) => 
+            typeof value === 'string' && value.length > 0
+          )
+          if (firstTextField) label = firstTextField[1] as string
+        }
+        
+        return {
+          value: record.id,
+          label: label,
+          description: `Record from ${options.tableName}`,
+          fields: fields,
+        }
+      }) || []
+    } catch (error: any) {
+      console.error("Error fetching Airtable records:", error)
+      throw error
+    }
+  },
+
+  "airtable_feedback_records": async (integration: any, options?: { baseId?: string }) => {
+    try {
+      if (!options?.baseId) {
+        return []
+      }
+      
+      // First, get all tables to find the feedback table
+      const tablesResponse = await fetch(
+        `https://api.airtable.com/v0/meta/bases/${options.baseId}/tables`,
+        {
+          headers: {
+            Authorization: `Bearer ${integration.access_token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      )
+      
+      if (!tablesResponse.ok) {
+        if (tablesResponse.status === 401) {
+          throw new Error("Airtable authentication expired. Please reconnect your account.")
+        }
+        const errorData = await tablesResponse.json().catch(() => ({}))
+        throw new Error(`Airtable API error: ${tablesResponse.status} - ${errorData.message || "Unknown error"}`)
+      }
+      
+      const tablesData = await tablesResponse.json()
+      const tables = tablesData.tables || []
+      
+      // Look for feedback-related tables
+      const feedbackTableNames = ['Feedback', 'Feedbacks', 'User Feedback', 'Customer Feedback', 'Support Feedback']
+      let feedbackTable = null
+      
+      for (const tableName of feedbackTableNames) {
+        feedbackTable = tables.find((table: any) => 
+          table.name.toLowerCase().includes('feedback') || 
+          table.name.toLowerCase().includes('support') ||
+          table.name.toLowerCase().includes('customer')
+        )
+        if (feedbackTable) break
+      }
+      
+      if (!feedbackTable) {
+        console.log("No feedback table found in base")
+        return []
+      }
+      
+      // Fetch records from the found feedback table
+      const response = await fetch(
+        `https://api.airtable.com/v0/${options.baseId}/${encodeURIComponent(feedbackTable.name)}?maxRecords=100`,
+        {
+          headers: {
+            Authorization: `Bearer ${integration.access_token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      )
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("Airtable authentication expired. Please reconnect your account.")
+        }
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(`Airtable API error: ${response.status} - ${errorData.message || "Unknown error"}`)
+      }
+      const data = await response.json()
+      return data.records?.map((record: any) => {
+        const fields = record.fields || {}
+        let label = record.id
+        
+        // Look for feedback-specific fields
+        if (fields.Title) label = fields.Title
+        else if (fields.Subject) label = fields.Subject
+        else if (fields.Feedback) label = fields.Feedback
+        else if (fields.Name) label = fields.Name
+        else if (fields.Description) label = fields.Description
+        
+        return {
+          value: record.id,
+          label: label,
+          description: `Feedback record from ${feedbackTable.name}`,
+          fields: fields,
+        }
+      }) || []
+    } catch (error: any) {
+      console.error("Error fetching Airtable feedback records:", error)
+      // Return empty array instead of throwing to prevent breaking the UI
+      return []
+    }
+  },
+
+  "airtable_task_records": async (integration: any, options?: { baseId?: string }) => {
+    try {
+      if (!options?.baseId) {
+        return []
+      }
+      
+      // First, get all tables to find the tasks table
+      const tablesResponse = await fetch(
+        `https://api.airtable.com/v0/meta/bases/${options.baseId}/tables`,
+        {
+          headers: {
+            Authorization: `Bearer ${integration.access_token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      )
+      
+      if (!tablesResponse.ok) {
+        if (tablesResponse.status === 401) {
+          throw new Error("Airtable authentication expired. Please reconnect your account.")
+        }
+        const errorData = await tablesResponse.json().catch(() => ({}))
+        throw new Error(`Airtable API error: ${tablesResponse.status} - ${errorData.message || "Unknown error"}`)
+      }
+      
+      const tablesData = await tablesResponse.json()
+      const tables = tablesData.tables || []
+      
+      // Look for task-related tables
+      const taskTableNames = ['Tasks', 'Task', 'To Do', 'Todo', 'Action Items', 'Work Items']
+      let taskTable = null
+      
+      for (const tableName of taskTableNames) {
+        taskTable = tables.find((table: any) => 
+          table.name.toLowerCase().includes('task') || 
+          table.name.toLowerCase().includes('todo') ||
+          table.name.toLowerCase().includes('action') ||
+          table.name.toLowerCase().includes('work')
+        )
+        if (taskTable) break
+      }
+      
+      if (!taskTable) {
+        console.log("No task table found in base")
+        return []
+      }
+      
+      // Fetch records from the found task table
+      const response = await fetch(
+        `https://api.airtable.com/v0/${options.baseId}/${encodeURIComponent(taskTable.name)}?maxRecords=100`,
+        {
+          headers: {
+            Authorization: `Bearer ${integration.access_token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      )
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("Airtable authentication expired. Please reconnect your account.")
+        }
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(`Airtable API error: ${response.status} - ${errorData.message || "Unknown error"}`)
+      }
+      const data = await response.json()
+      return data.records?.map((record: any) => {
+        const fields = record.fields || {}
+        let label = record.id
+        
+        // Look for task-specific fields
+        if (fields.Task) label = fields.Task
+        else if (fields.Name) label = fields.Name
+        else if (fields.Title) label = fields.Title
+        else if (fields.Description) label = fields.Description
+        else if (fields.Subject) label = fields.Subject
+        
+        return {
+          value: record.id,
+          label: label,
+          description: `Task record from ${taskTable.name}`,
+          fields: fields,
+        }
+      }) || []
+    } catch (error: any) {
+      console.error("Error fetching Airtable task records:", error)
+      // Return empty array instead of throwing to prevent breaking the UI
+      return []
+    }
+  },
+
+  "airtable_project_records": async (integration: any, options?: { baseId?: string }) => {
+    try {
+      if (!options?.baseId) {
+        return []
+      }
+      
+      // First, get all tables to find the projects table
+      const tablesResponse = await fetch(
+        `https://api.airtable.com/v0/meta/bases/${options.baseId}/tables`,
+        {
+          headers: {
+            Authorization: `Bearer ${integration.access_token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      )
+      
+      if (!tablesResponse.ok) {
+        if (tablesResponse.status === 401) {
+          throw new Error("Airtable authentication expired. Please reconnect your account.")
+        }
+        const errorData = await tablesResponse.json().catch(() => ({}))
+        throw new Error(`Airtable API error: ${tablesResponse.status} - ${errorData.message || "Unknown error"}`)
+      }
+      
+      const tablesData = await tablesResponse.json()
+      const tables = tablesData.tables || []
+      
+      // Look for project-related tables
+      const projectTableNames = ['Projects', 'Project', 'Portfolio', 'Initiatives', 'Campaigns']
+      let projectTable = null
+      
+      for (const tableName of projectTableNames) {
+        projectTable = tables.find((table: any) => 
+          table.name.toLowerCase().includes('project') || 
+          table.name.toLowerCase().includes('portfolio') ||
+          table.name.toLowerCase().includes('initiative') ||
+          table.name.toLowerCase().includes('campaign')
+        )
+        if (projectTable) break
+      }
+      
+      if (!projectTable) {
+        console.log("No project table found in base")
+        return []
+      }
+      
+      // Fetch records from the found project table
+      const response = await fetch(
+        `https://api.airtable.com/v0/${options.baseId}/${encodeURIComponent(projectTable.name)}?maxRecords=100`,
+        {
+          headers: {
+            Authorization: `Bearer ${integration.access_token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      )
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("Airtable authentication expired. Please reconnect your account.")
+        }
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(`Airtable API error: ${response.status} - ${errorData.message || "Unknown error"}`)
+      }
+      const data = await response.json()
+      return data.records?.map((record: any) => {
+        const fields = record.fields || {}
+        let label = record.id
+        
+        // Look for project-specific fields
+        if (fields.Project) label = fields.Project
+        else if (fields.Name) label = fields.Name
+        else if (fields.Title) label = fields.Title
+        else if (fields.Description) label = fields.Description
+        else if (fields.Subject) label = fields.Subject
+        
+        return {
+          value: record.id,
+          label: label,
+          description: `Project record from ${projectTable.name}`,
+          fields: fields,
+        }
+      }) || []
+    } catch (error: any) {
+      console.error("Error fetching Airtable project records:", error)
+      // Return empty array instead of throwing to prevent breaking the UI
+      return []
     }
   },
   "gumroad_products": async (integration: any) => {

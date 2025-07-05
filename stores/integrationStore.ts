@@ -683,6 +683,22 @@ export const useIntegrationStore = create<IntegrationStore>()(
             url = "/api/integrations/fetch-user-data"
             dataType = "airtable_tables"
             break
+          case "airtable_records":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "airtable_records"
+            break
+          case "airtable_feedback_records":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "airtable_feedback_records"
+            break
+          case "airtable_task_records":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "airtable_task_records"
+            break
+          case "airtable_project_records":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "airtable_project_records"
+            break
           case "gumroad_products":
             url = "/api/integrations/fetch-user-data"
             dataType = "gumroad_products"

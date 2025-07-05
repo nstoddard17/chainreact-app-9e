@@ -1,28 +1,19 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog"
-import { ConfigField, NodeComponent, NodeField } from "@/lib/workflows/availableNodes"
+import { ConfigField, NodeComponent } from "@/lib/workflows/availableNodes"
 import { useIntegrationStore } from "@/stores/integrationStore"
-import { Combobox, MultiCombobox, HierarchicalCombobox } from "@/components/ui/combobox"
-import { EmailAutocomplete } from "@/components/ui/email-autocomplete"
-import { LocationAutocomplete } from "@/components/ui/location-autocomplete"
-import { ConfigurationLoadingScreen } from "@/components/ui/loading-screen"
+import { Combobox } from "@/components/ui/combobox"
 import { FileUpload } from "@/components/ui/file-upload"
 import { DatePicker } from "@/components/ui/date-picker"
 import { TimePicker } from "@/components/ui/time-picker"
-import { AlertCircle, Video, HelpCircle, ChevronLeft, ChevronRight, Play } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
-import { cn } from "@/lib/utils"
-import GoogleMeetCard from "@/components/ui/google-meet-card"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { useWorkflowTestStore } from "@/stores/workflowTestStore"
-import { VariablePicker } from "@/components/ui/variable-picker"
 
 interface ConfigurationModalProps {
   isOpen: boolean
@@ -31,9 +22,6 @@ interface ConfigurationModalProps {
   nodeInfo: NodeComponent | null
   integrationName: string
   initialData?: Record<string, any>
-  // Enhanced testing props
-  workflowData?: { nodes: any[], edges: any[] }
-  currentNodeId?: string
 }
 
 export default function ConfigurationModal({
@@ -43,1623 +31,249 @@ export default function ConfigurationModal({
   nodeInfo,
   integrationName,
   initialData = {},
-  workflowData,
-  currentNodeId,
 }: ConfigurationModalProps) {
   const [config, setConfig] = useState<Record<string, any>>(initialData)
   const [errors, setErrors] = useState<Record<string, string>>({})
-  const { loadIntegrationData, getIntegrationByProvider, checkIntegrationScopes } = useIntegrationStore()
-  const [dynamicOptions, setDynamicOptions] = useState<
-    Record<string, { value: string; label: string }[]>
-  >({})
+  const [dynamicOptions, setDynamicOptions] = useState<Record<string, { value: string; label: string; fields?: any[] }[]>>({})
   const [loadingDynamic, setLoadingDynamic] = useState(false)
-  const [showRowSelected, setShowRowSelected] = useState(false)
-  const [meetDraft, setMeetDraft] = useState<{ eventId: string; meetUrl: string } | null>(null)
-  const [meetLoading, setMeetLoading] = useState(false)
-  const meetDraftRef = useRef<string | null>(null)
-  const previousDependentValues = useRef<Record<string, any>>({})
-  const hasInitializedTimezone = useRef<boolean>(false)
-  const hasInitializedDefaults = useRef<boolean>(false)
   
-  // Create Spreadsheet specific state
-  const [spreadsheetRows, setSpreadsheetRows] = useState<Record<string, string>[]>([{}])
-  const [columnNames, setColumnNames] = useState<string[]>([])
-  
-  // Test functionality state
-  const [testResult, setTestResult] = useState<any>(null)
-  const [isTestLoading, setIsTestLoading] = useState(false)
-  const [showTestOutput, setShowTestOutput] = useState(false)
-  
-  // Enhanced workflow segment testing state
-  const [segmentTestResult, setSegmentTestResult] = useState<any>(null)
-  const [isSegmentTestLoading, setIsSegmentTestLoading] = useState(false)
-  const [showDataFlowPanels, setShowDataFlowPanels] = useState(false)
+  const { loadIntegrationData } = useIntegrationStore()
 
-  // Test store integration
-  const { getNodeInputOutput, isNodeInExecutionPath, hasTestResults } = useWorkflowTestStore()
-  const hasTestData = currentNodeId ? isNodeInExecutionPath(currentNodeId) : false
-  const nodeTestData = currentNodeId ? getNodeInputOutput(currentNodeId) : null
-
-  // State for variable picker
-  const [variablePickerField, setVariablePickerField] = useState<string | null>(null);
-
-  // Auto-show data flow panels when test data is available
   useEffect(() => {
-    if (hasTestData && nodeTestData) {
-      setShowDataFlowPanels(true)
-    }
-  }, [hasTestData, nodeTestData])
-
-  // Function to get user's timezone
-  const getUserTimezone = () => {
-    try {
-      return Intl.DateTimeFormat().resolvedOptions().timeZone
-    } catch (error) {
-      // Fallback to UTC if timezone detection fails
-      return "UTC"
-    }
-  }
-
-  // Function to round time to nearest 5 minutes
-  const roundToNearest5Minutes = (date: Date): Date => {
-    const minutes = date.getMinutes()
-    const roundedMinutes = Math.round(minutes / 5) * 5
-    const newDate = new Date(date)
-    newDate.setMinutes(roundedMinutes, 0, 0)
-    return newDate
-  }
-
-  // Function to format time as HH:MM
-  const formatTime = (date: Date): string => {
-    return date.toTimeString().slice(0, 5)
-  }
-
-  // Function to format date as YYYY-MM-DD
-  const formatDate = (date: Date): string => {
-    return date.toISOString().split('T')[0]
-  }
+    setConfig(initialData)
+  }, [initialData])
 
   // Function to check if a field should be shown based on dependencies
-  const shouldShowField = (field: ConfigField | NodeField): boolean => {
+  const shouldShowField = (field: ConfigField): boolean => {
     if (!field.dependsOn) {
-      // Special logic for unified Google Sheets action
-      if (nodeInfo?.type === "google_sheets_unified_action") {
-        // Only show selectedRow field for update/delete actions
-        if (field.name === "selectedRow" && config.action === "add") {
-          return false
-        }
-      }
-      // Special logic for read data action
-      if (nodeInfo?.type === "google_sheets_action_read_data") {
-        // Only show range field when readMode is "range"
-        if (field.name === "range" && config.readMode !== "range") {
-          return false
-        }
-        // Only show selectedRows field when readMode is "rows"
-        if (field.name === "selectedRows" && config.readMode !== "rows") {
-          return false
-        }
-        // Only show selectedCells field when readMode is "cells"
-        if (field.name === "selectedCells" && config.readMode !== "cells") {
-          return false
-        }
-      }
       return true
     }
-    
     const dependentValue = config[field.dependsOn]
     return !!dependentValue
   }
 
   // Function to fetch dynamic data for dependent fields
-  const fetchDependentData = useCallback(async (field: ConfigField | NodeField, dependentValue: any) => {
-    if (!field.dynamic || !field.dependsOn) return
-    
-    const integration = getIntegrationByProvider(nodeInfo?.providerId || "")
-    if (!integration) return
+  const fetchDependentData = async (field: ConfigField, dependentValue: string) => {
+    if (!field.dynamic) return
 
     try {
       setLoadingDynamic(true)
-      
-      // Handle dependent field options
-      let options = { [field.dependsOn]: dependentValue }
-      
-      const data = await loadIntegrationData(
-        field.dynamic,
-        integration.id,
-        options
-      )
+      const data = await loadIntegrationData(field.dynamic, nodeInfo?.providerId || '', { 
+        baseId: dependentValue 
+      })
       
       if (data) {
         setDynamicOptions(prev => ({
           ...prev,
           [field.name]: data.map((item: any) => ({
-            value: item.value || item.id || item.name,
-            label: item.name || item.label || item.title,
-            ...item
+            value: item.value || item.name,
+            label: item.label || item.name,
+            fields: item.fields || []
           }))
         }))
       }
     } catch (error) {
-      console.error(`Error fetching dependent data for ${field.name}:`, error)
+      console.error(`Error loading ${field.dynamic}:`, error)
     } finally {
       setLoadingDynamic(false)
     }
-  }, [config, nodeInfo?.providerId, getIntegrationByProvider, loadIntegrationData])
+  }
 
-  const fetchDynamicData = useCallback(async () => {
-    if (!nodeInfo || !nodeInfo.providerId) return
-
-    const integration = getIntegrationByProvider(nodeInfo.providerId)
-    if (!integration) return
-
-    // Check if integration needs reconnection due to missing scopes
-    const scopeCheck = checkIntegrationScopes(nodeInfo.providerId)
-    if (scopeCheck.needsReconnection) {
-      console.warn(`Integration needs reconnection: ${scopeCheck.reason}`)
-      setErrors({ integrationError: `This integration needs to be reconnected to access the required permissions. Please reconnect your ${nodeInfo.providerId} integration.` })
-      return
-    }
-
-    setLoadingDynamic(true)
-    const newOptions: Record<string, any[]> = {}
-    let hasData = false
-
-    for (const field of nodeInfo.configSchema || []) {
-      if (field.dynamic && !field.dependsOn) { // Skip dependent fields during initial load
-        try {
-          console.log(`Fetching dynamic data for ${field.dynamic}`)
-          const data = await loadIntegrationData(field.dynamic, integration.id)
-          if (data) {
-            hasData = true
-            if (field.dynamic === "slack-channels") {
-              newOptions[field.name] = data.map((channel: any) => ({
-                value: channel.id,
-                label: channel.name,
-              }))
-            } else if (field.dynamic === "google-calendars") {
-              newOptions[field.name] = data.map((calendar: any) => ({
-                value: calendar.id,
-                label: calendar.name,
-              }))
-            } else if (field.dynamic === "google-drive-folders") {
-              newOptions[field.name] = data.map((folder: any) => ({
-                value: folder.id || folder.value,
-                label: folder.name || folder.label || folder.id || folder.value,
-              }))
-            } else if (field.dynamic === "google-drive-files") {
-              newOptions[field.name] = data.map((file: any) => ({
-                value: file.id,
-                label: file.name,
-              }))
-            } else if (field.dynamic === "gmail-recent-recipients") {
-              newOptions[field.name] = data.map((recipient: any) => ({
-                value: recipient.email || recipient.value,
-                label: recipient.label || (recipient.name ? recipient.name + " <" + recipient.email + ">" : recipient.email),
-                email: recipient.email || recipient.value,
-                name: recipient.name,
-                type: recipient.type || "contact"
-              }))
-            } else if (field.dynamic === "gmail-enhanced-recipients") {
-              // Handle both enhanced recipients and fallback data formats
-              if (Array.isArray(data) && data.length > 0) {
-                newOptions[field.name] = data.map((recipient: any) => ({
-                  value: recipient.email || recipient.value,
-                  label: recipient.email || recipient.label || recipient.value,
-                  email: recipient.email || recipient.value,
-                  name: recipient.name,
-                  type: recipient.type,
-                  isGroup: recipient.isGroup,
-                  groupId: recipient.groupId,
-                  members: recipient.members
-                }))
-              } else {
-                newOptions[field.name] = []
-              }
-            } else if (field.dynamic === "gmail-contact-groups") {
-              newOptions[field.name] = data.map((group: any) => ({
-                value: group.id,
-                label: group.name,
-              }))
-            } else if (field.dynamic === "gmail_messages") {
-              // Handle new grouped structure: data is array of label groups
-              if (Array.isArray(data) && data.length > 0 && data[0].labelId) {
-                // New grouped structure - create hierarchical dropdown
-                const groupedOptions: any[] = []
-                data.forEach((group: any) => {
-                  if (group.emails && Array.isArray(group.emails) && group.emails.length > 0) {
-                    // Create a group option with the folder/label name
-                    const groupOption = {
-                      value: `group_${group.labelId}`,
-                      label: group.labelName,
-                      description: `${group.emails.length} emails`,
-                      isGroup: true,
-                      groupId: group.labelId,
-                      groupName: group.labelName,
-                      emails: group.emails.map((email: any) => ({
-                        value: email.id,
-                        label: email.subject || "No Subject",
-                        description: email.description,
-                        groupId: group.labelId,
-                        groupName: group.labelName,
-                      })),
-                    }
-                    groupedOptions.push(groupOption)
-                  }
-                })
-                newOptions[field.name] = groupedOptions
-              } else {
-                // Fallback to old flat structure
-                newOptions[field.name] = data.map((message: any) => ({
-                  value: message.id,
-                  label: message.subject || "No Subject",
-                  description: message.description,
-                }))
-              }
-            } else if (field.dynamic === "gmail_labels") {
-              newOptions[field.name] = data.map((label: any) => ({
-                value: label.id,
-                label: label.name,
-                description: `${label.messages_total} messages`,
-              }))
-            } else if (field.dynamic === "google-sheets_spreadsheets") {
-              if (data) {
-                newOptions[field.name] = data.map((spreadsheet: any) => ({
-                  value: spreadsheet.id,
-                  label: spreadsheet.name,
-                }))
-              }
-            } else if (field.dynamic === "google-sheets_sheets") {
-              if (data) {
-                newOptions[field.name] = data.map((sheet: any) => ({
-                  value: sheet.title,
-                  label: sheet.title,
-                }))
-              }
-            } else if (field.dynamic === "google-docs_documents") {
-              if (data) {
-                newOptions[field.name] = data.map((document: any) => ({
-                  value: document.id,
-                  label: document.name,
-                }))
-              }
-            } else if (field.dynamic === "google-docs_templates") {
-              if (data) {
-                newOptions[field.name] = data.map((template: any) => ({
-                  value: template.id,
-                  label: template.name,
-                }))
-              }
-            } else if (field.dynamic === "airtable_bases") {
-              if (data) {
-                newOptions[field.name] = data.map((base: any) => ({
-                  value: base.value,
-                  label: base.label,
-                  description: base.description,
-                }))
-              }
-            }
-          }
-        } catch (error: any) {
-          console.error(`Error fetching dynamic data for ${field.dynamic}:`, error)
-          
-          // For Gmail enhanced recipients, try fallback to basic recipients
-          if (field.dynamic === "gmail-enhanced-recipients") {
-            try {
-              const fallbackData = await loadIntegrationData("gmail-recent-recipients", integration.id)
-              if (fallbackData && Array.isArray(fallbackData) && fallbackData.length > 0) {
-                newOptions[field.name] = fallbackData.map((recipient: any) => ({
-                  value: recipient.email || recipient.value,
-                  label: recipient.email || recipient.label || recipient.value,
-                  email: recipient.email || recipient.value,
-                  name: recipient.name,
-                  type: recipient.type || "contact"
-                }))
-                hasData = true
-                continue // Skip the error handling below
-              } else {
-                // Even fallback failed, provide empty array but allow manual entry
-                newOptions[field.name] = []
-                hasData = true // Still count as having "data" so the field renders properly
-                continue
-              }
-            } catch (fallbackError) {
-              console.error("Fallback to basic recipients also failed:", fallbackError)
-            }
-          }
-          
-          // Show specific error for scope issues
-          if (error.message && error.message.includes("insufficient authentication scopes")) {
-            setErrors(prev => ({
-              ...prev,
-              [field.name]: field.dynamic === "gmail-enhanced-recipients" 
-                ? `Contact access requires additional permissions. You can still enter email addresses manually.`
-                : `This integration needs to be reconnected to access ${field.dynamic}. Please reconnect your ${nodeInfo.providerId} integration.`
-            }))
-          } else if (error.message && error.message.includes("authentication expired")) {
-            setErrors(prev => ({
-              ...prev,
-              [field.name]: `Authentication expired. Please reconnect your ${nodeInfo.providerId} integration.`
-            }))
-          } else {
-            setErrors(prev => ({
-              ...prev,
-              [field.name]: `Failed to load ${field.label || field.name}: ${error.message}`
-            }))
-          }
-        }
-      }
-    }
-
-    if (hasData) {
-      setDynamicOptions(newOptions)
-    }
-    setLoadingDynamic(false)
-  }, [nodeInfo, loadIntegrationData, checkIntegrationScopes])
-
-  // Fetch dynamic data when modal opens
-  useEffect(() => {
-    if (isOpen && nodeInfo) {
-      fetchDynamicData()
-    }
-  }, [isOpen, nodeInfo, fetchDynamicData])
-
-  // Auto-retry loading if stuck for more than 5 seconds
-  useEffect(() => {
-    if (!loadingDynamic) {
-      setRetryCount(0);
-      return;
-    }
-    let retryTimeout = setTimeout(() => {
-      if (loadingDynamic && isOpen && nodeInfo) {
-        setRetryCount((c) => c + 1);
-        fetchDynamicData();
-      }
-    }, 5000);
-    return () => clearTimeout(retryTimeout);
-  }, [loadingDynamic, isOpen, nodeInfo, fetchDynamicData]);
-
-  // Watch for changes in dependent fields and fetch their data
+  // Handle dependent field changes
   useEffect(() => {
     if (!isOpen || !nodeInfo) return
 
-    const fetchDependentFields = async () => {
+    nodeInfo.configSchema?.forEach(field => {
+      if (field.dependsOn && field.dynamic) {
+        const dependentValue = config[field.dependsOn]
+        if (dependentValue) {
+          fetchDependentData(field, dependentValue)
+        }
+      }
+    })
+  }, [isOpen, nodeInfo, config.baseId])
+
+  // Load initial dynamic data
+  useEffect(() => {
+    if (!isOpen || !nodeInfo) return
+
+    const loadInitialData = async () => {
       for (const field of nodeInfo.configSchema || []) {
-        if (field.dependsOn && field.dynamic) {
-          const dependentValue = config[field.dependsOn]
-          const previousValue = previousDependentValues.current[field.dependsOn]
-          
-          // Only update if the dependent value has actually changed
-          if (dependentValue !== previousValue) {
-            previousDependentValues.current[field.dependsOn] = dependentValue
+        if (field.dynamic && !field.dependsOn) {
+          try {
+            setLoadingDynamic(true)
+            const data = await loadIntegrationData(field.dynamic, nodeInfo.providerId || '')
             
-            if (dependentValue) {
-              await fetchDependentData(field, dependentValue)
-            } else {
-              // Clear dependent field options when dependency is cleared
-              setDynamicOptions(prev => {
-                const newOptions = { ...prev }
-                delete newOptions[field.name]
-                return newOptions
-              })
-              // Clear dependent field value
-              setConfig(prev => {
-                const newConfig = { ...prev }
-                delete newConfig[field.name]
-                return newConfig
-              })
-            }
-          }
-        }
-      }
-    }
-
-    fetchDependentFields()
-  }, [isOpen, nodeInfo, config.spreadsheetId, config.baseId, fetchDependentData])
-
-  // Auto-load sheet data when action changes to update/delete (for unified Google Sheets action) or readMode is "rows" (for read data action)
-  useEffect(() => {
-    if (!isOpen || !nodeInfo) return
-    
-    // Check if we need to load sheet data
-    const shouldLoadData = 
-      (nodeInfo.type === "google_sheets_unified_action" && config.action && config.action !== "add") ||
-      (nodeInfo.type === "google_sheets_action_read_data" && (config.readMode === "rows" || config.readMode === "cells" || config.readMode === "all"))
-    
-    if (!shouldLoadData) return
-    if (!config.spreadsheetId || !config.sheetName) return
-    
-    const loadSheetData = async () => {
-      try {
-        setLoadingDynamic(true)
-        const integration = getIntegrationByProvider(nodeInfo?.providerId || "")
-        if (!integration) return
-        
-        const data = await loadIntegrationData(
-          "google-sheets_sheet-data",
-          integration.id,
-          { spreadsheetId: config.spreadsheetId, sheetName: config.sheetName }
-        )
-        
-        if (data && data.length > 0) {
-          setDynamicOptions(prev => ({
-            ...prev,
-            sheetData: data[0]
-          }))
-        }
-      } catch (error) {
-        console.error("Error auto-loading sheet data:", error)
-      } finally {
-        setLoadingDynamic(false)
-      }
-    }
-    
-    loadSheetData()
-  }, [isOpen, nodeInfo, config.action, config.readMode, config.spreadsheetId, config.sheetName, getIntegrationByProvider, loadIntegrationData])
-
-  // Fetch sheet preview when both spreadsheet and sheet are selected (for Google Sheets actions)
-  useEffect(() => {
-    if (!isOpen || !nodeInfo || !["google_sheets_action_append_row", "google_sheets_unified_action", "google_sheets_action_read_data"].includes(nodeInfo.type)) return
-    
-    const fetchSheetPreview = async () => {
-      if (config.spreadsheetId && config.sheetName) {
-        const integration = getIntegrationByProvider("google-sheets")
-        if (!integration) return
-
-        try {
-          setLoadingDynamic(true)
-          const previewData = await loadIntegrationData(
-            "google-sheets_sheet-preview",
-            integration.id,
-            { spreadsheetId: config.spreadsheetId, sheetName: config.sheetName }
-          )
-          
-                      if (previewData && previewData.length > 0) {
-              const preview = previewData[0]
+            if (data) {
               setDynamicOptions(prev => ({
                 ...prev,
-                sheetPreview: preview,
-                // Also populate search column options for the unified action
-                ...(nodeInfo.type === "google_sheets_unified_action" && {
-                  searchColumn: preview.headers.map((header: any) => ({
-                    value: header.column,
-                    label: `${header.column} - ${header.name}`
-                  }))
-                })
+                [field.name]: data.map((item: any) => ({
+                  value: item.value,
+                  label: item.label,
+                  description: item.description
+                }))
               }))
             }
-        } catch (error) {
-          console.error("Error fetching sheet preview:", error)
-        } finally {
-          setLoadingDynamic(false)
-        }
-      } else {
-        // Clear preview when dependencies are not met
-        setDynamicOptions(prev => {
-          const newOptions = { ...prev }
-          delete newOptions.sheetPreview
-          return newOptions
-        })
-      }
-    }
-
-    fetchSheetPreview()
-  }, [isOpen, nodeInfo, config.spreadsheetId, config.sheetName, getIntegrationByProvider, loadIntegrationData])
-
-  // Initialize timezone for Google Calendar events (only on first open)
-  useEffect(() => {
-    if (isOpen && nodeInfo?.type === "google_calendar_action_create_event" && !hasInitializedTimezone.current) {
-      // Always set current timezone as default if not already set
-      const currentTimezone = config.timeZone || initialData.timeZone
-      if (!currentTimezone || currentTimezone === "auto") {
-        const userTimezone = getUserTimezone()
-        setConfig(prev => ({ ...prev, timeZone: userTimezone }))
-      }
-      hasInitializedTimezone.current = true
-    }
-    
-    // Reset initialization flag when nodeInfo type changes
-    if (nodeInfo?.type !== "google_calendar_action_create_event") {
-      hasInitializedTimezone.current = false
-    }
-  }, [isOpen, nodeInfo?.type, initialData.timeZone])
-
-  // Initialize default values for Google Calendar events (only on first open)
-  useEffect(() => {
-    if (isOpen && nodeInfo?.type === "google_calendar_action_create_event" && !hasInitializedDefaults.current) {
-      const now = new Date()
-      const startTime = roundToNearest5Minutes(now)
-      const endTime = new Date(startTime.getTime() + 60 * 60 * 1000) // 1 hour later
-      const userTimezone = getUserTimezone()
-      
-      const defaults = {
-        timeZone: userTimezone,
-        startDate: formatDate(now),
-        startTime: formatTime(startTime),
-        endDate: formatDate(now),
-        endTime: formatTime(endTime),
-        allDay: false,
-        createMeetLink: false,
-        sendNotifications: "all",
-        guestsCanInviteOthers: true,
-        guestsCanSeeOtherGuests: true,
-        guestsCanModify: false,
-        visibility: "default",
-        transparency: "transparent",
-        colorId: "default",
-        reminderMinutes: "30",
-        reminderMethod: "popup",
-        recurrence: "none"
-      }
-      
-      // Only set defaults for fields that don't already have values
-      const newConfig = { ...config }
-      let hasChanges = false
-      
-      Object.entries(defaults).forEach(([key, value]) => {
-        if (newConfig[key] === undefined && initialData[key] === undefined) {
-          newConfig[key] = value
-          hasChanges = true
-        }
-      })
-      
-      if (hasChanges) {
-        setConfig(newConfig)
-      }
-      
-      hasInitializedDefaults.current = true
-    }
-  }, [isOpen, nodeInfo?.type, initialData])
-
-  // Initialize default values for Google Sheets create spreadsheet (only on first open)
-  useEffect(() => {
-    if (isOpen && nodeInfo?.type === "google_sheets_action_create_spreadsheet" && !hasInitializedDefaults.current) {
-      const userTimezone = getUserTimezone()
-      
-      const defaults = {
-        locale: "en_US",
-        timeZone: userTimezone,
-        addHeaders: false
-      }
-      
-      // Only set defaults for fields that don't already have values
-      const newConfig = { ...config }
-      let hasChanges = false
-      
-      Object.entries(defaults).forEach(([key, value]) => {
-        if (newConfig[key] === undefined && initialData[key] === undefined) {
-          newConfig[key] = value
-          hasChanges = true
-        }
-      })
-      
-      if (hasChanges) {
-        setConfig(newConfig)
-      }
-      
-      hasInitializedDefaults.current = true
-    }
-    
-    // Reset initialization flag when nodeInfo type changes
-    if (nodeInfo?.type !== "google_calendar_action_create_event") {
-      hasInitializedDefaults.current = false
-    }
-  }, [isOpen, nodeInfo?.type, initialData])
-
-  // Initialize default values for Google Sheets read data action (only on first open)
-  useEffect(() => {
-    if (isOpen && nodeInfo?.type === "google_sheets_action_read_data" && !hasInitializedDefaults.current) {
-      const defaults = {
-        includeHeaders: true,
-        outputFormat: "objects",
-        maxRows: 1000
-      }
-      
-      // Only set defaults for fields that don't already have values
-      const newConfig = { ...config }
-      let hasChanges = false
-      
-      Object.entries(defaults).forEach(([key, value]) => {
-        if (newConfig[key] === undefined && initialData[key] === undefined) {
-          newConfig[key] = value
-          hasChanges = true
-        }
-      })
-      
-      if (hasChanges) {
-        setConfig(newConfig)
-      }
-      
-      hasInitializedDefaults.current = true
-    }
-    
-    // Reset initialization flag when nodeInfo type changes
-    if (!["google_calendar_action_create_event", "google_sheets_action_read_data", "google_sheets_action_create_spreadsheet"].includes(nodeInfo?.type || "")) {
-      hasInitializedDefaults.current = false
-    }
-  }, [isOpen, nodeInfo?.type, initialData])
-
-  // Clean up draft event if modal closes with a draft present
-  useEffect(() => {
-    if (!isOpen && meetDraftRef.current) {
-      fetch("/api/integrations/google-calendar/meet-draft", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ eventId: meetDraftRef.current }),
-      })
-      setMeetDraft(null)
-      meetDraftRef.current = null
-    }
-    
-    // Reset previous dependent values when modal closes
-    if (!isOpen) {
-      previousDependentValues.current = {}
-      hasInitializedTimezone.current = false
-      hasInitializedDefaults.current = false
-    }
-  }, [isOpen])
-
-  // Initialize create spreadsheet state
-  useEffect(() => {
-    if (nodeInfo?.type === "google_sheets_action_create_spreadsheet") {
-      // Initialize column count and names when changed
-      const columnCount = config.columnCount
-      if (columnCount && columnCount > 0 && columnNames.length !== columnCount) {
-        const newColumnNames = Array.from({ length: columnCount }, (_, i) => 
-          columnNames[i] || `Column ${i + 1}`
-        )
-        setColumnNames(newColumnNames)
-        
-        // Always update config with column names (needed for data structure even without headers)
-        setConfig(prev => ({
-          ...prev,
-          columnNames: newColumnNames
-        }))
-      }
-
-      // Initialize rows if empty
-      if (spreadsheetRows.length === 0) {
-        setSpreadsheetRows([{}])
-      }
-    }
-  }, [nodeInfo?.type, config.columnCount, config.addHeaders, columnNames.length, spreadsheetRows.length])
-
-  if (!nodeInfo) {
-    return null
-  }
-
-  const validateRequiredFields = (): boolean => {
-    const newErrors: Record<string, string> = {}
-    let isValid = true
-
-    if (nodeInfo.configSchema) {
-      for (const field of nodeInfo.configSchema) {
-        if (field.required) {
-          const value = config[field.name]
-          if (!value || (typeof value === 'string' && value.trim() === '')) {
-            newErrors[field.name] = `${field.label} is required`
-            isValid = false
+          } catch (error) {
+            console.error(`Error loading ${field.dynamic}:`, error)
+          } finally {
+            setLoadingDynamic(false)
           }
         }
       }
-      
-      // Special validation for Google Drive create file
-      if (nodeInfo.type === "google-drive:create_file") {
-        const hasFileContent = config.fileContent && config.fileContent.trim() !== ''
-        const hasUploadedFiles = config.uploadedFiles && config.uploadedFiles.length > 0
-        
-        if (!hasFileContent && !hasUploadedFiles) {
-          newErrors.fileContent = "Either file content or uploaded files are required"
-          newErrors.uploadedFiles = "Either file content or uploaded files are required"
-          isValid = false
-        }
-      }
     }
 
-    setErrors(newErrors)
-    return isValid
-  }
+    loadInitialData()
+  }, [isOpen, nodeInfo])
 
   const handleSave = () => {
-    if (validateRequiredFields()) {
-      const configToSave = { ...config }
-      if (nodeInfo?.type === "google_calendar_action_create_event" && Array.isArray(configToSave.attendees)) {
-        configToSave.attendees = configToSave.attendees.join(',')
+    const newErrors: Record<string, string> = {}
+    
+    nodeInfo?.configSchema?.forEach((field) => {
+      if (field.required && !config[field.name]) {
+        newErrors[field.name] = `${field.label} is required`
       }
-      onSave(configToSave)
+    })
+
+    setErrors(newErrors)
+    
+    if (Object.keys(newErrors).length === 0) {
+      onSave(config)
       onClose()
     }
   }
 
-  // Enhanced workflow segment testing
-  const handleTestWorkflowSegment = async () => {
-    if (!nodeInfo?.testable || !workflowData || !currentNodeId) return
-    
-    // Prevent testing pending nodes
-    if (currentNodeId.startsWith('pending-')) {
-      console.warn('Cannot test pending node:', currentNodeId)
-      return
-    }
-    
-    // Validate that the target node exists in the workflow
-    if (!workflowData.nodes?.find(n => n.id === currentNodeId)) {
-      console.error('Target node not found in workflow:', currentNodeId)
-      setSegmentTestResult({
-        success: false,
-        error: `Target node "${currentNodeId}" not found in workflow`
-      })
-      setShowDataFlowPanels(true)
-      return
-    }
-    
-    console.log('Debug: Test workflow segment request data:', {
-      currentNodeId,
-      workflowNodesCount: workflowData.nodes?.length || 0,
-      workflowEdgesCount: workflowData.edges?.length || 0,
-      availableNodeIds: workflowData.nodes?.map(n => n.id) || []
-    })
-    
-    setIsSegmentTestLoading(true)
-    setSegmentTestResult(null)
-    
-    try {
-      const response = await fetch('/api/workflows/test-workflow-segment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          workflowData,
-          targetNodeId: currentNodeId,
-          triggerData: {
-            // Sample trigger data
-            name: "John Doe",
-            email: "john@example.com",
-            status: "active",
-            amount: 100,
-            date: new Date().toISOString(),
-            id: "test-123"
-          }
-        })
-      })
-      
-      const result = await response.json()
-      
-      console.log('Debug: Test workflow segment response:', result)
-      
-      if (result.success) {
-        setSegmentTestResult(result)
-        setShowDataFlowPanels(true)
-      } else {
-        console.error('Test failed:', result.error)
-        setSegmentTestResult({
-          success: false,
-          error: result.error || "Test failed"
-        })
-        setShowDataFlowPanels(true)
-      }
-    } catch (error: any) {
-      console.error('Test error:', error)
-      setSegmentTestResult({
-        success: false,
-        error: `Test failed with error: "${error.message}"`
-      })
-      setShowDataFlowPanels(true)
-    } finally {
-      setIsSegmentTestLoading(false)
-    }
-  }
-
-  const handleCheckboxChange = async (name: string, checked: boolean) => {
-    setConfig((prev) => ({ ...prev, [name]: checked }))
-    if (name === "createMeetLink") {
-      if (checked) {
-        setMeetLoading(true)
-        // Create draft event
-        try {
-          const res = await fetch("/api/integrations/google-calendar/meet-draft", { method: "POST" })
-          const data = await res.json()
-          if (data.eventId && data.meetUrl) {
-            setMeetDraft({ eventId: data.eventId, meetUrl: data.meetUrl })
-            meetDraftRef.current = data.eventId
-          } else {
-            setMeetDraft(null)
-            meetDraftRef.current = null
-          }
-        } catch {
-          setMeetDraft(null)
-          meetDraftRef.current = null
-        } finally {
-          setMeetLoading(false)
-        }
-      } else {
-        // Delete draft event if exists
-        if (meetDraftRef.current) {
-          setMeetLoading(true)
-          await fetch("/api/integrations/google-calendar/meet-draft", {
-            method: "DELETE",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ eventId: meetDraftRef.current }),
-          })
-          setMeetDraft(null)
-          meetDraftRef.current = null
-          setMeetLoading(false)
-        }
-      }
-    }
-  }
-
   const renderField = (field: ConfigField) => {
-    const value = config[field.name] || ""
+    const value = config[field.name]
     const hasError = !!errors[field.name]
-    const isRequired = field.required
 
-    // Helper function to extract filename from URL
-    const extractFilenameFromUrl = (url: string): string => {
-      try {
-        // Try to get filename from URL path
-        const urlObj = new URL(url)
-        const pathname = urlObj.pathname
-        const filename = pathname.split('/').pop()
-        
-        if (filename && filename.includes('.')) {
-          return filename
-        }
-        
-        // Special handling for Google Drive URLs
-        if (url.includes('drive.google.com') || url.includes('docs.google.com')) {
-          // Extract file ID from Google Drive URL
-          const fileIdMatch = url.match(/\/d\/([a-zA-Z0-9-_]+)/)
-          if (fileIdMatch) {
-            const fileId = fileIdMatch[1]
-            // Determine file type based on URL pattern
-            if (url.includes('docs.google.com/document')) {
-              return `Google Doc - ${fileId}.docx`
-            } else if (url.includes('docs.google.com/spreadsheets')) {
-              return `Google Sheet - ${fileId}.xlsx`
-            } else if (url.includes('docs.google.com/presentation')) {
-              return `Google Slides - ${fileId}.pptx`
-            } else if (url.includes('drive.google.com/file')) {
-              return `Google Drive File - ${fileId}`
-            } else {
-              return `Google Drive - ${fileId}`
-            }
-          }
-        }
-        
-        // If no filename in path, try to get from Content-Disposition header
-        // For now, we'll use a fallback approach
-        return 'downloaded-file'
-      } catch (error) {
-        // If URL is invalid, try to extract from the string
-        const urlParts = url.split('/')
-        const lastPart = urlParts[urlParts.length - 1]
-        
-        if (lastPart && lastPart.includes('.')) {
-          return lastPart
-        }
-        
-        // Try to extract Google Drive file ID even from invalid URLs
-        const fileIdMatch = url.match(/\/d\/([a-zA-Z0-9-_]+)/)
-        if (fileIdMatch) {
-          const fileId = fileIdMatch[1]
-          if (url.includes('docs.google.com/document')) {
-            return `Google Doc - ${fileId}.docx`
-          } else if (url.includes('docs.google.com/spreadsheets')) {
-            return `Google Sheet - ${fileId}.xlsx`
-          } else if (url.includes('docs.google.com/presentation')) {
-            return `Google Slides - ${fileId}.pptx`
-          } else if (url.includes('drive.google.com/file')) {
-            return `Google Drive File - ${fileId}`
-          } else {
-            return `Google Drive - ${fileId}`
-          }
-        }
-        
-        return 'downloaded-file'
-      }
-    }
-
-    // Handle URL field changes for upload file from URL node
-    const handleUrlFieldChange = (newValue: string) => {
-      setConfig(prev => ({ ...prev, [field.name]: newValue }))
+    // Handle Airtable create record custom fields layout
+    if (nodeInfo?.type === "airtable_action_create_record" && field.name === "fields") {
+      const selectedTable = dynamicOptions["tableName"]?.find((table: any) => table.value === config.tableName)
+      const tableFields = selectedTable?.fields || []
       
-      // If this is the fileUrl field for upload file from URL node, auto-populate filename
-      if (nodeInfo?.type === "google_drive_action_upload_file" && field.name === "fileUrl" && newValue) {
-        const extractedFilename = extractFilenameFromUrl(newValue)
-        const currentFileName = config.fileName || ""
-        const hasUserEditedFileName = currentFileName.trim() !== ""
-        
-        // Only auto-populate if user hasn't manually set a filename
-        if (!hasUserEditedFileName) {
-          setConfig(prev => ({ ...prev, fileName: extractedFilename }))
-        }
-      }
-    }
-
-    const handleChange = (
-      e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
-    ) => {
-      const newValue = e.target.value
-      setConfig({ ...config, [field.name]: newValue })
-      
-      // Clear error when user starts typing
-      if (hasError && newValue.trim() !== '') {
-        setErrors(prev => {
-          const newErrors = { ...prev }
-          delete newErrors[field.name]
-          return newErrors
-        })
-      }
-    }
-
-    const handleSelectChange = (newValue: string) => {
-      // Special handling for timezone auto-detection
-      if (field.name === "timeZone" && newValue === "auto") {
-        const userTimezone = getUserTimezone()
-        setConfig({ ...config, [field.name]: userTimezone })
-      } else {
-        // For Airtable, when workspace or baseId changes, clear dependent fields
-        if (nodeInfo?.type === "airtable_action_create_record" && (field.name === "workspace" || field.name === "baseId")) {
-          setConfig(prev => ({ 
-            ...prev, 
-            [field.name]: newValue,
-            ...(field.name === "workspace" && {
-              baseId: undefined, // Clear base selection when workspace changes
-              tableName: undefined, // Clear table selection
-              fields: undefined // Clear field configuration
-            }),
-            ...(field.name === "baseId" && {
-              tableName: undefined, // Clear table selection
-              fields: undefined // Clear field configuration
-            })
-          }))
-        } else {
-          setConfig({ ...config, [field.name]: newValue })
-        }
-      }
-      
-      // Clear error when user selects a value
-      if (hasError && newValue) {
-        setErrors(prev => {
-          const newErrors = { ...prev }
-          delete newErrors[field.name]
-          return newErrors
-        })
-      }
-    }
-
-    const handleMultiSelectChange = (newValue: string[]) => {
-      setConfig({ ...config, [field.name]: newValue })
-      
-      // Clear error when user selects values
-      if (hasError && newValue.length > 0) {
-        setErrors(prev => {
-          const newErrors = { ...prev }
-          delete newErrors[field.name]
-          return newErrors
-        })
-      }
-    }
-
-    const inputClassName = `${hasError ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`
-
-    switch (field.type) {
-      case "select":
-        let selectOptions: { value: string; label: string }[] | undefined = dynamicOptions[field.name];
-
-        if (!selectOptions && field.options) {
-          if (field.options.every((opt): opt is string => typeof opt === 'string')) {
-            // It's a string array
-            selectOptions = (field.options as string[]).map(option => ({
-              value: option,
-              label: option.charAt(0).toUpperCase() + option.slice(1)
-            }));
-          } else {
-            // It's already an array of { value, label }
-            selectOptions = field.options as { value: string; label: string }[];
-          }
-        }
-
-        const finalOptions = selectOptions || [];
-        
-        // Use Combobox for all select fields that have options (both dynamic and static)
-        if (finalOptions.length > 0) {
-          // Check if this field supports multiple selection
-          if (field.multiple) {
-            // Ensure value is an array for multi-select
-            const multiValue = Array.isArray(value) ? value : value ? [value] : []
-            
-            return (
-              <div className="space-y-1">
-                <div className={hasError ? 'ring-2 ring-red-500 rounded-md' : ''}>
-                  <MultiCombobox
-                    options={finalOptions}
-                    value={multiValue}
-                    onChange={handleMultiSelectChange}
-                    placeholder={field.placeholder}
-                    searchPlaceholder={field.placeholder}
-                    emptyPlaceholder="No options found."
-                  />
-                </div>
-                {field.description && (
-                  <p className="text-xs text-muted-foreground">{field.description}</p>
-                )}
-                {hasError && (
-                  <div className="flex items-center gap-1 text-sm text-red-600">
-                    <AlertCircle className="h-4 w-4" />
-                    {errors[field.name]}
-                  </div>
-                )}
-              </div>
-            )
-          }
-          
-          // Use HierarchicalCombobox for gmail_messages, regular Combobox for others
-          if (field.dynamic === "gmail_messages") {
-            return (
-              <div className="space-y-1">
-                <div className={hasError ? 'ring-2 ring-red-500 rounded-md' : ''}>
-                  <HierarchicalCombobox
-                    options={finalOptions}
-                    value={value}
-                    onChange={handleSelectChange}
-                    placeholder={field.placeholder}
-                    searchPlaceholder="Search emails or folders..."
-                    emptyPlaceholder={loadingDynamic ? "Loading..." : "No emails found."}
-                    disabled={loadingDynamic}
-                  />
-                </div>
-                {hasError && (
-                  <div className="flex items-center gap-1 text-sm text-red-600">
-                    <AlertCircle className="h-4 w-4" />
-                    {errors[field.name]}
-                  </div>
-                )}
-              </div>
-            )
-          }
-          
-          return (
-            <div className="space-y-1">
-              <div className={hasError ? 'ring-2 ring-red-500 rounded-md' : ''}>
-                <Combobox
-                  options={finalOptions}
-                  value={value}
-                  onChange={handleSelectChange}
-                  placeholder={field.placeholder}
-                  searchPlaceholder="Search or type..."
-                  emptyPlaceholder={loadingDynamic ? "Loading..." : "No results found."}
-                  disabled={loadingDynamic}
-                />
-              </div>
-              {hasError && (
-                <div className="flex items-center gap-1 text-sm text-red-600">
-                  <AlertCircle className="h-4 w-4" />
-                  {errors[field.name]}
-                </div>
-              )}
-            </div>
-          )
-        }
-
-        // Fallback to regular Select if no options are available
-        return (
-          <div className="space-y-1">
-            <Select onValueChange={handleSelectChange} value={value} disabled={loadingDynamic}>
-              <SelectTrigger className={inputClassName}>
-                <SelectValue placeholder={field.placeholder} />
-              </SelectTrigger>
-              <SelectContent>
-                {loadingDynamic && <SelectItem value="loading" disabled>Loading...</SelectItem>}
-                {finalOptions.map((option) => (
-                  <SelectItem
-                    key={option.value}
-                    value={option.value}
-                  >
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {hasError && (
-              <div className="flex items-center gap-1 text-sm text-red-600">
-                <AlertCircle className="h-4 w-4" />
-                {errors[field.name]}
-              </div>
-            )}
-          </div>
-        )
-      case "textarea":
-        return (
-          <div className="space-y-1">
-            <Textarea
-              id={field.name}
-              value={value}
-              onChange={handleChange}
-              placeholder={field.placeholder}
-              required={field.required}
-              autoComplete="off"
-              autoCorrect="off"
-              autoCapitalize="off"
-              spellCheck="false"
-              data-form-type="other"
-              data-lpignore="true"
-              data-1p-ignore="true"
-              data-bwignore="true"
-              className={inputClassName}
-            />
-            {hasError && (
-              <div className="flex items-center gap-1 text-sm text-red-600">
-                <AlertCircle className="h-4 w-4" />
-                {errors[field.name]}
-              </div>
-            )}
-          </div>
-        )
-      case "email-autocomplete":
-        const emailOptions = dynamicOptions[field.name] || []
-        const emailSuggestions = emailOptions.map((opt: any) => ({
-          value: opt.value || opt.email,
-          label: opt.label || opt.email || opt.value,
-          email: opt.email || opt.value,
-          name: opt.name,
-          type: opt.type,
-          isGroup: opt.isGroup,
-          groupId: opt.groupId,
-          members: opt.members
-        }))
-        
-        // Fields that support multiple emails
-        const isMultipleEmail = field.name === "attendees" || field.name === "to" || field.name === "cc" || field.name === "bcc"
-        
-        if (isMultipleEmail) {
-          const multiValue = typeof value === 'string' ? value : Array.isArray(value) ? value.join(', ') : ''
-          return (
-            <div className="space-y-1">
-              <EmailAutocomplete
-                value={multiValue}
-                onChange={(newValue) => setConfig({ ...config, [field.name]: newValue })}
-                suggestions={emailSuggestions}
-                placeholder={field.placeholder}
-                disabled={loadingDynamic}
-                isLoading={loadingDynamic}
-                multiple={true}
-                className={inputClassName}
-              />
-              {hasError && (
-                <div className="flex items-center gap-1 text-sm text-red-600">
-                  <AlertCircle className="h-4 w-4" />
-                  {errors[field.name]}
-                </div>
-              )}
-            </div>
-          )
-        } else {
-          return (
-            <div className="space-y-1">
-              <EmailAutocomplete
-                value={typeof value === 'string' ? value : ''}
-                onChange={handleSelectChange}
-                suggestions={emailSuggestions}
-                placeholder={field.placeholder}
-                disabled={loadingDynamic}
-                isLoading={loadingDynamic}
-                multiple={false}
-                className={inputClassName}
-              />
-              {hasError && (
-                <div className="flex items-center gap-1 text-sm text-red-600">
-                  <AlertCircle className="h-4 w-4" />
-                  {errors[field.name]}
-                </div>
-              )}
-            </div>
-          )
-        }
-      case "file":
-        const handleFileChange = async (files: FileList | File[]) => {
-          try {
-            if (files && files.length > 0) {
-              const filesArray = Array.from(files)
-              
-              // Special handling for Google Drive create file - auto-populate file name IMMEDIATELY
-              if (nodeInfo?.type === "google-drive:create_file" && field.name === "uploadedFiles") {
-                const currentFileName = config.fileName || ""
-                const hasUserEditedFileName = currentFileName.trim() !== ""
-                
-                if (filesArray.length === 1) {
-                  // Single file: use the file's name (only if user hasn't manually set a name)
-                  if (!hasUserEditedFileName) {
-                    const fileName = filesArray[0].name
-                    setConfig(prev => ({ ...prev, fileName }))
-                  }
-                } else if (filesArray.length > 1) {
-                  // Multiple files: use the first file's name as base (only if user hasn't manually set a name)
-                  if (!hasUserEditedFileName) {
-                    const firstFileName = filesArray[0].name
-                    // Remove extension to create a base name
-                    const baseName = firstFileName.replace(/\.[^/.]+$/, "")
-                    setConfig(prev => ({ ...prev, fileName: baseName }))
-                  }
-                }
-              }
-              
-              // Separate new files from restored files
-              const newFiles = filesArray.filter(file => !(file as any)._isRestored)
-              const restoredFiles = filesArray.filter(file => (file as any)._isRestored)
-              
-              let allFileIds: string[] = []
-              
-              // Get file IDs from restored files
-              const restoredFileIds = restoredFiles.map(file => (file as any)._fileId)
-              allFileIds.push(...restoredFileIds)
-              
-              // Upload new files if any
-              if (newFiles.length > 0) {
-                const formData = new FormData()
-                newFiles.forEach(file => {
-                  formData.append('files', file)
-                })
-                
-                const response = await fetch('/api/workflows/files/store', {
-                  method: 'POST',
-                  body: formData
-                })
-                
-                if (!response.ok) {
-                  const errorData = await response.json()
-                  throw new Error(errorData.error || 'Failed to store files')
-                }
-                
-                const result = await response.json()
-                allFileIds.push(...result.fileIds)
-              }
-              
-              // Store both file IDs for the workflow and the actual files for the UI
-              setConfig(prev => ({ 
-                ...prev, 
-                [field.name]: allFileIds,
-                [`${field.name}_files`]: filesArray // Store all files for UI
-              }))
-            } else {
-              setConfig(prev => ({ 
-                ...prev, 
-                [field.name]: [],
-                [`${field.name}_files`]: []
-              }))
-              
-              // Clear file name if no files are uploaded for Google Drive create file
-              if (nodeInfo?.type === "google-drive:create_file" && field.name === "uploadedFiles") {
-                setConfig(prev => ({ ...prev, fileName: "" }))
-              }
-            }
-            
-            // Clear error when user selects files
-            if (hasError && files && files.length > 0) {
-              setErrors(prev => {
-                const newErrors = { ...prev }
-                delete newErrors[field.name]
-                return newErrors
-              })
-            }
-          } catch (error: any) {
-            console.error('Error storing files:', error)
-            setErrors(prev => ({
-              ...prev,
-              [field.name]: `Failed to upload files: ${error.message}`
-            }))
-          }
-        }
-        
-        // Use the stored files for the FileUpload component display
-        const fileValue = config[`${field.name}_files`] || []
-        
-        return (
-          <div className="space-y-1">
-            <FileUpload
-              value={fileValue as File[]}
-              onChange={handleFileChange}
-              accept={field.accept}
-              maxSize={field.maxSize}
-              maxFiles={5}
-              placeholder={field.placeholder}
-              disabled={loadingDynamic}
-              className={hasError ? 'ring-2 ring-red-500 rounded-md' : ''}
-            />
-            {hasError && (
-              <div className="flex items-center gap-1 text-sm text-red-600">
-                <AlertCircle className="h-4 w-4" />
-                {errors[field.name]}
-              </div>
-            )}
-          </div>
-        )
-      case "date":
-        const handleDateChange = (date: Date | undefined) => {
-          const dateString = date ? date.toISOString().split('T')[0] : ""
-          const newConfig = { ...config, [field.name]: dateString }
-          
-          // For Google Calendar, automatically set end date when start date changes
-          if (nodeInfo?.type === "google_calendar_action_create_event" && field.name === "startDate" && date) {
-            if (!config.endDate || config.endDate === config.startDate) {
-              newConfig.endDate = dateString
-            }
-          }
-          
-          setConfig(newConfig)
-          
-          // Clear error when user selects a date
-          if (hasError && date) {
-            setErrors(prev => {
-              const newErrors = { ...prev }
-              delete newErrors[field.name]
-              return newErrors
-            })
-          }
-        }
-        
-        const dateValue = value ? new Date(value + 'T00:00:00') : undefined
-        
-        return (
-          <div className="space-y-1">
-            <DatePicker
-              value={dateValue}
-              onChange={handleDateChange}
-              placeholder={field.placeholder || "Select date"}
-              disabled={loadingDynamic}
-              className={inputClassName}
-            />
-            {hasError && (
-              <div className="flex items-center gap-1 text-sm text-red-600">
-                <AlertCircle className="h-4 w-4" />
-                {errors[field.name]}
-              </div>
-            )}
-          </div>
-        )
-      case "time":
-        // Hide time fields for Google Calendar when "All Day" is enabled
-        if (nodeInfo?.type === "google_calendar_action_create_event" && config.allDay) {
-          return null
-        }
-        
-        const handleTimeChange = (time: string) => {
-          setConfig({ ...config, [field.name]: time })
-          
-          // Clear error when user selects a time
-          if (hasError && time) {
-            setErrors(prev => {
-              const newErrors = { ...prev }
-              delete newErrors[field.name]
-              return newErrors
-            })
-          }
-        }
-        
-        return (
-          <div className="space-y-1">
-            <TimePicker
-              value={value}
-              onChange={handleTimeChange}
-              placeholder={field.placeholder || "Select time"}
-              disabled={loadingDynamic}
-              className={inputClassName}
-            />
-            {hasError && (
-              <div className="flex items-center gap-1 text-sm text-red-600">
-                <AlertCircle className="h-4 w-4" />
-                {errors[field.name]}
-              </div>
-            )}
-          </div>
-        )
-      case "boolean":
-        const isGoogleMeet = field.name === "createMeetLink"
-        if (isGoogleMeet && config.createMeetLink) {
-        return (
-            <GoogleMeetCard
-              meetUrl={meetDraft?.meetUrl}
-              guestLimit={100}
-              onRemove={() => handleCheckboxChange("createMeetLink", false)}
-              onCopy={() => {
-                if (meetDraft?.meetUrl) navigator.clipboard.writeText(meetDraft.meetUrl)
-              }}
-              onSettings={() => {}}
-            />
-          )
-        }
+      if (!config.tableName) {
         return (
           <div className="space-y-2">
-            <div className="flex items-center justify-start space-x-2">
-            <Checkbox
-              id={field.name}
-              checked={config[field.name] || false}
-              onCheckedChange={(checked) => handleCheckboxChange(field.name, checked as boolean)}
-              className="h-4 w-4"
-            />
-              <Label htmlFor={field.name} className="text-sm font-medium cursor-pointer">
-                {isGoogleMeet && <Video className="inline w-4 h-4 mr-2 text-blue-600" />}
-                {field.label}
-                {field.required && <span className="text-red-500 ml-1">*</span>}
-              </Label>
-            </div>
-            {field.description && (
-              <p className="text-xs text-muted-foreground ml-6">
-                {field.description}
+            <div className="p-6 border border-dashed border-muted-foreground/25 rounded-lg">
+              <p className="text-sm text-muted-foreground text-center">
+                Please select a table first to configure record fields
               </p>
-            )}
+            </div>
           </div>
         )
-      case "location-autocomplete":
+      }
+
+      if (tableFields.length === 0) {
         return (
-          <div className="space-y-1">
-            <LocationAutocomplete
-              value={value}
-              onChange={handleSelectChange}
-              placeholder={field.placeholder}
-              disabled={loadingDynamic}
-              className={inputClassName}
-            />
-            {hasError && (
-              <div className="flex items-center gap-1 text-sm text-red-600">
-                <AlertCircle className="h-4 w-4" />
-                {errors[field.name]}
-              </div>
-            )}
+          <div className="space-y-2">
+            <div className="p-6 border border-dashed border-muted-foreground/25 rounded-lg">
+              <p className="text-sm text-muted-foreground text-center">
+                Loading table fields...
+              </p>
+            </div>
           </div>
         )
-      case "custom":
-        // Custom fields for unified Google Sheets action are handled in the special layout
-        if (nodeInfo?.type === "google_sheets_unified_action") {
-          return null
-        }
-        
-        // Custom fields for create spreadsheet action
-        if (nodeInfo?.type === "google_sheets_action_create_spreadsheet") {
-          if (field.name === "columnNames") {
-            // Only show column names fields if addHeaders is true
-            if (!config.addHeaders) {
-              return null
-            }
-            
-            return (
-              <div className="space-y-3">
-                <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${columnNames.length}, 1fr)` }}>
-                  {columnNames.map((name, index) => (
-                    <div key={index} className="space-y-1">
-                      <Label className="text-xs text-muted-foreground">Column {index + 1}</Label>
-                      <Input
-                        value={name}
-                        placeholder={`Column ${index + 1}`}
-                        onChange={(e) => {
-                          const newNames = [...columnNames]
-                          newNames[index] = e.target.value
-                          setColumnNames(newNames)
-                          setConfig(prev => ({ ...prev, columnNames: newNames }))
-                        }}
-                        className="text-sm"
-                      />
-                    </div>
-                  ))}
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  💡 These will be used as column headers in your spreadsheet
-                </div>
-              </div>
-            )
-          }
-        }
-        
-
+      }
+      
+      return (
+        <div className="space-y-4">
+          <div className="text-sm text-muted-foreground">
+            Map your data to table columns from "{config.tableName}":
+          </div>
           
-          if (field.name === "spreadsheetData") {
-            return (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      const newRow: Record<string, string> = {}
-                      columnNames.forEach((_, index) => {
-                        newRow[`col_${index}`] = ""
-                      })
-                      setSpreadsheetRows([...spreadsheetRows, newRow])
-                    }}
-                    className="text-xs ml-auto"
-                  >
-                    Add Row
-                  </Button>
-                </div>
-                
-                {/* Column headers */}
-                <div className="border rounded-lg">
-                  <div className="bg-muted/50 p-2 border-b">
-                    <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${columnNames.length}, 1fr) auto` }}>
-                      {columnNames.map((name, index) => (
-                        <div key={index} className="text-xs font-medium text-muted-foreground p-1">
-                          {config.addHeaders ? (name || `Column ${index + 1}`) : `Column ${index + 1}`}
-                        </div>
-                      ))}
-                      <div className="text-xs font-medium text-muted-foreground p-1 w-8">
-                        Actions
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Data rows */}
-                  <div className="p-2 space-y-2">
-                    {spreadsheetRows.map((row, rowIndex) => (
-                      <div key={rowIndex} className="grid gap-2" style={{ gridTemplateColumns: `repeat(${columnNames.length}, 1fr) auto` }}>
-                        {columnNames.map((_, colIndex) => (
-                          <div key={colIndex} className="relative">
-                            <Input
-                              value={row[`col_${colIndex}`] || ""}
-                              placeholder={`Enter value or {{variable}}`}
-                              onChange={(e) => {
-                                const newRows = [...spreadsheetRows]
-                                newRows[rowIndex][`col_${colIndex}`] = e.target.value
-                                setSpreadsheetRows(newRows)
-                                setConfig(prev => ({ ...prev, spreadsheetData: newRows }))
-                              }}
-                              className="text-sm"
-                            />
-                          </div>
-                        ))}
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            const newRows = spreadsheetRows.filter((_, i) => i !== rowIndex)
-                            setSpreadsheetRows(newRows)
-                            setConfig(prev => ({ ...prev, spreadsheetData: newRows }))
-                          }}
-                          className="h-8 w-8 p-0 text-muted-foreground hover:text-red-600"
-                          disabled={spreadsheetRows.length === 1}
-                        >
-                          ×
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                
-
-                
-                <div className="text-xs text-muted-foreground">
-                  💡 Use template variables like <code>{"{{data.fieldName}}"}</code> to make your data dynamic
+          {/* Column Headers */}
+          <div 
+            className="grid gap-3 p-3 bg-muted/50 rounded-t-lg border"
+            style={{ gridTemplateColumns: `repeat(${Math.min(tableFields.length, 4)}, 1fr)` }}
+          >
+            {tableFields.slice(0, 4).map((fieldDef: any) => (
+              <div key={fieldDef.name} className="text-center">
+                <div className="font-medium text-sm mb-1">{fieldDef.name}</div>
+                <div className="text-xs text-muted-foreground capitalize bg-background px-2 py-1 rounded">
+                  {fieldDef.type}
+                  {fieldDef.required && <span className="text-red-500 ml-1">*</span>}
                 </div>
               </div>
-            )
-          }
-        }
-        
-        // Custom fields for Airtable create record action
-        if (nodeInfo?.type === "airtable_action_create_record" && field.name === "fields") {
-          const selectedTable = dynamicOptions["tableName"]?.find((table: any) => table.value === config.tableName)
-          const tableFields = selectedTable?.fields || []
+            ))}
+          </div>
           
-          if (!config.tableName) {
-            return (
-              <div className="space-y-2">
-                <div className="p-4 border border-dashed border-muted-foreground/25 rounded-lg">
-                  <p className="text-sm text-muted-foreground text-center">
-                    Please select a table first to configure record fields
-                  </p>
-                </div>
-              </div>
-            )
-          }
-          
-          return (
-            <div className="space-y-4">
-              <div className="text-sm text-muted-foreground">
-                Configure the fields for your new record. Available fields from "{config.tableName}":
-              </div>
+          {/* Input Fields */}
+          <div 
+            className="grid gap-3 p-3 border border-t-0 rounded-b-lg"
+            style={{ gridTemplateColumns: `repeat(${Math.min(tableFields.length, 4)}, 1fr)` }}
+          >
+            {tableFields.slice(0, 4).map((fieldDef: any) => {
+              const fieldValue = config.fields?.[fieldDef.name] || ""
               
-              <div className="space-y-3">
-                {tableFields.map((fieldDef: any, index: number) => {
+              return (
+                <div key={fieldDef.name} className="space-y-1">
+                  {fieldDef.type === "multilineText" ? (
+                    <Textarea
+                      value={fieldValue}
+                      placeholder={`Enter ${fieldDef.name.toLowerCase()}`}
+                      onChange={(e) => {
+                        const newFields = { ...config.fields, [fieldDef.name]: e.target.value }
+                        setConfig(prev => ({ ...prev, fields: newFields }))
+                      }}
+                      className="text-sm min-h-[80px]"
+                      rows={3}
+                    />
+                  ) : fieldDef.type === "singleSelect" && fieldDef.options ? (
+                    <Select
+                      value={fieldValue}
+                      onValueChange={(value) => {
+                        const newFields = { ...config.fields, [fieldDef.name]: value }
+                        setConfig(prev => ({ ...prev, fields: newFields }))
+                      }}
+                    >
+                      <SelectTrigger className="text-sm">
+                        <SelectValue placeholder={`Select ${fieldDef.name.toLowerCase()}`} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {fieldDef.options.choices.map((choice: any) => (
+                          <SelectItem key={choice.name} value={choice.name}>
+                            {choice.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : fieldDef.type === "checkbox" ? (
+                    <div className="flex items-center space-x-2 pt-2">
+                      <Checkbox
+                        checked={fieldValue || false}
+                        onCheckedChange={(checked) => {
+                          const newFields = { ...config.fields, [fieldDef.name]: checked }
+                          setConfig(prev => ({ ...prev, fields: newFields }))
+                        }}
+                      />
+                      <Label className="text-sm">Enable</Label>
+                    </div>
+                  ) : (
+                    <Input
+                      type={fieldDef.type === "email" ? "email" : fieldDef.type === "number" ? "number" : fieldDef.type === "date" ? "date" : "text"}
+                      value={fieldValue}
+                      placeholder={`Enter ${fieldDef.name.toLowerCase()}`}
+                      onChange={(e) => {
+                        const newFields = { ...config.fields, [fieldDef.name]: e.target.value }
+                        setConfig(prev => ({ ...prev, fields: newFields }))
+                      }}
+                      className="text-sm"
+                    />
+                  )}
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Show remaining fields if there are more than 4 */}
+          {tableFields.length > 4 && (
+            <div className="space-y-3 pt-4 border-t">
+              <div className="text-sm font-medium text-muted-foreground">
+                Additional Fields:
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {tableFields.slice(4).map((fieldDef: any) => {
                   const fieldValue = config.fields?.[fieldDef.name] || ""
                   
                   return (
@@ -1674,717 +288,249 @@ export default function ConfigurationModal({
                         </span>
                       </div>
                       
-                      <div className="flex gap-2 items-center">
-                        <Input
-                          type={fieldDef.type === "email" ? "email" : "text"}
+                      {fieldDef.type === "multilineText" ? (
+                        <Textarea
                           value={fieldValue}
                           placeholder={`Enter ${fieldDef.name.toLowerCase()}`}
                           onChange={(e) => {
                             const newFields = { ...config.fields, [fieldDef.name]: e.target.value }
                             setConfig(prev => ({ ...prev, fields: newFields }))
                           }}
-                          className="text-sm flex-1"
+                          className="text-sm"
+                          rows={3}
                         />
-                        <Button type="button" variant="outline" size="sm" onClick={() => setVariablePickerField(fieldDef.name)}>
-                          Select variable
-                        </Button>
-                      </div>
-                      {/* Variable Picker Modal */}
-                      {variablePickerField === fieldDef.name && (
-                        <VariablePicker
-                          onSelect={(variable) => {
-                            const newFields = { ...config.fields, [fieldDef.name]: (fieldValue ? fieldValue + ` {{${variable}}}` : `{{${variable}}}`) }
+                      ) : fieldDef.type === "singleSelect" && fieldDef.options ? (
+                        <Select
+                          value={fieldValue}
+                          onValueChange={(value) => {
+                            const newFields = { ...config.fields, [fieldDef.name]: value }
                             setConfig(prev => ({ ...prev, fields: newFields }))
-                            setVariablePickerField(null)
                           }}
-                          onClose={() => setVariablePickerField(null)}
+                        >
+                          <SelectTrigger className="text-sm">
+                            <SelectValue placeholder={`Select ${fieldDef.name.toLowerCase()}`} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {fieldDef.options.choices.map((choice: any) => (
+                              <SelectItem key={choice.name} value={choice.name}>
+                                {choice.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : fieldDef.type === "checkbox" ? (
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            checked={fieldValue || false}
+                            onCheckedChange={(checked) => {
+                              const newFields = { ...config.fields, [fieldDef.name]: checked }
+                              setConfig(prev => ({ ...prev, fields: newFields }))
+                            }}
+                          />
+                          <Label className="text-sm">Enable {fieldDef.name}</Label>
+                        </div>
+                      ) : (
+                        <Input
+                          type={fieldDef.type === "email" ? "email" : fieldDef.type === "number" ? "number" : fieldDef.type === "date" ? "date" : "text"}
+                          value={fieldValue}
+                          placeholder={`Enter ${fieldDef.name.toLowerCase()}`}
+                          onChange={(e) => {
+                            const newFields = { ...config.fields, [fieldDef.name]: e.target.value }
+                            setConfig(prev => ({ ...prev, fields: newFields }))
+                          }}
+                          className="text-sm"
                         />
                       )}
                     </div>
                   )
                 })}
               </div>
-              
-              <div className="text-xs text-muted-foreground">
-                💡 Use template variables like <code>{"{{data.fieldName}}"}</code> to make your data dynamic
-              </div>
             </div>
-          )
-        }
-        
-        return null
+          )}
+          
+          <div className="text-xs text-muted-foreground bg-blue-50 p-3 rounded-lg border border-blue-200">
+            💡 <strong>Tip:</strong> Use template variables like <code>{"{{data.fieldName}}"}</code> to make your data dynamic and pull values from previous workflow steps.
+          </div>
+        </div>
+      )
+    }
+
+    // Handle combobox/select fields with dynamic options
+    if (field.type === "select" || field.type === "combobox") {
+      const options = dynamicOptions[field.name] || field.options || []
+      
+      return (
+        <Select 
+          value={value || ""} 
+          onValueChange={(newValue) => {
+            // Clear dependent fields when base changes for Airtable
+            if (nodeInfo?.type === "airtable_action_create_record" && field.name === "baseId") {
+              setConfig(prev => ({ 
+                ...prev, 
+                [field.name]: newValue,
+                tableName: undefined,
+                fields: undefined
+              }))
+            } else {
+              setConfig(prev => ({ ...prev, [field.name]: newValue }))
+            }
+          }}
+          disabled={loadingDynamic}
+        >
+          <SelectTrigger className={hasError ? 'ring-2 ring-red-500' : ''}>
+            <SelectValue placeholder={loadingDynamic ? "Loading..." : field.placeholder} />
+          </SelectTrigger>
+          <SelectContent>
+            {options.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                <div>
+                  <div>{option.label}</div>
+                  {option.description && (
+                    <div className="text-xs text-muted-foreground">{option.description}</div>
+                  )}
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )
+    }
+
+    // Handle regular field types
+    switch (field.type) {
       case "string":
       case "text":
-      case "email":
-      case "password":
         return (
-          <div className="space-y-1">
-            <Input
-              type={field.type === "email" ? "email" : "text"}
-              placeholder={field.placeholder}
-              value={value || ""}
-              onChange={(e) => {
-                if (field.name === "fileUrl") {
-                  handleUrlFieldChange(e.target.value)
-                } else {
-                  setConfig(prev => ({ ...prev, [field.name]: e.target.value }))
-                }
-              }}
-              className={hasError ? 'ring-2 ring-red-500' : ''}
-              disabled={loadingDynamic}
+          <Input
+            placeholder={field.placeholder}
+            value={value || ""}
+            onChange={(e) => setConfig(prev => ({ ...prev, [field.name]: e.target.value }))}
+            className={hasError ? 'ring-2 ring-red-500' : ''}
+          />
+        )
+
+      case "textarea":
+        return (
+          <Textarea
+            placeholder={field.placeholder}
+            value={value || ""}
+            onChange={(e) => setConfig(prev => ({ ...prev, [field.name]: e.target.value }))}
+            className={hasError ? 'ring-2 ring-red-500' : ''}
+          />
+        )
+
+      case "checkbox":
+        return (
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id={field.name}
+              checked={value || false}
+              onCheckedChange={(checked) => setConfig(prev => ({ ...prev, [field.name]: checked }))}
             />
-            {hasError && (
-              <div className="flex items-center gap-1 text-sm text-red-600">
-                <AlertCircle className="h-4 w-4" />
-                {errors[field.name]}
-              </div>
-            )}
-            {field.description && (
-              <p className="text-xs text-muted-foreground">{field.description}</p>
-            )}
-            {/* Special note for filename field in upload file from URL node */}
-            {nodeInfo?.type === "google_drive_action_upload_file" && field.name === "fileName" && (
-              <p className="text-xs text-blue-600 mt-1">
-                💡 <strong>Filename Priority:</strong> If you enter a filename here, it will be used. If you leave this blank, the original filename from the URL will be used.
-              </p>
-            )}
+            <Label htmlFor={field.name} className="text-sm font-normal">
+              {field.placeholder}
+            </Label>
           </div>
         )
+
+      case "number":
+        return (
+          <Input
+            type="number"
+            placeholder={field.placeholder}
+            value={value || ""}
+            onChange={(e) => setConfig(prev => ({ ...prev, [field.name]: e.target.value }))}
+            className={hasError ? 'ring-2 ring-red-500' : ''}
+          />
+        )
+
       default:
         return (
-          <div className="space-y-1">
-            <Input
-              id={field.name}
-              type={field.type}
-              value={value}
-              onChange={handleChange}
-              placeholder={field.placeholder}
-              required={field.required}
-              autoComplete="off"
-              autoCorrect="off"
-              autoCapitalize="off"
-              spellCheck="false"
-              data-form-type="other"
-              data-lpignore="true"
-              data-1p-ignore="true"
-              data-bwignore="true"
-              className={inputClassName}
-            />
-            {hasError && (
-              <div className="flex items-center gap-1 text-sm text-red-600">
-                <AlertCircle className="h-4 w-4" />
-                {errors[field.name]}
-              </div>
-            )}
-          </div>
+          <Input
+            placeholder={field.placeholder}
+            value={value || ""}
+            onChange={(e) => setConfig(prev => ({ ...prev, [field.name]: e.target.value }))}
+            className={hasError ? 'ring-2 ring-red-500' : ''}
+          />
         )
     }
   }
 
-  const hasRequiredFields = nodeInfo.configSchema?.some(field => field.required) || false
+  const hasRequiredFields = nodeInfo?.configSchema?.some(field => field.required) || false
   const hasErrors = Object.keys(errors).length > 0
 
-  // Function to render output format tooltip content
-  const renderOutputFormatTooltip = () => (
-    <div className="space-y-4 max-w-lg">
-      <div className="flex items-center gap-2">
-        <div className="text-sm font-semibold">Output Format Guide</div>
-        <div className="h-4 w-px bg-border" />
-        <div className="text-xs text-muted-foreground">Choose the best format for your workflow</div>
-      </div>
-      
-      <div className="space-y-3">
-        <div className="border rounded-lg p-3 bg-blue-50/50 border-blue-200">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="text-sm font-medium text-blue-700">Array of Objects</div>
-            <div className="px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded-full">Recommended</div>
-          </div>
-          <div className="text-xs bg-background p-2 rounded font-mono border mb-2">
-            {`[
-  { "Name": "John", "Age": "30", "City": "NYC" },
-  { "Name": "Jane", "Age": "25", "City": "LA" }
-]`}
-          </div>
-          <div className="text-xs text-muted-foreground">
-            <div className="font-medium mb-1">✅ Best for workflows:</div>
-            <div>• Use {`{{data.Name}}`} to access values</div>
-            <div>• Perfect for emails, databases, APIs</div>
-            <div>• Most intuitive and flexible</div>
-          </div>
-        </div>
-
-        <div className="border rounded-lg p-3">
-          <div className="text-sm font-medium text-orange-600 mb-2">Array of Arrays</div>
-          <div className="text-xs bg-muted p-2 rounded font-mono border mb-2">
-            {`[
-  ["Name", "Age", "City"],
-  ["John", "30", "NYC"],
-  ["Jane", "25", "LA"]
-]`}
-          </div>
-          <div className="text-xs text-muted-foreground">
-            <div className="font-medium mb-1">📊 Good for:</div>
-            <div>• Use {`{{data[0][1]}}`} for position-based access</div>
-            <div>• Raw data processing</div>
-            <div>• When you need array structure</div>
-          </div>
-        </div>
-
-        <div className="border rounded-lg p-3">
-          <div className="text-sm font-medium text-green-600 mb-2">CSV String</div>
-          <div className="text-xs bg-muted p-2 rounded font-mono border mb-2">
-            {`"Name,Age,City\\nJohn,30,NYC\\nJane,25,LA"`}
-          </div>
-          <div className="text-xs text-muted-foreground">
-            <div className="font-medium mb-1">📁 Perfect for:</div>
-            <div>• File exports and downloads</div>
-            <div>• Email attachments</div>
-            <div>• Direct CSV file creation</div>
-          </div>
-        </div>
-      </div>
-      
-      <div className="text-xs text-muted-foreground pt-2 border-t">
-        💡 <strong>Tip:</strong> You can always change this later in your workflow settings
-      </div>
-    </div>
-  )
-
-  // In the main configSchema rendering, filter out the 'fields' meta-field for Airtable create record
-  const filteredConfigSchema = nodeInfo?.type === "airtable_action_create_record"
-    ? nodeInfo.configSchema?.filter(field => field.name !== "fields")
-    : nodeInfo.configSchema;
-
   return (
-    <TooltipProvider>
-      <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-        <DialogContent className={`$${
-          ((nodeInfo?.type === "google_sheets_unified_action" && config.action) || 
-           (nodeInfo?.type === "google_sheets_action_read_data" && config.spreadsheetId && config.sheetName && config.readMode) ||
-           (nodeInfo?.type === "google_sheets_action_create_spreadsheet" && config.columnCount && config.columnCount > 0) ||
-           showDataFlowPanels)
-            ? "max-w-[95vw] w-[95vw]" 
-            : "max-w-2xl"
-        } flex flex-col h-[90vh] max-h-[90vh] p-0`}>
-        <DialogHeader className="flex flex-row items-start justify-between space-y-0 pb-4 px-6 pt-6">
-          <div className="space-y-1.5">
-            <DialogTitle>
-              Configure {nodeInfo?.title} on {integrationName}
-            </DialogTitle>
-            <DialogDescription>{nodeInfo?.description}</DialogDescription>
-          </div>
-          {nodeInfo?.testable && workflowData && currentNodeId && !currentNodeId.startsWith('pending-') && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleTestWorkflowSegment}
-              disabled={isSegmentTestLoading || loadingDynamic}
-              className="flex items-center gap-2 mt-0"
-            >
-              <Play className="w-4 h-4" />
-              {isSegmentTestLoading ? "Testing..." : "Test Step"}
-            </Button>
-          )}
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-4xl flex flex-col max-h-[90vh] p-0 gap-0">
+        <DialogHeader className="px-6 pt-6 pb-4 border-b">
+          <DialogTitle>
+            Configure {nodeInfo?.title} on {integrationName}
+          </DialogTitle>
+          <DialogDescription>
+            {nodeInfo?.description}
+          </DialogDescription>
         </DialogHeader>
-        <div className="flex-1 flex flex-col px-6 overflow-auto">
-          {nodeInfo?.type === "google-drive:create_file" && (
-            <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
-              <p className="text-sm text-blue-800">
-                <strong>Tip:</strong> You can either enter text content to create a text file, or upload existing files. 
-                If you upload files, the file name field will be automatically populated:
-              </p>
-              <ul className="text-sm text-blue-800 mt-1 ml-4 list-disc">
-                <li>Single file: Uses the uploaded file's name</li>
-                <li>Multiple files: Uses the first file's name (without extension) as a base name</li>
-                <li>Auto-population only occurs if you haven't manually entered a file name</li>
-                <li>You can always edit the file name manually if needed</li>
-              </ul>
-            </div>
-          )}
-          
-          
-          {nodeInfo?.type === "google_drive_action_upload_file" && (
-            <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
-              <p className="text-sm text-blue-800">
-                <strong>Tip:</strong> When you enter a file URL, the file name field will be automatically populated with the filename from the URL:
-              </p>
-              <ul className="text-sm text-blue-800 mt-1 ml-4 list-disc">
-                <li>The filename is extracted from the URL path (e.g., "document.pdf" from "https://example.com/files/document.pdf")</li>
-                <li>For Google Drive URLs, it extracts the file ID and creates a descriptive name</li>
-                <li>Auto-population only occurs if you haven't manually entered a file name</li>
-                <li><strong>Filename Priority:</strong> If you enter a filename in the textbox, it will be used. If you leave it blank, the original filename from the URL will be used.</li>
-                <li>You can always edit the file name manually if needed</li>
-                <li>If no filename can be extracted, it will default to "downloaded-file"</li>
-              </ul>
-            </div>
-          )}
-          
-          {(nodeInfo?.type === "google_sheets_unified_action" || 
-               (nodeInfo?.type === "google_sheets_action_read_data" && config.spreadsheetId && config.sheetName && config.readMode)) ? (
-            // Special layout for unified Google Sheets action
-            <div className="flex flex-col flex-1">
-              {/* Basic Configuration Fields - Always Visible */}
-              <div className="space-y-4 pb-4 border-b flex-shrink-0">
-                {nodeInfo.configSchema?.filter(field => 
-                  nodeInfo?.type === "google_sheets_unified_action" 
-                    ? ["spreadsheetId", "sheetName", "action"].includes(field.name)
-                    : ["spreadsheetId", "sheetName", "readMode"].includes(field.name)
-                ).map((field) => {
-                  if (!shouldShowField(field)) {
-                    return null
-                  }
-                  
-                  return (
-                    <div key={field.name} className="flex flex-col space-y-2">
-                      <Label htmlFor={field.name} className="text-sm font-medium">
-                        {field.label}
-                        {field.required && <span className="text-red-500 ml-1">*</span>}
-                      </Label>
-                      {renderField(field)}
-                      {errors[field.name] && (
-                        <p className="text-red-500 text-sm">{errors[field.name]}</p>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
 
-              {/* Content Area */}
-              <div className="flex-1 space-y-4 pt-4">
-                            {/* Data Preview Table (for unified action update/delete OR read data with any mode) */}
-                {((nodeInfo?.type === "google_sheets_unified_action" && config.action !== "add") || 
-                  (nodeInfo?.type === "google_sheets_action_read_data" && config.readMode && config.spreadsheetId && config.sheetName)) && 
-                 dynamicOptions.sheetData && (dynamicOptions.sheetData as any).headers && Array.isArray((dynamicOptions.sheetData as any).headers) && (dynamicOptions.sheetData as any).data && Array.isArray((dynamicOptions.sheetData as any).data) && (
-                <div className="space-y-3 border-b pb-4">
-                          <div className="text-sm font-medium">
-                  {nodeInfo?.type === "google_sheets_action_read_data" 
-                    ? config.readMode === "all" 
-                      ? "Data Preview (all data will be read):"
-                      : config.readMode === "range"
-                        ? "Data Preview (select range above):"
-                        : config.readMode === "rows"
-                          ? "Select rows to read:"
-                          : config.readMode === "cells"
-                            ? "Select individual cells to read:"
-                            : "Data Preview:"
-                    : `Select row to ${config.action}:`}
-                  {loadingDynamic && <span className="text-muted-foreground ml-2">(Loading...)</span>}
-                </div>
-              
-                <div className="border rounded-lg">
-                  <div className="bg-muted/50 p-2 border-b">
-                    <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${(dynamicOptions.sheetData as any).headers.length}, minmax(120px, 1fr))` }}>
-                      {(dynamicOptions.sheetData as any).headers.map((header: any, index: number) => (
-                        <div key={index} className="text-xs font-medium text-muted-foreground p-1">
-                          {header.column} - {header.name}
-                        </div>
-                      ))}
-                    </div>
+        <div className="flex-1 px-6 py-4 overflow-auto">
+          <div className="space-y-6">
+            {nodeInfo?.configSchema?.map((field) => {
+              if (!shouldShowField(field)) {
+                return null
+              }
+
+              // Skip the custom fields rendering in the main loop for Airtable
+              if (nodeInfo?.type === "airtable_action_create_record" && field.name === "fields") {
+                return (
+                  <div key={field.name} className="space-y-3">
+                    <Label className="text-sm font-medium">
+                      {field.label}
+                      {field.required && <span className="text-red-500 ml-1">*</span>}
+                    </Label>
+                    {renderField(field)}
+                    {errors[field.name] && (
+                      <p className="text-red-500 text-sm">{errors[field.name]}</p>
+                    )}
                   </div>
-                  <div className="p-2 space-y-1">
-                    {(dynamicOptions.sheetData as any).data.map((row: any, index: number) => (
-                        <div
-                          key={index}
-                          className={`grid gap-2 p-2 rounded ${
-                            // Only make clickable and highlight if in row selection mode
-                            nodeInfo?.type === "google_sheets_action_read_data" && config.readMode === "rows"
-                              ? `cursor-pointer hover:bg-muted/50 ${
-                                  (config.selectedRows || []).some((r: any) => r.rowIndex === row.rowIndex) 
-                                    ? "bg-primary/10 border border-primary" 
-                                    : "border border-transparent"
-                                }`
-                              : nodeInfo?.type === "google_sheets_action_read_data"
-                                ? "border border-transparent" // Preview only, no interaction
-                                : `cursor-pointer hover:bg-muted/50 ${
-                                    config.selectedRow?.rowIndex === row.rowIndex 
-                                      ? "bg-primary/10 border border-primary" 
-                                      : "border border-transparent"
-                                  }`
-                          }`}
-                          style={{ gridTemplateColumns: `repeat(${(dynamicOptions.sheetData as any).headers.length}, minmax(120px, 1fr))` }}
-                          onClick={() => {
-                            if (nodeInfo?.type === "google_sheets_action_read_data") {
-                              // For read data action, support different selection modes
-                              if (config.readMode === "rows") {
-                                const currentSelectedRows = config.selectedRows || []
-                                const isSelected = currentSelectedRows.some((r: any) => r.rowIndex === row.rowIndex)
-                                
-                                const newSelectedRows = isSelected
-                                  ? currentSelectedRows.filter((r: any) => r.rowIndex !== row.rowIndex)
-                                  : [...currentSelectedRows, row]
-                                
-                                setConfig(prev => ({
-                                  ...prev,
-                                  selectedRows: newSelectedRows
-                                }))
-                              }
-                              // For "all" and "range" modes, clicking does nothing (just preview)
-                              // For "cells" mode, we'll handle individual cell clicks separately
-                            } else {
-                              // For unified action (update/delete), single row selection
-                              const newSelectedRow = row
-                              setConfig(prev => ({
-                                ...prev,
-                                selectedRow: newSelectedRow,
-                                // For update action, populate column mappings with selected row data
-                                ...(config.action === "update" && {
-                                  columnMappings: (dynamicOptions.sheetData as any).headers.reduce((mappings: any, header: any, headerIndex: number) => {
-                                    mappings[header.column] = row.values[headerIndex] || ""
-                                    return mappings
-                                  }, {})
-                                })
-                              }))
-                            }
-                            
-                            // Show the "Row Selected!" message
-                            setShowRowSelected(true)
-                            
-                            // Hide it after 2 seconds
-                            setTimeout(() => {
-                              setShowRowSelected(false)
-                            }, 2000)
-                          }}
-                        >
-                          {row.values.map((cell: string, cellIndex: number) => {
-                            const cellKey = `${row.rowIndex}-${cellIndex}`
-                            const isCellSelected = nodeInfo?.type === "google_sheets_action_read_data" && 
-                              config.readMode === "cells" && 
-                              (config.selectedCells || []).some((cell: any) => cell.key === cellKey)
-                            
-                            return (
-                              <div 
-                                key={cellIndex} 
-                                className={`text-sm truncate p-1 ${
-                                  nodeInfo?.type === "google_sheets_action_read_data" && config.readMode === "cells"
-                                    ? `cursor-pointer hover:bg-muted/50 ${
-                                        isCellSelected 
-                                          ? "bg-primary/10 border border-primary" 
-                                          : "border border-transparent"
-                                      }`
-                                    : ""
-                                }`}
-                                onClick={(e) => {
-                                  if (nodeInfo?.type === "google_sheets_action_read_data" && config.readMode === "cells") {
-                                    e.stopPropagation() // Prevent row click
-                                    const currentSelectedCells = config.selectedCells || []
-                                    const isSelected = currentSelectedCells.some((cell: any) => cell.key === cellKey)
-                                    
-                                    const newSelectedCells = isSelected
-                                      ? currentSelectedCells.filter((cell: any) => cell.key !== cellKey)
-                                      : [...currentSelectedCells, {
-                                          key: cellKey,
-                                          rowIndex: row.rowIndex,
-                                          columnIndex: cellIndex,
-                                          columnName: (dynamicOptions.sheetData as any).headers[cellIndex]?.name || `Column ${cellIndex + 1}`,
-                                          columnLetter: (dynamicOptions.sheetData as any).headers[cellIndex]?.column || String.fromCharCode(65 + cellIndex),
-                                          value: cell || "",
-                                          cellReference: `${(dynamicOptions.sheetData as any).headers[cellIndex]?.column || String.fromCharCode(65 + cellIndex)}${row.rowIndex + 1}` // A1, B1, etc.
-                                        }]
-                                    
-                                    setConfig(prev => ({
-                                      ...prev,
-                                      selectedCells: newSelectedCells
-                                    }))
-                                    
-                                    // Show the "Cell Selected!" message
-                                    setShowRowSelected(true)
-                                    setTimeout(() => {
-                                      setShowRowSelected(false)
-                                    }, 2000)
-                                  }
-                                }}
-                              >
-                                {cell || ""}
-                              </div>
-                            )
-                          })}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  
-                  {showRowSelected && (
-                    <div className="text-sm text-green-600 bg-green-50 p-2 rounded animate-in fade-in-0 duration-300">
-                      {nodeInfo?.type === "google_sheets_action_read_data"
-                        ? config.readMode === "cells"
-                          ? `✓ ${(config.selectedCells || []).length} cell(s) selected for reading!`
-                          : `✓ ${(config.selectedRows || []).length} row(s) selected for reading!`
-                        : "✓ Row Selected!"}
-                    </div>
+                )
+              }
+
+              return (
+                <div key={field.name} className="space-y-2">
+                  <Label htmlFor={field.name} className="text-sm font-medium">
+                    {field.label}
+                    {field.required && <span className="text-red-500 ml-1">*</span>}
+                  </Label>
+                  {renderField(field)}
+                  {errors[field.name] && (
+                    <p className="text-red-500 text-sm">{errors[field.name]}</p>
+                  )}
+                  {field.description && (
+                    <p className="text-xs text-muted-foreground">{field.description}</p>
                   )}
                 </div>
-                            )}
-
-                {/* Selected Cells Display (for cells read mode) */}
-                {nodeInfo?.type === "google_sheets_action_read_data" && config.readMode === "cells" && config.selectedCells && Array.isArray(config.selectedCells) && config.selectedCells.length > 0 && (
-                  <div className="space-y-3 border-b pb-4">
-                    <div className="flex items-center justify-between">
-                      <div className="text-sm font-medium">Selected Cells ({config.selectedCells.length}):</div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setConfig(prev => ({ ...prev, selectedCells: [] }))}
-                        className="text-xs h-7 px-2"
-                      >
-                        Clear All
-                      </Button>
-                    </div>
-                    <div className="bg-muted/30 p-3 rounded-lg">
-                      <div className="grid gap-2 max-h-48 overflow-y-auto">
-                        {config.selectedCells.map((cell: any, index: number) => {
-                          // Use stored cell reference and column name
-                          const cellReference = cell.cellReference
-                          const columnName = cell.columnName
-                          
-                          return (
-                            <div key={cell.key} className="flex items-center justify-between p-2 bg-background rounded border text-sm">
-                              <div className="flex items-center gap-3">
-                                <div className="font-mono text-xs bg-muted px-2 py-1 rounded">
-                                  {cellReference}
-                                </div>
-                                <div className="text-muted-foreground">
-                                  {columnName}
-                                </div>
-                              </div>
-                              <div className="text-right">
-                                <div className="font-medium max-w-48 truncate">
-                                  {cell.value || '(empty)'}
-                                </div>
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </div>
-                      <div className="text-xs text-muted-foreground mt-2">
-                        💡 These cells will be read when the workflow executes
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Read Data Summary (for read data action) */}
-                {nodeInfo?.type === "google_sheets_action_read_data" && config.spreadsheetId && config.sheetName && (
-                  <div className="space-y-3 border-b pb-4">
-                    <div className="text-sm font-medium">Read Configuration Summary:</div>
-                    <div className="bg-muted/30 p-3 rounded-lg space-y-2 text-sm">
-                      <div><strong>Mode:</strong> {
-                        config.readMode === "all" ? "Read all data" :
-                        config.readMode === "range" ? `Read range: ${config.range || "Not specified"}` :
-                        config.readMode === "rows" ? `Read ${(config.selectedRows || []).length} selected row(s)` :
-                        config.readMode === "cells" ? `Read ${(config.selectedCells || []).length} selected cell(s)` :
-                        "Not configured"
-                      }</div>
-                      <div><strong>Output Format:</strong> {
-                        config.outputFormat === "array" ? "Array of arrays" :
-                        config.outputFormat === "objects" ? "Array of objects (with headers as keys)" :
-                        config.outputFormat === "csv" ? "CSV string" :
-                        "Array of objects (default)"
-                      }</div>
-                      <div><strong>Include Headers:</strong> {config.includeHeaders !== false ? "Yes" : "No"}</div>
-                      {config.maxRows && <div><strong>Max Rows:</strong> {config.maxRows}</div>}
-                      {config.filterConditions && <div><strong>Filters:</strong> Applied</div>}
-                    </div>
-                  </div>
-                )}
-
-                {/* Column Mapping Fields (horizontal layout) - Only for unified action */}
-              {nodeInfo?.type === "google_sheets_unified_action" && (config.action === "add" || config.action === "update") && dynamicOptions.sheetPreview && (dynamicOptions.sheetPreview as any).headers && Array.isArray((dynamicOptions.sheetPreview as any).headers) && (
-                <div className="space-y-3">
-                  <div className="text-sm font-medium">Map your data to sheet columns:</div>
-                  
-                  {/* Header Row */}
-                  <div className="grid gap-2 p-2 bg-muted/50 rounded-t-lg" style={{ gridTemplateColumns: `repeat(${(dynamicOptions.sheetPreview as any).headers.length}, minmax(120px, 1fr))` }}>
-                    {(dynamicOptions.sheetPreview as any).headers.map((header: any, index: number) => (
-                      <div key={index} className="text-xs font-medium text-center p-1">
-                        <div className="font-mono bg-background px-2 py-1 rounded mb-1">
-                          {header.column}
-                        </div>
-                        <div className="truncate">{header.name}</div>
-                      </div>
-                    ))}
-                  </div>
-                  
-                  {/* Input Row */}
-                  <div className="grid gap-2 p-2 border rounded-b-lg" style={{ gridTemplateColumns: `repeat(${(dynamicOptions.sheetPreview as any).headers.length}, minmax(120px, 1fr))` }}>
-                    {(dynamicOptions.sheetPreview as any).headers.map((header: any, index: number) => (
-                      <div key={index} className="space-y-1">
-                        <Input
-                          placeholder={`${header.name}`}
-                          value={config.columnMappings?.[header.column] || ""}
-                          onChange={(e) => {
-                            setConfig(prev => ({
-                              ...prev,
-                              columnMappings: {
-                                ...prev.columnMappings,
-                                [header.column]: e.target.value
-                              }
-                            }))
-                          }}
-                          className="text-sm h-8"
-                        />
-                      </div>
-                    ))}
-                  </div>
-                  
-                  <div className="text-xs text-muted-foreground">
-                    💡 Use template variables like <code>{"{{data.fieldName}}"}</code> or enter static values
-                  </div>
-                </div>
-              )}
-
-                {/* Other configuration fields */}
-                <div className="space-y-4">
-                  {nodeInfo.configSchema?.filter(field => {
-                    if (nodeInfo?.type === "google_sheets_unified_action") {
-                      return !["spreadsheetId", "sheetName", "action", "columnMappings", "selectedRow"].includes(field.name)
-                    } else {
-                      return !["spreadsheetId", "sheetName", "readMode", "selectedRows", "selectedCells"].includes(field.name)
-                    }
-                  }).map((field) => {
-                    if (!shouldShowField(field)) {
-                      return null
-                    }
-                    
-                    return (
-                      <div key={field.name} className="flex flex-col space-y-2">
-                        <div className="flex items-center gap-1">
-                          <Label htmlFor={field.name} className="text-sm font-medium">
-                            {field.label}
-                            {field.required && <span className="text-red-500 ml-1">*</span>}
-                          </Label>
-                          {field.name === "outputFormat" && (
-                            <Tooltip delayDuration={0}>
-                              <TooltipTrigger asChild>
-                                <button type="button" className="inline-flex items-center">
-                                  <HelpCircle className="w-4 h-4 text-muted-foreground hover:text-primary cursor-pointer transition-colors" />
-                                </button>
-                              </TooltipTrigger>
-                              <TooltipContent side="right" className="max-w-none p-4" sideOffset={8}>
-                                {renderOutputFormatTooltip()}
-                              </TooltipContent>
-                            </Tooltip>
-                          )}
-                        </div>
-                        {renderField(field)}
-                        {errors[field.name] && (
-                          <p className="text-red-500 text-sm">{errors[field.name]}</p>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-              
-              {hasRequiredFields && (
-                <div className="text-xs text-muted-foreground px-1 pt-2 flex-shrink-0">
-                  * Required fields must be filled out before saving
-                </div>
-              )}
-            </div>
-            
-            {hasRequiredFields && (
-              <div className="text-xs text-muted-foreground px-1">
-                * Required fields must be filled out before saving
-              </div>
-            )}
-            
-            {/* Test Output Display */}
-            {showTestOutput && testResult && (
-              <div className="border-t pt-4">
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-sm font-medium">Test Output</h4>
-                    <Button variant="ghost" size="sm" onClick={() => setShowTestOutput(false)}>
-                      ×
-                    </Button>
-                  </div>
-                  
-                  {testResult.success ? (
-                    <div className="space-y-3">
-                      <div className="text-sm text-green-600 bg-green-50 p-2 rounded">
-                        {testResult.message}
-                      </div>
-                      
-                      {testResult.output && (
-                        <div className="space-y-2">
-                          <div className="text-xs font-medium text-muted-foreground">Sample Output Data:</div>
-                          <div className="bg-muted/50 p-3 rounded text-xs font-mono max-h-32 overflow-y-auto">
-                            <pre>{JSON.stringify(testResult.output, null, 2)}</pre>
-                          </div>
-                        </div>
-                      )}
-                      
-                      {nodeInfo?.outputSchema && (
-                        <div className="space-y-2">
-                          <div className="text-xs font-medium text-muted-foreground">Available Output Fields:</div>
-                          <div className="space-y-1">
-                            {nodeInfo.outputSchema.map((field) => (
-                              <div key={field.name} className="text-xs border rounded p-2">
-                                <div className="font-medium">{field.label} ({field.type})</div>
-                                <div className="text-muted-foreground">{field.description}</div>
-                                {field.example && (
-                                  <div className="text-blue-600 font-mono mt-1">
-                                    Example: {typeof field.example === 'object' ? JSON.stringify(field.example) : field.example}
-                                  </div>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="text-sm text-red-600 bg-red-50 p-2 rounded">
-                      {testResult.message}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
+              )
+            })}
           </div>
 
-          {/* Output Panel */}
-          <div className="w-64 flex-shrink-0 space-y-3">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-              <h4 className="text-sm font-medium">Output Data</h4>
+          {hasRequiredFields && (
+            <div className="text-xs text-muted-foreground mt-6 pt-4 border-t">
+              * Required fields must be filled out before saving
             </div>
-            <div className="bg-green-50 border border-green-200 rounded p-3 max-h-[300px] overflow-y-auto">
-              <pre className="text-xs whitespace-pre-wrap break-words">
-                {JSON.stringify(nodeTestData.output, null, 2)}
-              </pre>
-            </div>
-          </div>
+          )}
         </div>
 
-        <DialogFooter className="px-6 pb-2 pt-4">
-          <div className="flex items-center gap-2 w-full">
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={onClose}>
-                Cancel
-              </Button>
-            </div>
-            <div className="flex-1" />
-            <Button 
-              onClick={handleSave} 
-              disabled={loadingDynamic || hasErrors}
-              className={hasErrors ? 'opacity-50 cursor-not-allowed' : ''}
-            >
-              Save Configuration
-            </Button>
-          </div>
+        <DialogFooter className="px-6 py-2 border-t">
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleSave} 
+            disabled={hasErrors || loadingDynamic}
+          >
+            Save Configuration
+          </Button>
         </DialogFooter>
-        {/* Loading Overlay */}
-        {loadingDynamic && (
-          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex flex-col items-center justify-center z-50">
-            <ConfigurationLoadingScreen integrationName={integrationName} />
-            {retryCount > 0 && (
-              <div className="mt-4 text-sm text-muted-foreground animate-pulse">Retrying... (attempt {retryCount + 1})</div>
-            )}
-          </div>
-        )}
-        </DialogContent>
-      </Dialog>
-    </TooltipProvider>
+      </DialogContent>
+    </Dialog>
   )
 }
