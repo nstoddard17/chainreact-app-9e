@@ -53,22 +53,23 @@ import { ACTION_METADATA as GMAIL_SEARCH_EMAILS_METADATA } from "@/integrations/
 export interface ConfigField {
   name: string
   label: string
-  type: "string" | "number" | "boolean" | "select" | "textarea" | "text" | "email" | "password" | "email-autocomplete" | "location-autocomplete" | "file" | "date" | "time" | "datetime" | "custom"
+  type: "string" | "number" | "boolean" | "select" | "combobox" | "textarea" | "text" | "email" | "password" | "email-autocomplete" | "location-autocomplete" | "file" | "date" | "time" | "datetime" | "custom"
   required?: boolean
   placeholder?: string
   description?: string
   options?: { value: string; label: string }[] | string[]
-  dynamic?: "slack-channels" | "google-calendars" | "google-drive-folders" | "google-drive-files" | "gmail-recent-recipients" | "gmail-enhanced-recipients" | "gmail-contact-groups" | "gmail_messages" | "gmail_labels" | "gmail_recent_senders" | "google-sheets_spreadsheets" | "google-sheets_sheets" | "google-docs_documents" | "google-docs_templates" | "youtube_channels" | "youtube_videos" | "youtube_playlists" | "teams_chats" | "teams_teams" | "teams_channels" | "github_repositories" | "gitlab_projects" | "notion_databases" | "notion_pages" | "trello_boards" | "trello_lists" | "hubspot_companies" | "airtable_workspaces" | "airtable_bases" | "airtable_tables" | "gumroad_products" | "blackbaud_constituents"
+  dynamic?: "slack-channels" | "google-calendars" | "google-drive-folders" | "google-drive-files" | "gmail-recent-recipients" | "gmail-enhanced-recipients" | "gmail-contact-groups" | "gmail_messages" | "gmail_labels" | "gmail_recent_senders" | "google-sheets_spreadsheets" | "google-sheets_sheets" | "google-docs_documents" | "google-docs_templates" | "youtube_channels" | "youtube_videos" | "youtube_playlists" | "teams_chats" | "teams_teams" | "teams_channels" | "github_repositories" | "gitlab_projects" | "notion_databases" | "notion_pages" | "trello_boards" | "trello_lists" | "hubspot_companies" | "airtable_workspaces" | "airtable_bases" | "airtable_tables" | "airtable_records" | "airtable_feedback_records" | "airtable_task_records" | "airtable_project_records" | "gumroad_products" | "blackbaud_constituents"
   accept?: string // For file inputs, specify accepted file types
   maxSize?: number // For file inputs, specify max file size in bytes
   defaultValue?: string | number | boolean // Default value for the field
+  tableName?: string // For Airtable record fields, specify which table to fetch records from
   [key: string]: any
 }
 
 export interface NodeField {
   name: string
   label: string
-  type: "text" | "textarea" | "number" | "boolean" | "select" | "file" | "custom" | "email" | "time" | "datetime" | "email-autocomplete" | "date" | "location-autocomplete"
+  type: "text" | "textarea" | "number" | "boolean" | "select" | "combobox" | "file" | "custom" | "email" | "time" | "datetime" | "email-autocomplete" | "date" | "location-autocomplete"
   required?: boolean
   placeholder?: string
   defaultValue?: any
@@ -1600,6 +1601,20 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         placeholder: "Select a table",
         description: "Choose the table to create records in",
         dependsOn: "baseId"
+      },
+      {
+        name: "status",
+        label: "Status",
+        type: "select",
+        required: false,
+        placeholder: "Select status",
+        description: "Set the status for the new record",
+        options: [
+          { value: "active", label: "Active" },
+          { value: "pending", label: "Pending" },
+          { value: "completed", label: "Completed" },
+          { value: "cancelled", label: "Cancelled" }
+        ]
       },
       {
         name: "fields",

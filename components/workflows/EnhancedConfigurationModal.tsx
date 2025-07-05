@@ -17,7 +17,7 @@ import { ConfigurationLoadingScreen } from "@/components/ui/loading-screen"
 import { FileUpload } from "@/components/ui/file-upload"
 import { DatePicker } from "@/components/ui/date-picker"
 import { TimePicker } from "@/components/ui/time-picker"
-import { Play, X, Loader2, TestTube, Clock, HelpCircle, AlertCircle, Video, ChevronLeft, ChevronRight, Database } from "lucide-react"
+import { Play, X, Loader2, TestTube, Clock, HelpCircle, AlertCircle, Video, ChevronLeft, ChevronRight, Database, Calendar } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 import { cn } from "@/lib/utils"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -50,9 +50,12 @@ export default function EnhancedConfigurationModal({
   const [errors, setErrors] = useState<Record<string, string>>({})
   const { loadIntegrationData, getIntegrationByProvider, checkIntegrationScopes } = useIntegrationStore()
   const [dynamicOptions, setDynamicOptions] = useState<
-    Record<string, { value: string; label: string }[]>
+    Record<string, { value: string; label: string; fields?: any[] }[]>
   >({})
   const [loadingDynamic, setLoadingDynamic] = useState(false)
+  const [retryCount, setRetryCount] = useState(0)
+  const [createNewTables, setCreateNewTables] = useState<Record<string, boolean>>({})
+  const [dynamicTableFields, setDynamicTableFields] = useState<Record<string, any[]>>({})
   const [showRowSelected, setShowRowSelected] = useState(false)
   const [meetDraft, setMeetDraft] = useState<{ eventId: string; meetUrl: string } | null>(null)
   const [meetLoading, setMeetLoading] = useState(false)
@@ -60,6 +63,7 @@ export default function EnhancedConfigurationModal({
   const previousDependentValues = useRef<Record<string, any>>({})
   const hasInitializedTimezone = useRef<boolean>(false)
   const hasInitializedDefaults = useRef<boolean>(false)
+  const abortControllerRef = useRef<AbortController | null>(null)
   
   // Create Spreadsheet specific state
   const [spreadsheetRows, setSpreadsheetRows] = useState<Record<string, string>[]>([{}])
@@ -92,6 +96,32 @@ export default function EnhancedConfigurationModal({
   useEffect(() => {
     setConfig(initialData)
   }, [initialData])
+
+  // Cleanup effect to abort in-flight requests when modal closes or node changes
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+        abortControllerRef.current = null
+      }
+    }
+  }, [isOpen, nodeInfo?.providerId])
+
+  // Reset loading state when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+        abortControllerRef.current = null
+      }
+      setLoadingDynamic(false)
+      setRetryCount(0)
+      // Reset previous dependent values when modal closes
+      previousDependentValues.current = {}
+      hasInitializedTimezone.current = false
+      hasInitializedDefaults.current = false
+    }
+  }, [isOpen])
 
   // Initialize default values from schema
   useEffect(() => {
@@ -237,6 +267,133 @@ export default function EnhancedConfigurationModal({
     return date.toISOString().split('T')[0]
   }
 
+  // Function to fetch dynamic table fields from database
+  const fetchTableFields = useCallback(async (tableName: string) => {
+    if (!nodeInfo || !nodeInfo.providerId) return
+
+    const integration = getIntegrationByProvider(nodeInfo.providerId)
+    if (!integration) return
+
+    // For now, use the existing table fields from dynamicOptions since the API doesn't support dynamic field fetching
+    // In the future, this could be enhanced to make actual API calls when the backend supports it
+    try {
+      setLoadingDynamic(true)
+      
+      // Look for table fields in the existing dynamicOptions
+      const selectedTable = dynamicOptions["tableName"]?.find((table: any) => table.value === tableName)
+      if (selectedTable?.fields && Array.isArray(selectedTable.fields)) {
+        setDynamicTableFields(prev => ({
+          ...prev,
+          [tableName]: selectedTable.fields as any[]
+        }))
+        
+        // Fetch records for linked table fields
+        for (const fieldDef of selectedTable.fields) {
+          const isLinkedField = fieldDef.type === "linkedRecord" || 
+                               fieldDef.type === "link" || 
+                               fieldDef.type === "multipleRecordLinks" ||
+                               fieldDef.type === "recordLink" ||
+                               fieldDef.type === "lookup" ||
+                               fieldDef.linkedTableName ||
+                               fieldDef.foreignTable
+          
+          if (isLinkedField && fieldDef.linkedTableName) {
+            try {
+              console.log(`🔍 Fetching linked records for ${fieldDef.name}:`, {
+                linkedTableName: fieldDef.linkedTableName,
+                baseId: config.baseId,
+                fieldType: fieldDef.type,
+                isLinkedField,
+                fieldDef
+              })
+              
+              const linkedTableData = await loadIntegrationData(
+                "airtable_records",
+                integration.id,
+                { baseId: config.baseId, tableName: fieldDef.linkedTableName }
+              )
+              
+              console.log(`✅ Received linked records for ${fieldDef.name}:`, {
+                recordCount: linkedTableData?.length || 0,
+                sampleRecord: linkedTableData?.[0],
+                allRecords: linkedTableData
+              })
+              
+              if (linkedTableData) {
+                const mappedRecords = linkedTableData.map((record: any) => ({
+                  value: record.id,
+                  label: `${record.fields?.Name || record.fields?.Title || record.fields?.name || 'Untitled'} (ID: ${record.id})`,
+                  description: record.fields?.Description || record.fields?.Notes || ''
+                }))
+                
+                console.log(`📝 Mapped records for ${fieldDef.name}:`, {
+                  count: mappedRecords.length,
+                  sampleMapped: mappedRecords[0],
+                  allMapped: mappedRecords
+                })
+                
+                setDynamicOptions(prev => ({
+                  ...prev,
+                  [`${fieldDef.name}_records`]: mappedRecords
+                }))
+              } else {
+                console.warn(`⚠️ No linked records found for ${fieldDef.name}`)
+              }
+            } catch (error) {
+              console.error(`❌ Error fetching records for linked table ${fieldDef.linkedTableName}:`, error)
+            }
+          }
+        }
+      } else {
+        // If no fields found for the specific table, try to find any table with the same name
+        // or use a generic field structure
+        console.warn(`No fields found for table ${tableName}, using generic field structure`)
+        setDynamicTableFields(prev => ({
+          ...prev,
+          [tableName]: [
+            { name: 'Name', type: 'singleLineText', required: true },
+            { name: 'Notes', type: 'multilineText', required: false },
+            { name: 'Status', type: 'singleSelect', required: false, options: { choices: [{ name: 'Active' }, { name: 'Inactive' }] } },
+            { name: 'Created Date', type: 'date', required: false }
+          ]
+        }))
+      }
+    } catch (error) {
+      console.error(`Error setting up fields for table ${tableName}:`, error)
+    } finally {
+      setLoadingDynamic(false)
+    }
+  }, [nodeInfo?.providerId, getIntegrationByProvider, dynamicOptions, config.baseId])
+
+  // Function to toggle create new mode for a table
+  const toggleCreateNew = useCallback(async (tableName: string) => {
+    const isCurrentlyCreating = createNewTables[tableName]
+    
+    setCreateNewTables(prev => ({
+      ...prev,
+      [tableName]: !isCurrentlyCreating
+    }))
+
+    // Clear the fields when switching modes
+    if (isCurrentlyCreating) {
+      setConfig(prev => {
+        const newConfig = { ...prev }
+        delete newConfig[`${tableName}_newFields`]
+        return newConfig
+      })
+    } else {
+      setConfig(prev => ({
+        ...prev,
+        [`${tableName}_newFields`]: {}
+      }))
+    }
+
+    // Fetch fresh table fields when entering create mode
+    if (!isCurrentlyCreating) {
+      await fetchTableFields(tableName)
+    }
+  }, [createNewTables, fetchTableFields])
+
   // Function to check if a field should be shown based on dependencies
   const shouldShowField = (field: ConfigField | NodeField): boolean => {
     if (!field.dependsOn) {
@@ -262,6 +419,13 @@ export default function EnhancedConfigurationModal({
           return false
         }
       }
+      // Special logic for Airtable create record action
+      if (nodeInfo?.type === "airtable_action_create_record") {
+        // Hide status field until table is selected
+        if (field.name === "status" && !config.tableName) {
+          return false
+        }
+      }
       return true
     }
     
@@ -273,8 +437,19 @@ export default function EnhancedConfigurationModal({
   const fetchDependentData = useCallback(async (field: ConfigField | NodeField, dependentValue: any) => {
     if (!field.dynamic || !field.dependsOn) return
     
+    console.log(`Fetching dependent data for ${field.name} (${field.dynamic}) with value:`, dependentValue)
+    
     const integration = getIntegrationByProvider(nodeInfo?.providerId || "")
     if (!integration) return
+
+    // Abort any existing request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+
+    // Create new AbortController for this request
+    const controller = new AbortController()
+    abortControllerRef.current = controller
 
     try {
       setLoadingDynamic(true)
@@ -284,20 +459,32 @@ export default function EnhancedConfigurationModal({
         { [field.dependsOn]: dependentValue }
       )
       
-      if (data) {
+      // Only update state if the request wasn't aborted
+      if (!controller.signal.aborted && data) {
+        console.log(`✅ Successfully loaded ${data.length} items for ${field.name}:`, data)
         setDynamicOptions(prev => ({
           ...prev,
           [field.name]: data.map((item: any) => ({
             value: item.value || item.id || item.name,
             label: item.name || item.label || item.title,
+            description: item.description,
+            fields: item.fields || [],
             ...item
           }))
         }))
+      } else if (!controller.signal.aborted) {
+        console.log(`⚠️ No data received for ${field.name}`)
       }
     } catch (error) {
-      console.error(`Error fetching dependent data for ${field.name}:`, error)
+      // Don't log errors for aborted requests
+      if (!controller.signal.aborted) {
+        console.error(`Error fetching dependent data for ${field.name}:`, error)
+      }
     } finally {
-      setLoadingDynamic(false)
+      // Only update loading state if the request wasn't aborted
+      if (!controller.signal.aborted) {
+        setLoadingDynamic(false)
+      }
     }
   }, [config, nodeInfo?.providerId, getIntegrationByProvider, loadIntegrationData])
 
@@ -305,7 +492,10 @@ export default function EnhancedConfigurationModal({
     if (!nodeInfo || !nodeInfo.providerId) return
 
     const integration = getIntegrationByProvider(nodeInfo.providerId)
-    if (!integration) return
+    if (!integration) {
+      console.warn('⚠️ No integration found for provider:', nodeInfo.providerId)
+      return
+    }
 
     // Check if integration needs reconnection due to missing scopes
     const scopeCheck = checkIntegrationScopes(nodeInfo.providerId)
@@ -315,6 +505,15 @@ export default function EnhancedConfigurationModal({
       return
     }
 
+    // Abort any existing request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+
+    // Create new AbortController for this request
+    const controller = new AbortController()
+    abortControllerRef.current = controller
+
     setLoadingDynamic(true)
     const newOptions: Record<string, any[]> = {}
     let hasData = false
@@ -322,8 +521,21 @@ export default function EnhancedConfigurationModal({
     for (const field of nodeInfo.configSchema || []) {
       if (field.dynamic && !field.dependsOn) { // Skip dependent fields during initial load
         try {
-          console.log(`Fetching dynamic data for ${field.dynamic}`)
+          console.log(`🔍 Fetching dynamic data for field:`, {
+            fieldName: field.name,
+            fieldType: field.type,
+            dynamic: field.dynamic,
+            integrationId: integration.id
+          })
+          
           const data = await loadIntegrationData(field.dynamic as string, integration.id)
+          
+          console.log(`✅ Received data for ${field.name}:`, {
+            dataReceived: !!data,
+            recordCount: data?.length || 0,
+            sampleData: data?.[0]
+          })
+          
           if (data) {
             hasData = true
             if (field.dynamic === "slack-channels") {
@@ -377,10 +589,42 @@ export default function EnhancedConfigurationModal({
                 label: spreadsheet.properties.title,
                 url: spreadsheet.url,
               }))
-            } else if (field.dynamic === "airtable-bases") {
+            } else if (field.dynamic === "airtable_tables") {
+              console.log(`📊 Processing Airtable tables:`, {
+                tableCount: data.length,
+                tables: data.map((t: any) => ({ 
+                  value: t.value, 
+                  label: t.label,
+                  fieldCount: t.fields?.length || 0
+                }))
+              })
+              
+              newOptions[field.name] = data.map((table: any) => ({
+                value: table.value,
+                label: table.label,
+                description: table.description,
+                fields: table.fields || []
+              }))
+            } else if (field.dynamic === "airtable_bases") {
+              console.log(`🏢 Processing Airtable bases:`, {
+                baseCount: data.length,
+                bases: data.map((b: any) => ({
+                  value: b.value,
+                  label: b.label
+                }))
+              })
+              
               newOptions[field.name] = data.map((base: any) => ({
-                value: base.id,
-                label: base.name,
+                value: base.value,
+                label: base.label,
+                description: base.description,
+              }))
+            } else if (field.dynamic === "airtable_records") {
+              newOptions[field.name] = data.map((record: any) => ({
+                value: record.value,
+                label: record.label,
+                description: record.description,
+                fields: record.fields || {}
               }))
             } else if (field.dynamic === "trello-boards") {
               newOptions[field.name] = data.map((board: any) => ({
@@ -410,15 +654,29 @@ export default function EnhancedConfigurationModal({
             }
           }
         } catch (error) {
-          console.error(`Error loading dynamic data for ${field.dynamic}:`, error)
+          // Don't log errors for aborted requests
+          if (!controller.signal.aborted) {
+            console.error(`❌ Error loading dynamic data for ${field.dynamic}:`, error)
+          }
         }
       }
     }
 
-    if (hasData) {
-      setDynamicOptions(newOptions)
+    // Only update state if the request wasn't aborted
+    if (!controller.signal.aborted) {
+      if (hasData) {
+        console.log('💾 Updating dynamic options:', {
+          optionKeys: Object.keys(newOptions),
+          sampleData: Object.entries(newOptions).map(([key, value]) => ({
+            field: key,
+            count: value.length,
+            sample: value[0]
+          }))
+        })
+        setDynamicOptions(newOptions)
+      }
+      setLoadingDynamic(false)
     }
-    setLoadingDynamic(false)
   }, [nodeInfo, getIntegrationByProvider, checkIntegrationScopes, loadIntegrationData])
 
   useEffect(() => {
@@ -426,6 +684,97 @@ export default function EnhancedConfigurationModal({
       fetchDynamicData()
     }
   }, [isOpen, nodeInfo?.providerId, fetchDynamicData])
+
+  // Handle dependent field updates when their dependencies change
+  useEffect(() => {
+    if (!isOpen || !nodeInfo) return
+
+    console.log('🔄 Checking dependent fields:', {
+      nodeType: nodeInfo.type,
+      config,
+      configSchema: nodeInfo.configSchema
+    })
+
+    const fetchDependentFields = async () => {
+      for (const field of nodeInfo.configSchema || []) {
+        if (field.dependsOn && field.dynamic) {
+          const dependentValue = config[field.dependsOn]
+          const previousValue = previousDependentValues.current[field.dependsOn]
+          
+          console.log(`🔍 Checking field dependency:`, {
+            fieldName: field.name,
+            dependsOn: field.dependsOn,
+            currentValue: dependentValue,
+            previousValue,
+            dynamic: field.dynamic
+          })
+          
+          // Only update if the dependent value has actually changed
+          if (dependentValue !== previousValue) {
+            console.log(`🔄 Dependent value changed for ${field.name}, fetching new data`)
+            previousDependentValues.current[field.dependsOn] = dependentValue
+            
+            if (dependentValue) {
+              await fetchDependentData(field, dependentValue)
+            } else {
+              console.log(`❌ No dependent value for ${field.name}, clearing options`)
+              // Clear dependent field options when dependency is cleared
+              setDynamicOptions(prev => {
+                const newOptions = { ...prev }
+                delete newOptions[field.name]
+                return newOptions
+              })
+              // Clear dependent field value
+              setConfig(prev => {
+                const newConfig = { ...prev }
+                delete newConfig[field.name]
+                return newConfig
+              })
+            }
+          }
+        }
+      }
+    }
+
+    fetchDependentFields()
+  }, [isOpen, nodeInfo, config, fetchDependentData])
+
+  // Auto-fetch table fields when table is selected (for Airtable)
+  useEffect(() => {
+    if (!isOpen || !nodeInfo || nodeInfo.type !== "airtable_action_create_record") return
+    
+    console.log('🔄 Checking if should fetch table fields:', {
+      tableName: config.tableName,
+      baseId: config.baseId,
+      hasNodeInfo: !!nodeInfo,
+      nodeType: nodeInfo.type
+    })
+    
+    if (config.tableName && config.baseId) {
+      console.log('✅ Fetching table fields for:', {
+        tableName: config.tableName,
+        baseId: config.baseId
+      })
+      fetchTableFields(config.tableName)
+    }
+  }, [isOpen, nodeInfo, config.tableName, config.baseId, fetchTableFields])
+
+  // Retry mechanism for stuck loading states
+  useEffect(() => {
+    if (!loadingDynamic) {
+      setRetryCount(0)
+      return
+    }
+    
+    const retryTimeout = setTimeout(() => {
+      if (loadingDynamic && isOpen && nodeInfo?.providerId) {
+        setRetryCount((c) => c + 1)
+        fetchDynamicData()
+      }
+    }, 5000)
+    
+    return () => clearTimeout(retryTimeout)
+  }, [loadingDynamic, isOpen, nodeInfo?.providerId, fetchDynamicData])
 
   // Auto-load sheet data when action changes to update/delete (for unified Google Sheets action) or readMode is "rows" (for read data action)
   useEffect(() => {
@@ -440,6 +789,15 @@ export default function EnhancedConfigurationModal({
     if (!config.spreadsheetId || !config.sheetName) return
     
     const loadSheetData = async () => {
+      // Abort any existing request
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
+
+      // Create new AbortController for this request
+      const controller = new AbortController()
+      abortControllerRef.current = controller
+
       try {
         setLoadingDynamic(true)
         const integration = getIntegrationByProvider(nodeInfo?.providerId || "")
@@ -451,7 +809,8 @@ export default function EnhancedConfigurationModal({
           { spreadsheetId: config.spreadsheetId, sheetName: config.sheetName }
         )
         
-        if (data && data.length > 0) {
+        // Only update state if the request wasn't aborted
+        if (!controller.signal.aborted && data && data.length > 0) {
           setSheetData(data[0])
           setDynamicOptions(prev => ({
             ...prev,
@@ -459,9 +818,15 @@ export default function EnhancedConfigurationModal({
           }))
         }
       } catch (error) {
-        console.error("Error auto-loading sheet data:", error)
+        // Don't log errors for aborted requests
+        if (!controller.signal.aborted) {
+          console.error("Error auto-loading sheet data:", error)
+        }
       } finally {
-        setLoadingDynamic(false)
+        // Only update loading state if the request wasn't aborted
+        if (!controller.signal.aborted) {
+          setLoadingDynamic(false)
+        }
       }
     }
     
@@ -477,6 +842,15 @@ export default function EnhancedConfigurationModal({
         const integration = getIntegrationByProvider("google-sheets")
         if (!integration) return
 
+        // Abort any existing request
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort()
+        }
+
+        // Create new AbortController for this request
+        const controller = new AbortController()
+        abortControllerRef.current = controller
+
         try {
           setLoadingDynamic(true)
           const previewData = await loadIntegrationData(
@@ -485,7 +859,8 @@ export default function EnhancedConfigurationModal({
             { spreadsheetId: config.spreadsheetId, sheetName: config.sheetName }
           )
           
-          if (previewData && previewData.length > 0) {
+          // Only update state if the request wasn't aborted
+          if (!controller.signal.aborted && previewData && previewData.length > 0) {
             const preview = previewData[0]
             setSheetPreview(preview)
             setDynamicOptions(prev => ({
@@ -501,9 +876,15 @@ export default function EnhancedConfigurationModal({
             }))
           }
         } catch (error) {
-          console.error("Error fetching sheet preview:", error)
+          // Don't log errors for aborted requests
+          if (!controller.signal.aborted) {
+            console.error("Error fetching sheet preview:", error)
+          }
         } finally {
-          setLoadingDynamic(false)
+          // Only update loading state if the request wasn't aborted
+          if (!controller.signal.aborted) {
+            setLoadingDynamic(false)
+          }
         }
       } else {
         // Clear preview when dependencies are not met
@@ -636,6 +1017,388 @@ export default function EnhancedConfigurationModal({
     const value = config[field.name] || ""
     const hasError = !!errors[field.name]
 
+    // Add label rendering
+    const renderLabel = () => (
+      <div className="flex items-center justify-between mb-2">
+        <Label className="text-sm font-medium">
+          {field.label || field.name}
+          {field.required && <span className="text-red-500 ml-1">*</span>}
+        </Label>
+        {field.description && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                  <HelpCircle className="h-4 w-4 text-muted-foreground" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-xs">
+                <p className="text-sm">{field.description}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+      </div>
+    )
+
+    // Handle Airtable create record custom fields layout
+    if (nodeInfo?.type === "airtable_action_create_record" && field.name === "fields") {
+      const selectedTable = dynamicOptions["tableName"]?.find((table: any) => table.value === config.tableName)
+      const tableFields = selectedTable?.fields || []
+      
+      if (!config.tableName) {
+        return (
+          <div className="space-y-2">
+            <div className="p-6 border border-dashed border-muted-foreground/25 rounded-lg">
+              <p className="text-sm text-muted-foreground text-center">
+                Please select a table first to configure record fields
+              </p>
+            </div>
+          </div>
+        )
+      }
+
+      if (tableFields.length === 0) {
+        return (
+          <div className="space-y-2">
+            <div className="p-6 border border-dashed border-muted-foreground/25 rounded-lg">
+              <p className="text-sm text-muted-foreground text-center">
+                Loading table fields...
+              </p>
+            </div>
+          </div>
+        )
+      }
+      
+      // Sort fields to prioritize status fields and linked records
+      const sortedFields = [...tableFields].sort((a, b) => {
+        // Helper function to check if a field is a priority field
+        const isPriorityField = (field: any) => {
+          // Check for status fields
+          const isStatus = field.type === "singleSelect" && 
+                         (field.name.toLowerCase().includes('status') || 
+                          field.name.toLowerCase().includes('state'))
+          
+          // Check for linked record fields we want to prioritize
+          const isPriorityLinkedRecord = field.type === "linkedRecord" && 
+                         (field.name.toLowerCase().includes('project') || 
+                          field.name.toLowerCase().includes('task') ||
+                          field.name.toLowerCase().includes('feedback'))
+          
+          return isStatus || isPriorityLinkedRecord
+        }
+        
+        const aIsPriority = isPriorityField(a)
+        const bIsPriority = isPriorityField(b)
+        
+        if (aIsPriority && !bIsPriority) return -1
+        if (!aIsPriority && bIsPriority) return 1
+        
+        // If both are priority fields, sort by type (status first, then linked records)
+        if (aIsPriority && bIsPriority) {
+          const aIsStatus = a.type === "singleSelect"
+          const bIsStatus = b.type === "singleSelect"
+          if (aIsStatus && !bIsStatus) return -1
+          if (!aIsStatus && bIsStatus) return 1
+        }
+        
+        return 0
+      })
+      
+      return (
+        <div className="space-y-4">
+          {renderLabel()}
+          <div className="text-sm text-muted-foreground">
+            Map your data to table columns from "{config.tableName}":
+          </div>
+          
+          {/* Main Fields Grid */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            {sortedFields.map((fieldDef: any) => {
+              const fieldValue = config.fields?.[fieldDef.name] || ""
+              
+              // Check if this field represents a linked table (foreign key relationship)
+              const isLinkedField = fieldDef.type === "linkedRecord" || 
+                                   fieldDef.type === "link" || 
+                                   fieldDef.type === "multipleRecordLinks" ||
+                                   fieldDef.type === "recordLink" ||
+                                   fieldDef.type === "lookup" ||
+                                   fieldDef.linkedTableName ||
+                                   fieldDef.foreignTable
+              
+              // Check if this is a priority linked field (projects, tasks, feedback)
+              const isPriorityLinkedField = isLinkedField && 
+                                   (fieldDef.name.toLowerCase().includes('project') || 
+                                    fieldDef.name.toLowerCase().includes('task') ||
+                                    fieldDef.name.toLowerCase().includes('feedback'))
+
+              return (
+                <div key={fieldDef.name} className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Label className="text-sm font-medium">
+                        {fieldDef.name}
+                        {fieldDef.required && <span className="text-red-500 ml-1">*</span>}
+                      </Label>
+                      {isLinkedField && !isPriorityLinkedField && fieldDef.linkedTableName && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => toggleCreateNew(fieldDef.linkedTableName)}
+                          className="text-xs h-6 px-2"
+                        >
+                          {createNewTables[fieldDef.linkedTableName] ? "Use Existing" : "Create New"}
+                        </Button>
+                      )}
+                    </div>
+                    <span className="text-xs text-muted-foreground capitalize">
+                      {isPriorityLinkedField ? "Linked Record" : fieldDef.type}
+                    </span>
+                  </div>
+                  
+                  {/* Field Input */}
+                  {fieldDef.type === "singleSelect" && fieldDef.options ? (
+                    <div className="flex gap-2">
+                      <Select
+                        value={fieldValue}
+                        onValueChange={(value) => {
+                          const newFields = { ...config.fields, [fieldDef.name]: value }
+                          setConfig(prev => ({ ...prev, fields: newFields }))
+                        }}
+                      >
+                        <SelectTrigger className="text-sm h-auto min-h-[2.5rem]">
+                          <SelectValue placeholder={`Select ${fieldDef.name.toLowerCase()}`} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {fieldDef.options.choices.map((choice: any) => (
+                            <SelectItem key={choice.name} value={choice.name}>
+                              {choice.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <VariablePicker
+                        workflowData={workflowData}
+                        currentNodeId={currentNodeId}
+                        onVariableSelect={(variable) => {
+                          const newFields = { ...config.fields, [fieldDef.name]: variable }
+                          setConfig(prev => ({ ...prev, fields: newFields }))
+                        }}
+                        fieldType="text"
+                        trigger={
+                          <Button variant="outline" size="sm" className="flex-shrink-0 px-3 min-h-[2.5rem]">
+                            <Database className="w-4 h-4" />
+                          </Button>
+                        }
+                      />
+                    </div>
+                  ) : isPriorityLinkedField ? (
+                    <div className="flex gap-2">
+                      <Combobox
+                        value={fieldValue}
+                        onChange={(value) => {
+                          const newFields = { ...config.fields, [fieldDef.name]: value }
+                          setConfig(prev => ({ ...prev, fields: newFields }))
+                        }}
+                        placeholder={`Search and select ${fieldDef.name.toLowerCase()}`}
+                        options={dynamicOptions[`${fieldDef.name}_records`] || []}
+                        searchPlaceholder="Search records..."
+                        emptyPlaceholder="No records found."
+                      />
+                      <VariablePicker
+                        workflowData={workflowData}
+                        currentNodeId={currentNodeId}
+                        onVariableSelect={(variable) => {
+                          const newFields = { ...config.fields, [fieldDef.name]: variable }
+                          setConfig(prev => ({ ...prev, fields: newFields }))
+                        }}
+                        fieldType="text"
+                        trigger={
+                          <Button variant="outline" size="sm" className="flex-shrink-0 px-3 min-h-[2.5rem]">
+                            <Database className="w-4 h-4" />
+                          </Button>
+                        }
+                      />
+                    </div>
+                  ) : isLinkedField && fieldDef.linkedTableName ? (
+                    <div className="flex gap-2">
+                      <Combobox
+                        value={fieldValue}
+                        onChange={(value) => {
+                          const newFields = { ...config.fields, [fieldDef.name]: value }
+                          setConfig(prev => ({ ...prev, fields: newFields }))
+                        }}
+                        placeholder={`Search and select ${fieldDef.name.toLowerCase()}`}
+                        options={dynamicOptions[`${fieldDef.name}_records`] || []}
+                        searchPlaceholder="Search records..."
+                        emptyPlaceholder="No records found."
+                      />
+                      <VariablePicker
+                        workflowData={workflowData}
+                        currentNodeId={currentNodeId}
+                        onVariableSelect={(variable) => {
+                          const newFields = { ...config.fields, [fieldDef.name]: variable }
+                          setConfig(prev => ({ ...prev, fields: newFields }))
+                        }}
+                        fieldType="text"
+                        trigger={
+                          <Button variant="outline" size="sm" className="flex-shrink-0 px-3 min-h-[2.5rem]">
+                            <Database className="w-4 h-4" />
+                          </Button>
+                        }
+                      />
+                    </div>
+                  ) : fieldDef.type === "checkbox" ? (
+                    <div className="flex items-center justify-center space-x-2 min-h-[2.5rem] border rounded-md p-2">
+                      <Checkbox
+                        checked={fieldValue || false}
+                        onCheckedChange={(checked) => {
+                          const newFields = { ...config.fields, [fieldDef.name]: checked }
+                          setConfig(prev => ({ ...prev, fields: newFields }))
+                        }}
+                      />
+                      <Label className="text-sm">Enable</Label>
+                    </div>
+                  ) : fieldDef.type === "date" ? (
+                    <div className="space-y-2">
+                      <div className="relative">
+                        <Input
+                          type="date"
+                          value={fieldValue === "{{current_date}}" ? "" : fieldValue}
+                          onChange={(e) => {
+                            const newFields = { ...config.fields, [fieldDef.name]: e.target.value }
+                            setConfig(prev => ({ ...prev, fields: newFields }))
+                          }}
+                          className="text-sm min-h-[2.5rem] [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-2 [&::-webkit-calendar-picker-indicator]:top-1/2 [&::-webkit-calendar-picker-indicator]:-translate-y-1/2 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                          placeholder={fieldValue === "{{current_date}}" ? "Current date will be used" : ""}
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant={fieldValue === "{{current_date}}" ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => {
+                            const newValue = fieldValue === "{{current_date}}" ? "" : "{{current_date}}"
+                            const newFields = { ...config.fields, [fieldDef.name]: newValue }
+                            setConfig(prev => ({ ...prev, fields: newFields }))
+                          }}
+                          className="text-xs h-7 flex-1"
+                        >
+                          {fieldValue === "{{current_date}}" ? "Using Current Date" : "Use Current Date"}
+                        </Button>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0 flex-shrink-0"
+                              >
+                                <HelpCircle className="h-3 w-3" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="max-w-xs">
+                              <p className="text-sm">
+                                When enabled, this field will automatically use the current date each time the workflow runs, rather than a fixed date.
+                              </p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
+                    </div>
+                  ) : fieldDef.type === "attachment" || fieldDef.type === "file" || fieldDef.type === "image" || fieldDef.name.toLowerCase().includes('image') || fieldDef.name.toLowerCase().includes('photo') || fieldDef.name.toLowerCase().includes('picture') ? (
+                    <div className="flex flex-col gap-1">
+                      <input
+                        type="file"
+                        id={`file-${fieldDef.name}`}
+                        multiple={fieldDef.type === "attachment"}
+                        accept={fieldDef.type === "image" ? "image/*" : undefined}
+                        onChange={(e) => {
+                          const files = Array.from(e.target.files || [])
+                          const newFields = { ...config.fields, [fieldDef.name]: files }
+                          setConfig(prev => ({ ...prev, fields: newFields }))
+                        }}
+                        className="hidden"
+                      />
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => document.getElementById(`file-${fieldDef.name}`)?.click()}
+                          className="min-h-[2.5rem] text-sm flex-1"
+                        >
+                          Upload {fieldDef.type === "image" ? "Image" : fieldDef.type === "attachment" ? "Files" : "File"}
+                        </Button>
+                        <VariablePicker
+                          workflowData={workflowData}
+                          currentNodeId={currentNodeId}
+                          onVariableSelect={(variable) => {
+                            const newFields = { ...config.fields, [fieldDef.name]: variable }
+                            setConfig(prev => ({ ...prev, fields: newFields }))
+                          }}
+                          fieldType="file"
+                          trigger={
+                            <Button variant="outline" size="sm" className="flex-shrink-0 px-3 min-h-[2.5rem]">
+                              <Database className="w-4 h-4" />
+                            </Button>
+                          }
+                        />
+                      </div>
+                      {fieldValue && (
+                        <div className="text-xs text-muted-foreground">
+                          {Array.isArray(fieldValue) && fieldValue.length > 0 
+                            ? fieldValue.length === 1
+                              ? `Selected: ${fieldValue[0].name}`
+                              : `${fieldValue.length} files: ${fieldValue.map(f => f.name).join(', ')}`
+                            : typeof fieldValue === 'string' && fieldValue.includes('{{')
+                            ? 'Using file from previous node'
+                            : 'File selected'
+                          }
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <Textarea
+                        value={fieldValue}
+                        placeholder={`Enter ${fieldDef.name.toLowerCase()}`}
+                        onChange={(e) => {
+                          const newFields = { ...config.fields, [fieldDef.name]: e.target.value }
+                          setConfig(prev => ({ ...prev, fields: newFields }))
+                        }}
+                        className="text-sm flex-1 min-h-[2.5rem] resize-none"
+                        rows={1}
+                      />
+                      <VariablePicker
+                        workflowData={workflowData}
+                        currentNodeId={currentNodeId}
+                        onVariableSelect={(variable) => {
+                          const currentValue = fieldValue || ""
+                          const newValue = currentValue + variable
+                          const newFields = { ...config.fields, [fieldDef.name]: newValue }
+                          setConfig(prev => ({ ...prev, fields: newFields }))
+                        }}
+                        fieldType={fieldDef.type === "multilineText" ? "textarea" : "text"}
+                        trigger={
+                          <Button variant="outline" size="sm" className="flex-shrink-0 px-3 min-h-[2.5rem]">
+                            <Database className="w-4 h-4" />
+                          </Button>
+                        }
+                      />
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+          
+        </div>
+      )
+    }
+
     // Extract filename from URL for display
     const extractFilenameFromUrl = (url: string): string => {
       try {
@@ -685,7 +1448,25 @@ export default function EnhancedConfigurationModal({
     }
 
     const handleSelectChange = (newValue: string) => {
-      setConfig({ ...config, [field.name]: newValue })
+      console.log('🔄 Select value changed:', {
+        fieldName: field.name,
+        newValue,
+        isAirtableAction: nodeInfo?.type === "airtable_action_create_record",
+        isBaseIdField: field.name === "baseId"
+      })
+      
+      // Clear dependent fields when base changes for Airtable
+      if (nodeInfo?.type === "airtable_action_create_record" && field.name === "baseId") {
+        console.log('🔄 Clearing dependent Airtable fields')
+        setConfig(prev => ({ 
+          ...prev, 
+          [field.name]: newValue,
+          tableName: undefined,
+          fields: undefined
+        }))
+      } else {
+        setConfig({ ...config, [field.name]: newValue })
+      }
       
       // Clear error when user selects a value
       if (hasError) {
@@ -699,6 +1480,11 @@ export default function EnhancedConfigurationModal({
       // Handle dependent field updates
       nodeInfo?.configSchema?.forEach(dependentField => {
         if (dependentField.dependsOn === field.name) {
+          console.log('🔄 Found dependent field:', {
+            field: dependentField.name,
+            dependsOn: field.name,
+            newValue
+          })
           fetchDependentData(dependentField, newValue)
         }
       })
@@ -773,171 +1559,249 @@ export default function EnhancedConfigurationModal({
       case "email":
       case "password":
         return (
-          <div className="flex gap-2 w-full">
-            <Input
-              type={field.type}
-              value={value}
-              onChange={handleChange}
-              placeholder={field.placeholder}
-              readOnly={field.readonly}
-              className={cn(
-                "flex-1", 
-                hasError && "border-red-500",
-                field.readonly && "bg-muted/50 cursor-not-allowed"
-              )}
-            />
-            {!field.readonly && (
-              <VariablePicker
-                workflowData={workflowData}
-                currentNodeId={currentNodeId}
-                onVariableSelect={handleVariableSelect}
-                fieldType={field.type}
-                trigger={
-                  <Button variant="outline" size="sm" className="flex-shrink-0 px-3">
-                    <Database className="w-4 h-4" />
-                  </Button>
-                }
+          <div className="space-y-2">
+            {renderLabel()}
+            <div className="flex gap-2 w-full">
+              <Input
+                type={field.type}
+                value={value}
+                onChange={handleChange}
+                placeholder={field.placeholder}
+                readOnly={field.readonly}
+                className={cn(
+                  "flex-1", 
+                  hasError && "border-red-500",
+                  field.readonly && "bg-muted/50 cursor-not-allowed"
+                )}
               />
+              {!field.readonly && (
+                <VariablePicker
+                  workflowData={workflowData}
+                  currentNodeId={currentNodeId}
+                  onVariableSelect={handleVariableSelect}
+                  fieldType={field.type}
+                  trigger={
+                    <Button variant="outline" size="sm" className="flex-shrink-0 px-3">
+                      <Database className="w-4 h-4" />
+                    </Button>
+                  }
+                />
+              )}
+            </div>
+            {hasError && (
+              <p className="text-xs text-red-500">{errors[field.name]}</p>
             )}
           </div>
         )
 
       case "number":
         return (
-          <Input
-            type="number"
-            value={value}
-            onChange={handleChange}
-            placeholder={field.placeholder}
-            className={cn("w-full", hasError && "border-red-500")}
-          />
+          <div className="space-y-2">
+            {renderLabel()}
+            <Input
+              type="number"
+              value={value}
+              onChange={handleChange}
+              placeholder={field.placeholder}
+              className={cn("w-full", hasError && "border-red-500")}
+            />
+            {hasError && (
+              <p className="text-xs text-red-500">{errors[field.name]}</p>
+            )}
+          </div>
         )
 
       case "textarea":
         return (
-          <div className="w-full space-y-2">
-            <Textarea
-              value={value}
-              onChange={handleChange}
-              placeholder={field.placeholder}
-              className={cn("w-full min-h-[100px] resize-y", hasError && "border-red-500")}
-            />
-            <div className="flex justify-end">
-              <VariablePicker
-                workflowData={workflowData}
-                currentNodeId={currentNodeId}
-                onVariableSelect={handleVariableSelect}
-                fieldType={field.type}
-                trigger={
-                  <Button variant="outline" size="sm" className="gap-2">
-                    <Database className="w-4 h-4" />
-                    Insert Variable
-                  </Button>
-                }
+          <div className="space-y-2">
+            {renderLabel()}
+            <div className="w-full space-y-2">
+              <Textarea
+                value={value}
+                onChange={handleChange}
+                placeholder={field.placeholder}
+                className={cn("w-full min-h-[100px] resize-y", hasError && "border-red-500")}
               />
+              <div className="flex justify-end">
+                <VariablePicker
+                  workflowData={workflowData}
+                  currentNodeId={currentNodeId}
+                  onVariableSelect={handleVariableSelect}
+                  fieldType={field.type}
+                  trigger={
+                    <Button variant="outline" size="sm" className="gap-2">
+                      <Database className="w-4 h-4" />
+                      Insert Variable
+                    </Button>
+                  }
+                />
+              </div>
             </div>
+            {hasError && (
+              <p className="text-xs text-red-500">{errors[field.name]}</p>
+            )}
           </div>
         )
 
       case "select":
         const options = field.dynamic ? dynamicOptions[field.name] || [] : field.options || []
         return (
-          <Select
-            value={value}
-            onValueChange={handleSelectChange}
-            disabled={loadingDynamic}
-          >
-            <SelectTrigger className={cn("w-full", hasError && "border-red-500")}>
-              <SelectValue placeholder={loadingDynamic ? "Loading..." : field.placeholder} />
-            </SelectTrigger>
-            <SelectContent>
-              {options.map((option) => {
-                const optionValue = typeof option === 'string' ? option : option.value
-                const optionLabel = typeof option === 'string' ? option : option.label
-                return (
-                  <SelectItem key={optionValue} value={optionValue}>
-                    {optionLabel}
-                  </SelectItem>
-                )
-              })}
-            </SelectContent>
-          </Select>
+          <div className="space-y-2">
+            {renderLabel()}
+            <Select
+              value={value}
+              onValueChange={handleSelectChange}
+              disabled={loadingDynamic}
+            >
+              <SelectTrigger className={cn("w-full", hasError && "border-red-500")}>
+                <SelectValue placeholder={loadingDynamic ? "Loading..." : field.placeholder} />
+              </SelectTrigger>
+              <SelectContent>
+                {options.map((option) => {
+                  const optionValue = typeof option === 'string' ? option : option.value
+                  const optionLabel = typeof option === 'string' ? option : option.label
+                  return (
+                    <SelectItem key={optionValue} value={optionValue}>
+                      {optionLabel}
+                    </SelectItem>
+                  )
+                })}
+              </SelectContent>
+            </Select>
+            {hasError && (
+              <p className="text-xs text-red-500">{errors[field.name]}</p>
+            )}
+          </div>
+        )
+
+      case "combobox":
+        const comboboxOptions = field.dynamic ? dynamicOptions[field.name] || [] : field.options || []
+        return (
+          <div className="space-y-2">
+            {renderLabel()}
+            <Combobox
+              value={value}
+              onChange={handleSelectChange}
+              disabled={loadingDynamic}
+              placeholder={loadingDynamic ? "Loading..." : field.placeholder}
+              options={comboboxOptions.map((option) => ({
+                value: typeof option === 'string' ? option : option.value,
+                label: typeof option === 'string' ? option : option.label,
+                description: typeof option === 'object' && 'description' in option && typeof option.description === 'string' ? option.description : undefined
+              }))}
+              searchPlaceholder="Search records..."
+              emptyPlaceholder="No records found."
+            />
+            {hasError && (
+              <p className="text-xs text-red-500">{errors[field.name]}</p>
+            )}
+          </div>
         )
 
       case "boolean":
         return (
-          <div className="flex items-center space-x-3">
-            <Checkbox
-              checked={!!value}
-              onCheckedChange={handleCheckboxChange}
-              className={cn(hasError && "border-red-500")}
-            />
-            <Label className="text-sm font-medium cursor-pointer" onClick={() => handleCheckboxChange(!value)}>
-              {field.label}
-            </Label>
+          <div className="space-y-2">
+            {renderLabel()}
+            <div className="flex items-center space-x-3">
+              <Checkbox
+                checked={!!value}
+                onCheckedChange={handleCheckboxChange}
+                className={cn(hasError && "border-red-500")}
+              />
+              <Label className="text-sm font-medium cursor-pointer" onClick={() => handleCheckboxChange(!value)}>
+                Enable
+              </Label>
+            </div>
+            {hasError && (
+              <p className="text-xs text-red-500">{errors[field.name]}</p>
+            )}
           </div>
         )
 
       case "file":
         return (
-          <FileUpload
-            value={value}
-            onChange={handleFileChange}
-            accept={field.accept}
-            maxFiles={field.multiple ? 10 : 1}
-            maxSize={typeof field.maxSize === 'number' ? field.maxSize : undefined}
-            placeholder={field.placeholder}
-            className={cn(hasError && "border-red-500")}
-          />
+          <div className="space-y-2">
+            {renderLabel()}
+            <FileUpload
+              value={value}
+              onChange={handleFileChange}
+              accept={field.accept}
+              maxFiles={field.multiple ? 10 : 1}
+              maxSize={typeof field.maxSize === 'number' ? field.maxSize : undefined}
+              placeholder={field.placeholder}
+              className={cn(hasError && "border-red-500")}
+            />
+            {hasError && (
+              <p className="text-xs text-red-500">{errors[field.name]}</p>
+            )}
+          </div>
         )
 
       case "date":
         return (
-          <DatePicker
-            value={value ? new Date(value) : undefined}
-            onChange={handleDateChange}
-            placeholder={field.placeholder}
-            className={cn(hasError && "border-red-500")}
-          />
+          <div className="space-y-2">
+            {renderLabel()}
+            <DatePicker
+              value={value ? new Date(value) : undefined}
+              onChange={handleDateChange}
+              placeholder={field.placeholder}
+              className={cn(hasError && "border-red-500")}
+            />
+            {hasError && (
+              <p className="text-xs text-red-500">{errors[field.name]}</p>
+            )}
+          </div>
         )
 
       case "time":
         return (
-          <TimePicker
-            value={value}
-            onChange={handleTimeChange}
-            placeholder={field.placeholder}
-            className={cn(hasError && "border-red-500")}
-          />
+          <div className="space-y-2">
+            {renderLabel()}
+            <TimePicker
+              value={value}
+              onChange={handleTimeChange}
+              placeholder={field.placeholder}
+              className={cn(hasError && "border-red-500")}
+            />
+            {hasError && (
+              <p className="text-xs text-red-500">{errors[field.name]}</p>
+            )}
+          </div>
         )
 
       case "datetime":
         return (
-          <div className="flex gap-2">
-            <DatePicker
-              value={value ? new Date(value) : undefined}
-              onChange={(date) => {
-                if (date) {
-                  const existingTime = value ? new Date(value).toTimeString().slice(0, 8) : "09:00:00"
-                  const newDateTime = new Date(`${date.toISOString().split('T')[0]}T${existingTime}`)
-                  setConfig(prev => ({ ...prev, [field.name]: newDateTime.toISOString() }))
-                }
-              }}
-              placeholder="Select date"
-              className={cn("flex-1", hasError && "border-red-500")}
-            />
-            <TimePicker
-              value={value ? new Date(value).toTimeString().slice(0, 5) : ""}
-              onChange={(time) => {
-                if (time && value) {
-                  const existingDate = new Date(value).toISOString().split('T')[0]
-                  const newDateTime = new Date(`${existingDate}T${time}:00`)
-                  setConfig(prev => ({ ...prev, [field.name]: newDateTime.toISOString() }))
-                }
-              }}
-              placeholder="Select time"
-              className={cn("w-32", hasError && "border-red-500")}
-            />
+          <div className="space-y-2">
+            {renderLabel()}
+            <div className="flex gap-2">
+              <DatePicker
+                value={value ? new Date(value) : undefined}
+                onChange={(date) => {
+                  if (date) {
+                    const existingTime = value ? new Date(value).toTimeString().slice(0, 8) : "09:00:00"
+                    const newDateTime = new Date(`${date.toISOString().split('T')[0]}T${existingTime}`)
+                    setConfig(prev => ({ ...prev, [field.name]: newDateTime.toISOString() }))
+                  }
+                }}
+                placeholder="Select date"
+                className={cn("flex-1", hasError && "border-red-500")}
+              />
+              <TimePicker
+                value={value ? new Date(value).toTimeString().slice(0, 5) : ""}
+                onChange={(time) => {
+                  if (time && value) {
+                    const existingDate = new Date(value).toISOString().split('T')[0]
+                    const newDateTime = new Date(`${existingDate}T${time}:00`)
+                    setConfig(prev => ({ ...prev, [field.name]: newDateTime.toISOString() }))
+                  }
+                }}
+                placeholder="Select time"
+                className={cn("w-32", hasError && "border-red-500")}
+              />
+            </div>
+            {hasError && (
+              <p className="text-xs text-red-500">{errors[field.name]}</p>
+            )}
           </div>
         )
 
@@ -958,41 +1822,59 @@ export default function EnhancedConfigurationModal({
         const isMultipleEmail = field.name === "attendees" || field.name === "to" || field.name === "cc" || field.name === "bcc"
         
         return (
-          <EmailAutocomplete
-            value={value}
-            onChange={(newValue) => setConfig(prev => ({ ...prev, [field.name]: newValue }))}
-            suggestions={emailSuggestions}
-            placeholder={field.placeholder}
-            multiple={isMultipleEmail}
-            disabled={loadingDynamic}
-            isLoading={loadingDynamic}
-            className={cn(hasError && "border-red-500")}
-          />
+          <div className="space-y-2">
+            {renderLabel()}
+            <EmailAutocomplete
+              value={value}
+              onChange={(newValue) => setConfig(prev => ({ ...prev, [field.name]: newValue }))}
+              suggestions={emailSuggestions}
+              placeholder={field.placeholder}
+              multiple={isMultipleEmail}
+              disabled={loadingDynamic}
+              isLoading={loadingDynamic}
+              className={cn(hasError && "border-red-500")}
+            />
+            {hasError && (
+              <p className="text-xs text-red-500">{errors[field.name]}</p>
+            )}
+          </div>
         )
 
       case "location-autocomplete":
         return (
-          <LocationAutocomplete
-            value={value}
-            onChange={(newValue) => setConfig(prev => ({ ...prev, [field.name]: newValue }))}
-            placeholder={field.placeholder}
-            className={cn(hasError && "border-red-500")}
-          />
+          <div className="space-y-2">
+            {renderLabel()}
+            <LocationAutocomplete
+              value={value}
+              onChange={(newValue) => setConfig(prev => ({ ...prev, [field.name]: newValue }))}
+              placeholder={field.placeholder}
+              className={cn(hasError && "border-red-500")}
+            />
+            {hasError && (
+              <p className="text-xs text-red-500">{errors[field.name]}</p>
+            )}
+          </div>
         )
 
       default:
         return (
-          <Input
-            value={value}
-            onChange={handleChange}
-            placeholder={field.placeholder}
-            readOnly={field.readonly}
-            className={cn(
-              "w-full", 
-              hasError && "border-red-500",
-              field.readonly && "bg-muted/50 cursor-not-allowed"
+          <div className="space-y-2">
+            {renderLabel()}
+            <Input
+              value={value}
+              onChange={handleChange}
+              placeholder={field.placeholder}
+              readOnly={field.readonly}
+              className={cn(
+                "w-full", 
+                hasError && "border-red-500",
+                field.readonly && "bg-muted/50 cursor-not-allowed"
+              )}
+            />
+            {hasError && (
+              <p className="text-xs text-red-500">{errors[field.name]}</p>
             )}
-          />
+          </div>
         )
     }
   }
@@ -1090,7 +1972,7 @@ export default function EnhancedConfigurationModal({
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent 
           className={cn(
-            "max-w-4xl w-full h-[90vh] p-0 gap-0 overflow-hidden",
+            "max-w-4xl w-full max-h-[90vh] p-0 gap-0 overflow-hidden",
             showDataFlowPanels && "max-w-[95vw]"
           )}
         >
@@ -1098,7 +1980,6 @@ export default function EnhancedConfigurationModal({
             {/* Left Data Flow Panel - Input */}
             {showDataFlowPanels && (
               <div className="w-80 bg-muted/30 border-r border-border">
-                {/* Show live test results if available, otherwise show stored data */}
                 {segmentTestResult ? (
                   renderDataFlowPanel(
                     "Workflow Input", 
@@ -1238,329 +2119,12 @@ export default function EnhancedConfigurationModal({
                       return null
                     }
                     
-                    // Special handling for boolean fields (checkboxes)
-                    if (field.type === "boolean") {
-                      return (
-                        <div key={field.name} className="flex flex-col space-y-2 pb-4 border-b border-border/50 last:border-b-0 last:pb-0">
-                          {renderField(field)}
-                          {errors[field.name] && (
-                            <p className="text-red-500 text-sm mt-1">{errors[field.name]}</p>
-                          )}
-                        </div>
-                      )
-                    }
-                    
-                    // For all other fields, use a dynamic layout
                     return (
                       <div key={field.name} className="flex flex-col space-y-3 pb-4 border-b border-border/50 last:border-b-0 last:pb-0">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1">
-                            <Label htmlFor={field.name} className="text-sm font-medium text-foreground min-w-0 flex-shrink-0 pr-4">
-                              {field.label}
-                              {field.required && <span className="text-red-500 ml-1">*</span>}
-                            </Label>
-                            {field.description && (
-                              <Tooltip delayDuration={0}>
-                                <TooltipTrigger asChild>
-                                  <button type="button" className="inline-flex items-center">
-                                    <HelpCircle className="w-4 h-4 text-muted-foreground hover:text-primary cursor-pointer transition-colors" />
-                                  </button>
-                                </TooltipTrigger>
-                                <TooltipContent side="right" className="max-w-xs p-3" sideOffset={8}>
-                                  <p className="text-sm">{field.description}</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            )}
-                          </div>
-                        </div>
-                        <div className="w-full">
-                          {renderField(field)}
-                        </div>
-                        {errors[field.name] && (
-                          <p className="text-red-500 text-sm mt-1">{errors[field.name]}</p>
-                        )}
+                        {renderField(field)}
                       </div>
                     )
                   })}
-                  
-                  {/* Google Sheets Data Preview Table */}
-                  {((nodeInfo?.type === "google_sheets_unified_action" && config.action !== "add") || 
-                    (nodeInfo?.type === "google_sheets_action_read_data" && config.readMode && config.spreadsheetId && config.sheetName)) && 
-                   sheetData && sheetData.headers && Array.isArray(sheetData.headers) && sheetData.data && Array.isArray(sheetData.data) && (
-                  <div className="space-y-3 border-t pt-4">
-                    <div className="text-sm font-medium">
-                      {nodeInfo?.type === "google_sheets_action_read_data" 
-                        ? config.readMode === "all" 
-                          ? "Data Preview (all data will be read):"
-                          : config.readMode === "range"
-                            ? "Data Preview (select range above):"
-                            : config.readMode === "rows"
-                              ? "Select rows to read:"
-                              : config.readMode === "cells"
-                                ? "Select individual cells to read:"
-                                : "Data Preview:"
-                        : `Select row to ${config.action}:`}
-                      {loadingDynamic && <span className="text-muted-foreground ml-2">(Loading...)</span>}
-                    </div>
-                  
-                    <div className="border rounded-lg">
-                      <div className="bg-muted/50 p-2 border-b">
-                        <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${sheetData.headers.length}, minmax(120px, 1fr))` }}>
-                          {sheetData.headers.map((header: any, index: number) => (
-                            <div key={index} className="text-xs font-medium text-muted-foreground p-1">
-                              {header.column} - {header.name}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="p-2 space-y-1 max-h-64 overflow-y-auto">
-                        {sheetData.data.map((row: any, index: number) => (
-                          <div
-                            key={index}
-                            className={`grid gap-2 p-2 rounded ${
-                              // Only make clickable and highlight if in row selection mode
-                              nodeInfo?.type === "google_sheets_action_read_data" && config.readMode === "rows"
-                                ? `cursor-pointer hover:bg-muted/50 ${
-                                    (config.selectedRows || []).some((r: any) => r.rowIndex === row.rowIndex) 
-                                      ? "bg-primary/10 border border-primary" 
-                                      : "border border-transparent"
-                                  }`
-                                : nodeInfo?.type === "google_sheets_action_read_data"
-                                  ? "border border-transparent" // Preview only, no interaction
-                                  : `cursor-pointer hover:bg-muted/50 ${
-                                      config.selectedRow?.rowIndex === row.rowIndex 
-                                        ? "bg-primary/10 border border-primary" 
-                                        : "border border-transparent"
-                                    }`
-                            }`}
-                            style={{ gridTemplateColumns: `repeat(${sheetData.headers.length}, minmax(120px, 1fr))` }}
-                            onClick={() => {
-                              if (nodeInfo?.type === "google_sheets_action_read_data") {
-                                // For read data action, support different selection modes
-                                if (config.readMode === "rows") {
-                                  const currentSelectedRows = config.selectedRows || []
-                                  const isSelected = currentSelectedRows.some((r: any) => r.rowIndex === row.rowIndex)
-                                  
-                                  const newSelectedRows = isSelected
-                                    ? currentSelectedRows.filter((r: any) => r.rowIndex !== row.rowIndex)
-                                    : [...currentSelectedRows, row]
-                                  
-                                  setConfig(prev => ({
-                                    ...prev,
-                                    selectedRows: newSelectedRows
-                                  }))
-                                }
-                                // For "all" and "range" modes, clicking does nothing (just preview)
-                                // For "cells" mode, we'll handle individual cell clicks separately
-                              } else {
-                                // For unified action (update/delete), select the row
-                                setConfig(prev => ({
-                                  ...prev,
-                                  selectedRow: row
-                                }))
-                                
-                                // Show the "Row Selected!" message
-                                setShowRowSelected(true)
-                                setTimeout(() => setShowRowSelected(false), 2000)
-                              }
-                            }}
-                          >
-                            {row.values.map((cell: string, cellIndex: number) => {
-                              const cellKey = `${row.rowIndex}-${cellIndex}`
-                              
-                              return (
-                                <div
-                                  key={cellIndex}
-                                  className={`text-xs p-1 truncate ${
-                                    nodeInfo?.type === "google_sheets_action_read_data" && config.readMode === "cells"
-                                      ? `cursor-pointer hover:bg-blue-100 ${
-                                          (config.selectedCells || []).some((cell: any) => cell.key === cellKey)
-                                            ? "bg-blue-200 border border-blue-400"
-                                            : "border border-transparent"
-                                        }`
-                                      : ""
-                                  }`}
-                                  onClick={(e) => {
-                                    if (nodeInfo?.type === "google_sheets_action_read_data" && config.readMode === "cells") {
-                                      e.stopPropagation() // Prevent row click
-                                      const currentSelectedCells = config.selectedCells || []
-                                      const isSelected = currentSelectedCells.some((cell: any) => cell.key === cellKey)
-                                      
-                                      const newSelectedCells = isSelected
-                                        ? currentSelectedCells.filter((cell: any) => cell.key !== cellKey)
-                                        : [...currentSelectedCells, {
-                                            key: cellKey,
-                                            rowIndex: row.rowIndex,
-                                            columnIndex: cellIndex,
-                                            columnName: sheetData.headers[cellIndex]?.name || `Column ${cellIndex + 1}`,
-                                            columnLetter: sheetData.headers[cellIndex]?.column || String.fromCharCode(65 + cellIndex),
-                                            value: cell || "",
-                                            cellReference: `${sheetData.headers[cellIndex]?.column || String.fromCharCode(65 + cellIndex)}${row.rowIndex + 1}` // A1, B1, etc.
-                                          }]
-                                      
-                                      setConfig(prev => ({
-                                        ...prev,
-                                        selectedCells: newSelectedCells
-                                      }))
-                                      
-                                      // Show the "Cell Selected!" message
-                                      setShowRowSelected(true)
-                                      setTimeout(() => setShowRowSelected(false), 2000)
-                                    }
-                                  }}
-                                >
-                                  {cell || ""}
-                                </div>
-                              )
-                            })}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                    
-                    {/* Show selection status */}
-                    {config.selectedRows && config.selectedRows.length > 0 && (
-                      <div className="text-xs text-green-600 bg-green-50 p-2 rounded border border-green-200">
-                        {config.selectedRows.length} row(s) selected
-                      </div>
-                    )}
-                    
-                    {config.selectedCells && config.selectedCells.length > 0 && (
-                      <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded border border-blue-200">
-                        {config.selectedCells.length} cell(s) selected
-                      </div>
-                    )}
-                    
-                    {config.selectedRow && nodeInfo?.type === "google_sheets_unified_action" && (
-                      <div className="text-xs text-green-600 bg-green-50 p-2 rounded border border-green-200">
-                        Row {config.selectedRow.rowIndex} selected for {config.action}
-                      </div>
-                    )}
-                  </div>
-                  )}
-
-                  {/* Google Sheets Column Mapping for Unified Actions */}
-                  {nodeInfo?.type === "google_sheets_unified_action" && (config.action === "add" || config.action === "update") && sheetPreview && sheetPreview.headers && Array.isArray(sheetPreview.headers) && (
-                    <div className="space-y-3 border-t pt-4">
-                      <div className="text-sm font-medium">Map your data to sheet columns:</div>
-                      
-                      {/* Header Row */}
-                      <div className="grid gap-2 p-2 bg-muted/50 rounded-t-lg" style={{ gridTemplateColumns: `repeat(${sheetPreview.headers.length}, minmax(120px, 1fr))` }}>
-                        {sheetPreview.headers.map((header: any, index: number) => (
-                          <div key={index} className="text-xs font-medium text-center p-1">
-                            <div className="font-mono bg-background px-2 py-1 rounded mb-1">
-                              {header.column}
-                            </div>
-                            <div className="truncate">{header.name}</div>
-                          </div>
-                        ))}
-                      </div>
-                      
-                      {/* Input Row */}
-                      <div className="grid gap-2 p-2 bg-background rounded-b-lg border border-t-0" style={{ gridTemplateColumns: `repeat(${sheetPreview.headers.length}, minmax(120px, 1fr))` }}>
-                        {sheetPreview.headers.map((header: any, index: number) => (
-                          <div key={index}>
-                            <Input
-                              placeholder={`Value for ${header.name}`}
-                              value={config.columnMappings?.[header.column] || ""}
-                              onChange={(e) => {
-                                setConfig(prev => ({
-                                  ...prev,
-                                  columnMappings: {
-                                    ...prev.columnMappings,
-                                    [header.column]: e.target.value
-                                  }
-                                }))
-                              }}
-                              className="text-xs h-8"
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Selection Status Toast */}
-                  {showRowSelected && (
-                    <div className="fixed top-4 right-4 bg-green-600 text-white px-4 py-2 rounded shadow-lg z-50">
-                      {nodeInfo?.type === "google_sheets_action_read_data" && config.readMode === "cells" 
-                        ? "Cell Selected!" 
-                        : nodeInfo?.type === "google_sheets_action_read_data" && config.readMode === "rows"
-                          ? "Row Selection Updated!"
-                          : "Row Selected!"}
-                    </div>
-                  )}
-                  
-                  {/* Required Fields Notice */}
-                  {nodeInfo.configSchema?.some(field => field.required) && (
-                    <div className="text-xs text-muted-foreground px-1 pt-2 border-t border-border/50">
-                      * Required fields must be filled out before saving
-                    </div>
-                  )}
-                  
-                  {/* Test Output Display */}
-                  {showTestOutput && testResult && (
-                    <div className="border-t pt-4 mt-6">
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <h4 className="text-sm font-medium">Test Output</h4>
-                          <Button variant="ghost" size="sm" onClick={() => setShowTestOutput(false)}>
-                            <X className="w-4 h-4" />
-                          </Button>
-                        </div>
-                        
-                        {testResult.success ? (
-                          <div className="space-y-3">
-                            <div className="text-sm text-green-600 bg-green-50 p-3 rounded-lg border border-green-200">
-                              <div className="flex items-start gap-2">
-                                <div className="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center mt-0.5">
-                                  <div className="w-2 h-2 rounded-full bg-green-600"></div>
-                                </div>
-                                <span>{testResult.message}</span>
-                              </div>
-                            </div>
-                            
-                            {testResult.output && (
-                              <div className="space-y-2">
-                                <div className="text-xs font-medium text-muted-foreground">Sample Output Data:</div>
-                                <ScrollArea className="h-32 border rounded-lg">
-                                  <div className="bg-muted/50 p-3 text-xs font-mono">
-                                    <pre className="whitespace-pre-wrap">{JSON.stringify(testResult.output, null, 2)}</pre>
-                                  </div>
-                                </ScrollArea>
-                              </div>
-                            )}
-                            
-                            {nodeInfo?.outputSchema && (
-                              <div className="space-y-2">
-                                <div className="text-xs font-medium text-muted-foreground">Available Output Fields:</div>
-                                <div className="space-y-1 max-h-32 overflow-y-auto">
-                                  {nodeInfo.outputSchema.map((field) => (
-                                    <div key={field.name} className="text-xs border rounded p-2 bg-background">
-                                      <div className="font-medium">{field.label} ({field.type})</div>
-                                      <div className="text-muted-foreground">{field.description}</div>
-                                      {field.example && (
-                                        <div className="text-blue-600 font-mono mt-1">
-                                          Example: {typeof field.example === 'object' ? JSON.stringify(field.example) : field.example}
-                                        </div>
-                                      )}
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <div className="text-sm text-red-600 bg-red-50 p-3 rounded-lg border border-red-200">
-                            <div className="flex items-start gap-2">
-                              <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                              <span>{testResult.message}</span>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
                 </div>
               </ScrollArea>
 
@@ -1583,7 +2147,6 @@ export default function EnhancedConfigurationModal({
             {/* Right Data Flow Panel - Output */}
             {showDataFlowPanels && (
               <div className="w-80 bg-muted/30 border-l border-border">
-                {/* Show live test results if available, otherwise show stored data */}
                 {segmentTestResult ? (
                   renderDataFlowPanel(
                     "Node Output", 
@@ -1605,14 +2168,19 @@ export default function EnhancedConfigurationModal({
           
           {/* Loading Overlay */}
           {loadingDynamic && (
-            <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50">
+            <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex flex-col items-center justify-center z-50">
               <ConfigurationLoadingScreen 
                 integrationName={nodeInfo.title || nodeInfo.type || integrationName}
               />
+              {retryCount > 0 && (
+                <div className="mt-4 text-sm text-muted-foreground animate-pulse">
+                  Retrying... (attempt {retryCount + 1})
+                </div>
+              )}
             </div>
           )}
         </DialogContent>
       </Dialog>
     </TooltipProvider>
   )
-} 
+}
