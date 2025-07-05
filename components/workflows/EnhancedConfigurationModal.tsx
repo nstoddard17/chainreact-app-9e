@@ -307,8 +307,18 @@ export default function EnhancedConfigurationModal({
                 fieldDef
               })
               
+              // Determine the appropriate data type for priority linked fields
+              let dataType = "airtable_records"
+              if (fieldDef.name.toLowerCase().includes('project')) {
+                dataType = "airtable_project_records"
+              } else if (fieldDef.name.toLowerCase().includes('task')) {
+                dataType = "airtable_task_records"
+              } else if (fieldDef.name.toLowerCase().includes('feedback')) {
+                dataType = "airtable_feedback_records"
+              }
+              
               const linkedTableData = await loadIntegrationData(
-                "airtable_records",
+                dataType,
                 integration.id,
                 { baseId: config.baseId, tableName: fieldDef.linkedTableName }
               )
@@ -320,10 +330,13 @@ export default function EnhancedConfigurationModal({
               })
               
               if (linkedTableData) {
+                // The API already returns data with value, label, description, and fields properties
+                // So we don't need to remap it, just use it directly
                 const mappedRecords = linkedTableData.map((record: any) => ({
-                  value: record.id,
-                  label: `${record.fields?.Name || record.fields?.Title || record.fields?.name || 'Untitled'} (ID: ${record.id})`,
-                  description: record.fields?.Description || record.fields?.Notes || ''
+                  value: record.value || record.id,
+                  label: record.label || record.name || 'Untitled',
+                  description: record.description || '',
+                  fields: record.fields || {}
                 }))
                 
                 console.log(`📝 Mapped records for ${fieldDef.name}:`, {
@@ -332,10 +345,23 @@ export default function EnhancedConfigurationModal({
                   allMapped: mappedRecords
                 })
                 
-                setDynamicOptions(prev => ({
-                  ...prev,
-                  [`${fieldDef.name}_records`]: mappedRecords
-                }))
+                setDynamicOptions(prev => {
+                  const newOptions = {
+                    ...prev,
+                    [`${fieldDef.name}_records`]: mappedRecords
+                  }
+                  
+                  // Also store with generic priority keys for consistency
+                  if (fieldDef.name.toLowerCase().includes('project')) {
+                    newOptions["project_records"] = mappedRecords
+                  } else if (fieldDef.name.toLowerCase().includes('task')) {
+                    newOptions["task_records"] = mappedRecords
+                  } else if (fieldDef.name.toLowerCase().includes('feedback')) {
+                    newOptions["feedback_records"] = mappedRecords
+                  }
+                  
+                  return newOptions
+                })
               } else {
                 console.warn(`⚠️ No linked records found for ${fieldDef.name}`)
               }
@@ -518,6 +544,7 @@ export default function EnhancedConfigurationModal({
     const newOptions: Record<string, any[]> = {}
     let hasData = false
 
+    // Fetch standard dynamic fields from configSchema
     for (const field of nodeInfo.configSchema || []) {
       if (field.dynamic && !field.dependsOn) { // Skip dependent fields during initial load
         try {
@@ -626,6 +653,48 @@ export default function EnhancedConfigurationModal({
                 description: record.description,
                 fields: record.fields || {}
               }))
+            } else if (field.dynamic === "airtable_project_records") {
+              console.log(`📊 Processing Airtable project records:`, {
+                recordCount: data.length,
+                records: data.map((r: any) => ({
+                  value: r.value,
+                  label: r.label
+                }))
+              })
+              newOptions[field.name] = data.map((record: any) => ({
+                value: record.value,
+                label: record.label,
+                description: record.description,
+                fields: record.fields || {}
+              }))
+            } else if (field.dynamic === "airtable_task_records") {
+              console.log(`📋 Processing Airtable task records:`, {
+                recordCount: data.length,
+                records: data.map((r: any) => ({
+                  value: r.value,
+                  label: r.label
+                }))
+              })
+              newOptions[field.name] = data.map((record: any) => ({
+                value: record.value,
+                label: record.label,
+                description: record.description,
+                fields: record.fields || {}
+              }))
+            } else if (field.dynamic === "airtable_feedback_records") {
+              console.log(`💬 Processing Airtable feedback records:`, {
+                recordCount: data.length,
+                records: data.map((r: any) => ({
+                  value: r.value,
+                  label: r.label
+                }))
+              })
+              newOptions[field.name] = data.map((record: any) => ({
+                value: record.value,
+                label: record.label,
+                description: record.description,
+                fields: record.fields || {}
+              }))
             } else if (field.dynamic === "trello-boards") {
               newOptions[field.name] = data.map((board: any) => ({
                 value: board.id,
@@ -661,6 +730,8 @@ export default function EnhancedConfigurationModal({
         }
       }
     }
+
+
 
     // Only update state if the request wasn't aborted
     if (!controller.signal.aborted) {
@@ -734,6 +805,103 @@ export default function EnhancedConfigurationModal({
           }
         }
       }
+
+      // Fetch project, task, and feedback records when base is selected for Airtable actions
+      if (nodeInfo?.type === "airtable_action_create_record" && config.baseId) {
+        const previousBaseId = previousDependentValues.current["baseId"]
+        if (config.baseId !== previousBaseId) {
+          console.log(`🔄 Base changed to ${config.baseId}, fetching project/task/feedback records`)
+          previousDependentValues.current["baseId"] = config.baseId
+          
+          const integration = getIntegrationByProvider(nodeInfo.providerId || "")
+          if (integration) {
+            try {
+              // Fetch project records
+              const projectData = await loadIntegrationData("airtable_project_records", integration.id, { baseId: config.baseId })
+              if (projectData && projectData.length > 0) {
+                console.log(`📊 Processing Airtable project records:`, {
+                  recordCount: projectData.length,
+                  records: projectData.map((r: any) => ({
+                    value: r.value,
+                    label: r.label
+                  }))
+                })
+                const mappedProjectRecords = projectData.map((record: any) => ({
+                  value: record.value,
+                  label: record.label,
+                  description: record.description,
+                  fields: record.fields || {}
+                }))
+                setDynamicOptions(prev => ({
+                  ...prev,
+                  "project_records": mappedProjectRecords,
+                  // Also store with common field name variations
+                  "Project_records": mappedProjectRecords,
+                  "Projects_records": mappedProjectRecords,
+                  "Associated Project_records": mappedProjectRecords,
+                  "Related Project_records": mappedProjectRecords
+                }))
+              }
+
+              // Fetch task records
+              const taskData = await loadIntegrationData("airtable_task_records", integration.id, { baseId: config.baseId })
+              if (taskData && taskData.length > 0) {
+                console.log(`📋 Processing Airtable task records:`, {
+                  recordCount: taskData.length,
+                  records: taskData.map((r: any) => ({
+                    value: r.value,
+                    label: r.label
+                  }))
+                })
+                const mappedTaskRecords = taskData.map((record: any) => ({
+                  value: record.value,
+                  label: record.label,
+                  description: record.description,
+                  fields: record.fields || {}
+                }))
+                setDynamicOptions(prev => ({
+                  ...prev,
+                  "task_records": mappedTaskRecords,
+                  // Also store with common field name variations
+                  "Task_records": mappedTaskRecords,
+                  "Tasks_records": mappedTaskRecords,
+                  "Associated Task_records": mappedTaskRecords,
+                  "Related Task_records": mappedTaskRecords
+                }))
+              }
+
+              // Fetch feedback records
+              const feedbackData = await loadIntegrationData("airtable_feedback_records", integration.id, { baseId: config.baseId })
+              if (feedbackData && feedbackData.length > 0) {
+                console.log(`💬 Processing Airtable feedback records:`, {
+                  recordCount: feedbackData.length,
+                  records: feedbackData.map((r: any) => ({
+                    value: r.value,
+                    label: r.label
+                  }))
+                })
+                const mappedFeedbackRecords = feedbackData.map((record: any) => ({
+                  value: record.value,
+                  label: record.label,
+                  description: record.description,
+                  fields: record.fields || {}
+                }))
+                setDynamicOptions(prev => ({
+                  ...prev,
+                  "feedback_records": mappedFeedbackRecords,
+                  // Also store with common field name variations
+                  "Feedback_records": mappedFeedbackRecords,
+                  "Feedbacks_records": mappedFeedbackRecords,
+                  "Associated Feedback_records": mappedFeedbackRecords,
+                  "Related Feedback_records": mappedFeedbackRecords
+                }))
+              }
+            } catch (error) {
+              console.error(`❌ Error fetching project/task/feedback records:`, error)
+            }
+          }
+        }
+      }
     }
 
     fetchDependentFields()
@@ -756,8 +924,51 @@ export default function EnhancedConfigurationModal({
         baseId: config.baseId
       })
       fetchTableFields(config.tableName)
+      
+      // Also ensure project/task/feedback records are loaded for this base
+      const integration = getIntegrationByProvider(nodeInfo.providerId || "")
+      if (integration) {
+        // Load project, task, and feedback records if not already loaded
+        const loadPriorityRecords = async () => {
+          try {
+            if (!dynamicOptions["project_records"] || dynamicOptions["project_records"].length === 0) {
+              const projectData = await loadIntegrationData("airtable_project_records", integration.id, { baseId: config.baseId })
+              if (projectData && projectData.length > 0) {
+                setDynamicOptions(prev => ({
+                  ...prev,
+                  "project_records": projectData
+                }))
+              }
+            }
+            
+            if (!dynamicOptions["task_records"] || dynamicOptions["task_records"].length === 0) {
+              const taskData = await loadIntegrationData("airtable_task_records", integration.id, { baseId: config.baseId })
+              if (taskData && taskData.length > 0) {
+                setDynamicOptions(prev => ({
+                  ...prev,
+                  "task_records": taskData
+                }))
+              }
+            }
+            
+            if (!dynamicOptions["feedback_records"] || dynamicOptions["feedback_records"].length === 0) {
+              const feedbackData = await loadIntegrationData("airtable_feedback_records", integration.id, { baseId: config.baseId })
+              if (feedbackData && feedbackData.length > 0) {
+                setDynamicOptions(prev => ({
+                  ...prev,
+                  "feedback_records": feedbackData
+                }))
+              }
+            }
+          } catch (error) {
+            console.error("Error loading priority records:", error)
+          }
+        }
+        
+        loadPriorityRecords()
+      }
     }
-  }, [isOpen, nodeInfo, config.tableName, config.baseId, fetchTableFields])
+  }, [isOpen, nodeInfo, config.tableName, config.baseId, fetchTableFields, getIntegrationByProvider, loadIntegrationData, dynamicOptions])
 
   // Retry mechanism for stuck loading states
   useEffect(() => {
@@ -1202,7 +1413,17 @@ export default function EnhancedConfigurationModal({
                           setConfig(prev => ({ ...prev, fields: newFields }))
                         }}
                         placeholder={`Search and select ${fieldDef.name.toLowerCase()}`}
-                        options={dynamicOptions[`${fieldDef.name}_records`] || []}
+                        options={
+                          // Try multiple possible keys for the dropdown options
+                          dynamicOptions[`${fieldDef.name}_records`] || 
+                          dynamicOptions[`${fieldDef.name.toLowerCase()}_records`] ||
+                          dynamicOptions[`${fieldDef.name.replace(/\s+/g, '_').toLowerCase()}_records`] ||
+                          // Fallback to generic keys for priority fields
+                          (fieldDef.name.toLowerCase().includes('project') ? dynamicOptions["project_records"] : []) ||
+                          (fieldDef.name.toLowerCase().includes('task') ? dynamicOptions["task_records"] : []) ||
+                          (fieldDef.name.toLowerCase().includes('feedback') ? dynamicOptions["feedback_records"] : []) ||
+                          []
+                        }
                         searchPlaceholder="Search records..."
                         emptyPlaceholder="No records found."
                       />
@@ -1230,7 +1451,13 @@ export default function EnhancedConfigurationModal({
                           setConfig(prev => ({ ...prev, fields: newFields }))
                         }}
                         placeholder={`Search and select ${fieldDef.name.toLowerCase()}`}
-                        options={dynamicOptions[`${fieldDef.name}_records`] || []}
+                        options={
+                          // Try multiple possible keys for the dropdown options
+                          dynamicOptions[`${fieldDef.name}_records`] || 
+                          dynamicOptions[`${fieldDef.name.toLowerCase()}_records`] ||
+                          dynamicOptions[`${fieldDef.name.replace(/\s+/g, '_').toLowerCase()}_records`] ||
+                          []
+                        }
                         searchPlaceholder="Search records..."
                         emptyPlaceholder="No records found."
                       />
