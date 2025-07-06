@@ -3,6 +3,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import crypto from "crypto"
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
+import { emailService } from "@/lib/services/emailService"
 
 const inviteSchema = z.object({
   email: z.string().email(),
@@ -61,7 +62,33 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       return NextResponse.json({ error: "Failed to create invitation" }, { status: 500 })
     }
 
-    // TODO: Send invitation email
+    // Get organization name and inviter email
+    const { data: organization } = await supabase
+      .from("organizations")
+      .select("name")
+      .eq("id", params.id)
+      .single()
+
+    const { data: inviter } = await supabase
+      .from("auth.users")
+      .select("email")
+      .eq("id", session.user.id)
+      .single()
+
+    // Send invitation email
+    const emailSent = await emailService.sendInvitationEmail(
+      email,
+      organization?.name || "Organization",
+      inviter?.email || session.user.email || "Unknown",
+      token,
+      role
+    )
+
+    if (!emailSent) {
+      console.warn(`Failed to send invitation email to ${email}`)
+      // Don't fail the request, but log the warning
+    }
+
     console.log(`Invitation created for ${email} with token: ${token}`)
 
     return NextResponse.json(invitation)

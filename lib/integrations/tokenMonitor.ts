@@ -140,15 +140,167 @@ export async function getIntegrationsNeedingAttention(): Promise<{
   }
 }
 
-async function getTokenHealthForProvider(provider: string, accessToken: string) {
-  // ...
+async function getTokenHealthForProvider(provider: string, accessToken: string): Promise<{
+  status: "healthy" | "expired" | "invalid" | "error"
+  error?: string
+  expiresIn?: number
+}> {
+  try {
+    switch (provider) {
+      case "google":
+      case "gmail":
+      case "google-calendar":
+      case "google-drive":
+      case "google-sheets":
+      case "google-docs":
+        return await checkGoogleTokenHealth(accessToken)
+      
+      case "discord":
+        return await checkDiscordTokenHealth(accessToken)
+      
+      case "slack":
+        return await checkSlackTokenHealth(accessToken)
+      
+      case "github":
+        return await checkGitHubTokenHealth(accessToken)
+      
+      case "notion":
+        return await checkNotionTokenHealth(accessToken)
+      
+      default:
+        return { status: "healthy" } // Assume healthy for unknown providers
+    }
+  } catch (error) {
+    console.error(`Error checking token health for ${provider}:`, error)
+    return { status: "error", error: error instanceof Error ? error.message : "Unknown error" }
+  }
+}
+
+async function checkGoogleTokenHealth(accessToken: string) {
+  try {
+    const response = await fetch("https://www.googleapis.com/oauth2/v1/tokeninfo", {
+      method: "GET",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        return { status: "expired" as const }
+      }
+      return { status: "invalid" as const }
+    }
+
+    const data = await response.json()
+    const expiresIn = data.expires_in || 0
+
+    return {
+      status: "healthy" as const,
+      expiresIn,
+    }
+  } catch (error) {
+    return { status: "error" as const, error: error instanceof Error ? error.message : "Unknown error" }
+  }
+}
+
+async function checkDiscordTokenHealth(accessToken: string) {
+  try {
+    const response = await fetch("https://discord.com/api/v10/users/@me", {
+      method: "GET",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        return { status: "expired" as const }
+      }
+      return { status: "invalid" as const }
+    }
+
+    return { status: "healthy" as const }
+  } catch (error) {
+    return { status: "error" as const, error: error instanceof Error ? error.message : "Unknown error" }
+  }
+}
+
+async function checkSlackTokenHealth(accessToken: string) {
+  try {
+    const response = await fetch("https://slack.com/api/auth.test", {
+      method: "POST",
+      headers: { 
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}` 
+      },
+    })
+
+    if (!response.ok) {
+      return { status: "invalid" as const }
+    }
+
+    const data = await response.json()
+    if (!data.ok) {
+      if (data.error === "token_expired" || data.error === "invalid_auth") {
+        return { status: "expired" as const }
+      }
+      return { status: "invalid" as const }
+    }
+
+    return { status: "healthy" as const }
+  } catch (error) {
+    return { status: "error" as const, error: error instanceof Error ? error.message : "Unknown error" }
+  }
+}
+
+async function checkGitHubTokenHealth(accessToken: string) {
+  try {
+    const response = await fetch("https://api.github.com/user", {
+      method: "GET",
+      headers: { 
+        Authorization: `Bearer ${accessToken}`,
+        "User-Agent": "ChainReact-App"
+      },
+    })
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        return { status: "expired" as const }
+      }
+      return { status: "invalid" as const }
+    }
+
+    return { status: "healthy" as const }
+  } catch (error) {
+    return { status: "error" as const, error: error instanceof Error ? error.message : "Unknown error" }
+  }
+}
+
+async function checkNotionTokenHealth(accessToken: string) {
+  try {
+    const response = await fetch("https://api.notion.com/v1/users/me", {
+      method: "GET",
+      headers: { 
+        Authorization: `Bearer ${accessToken}`,
+        "Notion-Version": "2022-06-28"
+      },
+    })
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        return { status: "expired" as const }
+      }
+      return { status: "invalid" as const }
+    }
+
+    return { status: "healthy" as const }
+  } catch (error) {
+    return { status: "error" as const, error: error instanceof Error ? error.message : "Unknown error" }
+  }
 }
 
 export async function checkTokenHealth(integrationIds?: string[]) {
   console.log("Starting token health check...")
   const supabase = createAdminClient()
 
-  let query = supabase.from("integrations").select("id, provider, user_id, refresh_token, access_token")
+  let query = supabase.from("integrations").select("id, provider, user_id, refresh_token, access_token, status, consecutive_failures")
 
   if (integrationIds && integrationIds.length > 0) {
     query = query.in("id", integrationIds)
@@ -162,14 +314,57 @@ export async function checkTokenHealth(integrationIds?: string[]) {
   }
 
   const results = await Promise.all(
-    integrations.map(async (integration) => {
-      // TODO: Implement token health check logic here
+    (integrations || []).map(async (integration) => {
+      if (!integration.access_token || integration.status !== "connected") {
+        return {
+          id: integration.id,
+          provider: integration.provider,
+          userId: integration.user_id,
+          status: "invalid" as const,
+          error: "No access token or not connected",
+        }
+      }
+
+      const health = await getTokenHealthForProvider(integration.provider, integration.access_token)
+      
+      // Update integration status in database if unhealthy
+      if (health.status !== "healthy") {
+        await supabase
+          .from("integrations")
+          .update({
+            status: health.status === "expired" ? "expired" : "failed",
+            last_failure_at: new Date().toISOString(),
+            consecutive_failures: (integration.consecutive_failures || 0) + 1,
+          })
+          .eq("id", integration.id)
+      } else {
+        // Reset failure count if healthy
+        if (integration.consecutive_failures > 0) {
+          await supabase
+            .from("integrations")
+            .update({
+              consecutive_failures: 0,
+              last_failure_at: null,
+            })
+            .eq("id", integration.id)
+        }
+      }
+
+      return {
+        id: integration.id,
+        provider: integration.provider,
+        userId: integration.user_id,
+        status: health.status,
+        error: health.error,
+        expiresIn: health.expiresIn,
+      }
     }),
   )
 
-  // const healthy = results.filter((r) => r.status === "healthy").length
-  // const unhealthy = results.length - healthy
+  const healthy = results.filter((r) => r.status === "healthy").length
+  const unhealthy = results.length - healthy
 
-  // return { healthy, unhealthy, results }
-  return { healthy: 0, unhealthy: 0, results: [] }
+  console.log(`Token health check complete: ${healthy} healthy, ${unhealthy} unhealthy`)
+
+  return { healthy, unhealthy, results }
 }
