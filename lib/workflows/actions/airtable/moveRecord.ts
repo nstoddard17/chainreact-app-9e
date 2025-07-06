@@ -12,7 +12,7 @@ export async function moveAirtableRecord(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    console.log("Starting Airtable move record process", { userId, config })
+
     
     const accessToken = await getDecryptedAccessToken(userId, "airtable")
 

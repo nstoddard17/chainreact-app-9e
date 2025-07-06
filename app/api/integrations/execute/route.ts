@@ -246,16 +246,28 @@ async function executeGoogleSheetsAction(integration: any, action: string, param
 async function executeDiscordAction(integration: any, action: string, params: any) {
   switch (action) {
     case "send_message":
+      // Use bot token for sending messages
+      const botToken = process.env.DISCORD_BOT_TOKEN
+      if (!botToken) {
+        throw new Error("Discord bot token not configured")
+      }
+
       const response = await fetch(`https://discord.com/api/v10/channels/${params.channel_id}/messages`, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${integration.access_token}`,
+          Authorization: `Bot ${botToken}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
           content: params.message,
         }),
       })
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(`Discord API error: ${response.status} - ${errorData.message || response.statusText}`)
+      }
+      
       return await response.json()
     default:
       throw new Error(`Unsupported Discord action: ${action}`)

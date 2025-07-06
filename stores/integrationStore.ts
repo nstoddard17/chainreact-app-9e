@@ -707,6 +707,14 @@ export const useIntegrationStore = create<IntegrationStore>()(
             url = "/api/integrations/fetch-user-data"
             dataType = "blackbaud_constituents"
             break
+          case "discord_guilds":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "discord_guilds"
+            break
+          case "discord_channels":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "discord_channels"
+            break
           default:
             throw new Error(`Loading data for ${providerId} is not supported.`)
         }

@@ -168,7 +168,7 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     description: "Voice, video and text communication for communities",
     category: "communication",
     capabilities: ["Send Messages", "Voice Chat", "Server Management", "Bots"],
-    scopes: ["identify", "guilds", "bot"],
+    scopes: ["identify", "guilds", "email", "guilds.join", "bot"],
     isAvailable: false,
     requiresClientId: "NEXT_PUBLIC_DISCORD_CLIENT_ID",
     requiresClientSecret: "DISCORD_CLIENT_SECRET",

@@ -26,7 +26,7 @@ import { useWorkflowStore, type Workflow, type WorkflowNode, type WorkflowConnec
 import { useCollaborationStore } from "@/stores/collaborationStore"
 import { useIntegrationStore } from "@/stores/integrationStore"
 import { useWorkflowTestStore } from "@/stores/workflowTestStore"
-import EnhancedConfigurationModal from "./EnhancedConfigurationModal"
+import ConfigurationModal from "./ConfigurationModal"
 import CustomNode from "./CustomNode"
 import { AddActionNode } from "./AddActionNode"
 import { CollaboratorCursors } from "./CollaboratorCursors"
@@ -1629,7 +1629,7 @@ function WorkflowBuilderContent() {
       </Dialog>
 
       {configuringNode && (
-        <EnhancedConfigurationModal
+        <ConfigurationModal
           isOpen={!!configuringNode}
           onClose={() => {
             setConfiguringNode(null);
