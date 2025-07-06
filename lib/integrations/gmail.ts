@@ -21,7 +21,7 @@ export class GmailService {
     
     const { data: integration, error } = await supabase
       .from('integrations')
-      .select('refresh_token')
+      .select('refresh_token, consecutive_failures')
       .eq('user_id', userId)
       .eq('id', integrationId)
       .single();
@@ -51,7 +51,24 @@ export class GmailService {
       return null;
     } catch (refreshError) {
       console.error('Failed to refresh access token:', refreshError);
-      // TODO: Mark integration as needing re-authorization
+      
+      // Mark integration as needing re-authorization
+      try {
+        await supabase
+          .from('integrations')
+          .update({
+            status: 'needs_reauthorization',
+            last_failure_at: new Date().toISOString(),
+            consecutive_failures: (integration.consecutive_failures || 0) + 1,
+            disconnect_reason: 'Token refresh failed'
+          })
+          .eq('id', integrationId);
+        
+        console.log(`Marked Gmail integration ${integrationId} for reauthorization due to refresh failure`);
+      } catch (updateError) {
+        console.error('Failed to update integration status:', updateError);
+      }
+      
       return null;
     }
   }

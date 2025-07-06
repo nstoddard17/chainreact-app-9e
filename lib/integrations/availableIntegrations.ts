@@ -583,6 +583,22 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     docsUrl: "",
     authType: "none" as any,
   },
+
+  // AI & Automation
+  ai: {
+    id: "ai",
+    name: "AI Agent",
+    description: "Intelligent automation agent that can use other integrations as tools",
+    category: "ai",
+    capabilities: ["Goal-Oriented Automation", "Tool Calling", "Context Awareness", "Memory Management"],
+    scopes: [],
+    isAvailable: true, // Always available
+    requiresClientId: "",
+    requiresClientSecret: "",
+    color: "#8B5CF6",
+    docsUrl: "",
+    authType: "none" as any,
+  },
 }
 
 /**

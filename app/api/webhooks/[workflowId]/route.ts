@@ -2,6 +2,87 @@ import { NextResponse } from 'next/server';
 import { AdvancedExecutionEngine } from '@/lib/execution/advancedExecutionEngine';
 import { createClient } from '@supabase/supabase-js';
 
+interface ValidationResult {
+  isValid: boolean;
+  errors: string[];
+}
+
+function validateWebhookPayload(payload: any, schema: any): ValidationResult {
+  const errors: string[] = [];
+  
+  if (!schema) {
+    // No schema defined, accept all payloads
+    return { isValid: true, errors: [] };
+  }
+  
+  // Validate required fields
+  if (schema.required) {
+    for (const field of schema.required) {
+      if (!(field in payload)) {
+        errors.push(`Missing required field: ${field}`);
+      }
+    }
+  }
+  
+  // Validate field types
+  if (schema.properties) {
+    for (const [fieldName, fieldSchema] of Object.entries(schema.properties)) {
+      if (payload[fieldName] !== undefined) {
+        const fieldValue = payload[fieldName];
+        const expectedType = (fieldSchema as any).type;
+        
+        switch (expectedType) {
+          case 'string':
+            if (typeof fieldValue !== 'string') {
+              errors.push(`Field '${fieldName}' must be a string`);
+            }
+            break;
+          case 'number':
+            if (typeof fieldValue !== 'number') {
+              errors.push(`Field '${fieldName}' must be a number`);
+            }
+            break;
+          case 'boolean':
+            if (typeof fieldValue !== 'boolean') {
+              errors.push(`Field '${fieldName}' must be a boolean`);
+            }
+            break;
+          case 'object':
+            if (typeof fieldValue !== 'object' || fieldValue === null || Array.isArray(fieldValue)) {
+              errors.push(`Field '${fieldName}' must be an object`);
+            }
+            break;
+          case 'array':
+            if (!Array.isArray(fieldValue)) {
+              errors.push(`Field '${fieldName}' must be an array`);
+            }
+            break;
+        }
+        
+        // Validate string patterns (regex)
+        if (expectedType === 'string' && (fieldSchema as any).pattern) {
+          const pattern = new RegExp((fieldSchema as any).pattern);
+          if (!pattern.test(fieldValue)) {
+            errors.push(`Field '${fieldName}' does not match required pattern`);
+          }
+        }
+        
+        // Validate string enums
+        if (expectedType === 'string' && (fieldSchema as any).enum) {
+          if (!(fieldSchema as any).enum.includes(fieldValue)) {
+            errors.push(`Field '${fieldName}' must be one of: ${(fieldSchema as any).enum.join(', ')}`);
+          }
+        }
+      }
+    }
+  }
+  
+  return {
+    isValid: errors.length === 0,
+    errors
+  };
+}
+
 export async function POST(
   request: Request,
   { params }: { params: { workflowId: string } }
@@ -28,7 +109,15 @@ export async function POST(
 
     const payload = await request.json();
 
-    // TODO: Add payload validation against the `payloadSchema` defined in the trigger node.
+    // Validate payload against the trigger node's payload schema
+    const validationResult = validateWebhookPayload(payload, triggerNode.data.payloadSchema);
+    if (!validationResult.isValid) {
+      console.error(`Webhook payload validation failed for workflow ${workflowId}:`, validationResult.errors);
+      return NextResponse.json({ 
+        error: 'Invalid payload', 
+        details: validationResult.errors 
+      }, { status: 400 });
+    }
 
     const executionEngine = new AdvancedExecutionEngine();
     const executionSession = await executionEngine.createExecutionSession(

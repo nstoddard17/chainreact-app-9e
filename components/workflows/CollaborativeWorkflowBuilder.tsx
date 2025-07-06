@@ -27,6 +27,7 @@ import { useCollaborationStore } from "@/stores/collaborationStore"
 import { useIntegrationStore } from "@/stores/integrationStore"
 import { useWorkflowTestStore } from "@/stores/workflowTestStore"
 import ConfigurationModal from "./ConfigurationModal"
+import AIAgentConfigModal from "./AIAgentConfigModal"
 import CustomNode from "./CustomNode"
 import { AddActionNode } from "./AddActionNode"
 import { CollaboratorCursors } from "./CollaboratorCursors"
@@ -1629,21 +1630,40 @@ function WorkflowBuilderContent() {
       </Dialog>
 
       {configuringNode && (
-        <ConfigurationModal
-          isOpen={!!configuringNode}
-          onClose={() => {
-            setConfiguringNode(null);
-            setPendingNode(null);
-            // Reopen the action selection modal when canceling configuration
-            setShowActionDialog(true);
-          }}
-          onSave={(config) => handleSaveConfiguration(configuringNode, config)}
-          nodeInfo={configuringNode.nodeComponent}
-          integrationName={configuringNode.integration.name}
-          initialData={configuringNode.config}
-          workflowData={{ nodes, edges }}
-          currentNodeId={configuringNode.id}
-        />
+        <>
+          {/* Use AI Agent config modal for AI Agent nodes */}
+          {configuringNode.nodeComponent.type === "ai_agent" ? (
+            <AIAgentConfigModal
+              isOpen={!!configuringNode}
+              onClose={() => {
+                setConfiguringNode(null);
+                setPendingNode(null);
+                // Reopen the action selection modal when canceling configuration
+                setShowActionDialog(true);
+              }}
+              onSave={(config) => handleSaveConfiguration(configuringNode, config)}
+              initialData={configuringNode.config}
+              workflowData={{ nodes, edges }}
+              currentNodeId={configuringNode.id}
+            />
+          ) : (
+            <ConfigurationModal
+              isOpen={!!configuringNode}
+              onClose={() => {
+                setConfiguringNode(null);
+                setPendingNode(null);
+                // Reopen the action selection modal when canceling configuration
+                setShowActionDialog(true);
+              }}
+              onSave={(config) => handleSaveConfiguration(configuringNode, config)}
+              nodeInfo={configuringNode.nodeComponent}
+              integrationName={configuringNode.integration.name}
+              initialData={configuringNode.config}
+              workflowData={{ nodes, edges }}
+              currentNodeId={configuringNode.id}
+            />
+          )}
+        </>
       )}
 
       {/* Delete Confirmation Dialog */}

@@ -50,6 +50,18 @@ import { ACTION_METADATA as GMAIL_SEND_EMAIL_METADATA } from "@/integrations/gma
 import { ACTION_METADATA as GMAIL_ADD_LABEL_METADATA } from "@/integrations/gmail/addLabel"
 import { ACTION_METADATA as GMAIL_SEARCH_EMAILS_METADATA } from "@/integrations/gmail/searchEmails"
 
+// Import new integration action metadata
+import { ACTION_METADATA as SLACK_SEND_MESSAGE_METADATA } from "@/integrations/slack/sendMessage"
+import { ACTION_METADATA as SLACK_CREATE_CHANNEL_METADATA } from "@/integrations/slack/createChannel"
+import { ACTION_METADATA as NOTION_CREATE_PAGE_METADATA } from "@/integrations/notion/createPage"
+import { ACTION_METADATA as HUBSPOT_CREATE_CONTACT_METADATA } from "@/integrations/hubspot/createContact"
+import { ACTION_METADATA as GITHUB_CREATE_ISSUE_METADATA } from "@/integrations/github/createIssue"
+import { ACTION_METADATA as GOOGLE_SHEETS_CREATE_ROW_METADATA } from "@/integrations/google-sheets/createRow"
+import { ACTION_METADATA as AIRTABLE_CREATE_RECORD_METADATA } from "@/integrations/airtable/createRecord"
+
+// Import AI Agent metadata
+import { AI_AGENT_METADATA } from "@/lib/workflows/aiAgent"
+
 export interface ConfigField {
   name: string
   label: string
@@ -329,6 +341,117 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     configSchema: [
       { name: "duration", label: "Duration (seconds)", type: "number", placeholder: "e.g., 60" },
     ],
+  },
+  {
+    type: "ai_agent",
+    title: "AI Agent",
+    description: "An AI agent that can use other integrations as tools to accomplish goals",
+    icon: Zap,
+    category: "AI & Automation",
+    providerId: "ai",
+    isTrigger: false,
+    testable: true,
+    configSchema: [
+      { 
+        name: "goal", 
+        label: "Goal", 
+        type: "textarea", 
+        required: true,
+        placeholder: "Describe what you want the AI agent to accomplish..."
+      },
+      { 
+        name: "toolsAllowed", 
+        label: "Tools Allowed", 
+        type: "select", 
+        multiple: true,
+        options: [
+          { value: "gmail", label: "Gmail" },
+          { value: "slack", label: "Slack" },
+          { value: "notion", label: "Notion" },
+          { value: "hubspot", label: "HubSpot" },
+          { value: "github", label: "GitHub" },
+          { value: "google-drive", label: "Google Drive" },
+          { value: "google-sheets", label: "Google Sheets" },
+          { value: "google-calendar", label: "Google Calendar" },
+          { value: "airtable", label: "Airtable" },
+          { value: "stripe", label: "Stripe" },
+          { value: "discord", label: "Discord" },
+          { value: "teams", label: "Microsoft Teams" },
+          { value: "twitter", label: "Twitter" },
+          { value: "trello", label: "Trello" },
+          { value: "dropbox", label: "Dropbox" },
+          { value: "youtube", label: "YouTube" },
+          { value: "shopify", label: "Shopify" },
+          { value: "facebook", label: "Facebook" },
+          { value: "instagram", label: "Instagram" },
+          { value: "linkedin", label: "LinkedIn" },
+          { value: "mailchimp", label: "Mailchimp" },
+          { value: "onedrive", label: "OneDrive" },
+          { value: "box", label: "Box" },
+          { value: "paypal", label: "PayPal" },
+          { value: "gitlab", label: "GitLab" },
+          { value: "microsoft-outlook", label: "Microsoft Outlook" },
+          { value: "microsoft-onenote", label: "Microsoft OneNote" }
+        ],
+        placeholder: "Select which integrations the AI can use..."
+      },
+      { 
+        name: "memoryScope", 
+        label: "Memory Scope", 
+        type: "select",
+        defaultValue: "workflow-wide",
+        options: [
+          { value: "short-term", label: "Short-term (current session)" },
+          { value: "workflow-wide", label: "Workflow-wide (all connected nodes)" },
+          { value: "external", label: "External (fetch from integrations)" }
+        ]
+      },
+      { 
+        name: "systemPrompt", 
+        label: "System Prompt (Optional)", 
+        type: "textarea",
+        placeholder: "Override the default AI system prompt..."
+      },
+      { 
+        name: "maxSteps", 
+        label: "Maximum Steps", 
+        type: "number",
+        defaultValue: 5,
+        placeholder: "Maximum number of steps the AI can take"
+      }
+    ],
+    outputSchema: [
+      {
+        name: "goal",
+        label: "Goal",
+        type: "string",
+        description: "The goal that was accomplished"
+      },
+      {
+        name: "stepsCompleted",
+        label: "Steps Completed",
+        type: "number",
+        description: "Number of steps taken to accomplish the goal"
+      },
+      {
+        name: "finalResult",
+        label: "Final Result",
+        type: "object",
+        description: "The final result from the last step"
+      },
+      {
+        name: "steps",
+        label: "Steps",
+        type: "array",
+        description: "Detailed breakdown of all steps taken"
+      },
+      {
+        name: "context",
+        label: "Context",
+        type: "object",
+        description: "The final context including all gathered data"
+      }
+    ]
   },
   {
     type: "wait_for_time",
@@ -1145,6 +1268,78 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
       }
     ],
   },
+  {
+    type: "google-sheets_action_create_row",
+    title: "Create Row (Google Sheets)",
+    description: "Add a new row to a Google Sheets spreadsheet",
+    icon: FileSpreadsheet,
+    providerId: "google-sheets",
+    requiredScopes: ["https://www.googleapis.com/auth/spreadsheets"],
+    category: "Productivity",
+    isTrigger: false,
+    configSchema: [
+      { 
+        name: "spreadsheetId", 
+        label: "Spreadsheet", 
+        type: "select", 
+        dynamic: "google-sheets_spreadsheets",
+        required: true,
+        placeholder: "Select a spreadsheet"
+      },
+      { 
+        name: "sheetName", 
+        label: "Sheet Name", 
+        type: "select", 
+        dynamic: "google-sheets_sheets",
+        required: true,
+        placeholder: "Select a sheet",
+        dependsOn: "spreadsheetId"
+      },
+      { 
+        name: "values", 
+        label: "Row Values", 
+        type: "textarea", 
+        required: true,
+        placeholder: '["Value 1", "Value 2", "Value 3"] - Array of values for each column'
+      },
+      { 
+        name: "insertDataOption", 
+        label: "Insert Option", 
+        type: "select",
+        defaultValue: "INSERT_ROWS",
+        options: [
+          { value: "INSERT_ROWS", label: "Insert Rows" },
+          { value: "OVERWRITE", label: "Overwrite" }
+        ]
+      }
+    ],
+    outputSchema: [
+      {
+        name: "updatedRange",
+        label: "Updated Range",
+        type: "string",
+        description: "The range of cells that were updated"
+      },
+      {
+        name: "updatedRows",
+        label: "Updated Rows",
+        type: "number",
+        description: "Number of rows that were updated"
+      },
+      {
+        name: "updatedColumns",
+        label: "Updated Columns",
+        type: "number",
+        description: "Number of columns that were updated"
+      },
+      {
+        name: "updatedCells",
+        label: "Updated Cells",
+        type: "number",
+        description: "Number of cells that were updated"
+      }
+    ]
+  },
 
 
 
@@ -1467,8 +1662,75 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         required: true,
         dynamic: "slack-channels",
       },
-      { name: "text", label: "Message Text", type: "textarea" },
+      { name: "message", label: "Message Text", type: "textarea", required: true },
+      { name: "thread_ts", label: "Thread Timestamp", type: "text", placeholder: "Optional: Reply to a specific message" },
+      { name: "username", label: "Username", type: "text", placeholder: "Optional: Override bot username" },
+      { name: "icon_emoji", label: "Icon Emoji", type: "text", placeholder: "e.g., :robot_face:" },
+      { name: "icon_url", label: "Icon URL", type: "text", placeholder: "URL to custom icon" },
+      { name: "unfurl_links", label: "Unfurl Links", type: "boolean", defaultValue: true },
+      { name: "unfurl_media", label: "Unfurl Media", type: "boolean", defaultValue: true }
     ],
+    outputSchema: [
+      {
+        name: "ts",
+        label: "Message Timestamp",
+        type: "string",
+        description: "The timestamp of the sent message"
+      },
+      {
+        name: "channel",
+        label: "Channel ID",
+        type: "string",
+        description: "The ID of the channel where the message was sent"
+      },
+      {
+        name: "message",
+        label: "Message Object",
+        type: "object",
+        description: "The complete message object returned by Slack"
+      }
+    ]
+  },
+  {
+    type: "slack_action_create_channel",
+    title: "Create Channel (Slack)",
+    description: "Create a new public or private Slack channel",
+    icon: Hash,
+    providerId: "slack",
+    requiredScopes: ["channels:write", "groups:write"],
+    category: "Communication",
+    isTrigger: false,
+    configSchema: [
+      { name: "name", label: "Channel Name", type: "text", required: true, placeholder: "e.g., project-updates" },
+      { name: "is_private", label: "Private Channel", type: "boolean", defaultValue: false },
+      { name: "description", label: "Description", type: "textarea", placeholder: "Optional channel description" }
+    ],
+    outputSchema: [
+      {
+        name: "channelId",
+        label: "Channel ID",
+        type: "string",
+        description: "The unique ID of the created channel"
+      },
+      {
+        name: "channelName",
+        label: "Channel Name",
+        type: "string",
+        description: "The name of the created channel"
+      },
+      {
+        name: "isPrivate",
+        label: "Is Private",
+        type: "boolean",
+        description: "Whether the channel is private"
+      },
+      {
+        name: "created",
+        label: "Created Timestamp",
+        type: "string",
+        description: "When the channel was created"
+      }
+    ]
   },
 
   // Notion
@@ -1490,6 +1752,54 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     requiredScopes: ["insert"],
     category: "Productivity",
     isTrigger: false,
+    configSchema: [
+      { 
+        name: "parent_type", 
+        label: "Parent Type", 
+        type: "select", 
+        required: true,
+        options: [
+          { value: "database_id", label: "Database" },
+          { value: "page_id", label: "Page" }
+        ]
+      },
+      { 
+        name: "parent_id", 
+        label: "Parent ID", 
+        type: "text", 
+        required: true,
+        placeholder: "Database or page ID"
+      },
+      { name: "title", label: "Page Title", type: "text", required: true },
+      { name: "properties", label: "Properties (JSON)", type: "textarea", placeholder: '{"Status": {"select": {"name": "In Progress"}}}' },
+      { name: "content", label: "Content Blocks (JSON)", type: "textarea", placeholder: "Optional: Array of content blocks" }
+    ],
+    outputSchema: [
+      {
+        name: "pageId",
+        label: "Page ID",
+        type: "string",
+        description: "The unique ID of the created page"
+      },
+      {
+        name: "url",
+        label: "Page URL",
+        type: "string",
+        description: "The web URL of the created page"
+      },
+      {
+        name: "createdTime",
+        label: "Created Time",
+        type: "string",
+        description: "When the page was created"
+      },
+      {
+        name: "properties",
+        label: "Page Properties",
+        type: "object",
+        description: "The properties of the created page"
+      }
+    ]
   },
   {
     type: "notion_action_append_to_page",
@@ -1520,6 +1830,53 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     requiredScopes: ["repo"],
     category: "Development",
     isTrigger: false,
+    configSchema: [
+      { name: "owner", label: "Repository Owner", type: "text", required: true, placeholder: "e.g., octocat" },
+      { name: "repo", label: "Repository Name", type: "text", required: true, placeholder: "e.g., my-project" },
+      { name: "title", label: "Issue Title", type: "text", required: true },
+      { name: "body", label: "Issue Description", type: "textarea" },
+      { name: "assignees", label: "Assignees", type: "text", placeholder: "Comma-separated usernames" },
+      { name: "labels", label: "Labels", type: "text", placeholder: "Comma-separated labels" },
+      { name: "milestone", label: "Milestone ID", type: "number", placeholder: "Optional milestone ID" }
+    ],
+    outputSchema: [
+      {
+        name: "issueId",
+        label: "Issue ID",
+        type: "string",
+        description: "The unique ID of the created issue"
+      },
+      {
+        name: "issueNumber",
+        label: "Issue Number",
+        type: "number",
+        description: "The issue number in the repository"
+      },
+      {
+        name: "title",
+        label: "Issue Title",
+        type: "string",
+        description: "The title of the created issue"
+      },
+      {
+        name: "url",
+        label: "Issue URL",
+        type: "string",
+        description: "The web URL of the created issue"
+      },
+      {
+        name: "state",
+        label: "Issue State",
+        type: "string",
+        description: "The current state of the issue (open/closed)"
+      },
+      {
+        name: "createdAt",
+        label: "Created At",
+        type: "string",
+        description: "When the issue was created"
+      }
+    ]
   },
 
   // Stripe
@@ -1562,6 +1919,76 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     requiredScopes: ["crm.objects.contacts.write"],
     category: "CRM",
     isTrigger: false,
+    configSchema: [
+      { name: "email", label: "Email", type: "email", required: true },
+      { name: "firstname", label: "First Name", type: "text" },
+      { name: "lastname", label: "Last Name", type: "text" },
+      { name: "phone", label: "Phone", type: "text" },
+      { name: "company", label: "Company", type: "text" },
+      { name: "jobtitle", label: "Job Title", type: "text" },
+      { 
+        name: "lifecycle_stage", 
+        label: "Lifecycle Stage", 
+        type: "select",
+        options: [
+          { value: "subscriber", label: "Subscriber" },
+          { value: "lead", label: "Lead" },
+          { value: "marketingqualifiedlead", label: "Marketing Qualified Lead" },
+          { value: "salesqualifiedlead", label: "Sales Qualified Lead" },
+          { value: "opportunity", label: "Opportunity" },
+          { value: "customer", label: "Customer" },
+          { value: "evangelist", label: "Evangelist" },
+          { value: "other", label: "Other" }
+        ]
+      },
+      { 
+        name: "lead_status", 
+        label: "Lead Status", 
+        type: "select",
+        options: [
+          { value: "NEW", label: "New" },
+          { value: "OPEN", label: "Open" },
+          { value: "IN_PROGRESS", label: "In Progress" },
+          { value: "PRESENTATION_SCHEDULED", label: "Presentation Scheduled" },
+          { value: "CONTRACT_SENT", label: "Contract Sent" },
+          { value: "CLOSED_WON", label: "Closed Won" },
+          { value: "CLOSED_LOST", label: "Closed Lost" }
+        ]
+      },
+      { name: "custom_properties", label: "Custom Properties (JSON)", type: "textarea", placeholder: '{"custom_field": "value"}' }
+    ],
+    outputSchema: [
+      {
+        name: "contactId",
+        label: "Contact ID",
+        type: "string",
+        description: "The unique ID of the created contact"
+      },
+      {
+        name: "email",
+        label: "Email",
+        type: "string",
+        description: "The contact's email address"
+      },
+      {
+        name: "firstname",
+        label: "First Name",
+        type: "string",
+        description: "The contact's first name"
+      },
+      {
+        name: "lastname",
+        label: "Last Name",
+        type: "string",
+        description: "The contact's last name"
+      },
+      {
+        name: "createdAt",
+        label: "Created At",
+        type: "string",
+        description: "When the contact was created"
+      }
+    ]
   },
 
   // Airtable
@@ -1623,6 +2050,95 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         required: true,
         description: "Configure the fields and values for the new record",
         dependsOn: "tableName"
+      }
+    ],
+    outputSchema: [
+      {
+        name: "recordId",
+        label: "Record ID",
+        type: "string",
+        description: "The unique ID of the created record"
+      },
+      {
+        name: "createdTime",
+        label: "Created Time",
+        type: "string",
+        description: "When the record was created"
+      },
+      {
+        name: "fields",
+        label: "Record Fields",
+        type: "object",
+        description: "The fields and values of the created record"
+      }
+    ]
+  },
+  {
+    type: "airtable_action_create_record_simple",
+    title: "Create Record (Airtable) - Simple",
+    description: "Create a new record in an Airtable table with JSON fields",
+    icon: Plus,
+    providerId: "airtable",
+    requiredScopes: ["data.records:write"],
+    category: "Productivity",
+    isTrigger: false,
+    configSchema: [
+      {
+        name: "baseId",
+        label: "Base",
+        type: "select",
+        dynamic: "airtable_bases",
+        required: true,
+        placeholder: "Select a base"
+      },
+      {
+        name: "tableName",
+        label: "Table",
+        type: "select",
+        dynamic: "airtable_tables",
+        required: true,
+        placeholder: "Select a table",
+        dependsOn: "baseId"
+      },
+      {
+        name: "fields",
+        label: "Fields (JSON)",
+        type: "textarea",
+        required: true,
+        placeholder: '{"Name": "John Doe", "Email": "john@example.com", "Status": "Active"}'
+      },
+      {
+        name: "typecast",
+        label: "Typecast",
+        type: "boolean",
+        defaultValue: false,
+        description: "Automatically convert field values to appropriate types"
+      }
+    ],
+    outputSchema: [
+      {
+        name: "recordId",
+        label: "Record ID",
+        type: "string",
+        description: "The unique ID of the created record"
+      },
+      {
+        name: "createdTime",
+        label: "Created Time",
+        type: "string",
+        description: "When the record was created"
+      },
+      {
+        name: "fields",
+        label: "Record Fields",
+        type: "object",
+        description: "The fields and values of the created record"
+      },
+      {
+        name: "commentCount",
+        label: "Comment Count",
+        type: "number",
+        description: "Number of comments on the record"
       }
     ]
   },
@@ -2499,21 +3015,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     configSchema: [{ name: "command", label: "Command", type: "text" }],
   },
 
-  {
-    type: "discord_action_add_reaction",
-    title: "Add Reaction (Discord)",
-    description: "Add a reaction to a message",
-    icon: MessageSquare,
-    providerId: "discord",
-    category: "Communication",
-    isTrigger: false,
-    requiredScopes: ["bot"],
-    configSchema: [
-      { name: "channelId", label: "Channel ID", type: "text" },
-      { name: "messageId", label: "Message ID", type: "text" },
-      { name: "emoji", label: "Emoji", type: "text" },
-    ],
-  },
+
 
   // ManyChat Triggers and Actions
   {
