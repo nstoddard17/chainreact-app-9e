@@ -1646,6 +1646,32 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     requiredScopes: ["bot"],
     category: "Communication",
     isTrigger: false,
+    configSchema: [
+      {
+        name: "guildId",
+        label: "Server",
+        type: "select",
+        dynamic: "discord_guilds",
+        required: true,
+        placeholder: "Select a Discord server"
+      },
+      {
+        name: "channelId",
+        label: "Channel",
+        type: "select",
+        dynamic: "discord_channels",
+        required: true,
+        placeholder: "Select a channel",
+        dependsOn: "guildId"
+      },
+      {
+        name: "message",
+        label: "Message",
+        type: "textarea",
+        required: true,
+        placeholder: "Enter your message"
+      }
+    ]
   },
 
   // Microsoft Teams
@@ -2472,20 +2498,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     isTrigger: true,
     configSchema: [{ name: "command", label: "Command", type: "text" }],
   },
-  {
-    type: "discord_action_post_interactive",
-    title: "Post Interactive Blocks (Discord)",
-    description: "Post interactive blocks and buttons",
-    icon: MessageSquare,
-    providerId: "discord",
-    category: "Communication",
-    isTrigger: false,
-    requiredScopes: ["bot"],
-    configSchema: [
-      { name: "channelId", label: "Channel ID", type: "text" },
-      { name: "embeds", label: "Embeds (JSON)", type: "textarea" },
-    ],
-  },
+
   {
     type: "discord_action_add_reaction",
     title: "Add Reaction (Discord)",
@@ -3265,10 +3278,56 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Productivity",
     isTrigger: false,
     configSchema: [
-      { name: "baseId", label: "Base ID", type: "text", required: true, placeholder: "Enter base ID" },
-      { name: "tableName", label: "Table Name", type: "text", required: true, placeholder: "Enter table name" },
-      { name: "recordId", label: "Record ID", type: "text", required: true, placeholder: "Enter record ID" },
-      { name: "fields", label: "Fields (JSON)", type: "textarea", required: true, placeholder: '{"Name": "Updated Name", "Status": "Complete"}' }
+      {
+        name: "baseId",
+        label: "Base",
+        type: "select",
+        dynamic: "airtable_bases",
+        required: true,
+        placeholder: "Select a base"
+      },
+      {
+        name: "tableName",
+        label: "Table",
+        type: "select",
+        dynamic: "airtable_tables",
+        required: true,
+        placeholder: "Select a table",
+        description: "Choose the table to update records in",
+        dependsOn: "baseId"
+      },
+      {
+        name: "recordId",
+        label: "Record",
+        type: "select",
+        dynamic: "airtable_records",
+        required: true,
+        placeholder: "Select a record to update",
+        description: "Choose the record to update",
+        dependsOn: "tableName"
+      },
+      {
+        name: "status",
+        label: "Status",
+        type: "select",
+        required: false,
+        placeholder: "Select status",
+        description: "Set the status for the updated record",
+        options: [
+          { value: "active", label: "Active" },
+          { value: "pending", label: "Pending" },
+          { value: "completed", label: "Completed" },
+          { value: "cancelled", label: "Cancelled" }
+        ]
+      },
+      {
+        name: "fields",
+        label: "Record Fields",
+        type: "custom",
+        required: true,
+        description: "Configure the fields and values for the updated record",
+        dependsOn: "tableName"
+      }
     ]
   },
   {
@@ -3281,11 +3340,52 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Productivity",
     isTrigger: false,
     configSchema: [
-      { name: "baseId", label: "Base ID", type: "text", required: true, placeholder: "Enter base ID" },
-      { name: "sourceTableName", label: "Source Table Name", type: "text", required: true, placeholder: "Enter source table name" },
-      { name: "recordId", label: "Record ID", type: "text", required: true, placeholder: "Enter record ID" },
-      { name: "destinationTableName", label: "Destination Table Name", type: "text", required: true, placeholder: "Enter destination table name" },
-      { name: "preserveRecordId", label: "Preserve Record ID", type: "boolean", required: false, defaultValue: false, description: "Keep the same record ID in the destination table" }
+      {
+        name: "baseId",
+        label: "Base",
+        type: "select",
+        dynamic: "airtable_bases",
+        required: true,
+        placeholder: "Select a base"
+      },
+      {
+        name: "sourceTableName",
+        label: "Source Table",
+        type: "select",
+        dynamic: "airtable_tables",
+        required: true,
+        placeholder: "Select source table",
+        description: "Choose the table to move the record from",
+        dependsOn: "baseId"
+      },
+      {
+        name: "recordId",
+        label: "Record",
+        type: "select",
+        dynamic: "airtable_records",
+        required: true,
+        placeholder: "Select a record to move",
+        description: "Choose the record to move",
+        dependsOn: "sourceTableName"
+      },
+      {
+        name: "destinationTableName",
+        label: "Destination Table",
+        type: "select",
+        dynamic: "airtable_tables",
+        required: true,
+        placeholder: "Select destination table",
+        description: "Choose the table to move the record to",
+        dependsOn: "baseId"
+      },
+      {
+        name: "preserveRecordId",
+        label: "Preserve Record ID",
+        type: "boolean",
+        required: false,
+        defaultValue: false,
+        description: "Keep the same record ID in the destination table"
+      }
     ]
   },
   {
@@ -3298,10 +3398,41 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Productivity",
     isTrigger: false,
     configSchema: [
-      { name: "baseId", label: "Base ID", type: "text", required: true, placeholder: "Enter base ID" },
-      { name: "tableName", label: "Table Name", type: "text", required: true, placeholder: "Enter table name" },
-      { name: "maxRecords", label: "Max Records", type: "number", required: false, defaultValue: 100, placeholder: "100" },
-      { name: "filterByFormula", label: "Filter Formula", type: "text", required: false, placeholder: "{Status} = 'Active'" }
+      {
+        name: "baseId",
+        label: "Base",
+        type: "select",
+        dynamic: "airtable_bases",
+        required: true,
+        placeholder: "Select a base"
+      },
+      {
+        name: "tableName",
+        label: "Table",
+        type: "select",
+        dynamic: "airtable_tables",
+        required: true,
+        placeholder: "Select a table",
+        description: "Choose the table to list records from",
+        dependsOn: "baseId"
+      },
+      {
+        name: "maxRecords",
+        label: "Max Records",
+        type: "number",
+        required: false,
+        defaultValue: 100,
+        placeholder: "100",
+        description: "Maximum number of records to return"
+      },
+      {
+        name: "filterByFormula",
+        label: "Filter Formula",
+        type: "text",
+        required: false,
+        placeholder: "{Status} = 'Active'",
+        description: "Airtable filter formula to apply to the records"
+      }
     ]
   },
 

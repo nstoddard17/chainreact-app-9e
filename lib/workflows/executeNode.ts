@@ -19,6 +19,8 @@ import {
   // Airtable actions
   moveAirtableRecord,
   createAirtableRecord,
+  updateAirtableRecord,
+  listAirtableRecords,
   
   // Workflow control actions
   executeIfThenCondition,
@@ -270,6 +272,8 @@ export async function executeAction({ node, input, userId, workflowId }: Execute
       // Airtable actions
   "airtable_action_move_record": moveAirtableRecord,
   "airtable_action_create_record": createAirtableRecord,
+  "airtable_action_update_record": updateAirtableRecord,
+  "airtable_action_list_records": listAirtableRecords,
     
     // Workflow control actions
     "if_then_condition": executeIfThenCondition,
