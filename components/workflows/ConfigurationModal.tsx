@@ -2909,12 +2909,15 @@ export default function ConfigurationModal({
 
                   {/* Data Preview Table for Google Sheets Actions */}
                   {((nodeInfo?.type === "google_sheets_unified_action" && config.action && config.spreadsheetId && config.sheetName) || 
-                    (nodeInfo?.providerId === "google-sheets" && nodeInfo?.type !== "google_sheets_unified_action" && config.spreadsheetId && config.sheetName)) && 
+                    (nodeInfo?.type === "google-sheets_action_create_row" && config.spreadsheetId && config.sheetName) ||
+                    (nodeInfo?.providerId === "google-sheets" && nodeInfo?.type !== "google_sheets_unified_action" && nodeInfo?.type !== "google-sheets_action_create_row" && config.spreadsheetId && config.sheetName)) && 
                    dynamicOptions.sheetData && (dynamicOptions.sheetData as any).headers && Array.isArray((dynamicOptions.sheetData as any).headers) && (dynamicOptions.sheetData as any).data && Array.isArray((dynamicOptions.sheetData as any).data) && (
                     <div className="space-y-3 border-b pb-4">
                       <div className="text-sm font-medium">
                         {nodeInfo?.type === "google_sheets_unified_action" 
                           ? `Data Preview for ${config.action} action:`
+                          : nodeInfo?.type === "google-sheets_action_create_row"
+                          ? "Select a row to insert relative to:"
                           : "Data Preview:"}
                         {loadingDynamic && <span className="text-muted-foreground ml-2">(Loading...)</span>}
                       </div>
@@ -2938,7 +2941,8 @@ export default function ConfigurationModal({
                             <div 
                               key={index} 
                               className={`grid gap-2 p-2 border-t ${
-                                nodeInfo?.type === "google_sheets_unified_action" && config.action !== "add"
+                                (nodeInfo?.type === "google_sheets_unified_action" && config.action !== "add") ||
+                                nodeInfo?.type === "google-sheets_action_create_row"
                                   ? `cursor-pointer hover:bg-muted/50 ${
                                       config.selectedRow?.rowIndex === row.rowIndex 
                                         ? "bg-primary/10 border border-primary" 
@@ -2970,6 +2974,12 @@ export default function ConfigurationModal({
                                       selectedRow: row
                                     }))
                                   }
+                                } else if (nodeInfo?.type === "google-sheets_action_create_row") {
+                                  // For create row action, just select the row
+                                  setConfig(prev => ({
+                                    ...prev,
+                                    selectedRow: row
+                                  }))
                                 }
                               }}
                             >
@@ -2991,12 +3001,23 @@ export default function ConfigurationModal({
                           ⚠️ Row selected for deletion!
                         </div>
                       )}
+                      
+                      {nodeInfo?.type === "google-sheets_action_create_row" && config.selectedRow && (
+                        <div className="text-sm text-blue-600 bg-blue-50 p-2 rounded">
+                          ✓ Row selected! New row will be inserted {config.insertPosition === "above" ? "above" : config.insertPosition === "below" ? "below" : "at the end of"} the selected row.
+                        </div>
+                      )}
 
                       {/* Column Input Fields for Add and Update Actions */}
-                      {nodeInfo?.type === "google_sheets_unified_action" && (config.action === "add" || (config.action === "update" && config.selectedRow)) && dynamicOptions.sheetData && (dynamicOptions.sheetData as any).headers && Array.isArray((dynamicOptions.sheetData as any).headers) && (
+                      {((nodeInfo?.type === "google_sheets_unified_action" && (config.action === "add" || (config.action === "update" && config.selectedRow))) ||
+                        (nodeInfo?.type === "google-sheets_action_create_row")) && dynamicOptions.sheetData && (dynamicOptions.sheetData as any).headers && Array.isArray((dynamicOptions.sheetData as any).headers) && (
                         <div className="space-y-3 border-b pb-4">
                           <div className="text-sm font-medium">
-                            {config.action === "add" ? "Enter values for each column:" : "Edit values for the selected row:"}
+                            {nodeInfo?.type === "google-sheets_action_create_row" 
+                              ? "Enter values for the new row:"
+                              : config.action === "add" 
+                                ? "Enter values for each column:" 
+                                : "Edit values for the selected row:"}
                           </div>
                           
                           <div className="space-y-3">
