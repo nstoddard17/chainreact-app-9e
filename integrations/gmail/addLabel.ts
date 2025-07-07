@@ -61,8 +61,11 @@ export async function addGmailLabels(params: ActionParams): Promise<ActionResult
       labelNames = []
     } = resolvedConfig
     
-    // 4. Validate required parameters
-    if (!messageId) {
+    // 4. Handle multiple emails - convert to array if single email
+    const emailIds = Array.isArray(messageId) ? messageId : [messageId]
+    
+    // 5. Validate required parameters
+    if (!messageId || emailIds.length === 0) {
       return {
         success: false,
         error: "Missing required parameter: messageId"
@@ -76,7 +79,7 @@ export async function addGmailLabels(params: ActionParams): Promise<ActionResult
       }
     }
     
-    // 5. If label names are provided, get or create those labels
+    // 6. If label names are provided, get or create those labels
     let allLabelIds = [...labelIds]
     
     if (labelNames.length > 0) {
@@ -84,40 +87,77 @@ export async function addGmailLabels(params: ActionParams): Promise<ActionResult
       allLabelIds = [...allLabelIds, ...labelIdsFromNames]
     }
     
-    // 6. Make Gmail API request to add labels
-    const response = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${messageId}/modify`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${credentials.accessToken}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        addLabelIds: allLabelIds,
-        removeLabelIds: []
-      })
-    })
+    // 7. Process each email and add labels
+    const results = []
+    const errors = []
     
-    // 7. Handle API response
-    if (!response.ok) {
-      const errorText = await response.text()
-      throw new Error(`Gmail API error (${response.status}): ${errorText}`)
+    for (const emailId of emailIds) {
+      try {
+        const response = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${emailId}/modify`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${credentials.accessToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            addLabelIds: allLabelIds,
+            removeLabelIds: []
+          })
+        })
+        
+        if (!response.ok) {
+          const errorText = await response.text()
+          errors.push(`Failed to add labels to email ${emailId}: ${errorText}`)
+        } else {
+          const data = await response.json()
+          results.push({
+            messageId: data.id,
+            threadId: data.threadId,
+            labelIds: data.labelIds
+          })
+        }
+      } catch (error: any) {
+        errors.push(`Error processing email ${emailId}: ${error.message}`)
+      }
     }
     
-    const data = await response.json()
+    // 8. Return results
+    if (errors.length > 0 && results.length === 0) {
+      return {
+        success: false,
+        error: `Failed to add labels to any emails: ${errors.join('; ')}`
+      }
+    }
     
-    // 8. Return success result with any outputs
+    const successMessage = results.length === 1 
+      ? `Successfully added ${allLabelIds.length} label(s) to 1 email`
+      : `Successfully added ${allLabelIds.length} label(s) to ${results.length} emails`
+    
+    if (errors.length > 0) {
+      return {
+        success: true,
+        output: {
+          messageIds: results.map(r => r.messageId),
+          threadIds: results.map(r => r.threadId),
+          labelIds: allLabelIds,
+          errors: errors
+        },
+        message: `${successMessage} (${errors.length} errors occurred)`
+      }
+    }
+    
     return {
       success: true,
       output: {
-        messageId: data.id,
-        threadId: data.threadId,
-        labelIds: data.labelIds
+        messageIds: results.map(r => r.messageId),
+        threadIds: results.map(r => r.threadId),
+        labelIds: allLabelIds
       },
-      message: `Successfully added ${allLabelIds.length} label(s) to the email`
+      message: successMessage
     }
     
   } catch (error: any) {
-    // 9. Handle errors and return failure result
+    // 10. Handle errors and return failure result
     console.error("Gmail add labels failed:", error)
     return {
       success: false,

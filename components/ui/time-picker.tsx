@@ -43,17 +43,18 @@ export function TimePicker({
 
   return (
     <Select onValueChange={onChange} value={value} disabled={disabled}>
-      <SelectTrigger className={cn("w-full", className)}>
-        <div className="flex items-center">
-          <Clock className="mr-2 h-4 w-4 text-muted-foreground" />
-          <SelectValue placeholder={placeholder}>
-            {displayValue || placeholder}
-          </SelectValue>
-        </div>
+      <SelectTrigger className={cn("w-full justify-start text-left font-normal", className)}>
+        <Clock className="mr-2 h-4 w-4 text-muted-foreground flex-shrink-0" />
+        <SelectValue
+          placeholder={placeholder}
+          className="whitespace-nowrap text-ellipsis overflow-hidden flex-1"
+        >
+          {displayValue || placeholder}
+        </SelectValue>
       </SelectTrigger>
       <SelectContent className="max-h-60">
         {timeOptions.map((option) => (
-          <SelectItem key={option.value} value={option.value}>
+          <SelectItem key={option.value} value={option.value} className="whitespace-nowrap">
             {option.label}
           </SelectItem>
         ))}

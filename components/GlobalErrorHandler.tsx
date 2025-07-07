@@ -31,6 +31,17 @@ export function GlobalErrorHandler() {
         )
       )
 
+      // Check if this is a presence channel error (common with realtime connections)
+      const isPresenceError = args.some(arg => 
+        typeof arg === 'string' && (
+          arg.includes("Presence: Channel error occurred") ||
+          arg.includes("Presence: Channel timed out") ||
+          arg.includes("realtime") ||
+          arg.includes("presence") ||
+          arg.includes("channel")
+        )
+      )
+
       if (isCookieError) {
         // Don't log these errors - they're expected Supabase behavior
         console.debug("🍪 Supabase cookie parsing (expected behavior):", args)
@@ -40,6 +51,12 @@ export function GlobalErrorHandler() {
       if (isAbortError) {
         // Don't log abort errors - they're expected during navigation
         console.debug("🔍 AbortController abort (expected behavior):", args)
+        return
+      }
+
+      if (isPresenceError) {
+        // Don't log presence errors - they're expected with realtime connections
+        console.debug("👥 Presence channel error (expected behavior):", args)
         return
       }
 
@@ -101,6 +118,19 @@ export function GlobalErrorHandler() {
         event.preventDefault()
         return
       }
+
+      // Check if this is a presence channel error
+      if (event.message && (
+        event.message.includes("Presence: Channel error occurred") ||
+        event.message.includes("Presence: Channel timed out") ||
+        event.message.includes("realtime") ||
+        event.message.includes("presence") ||
+        event.message.includes("channel")
+      )) {
+        console.debug("👥 Presence channel error (expected):", event.message)
+        event.preventDefault()
+        return
+      }
     }
 
     // Global unhandled rejection handler
@@ -132,6 +162,26 @@ export function GlobalErrorHandler() {
         ))
       )) {
         console.debug("🔍 AbortController rejection (expected):", event.reason)
+        event.preventDefault()
+        return
+      }
+
+      // Check if this is a presence channel rejection
+      if (event.reason && (
+        (typeof event.reason === 'string' && (
+          event.reason.includes("Presence: Channel error occurred") ||
+          event.reason.includes("Presence: Channel timed out") ||
+          event.reason.includes("realtime") ||
+          event.reason.includes("presence") ||
+          event.reason.includes("channel")
+        )) ||
+        (event.reason instanceof Error && (
+          event.reason.message.includes("presence") ||
+          event.reason.message.includes("channel") ||
+          event.reason.message.includes("realtime")
+        ))
+      )) {
+        console.debug("👥 Presence channel rejection (expected):", event.reason)
         event.preventDefault()
         return
       }

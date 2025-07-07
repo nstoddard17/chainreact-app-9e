@@ -267,7 +267,7 @@ export default function WorkflowBuilder() {
             </Button>
           )}
 
-          <ScrollArea className="h-[60vh] -mx-4">
+          <ScrollArea className="h-[70vh] -mx-4">
             <div className="flex flex-col gap-2 px-4">
               {!selectedIntegration
                 ? AVAILABLE_INTEGRATIONS.filter(int => int.triggers.length > 0).map((integration) => (
@@ -321,7 +321,7 @@ export default function WorkflowBuilder() {
             </Button>
           )}
 
-          <ScrollArea className="h-[60vh] -mx-4">
+          <ScrollArea className="h-[70vh] -mx-4">
             <div className="flex flex-col gap-2 px-4">
               {!selectedIntegration
                 ? AVAILABLE_INTEGRATIONS.filter(int => int.actions.length > 0).map((integration) => (

@@ -1801,6 +1801,137 @@ const dataFetchers: DataFetcher = {
     }
   },
 
+  "google-docs_recent_documents": async (integration: any) => {
+    try {
+      // Use Google Drive API to list recently modified Google Docs files
+      const response = await fetch(
+        "https://www.googleapis.com/drive/v3/files?q=mimeType='application/vnd.google-apps.document' and trashed=false&pageSize=20&fields=files(id,name,createdTime,modifiedTime,webViewLink)&orderBy=modifiedTime desc",
+        {
+          headers: {
+            Authorization: `Bearer ${integration.access_token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      )
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("Google Docs authentication expired. Please reconnect your account.")
+        }
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(
+          `Google Drive API error: ${response.status} - ${errorData.error?.message || response.statusText}`,
+        )
+      }
+
+      const data = await response.json()
+      return (data.files || []).map((file: any) => ({
+        id: file.id,
+        name: file.name,
+        value: file.id,
+        created_time: file.createdTime,
+        modified_time: file.modifiedTime,
+        web_view_link: file.webViewLink,
+        document_url: `https://docs.google.com/document/d/${file.id}/edit`,
+        is_recent: true,
+      }))
+    } catch (error: any) {
+      console.error("Error fetching recent Google Docs documents:", error)
+      throw error
+    }
+  },
+
+  "google-docs_shared_documents": async (integration: any) => {
+    try {
+      // Use Google Drive API to list shared Google Docs files
+      const response = await fetch(
+        "https://www.googleapis.com/drive/v3/files?q=mimeType='application/vnd.google-apps.document' and sharedWithMe=true and trashed=false&pageSize=50&fields=files(id,name,createdTime,modifiedTime,webViewLink,owners)",
+        {
+          headers: {
+            Authorization: `Bearer ${integration.access_token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      )
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("Google Docs authentication expired. Please reconnect your account.")
+        }
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(
+          `Google Drive API error: ${response.status} - ${errorData.error?.message || response.statusText}`,
+        )
+      }
+
+      const data = await response.json()
+      return (data.files || []).map((file: any) => ({
+        id: file.id,
+        name: file.name,
+        value: file.id,
+        created_time: file.createdTime,
+        modified_time: file.modifiedTime,
+        web_view_link: file.webViewLink,
+        document_url: `https://docs.google.com/document/d/${file.id}/edit`,
+        owner: file.owners?.[0]?.displayName || "Unknown",
+        is_shared: true,
+      }))
+    } catch (error: any) {
+      console.error("Error fetching shared Google Docs documents:", error)
+      throw error
+    }
+  },
+
+  "google-docs_folders": async (integration: any) => {
+    try {
+      // Use Google Drive API to list folders that contain Google Docs
+      const response = await fetch(
+        "https://www.googleapis.com/drive/v3/files?q=mimeType='application/vnd.google-apps.folder' and trashed=false&pageSize=100&fields=files(id,name,parents,createdTime,modifiedTime)&orderBy=name",
+        {
+          headers: {
+            Authorization: `Bearer ${integration.access_token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      )
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("Google Docs authentication expired. Please reconnect your account.")
+        }
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(
+          `Google Drive API error: ${response.status} - ${errorData.error?.message || response.statusText}`,
+        )
+      }
+
+      const data = await response.json()
+      const folders = (data.files || []).map((folder: any) => ({
+        id: folder.id,
+        name: folder.name,
+        value: folder.id,
+        parents: folder.parents,
+        created_time: folder.createdTime,
+        modified_time: folder.modifiedTime,
+      }))
+
+      // Add root folder as an option
+      folders.unshift({
+        id: "root",
+        name: "My Drive (Root)",
+        value: "root",
+        parents: [],
+        created_time: null,
+        modified_time: null,
+      })
+
+      return folders
+    } catch (error: any) {
+      console.error("Error fetching Google Docs folders:", error)
+      throw error
+    }
+  },
+
   "youtube_channels": async (integration: any) => {
     try {
       const response = await fetch(
@@ -2210,6 +2341,219 @@ const dataFetchers: DataFetcher = {
     }
   },
 
+  "onedrive-folders": async (integration: any) => {
+    try {
+      // First, let's test if we can access the drive at all
+      const driveResponse = await fetch(
+        "https://graph.microsoft.com/v1.0/me/drive",
+        {
+          headers: {
+            Authorization: `Bearer ${integration.access_token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      )
+
+      if (!driveResponse.ok) {
+        const errorData = await driveResponse.json().catch(() => ({}))
+        console.error("OneDrive drive access error:", errorData)
+        if (driveResponse.status === 401) {
+          throw new Error("OneDrive authentication expired. Please reconnect your account.")
+        }
+        throw new Error(
+          `OneDrive drive access error: ${driveResponse.status} - ${errorData.error?.message || driveResponse.statusText}`,
+        )
+      }
+
+      // Now try to get the root children
+      const response = await fetch(
+        "https://graph.microsoft.com/v1.0/me/drive/root/children",
+        {
+          headers: {
+            Authorization: `Bearer ${integration.access_token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      )
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("OneDrive authentication expired. Please reconnect your account.")
+        }
+        const errorData = await response.json().catch(() => ({}))
+        console.error("OneDrive API error response:", errorData)
+        throw new Error(
+          `OneDrive API error: ${response.status} - ${errorData.error?.message || response.statusText}`,
+        )
+      }
+
+      const data = await response.json()
+      console.log("OneDrive API response:", JSON.stringify(data, null, 2))
+      
+      const folders = (data.value || [])
+        .filter((item: any) => item.folder) // Ensure it's actually a folder
+        .map((folder: any) => ({
+          id: folder.id,
+          name: folder.name,
+          value: folder.id,
+          created_time: folder.createdDateTime,
+          modified_time: folder.lastModifiedDateTime,
+          parent_reference: folder.parentReference,
+        }))
+
+      // Add root folder as an option
+      folders.unshift({
+        id: "root",
+        name: "OneDrive (Root)",
+        value: "root",
+        created_time: null,
+        modified_time: null,
+        parent_reference: null,
+      })
+
+      return folders
+    } catch (error: any) {
+      console.error("Error fetching OneDrive folders:", error)
+      // Return just the root folder as a fallback
+      return [
+        {
+          id: "root",
+          name: "OneDrive (Root)",
+          value: "root",
+          created_time: null,
+          modified_time: null,
+          parent_reference: null,
+        }
+      ]
+    }
+  },
+
+  "dropbox-folders": async (integration: any) => {
+    try {
+      const response = await fetch("https://api.dropboxapi.com/2/files/list_folder", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${integration.access_token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          path: "",
+          recursive: false,
+          include_media_info: false,
+          include_deleted: false,
+          include_has_explicit_shared_members: false,
+          include_mounted_folders: true,
+          include_non_downloadable_files: false,
+        }),
+      })
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("Dropbox authentication expired. Please reconnect your account.")
+        }
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(
+          `Dropbox API error: ${response.status} - ${errorData.error_summary || response.statusText}`,
+        )
+      }
+
+      const data = await response.json()
+      const folders = (data.entries || [])
+        .filter((entry: any) => entry[".tag"] === "folder")
+        .map((folder: any) => ({
+          id: folder.path_lower,
+          name: folder.name,
+          value: folder.path_lower,
+          path: folder.path_lower,
+          created_time: null, // Dropbox doesn't provide creation time in list_folder
+          modified_time: folder.server_modified,
+        }))
+
+      // Add root folder as an option
+      folders.unshift({
+        id: "",
+        name: "Dropbox (Root)",
+        value: "",
+        path: "",
+        created_time: null,
+        modified_time: null,
+      })
+
+      return folders
+    } catch (error: any) {
+      console.error("Error fetching Dropbox folders:", error)
+      // Return just the root folder as a fallback
+      return [
+        {
+          id: "",
+          name: "Dropbox (Root)",
+          value: "",
+          path: "",
+          created_time: null,
+          modified_time: null,
+        }
+      ]
+    }
+  },
+
+  "box-folders": async (integration: any) => {
+    try {
+      const response = await fetch(
+        "https://api.box.com/2.0/folders/0/items?fields=id,name,type,created_at,modified_at&limit=1000",
+        {
+          headers: {
+            Authorization: `Bearer ${integration.access_token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      )
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("Box authentication expired. Please reconnect your account.")
+        }
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(
+          `Box API error: ${response.status} - ${errorData.message || response.statusText}`,
+        )
+      }
+
+      const data = await response.json()
+      const folders = (data.entries || [])
+        .filter((entry: any) => entry.type === "folder")
+        .map((folder: any) => ({
+          id: folder.id,
+          name: folder.name,
+          value: folder.id,
+          created_time: folder.created_at,
+          modified_time: folder.modified_at,
+        }))
+
+      // Add root folder as an option
+      folders.unshift({
+        id: "0",
+        name: "Box (Root)",
+        value: "0",
+        created_time: null,
+        modified_time: null,
+      })
+
+      return folders
+    } catch (error: any) {
+      console.error("Error fetching Box folders:", error)
+      // Return just the root folder as a fallback
+      return [
+        {
+          id: "0",
+          name: "Box (Root)",
+          value: "0",
+          created_time: null,
+          modified_time: null,
+        }
+      ]
+    }
+  },
+
   "discord_guilds": async (integration: any) => {
     try {
       const response = await fetch("https://discord.com/api/v10/users/@me/guilds", {
@@ -2291,6 +2635,65 @@ const dataFetchers: DataFetcher = {
     } catch (error: any) {
       console.error("Error fetching Discord channels:", error)
       throw error
+    }
+  },
+
+  "facebook_pages": async (integration: any) => {
+    try {
+      console.log("🔍 Facebook pages fetcher called with integration:", {
+        id: integration.id,
+        provider: integration.provider,
+        hasToken: !!integration.access_token
+      })
+      
+      // Generate appsecret_proof for server-side calls
+      const crypto = require('crypto')
+      const appSecret = process.env.FACEBOOK_CLIENT_SECRET
+      
+      if (!appSecret) {
+        console.error("Facebook app secret not configured")
+        return []
+      }
+      
+      const appsecretProof = crypto
+        .createHmac('sha256', appSecret)
+        .update(integration.access_token)
+        .digest('hex')
+
+      console.log("🔍 Making Facebook API call with appsecret_proof")
+      const response = await fetch(`https://graph.facebook.com/v19.0/me/accounts?appsecret_proof=${appsecretProof}`, {
+        headers: {
+          Authorization: `Bearer ${integration.access_token}`,
+          "Content-Type": "application/json",
+        },
+      })
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("Facebook authentication expired. Please reconnect your account.")
+        }
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(`Facebook API error: ${response.status} - ${errorData.error?.message || response.statusText}`)
+      }
+
+      const data = await response.json()
+      console.log("🔍 Facebook API response:", data)
+      
+      const pages = (data.data || []).map((page: any) => ({
+        id: page.id,
+        name: page.name,
+        value: page.id,
+        access_token: page.access_token,
+        category: page.category,
+        tasks: page.tasks || [],
+      }))
+      
+      console.log("🔍 Processed Facebook pages:", pages)
+      return pages
+    } catch (error: any) {
+      console.error("Error fetching Facebook pages:", error)
+      // Return empty array instead of throwing to prevent breaking the UI
+      return []
     }
   },
 }

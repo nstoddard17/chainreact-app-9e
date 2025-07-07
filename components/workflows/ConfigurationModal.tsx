@@ -50,7 +50,7 @@ export default function ConfigurationModal({
   const [errors, setErrors] = useState<Record<string, string>>({})
   const { loadIntegrationData, getIntegrationByProvider, checkIntegrationScopes } = useIntegrationStore()
   const [dynamicOptions, setDynamicOptions] = useState<
-    Record<string, { value: string; label: string; fields?: any[] }[]>
+    Record<string, { value: string; label: string; fields?: any[]; isExisting?: boolean }[]>
   >({})
   const [loadingDynamic, setLoadingDynamic] = useState(false)
   const [retryCount, setRetryCount] = useState(0)
@@ -99,6 +99,8 @@ export default function ConfigurationModal({
 
   useEffect(() => {
     setConfig(initialData)
+    // Reset the initialization flag when initialData changes
+    hasInitializedDefaults.current = false
   }, [initialData])
 
   // Cleanup effect to abort in-flight requests when modal closes or node changes
@@ -222,17 +224,39 @@ export default function ConfigurationModal({
     
     // Apply default values from configSchema
     nodeInfo.configSchema?.forEach((field: any) => {
-      if (field.defaultValue !== undefined && config[field.name] === undefined) {
+      if (field.defaultValue !== undefined && (config[field.name] === undefined || config[field.name] === '')) {
         defaultValues[field.name] = field.defaultValue
       }
     })
 
-    // Auto-populate Gmail action fields from Gmail trigger
-
-    
-    if (nodeInfo.providerId === 'gmail' && nodeInfo.type?.includes('action') && workflowData) {
-
+    // Initialize Google Calendar defaults
+    if (nodeInfo?.type === "google_calendar_action_create_event") {
+      const now = new Date()
+      const nextHour = new Date(now)
+      nextHour.setHours(now.getHours() + 1, 0, 0, 0) // Round to next hour
+      const endTime = new Date(nextHour)
+      endTime.setHours(endTime.getHours() + 1) // 1 hour duration
       
+      // Set default dates and times if not already set
+      if (config.startDate === undefined) {
+        defaultValues.startDate = formatDate(now)
+      }
+      if (config.startTime === undefined) {
+        defaultValues.startTime = formatTime(nextHour)
+      }
+      if (config.endDate === undefined) {
+        defaultValues.endDate = formatDate(now)
+      }
+      if (config.endTime === undefined) {
+        defaultValues.endTime = formatTime(endTime)
+      }
+      if (config.timeZone === undefined || config.timeZone === "user-timezone") {
+        defaultValues.timeZone = getUserTimezone()
+      }
+    }
+
+    // Auto-populate Gmail action fields from Gmail trigger
+    if (nodeInfo.providerId === 'gmail' && nodeInfo.type?.includes('action') && workflowData) {
       // Find the Gmail trigger node
       const gmailTrigger = workflowData.nodes?.find(node => {
         const isGmailTrigger = (
@@ -287,7 +311,7 @@ export default function ConfigurationModal({
       setConfig(prev => ({ ...defaultValues, ...prev }))
       hasInitializedDefaults.current = true
     }
-  }, [nodeInfo, config, workflowData])
+  }, [nodeInfo, workflowData])
 
   // Check if this node has test data available
   const nodeTestData = currentNodeId ? getNodeInputOutput(currentNodeId) : null
@@ -471,6 +495,11 @@ export default function ConfigurationModal({
 
   // Function to check if a field should be shown based on dependencies
   const shouldShowField = (field: ConfigField | NodeField): boolean => {
+    // Don't show hidden fields
+    if (field.hidden) {
+      return false
+    }
+    
     // Special logic for Discord send message action
     if (nodeInfo?.type === "discord_action_send_message") {
       // Always show guildId (server selection)
@@ -652,7 +681,7 @@ export default function ConfigurationModal({
             } else if (field.dynamic === "google-calendars") {
               newOptions[field.name] = data.map((calendar: any) => ({
                 value: calendar.id,
-                label: calendar.summary,
+                label: calendar.name,
               }))
             } else if (field.dynamic === "google-drives") {
               newOptions[field.name] = data.map((drive: any) => ({
@@ -663,6 +692,7 @@ export default function ConfigurationModal({
               newOptions[field.name] = data.map((label: any) => ({
                 value: label.id,
                 label: label.name,
+                isExisting: true
               }))
             } else if (field.dynamic === "gmail-recent-recipients") {
               const mappedData = data.map((recipient: any) => ({
@@ -768,6 +798,13 @@ export default function ConfigurationModal({
                 value: channel.id,
                 label: channel.name,
               }))
+            } else if (field.dynamic === "facebook_pages") {
+              console.log("🔍 Processing Facebook pages data:", data)
+              newOptions[field.name] = data.map((page: any) => ({
+                value: page.id,
+                label: page.name,
+              }))
+              console.log("🔍 Mapped Facebook pages options:", newOptions[field.name])
             } else {
               newOptions[field.name] = data.map((item: any) => ({
                 value: item.value || item.id || item.name,
@@ -1318,14 +1355,98 @@ export default function ConfigurationModal({
   }
 
   const renderField = (field: ConfigField | NodeField) => {
-    const value = config[field.name] || ""
+    // Custom Google Meet button/card rendering for Google Calendar create event
+    if (nodeInfo?.type === "google_calendar_action_create_event" && field.name === "createMeetLink") {
+      const handleAddMeet = async () => {
+        setMeetLoading(true)
+        try {
+          const res = await fetch("/api/integrations/google-calendar/meet-draft", { method: "POST" })
+          const data = await res.json()
+          if (data.meetUrl && data.eventId) {
+            setConfig(prev => ({ ...prev, createMeetLink: true, meetUrl: data.meetUrl, meetEventId: data.eventId }))
+          } else {
+            throw new Error(data.error || "Failed to create Google Meet link")
+          }
+        } catch (err) {
+          alert("Failed to create Google Meet link. Please try again.")
+        } finally {
+          setMeetLoading(false)
+        }
+      }
+      const handleRemoveMeet = async () => {
+        setMeetLoading(true)
+        try {
+          if (config.meetEventId) {
+            await fetch("/api/integrations/google-calendar/meet-draft", {
+              method: "DELETE",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ eventId: config.meetEventId })
+            })
+          }
+        } catch {}
+        setConfig(prev => ({ ...prev, createMeetLink: false, meetUrl: undefined, meetEventId: undefined }))
+        setMeetLoading(false)
+      }
+      if (!config.createMeetLink || !config.meetUrl) {
+        return (
+          <Button
+            className="w-full bg-[#c7d6f7] text-[#174ea6] hover:bg-[#b3c6f7] font-medium rounded-2xl py-2 text-base flex items-center justify-center gap-2"
+            style={{ minWidth: 260 }}
+            onClick={handleAddMeet}
+            type="button"
+            disabled={meetLoading}
+          >
+            <Video className="w-5 h-5 mr-2 -ml-1" />
+            {meetLoading ? "Creating Google Meet Link..." : "Add Google Meet Video Conference"}
+          </Button>
+        )
+      }
+      return (
+        <GoogleMeetCard
+          meetUrl={config.meetUrl}
+          guestLimit={100}
+          onRemove={handleRemoveMeet}
+          onCopy={() => {}}
+          onSettings={() => {}}
+        />
+      )
+    }
+    // For select fields, use defaultValue if the config value is empty or undefined
+    let value = config[field.name]
+    if (field.type === "select" && (value === "" || value === undefined) && field.defaultValue !== undefined) {
+      value = field.defaultValue
+    } else {
+      value = value || ""
+    }
     const hasError = !!errors[field.name]
+    
+    // Debug logging for select fields with default values
+    if (field.type === "select" && field.defaultValue && (config[field.name] === "" || config[field.name] === undefined)) {
+      console.log('🔍 Select field debug:', {
+        fieldName: field.name,
+        defaultValue: field.defaultValue,
+        currentValue: value,
+        configValue: config[field.name]
+      })
+    }
+
+    // Dynamic label for facebook_action_get_page_insights periodCount
+    let dynamicLabel = field.label
+    if (
+      nodeInfo?.type === "facebook_action_get_page_insights" &&
+      field.name === "periodCount"
+    ) {
+      const period = config["period"] || "day"
+      if (period === "day") dynamicLabel = "Number of Days"
+      else if (period === "week") dynamicLabel = "Number of Weeks"
+      else if (period === "month") dynamicLabel = "Number of Months"
+    }
 
     // Add label rendering
     const renderLabel = () => (
       <div className="flex items-center justify-between mb-2">
         <Label className="text-sm font-medium">
-          {field.label || field.name}
+          {dynamicLabel || field.label || field.name}
           {field.required && <span className="text-red-500 ml-1">*</span>}
         </Label>
         {field.description && (
@@ -1543,9 +1664,9 @@ export default function ConfigurationModal({
                         <SelectTrigger className="text-sm h-auto min-h-[2.5rem]">
                           <SelectValue placeholder={`Select ${fieldDef.name.toLowerCase()}`} />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="max-h-96">
                           {fieldDef.options.choices.map((choice: any) => (
-                            <SelectItem key={choice.name} value={choice.name}>
+                            <SelectItem key={choice.name} value={choice.name} className="whitespace-nowrap">
                               {choice.name}
                             </SelectItem>
                           ))}
@@ -1958,7 +2079,7 @@ export default function ConfigurationModal({
       }
     }
 
-    switch (field.type) {
+    switch (String(field.type)) {
       case "text":
       case "email":
       case "password":
@@ -2049,6 +2170,72 @@ export default function ConfigurationModal({
 
       case "select":
         const options = field.dynamic ? dynamicOptions[field.name] || [] : field.options || []
+        
+        // Use MultiCombobox for multiple select with creatable option
+        if (field.multiple && field.creatable) {
+          return (
+            <div className="space-y-2">
+              {renderLabel()}
+              <MultiCombobox
+                options={options.map((option) => {
+                  if (typeof option === 'string') {
+                    return {
+                      value: option,
+                      label: option,
+                      isExisting: false
+                    }
+                  } else {
+                    return {
+                      value: option.value,
+                      label: option.label,
+                      isExisting: (option as any).isExisting || false
+                    }
+                  }
+                })}
+                value={Array.isArray(value) ? value : []}
+                onChange={(newValues) => {
+                  // For Gmail labels, we need to handle both existing labels and new label names
+                  if (field.name === 'labelIds') {
+                    // Separate existing label IDs from new label names
+                    const existingLabelIds: string[] = []
+                    const newLabelNames: string[] = []
+                    
+                    for (const val of newValues) {
+                      const option = options.find(opt => 
+                        (typeof opt === 'string' ? opt : opt.value) === val
+                      )
+                      if (option && typeof option === 'object' && (option as any).isExisting) {
+                        existingLabelIds.push(val)
+                      } else {
+                        newLabelNames.push(val)
+                      }
+                    }
+                    
+                    // Store both existing IDs and new names
+                    setConfig(prev => ({
+                      ...prev,
+                      labelIds: existingLabelIds,
+                      labelNames: newLabelNames
+                    }))
+                  } else {
+                    // For other fields, use the standard behavior
+                    handleMultiSelectChange(newValues)
+                  }
+                }}
+                placeholder={loadingDynamic ? "Loading..." : field.placeholder}
+                searchPlaceholder="Search labels or type to create new ones..."
+                emptyPlaceholder={loadingDynamic ? "Loading..." : "No labels found."}
+                disabled={loadingDynamic}
+                creatable={true}
+              />
+              {hasError && (
+                <p className="text-xs text-red-500">{errors[field.name]}</p>
+              )}
+            </div>
+          )
+        }
+        
+        // Use regular Select for single select
         return (
           <div className="space-y-2">
             {renderLabel()}
@@ -2060,12 +2247,12 @@ export default function ConfigurationModal({
               <SelectTrigger className={cn("w-full", hasError && "border-red-500")}>
                 <SelectValue placeholder={loadingDynamic ? "Loading..." : field.placeholder} />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="max-h-96">
                 {options.map((option) => {
                   const optionValue = typeof option === 'string' ? option : option.value
                   const optionLabel = typeof option === 'string' ? option : option.label
                   return (
-                    <SelectItem key={optionValue} value={optionValue}>
+                    <SelectItem key={optionValue} value={optionValue} className="whitespace-nowrap">
                       {optionLabel}
                     </SelectItem>
                   )
@@ -2264,12 +2451,23 @@ export default function ConfigurationModal({
         return (
           <div className="space-y-2">
             {renderLabel()}
-            <DatePicker
-              value={value ? new Date(value) : undefined}
-              onChange={handleDateChange}
-              placeholder={field.placeholder}
-              className={cn(hasError && "border-red-500")}
-            />
+            <div className="relative group w-64">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">
+                <Calendar className="w-5 h-5" />
+              </span>
+              <input
+                type="date"
+                value={value || ""}
+                onChange={e => {
+                  setConfig(prev => ({ ...prev, [field.name]: e.target.value }))
+                }}
+                className={cn(
+                  "pl-10 pr-3 py-2 w-full rounded border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary",
+                  hasError ? "border-red-500" : "border-border"
+                )}
+                placeholder="Select date"
+              />
+            </div>
             {hasError && (
               <p className="text-xs text-red-500">{errors[field.name]}</p>
             )}
@@ -2292,41 +2490,49 @@ export default function ConfigurationModal({
           </div>
         )
 
-      case "datetime":
+      case "datetime": {
+        // Validation: must be in the future
+        const now = new Date()
+        const selected = value ? new Date(value) : null
+        const isPast = selected && selected < now
         return (
           <div className="space-y-2">
             {renderLabel()}
-            <div className="flex gap-2">
-              <DatePicker
-                value={value ? new Date(value) : undefined}
-                onChange={(date) => {
-                  if (date) {
-                    const existingTime = value ? new Date(value).toTimeString().slice(0, 8) : "09:00:00"
-                    const newDateTime = new Date(`${date.toISOString().split('T')[0]}T${existingTime}`)
-                    setConfig(prev => ({ ...prev, [field.name]: newDateTime.toISOString() }))
-                  }
-                }}
-                placeholder="Select date"
-                className={cn("flex-1", hasError && "border-red-500")}
-              />
-              <TimePicker
-                value={value ? new Date(value).toTimeString().slice(0, 5) : ""}
-                onChange={(time) => {
-                  if (time && value) {
-                    const existingDate = new Date(value).toISOString().split('T')[0]
-                    const newDateTime = new Date(`${existingDate}T${time}:00`)
-                    setConfig(prev => ({ ...prev, [field.name]: newDateTime.toISOString() }))
-                  }
-                }}
-                placeholder="Select time"
-                className={cn("w-32", hasError && "border-red-500")}
-              />
-            </div>
-            {hasError && (
-              <p className="text-xs text-red-500">{errors[field.name]}</p>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="relative group w-64">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">
+                      <Calendar className="w-5 h-5" />
+                    </span>
+                    <input
+                      type="datetime-local"
+                      value={value ? value.slice(0, 16) : ""}
+                      onChange={e => {
+                        setConfig(prev => ({ ...prev, [field.name]: e.target.value }))
+                      }}
+                      min={now.toISOString().slice(0, 16)}
+                      className={cn(
+                        "pl-10 pr-3 py-2 w-full rounded border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary",
+                        hasError || isPast ? "border-red-500" : "border-border"
+                      )}
+                      placeholder="Select date & time"
+                    />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  Select a future time for the post to go live.
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            {(hasError || isPast) && (
+              <p className="text-xs text-red-500">
+                {isPast ? "Please select a future date and time." : errors[field.name]}
+              </p>
             )}
           </div>
         )
+      }
 
       case "email-autocomplete":
         const emailOptions = dynamicOptions[field.name] || []
@@ -2342,7 +2548,7 @@ export default function ConfigurationModal({
         }))
         
         // Fields that support multiple emails
-        const isMultipleEmail = field.name === "attendees" || field.name === "to" || field.name === "cc" || field.name === "bcc"
+        const isMultipleEmail = field.multiple || field.name === "attendees" || field.name === "to" || field.name === "cc" || field.name === "bcc"
         
         return (
           <div className="space-y-2">
@@ -2383,10 +2589,10 @@ export default function ConfigurationModal({
         return (
           <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-4">
             <div className="flex-1">
-              <div className="font-medium text-blue-800 mb-1">{field.label}</div>
-              <div className="text-blue-700 text-sm">{field.description}</div>
+              <div className="font-medium text-blue-800 mb-1">{(field as any).label}</div>
+              <div className="text-blue-700 text-sm">{(field as any).description}</div>
             </div>
-            {field.showConnectButton && (
+            {(field as any).showConnectButton && (
               <Button
                 variant="default"
                 onClick={() => {
@@ -2516,7 +2722,7 @@ export default function ConfigurationModal({
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent 
           className={cn(
-            "max-w-4xl w-full max-h-[90vh] p-0 gap-0 overflow-hidden",
+            "max-w-6xl w-full max-h-[90vh] p-0 gap-0 overflow-hidden",
             showDataFlowPanels && "max-w-[95vw]"
           )}
         >
@@ -2688,12 +2894,10 @@ export default function ConfigurationModal({
                   
                   {/* Configuration Fields */}
                   {nodeInfo.configSchema?.map((field) => {
-                    // Hide time fields and their labels for Google Calendar when "All Day" is enabled
-                    if (nodeInfo?.type === "google_calendar_action_create_event" && field.type === "time" && config.allDay) {
-                      return null
-                    }
-                    // Hide time zone field and label for Google Calendar when "All Day" is enabled
-                    if (nodeInfo?.type === "google_calendar_action_create_event" && field.name === "timeZone" && config.allDay) {
+                    // Hide time fields and time zone field for Google Calendar when "All Day" is enabled
+                    if (nodeInfo?.type === "google_calendar_action_create_event" && 
+                        ((field.type === "time" && config.allDay) || 
+                         (field.name === "timeZone" && config.allDay))) {
                       return null
                     }
                     

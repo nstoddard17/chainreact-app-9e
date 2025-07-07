@@ -24,6 +24,7 @@ export interface ComboboxOption {
   value: string;
   label: string;
   description?: string;
+  isExisting?: boolean;
 }
 
 interface ComboboxProps {

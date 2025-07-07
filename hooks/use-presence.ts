@@ -38,22 +38,22 @@ export function usePresence() {
         })
 
       if (error) {
-        console.error('Presence: Error updating database:', error)
+        console.debug('Presence: Error updating database (non-critical):', error)
       } else {
-        console.log('Presence: Database updated successfully')
+        console.debug('Presence: Database updated successfully')
       }
     } catch (error) {
-      console.error('Presence: Database update failed:', error)
+      console.debug('Presence: Database update failed (non-critical):', error)
     }
   }
 
   useEffect(() => {
     if (!user?.id) {
-      console.log('Presence: No user, skipping setup')
+      console.debug('Presence: No user, skipping setup')
       return
     }
 
-    console.log('Presence: Setting up for user:', user.id)
+    console.debug('Presence: Setting up for user:', user.id)
 
     // Create a unique channel for presence
     const presenceChannel = supabase.channel('online-users', {
@@ -68,7 +68,7 @@ export function usePresence() {
 
     presenceChannel
       .on('presence', { event: 'sync' }, () => {
-        console.log('Presence: Syncing online users')
+        console.debug('Presence: Syncing online users')
         const presenceState = presenceChannel.presenceState()
         const users: OnlineUser[] = []
         
@@ -79,42 +79,58 @@ export function usePresence() {
         })
         
         setOnlineUsers(users)
-        console.log('Presence: Online users updated:', users.length)
+        console.debug('Presence: Online users updated:', users.length)
       })
       .on('presence', { event: 'join' }, ({ newPresences }) => {
-        console.log('Presence: User(s) joined:', newPresences)
+        console.debug('Presence: User(s) joined:', newPresences)
       })
       .on('presence', { event: 'leave' }, ({ leftPresences }) => {
-        console.log('Presence: User(s) left:', leftPresences)
+        console.debug('Presence: User(s) left:', leftPresences)
       })
-      .subscribe(async (status) => {
-        console.log('Presence: Channel status:', status)
-        
-        if (status === 'SUBSCRIBED') {
-          console.log('Presence: Successfully subscribed, tracking user as online')
+              .subscribe(async (status) => {
+          console.debug('Presence: Channel status:', status)
           
-          // Track current user as online in realtime
-          const userPresence: OnlineUser = {
-            user_id: user.id,
-            username: profile?.username,
-            full_name: profile?.full_name || profile?.first_name || user.name,
-            avatar_url: profile?.avatar_url || user.avatar,
-            online_at: new Date().toISOString(),
-          }
+          if (status === 'SUBSCRIBED') {
+            console.debug('Presence: Successfully subscribed, tracking user as online')
+            
+            // Track current user as online in realtime
+            const userPresence: OnlineUser = {
+              user_id: user.id,
+              username: profile?.username,
+              full_name: profile?.full_name || profile?.first_name || user.name,
+              avatar_url: profile?.avatar_url || user.avatar,
+              online_at: new Date().toISOString(),
+            }
 
-          const trackResult = await presenceChannel.track(userPresence)
-          console.log('Presence: Track result:', trackResult)
+            const trackResult = await presenceChannel.track(userPresence)
+            console.debug('Presence: Track result:', trackResult)
           
           // Also update database for admin interface
           await updateDatabasePresence()
           
           setIsOnline(true)
         } else if (status === 'CHANNEL_ERROR') {
-          console.error('Presence: Channel error occurred')
+          console.debug('Presence: Channel error occurred (will retry)')
           setIsOnline(false)
+          
+          // Retry connection after a delay
+          setTimeout(() => {
+            if (presenceChannel && user?.id) {
+              console.debug('Presence: Retrying connection...')
+              presenceChannel.subscribe()
+            }
+          }, 5000) // Retry after 5 seconds
         } else if (status === 'TIMED_OUT') {
-          console.error('Presence: Channel timed out')
+          console.debug('Presence: Channel timed out (will retry)')
           setIsOnline(false)
+          
+          // Retry connection after a delay
+          setTimeout(() => {
+            if (presenceChannel && user?.id) {
+              console.debug('Presence: Retrying connection...')
+              presenceChannel.subscribe()
+            }
+          }, 5000) // Retry after 5 seconds
         }
       })
 
@@ -123,7 +139,7 @@ export function usePresence() {
 
     // Cleanup function
     return () => {
-      console.log('Presence: Cleaning up')
+      console.debug('Presence: Cleaning up')
       setIsOnline(false)
       clearInterval(presenceInterval)
       if (presenceChannel) {
@@ -147,7 +163,7 @@ export function usePresence() {
     }
 
     const result = await channel.track(updatedPresence)
-    console.log('Presence: Updated presence:', result)
+    console.debug('Presence: Updated presence:', result)
     
     // Also update database
     await updateDatabasePresence()
