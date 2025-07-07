@@ -1117,40 +1117,37 @@ export default function ConfigurationModal({
     return () => clearTimeout(retryTimeout)
   }, [loadingDynamic, isOpen, nodeInfo?.providerId, fetchDynamicData])
 
-  // Auto-load sheet data when action changes to update/delete (for unified Google Sheets action) or readMode is "rows" (for read data action)
+  // Auto-load sheet data when spreadsheet and sheet are selected
   useEffect(() => {
     if (!isOpen || !nodeInfo) return
-    
-    // Check if we need to load sheet data
-    const shouldLoadData = 
-      (nodeInfo.type === "google_sheets_unified_action" && config.action && config.action !== "add") ||
-      (nodeInfo.type === "google_sheets_action_read_data" && (config.readMode === "rows" || config.readMode === "cells" || config.readMode === "all"))
-    
-    if (!shouldLoadData) return
-    if (!config.spreadsheetId || !config.sheetName) return
-    
+
+    // For unified action, only load after action is selected (any action)
+    if (nodeInfo.type === "google_sheets_unified_action") {
+      if (!config.action) return
+      if (!config.spreadsheetId || !config.sheetName) return
+    } else if (nodeInfo.providerId === "google-sheets") {
+      // For all other Google Sheets actions, load as soon as spreadsheet and sheet are selected
+      if (!config.spreadsheetId || !config.sheetName) return
+    } else {
+      return
+    }
+
     const loadSheetData = async () => {
       // Abort any existing request
       if (abortControllerRef.current) {
         abortControllerRef.current.abort()
       }
-
-      // Create new AbortController for this request
       const controller = new AbortController()
       abortControllerRef.current = controller
-
       try {
         setLoadingDynamic(true)
         const integration = getIntegrationByProvider(nodeInfo?.providerId || "")
         if (!integration) return
-        
         const data = await loadIntegrationData(
           "google-sheets_sheet-data",
           integration.id,
           { spreadsheetId: config.spreadsheetId, sheetName: config.sheetName }
         )
-        
-        // Only update state if the request wasn't aborted
         if (!controller.signal.aborted && data && data.length > 0) {
           setSheetData(data[0])
           setDynamicOptions(prev => ({
@@ -1159,20 +1156,17 @@ export default function ConfigurationModal({
           }))
         }
       } catch (error) {
-        // Don't log errors for aborted requests
         if (!controller.signal.aborted) {
           console.error("Error auto-loading sheet data:", error)
         }
       } finally {
-        // Only update loading state if the request wasn't aborted
         if (!controller.signal.aborted) {
           setLoadingDynamic(false)
         }
       }
     }
-    
     loadSheetData()
-  }, [isOpen, nodeInfo, config.action, config.readMode, config.spreadsheetId, config.sheetName, getIntegrationByProvider, loadIntegrationData])
+  }, [isOpen, nodeInfo, config.action, config.spreadsheetId, config.sheetName, getIntegrationByProvider, loadIntegrationData])
 
   // Fetch sheet preview when both spreadsheet and sheet are selected (for Google Sheets actions)
   useEffect(() => {
@@ -2247,7 +2241,7 @@ export default function ConfigurationModal({
               <SelectTrigger className={cn("w-full", hasError && "border-red-500")}>
                 <SelectValue placeholder={loadingDynamic ? "Loading..." : field.placeholder} />
               </SelectTrigger>
-              <SelectContent className="max-h-96">
+              <SelectContent className="max-h-96" side="bottom" sideOffset={4} align="start" avoidCollisions={false} style={{ transform: 'translateY(0) !important' }}>
                 {options.map((option) => {
                   const optionValue = typeof option === 'string' ? option : option.value
                   const optionLabel = typeof option === 'string' ? option : option.label
@@ -2722,8 +2716,8 @@ export default function ConfigurationModal({
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent 
           className={cn(
-            "max-w-6xl w-full max-h-[90vh] p-0 gap-0 overflow-hidden",
-            showDataFlowPanels && "max-w-[95vw]"
+            "max-w-7xl w-full max-h-[95vh] p-0 gap-0 overflow-hidden",
+            showDataFlowPanels && "max-w-[98vw]"
           )}
         >
           <div className="flex h-full">
@@ -2841,7 +2835,7 @@ export default function ConfigurationModal({
               </DialogHeader>
 
               {/* Configuration Form */}
-              <ScrollArea className="flex-1 max-h-[60vh]">
+              <ScrollArea className="flex-1 max-h-[70vh]">
                 <div className="px-6 py-4 space-y-6">
                   {/* Integration Error */}
                   {errors.integrationError && (
@@ -2912,6 +2906,126 @@ export default function ConfigurationModal({
                       </div>
                     )
                   })}
+
+                  {/* Data Preview Table for Google Sheets Actions */}
+                  {((nodeInfo?.type === "google_sheets_unified_action" && config.action && config.spreadsheetId && config.sheetName) || 
+                    (nodeInfo?.providerId === "google-sheets" && nodeInfo?.type !== "google_sheets_unified_action" && config.spreadsheetId && config.sheetName)) && 
+                   dynamicOptions.sheetData && (dynamicOptions.sheetData as any).headers && Array.isArray((dynamicOptions.sheetData as any).headers) && (dynamicOptions.sheetData as any).data && Array.isArray((dynamicOptions.sheetData as any).data) && (
+                    <div className="space-y-3 border-b pb-4">
+                      <div className="text-sm font-medium">
+                        {nodeInfo?.type === "google_sheets_unified_action" 
+                          ? `Data Preview for ${config.action} action:`
+                          : "Data Preview:"}
+                        {loadingDynamic && <span className="text-muted-foreground ml-2">(Loading...)</span>}
+                      </div>
+                      
+                      <div className="border rounded-lg overflow-hidden">
+                        {/* Header Row */}
+                        <div className="grid gap-2 p-2 bg-muted/50" style={{ gridTemplateColumns: `repeat(${(dynamicOptions.sheetData as any).headers.length}, minmax(120px, 1fr))` }}>
+                          {(dynamicOptions.sheetData as any).headers.map((header: any, index: number) => (
+                            <div key={index} className="text-xs font-medium text-center p-1">
+                              <div className="font-mono bg-background px-2 py-1 rounded mb-1">
+                                {header.column}
+                              </div>
+                              <div className="truncate">{header.name}</div>
+                            </div>
+                          ))}
+                        </div>
+                        
+                        {/* Data Rows */}
+                        <div className="max-h-80 overflow-y-auto">
+                          {(dynamicOptions.sheetData as any).data.map((row: any, index: number) => (
+                            <div 
+                              key={index} 
+                              className={`grid gap-2 p-2 border-t ${
+                                nodeInfo?.type === "google_sheets_unified_action" && config.action !== "add"
+                                  ? `cursor-pointer hover:bg-muted/50 ${
+                                      config.selectedRow?.rowIndex === row.rowIndex 
+                                        ? "bg-primary/10 border border-primary" 
+                                        : "border border-transparent"
+                                    }`
+                                  : "border border-transparent"
+                              }`}
+                              style={{ gridTemplateColumns: `repeat(${(dynamicOptions.sheetData as any).headers.length}, minmax(120px, 1fr))` }}
+                              onClick={() => {
+                                if (nodeInfo?.type === "google_sheets_unified_action" && config.action !== "add") {
+                                  // For update action, populate column values with current row data
+                                  if (config.action === "update") {
+                                    const columnValues: Record<string, string> = {}
+                                    row.values.forEach((value: string, index: number) => {
+                                      const header = (dynamicOptions.sheetData as any).headers[index]
+                                      if (header) {
+                                        columnValues[header.column] = value || ""
+                                      }
+                                    })
+                                    setConfig(prev => ({
+                                      ...prev,
+                                      selectedRow: row,
+                                      columnValues: columnValues
+                                    }))
+                                  } else {
+                                    // For delete action, just select the row
+                                    setConfig(prev => ({
+                                      ...prev,
+                                      selectedRow: row
+                                    }))
+                                  }
+                                }
+                              }}
+                            >
+                              {row.values.map((cell: string, cellIndex: number) => (
+                                <div 
+                                  key={cellIndex} 
+                                  className="text-sm truncate p-1"
+                                >
+                                  {cell || ""}
+                                </div>
+                              ))}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      
+                      {nodeInfo?.type === "google_sheets_unified_action" && config.action === "delete" && config.selectedRow && (
+                        <div className="text-sm text-red-600 bg-red-50 p-2 rounded">
+                          ⚠️ Row selected for deletion!
+                        </div>
+                      )}
+
+                      {/* Column Input Fields for Add and Update Actions */}
+                      {nodeInfo?.type === "google_sheets_unified_action" && (config.action === "add" || (config.action === "update" && config.selectedRow)) && dynamicOptions.sheetData && (dynamicOptions.sheetData as any).headers && Array.isArray((dynamicOptions.sheetData as any).headers) && (
+                        <div className="space-y-3 border-b pb-4">
+                          <div className="text-sm font-medium">
+                            {config.action === "add" ? "Enter values for each column:" : "Edit values for the selected row:"}
+                          </div>
+                          
+                          <div className="space-y-3">
+                            {(dynamicOptions.sheetData as any).headers.map((header: any, index: number) => (
+                              <div key={index} className="flex flex-col space-y-2">
+                                <Label className="text-sm font-medium">
+                                  {header.name} ({header.column})
+                                </Label>
+                                <Input
+                                  value={config.columnValues?.[header.column] || ""}
+                                  onChange={(e) => {
+                                    setConfig(prev => ({
+                                      ...prev,
+                                      columnValues: {
+                                        ...prev.columnValues,
+                                        [header.column]: e.target.value
+                                      }
+                                    }))
+                                  }}
+                                  placeholder={`Enter value for ${header.name}`}
+                                  className="w-full"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                   
                   {/* Discord Bot Connection Hint */}
                   {nodeInfo?.type === "discord_action_send_message" && config.guildId && !botStatus[config.guildId] && (

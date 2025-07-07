@@ -1282,7 +1282,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         label: "Action",
         type: "select",
         required: true,
-        defaultValue: "add",
+        dependsOn: "sheetName",
         options: [
           { value: "add", label: "Add new row" },
           { value: "update", label: "Update existing row" },
@@ -1290,20 +1290,8 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         ],
         description: "What operation to perform on the sheet"
       },
-      {
-        name: "columnMappings",
-        label: "Column Mappings",
-        type: "custom",
-        required: true,
-        description: "Map your data to sheet columns"
-      },
-      {
-        name: "selectedRow",
-        label: "Select Row",
-        type: "custom",
-        required: false,
-        description: "Select the row to update or delete"
-      }
+
+
     ],
   },
   {
