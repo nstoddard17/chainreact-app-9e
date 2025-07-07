@@ -1321,22 +1321,32 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         placeholder: "Select a sheet",
         dependsOn: "spreadsheetId"
       },
-      { 
-        name: "values", 
-        label: "Row Values", 
-        type: "textarea", 
-        required: true,
-        placeholder: '["Value 1", "Value 2", "Value 3"] - Array of values for each column'
+      {
+        name: "selectedRow",
+        label: "Select Row",
+        type: "custom",
+        required: false,
+        description: "Select the row to insert relative to"
       },
-      { 
-        name: "insertDataOption", 
-        label: "Insert Option", 
+      {
+        name: "insertPosition",
+        label: "Insert Position",
         type: "select",
-        defaultValue: "INSERT_ROWS",
+        required: true,
+        defaultValue: "below",
         options: [
-          { value: "INSERT_ROWS", label: "Insert Rows" },
-          { value: "OVERWRITE", label: "Overwrite" }
-        ]
+          { value: "above", label: "Above selected row" },
+          { value: "below", label: "Below selected row" },
+          { value: "at_end", label: "At the end of sheet" }
+        ],
+        description: "Where to insert the new row"
+      },
+      {
+        name: "columnValues",
+        label: "Column Values",
+        type: "custom",
+        required: false,
+        description: "Enter values for each column"
       }
     ],
     outputSchema: [
