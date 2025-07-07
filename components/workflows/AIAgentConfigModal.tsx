@@ -13,53 +13,39 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { HelpCircle, Bot, Zap, Brain, Settings, Target, MessageSquare, Clock } from "lucide-react"
+import { INTEGRATION_CONFIGS } from "@/lib/integrations/availableIntegrations"
+import { integrationIcons } from "@/lib/integrations/integration-icons"
 import { cn } from "@/lib/utils"
 
 interface AIAgentConfigModalProps {
   isOpen: boolean
   onClose: () => void
   onSave: (config: Record<string, any>) => void
+  onUpdateConnections?: (sourceNodeId: string, targetNodeId: string) => void
   initialData?: Record<string, any>
   workflowData?: { nodes: any[], edges: any[] }
   currentNodeId?: string
 }
 
-// Available tools that the AI Agent can use
-const AVAILABLE_TOOLS = [
-  { id: "gmail", name: "Gmail", description: "Send and read emails", category: "Communication" },
-  { id: "slack", name: "Slack", description: "Send messages and manage channels", category: "Communication" },
-  { id: "notion", name: "Notion", description: "Create and update pages", category: "Productivity" },
-  { id: "google-sheets", name: "Google Sheets", description: "Read and write spreadsheet data", category: "Productivity" },
-  { id: "airtable", name: "Airtable", description: "Manage database records", category: "Productivity" },
-  { id: "hubspot", name: "HubSpot", description: "Manage contacts and CRM data", category: "CRM" },
-  { id: "github", name: "GitHub", description: "Create issues and manage repositories", category: "Development" },
-  { id: "google-calendar", name: "Google Calendar", description: "Schedule and manage events", category: "Productivity" },
-  { id: "google-drive", name: "Google Drive", description: "Upload and manage files", category: "Storage" },
-  { id: "discord", name: "Discord", description: "Send messages to Discord channels", category: "Communication" },
-]
 
-// Memory scope options
-const MEMORY_SCOPES = [
-  { value: "workflow", label: "Current Workflow", description: "Access to data from the current workflow execution" },
-  { value: "session", label: "User Session", description: "Access to data from the current user session" },
-  { value: "global", label: "Global Memory", description: "Access to persistent data across all workflows" },
-  { value: "none", label: "No Memory", description: "No memory access - stateless execution" },
-]
+
+
 
 export default function AIAgentConfigModal({
   isOpen,
   onClose,
   onSave,
+  onUpdateConnections,
   initialData = {},
   workflowData,
   currentNodeId,
 }: AIAgentConfigModalProps) {
   const [config, setConfig] = useState<Record<string, any>>({
-    goal: "",
-    allowedTools: [],
-    memoryScope: "workflow",
+    inputNodeId: "",
+    memory: "all-storage",
+    memoryIntegration: "",
+    customMemoryIntegrations: [],
     systemPrompt: "",
-    maxSteps: 10,
     ...initialData,
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -68,11 +54,11 @@ export default function AIAgentConfigModal({
   useEffect(() => {
     if (isOpen) {
       setConfig({
-        goal: "",
-        allowedTools: [],
-        memoryScope: "workflow",
+        inputNodeId: "",
+        memory: "all-storage",
+        memoryIntegration: "",
+        customMemoryIntegrations: [],
         systemPrompt: "",
-        maxSteps: 10,
         ...initialData,
       })
       setErrors({})
@@ -83,16 +69,20 @@ export default function AIAgentConfigModal({
     const newErrors: Record<string, string> = {}
 
     // Validate required fields
-    if (!config.goal.trim()) {
-      newErrors.goal = "Goal is required"
-    }
-
-    if (config.allowedTools.length === 0) {
-      newErrors.allowedTools = "At least one tool must be selected"
-    }
-
-    if (config.maxSteps < 1 || config.maxSteps > 50) {
-      newErrors.maxSteps = "Max steps must be between 1 and 50"
+    if (!config.inputNodeId) {
+      newErrors.inputNodeId = "Input node is required"
+    } else {
+      // Validate that the selected input node produces output
+      const selectedNode = workflowData?.nodes.find(node => node.id === config.inputNodeId)
+      if (selectedNode) {
+        // Import ALL_NODE_COMPONENTS to check if the node produces output
+        const { ALL_NODE_COMPONENTS } = require("@/lib/workflows/availableNodes")
+        const nodeComponent = ALL_NODE_COMPONENTS.find((c: any) => c.type === selectedNode.data?.type)
+        
+        if (!nodeComponent?.producesOutput) {
+          newErrors.inputNodeId = "The selected node does not produce output data. Please select a node that produces data (like triggers, data retrieval actions, etc.)"
+        }
+      }
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -103,68 +93,24 @@ export default function AIAgentConfigModal({
     onSave(config)
   }
 
-  const toggleTool = (toolId: string) => {
-    setConfig(prev => ({
-      ...prev,
-      allowedTools: prev.allowedTools.includes(toolId)
-        ? prev.allowedTools.filter((id: string) => id !== toolId)
-        : [...prev.allowedTools, toolId]
-    }))
-    // Clear error when user selects a tool
-    if (errors.allowedTools) {
-      setErrors(prev => ({ ...prev, allowedTools: "" }))
-    }
-  }
-
-  const getToolCategory = (category: string) => {
-    const categoryColors: Record<string, string> = {
-      Communication: "bg-blue-100 text-blue-800",
-      Productivity: "bg-green-100 text-green-800",
-      CRM: "bg-purple-100 text-purple-800",
-      Development: "bg-gray-100 text-gray-800",
-      Storage: "bg-orange-100 text-orange-800",
-    }
-    return categoryColors[category] || "bg-gray-100 text-gray-800"
-  }
-
-  const renderToolCard = (tool: any) => {
-    const isSelected = config.allowedTools.includes(tool.id)
+  const handleInputNodeChange = (nodeId: string) => {
+    setConfig(prev => ({ ...prev, inputNodeId: nodeId }))
     
-    return (
-      <Card
-        key={tool.id}
-        className={cn(
-          "cursor-pointer transition-all hover:shadow-md",
-          isSelected && "ring-2 ring-primary bg-primary/5"
-        )}
-        onClick={() => toggleTool(tool.id)}
-      >
-        <CardContent className="p-4">
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-2">
-                <h3 className="font-medium">{tool.name}</h3>
-                <Badge className={getToolCategory(tool.category)} variant="secondary">
-                  {tool.category}
-                </Badge>
-              </div>
-              <p className="text-sm text-muted-foreground">{tool.description}</p>
-            </div>
-            <Checkbox
-              checked={isSelected}
-              onCheckedChange={() => toggleTool(tool.id)}
-              className="ml-2"
-            />
-          </div>
-        </CardContent>
-      </Card>
-    )
+    // Update workflow connections if callback is provided
+    if (onUpdateConnections && currentNodeId && nodeId) {
+      onUpdateConnections(nodeId, currentNodeId)
+    }
+    
+    // Clear error when user selects an input node
+    if (errors.inputNodeId) {
+      setErrors(prev => ({ ...prev, inputNodeId: "" }))
+    }
   }
 
   return (
     <TooltipProvider>
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-4xl w-full max-h-[90vh] p-0 gap-0 overflow-hidden">
+        <DialogContent className="max-w-4xl w-full max-h-[95vh] p-0 gap-0 overflow-hidden">
           <div className="flex h-full">
             {/* Main Configuration Content */}
             <div className="flex-1 flex flex-col">
@@ -184,13 +130,13 @@ export default function AIAgentConfigModal({
                 </div>
               </DialogHeader>
 
-              <ScrollArea className="flex-1 max-h-[60vh]">
+              <ScrollArea className="flex-1 max-h-[70vh]">
                 <div className="px-6 py-4 space-y-6">
-                  {/* Goal Configuration */}
+                  {/* Input Node Configuration */}
                   <div className="space-y-3">
                     <div className="flex items-center gap-2">
                       <Target className="w-5 h-5 text-primary" />
-                      <Label className="text-base font-medium">Goal</Label>
+                      <Label className="text-base font-medium">Input Node</Label>
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
@@ -198,29 +144,126 @@ export default function AIAgentConfigModal({
                           </Button>
                         </TooltipTrigger>
                         <TooltipContent side="top" className="max-w-xs">
-                          <p className="text-sm">The main objective the AI agent should accomplish</p>
+                          <p className="text-sm">Select which node in the workflow should provide input to the AI Agent</p>
                         </TooltipContent>
                       </Tooltip>
                     </div>
-                    <Textarea
-                      value={config.goal}
-                      onChange={(e) => {
-                        setConfig(prev => ({ ...prev, goal: e.target.value }))
-                        if (errors.goal) setErrors(prev => ({ ...prev, goal: "" }))
-                      }}
-                      placeholder="e.g., Analyze customer feedback from Gmail, create a summary in Notion, and send a report to Slack"
-                      className="min-h-[100px]"
-                    />
-                    {errors.goal && (
-                      <p className="text-sm text-red-600">{errors.goal}</p>
+                    
+                    {workflowData?.nodes && workflowData.nodes.length > 0 ? (
+                      <div className="space-y-2">
+                        <Select
+                          value={config.inputNodeId}
+                          onValueChange={handleInputNodeChange}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a node to provide input..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {workflowData.nodes
+                              .filter(node => 
+                                node.id !== currentNodeId && // Exclude current AI Agent node
+                                node.type === 'custom' && // Only include custom nodes (not addAction nodes)
+                                node.data?.type && // Ensure node has a type
+                                (node.data?.isTrigger !== undefined || node.data?.config) // Only include nodes that have been configured
+                              )
+                              .map((node) => {
+                                // Get the integration info for this node
+                                const integrationId = node.data?.providerId || node.data?.type
+                                const integration = INTEGRATION_CONFIGS[integrationId as keyof typeof INTEGRATION_CONFIGS]
+                                const iconPath = integrationIcons[integrationId as keyof typeof integrationIcons]
+                                
+                                // Check if this node produces output
+                                const { ALL_NODE_COMPONENTS } = require("@/lib/workflows/availableNodes")
+                                const nodeComponent = ALL_NODE_COMPONENTS.find((c: any) => c.type === node.data?.type)
+                                const producesOutput = nodeComponent?.producesOutput
+                                
+                                return (
+                                  <SelectItem key={node.id} value={node.id} className="pl-2">
+                                    <div className="flex items-center gap-2 -ml-1">
+                                      <div className="w-5 h-5 rounded flex items-center justify-center bg-muted/50">
+                                        {iconPath ? (
+                                          <img 
+                                            src={iconPath} 
+                                            alt={integration?.name || node.data?.type} 
+                                            className="w-4 h-4"
+                                          />
+                                        ) : (
+                                          <span className="text-xs font-medium text-muted-foreground">
+                                            {node.data?.type?.charAt(0).toUpperCase() || 'N'}
+                                          </span>
+                                        )}
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                        <div className="font-medium truncate flex items-center gap-2">
+                                          {node.data?.title || integration?.name || node.data?.type}
+                                          {!producesOutput && (
+                                            <Badge variant="secondary" className="text-xs px-1 py-0 h-4">
+                                              No Output
+                                            </Badge>
+                                          )}
+                                        </div>
+                                        <div className="text-xs text-muted-foreground truncate">
+                                          {node.data?.description || integration?.description || 'No description'}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </SelectItem>
+                                )
+                              })}
+                          </SelectContent>
+                        </Select>
+                        
+                        {config.inputNodeId && (
+                          <div className="p-3 bg-muted/30 rounded-lg">
+                            {(() => {
+                              const selectedNode = workflowData?.nodes.find(node => node.id === config.inputNodeId)
+                              const { ALL_NODE_COMPONENTS } = require("@/lib/workflows/availableNodes")
+                              const nodeComponent = ALL_NODE_COMPONENTS.find((c: any) => c.type === selectedNode?.data?.type)
+                              const producesOutput = nodeComponent?.producesOutput
+                              
+                              return (
+                                <>
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <div className={cn(
+                                      "w-2 h-2 rounded-full",
+                                      producesOutput ? "bg-green-500" : "bg-yellow-500"
+                                    )}></div>
+                                    <span className="text-sm font-medium">
+                                      {producesOutput ? "Connected" : "Warning"}
+                                    </span>
+                                  </div>
+                                  <p className="text-xs text-muted-foreground">
+                                    {producesOutput 
+                                      ? "The AI Agent will receive data from the selected node and process it using the configured tools and memory."
+                                      : "The selected node does not produce output data. The AI Agent may not receive useful input."
+                                    }
+                                  </p>
+                                </>
+                              )
+                            })()}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="p-4 border border-dashed rounded-lg text-center">
+                        <p className="text-sm text-muted-foreground">
+                          No other nodes found in the workflow. Add some nodes first to connect them to the AI Agent.
+                        </p>
+                      </div>
+                    )}
+                    
+                    {errors.inputNodeId && (
+                      <p className="text-sm text-red-600">{errors.inputNodeId}</p>
                     )}
                   </div>
 
-                  {/* Allowed Tools */}
+
+
+                  {/* Memory Configuration */}
                   <div className="space-y-3">
                     <div className="flex items-center gap-2">
-                      <Zap className="w-5 h-5 text-primary" />
-                      <Label className="text-base font-medium">Allowed Tools</Label>
+                      <Brain className="w-5 h-5 text-primary" />
+                      <Label className="text-base font-medium">Memory</Label>
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
@@ -228,52 +271,94 @@ export default function AIAgentConfigModal({
                           </Button>
                         </TooltipTrigger>
                         <TooltipContent side="top" className="max-w-xs">
-                          <p className="text-sm">Select which integrations the AI agent can use as tools</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {AVAILABLE_TOOLS.map(renderToolCard)}
-                    </div>
-                    {errors.allowedTools && (
-                      <p className="text-sm text-red-600">{errors.allowedTools}</p>
-                    )}
-                  </div>
-
-                  {/* Memory Scope */}
-                  <div className="space-y-3">
-                                         <div className="flex items-center gap-2">
-                       <Brain className="w-5 h-5 text-primary" />
-                      <Label className="text-base font-medium">Memory Scope</Label>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                            <HelpCircle className="h-4 w-4 text-muted-foreground" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="max-w-xs">
-                          <p className="text-sm">Define what data the AI agent can access from memory</p>
+                          <p className="text-sm">Choose how the AI agent should access memory and context</p>
                         </TooltipContent>
                       </Tooltip>
                     </div>
                     <Select
-                      value={config.memoryScope}
-                      onValueChange={(value) => setConfig(prev => ({ ...prev, memoryScope: value }))}
+                      value={config.memory || "all-storage"}
+                      onValueChange={(value) => setConfig(prev => ({ ...prev, memory: value }))}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select memory scope" />
+                        <SelectValue placeholder="Select memory configuration" />
                       </SelectTrigger>
                       <SelectContent>
-                        {MEMORY_SCOPES.map((scope) => (
-                          <SelectItem key={scope.value} value={scope.value}>
-                            <div>
-                              <div className="font-medium">{scope.label}</div>
-                              <div className="text-sm text-muted-foreground">{scope.description}</div>
-                            </div>
-                          </SelectItem>
-                        ))}
+                        <SelectItem value="none">No memory (start fresh each time)</SelectItem>
+                        <SelectItem value="single-storage">One storage integration (select below)</SelectItem>
+                        <SelectItem value="all-storage">All connected storage integrations</SelectItem>
+                        <SelectItem value="custom">Custom selection (choose specific integrations)</SelectItem>
                       </SelectContent>
                     </Select>
+                    
+                    {/* Single Storage Integration Selection */}
+                    {config.memory === "single-storage" && (
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Memory Integration</Label>
+                        <Select
+                          value={config.memoryIntegration || ""}
+                          onValueChange={(value) => setConfig(prev => ({ ...prev, memoryIntegration: value }))}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select a storage integration for memory..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="google-drive">Google Drive</SelectItem>
+                            <SelectItem value="onedrive">OneDrive</SelectItem>
+                            <SelectItem value="dropbox">Dropbox</SelectItem>
+                            <SelectItem value="box">Box</SelectItem>
+                            <SelectItem value="notion">Notion</SelectItem>
+                            <SelectItem value="airtable">Airtable</SelectItem>
+                            <SelectItem value="google-sheets">Google Sheets</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                    
+                    {/* Custom Memory Integrations Selection */}
+                    {config.memory === "custom" && (
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Custom Memory Integrations</Label>
+                        <div className="grid grid-cols-3 gap-3 p-3 border rounded-lg bg-muted/30">
+                          {[
+                            { value: "gmail", label: "Gmail", category: "Communication" },
+                            { value: "slack", label: "Slack", category: "Communication" },
+                            { value: "discord", label: "Discord", category: "Communication" },
+                            { value: "teams", label: "Microsoft Teams", category: "Communication" },
+                            { value: "notion", label: "Notion", category: "Productivity" },
+                            { value: "google-sheets", label: "Google Sheets", category: "Productivity" },
+                            { value: "google-calendar", label: "Google Calendar", category: "Productivity" },
+                            { value: "airtable", label: "Airtable", category: "Productivity" },
+                            { value: "hubspot", label: "HubSpot", category: "CRM" },
+                            { value: "github", label: "GitHub", category: "Development" },
+                            { value: "google-drive", label: "Google Drive", category: "Storage" },
+                            { value: "onedrive", label: "OneDrive", category: "Storage" },
+                            { value: "dropbox", label: "Dropbox", category: "Storage" },
+                            { value: "box", label: "Box", category: "Storage" }
+                          ].map((integration) => (
+                            <div key={integration.value} className="flex items-center space-x-2 p-2 rounded hover:bg-muted/50 transition-colors">
+                              <Checkbox
+                                id={`memory-${integration.value}`}
+                                checked={config.customMemoryIntegrations?.includes(integration.value) || false}
+                                onCheckedChange={(checked) => {
+                                  setConfig(prev => ({
+                                    ...prev,
+                                    customMemoryIntegrations: checked
+                                      ? [...(prev.customMemoryIntegrations || []), integration.value]
+                                      : (prev.customMemoryIntegrations || []).filter((id: string) => id !== integration.value)
+                                  }))
+                                }}
+                              />
+                              <Label htmlFor={`memory-${integration.value}`} className="text-sm cursor-pointer">
+                                {integration.label}
+                              </Label>
+                            </div>
+                          ))}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Select which integrations the AI agent should access for memory and context
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   {/* System Prompt */}
@@ -300,38 +385,7 @@ export default function AIAgentConfigModal({
                     />
                   </div>
 
-                  {/* Max Steps */}
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-5 h-5 text-primary" />
-                      <Label className="text-base font-medium">Maximum Steps</Label>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                            <HelpCircle className="h-4 w-4 text-muted-foreground" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="max-w-xs">
-                          <p className="text-sm">Maximum number of tool calls the AI agent can make</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </div>
-                    <Input
-                      type="number"
-                      value={config.maxSteps}
-                      onChange={(e) => {
-                        const value = parseInt(e.target.value)
-                        setConfig(prev => ({ ...prev, maxSteps: value }))
-                        if (errors.maxSteps) setErrors(prev => ({ ...prev, maxSteps: "" }))
-                      }}
-                      min="1"
-                      max="50"
-                      className="w-32"
-                    />
-                    {errors.maxSteps && (
-                      <p className="text-sm text-red-600">{errors.maxSteps}</p>
-                    )}
-                  </div>
+
                 </div>
               </ScrollArea>
 
@@ -339,8 +393,21 @@ export default function AIAgentConfigModal({
               <DialogFooter className="px-6 py-4 border-t border-border flex-shrink-0">
                 <div className="flex items-center justify-between w-full">
                   <div className="text-sm text-muted-foreground">
-                    {config.allowedTools.length > 0 && (
-                      <span>Selected {config.allowedTools.length} tool{config.allowedTools.length !== 1 ? 's' : ''}</span>
+                    {config.inputNodeId && (
+                      (() => {
+                        const selectedNode = workflowData?.nodes.find(node => node.id === config.inputNodeId)
+                        const { ALL_NODE_COMPONENTS } = require("@/lib/workflows/availableNodes")
+                        const nodeComponent = ALL_NODE_COMPONENTS.find((c: any) => c.type === selectedNode?.data?.type)
+                        const producesOutput = nodeComponent?.producesOutput
+                        
+                        return (
+                          <span className={cn(
+                            producesOutput ? "text-muted-foreground" : "text-yellow-600"
+                          )}>
+                            {producesOutput ? "Connected to input node" : "Warning: Selected node may not produce output"}
+                          </span>
+                        )
+                      })()
                     )}
                   </div>
                   <div className="flex gap-2">

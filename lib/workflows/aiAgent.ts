@@ -103,27 +103,60 @@ export async function resolveContext(
 }
 
 /**
- * Fetches memory from connected integrations
+ * Fetches memory from connected integrations based on memory configuration
  */
 export async function fetchMemory(
-  toolsAllowed: string[], 
+  memoryConfig: {
+    memory: string
+    memoryIntegration?: string
+    customMemoryIntegrations?: string[]
+  },
   userId: string
 ): Promise<MemoryContext> {
   const memory: MemoryContext = {
     shortTerm: [],
     workflowWide: [],
     external: [],
-    toolsAvailable: toolsAllowed
+    toolsAvailable: []
+  }
+
+  // Determine which integrations to fetch memory from
+  let integrationsToFetch: string[] = []
+  
+  switch (memoryConfig.memory) {
+    case 'none':
+      // No memory needed
+      return memory
+      
+    case 'single-storage':
+      if (memoryConfig.memoryIntegration) {
+        integrationsToFetch = [memoryConfig.memoryIntegration]
+      }
+      break
+      
+    case 'all-storage':
+      // Fetch from all storage integrations
+      integrationsToFetch = [
+        'google-drive', 'onedrive', 'dropbox', 'box', 
+        'notion', 'airtable', 'google-sheets'
+      ]
+      break
+      
+    case 'custom':
+      if (memoryConfig.customMemoryIntegrations) {
+        integrationsToFetch = memoryConfig.customMemoryIntegrations
+      }
+      break
   }
 
   try {
-    // Fetch data from allowed integrations
-    for (const tool of toolsAllowed) {
+    // Fetch data from specified integrations
+    for (const integration of integrationsToFetch) {
       try {
-        const credentials = await getIntegrationCredentials(userId, tool)
+        const credentials = await getIntegrationCredentials(userId, integration)
         if (!credentials) continue
 
-        switch (tool) {
+        switch (integration) {
           case 'gmail':
             // Fetch recent emails
             const emailResponse = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=10', {
@@ -131,7 +164,7 @@ export async function fetchMemory(
             })
             if (emailResponse.ok) {
               const emails = await emailResponse.json()
-              memory.shortTerm.push({
+              memory.external.push({
                 source: 'gmail',
                 type: 'recent_emails',
                 data: emails.messages?.slice(0, 5) || []
@@ -146,7 +179,7 @@ export async function fetchMemory(
             })
             if (driveResponse.ok) {
               const files = await driveResponse.json()
-              memory.shortTerm.push({
+              memory.external.push({
                 source: 'google-drive',
                 type: 'recent_files',
                 data: files.files?.slice(0, 5) || []
@@ -170,7 +203,7 @@ export async function fetchMemory(
             })
             if (notionResponse.ok) {
               const pages = await notionResponse.json()
-              memory.shortTerm.push({
+              memory.external.push({
                 source: 'notion',
                 type: 'recent_pages',
                 data: pages.results || []
@@ -185,16 +218,81 @@ export async function fetchMemory(
             })
             if (slackResponse.ok) {
               const channels = await slackResponse.json()
-              memory.shortTerm.push({
+              memory.external.push({
                 source: 'slack',
                 type: 'channels',
                 data: channels.channels?.slice(0, 5) || []
               })
             }
             break
+
+          case 'onedrive':
+            // Fetch recent files from OneDrive
+            const onedriveResponse = await fetch('https://graph.microsoft.com/v1.0/me/drive/recent', {
+              headers: { 'Authorization': `Bearer ${credentials.accessToken}` }
+            })
+            if (onedriveResponse.ok) {
+              const files = await onedriveResponse.json()
+              memory.external.push({
+                source: 'onedrive',
+                type: 'recent_files',
+                data: files.value?.slice(0, 5) || []
+              })
+            }
+            break
+
+          case 'dropbox':
+            // Fetch recent files from Dropbox
+            const dropboxResponse = await fetch('https://api.dropboxapi.com/2/files/list_folder', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${credentials.accessToken}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ path: '', limit: 5 })
+            })
+            if (dropboxResponse.ok) {
+              const files = await dropboxResponse.json()
+              memory.external.push({
+                source: 'dropbox',
+                type: 'recent_files',
+                data: files.entries?.slice(0, 5) || []
+              })
+            }
+            break
+
+          case 'airtable':
+            // Fetch recent records from Airtable
+            const airtableResponse = await fetch('https://api.airtable.com/v0/meta/bases', {
+              headers: { 'Authorization': `Bearer ${credentials.accessToken}` }
+            })
+            if (airtableResponse.ok) {
+              const bases = await airtableResponse.json()
+              memory.external.push({
+                source: 'airtable',
+                type: 'bases',
+                data: bases.bases?.slice(0, 5) || []
+              })
+            }
+            break
+
+          case 'google-sheets':
+            // Fetch recent spreadsheets
+            const sheetsResponse = await fetch('https://www.googleapis.com/drive/v3/files?q=mimeType=\'application/vnd.google-apps.spreadsheet\'&orderBy=modifiedTime desc&pageSize=5', {
+              headers: { 'Authorization': `Bearer ${credentials.accessToken}` }
+            })
+            if (sheetsResponse.ok) {
+              const spreadsheets = await sheetsResponse.json()
+              memory.external.push({
+                source: 'google-sheets',
+                type: 'recent_spreadsheets',
+                data: spreadsheets.files?.slice(0, 5) || []
+              })
+            }
+            break
         }
       } catch (error) {
-        console.warn(`Failed to fetch memory for ${tool}:`, error)
+        console.warn(`Failed to fetch memory for ${integration}:`, error)
       }
     }
   } catch (error) {
@@ -216,100 +314,79 @@ export async function executeAIAgent(params: AIAgentParams): Promise<AIAgentResu
     
     // 2. Extract parameters
     const {
-      goal,
-      toolsAllowed = [],
-      memoryScope = 'workflow-wide',
-      systemPrompt,
-      maxSteps = 5
+      inputNodeId,
+      memory = 'all-storage',
+      memoryIntegration,
+      customMemoryIntegrations = [],
+      systemPrompt
     } = resolvedConfig
 
-    if (!goal) {
+    if (!inputNodeId) {
       return {
         success: false,
-        error: "Missing required parameter: goal"
+        error: "Missing required parameter: inputNodeId"
       }
     }
 
-    // 3. Gather context
-    const context = workflowContext ? 
-      await resolveContext(goal, workflowContext.nodes, workflowContext.previousResults) :
-      { goal, availableData: {}, nodeOutputs: {}, availableTools: [] }
+    // 3. Gather context from single input (previous node)
+    const context: any = {
+      goal: `Process and analyze the data from node ${inputNodeId}`,
+      input: input || {},
+      availableData: input || {},
+      nodeOutputs: input || {},
+      workflowState: workflowContext?.previousResults || {},
+      availableTools: [] // AI Agent can use any available integrations dynamically
+    }
 
-    // 4. Fetch memory based on scope
-    const memory = await fetchMemory(toolsAllowed, userId)
+    // 4. Fetch memory based on memory configuration
+    const memoryContext = await fetchMemory(
+      { memory, memoryIntegration, customMemoryIntegrations }, 
+      userId
+    )
 
     // 5. Build the AI prompt
-    const prompt = buildAIPrompt(goal, context, memory, systemPrompt)
+    const prompt = buildAIPrompt(context.goal, context, memoryContext, systemPrompt)
 
-    // 6. Execute AI reasoning and tool calling
+    // 6. Execute single step AI processing
     const steps: AIAgentStep[] = []
-    let currentContext = { ...context, memory }
+    let currentContext = { ...context, memory: memoryContext }
 
-    for (let step = 1; step <= maxSteps; step++) {
-      try {
-        // Get AI decision
-        const aiDecision = await getAIDecision(prompt, currentContext, steps)
-        
-        if (aiDecision.action === 'complete') {
-          steps.push({
-            step,
-            action: 'complete',
-            reasoning: aiDecision.reasoning,
-            success: true
-          })
-          break
-        }
+    try {
+      // Get AI decision for single step
+      const aiDecision = await getAIDecision(prompt, currentContext, steps)
+      
+      // Record the step
+      steps.push({
+        step: 1,
+        action: aiDecision.action,
+        tool: aiDecision.tool,
+        input: aiDecision.input,
+        output: aiDecision.output,
+        reasoning: aiDecision.reasoning,
+        success: true
+      })
 
-        // Execute tool if specified
-        if (aiDecision.tool) {
-          const toolResult = await executeTool(aiDecision.tool, aiDecision.input, userId)
-          
-          steps.push({
-            step,
-            action: aiDecision.action,
-            tool: aiDecision.tool,
-            input: aiDecision.input,
-            output: toolResult,
-            reasoning: aiDecision.reasoning,
-            success: toolResult.success
-          })
-
-          // Update context with tool result
-          currentContext = {
-            ...currentContext,
-            lastToolResult: toolResult,
-            toolHistory: [...(currentContext.toolHistory || []), toolResult]
-          }
-        } else {
-          steps.push({
-            step,
-            action: aiDecision.action,
-            reasoning: aiDecision.reasoning,
-            success: true
-          })
-        }
-
-      } catch (error: any) {
-        steps.push({
-          step,
-          action: 'error',
-          reasoning: 'Failed to execute step',
-          success: false,
-          error: error.message
-        })
-        break
-      }
+    } catch (error: any) {
+      steps.push({
+        step: 1,
+        action: 'error',
+        reasoning: 'Failed to process input',
+        success: false,
+        error: error.message
+      })
     }
 
     // 7. Return results
     return {
       success: true,
       output: {
-        goal,
+        input: input || {},
+        goal: context.goal,
         stepsCompleted: steps.length,
         finalResult: steps[steps.length - 1]?.output,
         steps,
-        context: currentContext
+        context: currentContext,
+        memory: memoryContext
       },
       message: `AI Agent completed ${steps.length} steps to accomplish the goal`,
       steps
@@ -367,13 +444,15 @@ async function getAIDecision(
   action: string
   tool?: string
   input?: any
+  output?: any
   reasoning: string
 }> {
   // This would integrate with your AI service (OpenAI, Anthropic, etc.)
-  // For now, return a mock decision
+  // For now, return a mock decision that processes the input
   return {
     action: 'complete',
-    reasoning: 'Goal appears to be achievable with available context and tools'
+    output: context.input, // Pass through the input as output
+    reasoning: 'Processed input data from previous node'
   }
 }
 

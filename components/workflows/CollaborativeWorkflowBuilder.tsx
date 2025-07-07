@@ -61,6 +61,19 @@ type IntegrationInfo = {
 
 const getIntegrationsFromNodes = (): IntegrationInfo[] => {
   const integrationMap: Record<string, IntegrationInfo> = {}
+  
+  // Add AI Agent as a separate integration first
+  integrationMap['ai'] = {
+    id: 'ai',
+    name: 'AI Agent',
+    description: 'Intelligent automation with AI-powered decision making and task execution',
+    category: 'ai',
+    color: '#8B5CF6',
+    triggers: [],
+    actions: [],
+  }
+  
+  // Add other integrations from configs
   for (const integrationId in INTEGRATION_CONFIGS) {
     const config = INTEGRATION_CONFIGS[integrationId]
     if (config) {
@@ -75,6 +88,7 @@ const getIntegrationsFromNodes = (): IntegrationInfo[] => {
       }
     }
   }
+  
   ALL_NODE_COMPONENTS.forEach((node) => {
     if (node.providerId && integrationMap[node.providerId]) {
       if (node.isTrigger) {
@@ -83,13 +97,16 @@ const getIntegrationsFromNodes = (): IntegrationInfo[] => {
         integrationMap[node.providerId].actions.push(node)
       }
     }
+
   })
   const integrations = Object.values(integrationMap)
   
-  // Sort integrations to put logic first, then alphabetically
+  // Sort integrations to put logic first, then AI Agent, then alphabetically
   return integrations.sort((a, b) => {
     if (a.id === 'logic') return -1
     if (b.id === 'logic') return 1
+    if (a.id === 'ai') return -1
+    if (b.id === 'ai') return 1
     return a.name.localeCompare(b.name)
   })
 }
@@ -134,7 +151,18 @@ const useWorkflowBuilderState = () => {
 
   const { toast } = useToast()
   const { trackWorkflowEmails } = useWorkflowEmailTracking()
-  const availableIntegrations = useMemo(() => getIntegrationsFromNodes(), [])
+  const availableIntegrations = useMemo(() => {
+    const integrations = getIntegrationsFromNodes()
+    // Debug: Check if AI Agent integration has actions
+    const aiIntegration = integrations.find(int => int.id === 'ai')
+    if (aiIntegration) {
+      console.log('AI Integration found:', aiIntegration)
+      console.log('AI Integration actions:', aiIntegration.actions)
+    } else {
+      console.log('AI Integration not found in availableIntegrations')
+    }
+    return integrations
+  }, [])
 
   const nodeNeedsConfiguration = (nodeComponent: NodeComponent): boolean => {
     // Check if the node has a configuration schema
@@ -166,9 +194,43 @@ const useWorkflowBuilderState = () => {
     return true
   }
 
+  // Helper function to check if AI Agent can be used after a specific node
+  const canUseAIAgentAfterNode = (parentNode: Node): boolean => {
+    // Find the node component definition
+    const nodeComponent = ALL_NODE_COMPONENTS.find((c) => c.type === parentNode.data.type)
+    
+    // AI Agent can only be used after nodes that produce outputs
+    return nodeComponent?.producesOutput === true
+  }
+
+  // Helper function to filter actions based on compatibility
+  const getCompatibleActions = (actions: NodeComponent[]): NodeComponent[] => {
+    const trigger = getNodes().find(node => node.data?.isTrigger)
+    
+    return actions.filter(action => {
+      // Gmail actions should only be available with Gmail triggers
+      if (action.providerId === 'gmail' && trigger && trigger.data?.providerId !== 'gmail') {
+        return false
+      }
+      
+      // AI Agent can only be used after nodes that produce outputs
+      if (action.type === 'ai_agent' && sourceAddNode) {
+        const parentNode = getNodes().find(n => n.id === sourceAddNode.parentId)
+        if (parentNode && !canUseAIAgentAfterNode(parentNode)) {
+          return false
+        }
+      }
+      
+      return true
+    })
+  }
+
   const isIntegrationConnected = useCallback((integrationId: string): boolean => {
     // Logic integration is always "connected" since it doesn't require authentication
     if (integrationId === 'logic') return true;
+    
+    // AI Agent is always "connected" since it doesn't require external authentication
+    if (integrationId === 'ai') return true;
     
     // Use the integration store to check if this integration is connected
     const connectedProviders = getConnectedProviders();
@@ -1041,7 +1103,7 @@ const useWorkflowBuilderState = () => {
         
         // Search in trigger names, descriptions, and types
         const triggerMatches = int.triggers.some(t => 
-          (t.name && t.name.toLowerCase().includes(searchLower)) ||
+          (t.title && t.title.toLowerCase().includes(searchLower)) ||
           (t.description && t.description.toLowerCase().includes(searchLower)) ||
           (t.type && t.type.toLowerCase().includes(searchLower))
         );
@@ -1057,7 +1119,7 @@ const useWorkflowBuilderState = () => {
     if (!searchLower) return selectedIntegration.triggers;
 
     return selectedIntegration.triggers.filter((trigger) => {
-      return (trigger.name && trigger.name.toLowerCase().includes(searchLower)) ||
+      return (trigger.title && trigger.title.toLowerCase().includes(searchLower)) ||
              (trigger.description && trigger.description.toLowerCase().includes(searchLower)) ||
              (trigger.type && trigger.type.toLowerCase().includes(searchLower));
     });
@@ -1109,12 +1171,58 @@ const useWorkflowBuilderState = () => {
   }
 
   return {
-    nodes, edges, onNodesChange, onEdgesChange, onConnect, workflowName, setWorkflowName, isSaving, handleSave, handleExecute, showTriggerDialog,
-    setShowTriggerDialog, showActionDialog, setShowActionDialog, handleTriggerSelect, handleActionSelect, selectedIntegration, setSelectedIntegration,
-    availableIntegrations, renderLogo, getWorkflowStatus, currentWorkflow, isExecuting, executionEvents,
-    configuringNode, setConfiguringNode, handleSaveConfiguration, collaborators, pendingNode, setPendingNode,
-    selectedTrigger, setSelectedTrigger, selectedAction, setSelectedAction, searchQuery, setSearchQuery, filterCategory, setFilterCategory, showConnectedOnly, setShowConnectedOnly,
-    filteredIntegrations, displayedTriggers, deletingNode, setDeletingNode, confirmDeleteNode, isIntegrationConnected, integrationsLoading, testMode, setTestMode, handleResetLoadingStates
+    nodes,
+    edges,
+    setEdges,
+    onNodesChange,
+    onEdgesChange,
+    onConnect,
+    workflowName,
+    setWorkflowName,
+    isSaving,
+    handleSave,
+    handleExecute,
+    showTriggerDialog,
+    setShowTriggerDialog,
+    showActionDialog,
+    setShowActionDialog,
+    handleTriggerSelect,
+    handleActionSelect,
+    selectedIntegration,
+    setSelectedIntegration,
+    availableIntegrations,
+    renderLogo,
+    getWorkflowStatus,
+    currentWorkflow,
+    isExecuting,
+    executionEvents,
+    configuringNode,
+    setConfiguringNode,
+    handleSaveConfiguration,
+    collaborators,
+    pendingNode,
+    setPendingNode,
+    selectedTrigger,
+    setSelectedTrigger,
+    selectedAction,
+    setSelectedAction,
+    searchQuery,
+    setSearchQuery,
+    filterCategory,
+    setFilterCategory,
+    showConnectedOnly,
+    setShowConnectedOnly,
+    filteredIntegrations,
+    displayedTriggers,
+    deletingNode,
+    setDeletingNode,
+    confirmDeleteNode,
+    isIntegrationConnected,
+    integrationsLoading,
+    testMode,
+    setTestMode,
+    handleResetLoadingStates,
+    sourceAddNode
   }
 }
 
@@ -1130,12 +1238,13 @@ function WorkflowBuilderContent() {
   const router = useRouter()
   
   const {
-    nodes, edges, onNodesChange, onEdgesChange, onConnect, workflowName, setWorkflowName, isSaving, handleSave, handleExecute, 
+    nodes, edges, setEdges, onNodesChange, onEdgesChange, onConnect, workflowName, setWorkflowName, isSaving, handleSave, handleExecute, 
     showTriggerDialog, setShowTriggerDialog, showActionDialog, setShowActionDialog, handleTriggerSelect, handleActionSelect, selectedIntegration, setSelectedIntegration,
     availableIntegrations, renderLogo, getWorkflowStatus, currentWorkflow, isExecuting, executionEvents,
     configuringNode, setConfiguringNode, handleSaveConfiguration, collaborators, pendingNode, setPendingNode,
     selectedTrigger, setSelectedTrigger, selectedAction, setSelectedAction, searchQuery, setSearchQuery, filterCategory, setFilterCategory, showConnectedOnly, setShowConnectedOnly,
-    filteredIntegrations, displayedTriggers, deletingNode, setDeletingNode, confirmDeleteNode, isIntegrationConnected, integrationsLoading, testMode, setTestMode, handleResetLoadingStates
+    filteredIntegrations, displayedTriggers, deletingNode, setDeletingNode, confirmDeleteNode, isIntegrationConnected, integrationsLoading, testMode, setTestMode, handleResetLoadingStates,
+    sourceAddNode
   } = useWorkflowBuilderState()
 
   const categories = useMemo(() => {
@@ -1363,7 +1472,7 @@ function WorkflowBuilderContent() {
                             }
                           }}
                         >
-                          <p className="font-medium">{trigger.name}</p>
+                          <p className="font-medium">{trigger.title}</p>
                           <p className="text-sm text-muted-foreground mt-1">{trigger.description}</p>
                         </div>
                       ))}
@@ -1385,7 +1494,7 @@ function WorkflowBuilderContent() {
               {selectedIntegration && (
                 <>
                   <span className="font-medium">Integration:</span> {selectedIntegration.name}
-                  {selectedTrigger && <span className="ml-4"><span className="font-medium">Trigger:</span> {selectedTrigger.name}</span>}
+                  {selectedTrigger && <span className="ml-4"><span className="font-medium">Trigger:</span> {selectedTrigger.title}</span>}
                 </>
               )}
             </div>
@@ -1529,7 +1638,8 @@ function WorkflowBuilderContent() {
                       }
                       return true
                     })
-                    if (compatibleActions.length === 0) return false
+                    // Don't filter out AI Agent integration even if it has no actions initially
+                    if (compatibleActions.length === 0 && int.id !== 'ai') return false
                     
                     if (searchQuery) {
                       const query = searchQuery.toLowerCase()
@@ -1563,11 +1673,15 @@ function WorkflowBuilderContent() {
                     <div className="grid grid-cols-1 gap-3">
                       {selectedIntegration.actions
                         .filter(action => {
+                          
                           // First check if action is compatible with current trigger
                           const trigger = nodes.find(node => node.data?.isTrigger)
                           if (trigger && action.providerId === 'gmail' && trigger.data?.providerId !== 'gmail') {
                             return false
                           }
+                          
+                          // AI Agent is always shown - validation happens in config modal
+                          // If no sourceAddNode, allow AI Agent to show (it will be restricted when actually adding)
                           
                           if (searchQuery) {
                             const query = searchQuery.toLowerCase()
@@ -1642,6 +1756,21 @@ function WorkflowBuilderContent() {
                 setShowActionDialog(true);
               }}
               onSave={(config) => handleSaveConfiguration(configuringNode, config)}
+              onUpdateConnections={(sourceNodeId, targetNodeId) => {
+                // Create or update the edge between the selected input node and the AI Agent
+                const newEdge = {
+                  id: `e${sourceNodeId}-${targetNodeId}`,
+                  source: sourceNodeId,
+                  target: targetNodeId,
+                  type: 'smoothstep'
+                };
+                
+                // Remove any existing edges to the AI Agent
+                const filteredEdges = edges.filter(edge => edge.target !== targetNodeId);
+                
+                // Add the new edge
+                setEdges([...filteredEdges, newEdge]);
+              }}
               initialData={configuringNode.config}
               workflowData={{ nodes, edges }}
               currentNodeId={configuringNode.id}
