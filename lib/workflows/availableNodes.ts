@@ -128,6 +128,8 @@ export interface NodeComponent {
   testFunction?: (config: any) => Promise<any> | any
   // Conditional availability based on trigger
   requiresTriggerProvider?: string
+  // New property to identify nodes that produce outputs suitable for AI Agent input
+  producesOutput?: boolean
 }
 
 export const ALL_NODE_COMPONENTS: NodeComponent[] = [
@@ -138,6 +140,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     description: "Receive HTTP requests",
     category: "Triggers",
     isTrigger: true,
+    producesOutput: true,
     configSchema: [
       { name: "path", label: "Path", type: "text", placeholder: "/webhook-path" },
       { name: "method", label: "HTTP Method", type: "select", options: ["POST", "GET", "PUT"] },
@@ -149,6 +152,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     description: "Trigger workflow on a time-based schedule",
     category: "Triggers",
     isTrigger: true,
+    producesOutput: true,
     configSchema: [
       { name: "cron", label: "Cron Expression", type: "text", placeholder: "0 * * * *" },
       { name: "timezone", label: "Timezone", type: "text", placeholder: "UTC" },
@@ -161,6 +165,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     icon: Zap,
     category: "Triggers",
     isTrigger: true,
+    producesOutput: true,
   },
 
   // Generic Actions
@@ -185,6 +190,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "logic",
     isTrigger: false,
     testable: true,
+    producesOutput: true,
     outputSchema: [
       {
         name: "conditionMet",
@@ -308,6 +314,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "logic",
     isTrigger: false,
     testable: true,
+    producesOutput: true,
     outputSchema: [
       {
         name: "delayDuration",
@@ -353,17 +360,47 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     testable: true,
     configSchema: [
       { 
-        name: "goal", 
-        label: "Goal", 
-        type: "textarea", 
+        name: "inputNodeId", 
+        label: "Input Node", 
+        type: "select", 
         required: true,
-        placeholder: "Describe what you want the AI agent to accomplish..."
+        placeholder: "Select which node should provide input to the AI Agent..."
       },
       { 
-        name: "toolsAllowed", 
-        label: "Tools Allowed", 
+        name: "memory", 
+        label: "Memory", 
+        type: "select",
+        defaultValue: "all-storage",
+        options: [
+          { value: "none", label: "No memory (start fresh each time)" },
+          { value: "single-storage", label: "One storage integration (select below)" },
+          { value: "all-storage", label: "All connected storage integrations" },
+          { value: "custom", label: "Custom selection (choose specific integrations)" }
+        ],
+        description: "Choose how the AI agent should access memory and context"
+      },
+      { 
+        name: "memoryIntegration", 
+        label: "Memory Integration", 
+        type: "select",
+        dependsOn: "memory",
+        options: [
+          { value: "google-drive", label: "Google Drive" },
+          { value: "onedrive", label: "OneDrive" },
+          { value: "dropbox", label: "Dropbox" },
+          { value: "box", label: "Box" },
+          { value: "notion", label: "Notion" },
+          { value: "airtable", label: "Airtable" },
+          { value: "google-sheets", label: "Google Sheets" }
+        ],
+        placeholder: "Select a storage integration for memory..."
+      },
+      { 
+        name: "customMemoryIntegrations", 
+        label: "Custom Memory Integrations", 
         type: "select", 
         multiple: true,
+        dependsOn: "memory",
         options: [
           { value: "gmail", label: "Gmail" },
           { value: "slack", label: "Slack" },
@@ -374,53 +411,28 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
           { value: "google-sheets", label: "Google Sheets" },
           { value: "google-calendar", label: "Google Calendar" },
           { value: "airtable", label: "Airtable" },
-          { value: "stripe", label: "Stripe" },
           { value: "discord", label: "Discord" },
           { value: "teams", label: "Microsoft Teams" },
-          { value: "twitter", label: "Twitter" },
-          { value: "trello", label: "Trello" },
-          { value: "dropbox", label: "Dropbox" },
-          { value: "youtube", label: "YouTube" },
-          { value: "shopify", label: "Shopify" },
-          { value: "facebook", label: "Facebook" },
-          { value: "instagram", label: "Instagram" },
-          { value: "linkedin", label: "LinkedIn" },
-          { value: "mailchimp", label: "Mailchimp" },
           { value: "onedrive", label: "OneDrive" },
-          { value: "box", label: "Box" },
-          { value: "paypal", label: "PayPal" },
-          { value: "gitlab", label: "GitLab" },
-          { value: "microsoft-outlook", label: "Microsoft Outlook" },
-          { value: "microsoft-onenote", label: "Microsoft OneNote" }
+          { value: "dropbox", label: "Dropbox" },
+          { value: "box", label: "Box" }
         ],
-        placeholder: "Select which integrations the AI can use..."
-      },
-      { 
-        name: "memoryScope", 
-        label: "Memory Scope", 
-        type: "select",
-        defaultValue: "workflow-wide",
-        options: [
-          { value: "short-term", label: "Short-term (current session)" },
-          { value: "workflow-wide", label: "Workflow-wide (all connected nodes)" },
-          { value: "external", label: "External (fetch from integrations)" }
-        ]
+        placeholder: "Select specific integrations for memory access..."
       },
       { 
         name: "systemPrompt", 
         label: "System Prompt (Optional)", 
         type: "textarea",
         placeholder: "Override the default AI system prompt..."
-      },
-      { 
-        name: "maxSteps", 
-        label: "Maximum Steps", 
-        type: "number",
-        defaultValue: 5,
-        placeholder: "Maximum number of steps the AI can take"
       }
     ],
     outputSchema: [
+      {
+        name: "input",
+        label: "Input Data",
+        type: "object",
+        description: "The data received from the previous node"
+      },
       {
         name: "goal",
         label: "Goal",
@@ -450,6 +462,12 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         label: "Context",
         type: "object",
         description: "The final context including all gathered data"
+      },
+      {
+        name: "memory",
+        label: "Memory",
+        type: "object",
+        description: "Memory data accessed during execution"
       }
     ]
   },
@@ -624,6 +642,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "gmail",
     category: "Email",
     triggerType: 'webhook',
+    producesOutput: true,
     configSchema: [
       { name: "from", label: "From", type: "email-autocomplete", dynamic: "gmail-recent-recipients", placeholder: "Optional: filter by sender" },
       { name: "subject", label: "Subject", type: "text", placeholder: "Optional: filter by subject" },
@@ -649,6 +668,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     isTrigger: true,
     providerId: "gmail",
     category: "Email",
+    producesOutput: true,
     configSchema: [
       { name: "from", label: "From", type: "email-autocomplete", dynamic: "gmail-recent-recipients", placeholder: "Optional: filter by sender" },
       { name: "attachmentName", label: "Attachment Name", type: "text", placeholder: "Optional: filter by attachment name" },
@@ -662,6 +682,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "gmail",
     category: "Email",
     isTrigger: true,
+    producesOutput: true,
   },
   {
     type: GMAIL_SEND_EMAIL_METADATA.key,
@@ -750,6 +771,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     isTrigger: true,
     providerId: "google-calendar",
     category: "Productivity",
+    producesOutput: true,
     configSchema: [
       {
         name: "calendarId",
@@ -767,6 +789,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     isTrigger: true,
     providerId: "google-calendar",
     category: "Productivity",
+    producesOutput: true,
     configSchema: [
       {
         name: "calendarId",
@@ -784,6 +807,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     isTrigger: true,
     providerId: "google-calendar",
     category: "Productivity",
+    producesOutput: true,
     configSchema: [
       {
         name: "calendarId",
@@ -1018,6 +1042,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     isTrigger: true,
     providerId: "google-drive",
     category: "Google Drive",
+    producesOutput: true,
     configSchema: [
       {
         name: "folderId",
@@ -1035,6 +1060,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     isTrigger: true,
     providerId: "google-drive",
     category: "Google Drive",
+    producesOutput: true,
     configSchema: [
       {
         name: "folderId",
@@ -1052,6 +1078,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     isTrigger: true,
     providerId: "google-drive",
     category: "Google Drive",
+    producesOutput: true,
     configSchema: [
       {
         name: "fileId",
@@ -1137,6 +1164,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "google-sheets",
     category: "Productivity",
     isTrigger: true,
+    producesOutput: true,
     configSchema: [
       { name: "spreadsheetId", label: "Spreadsheet ID", type: "text" },
       { name: "sheetName", label: "Sheet Name", type: "text" },
@@ -1150,6 +1178,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "google-sheets",
     category: "Productivity",
     isTrigger: true,
+    producesOutput: true,
     configSchema: [
       { name: "spreadsheetId", label: "Spreadsheet ID", type: "text" },
     ],
@@ -1161,6 +1190,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     isTrigger: true,
     providerId: "google-sheets",
     category: "Productivity",
+    producesOutput: true,
     configSchema: [
       { name: "spreadsheetId", label: "Spreadsheet ID", type: "text" },
       { name: "sheetName", label: "Sheet Name", type: "text" },
@@ -1353,6 +1383,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     testable: true,
     requiredScopes: ["https://www.googleapis.com/auth/spreadsheets"],
     category: "Productivity",
+    producesOutput: true,
     outputSchema: [
       {
         name: "data",
@@ -1616,6 +1647,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "slack",
     category: "Communication",
     isTrigger: true,
+    producesOutput: true,
     configSchema: [
       {
         name: "channel",
@@ -1634,6 +1666,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "slack",
     category: "Communication",
     isTrigger: true,
+    producesOutput: true,
     configSchema: [
       {
         name: "channel",
@@ -1742,6 +1775,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "notion",
     category: "Productivity",
     isTrigger: true,
+    producesOutput: true,
   },
   {
     type: "notion_action_create_page",
@@ -2000,6 +2034,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "airtable",
     category: "Productivity",
     isTrigger: true,
+    producesOutput: true,
   },
   {
     type: "airtable_action_create_record",
@@ -2010,6 +2045,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     requiredScopes: ["data.records:write"],
     category: "Productivity",
     isTrigger: false,
+    producesOutput: true,
     configSchema: [
       {
         name: "baseId",
@@ -2152,6 +2188,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "discord",
     category: "Communication",
     isTrigger: true,
+    producesOutput: true,
   },
   {
     type: "discord_action_send_message",
@@ -2199,6 +2236,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "teams",
     category: "Communication",
     isTrigger: true,
+    producesOutput: true,
   },
   {
     type: "teams_action_send_message",
@@ -2880,6 +2918,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Email",
     isTrigger: false,
     requiredScopes: ["https://www.googleapis.com/auth/gmail.readonly"],
+    producesOutput: true,
     configSchema: [
       { 
         name: "emailAddress", 
@@ -2973,6 +3012,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "slack",
     category: "Communication",
     isTrigger: true,
+    producesOutput: true,
     configSchema: [{ name: "command", label: "Command", type: "text" }],
   },
   {
@@ -3012,6 +3052,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "discord",
     category: "Communication",
     isTrigger: true,
+    producesOutput: true,
     configSchema: [{ name: "command", label: "Command", type: "text" }],
   },
 
@@ -3026,6 +3067,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "manychat",
     category: "Communication",
     isTrigger: true,
+    producesOutput: true,
   },
   {
     type: "manychat_action_send_message",
@@ -3055,6 +3097,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "beehiiv",
     category: "Communication",
     isTrigger: true,
+    producesOutput: true,
   },
   {
     type: "beehiiv_action_add_subscriber",
@@ -3152,6 +3195,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Productivity",
     isTrigger: false,
     requiredScopes: ["https://www.googleapis.com/auth/documents.readonly"],
+    producesOutput: true,
     configSchema: [
       {
         name: "documentId",
@@ -3899,6 +3943,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     requiredScopes: ["data.records:read"],
     category: "Productivity",
     isTrigger: false,
+    producesOutput: true,
     configSchema: [
       {
         name: "baseId",
