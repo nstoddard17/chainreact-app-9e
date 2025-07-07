@@ -3212,7 +3212,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "google-docs",
     category: "Productivity",
     isTrigger: false,
-    requiredScopes: ["https://www.googleapis.com/auth/documents"],
+    requiredScopes: ["https://www.googleapis.com/auth/documents", "https://www.googleapis.com/auth/drive.readonly"],
     configSchema: [
       {
         name: "title",
@@ -3279,7 +3279,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "google-docs",
     category: "Productivity",
     isTrigger: false,
-    requiredScopes: ["https://www.googleapis.com/auth/documents.readonly"],
+    requiredScopes: ["https://www.googleapis.com/auth/documents.readonly", "https://www.googleapis.com/auth/drive.readonly"],
     producesOutput: true,
     configSchema: [
       {
@@ -3330,7 +3330,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "google-docs",
     category: "Productivity",
     isTrigger: false,
-    requiredScopes: ["https://www.googleapis.com/auth/documents"],
+    requiredScopes: ["https://www.googleapis.com/auth/documents", "https://www.googleapis.com/auth/drive.readonly"],
     configSchema: [
       {
         name: "documentId",
@@ -3398,7 +3398,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "google-docs",
     category: "Productivity",
     isTrigger: false,
-    requiredScopes: ["https://www.googleapis.com/auth/drive"],
+    requiredScopes: ["https://www.googleapis.com/auth/drive", "https://www.googleapis.com/auth/drive.readonly"],
     configSchema: [
       {
         name: "documentId",
