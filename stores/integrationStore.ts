@@ -595,6 +595,18 @@ export const useIntegrationStore = create<IntegrationStore>()(
             url = "/api/integrations/fetch-user-data"
             dataType = "google-drive-files"
             break
+          case "onedrive-folders":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "onedrive-folders"
+            break
+          case "dropbox-folders":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "dropbox-folders"
+            break
+          case "box-folders":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "box-folders"
+            break
           case "google-sheets_spreadsheets":
             url = "/api/integrations/fetch-user-data"
             dataType = "google-sheets_spreadsheets"
@@ -618,6 +630,18 @@ export const useIntegrationStore = create<IntegrationStore>()(
           case "google-docs_templates":
             url = "/api/integrations/fetch-user-data"
             dataType = "google-docs_templates"
+            break
+          case "google-docs_recent_documents":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "google-docs_recent_documents"
+            break
+          case "google-docs_shared_documents":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "google-docs_shared_documents"
+            break
+          case "google-docs_folders":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "google-docs_folders"
             break
           case "youtube_channels":
             url = "/api/integrations/fetch-user-data"
@@ -715,6 +739,10 @@ export const useIntegrationStore = create<IntegrationStore>()(
             url = "/api/integrations/fetch-user-data"
             dataType = "discord_channels"
             break
+          case "facebook_pages":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "facebook_pages"
+            break
           default:
             throw new Error(`Loading data for ${providerId} is not supported.`)
         }
@@ -728,10 +756,16 @@ export const useIntegrationStore = create<IntegrationStore>()(
                        providerId === 'google-calendars' ? 'google-calendar' :
                        providerId === 'google-drive-folders' ? 'google-drive' :
                        providerId === 'google-drive-files' ? 'google-drive' :
+                       providerId === 'onedrive-folders' ? 'onedrive' :
+                       providerId === 'dropbox-folders' ? 'dropbox' :
+                       providerId === 'box-folders' ? 'box' :
                        providerId === 'google-sheets_spreadsheets' ? 'google-sheets' :
                        providerId === 'google-sheets_sheets' ? 'google-sheets' :
                        providerId === 'google-sheets_sheet-preview' ? 'google-sheets' :
                        providerId === 'google-sheets_sheet-data' ? 'google-sheets' :
+                       providerId === 'google-docs_recent_documents' ? 'google-docs' :
+                       providerId === 'google-docs_shared_documents' ? 'google-docs' :
+                       providerId === 'google-docs_folders' ? 'google-docs' :
                        providerId.includes('-') ? providerId.split('-')[0] : 
                        providerId, // Extract base provider name
               dataType: params?.dataType || dataType, // Allow override via params

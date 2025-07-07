@@ -87,7 +87,8 @@ async function fetchGmailLabels(integrationId?: string) {
     success: true,
     data: userLabels.map((label: any) => ({
       value: label.id,
-      label: label.name
+      label: label.name,
+      isExisting: true // Mark existing labels
     }))
   })
 }

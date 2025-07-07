@@ -1515,7 +1515,7 @@ function WorkflowBuilderContent() {
       </Dialog>
 
       <Dialog open={showActionDialog} onOpenChange={setShowActionDialog}>
-        <DialogContent className="max-w-4xl h-[75vh] flex flex-col p-0 bg-card rounded-lg shadow-2xl">
+        <DialogContent className="max-w-4xl h-[85vh] flex flex-col p-0 bg-card rounded-lg shadow-2xl">
           <DialogHeader className="p-6 pb-4 border-b border-border">
             <DialogTitle className="text-xl font-bold">Select an Action</DialogTitle>
             <DialogDescription>Choose an integration and an action to add to your workflow.</DialogDescription>

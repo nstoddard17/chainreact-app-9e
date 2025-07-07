@@ -93,10 +93,15 @@ export function EmailAutocomplete({
         setSelectedEmails(newEmails)
         onChange(newEmails.join(', '))
         setInputValue("")
+        // Keep dropdown open for multiple selection
+        setIsOpen(true)
+        setSelectedIndex(-1)
       } else {
         // For single mode, just use the first email from the group
         onChange(groupEmails[0] || suggestion.email)
         setInputValue(groupEmails[0] || suggestion.email)
+        setIsOpen(false)
+        setSelectedIndex(-1)
       }
     } else {
       // Handle individual email selection
@@ -105,13 +110,16 @@ export function EmailAutocomplete({
         setSelectedEmails(newEmails)
         onChange(newEmails.join(', '))
         setInputValue("")
+        // Keep dropdown open for multiple selection
+        setIsOpen(true)
+        setSelectedIndex(-1)
       } else {
         onChange(suggestion.email)
         setInputValue(suggestion.email)
+        setIsOpen(false)
+        setSelectedIndex(-1)
       }
     }
-    setIsOpen(false)
-    setSelectedIndex(-1)
   }
 
   const handleEmailRemove = (emailToRemove: string) => {
@@ -151,10 +159,12 @@ export function EmailAutocomplete({
             setSelectedEmails(newEmails)
             onChange(newEmails.join(', '))
             setInputValue("")
+            // Keep dropdown open for multiple selection
+            setIsOpen(true)
           } else {
             onChange(inputValue.trim())
+            setIsOpen(false)
           }
-          setIsOpen(false)
         }
         break
       case 'Escape':
@@ -176,6 +186,8 @@ export function EmailAutocomplete({
             setSelectedEmails(newEmails)
             onChange(newEmails.join(', '))
             setInputValue("")
+            // Keep dropdown open for multiple selection
+            setIsOpen(true)
           }
         }
         break

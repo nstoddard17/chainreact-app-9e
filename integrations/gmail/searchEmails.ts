@@ -80,28 +80,41 @@ export async function searchGmailEmails(params: ActionParams): Promise<ActionRes
     // 3. Extract parameters
     const { 
       query,
-      maxResults = 10,
+      emailAddress,
+      quantity = 10,
       includeBody = false,
       includeAttachments = false,
       labelIds = []
     } = resolvedConfig
     
     // 4. Validate required parameters
-    if (!query && labelIds.length === 0) {
+    if (!query && !emailAddress && labelIds.length === 0) {
       return {
         success: false,
-        error: "You must provide either a search query or label IDs"
+        error: "You must provide either a search query, email addresses, or label IDs"
       }
     }
     
     // 5. Build search query
     let searchQuery = query || ''
     
+    // Add email address filters if specified
+    if (emailAddress) {
+      const emails = emailAddress.split(',').map((email: string) => email.trim()).filter(Boolean)
+      if (emails.length > 0) {
+        const emailFilters = emails.map((email: string) => `from:${email}`).join(' OR ')
+        searchQuery = searchQuery ? `${searchQuery} (${emailFilters})` : `(${emailFilters})`
+      }
+    }
+    
     // Add label filters if specified
     if (labelIds && labelIds.length > 0) {
       const labelFilters = labelIds.map((id: string) => `label:${id}`).join(' ')
       searchQuery = searchQuery ? `${searchQuery} ${labelFilters}` : labelFilters
     }
+    
+    // Set maxResults based on quantity
+    const maxResults = quantity === 'all' ? 500 : parseInt(quantity) || 10
     
     // 6. Search for messages matching the query
     const searchUrl = new URL('https://gmail.googleapis.com/gmail/v1/users/me/messages')

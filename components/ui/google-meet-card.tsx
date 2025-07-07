@@ -1,5 +1,5 @@
-import React from "react"
-import { Video, Settings, Copy, X } from "lucide-react"
+import React, { useState } from "react"
+import { Video, Settings, Copy, X, ChevronDown, Users, Lock, Globe } from "lucide-react"
 
 interface GoogleMeetCardProps {
   meetUrl?: string
@@ -16,6 +16,27 @@ export const GoogleMeetCard: React.FC<GoogleMeetCardProps> = ({
   onCopy,
   onSettings,
 }) => {
+  const [showCopyNotification, setShowCopyNotification] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
+
+  const handleCopy = async () => {
+    if (meetUrl) {
+      try {
+        await navigator.clipboard.writeText(meetUrl)
+        setShowCopyNotification(true)
+        setTimeout(() => setShowCopyNotification(false), 2000)
+        onCopy?.()
+      } catch (err) {
+        console.error('Failed to copy link:', err)
+      }
+    }
+  }
+
+  const handleSettings = () => {
+    setShowSettings(!showSettings)
+    onSettings?.()
+  }
+
   return (
     <div
       className="relative rounded-2xl p-4 flex flex-col items-start shadow border border-zinc-800 bg-[#181818]"
@@ -31,26 +52,68 @@ export const GoogleMeetCard: React.FC<GoogleMeetCardProps> = ({
           <Video className="w-5 h-5 mr-2 -ml-1" />
           Join with Google Meet
         </button>
-        <div className="flex items-center space-x-2 ml-4">
+        <div className="flex items-center space-x-2 ml-4 relative">
+          {/* Settings Button and Dropdown */}
+          <div className="relative">
+            <button
+              className="p-1 rounded hover:bg-[#232323] transition flex items-center gap-1"
+              title="Meeting settings"
+              type="button"
+              onClick={handleSettings}
+              style={{ color: '#b0b0b0' }}
+            >
+              <Settings className="w-4 h-4" />
+              <ChevronDown className="w-3 h-3" />
+            </button>
+            
+            {/* Settings Dropdown */}
+            {showSettings && (
+              <div className="absolute right-0 top-full mt-1 bg-[#232323] border border-zinc-700 rounded-lg shadow-lg z-10 min-w-48">
+                <div className="p-2">
+                  <div className="text-[#e0e0e0] text-sm font-medium mb-2 px-2">Meeting settings</div>
+                  <div className="space-y-1">
+                    <button className="w-full text-left px-2 py-1.5 text-sm text-[#b0b0b0] hover:bg-[#2a2a2a] rounded flex items-center gap-2">
+                      <Users className="w-4 h-4" />
+                      <span>Quick access</span>
+                      <span className="ml-auto text-xs text-[#666]">On</span>
+                    </button>
+                    <button className="w-full text-left px-2 py-1.5 text-sm text-[#b0b0b0] hover:bg-[#2a2a2a] rounded flex items-center gap-2">
+                      <Lock className="w-4 h-4" />
+                      <span>Host controls</span>
+                      <span className="ml-auto text-xs text-[#666]">On</span>
+                    </button>
+                    <button className="w-full text-left px-2 py-1.5 text-sm text-[#b0b0b0] hover:bg-[#2a2a2a] rounded flex items-center gap-2">
+                      <Globe className="w-4 h-4" />
+                      <span>Meeting visibility</span>
+                      <span className="ml-auto text-xs text-[#666]">Public</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Copy Button */}
           <button
-            className="p-1 rounded hover:bg-[#232323] transition"
-            title="Settings"
-            type="button"
-            onClick={onSettings}
-            style={{ color: '#b0b0b0' }}
-          >
-            <Settings className="w-5 h-5" />
-          </button>
-          <button
-            className="p-1 rounded hover:bg-[#232323] transition"
+            className="p-1 rounded hover:bg-[#232323] transition relative"
             title="Copy link"
             type="button"
-            onClick={onCopy}
+            onClick={handleCopy}
             disabled={!meetUrl}
             style={{ color: '#b0b0b0' }}
           >
             <Copy className="w-5 h-5" />
+            
+            {/* Copy Notification Popup */}
+            {showCopyNotification && (
+              <div className="absolute bottom-full right-0 mb-2 bg-[#232323] border border-zinc-700 rounded-lg px-3 py-2 text-sm text-[#e0e0e0] whitespace-nowrap shadow-lg z-20">
+                Meeting link copied!
+                <div className="absolute top-full right-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-[#232323]"></div>
+              </div>
+            )}
           </button>
+
+          {/* Remove Button */}
           <button
             className="p-1 rounded hover:bg-[#232323] transition"
             title="Remove Google Meet"

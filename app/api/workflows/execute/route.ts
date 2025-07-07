@@ -1152,11 +1152,14 @@ async function executeCalendarEventNode(node: any, context: any) {
   if (config.description) params.description = renderTemplate(config.description, context, "handlebars")
   if (config.location) params.location = renderTemplate(config.location, context, "handlebars")
   
-  // Date and Time fields - handle both old format and new separate fields
+  // Date and Time fields - handle separate date and time fields
   if (config.startDate && config.startTime) {
-    // New format with separate date and time fields
+    // Current format with separate date and time fields
     params.startDate = renderTemplate(config.startDate, context, "handlebars")
     params.startTime = renderTemplate(config.startTime, context, "handlebars")
+  } else if (config.startDateTime) {
+    // Legacy format with combined datetime field
+    params.startDateTime = renderTemplate(config.startDateTime, context, "handlebars")
   } else if (config.startTime) {
     // Legacy format with combined datetime
     params.startTime = renderTemplate(config.startTime, context, "handlebars")
@@ -1169,9 +1172,12 @@ async function executeCalendarEventNode(node: any, context: any) {
   }
   
   if (config.endDate && config.endTime) {
-    // New format with separate date and time fields
+    // Current format with separate date and time fields
     params.endDate = renderTemplate(config.endDate, context, "handlebars")
     params.endTime = renderTemplate(config.endTime, context, "handlebars")
+  } else if (config.endDateTime) {
+    // Legacy format with combined datetime field
+    params.endDateTime = renderTemplate(config.endDateTime, context, "handlebars")
   } else if (config.endTime) {
     // Legacy format with combined datetime
     params.endTime = renderTemplate(config.endTime, context, "handlebars")
@@ -1225,9 +1231,13 @@ async function executeCalendarEventNode(node: any, context: any) {
       let startDateTime, endDateTime
       
       if (params.startDate && params.startTime) {
-        // New format: combine separate date and time fields
+        // Current format: combine separate date and time fields
         startDateTime = `${params.startDate}T${params.startTime}:00`
         endDateTime = `${params.endDate}T${params.endTime}:00`
+      } else if (params.startDateTime && params.endDateTime) {
+        // Legacy format: use combined datetime fields
+        startDateTime = params.startDateTime
+        endDateTime = params.endDateTime
       } else {
         // Legacy format: use existing datetime strings
         startDateTime = params.startTime || new Date().toISOString()

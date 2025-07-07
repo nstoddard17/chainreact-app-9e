@@ -70,7 +70,7 @@ export interface ConfigField {
   placeholder?: string
   description?: string
   options?: { value: string; label: string }[] | string[]
-  dynamic?: "slack-channels" | "google-calendars" | "google-drive-folders" | "google-drive-files" | "gmail-recent-recipients" | "gmail-enhanced-recipients" | "gmail-contact-groups" | "gmail_messages" | "gmail_labels" | "gmail_recent_senders" | "google-sheets_spreadsheets" | "google-sheets_sheets" | "google-docs_documents" | "google-docs_templates" | "youtube_channels" | "youtube_videos" | "youtube_playlists" | "teams_chats" | "teams_teams" | "teams_channels" | "github_repositories" | "gitlab_projects" | "notion_databases" | "notion_pages" | "trello_boards" | "trello_lists" | "hubspot_companies" | "airtable_workspaces" | "airtable_bases" | "airtable_tables" | "airtable_records" | "airtable_feedback_records" | "airtable_task_records" | "airtable_project_records" | "gumroad_products" | "blackbaud_constituents"
+  dynamic?: "slack-channels" | "google-calendars" | "google-drive-folders" | "google-drive-files" | "onedrive-folders" | "dropbox-folders" | "box-folders" | "gmail-recent-recipients" | "gmail-enhanced-recipients" | "gmail-contact-groups" | "gmail_messages" | "gmail_labels" | "gmail_recent_senders" | "google-sheets_spreadsheets" | "google-sheets_sheets" | "google-docs_documents" | "google-docs_templates" | "google-docs_recent_documents" | "google-docs_shared_documents" | "google-docs_folders" | "youtube_channels" | "youtube_videos" | "youtube_playlists" | "teams_chats" | "teams_teams" | "teams_channels" | "github_repositories" | "gitlab_projects" | "notion_databases" | "notion_pages" | "trello_boards" | "trello_lists" | "hubspot_companies" | "airtable_workspaces" | "airtable_bases" | "airtable_tables" | "airtable_records" | "airtable_feedback_records" | "airtable_task_records" | "airtable_project_records" | "gumroad_products" | "blackbaud_constituents" | "facebook_pages"
   accept?: string // For file inputs, specify accepted file types
   maxSize?: number // For file inputs, specify max file size in bytes
   defaultValue?: string | number | boolean // Default value for the field
@@ -95,6 +95,7 @@ export interface NodeField {
   multiple?: boolean
   creatable?: boolean
   readonly?: boolean
+  hidden?: boolean
   // New field for output data descriptions
   outputType?: "string" | "number" | "array" | "object" | "boolean"
 }
@@ -847,49 +848,57 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         type: "boolean",
         defaultValue: false
       },
-      {
+            {
         name: "startDate",
         label: "Start Date",
         type: "date",
         required: true,
+        defaultValue: "today"
       },
       {
         name: "startTime",
         label: "Start Time",
         type: "time",
-        required: true
+        required: true,
+        defaultValue: "next-hour"
       },
       {
         name: "endDate",
         label: "End Date",
         type: "date",
         required: true,
+        defaultValue: "same-as-start"
       },
       {
         name: "endTime",
-        label: "End Time", 
+        label: "End Time",
         type: "time",
-        required: true
+        required: true,
+        defaultValue: "1-hour-after-start"
       },
       { 
         name: "timeZone", 
         label: "Time Zone", 
         type: "select",
-        defaultValue: "auto", // Will be set to user's timezone in ConfigurationModal
+        defaultValue: "user-timezone", // Will be set to user's timezone in ConfigurationModal
         options: [
-          { value: "auto", label: "Auto-detect (recommended)" },
-          { value: "America/New_York", label: "Eastern Time" },
-          { value: "America/Chicago", label: "Central Time" },
-          { value: "America/Denver", label: "Mountain Time" },
-          { value: "America/Los_Angeles", label: "Pacific Time" },
-          { value: "UTC", label: "UTC" },
-          { value: "Europe/London", label: "London" },
-          { value: "Europe/Paris", label: "Paris" },
-          { value: "Europe/Berlin", label: "Berlin" },
-          { value: "Asia/Tokyo", label: "Tokyo" },
-          { value: "Asia/Shanghai", label: "Shanghai" },
-          { value: "Asia/Dubai", label: "Dubai" },
-          { value: "Australia/Sydney", label: "Sydney" }
+          { value: "America/New_York", label: "Eastern Time (ET)" },
+          { value: "America/Chicago", label: "Central Time (CT)" },
+          { value: "America/Denver", label: "Mountain Time (MT)" },
+          { value: "America/Los_Angeles", label: "Pacific Time (PT)" },
+          { value: "America/Anchorage", label: "Alaska Time (AKT)" },
+          { value: "Pacific/Honolulu", label: "Hawaii Time (HST)" },
+          { value: "UTC", label: "UTC (Coordinated Universal Time)" },
+          { value: "Europe/London", label: "London (GMT/BST)" },
+          { value: "Europe/Paris", label: "Paris (CET/CEST)" },
+          { value: "Europe/Berlin", label: "Berlin (CET/CEST)" },
+          { value: "Europe/Moscow", label: "Moscow (MSK)" },
+          { value: "Asia/Tokyo", label: "Tokyo (JST)" },
+          { value: "Asia/Shanghai", label: "Shanghai (CST)" },
+          { value: "Asia/Dubai", label: "Dubai (GST)" },
+          { value: "Asia/Kolkata", label: "Mumbai (IST)" },
+          { value: "Australia/Sydney", label: "Sydney (AEDT/AEST)" },
+          { value: "Pacific/Auckland", label: "Auckland (NZDT/NZST)" }
         ]
       },
       { 
@@ -951,9 +960,8 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         name: "visibility", 
         label: "Visibility", 
         type: "select",
-        defaultValue: "default",
+        defaultValue: "public",
         options: [
-          { value: "default", label: "Default visibility" },
           { value: "public", label: "Public" },
           { value: "private", label: "Private" }
         ]
@@ -964,8 +972,8 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         type: "select",
         defaultValue: "transparent",
         options: [
-          { value: "opaque", label: "Busy" },
-          { value: "transparent", label: "Free" }
+          { value: "transparent", label: "Free" },
+          { value: "opaque", label: "Busy" }
         ]
       },
       { 
@@ -995,11 +1003,11 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         type: "select",
         defaultValue: "30",
         options: [
+          { value: "30", label: "30 minutes before" },
           { value: "0", label: "None" },
           { value: "5", label: "5 minutes before" },
           { value: "10", label: "10 minutes before" },
           { value: "15", label: "15 minutes before" },
-          { value: "30", label: "30 minutes before" },
           { value: "60", label: "1 hour before" },
           { value: "120", label: "2 hours before" },
           { value: "1440", label: "1 day before" },
@@ -1091,7 +1099,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "google-drive:create_file",
-    title: "Create File",
+    title: "Upload File",
     description: "Creates a new file in Google Drive.",
     isTrigger: false,
     providerId: "google-drive",
@@ -1135,7 +1143,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "google_drive_action_upload_file",
-    title: "Upload File (Google Drive)",
+    title: "Upload File from URL (Google Drive)",
     description: "Upload a file from a URL to Google Drive",
     icon: Upload,
     providerId: "google-drive",
@@ -2388,11 +2396,49 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   {
     type: "onedrive_action_upload_file",
     title: "Upload File (OneDrive)",
-    description: "Triggers when a new message is posted in a channel",
-    icon: Users,
-    providerId: "teams",
-    category: "Communication",
-    isTrigger: true,
+    description: "Upload a file to OneDrive",
+    icon: Upload,
+    providerId: "onedrive",
+    requiredScopes: ["Files.ReadWrite"],
+    category: "Storage",
+    isTrigger: false,
+    configSchema: [
+      { 
+        name: "fileName", 
+        label: "File Name", 
+        type: "text", 
+        required: true,
+        placeholder: "Enter file name (e.g., document.txt, report.pdf) - auto-filled when uploading files",
+        description: "File name for the created file. Will be automatically populated when you upload files."
+      },
+      { 
+        name: "fileContent", 
+        label: "File Content", 
+        type: "textarea", 
+        required: false,
+        placeholder: "Enter file content (optional if uploading files)",
+        description: "Text content for the file. Leave empty if uploading files."
+      },
+      { 
+        name: "uploadedFiles", 
+        label: "Upload Files", 
+        type: "file", 
+        required: false,
+        placeholder: "Choose files to upload...",
+        accept: ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.jpg,.jpeg,.png,.gif,.zip,.rar,.json,.xml,.html,.css,.js,.py,.java,.cpp,.c,.md,.log",
+        maxSize: 100 * 1024 * 1024, // 100MB limit for OneDrive
+        description: "Upload files to create in OneDrive. Files will be created with their original names and content. The file name field will be auto-populated."
+      },
+      {
+        name: "folderId",
+        label: "Destination Folder",
+        type: "select",
+        dynamic: "onedrive-folders",
+        required: false,
+        placeholder: "Select a folder (optional, defaults to root)",
+        description: "Choose the folder where the file should be uploaded. Leave empty to upload to root."
+      },
+    ],
   },
   {
     type: "teams_trigger_new_message_in_chat",
@@ -2474,6 +2520,43 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     requiredScopes: ["files.content.write"],
     category: "Storage",
     isTrigger: false,
+    configSchema: [
+      { 
+        name: "fileName", 
+        label: "File Name", 
+        type: "text", 
+        required: true,
+        placeholder: "Enter file name (e.g., document.txt, report.pdf) - auto-filled when uploading files",
+        description: "File name for the created file. Will be automatically populated when you upload files."
+      },
+      { 
+        name: "fileContent", 
+        label: "File Content", 
+        type: "textarea", 
+        required: false,
+        placeholder: "Enter file content (optional if uploading files)",
+        description: "Text content for the file. Leave empty if uploading files."
+      },
+      { 
+        name: "uploadedFiles", 
+        label: "Upload Files", 
+        type: "file", 
+        required: false,
+        placeholder: "Choose files to upload...",
+        accept: ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.jpg,.jpeg,.png,.gif,.zip,.rar,.json,.xml,.html,.css,.js,.py,.java,.cpp,.c,.md,.log",
+        maxSize: 150 * 1024 * 1024, // 150MB limit for Dropbox
+        description: "Upload files to create in Dropbox. Files will be created with their original names and content. The file name field will be auto-populated."
+      },
+      {
+        name: "path",
+        label: "Destination Folder",
+        type: "select",
+        dynamic: "dropbox-folders",
+        required: false,
+        placeholder: "Select a folder (optional, defaults to root)",
+        description: "Choose the folder where the file should be uploaded. Leave empty to upload to root."
+      },
+    ],
   },
 
   // YouTube
@@ -2891,10 +2974,12 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
       { 
         name: "messageId", 
         label: "Email", 
-        type: "text", 
+        type: "email-autocomplete", 
+        dynamic: "gmail-recent-recipients",
         required: true,
-        description: "The sender's email address from the Gmail trigger",
-        placeholder: "Enter email address or use Variable Picker"
+        description: "Choose from recent recipients or type custom email addresses",
+        placeholder: "Enter email addresses...",
+        multiple: true
       },
       { 
         name: "labelIds", 
@@ -2906,6 +2991,14 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         description: "Choose from your Gmail labels or enter new ones (supports multiple selection)",
         multiple: true,
         creatable: true // Allow custom label entry
+      },
+      { 
+        name: "labelNames", 
+        label: "New Labels", 
+        type: "text", 
+        required: false,
+        description: "New label names to create (automatically populated when typing new labels)",
+        hidden: true // This field is hidden and managed by the UI
       },
     ],
   },
@@ -2922,10 +3015,11 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     configSchema: [
       { 
         name: "emailAddress", 
-        label: "Email Address", 
+        label: "Email Addresses", 
         type: "email-autocomplete", 
         dynamic: "gmail-recent-recipients",
         required: false,
+        multiple: true,
         placeholder: "Enter email addresses...",
         description: "Choose from recent recipients or type custom email addresses"
       },
@@ -2935,7 +3029,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         type: "select",
         required: false,
         placeholder: "Select how many emails to fetch",
-        description: "Choose how many recent emails to fetch from this sender",
+        description: "Choose how many recent emails to fetch from these senders",
         options: [
           { value: "1", label: "Most recent email" },
           { value: "5", label: "Last 5 emails" },
@@ -2946,15 +3040,6 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
           { value: "all", label: "All emails" }
         ],
         defaultValue: "1"
-      },
-      { 
-        name: "messageId", 
-        label: "Specific Email", 
-        type: "select", 
-        dynamic: "gmail_messages",
-        required: false,
-        placeholder: "Select a specific email (optional)",
-        description: "Choose a specific email from your Gmail account"
       },
       { 
         name: "query", 
@@ -3201,10 +3286,10 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         name: "documentId",
         label: "Document",
         type: "select",
-        dynamic: "google-docs_documents",
+        dynamic: "google-docs_recent_documents",
         required: true,
         placeholder: "Select a document from your Google Docs",
-        description: "Choose from your connected Google Docs documents"
+        description: "Choose from your recently modified Google Docs documents"
       },
       {
         name: "includeFormatting",
@@ -3251,10 +3336,10 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         name: "documentId",
         label: "Document",
         type: "select",
-        dynamic: "google-docs_documents",
+        dynamic: "google-docs_recent_documents",
         required: true,
         placeholder: "Select a document from your Google Docs",
-        description: "Choose from your connected Google Docs documents"
+        description: "Choose from your recently modified Google Docs documents"
       },
       {
         name: "operation",
@@ -3319,10 +3404,10 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         name: "documentId",
         label: "Document",
         type: "select",
-        dynamic: "google-docs_documents",
+        dynamic: "google-docs_recent_documents",
         required: true,
         placeholder: "Select a document from your Google Docs",
-        description: "Choose from your connected Google Docs documents"
+        description: "Choose from your recently modified Google Docs documents"
       },
       {
         name: "shareWith",
@@ -3374,7 +3459,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Productivity",
     isTrigger: false,
     configSchema: [
-      { name: "documentId", label: "Document", type: "select", dynamic: "google-docs_documents", required: true, placeholder: "Select a document to export" },
+      { name: "documentId", label: "Document", type: "select", dynamic: "google-docs_recent_documents", required: true, placeholder: "Select a document to export" },
       { name: "exportFormat", label: "Export Format", type: "select", required: true, defaultValue: "pdf", options: [
         { value: "pdf", label: "PDF" },
         { value: "docx", label: "Microsoft Word (.docx)" },
@@ -3524,7 +3609,8 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Social",
     isTrigger: false,
     configSchema: [
-      { name: "pageId", label: "Page ID", type: "text", required: true, placeholder: "Enter Facebook page ID" },
+      { name: "pageId", label: "Page", type: "select", dynamic: "facebook_pages", required: true, placeholder: "Select a Facebook page" },
+      { name: "title", label: "Title", type: "text", required: true, placeholder: "Enter post title" },
       { name: "message", label: "Message", type: "textarea", required: true, placeholder: "Enter your post message" },
       { name: "link", label: "Link", type: "text", required: false, placeholder: "https://example.com" },
       { name: "scheduledPublishTime", label: "Schedule Publish Time", type: "datetime", required: false }
@@ -3540,7 +3626,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Social",
     isTrigger: false,
     configSchema: [
-      { name: "pageId", label: "Page ID", type: "text", required: true, placeholder: "Enter Facebook page ID" },
+      { name: "pageId", label: "Page", type: "select", dynamic: "facebook_pages", required: true, placeholder: "Select a Facebook page" },
       { name: "metric", label: "Metric", type: "select", required: true, defaultValue: "page_impressions", options: [
         { value: "page_impressions", label: "Page Impressions" },
         { value: "page_engaged_users", label: "Engaged Users" },
@@ -3551,7 +3637,8 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         { value: "day", label: "Day" },
         { value: "week", label: "Week" },
         { value: "month", label: "Month" }
-      ] }
+      ] },
+      { name: "periodCount", label: "Number of Days", type: "number", required: true, defaultValue: 7, placeholder: "7", dependsOn: "period" }
     ]
   },
 
@@ -4153,9 +4240,41 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Storage",
     isTrigger: false,
     configSchema: [
-      { name: "parentFolderId", label: "Parent Folder ID", type: "text", required: true, placeholder: "Enter folder ID" },
-      { name: "fileName", label: "File Name", type: "text", required: true, placeholder: "Enter file name" },
-      { name: "fileContent", label: "File Content", type: "textarea", required: true, placeholder: "Enter file content" }
+      { 
+        name: "fileName", 
+        label: "File Name", 
+        type: "text", 
+        required: true,
+        placeholder: "Enter file name (e.g., document.txt, report.pdf) - auto-filled when uploading files",
+        description: "File name for the created file. Will be automatically populated when you upload files."
+      },
+      { 
+        name: "fileContent", 
+        label: "File Content", 
+        type: "textarea", 
+        required: false,
+        placeholder: "Enter file content (optional if uploading files)",
+        description: "Text content for the file. Leave empty if uploading files."
+      },
+      { 
+        name: "uploadedFiles", 
+        label: "Upload Files", 
+        type: "file", 
+        required: false,
+        placeholder: "Choose files to upload...",
+        accept: ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.jpg,.jpeg,.png,.gif,.zip,.rar,.json,.xml,.html,.css,.js,.py,.java,.cpp,.c,.md,.log",
+        maxSize: 50 * 1024 * 1024, // 50MB limit for Box
+        description: "Upload files to create in Box. Files will be created with their original names and content. The file name field will be auto-populated."
+      },
+      {
+        name: "parentFolderId",
+        label: "Destination Folder",
+        type: "select",
+        dynamic: "box-folders",
+        required: false,
+        placeholder: "Select a folder (optional, defaults to root)",
+        description: "Choose the folder where the file should be uploaded. Leave empty to upload to root."
+      },
     ]
   },
   {
