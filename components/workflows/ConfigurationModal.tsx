@@ -2175,9 +2175,61 @@ export default function ConfigurationModal({
         const urlObj = new URL(url)
         const pathname = urlObj.pathname
         const filename = pathname.split('/').pop() || 'file'
+        
+        // Special handling for OneDrive URLs
+        if (url.includes('onedrive.live.com') || url.includes('1drv.ms')) {
+          // Extract file ID from OneDrive URL
+          const fileIdMatch = url.match(/\/d\/([a-zA-Z0-9-_]+)/)
+          if (fileIdMatch) {
+            const fileId = fileIdMatch[1]
+            // Try to extract filename from URL path
+            const pathParts = pathname.split('/')
+            const lastPart = pathParts[pathParts.length - 1]
+            if (lastPart && lastPart.includes('.')) {
+              return decodeURIComponent(lastPart)
+            } else {
+              return `OneDrive File - ${fileId}`
+            }
+          }
+        }
+        
+        // Special handling for Dropbox URLs
+        if (url.includes('dropbox.com')) {
+          // Extract filename from Dropbox URL path
+          const dropboxMatch = url.match(/\/s\/([a-zA-Z0-9]+)\/([^?]+)/)
+          if (dropboxMatch) {
+            const filename = dropboxMatch[2]
+            if (filename && filename.includes('.')) {
+              return decodeURIComponent(filename)
+            } else {
+              return `Dropbox File - ${dropboxMatch[1]}`
+            }
+          }
+        }
+        
         return decodeURIComponent(filename)
       } catch {
-        return url.split('/').pop() || 'file'
+        // Fallback for invalid URLs
+        const urlParts = url.split('/')
+        const lastPart = urlParts[urlParts.length - 1]
+        
+        if (lastPart && lastPart.includes('.')) {
+          return lastPart
+        }
+        
+        // Try to extract OneDrive file ID even from invalid URLs
+        const onedriveMatch = url.match(/\/d\/([a-zA-Z0-9-_]+)/)
+        if (onedriveMatch) {
+          return `OneDrive File - ${onedriveMatch[1]}`
+        }
+        
+        // Try to extract Dropbox file ID even from invalid URLs
+        const dropboxMatch = url.match(/\/s\/([a-zA-Z0-9]+)/)
+        if (dropboxMatch) {
+          return `Dropbox File - ${dropboxMatch[1]}`
+        }
+        
+        return 'downloaded-file'
       }
     }
 
@@ -2190,6 +2242,19 @@ export default function ConfigurationModal({
         const filename = extractFilenameFromUrl(newValue)
         if (filename) {
           newConfig.filename = filename
+        }
+      }
+      
+      // Auto-populate filename for OneDrive and Dropbox URL upload actions
+      if ((nodeInfo?.type === "onedrive_action_upload_file_from_url" || nodeInfo?.type === "dropbox_action_upload_file_from_url") && 
+          field.name === "fileUrl" && newValue) {
+        const extractedFilename = extractFilenameFromUrl(newValue)
+        const currentFileName = config.fileName || ""
+        const hasUserEditedFileName = currentFileName.trim() !== ""
+        
+        // Only auto-populate if user hasn't manually set a filename
+        if (!hasUserEditedFileName && extractedFilename) {
+          newConfig.fileName = extractedFilename
         }
       }
       
@@ -2288,6 +2353,31 @@ export default function ConfigurationModal({
 
     const handleFileChange = async (files: FileList | File[]) => {
       const fileArray = Array.from(files)
+      
+      // Auto-populate filename for OneDrive and Dropbox upload actions
+      if ((nodeInfo?.type === "onedrive_action_upload_file" || nodeInfo?.type === "dropbox_action_upload_file") && 
+          field.name === "uploadedFiles" && fileArray.length > 0) {
+        const currentFileName = config.fileName || ""
+        const hasUserEditedFileName = currentFileName.trim() !== ""
+        
+        if (fileArray.length === 1) {
+          // Single file: use the file's name (only if user hasn't manually set a name)
+          if (!hasUserEditedFileName) {
+            const fileName = fileArray[0].name
+            setConfig(prev => ({ ...prev, [field.name]: fileArray, fileName }))
+            return
+          }
+        } else if (fileArray.length > 1) {
+          // Multiple files: use the first file's name as base (only if user hasn't manually set a name)
+          if (!hasUserEditedFileName) {
+            const firstFileName = fileArray[0].name
+            // Remove extension to create a base name
+            const baseName = firstFileName.replace(/\.[^/.]+$/, "")
+            setConfig(prev => ({ ...prev, [field.name]: fileArray, fileName: baseName }))
+            return
+          }
+        }
+      }
       
       if (field.multiple) {
         setConfig(prev => ({ ...prev, [field.name]: fileArray }))
@@ -2490,6 +2580,15 @@ export default function ConfigurationModal({
         }
         
         // Use regular Select for single select
+        // Debug logging for Dropbox folders
+        if (field.dynamic === "dropbox-folders") {
+          console.log('🎯 Dropbox folder field detected:', {
+            fieldName: field.name,
+            fieldDynamic: field.dynamic,
+            optionsCount: options.length
+          })
+        }
+        
         return (
           <div className="space-y-2">
             {renderLabel()}
@@ -2501,7 +2600,27 @@ export default function ConfigurationModal({
               <SelectTrigger className={cn("w-full", hasError && "border-red-500")}>
                 <SelectValue placeholder={loadingDynamic ? "Loading..." : field.placeholder} />
               </SelectTrigger>
-              <SelectContent className="max-h-96" side="bottom" sideOffset={4} align="start" avoidCollisions={false} style={{ transform: 'translateY(0) !important' }}>
+              <SelectContent 
+                className={cn(
+                  "max-h-96",
+                  // Enhanced scroll styling for Dropbox folder dropdowns
+                  field.dynamic === "dropbox-folders" && "max-h-48 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100"
+                )} 
+                side="bottom" 
+                sideOffset={4} 
+                align="start" 
+                avoidCollisions={false} 
+                style={{ 
+                  transform: 'translateY(0) !important',
+                  // Additional scroll styling for Dropbox folders
+                  ...(field.dynamic === "dropbox-folders" && {
+                    maxHeight: '192px', // Reduced to 48 * 4px (12rem)
+                    overflowY: 'scroll', // Force scrollbar to be visible
+                    scrollbarWidth: 'thin',
+                    scrollbarColor: '#d1d5db #f3f4f6'
+                  })
+                }}
+              >
                 {options.map((option) => {
                   const optionValue = typeof option === 'string' ? option : option.value
                   const optionLabel = typeof option === 'string' ? option : option.label
@@ -3146,6 +3265,69 @@ export default function ConfigurationModal({
                     </div>
                   )}
                   
+                  {/* Tips for File Upload Actions */}
+                  {nodeInfo?.type === "onedrive_action_upload_file" && (
+                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+                      <p className="text-sm text-blue-800">
+                        <strong>Tip:</strong> You can either enter text content to create a text file, or upload existing files. 
+                        If you upload files, the file name field will be automatically populated:
+                      </p>
+                      <ul className="text-sm text-blue-800 mt-1 ml-4 list-disc">
+                        <li>Single file: Uses the uploaded file's name</li>
+                        <li>Multiple files: Uses the first file's name (without extension) as a base name</li>
+                        <li>Auto-population only occurs if you haven't manually entered a file name</li>
+                        <li>You can always edit the file name manually if needed</li>
+                      </ul>
+                    </div>
+                  )}
+                  
+                  {nodeInfo?.type === "dropbox_action_upload_file" && (
+                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+                      <p className="text-sm text-blue-800">
+                        <strong>Tip:</strong> You can either enter text content to create a text file, or upload existing files. 
+                        If you upload files, the file name field will be automatically populated:
+                      </p>
+                      <ul className="text-sm text-blue-800 mt-1 ml-4 list-disc">
+                        <li>Single file: Uses the uploaded file's name</li>
+                        <li>Multiple files: Uses the first file's name (without extension) as a base name</li>
+                        <li>Auto-population only occurs if you haven't manually entered a file name</li>
+                        <li>You can always edit the file name manually if needed</li>
+                      </ul>
+                    </div>
+                  )}
+                  
+                  {nodeInfo?.type === "onedrive_action_upload_file_from_url" && (
+                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+                      <p className="text-sm text-blue-800">
+                        <strong>Tip:</strong> When you enter a file URL, the file name field will be automatically populated with the filename from the URL:
+                      </p>
+                      <ul className="text-sm text-blue-800 mt-1 ml-4 list-disc">
+                        <li>The filename is extracted from the URL path (e.g., "document.pdf" from "https://example.com/files/document.pdf")</li>
+                        <li>For OneDrive URLs, it extracts the file ID and creates a descriptive name</li>
+                        <li>Auto-population only occurs if you haven't manually entered a file name</li>
+                        <li><strong>Filename Priority:</strong> If you enter a filename in the textbox, it will be used. If you leave it blank, the original filename from the URL will be used.</li>
+                        <li>You can always edit the file name manually if needed</li>
+                        <li>If no filename can be extracted, it will default to "downloaded-file"</li>
+                      </ul>
+                    </div>
+                  )}
+                  
+                  {nodeInfo?.type === "dropbox_action_upload_file_from_url" && (
+                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+                      <p className="text-sm text-blue-800">
+                        <strong>Tip:</strong> When you enter a file URL, the file name field will be automatically populated with the filename from the URL:
+                      </p>
+                      <ul className="text-sm text-blue-800 mt-1 ml-4 list-disc">
+                        <li>The filename is extracted from the URL path (e.g., "document.pdf" from "https://example.com/files/document.pdf")</li>
+                        <li>For Dropbox URLs, it extracts the file ID and creates a descriptive name</li>
+                        <li>Auto-population only occurs if you haven't manually entered a file name</li>
+                        <li><strong>Filename Priority:</strong> If you enter a filename in the textbox, it will be used. If you leave it blank, the original filename from the URL will be used.</li>
+                        <li>You can always edit the file name manually if needed</li>
+                        <li>If no filename can be extracted, it will default to "downloaded-file"</li>
+                      </ul>
+                    </div>
+                  )}
+
                   {/* Configuration Fields */}
                   {nodeInfo.configSchema?.map((field) => {
                     // Hide time fields and time zone field for Google Calendar when "All Day" is enabled
