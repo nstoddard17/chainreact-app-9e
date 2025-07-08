@@ -247,6 +247,12 @@ async function executeNodeAdvanced(node: any, allNodes: any[], connections: any[
       case "google_drive_action_upload_file":
         nodeResult = await executeGoogleDriveUploadFileNode(node, context)
         break
+      case "onedrive_action_upload_file_from_url":
+        nodeResult = await executeOneDriveUploadFileFromUrlNode(node, context)
+        break
+      case "dropbox_action_upload_file_from_url":
+        nodeResult = await executeDropboxUploadFileFromUrlNode(node, context)
+        break
       // Logic & Control
       case "if_condition":
         nodeResult = await executeIfConditionNode(node, context)
@@ -2477,6 +2483,310 @@ async function executeGoogleDriveUploadFileNode(node: any, context: any) {
     }
   } catch (error: any) {
     throw new Error(`Failed to upload file to Google Drive: ${error.message}`)
+  }
+}
+
+async function executeOneDriveUploadFileFromUrlNode(node: any, context: any) {
+  if (context.testMode) {
+    return {
+      type: "onedrive_action_upload_file_from_url",
+      fileName: node.data.config?.fileName || "test-file.txt",
+      test: true,
+      message: "Test mode: OneDrive file upload simulated"
+    }
+  }
+
+  console.log("Starting OneDrive upload file from URL execution...")
+
+  const config = node.data.config || {}
+  const fileUrl = config.fileUrl
+  let fileName = config.fileName
+  const folderId = config.folderId
+
+  if (!fileUrl) {
+    throw new Error("File URL is required")
+  }
+
+  // Get OneDrive integration from database
+  const supabase = await createSupabaseRouteHandlerClient()
+  const { data: integration } = await supabase
+    .from("integrations")
+    .select("*")
+    .eq("user_id", context.userId)
+    .eq("provider", "onedrive")
+    .eq("status", "connected")
+    .single()
+
+  if (!integration) {
+    throw new Error("OneDrive integration not connected")
+  }
+
+  console.log("Found OneDrive integration:", {
+    id: integration.id,
+    hasAccessToken: !!integration.access_token,
+    hasRefreshToken: !!integration.refresh_token,
+    expiresAt: integration.expires_at
+  })
+
+  // Ensure we have a valid access token
+  let accessToken = integration.access_token
+  if (integration.refresh_token) {
+    try {
+      const { TokenRefreshService } = await import("@/lib/integrations/tokenRefreshService")
+      
+      // Check if token needs refresh
+      const shouldRefresh = TokenRefreshService.shouldRefreshToken(integration, {
+        accessTokenExpiryThreshold: 5 // Refresh if token expires in 5 minutes
+      })
+      
+      if (shouldRefresh) {
+        console.log("Access token needs refresh, refreshing...")
+        const refreshResult = await TokenRefreshService.refreshTokenForProvider(
+          "onedrive",
+          integration.refresh_token,
+          integration.id
+        )
+        
+        if (refreshResult.success && refreshResult.accessToken) {
+          accessToken = refreshResult.accessToken
+          console.log("Successfully refreshed access token")
+        } else {
+          console.error("Failed to refresh access token:", refreshResult.error)
+          throw new Error("Failed to refresh OneDrive access token")
+        }
+      } else {
+        console.log("Access token is still valid")
+      }
+    } catch (error) {
+      console.error("Error refreshing token:", error)
+      throw new Error("Failed to refresh OneDrive access token")
+    }
+  }
+
+  // Download the file from the URL
+  let fileBuffer: Buffer
+  let mimeType = "application/octet-stream"
+  let actualFileName = fileName
+  
+  try {
+    const fetch = (await import("node-fetch")).default
+    const response = await fetch(fileUrl)
+    if (!response.ok) {
+      throw new Error(`Failed to download file from URL: ${response.status} ${response.statusText}`)
+    }
+    mimeType = response.headers.get("content-type") || mimeType
+    fileBuffer = Buffer.from(await response.arrayBuffer())
+    
+    // Extract filename from URL if not provided
+    if (!actualFileName) {
+      const urlParts = fileUrl.split('/')
+      const lastPart = urlParts[urlParts.length - 1]
+      if (lastPart && lastPart.includes('.')) {
+        actualFileName = lastPart
+      } else {
+        actualFileName = "downloaded-file"
+      }
+    }
+    
+    console.log(`Downloaded file: ${actualFileName} (${fileBuffer.length} bytes, ${mimeType})`)
+  } catch (error: any) {
+    throw new Error(`Failed to download file from URL: ${error.message}`)
+  }
+
+  // Upload to OneDrive
+  try {
+    const finalFileName = (fileName && fileName.trim() !== "") 
+      ? fileName 
+      : (actualFileName && actualFileName.trim() !== "" ? actualFileName : "downloaded-file")
+    
+    const uploadUrl = folderId && folderId !== "root" 
+      ? `https://graph.microsoft.com/v1.0/me/drive/items/${folderId}:/${encodeURIComponent(finalFileName)}:/content`
+      : `https://graph.microsoft.com/v1.0/me/drive/root:/${encodeURIComponent(finalFileName)}:/content`
+    
+    console.log("Making OneDrive API request for uploaded file:", finalFileName)
+    const response = await fetch(uploadUrl, {
+      method: "PUT",
+      headers: {
+        "Authorization": `Bearer ${accessToken}`,
+        "Content-Type": mimeType,
+      },
+      body: fileBuffer
+    })
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(`OneDrive API error: ${response.status} - ${errorData.error?.message || response.statusText}`)
+    }
+    
+    const result = await response.json()
+    console.log("OneDrive API success response:", { fileId: result.id, fileName: result.name })
+    
+    return {
+      type: "onedrive_action_upload_file_from_url",
+      success: true,
+      fileId: result.id,
+      fileName: result.name,
+      fileUrl: result.webUrl,
+      size: fileBuffer.length,
+      mimeType,
+      message: `Successfully uploaded ${finalFileName} to OneDrive`
+    }
+  } catch (error: any) {
+    throw new Error(`Failed to upload file to OneDrive: ${error.message}`)
+  }
+}
+
+async function executeDropboxUploadFileFromUrlNode(node: any, context: any) {
+  if (context.testMode) {
+    return {
+      type: "dropbox_action_upload_file_from_url",
+      fileName: node.data.config?.fileName || "test-file.txt",
+      test: true,
+      message: "Test mode: Dropbox file upload simulated"
+    }
+  }
+
+  console.log("Starting Dropbox upload file from URL execution...")
+
+  const config = node.data.config || {}
+  const fileUrl = config.fileUrl
+  let fileName = config.fileName
+  const path = config.path
+
+  if (!fileUrl) {
+    throw new Error("File URL is required")
+  }
+
+  // Get Dropbox integration from database
+  const supabase = await createSupabaseRouteHandlerClient()
+  const { data: integration } = await supabase
+    .from("integrations")
+    .select("*")
+    .eq("user_id", context.userId)
+    .eq("provider", "dropbox")
+    .eq("status", "connected")
+    .single()
+
+  if (!integration) {
+    throw new Error("Dropbox integration not connected")
+  }
+
+  console.log("Found Dropbox integration:", {
+    id: integration.id,
+    hasAccessToken: !!integration.access_token,
+    hasRefreshToken: !!integration.refresh_token,
+    expiresAt: integration.expires_at
+  })
+
+  // Ensure we have a valid access token
+  let accessToken = integration.access_token
+  if (integration.refresh_token) {
+    try {
+      const { TokenRefreshService } = await import("@/lib/integrations/tokenRefreshService")
+      
+      // Check if token needs refresh
+      const shouldRefresh = TokenRefreshService.shouldRefreshToken(integration, {
+        accessTokenExpiryThreshold: 5 // Refresh if token expires in 5 minutes
+      })
+      
+      if (shouldRefresh) {
+        console.log("Access token needs refresh, refreshing...")
+        const refreshResult = await TokenRefreshService.refreshTokenForProvider(
+          "dropbox",
+          integration.refresh_token,
+          integration.id
+        )
+        
+        if (refreshResult.success && refreshResult.accessToken) {
+          accessToken = refreshResult.accessToken
+          console.log("Successfully refreshed access token")
+        } else {
+          console.error("Failed to refresh access token:", refreshResult.error)
+          throw new Error("Failed to refresh Dropbox access token")
+        }
+      } else {
+        console.log("Access token is still valid")
+      }
+    } catch (error) {
+      console.error("Error refreshing token:", error)
+      throw new Error("Failed to refresh Dropbox access token")
+    }
+  }
+
+  // Download the file from the URL
+  let fileBuffer: Buffer
+  let mimeType = "application/octet-stream"
+  let actualFileName = fileName
+  
+  try {
+    const fetch = (await import("node-fetch")).default
+    const response = await fetch(fileUrl)
+    if (!response.ok) {
+      throw new Error(`Failed to download file from URL: ${response.status} ${response.statusText}`)
+    }
+    mimeType = response.headers.get("content-type") || mimeType
+    fileBuffer = Buffer.from(await response.arrayBuffer())
+    
+    // Extract filename from URL if not provided
+    if (!actualFileName) {
+      const urlParts = fileUrl.split('/')
+      const lastPart = urlParts[urlParts.length - 1]
+      if (lastPart && lastPart.includes('.')) {
+        actualFileName = lastPart
+      } else {
+        actualFileName = "downloaded-file"
+      }
+    }
+    
+    console.log(`Downloaded file: ${actualFileName} (${fileBuffer.length} bytes, ${mimeType})`)
+  } catch (error: any) {
+    throw new Error(`Failed to download file from URL: ${error.message}`)
+  }
+
+  // Upload to Dropbox
+  try {
+    const finalFileName = (fileName && fileName.trim() !== "") 
+      ? fileName 
+      : (actualFileName && actualFileName.trim() !== "" ? actualFileName : "downloaded-file")
+    
+    const dropboxPath = path ? `${path}/${finalFileName}` : `/${finalFileName}`
+    
+    console.log("Making Dropbox API request for uploaded file:", finalFileName)
+    const response = await fetch("https://content.dropboxapi.com/2/files/upload", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${accessToken}`,
+        "Content-Type": "application/octet-stream",
+        "Dropbox-API-Arg": JSON.stringify({
+          path: dropboxPath,
+          mode: "add",
+          autorename: true,
+          mute: false
+        })
+      },
+      body: fileBuffer
+    })
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(`Dropbox API error: ${response.status} - ${errorData.error_summary || response.statusText}`)
+    }
+    
+    const result = await response.json()
+    console.log("Dropbox API success response:", { fileId: result.id, fileName: result.name })
+    
+    return {
+      type: "dropbox_action_upload_file_from_url",
+      success: true,
+      fileId: result.id,
+      fileName: result.name,
+      fileUrl: `https://www.dropbox.com/home${dropboxPath}`,
+      size: fileBuffer.length,
+      mimeType,
+      message: `Successfully uploaded ${finalFileName} to Dropbox`
+    }
+  } catch (error: any) {
+    throw new Error(`Failed to upload file to Dropbox: ${error.message}`)
   }
 }
 
