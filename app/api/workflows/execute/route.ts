@@ -2795,9 +2795,20 @@ async function executeSheetsCreateSpreadsheetNode(node: any, context: any) {
   const config = node.data.config || {}
   const title = renderTemplate(config.title || "New Spreadsheet", context, "handlebars")
   const description = config.description ? renderTemplate(config.description, context, "handlebars") : undefined
-  const sheetName = config.sheetName || "Sheet1"
+  const sheets = config.sheets || [{ name: "Sheet1", columns: 5, columnNames: ["Column 1", "Column 2", "Column 3", "Column 4", "Column 5"] }]
   const locale = config.locale || "en_US"
-  const timeZone = config.timeZone || "America/New_York"
+  
+  // Auto-detect user's timezone if not specified
+  let timeZone = config.timeZone
+  if (!timeZone) {
+    try {
+      // Get user's timezone from the request context or default to UTC
+      timeZone = context.userTimezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"
+    } catch (error) {
+      console.warn("Could not detect user timezone, using UTC:", error)
+      timeZone = "UTC"
+    }
+  }
 
   if (!title) {
     throw new Error("Spreadsheet title is required")
@@ -2806,13 +2817,13 @@ async function executeSheetsCreateSpreadsheetNode(node: any, context: any) {
   console.log("Creating Google Sheets spreadsheet:", {
     title,
     description,
-    sheetName,
+    sheets: sheets.map((s: any) => ({ name: s.name, columns: s.columns })),
     locale,
     timeZone
   })
 
   try {
-    // Create the spreadsheet
+    // Create the spreadsheet with multiple sheets
     const createResponse = await fetch(
       "https://sheets.googleapis.com/v4/spreadsheets",
       {
@@ -2828,17 +2839,15 @@ async function executeSheetsCreateSpreadsheetNode(node: any, context: any) {
             timeZone,
             ...(description && { description })
           },
-          sheets: [
-            {
-              properties: {
-                title: sheetName,
-                gridProperties: {
-                  rowCount: 1000,
-                  columnCount: 26
-                }
+          sheets: sheets.map((sheet: any) => ({
+            properties: {
+              title: renderTemplate(sheet.name, context, "handlebars"),
+              gridProperties: {
+                rowCount: 1000,
+                columnCount: Math.max(sheet.columns, 1)
               }
             }
-          ]
+          }))
         }),
       },
     )
@@ -2864,82 +2873,50 @@ async function executeSheetsCreateSpreadsheetNode(node: any, context: any) {
       url: spreadsheetUrl
     })
 
-    // Add initial data if provided
-    let initialDataResult = null
-    const shouldAddData = config.columnNames && config.spreadsheetData && Array.isArray(config.spreadsheetData)
-    
-    if (shouldAddData || config.initialData) {
+    // Add headers with custom column names to each sheet if addHeaders is enabled
+    if (config.addHeaders !== false) {
       try {
-        let processedData: any[][] = []
-        
-        if (shouldAddData) {
-          // Use new column-based structure
-          const columnNames = config.columnNames || []
-          const spreadsheetRows = config.spreadsheetData || []
+        for (let i = 0; i < sheets.length; i++) {
+          const sheet = sheets[i]
+          const columnNames = sheet.columnNames || []
           
-          // Add headers if addHeaders is true (default)
-          if (config.addHeaders !== false) {
-            processedData.push(columnNames.map((name: string) => 
-              renderTemplate(name || "", context, "handlebars")
-            ))
-          }
-          
-          // Add data rows
-          spreadsheetRows.forEach((row: Record<string, string>) => {
-            const rowData = columnNames.map((_: string, index: number) => {
-              const cellValue = row[`col_${index}`] || ""
-              return renderTemplate(cellValue, context, "handlebars")
-            })
-            processedData.push(rowData)
-          })
-        } else if (config.initialData) {
-          // Fallback to old initialData format
-          const parsedData = JSON.parse(config.initialData)
-          if (Array.isArray(parsedData) && parsedData.length > 0) {
-            processedData = parsedData.map((row: any[]) => 
-              row.map((value: string) => renderTemplate(value, context, "handlebars"))
+          if (columnNames.length > 0) {
+            const processedColumnNames = columnNames.map((name: string) => 
+              renderTemplate(name, context, "handlebars")
             )
-          }
-        }
-
-        if (processedData.length > 0) {
-          console.log("Adding initial data to spreadsheet:", {
-            rows: processedData.length,
-            columns: processedData[0]?.length || 0,
-            addHeaders: config.addHeaders !== false
-          })
-
-          const endColumn = String.fromCharCode(65 + (processedData[0]?.length || 1) - 1)
-          const range = `${sheetName}!A1:${endColumn}${processedData.length}`
-
-          const dataResponse = await fetch(
-            `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}?valueInputOption=RAW`,
-            {
-              method: "PUT",
-              headers: {
-                Authorization: `Bearer ${accessToken}`,
-                "Content-Type": "application/json",
+            
+            const endColumn = String.fromCharCode(65 + processedColumnNames.length - 1)
+            const range = `${sheet.name}!A1:${endColumn}1`
+            
+            console.log(`Adding headers to sheet ${sheet.name}:`, processedColumnNames)
+            
+            const headerResponse = await fetch(
+              `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}?valueInputOption=RAW`,
+              {
+                method: "PUT",
+                headers: {
+                  Authorization: `Bearer ${accessToken}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  values: [processedColumnNames],
+                }),
               },
-              body: JSON.stringify({
-                values: processedData,
-              }),
-            },
-          )
-
-          if (dataResponse.ok) {
-            initialDataResult = await dataResponse.json()
-            console.log("Initial data added successfully:", {
-              updatedRange: initialDataResult.updatedRange,
-              updatedCells: initialDataResult.updatedCells
-            })
-          } else {
-            console.warn("Failed to add initial data, but spreadsheet was created successfully")
+            )
+            
+            if (headerResponse.ok) {
+              console.log(`Successfully added headers to sheet ${sheet.name}`)
+            } else {
+              console.warn(`Failed to add headers to sheet ${sheet.name}:`, headerResponse.statusText)
+            }
           }
         }
       } catch (error) {
-        console.warn("Error processing initial data, but spreadsheet was created successfully:", error)
+        console.warn("Error adding headers to sheets:", error)
       }
     }
+
+
 
     return {
       type: "sheets_create_spreadsheet",
@@ -2947,11 +2924,13 @@ async function executeSheetsCreateSpreadsheetNode(node: any, context: any) {
       title: createResult.spreadsheets?.properties?.title,
       description: createResult.spreadsheets?.properties?.description,
       spreadsheet_url: spreadsheetUrl,
-      sheet_name: sheetName,
+      sheets: sheets.map((s: any) => ({ 
+        name: s.name, 
+        columns: s.columns, 
+        columnNames: s.columnNames || []
+      })),
       locale,
-      time_zone: timeZone,
-      initial_data_added: !!initialDataResult,
-      initial_data_range: initialDataResult?.updatedRange
+      time_zone: timeZone
     }
 
   } catch (error: any) {

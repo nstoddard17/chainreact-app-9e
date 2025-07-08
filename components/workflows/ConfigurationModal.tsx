@@ -21,6 +21,7 @@ import { Play, X, Loader2, TestTube, Clock, HelpCircle, AlertCircle, Video, Chev
 import { Checkbox } from "@/components/ui/checkbox"
 import { cn } from "@/lib/utils"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { EnhancedTooltip } from "@/components/ui/enhanced-tooltip"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import GoogleMeetCard from "@/components/ui/google-meet-card"
 import VariablePicker from "./VariablePicker"
@@ -73,6 +74,12 @@ export default function ConfigurationModal({
   const [sheetData, setSheetData] = useState<any>(null)
   const [sheetPreview, setSheetPreview] = useState<any>(null)
   
+  // Range selection state for Google Sheets
+  const [isDragging, setIsDragging] = useState(false)
+  const [dragStart, setDragStart] = useState<{ row: number; col: number } | null>(null)
+  const [dragEnd, setDragEnd] = useState<{ row: number; col: number } | null>(null)
+  const [selectedRange, setSelectedRange] = useState<{ start: { row: number; col: number }; end: { row: number; col: number } } | null>(null)
+  
   // Test functionality state
   const [testResult, setTestResult] = useState<any>(null)
   const [isTestLoading, setIsTestLoading] = useState(false)
@@ -97,6 +104,92 @@ export default function ConfigurationModal({
     testTimestamp
   } = useWorkflowTestStore()
 
+  // Helper functions for range selection
+  const getCellCoordinate = (rowIndex: number, colIndex: number): string => {
+    const colLetter = String.fromCharCode(65 + colIndex) // A, B, C, etc.
+    const rowNumber = rowIndex + 1 // Convert to 1-based indexing
+    return `${colLetter}${rowNumber}`
+  }
+
+  const getRangeString = (start: { row: number; col: number }, end: { row: number; col: number }): string => {
+    const startCoord = getCellCoordinate(start.row, start.col)
+    const endCoord = getCellCoordinate(end.row, end.col)
+    return `${startCoord}:${endCoord}`
+  }
+
+  const isCellInRange = (rowIndex: number, colIndex: number, range: { start: { row: number; col: number }; end: { row: number; col: number } }): boolean => {
+    const minRow = Math.min(range.start.row, range.end.row)
+    const maxRow = Math.max(range.start.row, range.end.row)
+    const minCol = Math.min(range.start.col, range.end.col)
+    const maxCol = Math.max(range.start.col, range.end.col)
+    
+    return rowIndex >= minRow && rowIndex <= maxRow && colIndex >= minCol && colIndex <= maxCol
+  }
+
+  const isCellSelected = (rowIndex: number, colIndex: number): boolean => {
+    if (!config.selectedCells || !Array.isArray(config.selectedCells)) return false
+    return config.selectedCells.some((cell: any) => cell.rowIndex === rowIndex && cell.colIndex === colIndex)
+  }
+
+  // Mouse event handlers for range selection
+  const handleMouseDown = (rowIndex: number, colIndex: number) => {
+    if (nodeInfo?.type === "google_sheets_action_read_data" && config.readMode === "range") {
+      // Prevent text selection during drag
+      document.body.style.userSelect = 'none'
+      ;(document.body.style as any).webkitUserSelect = 'none'
+      ;(document.body.style as any).mozUserSelect = 'none'
+      ;(document.body.style as any).msUserSelect = 'none'
+      
+      setIsDragging(true)
+      setDragStart({ row: rowIndex, col: colIndex })
+      setDragEnd({ row: rowIndex, col: colIndex })
+      setSelectedRange({ start: { row: rowIndex, col: colIndex }, end: { row: rowIndex, col: colIndex } })
+    }
+  }
+
+  const handleMouseEnter = (rowIndex: number, colIndex: number) => {
+    if (isDragging && nodeInfo?.type === "google_sheets_action_read_data" && config.readMode === "range") {
+      setDragEnd({ row: rowIndex, col: colIndex })
+      setSelectedRange({ start: dragStart!, end: { row: rowIndex, col: colIndex } })
+    }
+  }
+
+  const handleMouseUp = () => {
+    if (isDragging && nodeInfo?.type === "google_sheets_action_read_data" && config.readMode === "range") {
+      setIsDragging(false)
+      if (selectedRange) {
+        const rangeString = getRangeString(selectedRange.start, selectedRange.end)
+        setConfig(prev => ({
+          ...prev,
+          range: rangeString
+        }))
+      }
+    }
+    
+    // Restore text selection
+    document.body.style.userSelect = ''
+    ;(document.body.style as any).webkitUserSelect = ''
+    ;(document.body.style as any).mozUserSelect = ''
+    ;(document.body.style as any).msUserSelect = ''
+  }
+
+  const handleCellClick = (rowIndex: number, colIndex: number) => {
+    if (nodeInfo?.type === "google_sheets_action_read_data" && config.readMode === "cells") {
+      const currentSelectedCells = config.selectedCells || []
+      const cellKey = `${rowIndex}-${colIndex}`
+      const isSelected = currentSelectedCells.some((cell: any) => cell.rowIndex === rowIndex && cell.colIndex === colIndex)
+      
+      const newSelectedCells = isSelected
+        ? currentSelectedCells.filter((cell: any) => !(cell.rowIndex === rowIndex && cell.colIndex === colIndex))
+        : [...currentSelectedCells, { rowIndex, colIndex, coordinate: getCellCoordinate(rowIndex, colIndex) }]
+      
+      setConfig(prev => ({
+        ...prev,
+        selectedCells: newSelectedCells
+      }))
+    }
+  }
+
   useEffect(() => {
     setConfig(initialData)
     // Reset the initialization flag when initialData changes
@@ -113,6 +206,30 @@ export default function ConfigurationModal({
     }
   }, [isOpen, nodeInfo?.providerId])
 
+  // Global mouse up handler for range selection
+  useEffect(() => {
+    const handleGlobalMouseUp = () => {
+      if (isDragging) {
+        handleMouseUp()
+      }
+    }
+
+    document.addEventListener('mouseup', handleGlobalMouseUp)
+    return () => {
+      document.removeEventListener('mouseup', handleGlobalMouseUp)
+    }
+  }, [isDragging, selectedRange])
+
+  // Reset range selection when readMode changes
+  useEffect(() => {
+    if (nodeInfo?.type === "google_sheets_action_read_data" && config.readMode !== "range") {
+      setIsDragging(false)
+      setDragStart(null)
+      setDragEnd(null)
+      setSelectedRange(null)
+    }
+  }, [config.readMode, nodeInfo?.type])
+
   // Reset loading state when modal closes
   useEffect(() => {
     if (!isOpen) {
@@ -128,6 +245,11 @@ export default function ConfigurationModal({
       hasInitializedDefaults.current = false
       // Clear errors when modal closes
       setErrors({})
+      // Reset range selection state
+      setIsDragging(false)
+      setDragStart(null)
+      setDragEnd(null)
+      setSelectedRange(null)
     }
   }, [isOpen])
 
@@ -251,6 +373,14 @@ export default function ConfigurationModal({
         defaultValues.endTime = formatTime(endTime)
       }
       if (config.timeZone === undefined || config.timeZone === "user-timezone") {
+        defaultValues.timeZone = getUserTimezone()
+      }
+    }
+
+    // Initialize Google Sheets create spreadsheet defaults
+    if (nodeInfo?.type === "google_sheets_action_create_spreadsheet") {
+      // Set default timezone to user's current timezone if not specified
+      if (config.timeZone === undefined) {
         defaultValues.timeZone = getUserTimezone()
       }
     }
@@ -500,6 +630,8 @@ export default function ConfigurationModal({
       return false
     }
     
+
+    
     // Special logic for Discord send message action
     if (nodeInfo?.type === "discord_action_send_message") {
       // Always show guildId (server selection)
@@ -516,26 +648,31 @@ export default function ConfigurationModal({
       return false
     }
     
+    // Special logic for read data action (applies to all fields, including those with dependencies)
+    if (nodeInfo?.type === "google_sheets_action_read_data") {
+      // Hide range field entirely since users can select visually
+      if (field.name === "range") {
+        return false
+      }
+      // Only show selectedRows field when readMode is "rows"
+      if (field.name === "selectedRows" && config.readMode !== "rows") {
+        return false
+      }
+      // Only show selectedCells field when readMode is "cells"
+      if (field.name === "selectedCells" && config.readMode !== "cells") {
+        return false
+      }
+      // Only show maxRows field when readMode is "all"
+      if (field.name === "maxRows" && config.readMode !== "all") {
+        return false
+      }
+    }
+
     if (!field.dependsOn) {
       // Special logic for unified Google Sheets action
       if (nodeInfo?.type === "google_sheets_unified_action") {
         // Only show selectedRow field for update/delete actions
         if (field.name === "selectedRow" && config.action === "add") {
-          return false
-        }
-      }
-      // Special logic for read data action
-      if (nodeInfo?.type === "google_sheets_action_read_data") {
-        // Only show range field when readMode is "range"
-        if (field.name === "range" && config.readMode !== "range") {
-          return false
-        }
-        // Only show selectedRows field when readMode is "rows"
-        if (field.name === "selectedRows" && config.readMode !== "rows") {
-          return false
-        }
-        // Only show selectedCells field when readMode is "cells"
-        if (field.name === "selectedCells" && config.readMode !== "cells") {
           return false
         }
       }
@@ -1125,6 +1262,10 @@ export default function ConfigurationModal({
     if (nodeInfo.type === "google_sheets_unified_action") {
       if (!config.action) return
       if (!config.spreadsheetId || !config.sheetName) return
+    } else if (nodeInfo.type === "google_sheets_action_read_data") {
+      // For read data action, load after readMode is selected
+      if (!config.readMode) return
+      if (!config.spreadsheetId || !config.sheetName) return
     } else if (nodeInfo.providerId === "google-sheets") {
       // For all other Google Sheets actions, load as soon as spreadsheet and sheet are selected
       if (!config.spreadsheetId || !config.sheetName) return
@@ -1166,7 +1307,7 @@ export default function ConfigurationModal({
       }
     }
     loadSheetData()
-  }, [isOpen, nodeInfo, config.action, config.spreadsheetId, config.sheetName, getIntegrationByProvider, loadIntegrationData])
+  }, [isOpen, nodeInfo, config.action, config.readMode, config.spreadsheetId, config.sheetName, getIntegrationByProvider, loadIntegrationData])
 
   // Fetch sheet preview when both spreadsheet and sheet are selected (for Google Sheets actions)
   useEffect(() => {
@@ -1438,27 +1579,159 @@ export default function ConfigurationModal({
 
     // Add label rendering
     const renderLabel = () => (
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center gap-2 mb-2">
         <Label className="text-sm font-medium">
           {dynamicLabel || field.label || field.name}
           {field.required && <span className="text-red-500 ml-1">*</span>}
         </Label>
         {field.description && (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                  <HelpCircle className="h-4 w-4 text-muted-foreground" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="top" className="max-w-xs">
-                <p className="text-sm">{field.description}</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <EnhancedTooltip 
+            description={field.description}
+            title={`${field.label || field.name} Information`}
+            showExpandButton={field.description.length > 150}
+          />
         )}
       </div>
     )
+
+    // Handle Google Sheets create spreadsheet sheets configuration
+    if (nodeInfo?.type === "google_sheets_action_create_spreadsheet" && field.name === "sheets") {
+      const [sheets, setSheets] = useState<Array<{ 
+        name: string; 
+        columns: number; 
+        columnNames: string[] 
+      }>>(
+        config.sheets || [{ name: "Sheet1", columns: 5, columnNames: ["Column 1", "Column 2", "Column 3", "Column 4", "Column 5"] }]
+      )
+
+      const addSheet = () => {
+        const defaultColumnNames = Array.from({ length: 5 }, (_, i) => `Column ${i + 1}`)
+        const newSheets = [...sheets, { name: `Sheet${sheets.length + 1}`, columns: 5, columnNames: defaultColumnNames }]
+        setSheets(newSheets)
+        setConfig(prev => ({ ...prev, sheets: newSheets }))
+      }
+
+      const removeSheet = (index: number) => {
+        if (sheets.length > 1) {
+          const newSheets = sheets.filter((_, i) => i !== index)
+          setSheets(newSheets)
+          setConfig(prev => ({ ...prev, sheets: newSheets }))
+        }
+      }
+
+      const updateSheet = (index: number, field: 'name' | 'columns', value: string | number) => {
+        const newSheets = [...sheets]
+        if (field === 'columns') {
+          const currentColumnNames = newSheets[index].columnNames || []
+          const newColumnCount = Math.max(1, Math.min(26, value as number))
+          
+          // Adjust column names array to match new column count
+          let newColumnNames = [...currentColumnNames]
+          if (newColumnCount > currentColumnNames.length) {
+            // Add new column names
+            for (let i = currentColumnNames.length; i < newColumnCount; i++) {
+              newColumnNames.push(`Column ${i + 1}`)
+            }
+          } else if (newColumnCount < currentColumnNames.length) {
+            // Remove excess column names
+            newColumnNames = newColumnNames.slice(0, newColumnCount)
+          }
+          
+          newSheets[index] = { 
+            ...newSheets[index], 
+            columns: newColumnCount,
+            columnNames: newColumnNames
+          }
+        } else if (field === 'name') {
+          newSheets[index] = { ...newSheets[index], name: value as string }
+        }
+        setSheets(newSheets)
+        setConfig(prev => ({ ...prev, sheets: newSheets }))
+      }
+
+      const updateColumnName = (sheetIndex: number, columnIndex: number, value: string) => {
+        const newSheets = [...sheets]
+        newSheets[sheetIndex].columnNames[columnIndex] = value
+        setSheets(newSheets)
+        setConfig(prev => ({ ...prev, sheets: newSheets }))
+      }
+
+      return (
+        <div className="space-y-4">
+          {renderLabel()}
+          <div className="space-y-3">
+            {sheets.map((sheet, index) => (
+              <div key={index} className="border rounded-lg p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-medium">Sheet {index + 1}</h4>
+                  {sheets.length > 1 && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => removeSheet(index)}
+                      className="text-red-600 hover:text-red-700"
+                    >
+                      Remove
+                    </Button>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label className="text-xs font-medium">Sheet Name</Label>
+                    <Input
+                      value={sheet.name}
+                      onChange={(e) => updateSheet(index, 'name', e.target.value)}
+                      placeholder="e.g., Sales Data, Inventory"
+                      className="text-sm"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs font-medium">Number of Columns</Label>
+                    <Input
+                      type="number"
+                      value={sheet.columns}
+                      onChange={(e) => updateSheet(index, 'columns', parseInt(e.target.value) || 1)}
+                      min="1"
+                      max="26"
+                      className="text-sm"
+                    />
+                  </div>
+                </div>
+                
+                {/* Column Names */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium">Column Names</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {Array.from({ length: sheet.columns }, (_, colIndex) => (
+                      <div key={colIndex} className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">
+                          Column {colIndex + 1}
+                        </Label>
+                        <Input
+                          value={sheet.columnNames?.[colIndex] || `Column ${colIndex + 1}`}
+                          onChange={(e) => updateColumnName(index, colIndex, e.target.value)}
+                          placeholder={`Column ${colIndex + 1}`}
+                          className="text-sm"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ))}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={addSheet}
+              className="w-full"
+            >
+              + Add Another Sheet
+            </Button>
+          </div>
+        </div>
+      )
+    }
 
     // Handle Airtable record actions custom fields layout
     if ((nodeInfo?.type === "airtable_action_create_record" || 
@@ -1798,25 +2071,12 @@ export default function ConfigurationModal({
                         >
                           {fieldValue === "{{current_date}}" ? "Using Current Date" : "Use Current Date"}
                         </Button>
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 w-7 p-0 flex-shrink-0"
-                              >
-                                <HelpCircle className="h-3 w-3" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent side="top" className="max-w-xs">
-                              <p className="text-sm">
-                                When enabled, this field will automatically use the current date each time the workflow runs, rather than a fixed date.
-                              </p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
+                        <EnhancedTooltip 
+                          description="When enabled, this field will automatically use the current date each time the workflow runs, rather than a fixed date."
+                          title="Auto Date Information"
+                          buttonClassName="h-7 w-7 p-0 flex-shrink-0"
+                          showExpandButton={false}
+                        />
                       </div>
                     </div>
                   ) : fieldDef.type === "attachment" || fieldDef.type === "file" || fieldDef.type === "image" || fieldDef.name.toLowerCase().includes('image') || fieldDef.name.toLowerCase().includes('photo') || fieldDef.name.toLowerCase().includes('picture') ? (
@@ -2910,7 +3170,8 @@ export default function ConfigurationModal({
                   {/* Data Preview Table for Google Sheets Actions */}
                   {((nodeInfo?.type === "google_sheets_unified_action" && config.action && config.spreadsheetId && config.sheetName) || 
                     (nodeInfo?.type === "google-sheets_action_create_row" && config.spreadsheetId && config.sheetName) ||
-                    (nodeInfo?.providerId === "google-sheets" && nodeInfo?.type !== "google_sheets_unified_action" && nodeInfo?.type !== "google-sheets_action_create_row" && config.spreadsheetId && config.sheetName)) && 
+                    (nodeInfo?.type === "google_sheets_action_read_data" && config.readMode && config.spreadsheetId && config.sheetName) ||
+                    (nodeInfo?.providerId === "google-sheets" && nodeInfo?.type !== "google_sheets_unified_action" && nodeInfo?.type !== "google-sheets_action_create_row" && nodeInfo?.type !== "google_sheets_action_read_data" && config.spreadsheetId && config.sheetName)) && 
                    dynamicOptions.sheetData && (dynamicOptions.sheetData as any).headers && Array.isArray((dynamicOptions.sheetData as any).headers) && (dynamicOptions.sheetData as any).data && Array.isArray((dynamicOptions.sheetData as any).data) && (
                     <div className="space-y-3 border-b pb-4">
                       <div className="text-sm font-medium">
@@ -2918,15 +3179,29 @@ export default function ConfigurationModal({
                           ? `Data Preview for ${config.action} action:`
                           : nodeInfo?.type === "google-sheets_action_create_row"
                           ? "Select a row to insert relative to:"
+                          : nodeInfo?.type === "google_sheets_action_read_data"
+                          ? config.readMode === "rows"
+                            ? "Select rows to read:"
+                            : config.readMode === "cells"
+                              ? "Select cells to read:"
+                              : config.readMode === "range"
+                                ? "Select a range to read:"
+                                : "Data Preview:"
                           : "Data Preview:"}
                         {loadingDynamic && <span className="text-muted-foreground ml-2">(Loading...)</span>}
                       </div>
                       
-                      <div className="border rounded-lg overflow-hidden">
+                      <div className="border rounded-lg overflow-hidden select-none" style={{ userSelect: 'none', WebkitUserSelect: 'none', MozUserSelect: 'none', msUserSelect: 'none' }}>
                         {/* Header Row */}
-                        <div className="grid gap-2 p-2 bg-muted/50" style={{ gridTemplateColumns: `repeat(${(dynamicOptions.sheetData as any).headers.length}, minmax(120px, 1fr))` }}>
+                        <div className="grid gap-2 p-2 bg-muted/50 select-none" style={{ 
+                          gridTemplateColumns: `repeat(${(dynamicOptions.sheetData as any).headers.length}, minmax(120px, 1fr))`,
+                          userSelect: 'none',
+                          WebkitUserSelect: 'none',
+                          MozUserSelect: 'none',
+                          msUserSelect: 'none'
+                        }}>
                           {(dynamicOptions.sheetData as any).headers.map((header: any, index: number) => (
-                            <div key={index} className="text-xs font-medium text-center p-1">
+                            <div key={index} className="text-xs font-medium text-center p-1 select-none" style={{ userSelect: 'none', WebkitUserSelect: 'none', MozUserSelect: 'none', msUserSelect: 'none' }}>
                               <div className="font-mono bg-background px-2 py-1 rounded mb-1">
                                 {header.column}
                               </div>
@@ -2940,17 +3215,26 @@ export default function ConfigurationModal({
                           {(dynamicOptions.sheetData as any).data.map((row: any, index: number) => (
                             <div 
                               key={index} 
-                              className={`grid gap-2 p-2 border-t ${
+                              className={`grid gap-2 p-2 border-t select-none ${
                                 (nodeInfo?.type === "google_sheets_unified_action" && config.action !== "add") ||
-                                nodeInfo?.type === "google-sheets_action_create_row"
+                                nodeInfo?.type === "google-sheets_action_create_row" ||
+                                (nodeInfo?.type === "google_sheets_action_read_data" && config.readMode === "rows")
                                   ? `cursor-pointer hover:bg-muted/50 ${
-                                      config.selectedRow?.rowIndex === row.rowIndex 
+                                      (nodeInfo?.type === "google_sheets_action_read_data" && config.readMode === "rows"
+                                        ? (config.selectedRows || []).some((r: any) => r.rowIndex === row.rowIndex)
+                                        : config.selectedRow?.rowIndex === row.rowIndex)
                                         ? "bg-primary/10 border border-primary" 
                                         : "border border-transparent"
                                     }`
                                   : "border border-transparent"
                               }`}
-                              style={{ gridTemplateColumns: `repeat(${(dynamicOptions.sheetData as any).headers.length}, minmax(120px, 1fr))` }}
+                              style={{ 
+                                gridTemplateColumns: `repeat(${(dynamicOptions.sheetData as any).headers.length}, minmax(120px, 1fr))`,
+                                userSelect: 'none',
+                                WebkitUserSelect: 'none',
+                                MozUserSelect: 'none',
+                                msUserSelect: 'none'
+                              }}
                               onClick={() => {
                                 if (nodeInfo?.type === "google_sheets_unified_action" && config.action !== "add") {
                                   // For update action, populate column values with current row data
@@ -2980,13 +3264,48 @@ export default function ConfigurationModal({
                                     ...prev,
                                     selectedRow: row
                                   }))
+                                } else if (nodeInfo?.type === "google_sheets_action_read_data" && config.readMode === "rows") {
+                                  // For read data rows mode, toggle row selection
+                                  const currentSelectedRows = config.selectedRows || []
+                                  const isSelected = currentSelectedRows.some((r: any) => r.rowIndex === row.rowIndex)
+                                  
+                                  const newSelectedRows = isSelected
+                                    ? currentSelectedRows.filter((r: any) => r.rowIndex !== row.rowIndex)
+                                    : [...currentSelectedRows, row]
+                                  
+                                  setConfig(prev => ({
+                                    ...prev,
+                                    selectedRows: newSelectedRows
+                                  }))
                                 }
                               }}
                             >
                               {row.values.map((cell: string, cellIndex: number) => (
                                 <div 
                                   key={cellIndex} 
-                                  className="text-sm truncate p-1"
+                                  className={`text-sm truncate p-1 select-none ${
+                                    nodeInfo?.type === "google_sheets_action_read_data" && config.readMode === "range"
+                                      ? `cursor-crosshair ${
+                                          selectedRange && isCellInRange(index, cellIndex, selectedRange)
+                                            ? "bg-blue-500 text-white"
+                                            : isDragging && dragStart && dragEnd
+                                              ? isCellInRange(index, cellIndex, { start: dragStart, end: dragEnd })
+                                                ? "bg-blue-300"
+                                                : ""
+                                              : ""
+                                        }`
+                                      : nodeInfo?.type === "google_sheets_action_read_data" && config.readMode === "cells"
+                                        ? `cursor-pointer ${
+                                            isCellSelected(index, cellIndex)
+                                              ? "bg-green-200 text-green-900"
+                                              : "hover:bg-green-100 hover:text-black"
+                                          }`
+                                        : ""
+                                  }`}
+                                  onMouseDown={() => handleMouseDown(index, cellIndex)}
+                                  onMouseEnter={() => handleMouseEnter(index, cellIndex)}
+                                  onClick={() => handleCellClick(index, cellIndex)}
+                                  style={{ userSelect: 'none', WebkitUserSelect: 'none', MozUserSelect: 'none', msUserSelect: 'none' }}
                                 >
                                   {cell || ""}
                                 </div>
@@ -3005,6 +3324,41 @@ export default function ConfigurationModal({
                       {nodeInfo?.type === "google-sheets_action_create_row" && config.selectedRow && (
                         <div className="text-sm text-blue-600 bg-blue-50 p-2 rounded">
                           ✓ Row selected! New row will be inserted {config.insertPosition === "above" ? "above" : config.insertPosition === "below" ? "below" : "at the end of"} the selected row.
+                        </div>
+                      )}
+                      
+                      {nodeInfo?.type === "google_sheets_action_read_data" && config.readMode === "rows" && config.selectedRows && Array.isArray(config.selectedRows) && config.selectedRows.length > 0 && (
+                        <div className="text-sm text-green-600 bg-green-50 p-2 rounded">
+                          ✓ {config.selectedRows.length} row(s) selected for reading!
+                        </div>
+                      )}
+                      
+                      {nodeInfo?.type === "google_sheets_action_read_data" && config.readMode === "cells" && config.selectedCells && Array.isArray(config.selectedCells) && config.selectedCells.length > 0 && (
+                        <div className="text-sm text-green-600 bg-green-50 p-2 rounded">
+                          ✓ {config.selectedCells.length} cell(s) selected for reading!
+                        </div>
+                      )}
+
+                      {nodeInfo?.type === "google_sheets_action_read_data" && config.readMode === "range" && config.range && (
+                        <div className="text-sm text-blue-600 bg-blue-50 p-2 rounded">
+                          ✓ Range selected: {config.range}
+                          {isDragging && (
+                            <span className="ml-2 text-blue-500">
+                              (Drag to adjust selection)
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      {nodeInfo?.type === "google_sheets_action_read_data" && config.readMode === "range" && !config.range && (
+                        <div className="text-sm text-gray-600 bg-gray-50 p-2 rounded">
+                          💡 Click and drag to select a range of cells
+                        </div>
+                      )}
+
+                      {nodeInfo?.type === "google_sheets_action_read_data" && config.readMode === "cells" && (!config.selectedCells || config.selectedCells.length === 0) && (
+                        <div className="text-sm text-gray-600 bg-gray-50 p-2 rounded">
+                          💡 Click on cells to select them for reading
                         </div>
                       )}
 

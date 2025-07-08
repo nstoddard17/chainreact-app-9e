@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { EnhancedTooltip } from "@/components/ui/enhanced-tooltip"
 import { HelpCircle, Bot, Zap, Brain, Settings, Target, MessageSquare, Clock } from "lucide-react"
 import { INTEGRATION_CONFIGS } from "@/lib/integrations/availableIntegrations"
 import { integrationIcons } from "@/lib/integrations/integration-icons"
@@ -108,8 +109,7 @@ export default function AIAgentConfigModal({
   }
 
   return (
-    <TooltipProvider>
-      <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="max-w-4xl w-full max-h-[95vh] p-0 gap-0 overflow-hidden">
           <div className="flex h-full">
             {/* Main Configuration Content */}
@@ -137,16 +137,11 @@ export default function AIAgentConfigModal({
                     <div className="flex items-center gap-2">
                       <Target className="w-5 h-5 text-primary" />
                       <Label className="text-base font-medium">Input Node</Label>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                            <HelpCircle className="h-4 w-4 text-muted-foreground" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="max-w-xs">
-                          <p className="text-sm">Select which node in the workflow should provide input to the AI Agent</p>
-                        </TooltipContent>
-                      </Tooltip>
+                      <EnhancedTooltip 
+                        description="Select which node in the workflow should provide input to the AI Agent"
+                        title="Input Node Information"
+                        showExpandButton={false}
+                      />
                     </div>
                     
                     {workflowData?.nodes && workflowData.nodes.length > 0 ? (
@@ -264,16 +259,11 @@ export default function AIAgentConfigModal({
                     <div className="flex items-center gap-2">
                       <Brain className="w-5 h-5 text-primary" />
                       <Label className="text-base font-medium">Memory</Label>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                            <HelpCircle className="h-4 w-4 text-muted-foreground" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="max-w-xs">
-                          <p className="text-sm">Choose how the AI agent should access memory and context</p>
-                        </TooltipContent>
-                      </Tooltip>
+                      <EnhancedTooltip 
+                        description="Choose how the AI agent should access memory and context"
+                        title="Memory Configuration Information"
+                        showExpandButton={false}
+                      />
                     </div>
                     <Select
                       value={config.memory || "all-storage"}
@@ -366,16 +356,11 @@ export default function AIAgentConfigModal({
                     <div className="flex items-center gap-2">
                       <MessageSquare className="w-5 h-5 text-primary" />
                       <Label className="text-base font-medium">System Prompt (Optional)</Label>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                            <HelpCircle className="h-4 w-4 text-muted-foreground" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="max-w-xs">
-                          <p className="text-sm">Custom instructions to guide the AI agent's behavior</p>
-                        </TooltipContent>
-                      </Tooltip>
+                      <EnhancedTooltip 
+                        description="Custom instructions to guide the AI agent's behavior"
+                        title="System Prompt Information"
+                        showExpandButton={false}
+                      />
                     </div>
                     <Textarea
                       value={config.systemPrompt}
@@ -424,6 +409,5 @@ export default function AIAgentConfigModal({
           </div>
         </DialogContent>
       </Dialog>
-    </TooltipProvider>
   )
 } 
