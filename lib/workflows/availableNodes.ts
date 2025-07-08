@@ -1322,31 +1322,17 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         dependsOn: "spreadsheetId"
       },
       {
-        name: "selectedRow",
-        label: "Select Row",
-        type: "custom",
-        required: false,
-        description: "Select the row to insert relative to"
-      },
-      {
         name: "insertPosition",
         label: "Insert Position",
         type: "select",
         required: true,
-        defaultValue: "below",
+        dependsOn: "sheetName",
         options: [
           { value: "above", label: "Above selected row" },
           { value: "below", label: "Below selected row" },
           { value: "at_end", label: "At the end of sheet" }
         ],
         description: "Where to insert the new row"
-      },
-      {
-        name: "columnValues",
-        label: "Column Values",
-        type: "custom",
-        required: false,
-        description: "Enter values for each column"
       }
     ],
     outputSchema: [
@@ -1462,6 +1448,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         label: "Read Mode",
         type: "select",
         required: true,
+        dependsOn: "sheetName",
         options: [
           { value: "all", label: "Read all data" },
           { value: "range", label: "Read specific range" },
@@ -1477,22 +1464,6 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         required: false,
         placeholder: "e.g., A1:D10, A:A (entire column), 1:1 (entire row)",
         description: "Specific range to read",
-        dependsOn: "readMode"
-      },
-      {
-        name: "selectedRows",
-        label: "Selected Rows",
-        type: "custom",
-        required: false,
-        description: "Rows selected from the data preview",
-        dependsOn: "readMode"
-      },
-      {
-        name: "selectedCells",
-        label: "Selected Cells",
-        type: "custom",
-        required: false,
-        description: "Individual cells selected from the data preview",
         dependsOn: "readMode"
       },
       {
@@ -1519,10 +1490,10 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         defaultValue: "objects",
         options: [
           { value: "objects", label: "Array of Objects (Recommended)" },
-          { value: "array", label: "Array of Arrays" },
-          { value: "csv", label: "CSV String" }
+          { value: "array", label: "Array of Arrays (Spreadsheet-like)" },
+          { value: "csv", label: "CSV String (For Import/Export)" }
         ],
-        description: "Choose how to format the output data. Objects format is easiest to use in subsequent actions."
+        description: "Choose how to format the output data. Objects format is easiest to use in subsequent actions. Use Array of Arrays for spreadsheet-like data or CSV String for importing into other tools."
       },
       {
         name: "filterConditions",
@@ -1564,42 +1535,21 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         description: "A brief description of what this spreadsheet is for"
       },
       {
-        name: "sheetName",
-        label: "First Sheet Name",
-        type: "text",
+        name: "sheets",
+        label: "Sheets",
+        type: "custom",
         required: false,
-        placeholder: "Sheet1",
-        description: "Name for the first sheet (defaults to 'Sheet1')"
+        description: "Configure multiple sheets for your spreadsheet"
       },
-      {
-        name: "columnCount",
-        label: "Number of Columns",
-        type: "number",
-        required: true,
-        placeholder: "e.g., 5",
-        description: "How many columns do you want in your spreadsheet?"
-      },
+
       {
         name: "addHeaders",
         label: "Add Headers",
         type: "boolean",
-        defaultValue: false,
+        defaultValue: true,
         description: "Add column names as the first row of the spreadsheet"
       },
-      {
-        name: "columnNames",
-        label: "Column Names",
-        type: "custom",
-        required: false,
-        description: "Define the names for each column"
-      },
-      {
-        name: "spreadsheetData",
-        label: "Spreadsheet Data",
-        type: "custom",
-        required: false,
-        description: "Add rows of data to your spreadsheet"
-      },
+
       {
         name: "locale",
         label: "Locale",
@@ -1625,9 +1575,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         label: "Time Zone",
         type: "select",
         required: false,
-        defaultValue: "auto",
         options: [
-          { value: "auto", label: "Auto-detect (Current Timezone)" },
           { value: "America/New_York", label: "Eastern Time" },
           { value: "America/Chicago", label: "Central Time" },
           { value: "America/Denver", label: "Mountain Time" },
@@ -1639,7 +1587,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
           { value: "Australia/Sydney", label: "Sydney" },
           { value: "UTC", label: "UTC" }
         ],
-        description: "The time zone of the spreadsheet"
+        description: "The time zone of the spreadsheet (defaults to your current timezone)"
       }
     ],
   },
