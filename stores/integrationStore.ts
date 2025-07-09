@@ -557,7 +557,14 @@ export const useIntegrationStore = create<IntegrationStore>()(
     },
 
     loadIntegrationData: async (providerId, integrationId, params) => {
-      const { setLoading, setError } = get()
+      const { setLoading, setError, integrationData } = get()
+      
+      // Check if data is already cached (unless force refresh is requested)
+      if (!params?.forceRefresh && integrationData[providerId]) {
+        console.log(`📋 Using cached data for ${providerId}`)
+        return integrationData[providerId]
+      }
+      
       setLoading(`data-${providerId}`, true)
 
       try {
@@ -682,6 +689,14 @@ export const useIntegrationStore = create<IntegrationStore>()(
           case "notion_pages":
             url = "/api/integrations/fetch-user-data"
             dataType = "notion_pages"
+            break
+          case "notion_workspaces":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "notion_workspaces"
+            break
+          case "notion_templates":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "notion_templates"
             break
           case "trello_boards":
             url = "/api/integrations/fetch-user-data"
@@ -1193,6 +1208,29 @@ export const useIntegrationStore = create<IntegrationStore>()(
           return {
             needsReconnection: true,
             reason: `Missing required scopes: ${missingScopes.join(", ")}`,
+            missingScopes
+          }
+        }
+      }
+      
+      // Check for Teams specific scope requirements
+      if (providerId === "teams") {
+        const requiredScopes = [
+          "User.Read",
+          "Team.ReadBasic.All", 
+          "Channel.ReadBasic.All",
+          "Chat.Read",
+          "ChatMessage.Send",
+          "OnlineMeetings.ReadWrite"
+        ]
+        
+        const missingScopes = requiredScopes.filter(scope => !grantedScopes.includes(scope))
+        
+        if (missingScopes.length > 0) {
+          console.warn(`❌ Missing scopes for ${providerId}:`, missingScopes)
+          return {
+            needsReconnection: true,
+            reason: `Teams integration requires additional permissions. Please reconnect your account to grant the necessary access.`,
             missingScopes
           }
         }

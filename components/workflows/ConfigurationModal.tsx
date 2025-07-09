@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog"
 import { NodeComponent, NodeField, ConfigField } from "@/lib/workflows/availableNodes"
 import { useIntegrationStore } from "@/stores/integrationStore"
@@ -25,6 +26,213 @@ import { EnhancedTooltip } from "@/components/ui/enhanced-tooltip"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import GoogleMeetCard from "@/components/ui/google-meet-card"
 import VariablePicker from "./VariablePicker"
+
+// Enhanced File Input Component for Icon/Cover Images
+interface EnhancedFileInputProps {
+  fieldDef: NodeField
+  fieldValue: any
+  onValueChange: (value: any) => void
+  workflowData?: { nodes: any[], edges: any[] }
+  currentNodeId?: string
+}
+
+const EnhancedFileInput = ({ fieldDef, fieldValue, onValueChange, workflowData, currentNodeId }: EnhancedFileInputProps) => {
+  const [activeTab, setActiveTab] = useState("upload")
+  const [urlInput, setUrlInput] = useState("")
+  const [emojiInput, setEmojiInput] = useState("")
+  
+  // Common emojis for quick selection
+  const commonEmojis = ["🎯", "📝", "📊", "📈", "📉", "✅", "❌", "⚠️", "💡", "🔥", "⭐", "💎", "🚀", "🎉", "🎨", "📱", "💻", "🌐", "📧", "📞", "📍", "📅", "⏰", "💰", "🎁", "🏆", "🎪", "🎭", "🎨", "🎵", "🎬", "📚", "🎓", "💼", "🏢", "🏠", "🚗", "✈️", "🚢", "🎮", "⚽", "🏀", "🎾", "🏈", "⚾", "🎯", "🎳", "🎲", "🃏", "🎴", "🀄", "🎰", "🎪", "🎭", "🎨", "🎵", "🎬", "📚", "🎓", "💼", "🏢", "🏠", "🚗", "✈️", "🚢", "🎮", "⚽", "🏀", "🎾", "🏈", "⚾"]
+
+  const handleFileUpload = (files: FileList | File[]) => {
+    const fileArray = Array.from(files)
+    if (fileArray.length > 0) {
+      const file = fileArray[0]
+      // Create a file object with URL for preview
+      const fileObj = {
+        file,
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        url: URL.createObjectURL(file)
+      }
+      onValueChange(fileObj)
+    }
+  }
+
+  const handleUrlSubmit = () => {
+    if (urlInput.trim()) {
+      onValueChange(urlInput.trim())
+      setUrlInput("")
+    }
+  }
+
+  const handleEmojiSelect = (emoji: string) => {
+    onValueChange(emoji)
+    setEmojiInput("")
+  }
+
+  const getDisplayValue = () => {
+    if (!fieldValue) return "No file selected"
+    
+    if (typeof fieldValue === 'string') {
+      if (fieldValue.length <= 2) return `Emoji: ${fieldValue}`
+      if (fieldValue.startsWith('http')) return `URL: ${fieldValue}`
+      return fieldValue
+    }
+    
+    if (fieldValue && typeof fieldValue === 'object') {
+      if (fieldValue.name) return `File: ${fieldValue.name}`
+      if (fieldValue.url) return `URL: ${fieldValue.url}`
+    }
+    
+    return "File selected"
+  }
+
+  return (
+    <div className="space-y-3">
+      {/* Simple button-based tab navigation for better cross-platform compatibility */}
+      <div className="flex gap-1 p-1 bg-muted rounded-lg">
+        <button
+          type="button"
+          onClick={() => setActiveTab("upload")}
+          className={`flex-1 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+            activeTab === "upload" 
+              ? "bg-background text-foreground shadow-sm" 
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Upload
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("url")}
+          className={`flex-1 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+            activeTab === "url" 
+              ? "bg-background text-foreground shadow-sm" 
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          URL
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("emoji")}
+          className={`flex-1 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+            activeTab === "emoji" 
+              ? "bg-background text-foreground shadow-sm" 
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Emoji
+        </button>
+      </div>
+      
+      {/* Upload Tab */}
+      {activeTab === "upload" && (
+        <div className="space-y-2">
+          <input
+            type="file"
+            id={`file-${fieldDef.name}`}
+            accept={fieldDef.accept || "image/*"}
+            onChange={(e) => handleFileUpload(e.target.files || [])}
+            className="hidden"
+          />
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => document.getElementById(`file-${fieldDef.name}`)?.click()}
+              className="flex-1"
+            >
+              Choose File
+            </Button>
+            <VariablePicker
+              workflowData={workflowData}
+              currentNodeId={currentNodeId}
+              onVariableSelect={(variable) => onValueChange(variable)}
+              fieldType="file"
+              trigger={
+                <Button variant="outline" size="sm" className="flex-shrink-0 px-3">
+                  <Database className="w-4 h-4" />
+                </Button>
+              }
+            />
+          </div>
+        </div>
+      )}
+      
+      {/* URL Tab */}
+      {activeTab === "url" && (
+        <div className="space-y-2">
+          <div className="flex gap-2">
+            <Input
+              placeholder="Enter image URL (e.g., https://example.com/image.jpg)"
+              value={urlInput}
+              onChange={(e) => setUrlInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleUrlSubmit()}
+              className="flex-1"
+            />
+            <Button 
+              onClick={handleUrlSubmit} 
+              size="sm" 
+              disabled={!urlInput.trim()}
+              className="px-4"
+            >
+              Add
+            </Button>
+          </div>
+          {urlInput && (
+            <div className="text-xs text-muted-foreground">
+              Press Enter or click Add to use this URL
+            </div>
+          )}
+        </div>
+      )}
+      
+      {/* Emoji Tab */}
+      {activeTab === "emoji" && (
+        <div className="space-y-2">
+          <div className="grid grid-cols-8 gap-2 max-h-32 overflow-y-auto">
+            {commonEmojis.map((emoji, index) => (
+              <button
+                key={index}
+                type="button"
+                onClick={() => handleEmojiSelect(emoji)}
+                className="h-8 w-8 p-0 text-lg border border-border rounded hover:bg-accent hover:text-accent-foreground transition-colors"
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <Input
+              placeholder="Or type custom emoji"
+              value={emojiInput}
+              onChange={(e) => setEmojiInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && emojiInput && handleEmojiSelect(emojiInput)}
+            />
+            <Button 
+              onClick={() => emojiInput && handleEmojiSelect(emojiInput)} 
+              size="sm"
+              disabled={!emojiInput}
+              className="px-4"
+            >
+              Add
+            </Button>
+          </div>
+        </div>
+      )}
+      
+      {/* Current Value Display */}
+      {fieldValue && (
+        <div className="text-xs text-muted-foreground p-2 bg-muted rounded">
+          {getDisplayValue()}
+        </div>
+      )}
+    </div>
+  )
+}
 
 interface ConfigurationModalProps {
   isOpen: boolean
@@ -65,7 +273,7 @@ export default function ConfigurationModal({
     }
   }, [isOpen])
   const [errors, setErrors] = useState<Record<string, string>>({})
-  const { loadIntegrationData, getIntegrationByProvider, checkIntegrationScopes } = useIntegrationStore()
+  const { loadIntegrationData, getIntegrationByProvider, checkIntegrationScopes, integrationData } = useIntegrationStore()
   const [dynamicOptions, setDynamicOptions] = useState<
     Record<string, { value: string; label: string; fields?: any[]; isExisting?: boolean }[]>
   >({})
@@ -849,63 +1057,147 @@ export default function ConfigurationModal({
     abortControllerRef.current = controller
 
     setLoadingDynamic(true)
-    const newOptions: Record<string, any[]> = {}
     let hasData = false
+    const newOptions: Record<string, any[]> = {}
 
-    // Fetch standard dynamic fields from configSchema
-    for (const field of nodeInfo.configSchema || []) {
-      if (field.dynamic && !field.dependsOn) { // Skip dependent fields during initial load
-        try {
-          console.log(`🔍 Fetching dynamic data for field:`, {
-            fieldName: field.name,
-            fieldType: field.type,
-            dynamic: field.dynamic,
-            integrationId: integration.id
-          })
-          
-          const data = await loadIntegrationData(field.dynamic as string, integration.id)
-          
-          console.log(`✅ Received data for ${field.name}:`, {
-            dataReceived: !!data,
-            recordCount: data?.length || 0,
-            sampleData: data?.[0]
-          })
-          
-          if (data) {
+    // Collect all dynamic fields (excluding dependent fields)
+    const dynamicFields = (nodeInfo.configSchema || []).filter(field => field.dynamic && !field.dependsOn)
+
+    // Add signature fetches for email providers
+    const signatureFetches: Array<{ name: string, dynamic: string }> = []
+    if (nodeInfo?.providerId === 'microsoft-outlook' && !dynamicOptions['outlook_signatures']) {
+      signatureFetches.push({ name: 'outlook_signatures', dynamic: 'outlook_signatures' })
+    }
+    if (nodeInfo?.providerId === 'gmail' && !dynamicOptions['gmail_signatures']) {
+      signatureFetches.push({ name: 'gmail_signatures', dynamic: 'gmail_signatures' })
+    }
+
+    // Check cache first and only fetch missing data
+    const cachedData: Record<string, any> = {}
+    const fieldsToFetch = []
+    
+    // Check cache for dynamic fields
+    for (const field of dynamicFields) {
+      const cacheKey = field.dynamic as string
+      if (integrationData[cacheKey]) {
+        console.log(`📋 Using cached data for ${cacheKey}`)
+        cachedData[cacheKey] = { field, data: integrationData[cacheKey], error: null }
+      } else {
+        fieldsToFetch.push(field)
+      }
+    }
+    
+    // Check cache for signature fetches
+    const signaturesNotCached = []
+    for (const sig of signatureFetches) {
+      if (integrationData[sig.dynamic]) {
+        console.log(`📋 Using cached data for ${sig.dynamic}`)
+        cachedData[sig.dynamic] = { field: { name: sig.name, dynamic: sig.dynamic }, data: integrationData[sig.dynamic], error: null }
+      } else {
+        signaturesNotCached.push(sig)
+      }
+    }
+
+    // Log performance improvement
+    const totalFields = dynamicFields.length + signatureFetches.length
+    const cachedFields = Object.keys(cachedData).length
+    const fieldsToFetchCount = fieldsToFetch.length + signaturesNotCached.length
+    
+    if (totalFields > 0) {
+      console.log(`⚡ Performance optimization: Using ${cachedFields}/${totalFields} cached fields, fetching only ${fieldsToFetchCount} new fields`)
+    }
+
+    // Build fetch promises only for missing data
+    const fetchPromises = [
+      ...fieldsToFetch.map(field => {
+        return loadIntegrationData(field.dynamic as string, integration.id)
+          .then(data => ({ field, data, error: null }))
+          .catch(error => ({ field, data: null, error }))
+      }),
+      ...signaturesNotCached.map(sig => {
+        return loadIntegrationData(sig.dynamic, integration.id)
+          .then(data => ({ field: { name: sig.name, dynamic: sig.dynamic }, data, error: null }))
+          .catch(error => ({ field: { name: sig.name, dynamic: sig.dynamic }, data: null, error }))
+      })
+    ]
+
+    const fetchedResults = await Promise.all(fetchPromises)
+    
+    // Combine cached and fetched results
+    const allResults = [...Object.values(cachedData), ...fetchedResults]
+
+    // Only update state if the request wasn't aborted
+    if (!controller.signal.aborted) {
+      for (const result of allResults) {
+        const { field, data, error } = result
+        if (error) {
+          // Only log errors for non-signature fields
+          if (field.name !== 'outlook_signatures' && field.name !== 'gmail_signatures') {
+            console.error(`❌ Error loading dynamic data for ${field.dynamic}:`, error)
+            const errorMessage = error instanceof Error ? error.message : String(error)
+            const label = (field as any).label || field.name
+            if (errorMessage.includes('Teams integration not connected')) {
+              setErrors(prev => ({
+                ...prev,
+                integrationError: `Teams integration not connected. Please connect your Teams account in the Integrations page.`
+              }))
+              break
+            } else if (errorMessage.includes('authentication expired') || errorMessage.includes('401')) {
+              setErrors(prev => ({
+                ...prev,
+                integrationError: `Your ${nodeInfo?.providerId || 'integration'} connection has expired. Please reconnect your account to continue.`
+              }))
+              break
+            } else if (errorMessage.includes('Teams access denied') || (errorMessage.includes('403') && errorMessage.includes('Teams'))) {
+              setErrors(prev => ({
+                ...prev,
+                integrationError: `Teams access denied. This may be due to missing permissions. Please reconnect your Teams account to grant the necessary access.`
+              }))
+              break
+            } else if (errorMessage.includes('not found') || errorMessage.includes('not connected') || errorMessage.includes('404')) {
+              setErrors(prev => ({
+                ...prev,
+                integrationError: `Please connect your ${nodeInfo?.providerId || 'integration'} account first to load available options. You can connect it in the integrations page.`
+              }))
+              break
+            } else if (errorMessage.includes('{}') || errorMessage.includes('empty response')) {
+              setErrors(prev => ({
+                ...prev,
+                integrationError: `Unable to load ${label} data. Please check if your ${nodeInfo?.providerId || 'integration'} account is connected and try again.`
+              }))
+            } else {
+              setErrors(prev => ({
+                ...prev,
+                integrationError: `Failed to load ${label} data. Please try again.`
+              }))
+            }
+          }
+          continue
+        }
+                  if (data) {
             hasData = true
+            // Process the data based on dynamic type
+            let processedData: any[] = []
+            
             if (field.dynamic === "slack-channels") {
-              newOptions[field.name] = data.map((channel: any) => ({
-                value: channel.id,
-                label: channel.name,
-              }))
+              processedData = data.map((channel: any) => ({ value: channel.id, label: channel.name }))
             } else if (field.dynamic === "google-calendars") {
-              newOptions[field.name] = data.map((calendar: any) => ({
-                value: calendar.id,
-                label: calendar.name,
-              }))
+              processedData = data.map((calendar: any) => ({ value: calendar.id, label: calendar.name }))
             } else if (field.dynamic === "google-drives") {
-              newOptions[field.name] = data.map((drive: any) => ({
-                value: drive.id,
-                label: drive.name,
-              }))
+              processedData = data.map((drive: any) => ({ value: drive.id, label: drive.name }))
             } else if (field.dynamic === "gmail-labels") {
-              newOptions[field.name] = data.map((label: any) => ({
-                value: label.id,
-                label: label.name,
-                isExisting: true
-              }))
+              processedData = data.map((label: any) => ({ value: label.id, label: label.name, isExisting: true }))
             } else if (field.dynamic === "gmail-recent-recipients") {
-              const mappedData = data.map((recipient: any) => ({
+              processedData = data.map((recipient: any) => ({
                 value: recipient.email || recipient.value,
                 label: recipient.label || (recipient.name ? recipient.name + " <" + recipient.email + ">" : recipient.email),
                 email: recipient.email || recipient.value,
                 name: recipient.name,
                 type: recipient.type || "contact"
               }))
-              newOptions[field.name] = mappedData
             } else if (field.dynamic === "gmail-enhanced-recipients") {
               if (Array.isArray(data) && data.length > 0) {
-                const mappedData = data.map((recipient: any) => ({
+                processedData = data.map((recipient: any) => ({
                   value: recipient.email || recipient.value,
                   label: recipient.label || (recipient.name ? recipient.name + " <" + recipient.email + ">" : recipient.email),
                   email: recipient.email || recipient.value,
@@ -915,210 +1207,74 @@ export default function ConfigurationModal({
                   groupId: recipient.groupId,
                   members: recipient.members
                 }))
-                newOptions[field.name] = mappedData
               } else {
-                newOptions[field.name] = []
+                processedData = []
               }
             } else if (field.dynamic === "spreadsheets") {
-              newOptions[field.name] = data.map((spreadsheet: any) => ({
-                value: spreadsheet.id,
-                label: spreadsheet.properties.title,
-                url: spreadsheet.url,
-              }))
+              processedData = data.map((spreadsheet: any) => ({ value: spreadsheet.id, label: spreadsheet.properties.title, url: spreadsheet.url }))
             } else if (field.dynamic === "airtable_tables") {
-              
-              newOptions[field.name] = data.map((table: any) => ({
-                value: table.value,
-                label: table.label,
-                description: table.description,
-                fields: table.fields || []
-              }))
+              processedData = data.map((table: any) => ({ value: table.value, label: table.label, description: table.description, fields: table.fields || [] }))
             } else if (field.dynamic === "airtable_bases") {
-              
-              newOptions[field.name] = data.map((base: any) => ({
-                value: base.value,
-                label: base.label,
-                description: base.description,
-              }))
+              processedData = data.map((base: any) => ({ value: base.value, label: base.label, description: base.description }))
             } else if (field.dynamic === "airtable_records") {
-              newOptions[field.name] = data.map((record: any) => ({
-                value: record.value,
-                label: record.label,
-                description: record.description,
-                fields: record.fields || {}
-              }))
+              processedData = data.map((record: any) => ({ value: record.value, label: record.label, description: record.description, fields: record.fields || {} }))
             } else if (field.dynamic === "airtable_project_records") {
-              newOptions[field.name] = data.map((record: any) => ({
-                value: record.value,
-                label: record.label,
-                description: record.description,
-                fields: record.fields || {}
-              }))
+              processedData = data.map((record: any) => ({ value: record.value, label: record.label, description: record.description, fields: record.fields || {} }))
             } else if (field.dynamic === "airtable_task_records") {
-              newOptions[field.name] = data.map((record: any) => ({
-                value: record.value,
-                label: record.label,
-                description: record.description,
-                fields: record.fields || {}
-              }))
+              processedData = data.map((record: any) => ({ value: record.value, label: record.label, description: record.description, fields: record.fields || {} }))
             } else if (field.dynamic === "airtable_feedback_records") {
-              newOptions[field.name] = data.map((record: any) => ({
-                value: record.value,
-                label: record.label,
-                description: record.description,
-                fields: record.fields || {}
-              }))
+              processedData = data.map((record: any) => ({ value: record.value, label: record.label, description: record.description, fields: record.fields || {} }))
             } else if (field.dynamic === "trello-boards") {
-              newOptions[field.name] = data.map((board: any) => ({
-                value: board.id,
-                label: board.name,
-              }))
+              processedData = data.map((board: any) => ({ value: board.id, label: board.name }))
             } else if (field.dynamic === "notion-databases") {
-              newOptions[field.name] = data.map((database: any) => ({
-                value: database.id,
-                label: database.title[0]?.plain_text || "Untitled Database",
-              }))
+              processedData = data.map((database: any) => ({ value: database.id, label: database.title[0]?.plain_text || "Untitled Database" }))
             } else if (field.dynamic === "youtube-channels") {
-              newOptions[field.name] = data.map((channel: any) => ({
-                value: channel.id,
-                label: channel.snippet.title,
-              }))
+              processedData = data.map((channel: any) => ({ value: channel.id, label: channel.snippet.title }))
             } else if (field.dynamic === "github-repos") {
-              newOptions[field.name] = data.map((repo: any) => ({
-                value: repo.full_name,
-                label: repo.name,
-              }))
+              processedData = data.map((repo: any) => ({ value: repo.full_name, label: repo.name }))
             } else if (field.dynamic === "discord_guilds") {
-              newOptions[field.name] = data.map((guild: any) => ({
-                value: guild.id,
-                label: guild.name,
-              }))
+              processedData = data.map((guild: any) => ({ value: guild.id, label: guild.name }))
             } else if (field.dynamic === "discord_channels") {
-              newOptions[field.name] = data.map((channel: any) => ({
-                value: channel.id,
-                label: channel.name,
-              }))
+              processedData = data.map((channel: any) => ({ value: channel.id, label: channel.name }))
             } else if (field.dynamic === "facebook_pages") {
-              console.log("🔍 Processing Facebook pages data:", data)
-              newOptions[field.name] = data.map((page: any) => ({
-                value: page.id,
-                label: page.name,
-              }))
-              console.log("🔍 Mapped Facebook pages options:", newOptions[field.name])
+              processedData = data.map((page: any) => ({ value: page.id, label: page.name }))
             } else if (field.dynamic === "onenote_notebooks") {
-              newOptions[field.name] = data.map((notebook: any) => ({
-                value: notebook.id,
-                label: notebook.name,
-                description: notebook.is_default ? "Default notebook" : undefined
-              }))
+              processedData = data.map((notebook: any) => ({ value: notebook.id, label: notebook.name, description: notebook.is_default ? "Default notebook" : undefined }))
             } else if (field.dynamic === "onenote_sections") {
-              newOptions[field.name] = data.map((section: any) => ({
-                value: section.id,
-                label: section.name,
-              }))
+              processedData = data.map((section: any) => ({ value: section.id, label: section.name }))
             } else if (field.dynamic === "onenote_pages") {
-              newOptions[field.name] = data.map((page: any) => ({
-                value: page.id,
-                label: page.name,
-              }))
+              processedData = data.map((page: any) => ({ value: page.id, label: page.name }))
             } else if (field.dynamic === "outlook_folders") {
-              newOptions[field.name] = data.map((folder: any) => ({
-                value: folder.id,
-                label: folder.name,
-                description: folder.unreadItemCount ? `${folder.unreadItemCount} unread` : undefined
-              }))
+              processedData = data.map((folder: any) => ({ value: folder.id, label: folder.name, description: folder.unreadItemCount ? `${folder.unreadItemCount} unread` : undefined }))
             } else if (field.dynamic === "outlook_messages") {
-              newOptions[field.name] = data.map((message: any) => ({
-                value: message.id,
-                label: message.name,
-                description: `${message.fromName} (${message.from})`,
-                email: message.from,
-                fromName: message.fromName,
-                receivedDateTime: message.receivedDateTime,
-                isRead: message.isRead,
-                hasAttachments: message.hasAttachments,
-              }))
+              processedData = data.map((message: any) => ({ value: message.id, label: message.name, description: `${message.fromName} (${message.from})`, email: message.from, fromName: message.fromName, receivedDateTime: message.receivedDateTime, isRead: message.isRead, hasAttachments: message.hasAttachments }))
             } else if (field.dynamic === "outlook_contacts") {
-              newOptions[field.name] = data.map((contact: any) => ({
-                value: contact.id,
-                label: contact.name,
-                description: contact.email ? contact.email : contact.company ? contact.company : undefined,
-                email: contact.email,
-                businessPhone: contact.businessPhone,
-                mobilePhone: contact.mobilePhone,
-                company: contact.company,
-                jobTitle: contact.jobTitle,
-              }))
+              processedData = data.map((contact: any) => ({ value: contact.id, label: contact.name, description: contact.email ? contact.email : contact.company ? contact.company : undefined, email: contact.email, businessPhone: contact.businessPhone, mobilePhone: contact.mobilePhone, company: contact.company, jobTitle: contact.jobTitle }))
             } else if (field.dynamic === "outlook-enhanced-recipients") {
-              newOptions[field.name] = data.map((recipient: any) => ({
-                value: recipient.value,
-                label: recipient.label,
-                description: recipient.description,
-                type: recipient.type,
-              }))
+              processedData = data.map((recipient: any) => ({ value: recipient.value, label: recipient.label, description: recipient.description, type: recipient.type }))
             } else if (field.dynamic === "outlook_calendars") {
-              newOptions[field.name] = data.map((calendar: any) => ({
-                value: calendar.id,
-                label: calendar.name,
-                description: calendar.isDefaultCalendar ? "Default calendar" : undefined
-              }))
+              processedData = data.map((calendar: any) => ({ value: calendar.id, label: calendar.name, description: calendar.isDefaultCalendar ? "Default calendar" : undefined }))
             } else if (field.dynamic === "outlook_events") {
-              newOptions[field.name] = data.map((event: any) => ({
-                value: event.id,
-                label: event.name,
-                description: event.start ? new Date(event.start).toLocaleString() : undefined,
-                start: event.start,
-                end: event.end,
-                isAllDay: event.isAllDay,
-                location: event.location,
-                attendees: event.attendees,
-              }))
+              processedData = data.map((event: any) => ({ value: event.id, label: event.name, description: event.start ? new Date(event.start).toLocaleString() : undefined, start: event.start, end: event.end, isAllDay: event.isAllDay, location: event.location, attendees: event.attendees }))
+            } else if (field.dynamic === "teams_channels") {
+              processedData = data.map((channel: any) => ({ value: channel.value, label: channel.label }))
+            } else if (field.dynamic === "teams_teams") {
+              processedData = data.map((team: any) => ({ value: team.value, label: team.label }))
+            } else if (field.dynamic === "teams_chats") {
+              processedData = data.map((chat: any) => ({ value: chat.value, label: chat.label }))
+            } else if (field.name === 'outlook_signatures' || field.name === 'gmail_signatures') {
+              processedData = data
             } else {
-              newOptions[field.name] = data.map((item: any) => ({
-                value: item.value || item.id || item.name,
-                label: item.name || item.label || item.title,
-              }))
+              processedData = data.map((item: any) => ({ value: item.value || item.id || item.name, label: item.name || item.label || item.title }))
             }
-          }
-        } catch (error) {
-          // Don't log errors for aborted requests
-          if (!controller.signal.aborted) {
-            console.error(`❌ Error loading dynamic data for ${field.dynamic}:`, error)
             
-            // Handle authentication errors specifically
-            const errorMessage = error instanceof Error ? error.message : String(error)
-            if (errorMessage.includes('authentication expired') || errorMessage.includes('401')) {
-              setErrors(prev => ({
-                ...prev,
-                integrationError: `Your ${nodeInfo?.providerId || 'integration'} connection has expired. Please reconnect your account to continue.`
-              }))
-              break // Stop processing other fields if authentication failed
-            } else if (errorMessage.includes('not found') || errorMessage.includes('not connected') || errorMessage.includes('404')) {
-              setErrors(prev => ({
-                ...prev,
-                integrationError: `Please connect your ${nodeInfo?.providerId || 'integration'} account first to load available options. You can connect it in the integrations page.`
-              }))
-              break // Stop processing other fields if integration not connected
-            } else if (errorMessage.includes('{}') || errorMessage.includes('empty response')) {
-              setErrors(prev => ({
-                ...prev,
-                integrationError: `Unable to load ${field.label || field.name} data. Please check if your ${nodeInfo?.providerId || 'integration'} account is connected and try again.`
-              }))
-            } else {
-              setErrors(prev => ({
-                ...prev,
-                integrationError: `Failed to load ${field.label || field.name} data. Please try again.`
-              }))
+            // Store data under both field name and dynamic key for compatibility
+            newOptions[field.name] = processedData
+            if (typeof field.dynamic === 'string') {
+              newOptions[field.dynamic] = processedData
             }
           }
-        }
       }
-    }
-
-
-
-    // Only update state if the request wasn't aborted
-    if (!controller.signal.aborted) {
       if (hasData) {
         console.log('💾 Updating dynamic options:', {
           optionKeys: Object.keys(newOptions),
@@ -1132,7 +1288,7 @@ export default function ConfigurationModal({
       }
       setLoadingDynamic(false)
     }
-  }, [nodeInfo, getIntegrationByProvider, checkIntegrationScopes, loadIntegrationData])
+  }, [nodeInfo, getIntegrationByProvider, checkIntegrationScopes, loadIntegrationData, integrationData])
 
   useEffect(() => {
     if (isOpen && nodeInfo?.providerId) {
@@ -2228,6 +2384,17 @@ export default function ConfigurationModal({
                         />
                       </div>
                     </div>
+                  ) : (fieldDef.name === "icon" || fieldDef.name === "cover") ? (
+                    <EnhancedFileInput
+                      fieldDef={fieldDef}
+                      fieldValue={fieldValue}
+                      onValueChange={(value) => {
+                        const newFields = { ...config.fields, [fieldDef.name]: value }
+                        setConfig(prev => ({ ...prev, fields: newFields }))
+                      }}
+                      workflowData={workflowData}
+                      currentNodeId={currentNodeId}
+                    />
                   ) : fieldDef.type === "attachment" || fieldDef.type === "file" || fieldDef.type === "image" || fieldDef.name.toLowerCase().includes('image') || fieldDef.name.toLowerCase().includes('photo') || fieldDef.name.toLowerCase().includes('picture') ? (
                     <div className="flex flex-col gap-1">
                       <input
@@ -2692,16 +2859,6 @@ export default function ConfigurationModal({
         )
 
       case "rich-text":
-        // Load signatures if this is an email field
-        useEffect(() => {
-          if (nodeInfo?.providerId === 'microsoft-outlook' && !dynamicOptions['outlook_signatures']) {
-            loadIntegrationData('outlook_signatures', getIntegrationByProvider('microsoft-outlook')?.id || '')
-          }
-          if (nodeInfo?.providerId === 'gmail' && !dynamicOptions['gmail_signatures']) {
-            loadIntegrationData('gmail_signatures', getIntegrationByProvider('gmail')?.id || '')
-          }
-        }, [nodeInfo?.providerId])
-
         return (
           <div className="space-y-2">
             {renderLabel()}
@@ -3079,34 +3236,36 @@ export default function ConfigurationModal({
 
                   <div className="w-px h-6 bg-border mx-1"></div>
 
-                  {/* Signature Control */}
-                  <div className="flex items-center gap-1">
-                    <select 
-                      className="h-8 px-2 text-xs border rounded bg-background hover:bg-muted"
-                      onChange={(e) => {
-                        const editor = document.querySelector(`[data-rich-editor="${field.name}"]`) as HTMLElement
-                        if (editor && e.target.value) {
-                          const signatureKey = nodeInfo?.providerId === 'gmail' ? 'gmail_signatures' : 'outlook_signatures'
-                          const signatures = dynamicOptions[signatureKey] || []
-                          const selectedSignature = signatures.find(sig => sig.value === e.target.value) as any
-                          if (selectedSignature && selectedSignature.content) {
-                            // Convert plain text signature to HTML with line breaks
-                            const htmlSignature = '<br><br>' + selectedSignature.content.replace(/\n/g, '<br>')
-                            document.execCommand('insertHTML', false, htmlSignature)
-                            setConfig(prev => ({ ...prev, [field.name]: editor.innerHTML }))
+                  {/* Signature Control - Only show for email content fields */}
+                  {(field.name === 'content' || field.name === 'body' || field.name === 'message') && (
+                    <div className="flex items-center gap-1">
+                      <select 
+                        className="h-8 px-2 text-xs border rounded bg-background hover:bg-muted"
+                        onChange={(e) => {
+                          const editor = document.querySelector(`[data-rich-editor="${field.name}"]`) as HTMLElement
+                          if (editor && e.target.value) {
+                            const signatureKey = nodeInfo?.providerId === 'gmail' ? 'gmail_signatures' : 'outlook_signatures'
+                            const signatures = dynamicOptions[signatureKey] || []
+                            const selectedSignature = signatures.find(sig => sig.value === e.target.value) as any
+                            if (selectedSignature && selectedSignature.content) {
+                              // Convert plain text signature to HTML with line breaks
+                              const htmlSignature = '<br><br>' + selectedSignature.content.replace(/\n/g, '<br>')
+                              document.execCommand('insertHTML', false, htmlSignature)
+                              setConfig(prev => ({ ...prev, [field.name]: editor.innerHTML }))
+                            }
                           }
-                        }
-                      }}
-                      title="Insert Signature - Add a signature to the email"
-                    >
-                      <option value="">Signature</option>
-                      {(dynamicOptions[nodeInfo?.providerId === 'gmail' ? 'gmail_signatures' : 'outlook_signatures'] || []).map((signature: any) => (
-                        <option key={signature.value} value={signature.value}>
-                          {signature.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                        }}
+                        title="Insert Signature - Add a signature to the email"
+                      >
+                        <option value="">Signature</option>
+                        {(dynamicOptions[nodeInfo?.providerId === 'gmail' ? 'gmail_signatures' : 'outlook_signatures'] || []).map((signature: any) => (
+                          <option key={signature.value} value={signature.value}>
+                            {signature.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                 </div>
 
                 {/* Visual Rich Text Editor */}

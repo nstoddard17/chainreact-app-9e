@@ -67,7 +67,8 @@ class ApiClient {
         console.error(`❌ API Error Response: ${endpoint}`, { 
           status: response.status, 
           statusText: response.statusText,
-          headers: Object.fromEntries(response.headers.entries())
+          headers: Object.fromEntries(response.headers.entries()),
+          url: url
         })
 
         try {
@@ -82,10 +83,26 @@ class ApiClient {
               errorMessage = errorData.message
             }
             errorDetails = errorData
+          } else {
+            // If response body is empty, create a more descriptive error message
+            if (response.status === 403) {
+              errorMessage = "Access denied. Please check your permissions and try again."
+            } else if (response.status === 401) {
+              errorMessage = "Authentication failed. Please reconnect your account."
+            } else {
+              errorMessage = `HTTP ${response.status}: ${response.statusText}`
+            }
           }
         } catch (e) {
-          // If response is not JSON, use status text
+          // If response is not JSON, create a descriptive error message
           console.warn("Failed to parse error response as JSON:", e)
+          if (response.status === 403) {
+            errorMessage = "Access denied. Please check your permissions and try again."
+          } else if (response.status === 401) {
+            errorMessage = "Authentication failed. Please reconnect your account."
+          } else {
+            errorMessage = `HTTP ${response.status}: ${response.statusText}`
+          }
         }
 
         console.error(`❌ API Error: ${endpoint}`, { status: response.status, message: errorMessage })
