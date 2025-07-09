@@ -26,14 +26,24 @@ export interface EmailSuggestion {
 
 export class EmailCacheService {
   private supabase: any
+  private isServerSide: boolean
 
   constructor(isServerSide = false) {
-    if (isServerSide) {
-      cookies() // Ensure cookies are available
-      this.supabase = createSupabaseRouteHandlerClient()
-    } else {
+    this.isServerSide = isServerSide
+    if (!isServerSide) {
       this.supabase = createClient()
     }
+  }
+
+  private async getSupabaseClient() {
+    if (this.isServerSide) {
+      if (!this.supabase) {
+        cookies() // Ensure cookies are available
+        this.supabase = await createSupabaseRouteHandlerClient()
+      }
+      return this.supabase
+    }
+    return this.supabase
   }
 
   /**
@@ -57,14 +67,15 @@ export class EmailCacheService {
     } = {}
   ): Promise<void> {
     try {
-      const { data: { user }, error: authError } = await this.supabase.auth.getUser()
+      const supabase = await this.getSupabaseClient()
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
       if (authError || !user?.id) return
 
       const { name, integrationId, metadata } = options
       const userId = user.id
 
       // Check if email already exists in cache
-      const { data: existing } = await this.supabase
+      const { data: existing } = await supabase
         .from("email_frequency_cache")
         .select("*")
         .eq("user_id", userId)
@@ -74,7 +85,7 @@ export class EmailCacheService {
 
       if (existing) {
         // Update existing entry
-        const { error } = await this.supabase
+        const { error } = await supabase
           .from("email_frequency_cache")
           .update({
             frequency: existing.frequency + 1,
@@ -107,7 +118,7 @@ export class EmailCacheService {
           insertData.integration_id = integrationId
         }
         
-        const { error } = await this.supabase
+        const { error } = await supabase
           .from("email_frequency_cache")
           .insert(insertData)
 
@@ -133,7 +144,8 @@ export class EmailCacheService {
     }>
   ): Promise<void> {
     try {
-      const { data: { user }, error: authError } = await this.supabase.auth.getUser()
+      const supabase = await this.getSupabaseClient()
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
       if (authError || !user?.id) return
 
       // Process in batches to avoid overwhelming the database
@@ -163,10 +175,11 @@ export class EmailCacheService {
     limit: number = 50
   ): Promise<EmailSuggestion[]> {
     try {
-      const { data: { user }, error: authError } = await this.supabase.auth.getUser()
+      const supabase = await this.getSupabaseClient()
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
       if (authError || !user?.id) return []
 
-      let query = this.supabase
+      let query = supabase
         .from("email_frequency_cache")
         .select("*")
         .eq("user_id", user.id)
@@ -277,13 +290,14 @@ export class EmailCacheService {
    */
   async cleanupOldEntries(daysOld: number = 90): Promise<void> {
     try {
-      const { data: { user }, error: authError } = await this.supabase.auth.getUser()
+      const supabase = await this.getSupabaseClient()
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
       if (authError || !user?.id) return
 
       const cutoffDate = new Date()
       cutoffDate.setDate(cutoffDate.getDate() - daysOld)
 
-      const { error } = await this.supabase
+      const { error } = await supabase
         .from("email_frequency_cache")
         .delete()
         .eq("user_id", user.id)
@@ -308,12 +322,13 @@ export class EmailCacheService {
     sourceBreakdown: Record<string, number>
   }> {
     try {
-      const { data: { user }, error: authError } = await this.supabase.auth.getUser()
+      const supabase = await this.getSupabaseClient()
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
       if (authError || !user?.id) {
         return { totalEmails: 0, totalUsage: 0, topEmails: [], sourceBreakdown: {} }
       }
 
-      const { data, error } = await this.supabase
+      const { data, error } = await supabase
         .from("email_frequency_cache")
         .select("*")
         .eq("user_id", user.id)

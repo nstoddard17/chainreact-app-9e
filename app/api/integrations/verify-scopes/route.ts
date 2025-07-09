@@ -6,6 +6,10 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = getSupabaseClient()
 
+    if (!supabase) {
+      return NextResponse.json({ error: "Supabase client not configured" }, { status: 500 })
+    }
+
     // Get the current user
     const {
       data: { session },

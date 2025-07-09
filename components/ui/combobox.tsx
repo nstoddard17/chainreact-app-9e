@@ -173,9 +173,9 @@ export function Combobox({
           >
             <CommandEmpty>{emptyPlaceholder || "No results found."}</CommandEmpty>
             <CommandGroup>
-              {localOptions.map((option) => (
+              {localOptions.map((option, index) => (
                 <CommandItem
-                  key={option.value}
+                  key={`${index}-${option.value || 'undefined'}`}
                   value={option.value}
                   onSelect={handleSelect}
                 >
@@ -288,9 +288,9 @@ export function MultiCombobox({
         >
           <div className="flex flex-wrap gap-1 flex-1">
             {selectedOptions.length > 0 ? (
-              selectedOptions.map((option) => (
+              selectedOptions.map((option, index) => (
                 <Badge
-                  key={option.value}
+                  key={`selected-${index}-${option.value || 'undefined'}`}
                   variant="secondary"
                   className="mr-1"
                   onClick={(e) => {
@@ -328,9 +328,9 @@ export function MultiCombobox({
           >
             <CommandEmpty>{emptyPlaceholder || "No results found."}</CommandEmpty>
             <CommandGroup>
-              {options.map((option) => (
+              {options.map((option, index) => (
                 <CommandItem
-                  key={option.value}
+                  key={`multi-option-${index}-${option.value || 'undefined'}`}
                   value={option.value}
                   onSelect={handleSelect}
                 >
@@ -386,6 +386,12 @@ export function HierarchicalCombobox({
   const [open, setOpen] = React.useState(false)
   const [inputValue, setInputValue] = React.useState("")
   const [expandedGroups, setExpandedGroups] = React.useState<Set<string>>(new Set())
+
+  // Debug logging
+  React.useEffect(() => {
+    console.log('🔍 HierarchicalCombobox received options:', options)
+    console.log('🔍 Options structure:', JSON.stringify(options, null, 2))
+  }, [options])
 
   const selectedOption = options.flatMap(option => 
     option.isGroup && option.emails ? option.emails : [option]
@@ -474,15 +480,16 @@ export function HierarchicalCombobox({
           >
             <CommandEmpty>{emptyPlaceholder || "No results found."}</CommandEmpty>
             <CommandGroup>
-              {options.map((option) => {
+              {options.map((option, optionIndex) => {
                 if (option.isGroup && option.emails) {
                   const isExpanded = expandedGroups.has(option.value)
                   return (
-                    <div key={option.value}>
+                    <div key={`group-${optionIndex}-${option.value || 'undefined'}`}>
                       <CommandItem
                         value={option.value}
                         onSelect={handleSelect}
                         className="font-medium"
+                        key={"groupitem-" + option.value}
                       >
                         <ChevronRight 
                           className={cn(
@@ -499,9 +506,9 @@ export function HierarchicalCombobox({
                       </CommandItem>
                       {isExpanded && (
                         <div className="ml-4">
-                          {option.emails.map((email) => (
+                          {option.emails.map((email, emailIndex) => (
                             <CommandItem
-                              key={email.value}
+                              key={`sub-${optionIndex}-${emailIndex}-${email.value || 'undefined'}`}
                               value={email.value}
                               onSelect={handleSelect}
                               className="pl-8"
@@ -527,7 +534,7 @@ export function HierarchicalCombobox({
                 }
                 return (
                   <CommandItem
-                    key={option.value}
+                    key={`item-${optionIndex}-${option.value || 'undefined'}`}
                     value={option.value}
                     onSelect={handleSelect}
                   >

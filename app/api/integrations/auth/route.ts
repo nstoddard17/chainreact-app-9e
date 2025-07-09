@@ -1,8 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { eq } from "drizzle-orm"
 
 import { db } from "@/lib/db"
-import { users } from "@/lib/db/schema"
 
 export async function GET(req: NextRequest) {
   try {
@@ -13,13 +11,17 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ user: null, message: "Email parameter is required" }, { status: 400 })
     }
 
-    const user = await db.select().from(users).where(eq(users.email, email))
+    const { data: user, error } = await db
+      .from("users")
+      .select("*")
+      .eq("email", email)
+      .single()
 
-    if (!user || user.length === 0) {
+    if (error || !user) {
       return NextResponse.json({ user: null, message: "User not found" }, { status: 404 })
     }
 
-    return NextResponse.json({ user: user[0], message: "User found" }, { status: 200 })
+    return NextResponse.json({ user, message: "User found" }, { status: 200 })
   } catch (error) {
     console.error("[INTEGRATIONS_AUTH_GET]", error)
     return NextResponse.json({ user: null, message: "Internal error" }, { status: 500 })
