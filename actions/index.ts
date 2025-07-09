@@ -7,6 +7,7 @@
 import { sendGmail, ACTION_METADATA as SEND_GMAIL_METADATA } from "@/integrations/gmail/sendEmail"
 import { addGmailLabels, ACTION_METADATA as ADD_GMAIL_LABELS_METADATA } from "@/integrations/gmail/addLabel"
 import { searchGmailEmails, ACTION_METADATA as SEARCH_GMAIL_EMAILS_METADATA } from "@/integrations/gmail/searchEmails"
+import { createNotionDatabase, ACTION_METADATA as CREATE_NOTION_DATABASE_METADATA } from "@/integrations/notion/createDatabase"
 
 /**
  * Standard interface for action parameters
@@ -51,6 +52,9 @@ export const actionMap: Record<string, ActionHandler> = {
   [ADD_GMAIL_LABELS_METADATA.key]: addGmailLabels,
   [SEARCH_GMAIL_EMAILS_METADATA.key]: searchGmailEmails,
   
+  // Notion actions
+  [CREATE_NOTION_DATABASE_METADATA.key]: createNotionDatabase,
+  
   // Add more actions here as they are implemented
 }
 
@@ -61,6 +65,9 @@ export const actionMetadataMap: Record<string, ActionMetadata> = {
   [SEND_GMAIL_METADATA.key]: SEND_GMAIL_METADATA,
   [ADD_GMAIL_LABELS_METADATA.key]: ADD_GMAIL_LABELS_METADATA,
   [SEARCH_GMAIL_EMAILS_METADATA.key]: SEARCH_GMAIL_EMAILS_METADATA,
+  
+  // Notion actions
+  [CREATE_NOTION_DATABASE_METADATA.key]: CREATE_NOTION_DATABASE_METADATA,
   
   // Add more metadata here as actions are implemented
 }

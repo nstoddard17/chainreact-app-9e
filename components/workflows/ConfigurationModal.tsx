@@ -18,7 +18,7 @@ import { ConfigurationLoadingScreen } from "@/components/ui/loading-screen"
 import { FileUpload } from "@/components/ui/file-upload"
 import { DatePicker } from "@/components/ui/date-picker"
 import { TimePicker } from "@/components/ui/time-picker"
-import { Play, X, Loader2, TestTube, Clock, HelpCircle, AlertCircle, Video, ChevronLeft, ChevronRight, Database, Calendar } from "lucide-react"
+import { Play, X, Loader2, TestTube, Clock, HelpCircle, AlertCircle, Video, ChevronLeft, ChevronRight, Database, Calendar, Upload } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 import { cn } from "@/lib/utils"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -26,6 +26,751 @@ import { EnhancedTooltip } from "@/components/ui/enhanced-tooltip"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import GoogleMeetCard from "@/components/ui/google-meet-card"
 import VariablePicker from "./VariablePicker"
+import { NotionDatabaseConfig } from "./NotionDatabaseConfig"
+
+// Import template configuration function
+const getTemplateConfiguration = (template: string): any => {
+  const templates: Record<string, any> = {
+    "Project Tracker": {
+      properties: [
+        { name: "Name", type: "title" },
+        { name: "Status", type: "select", config: { options: [
+          { name: "Not Started", color: "gray" },
+          { name: "In Progress", color: "blue" },
+          { name: "Review", color: "yellow" },
+          { name: "Done", color: "green" }
+        ]}},
+        { name: "Priority", type: "select", config: { options: [
+          { name: "Low", color: "green" },
+          { name: "Medium", color: "yellow" },
+          { name: "High", color: "red" }
+        ]}},
+        { name: "Assignee", type: "people" },
+        { name: "Due Date", type: "date" },
+        { name: "Progress", type: "number", config: { format: "percent" }},
+        { name: "Tags", type: "multi_select", config: { options: [] }},
+        { name: "Notes", type: "rich_text" }
+      ],
+      views: [
+        {
+          name: "All Projects",
+          viewType: "Table"
+        },
+        {
+          name: "By Status",
+          viewType: "Board",
+          sorts: [{ property: "Status", direction: "ascending" }]
+        },
+        {
+          name: "Due Soon",
+          viewType: "Table",
+          filters: [{ property: "Due Date", operator: "<=", value: "7" }]
+        }
+      ]
+    },
+    "CRM": {
+      properties: [
+        { name: "Company", type: "title" },
+        { name: "Contact Name", type: "rich_text" },
+        { name: "Email", type: "email" },
+        { name: "Phone", type: "phone_number" },
+        { name: "Status", type: "select", config: { options: [
+          { name: "Lead", color: "gray" },
+          { name: "Prospect", color: "blue" },
+          { name: "Customer", color: "green" },
+          { name: "Lost", color: "red" }
+        ]}},
+        { name: "Value", type: "number", config: { format: "dollar" }},
+        { name: "Source", type: "select", config: { options: [
+          { name: "Website", color: "blue" },
+          { name: "Referral", color: "green" },
+          { name: "Cold Call", color: "yellow" },
+          { name: "Social Media", color: "purple" }
+        ]}},
+        { name: "Last Contact", type: "date" },
+        { name: "Notes", type: "rich_text" }
+      ],
+      views: [
+        {
+          name: "All Contacts",
+          viewType: "Table"
+        },
+        {
+          name: "By Status",
+          viewType: "Board",
+          sorts: [{ property: "Status", direction: "ascending" }]
+        },
+        {
+          name: "High Value",
+          viewType: "Table",
+          filters: [{ property: "Value", operator: ">", value: "10000" }]
+        }
+      ]
+    },
+    "Content Calendar": {
+      properties: [
+        { name: "Title", type: "title" },
+        { name: "Type", type: "select", config: { options: [
+          { name: "Blog Post", color: "blue" },
+          { name: "Video", color: "green" },
+          { name: "Social Media", color: "purple" },
+          { name: "Newsletter", color: "orange" }
+        ]}},
+        { name: "Status", type: "select", config: { options: [
+          { name: "Ideation", color: "gray" },
+          { name: "In Progress", color: "blue" },
+          { name: "Review", color: "yellow" },
+          { name: "Published", color: "green" }
+        ]}},
+        { name: "Author", type: "people" },
+        { name: "Publish Date", type: "date" },
+        { name: "Channel", type: "multi_select", config: { options: [
+          { name: "Website", color: "blue" },
+          { name: "YouTube", color: "red" },
+          { name: "LinkedIn", color: "blue" },
+          { name: "Twitter", color: "blue" }
+        ]}},
+        { name: "Keywords", type: "multi_select", config: { options: [] }},
+        { name: "Notes", type: "rich_text" }
+      ],
+      views: [
+        {
+          name: "All Content",
+          viewType: "Table"
+        },
+        {
+          name: "Calendar",
+          viewType: "Calendar",
+          sorts: [{ property: "Publish Date", direction: "ascending" }]
+        },
+        {
+          name: "By Type",
+          viewType: "Board",
+          sorts: [{ property: "Type", direction: "ascending" }]
+        }
+      ]
+    },
+    "Task Management": {
+      properties: [
+        { name: "Task", type: "title" },
+        { name: "Status", type: "select", config: { options: [
+          { name: "To Do", color: "gray" },
+          { name: "In Progress", color: "blue" },
+          { name: "Done", color: "green" }
+        ]}},
+        { name: "Priority", type: "select", config: { options: [
+          { name: "Low", color: "green" },
+          { name: "Medium", color: "yellow" },
+          { name: "High", color: "red" }
+        ]}},
+        { name: "Assignee", type: "people" },
+        { name: "Due Date", type: "date" },
+        { name: "Category", type: "select", config: { options: [
+          { name: "Development", color: "blue" },
+          { name: "Design", color: "purple" },
+          { name: "Marketing", color: "green" },
+          { name: "Admin", color: "gray" }
+        ]}},
+        { name: "Description", type: "rich_text" }
+      ],
+      views: [
+        {
+          name: "All Tasks",
+          viewType: "Table"
+        },
+        {
+          name: "By Status",
+          viewType: "Board",
+          sorts: [{ property: "Status", direction: "ascending" }]
+        },
+        {
+          name: "My Tasks",
+          viewType: "Table",
+          filters: [{ property: "Assignee", operator: "=", value: "me" }]
+        }
+      ]
+    },
+    "Bug Tracker": {
+      properties: [
+        { name: "Bug Title", type: "title" },
+        { name: "Status", type: "select", config: { options: [
+          { name: "Open", color: "red" },
+          { name: "In Progress", color: "blue" },
+          { name: "Testing", color: "yellow" },
+          { name: "Resolved", color: "green" },
+          { name: "Closed", color: "gray" }
+        ]}},
+        { name: "Severity", type: "select", config: { options: [
+          { name: "Critical", color: "red" },
+          { name: "High", color: "orange" },
+          { name: "Medium", color: "yellow" },
+          { name: "Low", color: "green" }
+        ]}},
+        { name: "Assignee", type: "people" },
+        { name: "Reported By", type: "people" },
+        { name: "Reported Date", type: "date" },
+        { name: "Environment", type: "select", config: { options: [
+          { name: "Production", color: "red" },
+          { name: "Staging", color: "orange" },
+          { name: "Development", color: "blue" }
+        ]}},
+        { name: "Description", type: "rich_text" },
+        { name: "Steps to Reproduce", type: "rich_text" }
+      ],
+      views: [
+        {
+          name: "All Bugs",
+          viewType: "Table"
+        },
+        {
+          name: "By Status",
+          viewType: "Board",
+          sorts: [{ property: "Status", direction: "ascending" }]
+        },
+        {
+          name: "Critical Bugs",
+          viewType: "Table",
+          filters: [{ property: "Severity", operator: "=", value: "Critical" }]
+        }
+      ]
+    },
+    "Feature Requests": {
+      properties: [
+        { name: "Feature", type: "title" },
+        { name: "Status", type: "select", config: { options: [
+          { name: "Requested", color: "gray" },
+          { name: "Under Review", color: "blue" },
+          { name: "Approved", color: "green" },
+          { name: "In Development", color: "yellow" },
+          { name: "Completed", color: "green" },
+          { name: "Rejected", color: "red" }
+        ]}},
+        { name: "Priority", type: "select", config: { options: [
+          { name: "Low", color: "green" },
+          { name: "Medium", color: "yellow" },
+          { name: "High", color: "red" }
+        ]}},
+        { name: "Requested By", type: "people" },
+        { name: "Assigned To", type: "people" },
+        { name: "Target Release", type: "date" },
+        { name: "Category", type: "select", config: { options: [
+          { name: "UI/UX", color: "purple" },
+          { name: "Backend", color: "blue" },
+          { name: "Frontend", color: "green" },
+          { name: "Mobile", color: "orange" }
+        ]}},
+        { name: "Description", type: "rich_text" },
+        { name: "Business Value", type: "rich_text" }
+      ],
+      views: [
+        {
+          name: "All Features",
+          viewType: "Table"
+        },
+        {
+          name: "By Status",
+          viewType: "Board",
+          sorts: [{ property: "Status", direction: "ascending" }]
+        },
+        {
+          name: "High Priority",
+          viewType: "Table",
+          filters: [{ property: "Priority", operator: "=", value: "High" }]
+        }
+      ]
+    },
+    "Customer Support": {
+      properties: [
+        { name: "Ticket", type: "title" },
+        { name: "Status", type: "select", config: { options: [
+          { name: "Open", color: "red" },
+          { name: "In Progress", color: "blue" },
+          { name: "Waiting for Customer", color: "yellow" },
+          { name: "Resolved", color: "green" },
+          { name: "Closed", color: "gray" }
+        ]}},
+        { name: "Priority", type: "select", config: { options: [
+          { name: "Low", color: "green" },
+          { name: "Medium", color: "yellow" },
+          { name: "High", color: "red" },
+          { name: "Urgent", color: "red" }
+        ]}},
+        { name: "Customer", type: "rich_text" },
+        { name: "Email", type: "email" },
+        { name: "Assigned To", type: "people" },
+        { name: "Created Date", type: "date" },
+        { name: "Category", type: "select", config: { options: [
+          { name: "Technical", color: "blue" },
+          { name: "Billing", color: "purple" },
+          { name: "Feature Request", color: "green" },
+          { name: "Bug Report", color: "red" }
+        ]}},
+        { name: "Description", type: "rich_text" }
+      ],
+      views: [
+        {
+          name: "All Tickets",
+          viewType: "Table"
+        },
+        {
+          name: "By Status",
+          viewType: "Board",
+          sorts: [{ property: "Status", direction: "ascending" }]
+        },
+        {
+          name: "My Tickets",
+          viewType: "Table",
+          filters: [{ property: "Assigned To", operator: "=", value: "me" }]
+        }
+      ]
+    },
+    "Sales Pipeline": {
+      properties: [
+        { name: "Deal", type: "title" },
+        { name: "Stage", type: "select", config: { options: [
+          { name: "Lead", color: "gray" },
+          { name: "Qualified", color: "blue" },
+          { name: "Proposal", color: "yellow" },
+          { name: "Negotiation", color: "orange" },
+          { name: "Closed Won", color: "green" },
+          { name: "Closed Lost", color: "red" }
+        ]}},
+        { name: "Value", type: "number", config: { format: "dollar" }},
+        { name: "Company", type: "rich_text" },
+        { name: "Contact", type: "rich_text" },
+        { name: "Owner", type: "people" },
+        { name: "Close Date", type: "date" },
+        { name: "Source", type: "select", config: { options: [
+          { name: "Website", color: "blue" },
+          { name: "Referral", color: "green" },
+          { name: "Cold Call", color: "yellow" },
+          { name: "Trade Show", color: "purple" }
+        ]}},
+        { name: "Notes", type: "rich_text" }
+      ],
+      views: [
+        {
+          name: "All Deals",
+          viewType: "Table"
+        },
+        {
+          name: "Pipeline",
+          viewType: "Board",
+          sorts: [{ property: "Stage", direction: "ascending" }]
+        },
+        {
+          name: "High Value",
+          viewType: "Table",
+          filters: [{ property: "Value", operator: ">", value: "50000" }]
+        }
+      ]
+    },
+    "Marketing Campaigns": {
+      properties: [
+        { name: "Campaign", type: "title" },
+        { name: "Status", type: "select", config: { options: [
+          { name: "Planning", color: "gray" },
+          { name: "Active", color: "green" },
+          { name: "Paused", color: "yellow" },
+          { name: "Completed", color: "blue" }
+        ]}},
+        { name: "Type", type: "select", config: { options: [
+          { name: "Email", color: "blue" },
+          { name: "Social Media", color: "purple" },
+          { name: "PPC", color: "green" },
+          { name: "Content", color: "orange" }
+        ]}},
+        { name: "Budget", type: "number", config: { format: "dollar" }},
+        { name: "Start Date", type: "date" },
+        { name: "End Date", type: "date" },
+        { name: "Owner", type: "people" },
+        { name: "Target Audience", type: "rich_text" },
+        { name: "Goals", type: "rich_text" }
+      ],
+      views: [
+        {
+          name: "All Campaigns",
+          viewType: "Table"
+        },
+        {
+          name: "By Status",
+          viewType: "Board",
+          sorts: [{ property: "Status", direction: "ascending" }]
+        },
+        {
+          name: "Active Campaigns",
+          viewType: "Table",
+          filters: [{ property: "Status", operator: "=", value: "Active" }]
+        }
+      ]
+    },
+    "Event Planning": {
+      properties: [
+        { name: "Event", type: "title" },
+        { name: "Status", type: "select", config: { options: [
+          { name: "Planning", color: "gray" },
+          { name: "Confirmed", color: "blue" },
+          { name: "In Progress", color: "yellow" },
+          { name: "Completed", color: "green" },
+          { name: "Cancelled", color: "red" }
+        ]}},
+        { name: "Date", type: "date" },
+        { name: "Location", type: "rich_text" },
+        { name: "Organizer", type: "people" },
+        { name: "Type", type: "select", config: { options: [
+          { name: "Conference", color: "blue" },
+          { name: "Workshop", color: "green" },
+          { name: "Meeting", color: "purple" },
+          { name: "Webinar", color: "orange" }
+        ]}},
+        { name: "Capacity", type: "number" },
+        { name: "Budget", type: "number", config: { format: "dollar" }},
+        { name: "Description", type: "rich_text" }
+      ],
+      views: [
+        {
+          name: "All Events",
+          viewType: "Table"
+        },
+        {
+          name: "Calendar",
+          viewType: "Calendar",
+          sorts: [{ property: "Date", direction: "ascending" }]
+        },
+        {
+          name: "By Status",
+          viewType: "Board",
+          sorts: [{ property: "Status", direction: "ascending" }]
+        }
+      ]
+    },
+    "Product Roadmap": {
+      properties: [
+        { name: "Feature", type: "title" },
+        { name: "Status", type: "select", config: { options: [
+          { name: "Backlog", color: "gray" },
+          { name: "In Progress", color: "blue" },
+          { name: "Testing", color: "yellow" },
+          { name: "Ready for Release", color: "green" },
+          { name: "Released", color: "blue" }
+        ]}},
+        { name: "Priority", type: "select", config: { options: [
+          { name: "Low", color: "green" },
+          { name: "Medium", color: "yellow" },
+          { name: "High", color: "red" }
+        ]}},
+        { name: "Owner", type: "people" },
+        { name: "Target Release", type: "date" },
+        { name: "Category", type: "select", config: { options: [
+          { name: "Core Feature", color: "blue" },
+          { name: "Enhancement", color: "green" },
+          { name: "Bug Fix", color: "red" }
+        ]}},
+        { name: "Description", type: "rich_text" },
+        { name: "Acceptance Criteria", type: "rich_text" }
+      ],
+      views: [
+        {
+          name: "All Features",
+          viewType: "Table"
+        },
+        {
+          name: "Roadmap",
+          viewType: "Board",
+          sorts: [{ property: "Status", direction: "ascending" }]
+        },
+        {
+          name: "High Priority",
+          viewType: "Table",
+          filters: [{ property: "Priority", operator: "=", value: "High" }]
+        }
+      ]
+    },
+    "Team Directory": {
+      properties: [
+        { name: "Name", type: "title" },
+        { name: "Role", type: "rich_text" },
+        { name: "Department", type: "select", config: { options: [
+          { name: "Engineering", color: "blue" },
+          { name: "Design", color: "purple" },
+          { name: "Marketing", color: "green" },
+          { name: "Sales", color: "orange" },
+          { name: "HR", color: "pink" }
+        ]}},
+        { name: "Email", type: "email" },
+        { name: "Phone", type: "phone_number" },
+        { name: "Location", type: "rich_text" },
+        { name: "Start Date", type: "date" },
+        { name: "Manager", type: "people" },
+        { name: "Skills", type: "multi_select", config: { options: [] }},
+        { name: "Bio", type: "rich_text" }
+      ],
+      views: [
+        {
+          name: "All Team Members",
+          viewType: "Table"
+        },
+        {
+          name: "By Department",
+          viewType: "Board",
+          sorts: [{ property: "Department", direction: "ascending" }]
+        },
+        {
+          name: "Gallery",
+          viewType: "Gallery"
+        }
+      ]
+    },
+    "Knowledge Base": {
+      properties: [
+        { name: "Article", type: "title" },
+        { name: "Category", type: "select", config: { options: [
+          { name: "Getting Started", color: "blue" },
+          { name: "How-to Guides", color: "green" },
+          { name: "Troubleshooting", color: "red" },
+          { name: "API Documentation", color: "purple" }
+        ]}},
+        { name: "Author", type: "people" },
+        { name: "Status", type: "select", config: { options: [
+          { name: "Draft", color: "gray" },
+          { name: "In Review", color: "yellow" },
+          { name: "Published", color: "green" },
+          { name: "Archived", color: "red" }
+        ]}},
+        { name: "Last Updated", type: "date" },
+        { name: "Tags", type: "multi_select", config: { options: [] }},
+        { name: "Content", type: "rich_text" }
+      ],
+      views: [
+        {
+          name: "All Articles",
+          viewType: "Table"
+        },
+        {
+          name: "By Category",
+          viewType: "Board",
+          sorts: [{ property: "Category", direction: "ascending" }]
+        },
+        {
+          name: "Published",
+          viewType: "Table",
+          filters: [{ property: "Status", operator: "=", value: "Published" }]
+        }
+      ]
+    },
+    "Inventory Management": {
+      properties: [
+        { name: "Item", type: "title" },
+        { name: "Category", type: "select", config: { options: [
+          { name: "Electronics", color: "blue" },
+          { name: "Office Supplies", color: "green" },
+          { name: "Furniture", color: "purple" },
+          { name: "Software", color: "orange" }
+        ]}},
+        { name: "SKU", type: "rich_text" },
+        { name: "Quantity", type: "number" },
+        { name: "Price", type: "number", config: { format: "dollar" }},
+        { name: "Supplier", type: "rich_text" },
+        { name: "Last Updated", type: "date" },
+        { name: "Location", type: "rich_text" },
+        { name: "Notes", type: "rich_text" }
+      ],
+      views: [
+        {
+          name: "All Items",
+          viewType: "Table"
+        },
+        {
+          name: "By Category",
+          viewType: "Board",
+          sorts: [{ property: "Category", direction: "ascending" }]
+        },
+        {
+          name: "Low Stock",
+          viewType: "Table",
+          filters: [{ property: "Quantity", operator: "<", value: "10" }]
+        }
+      ]
+    },
+    "Expense Tracker": {
+      properties: [
+        { name: "Expense", type: "title" },
+        { name: "Category", type: "select", config: { options: [
+          { name: "Travel", color: "blue" },
+          { name: "Meals", color: "green" },
+          { name: "Office Supplies", color: "purple" },
+          { name: "Software", color: "orange" }
+        ]}},
+        { name: "Amount", type: "number", config: { format: "dollar" }},
+        { name: "Date", type: "date" },
+        { name: "Submitted By", type: "people" },
+        { name: "Status", type: "select", config: { options: [
+          { name: "Pending", color: "gray" },
+          { name: "Approved", color: "green" },
+          { name: "Rejected", color: "red" }
+        ]}},
+        { name: "Receipt", type: "files" },
+        { name: "Notes", type: "rich_text" }
+      ],
+      views: [
+        {
+          name: "All Expenses",
+          viewType: "Table"
+        },
+        {
+          name: "By Category",
+          viewType: "Board",
+          sorts: [{ property: "Category", direction: "ascending" }]
+        },
+        {
+          name: "Pending Approval",
+          viewType: "Table",
+          filters: [{ property: "Status", operator: "=", value: "Pending" }]
+        }
+      ]
+    },
+    "Time Tracking": {
+      properties: [
+        { name: "Task", type: "title" },
+        { name: "Project", type: "rich_text" },
+        { name: "Person", type: "people" },
+        { name: "Date", type: "date" },
+        { name: "Hours", type: "number" },
+        { name: "Status", type: "select", config: { options: [
+          { name: "In Progress", color: "blue" },
+          { name: "Completed", color: "green" },
+          { name: "Approved", color: "green" }
+        ]}},
+        { name: "Description", type: "rich_text" }
+      ],
+      views: [
+        {
+          name: "All Time Entries",
+          viewType: "Table"
+        },
+        {
+          name: "By Person",
+          viewType: "Board",
+          sorts: [{ property: "Person", direction: "ascending" }]
+        },
+        {
+          name: "This Week",
+          viewType: "Table",
+          filters: [{ property: "Date", operator: ">=", value: "7" }]
+        }
+      ]
+    },
+    "Meeting Notes": {
+      properties: [
+        { name: "Meeting", type: "title" },
+        { name: "Date", type: "date" },
+        { name: "Attendees", type: "people" },
+        { name: "Type", type: "select", config: { options: [
+          { name: "Team Standup", color: "blue" },
+          { name: "Client Meeting", color: "green" },
+          { name: "Planning", color: "purple" },
+          { name: "Review", color: "orange" }
+        ]}},
+        { name: "Duration", type: "number" },
+        { name: "Agenda", type: "rich_text" },
+        { name: "Notes", type: "rich_text" },
+        { name: "Action Items", type: "rich_text" }
+      ],
+      views: [
+        {
+          name: "All Meetings",
+          viewType: "Table"
+        },
+        {
+          name: "Calendar",
+          viewType: "Calendar",
+          sorts: [{ property: "Date", direction: "ascending" }]
+        },
+        {
+          name: "By Type",
+          viewType: "Board",
+          sorts: [{ property: "Type", direction: "ascending" }]
+        }
+      ]
+    },
+    "Research Database": {
+      properties: [
+        { name: "Research Topic", type: "title" },
+        { name: "Category", type: "select", config: { options: [
+          { name: "Market Research", color: "blue" },
+          { name: "Competitor Analysis", color: "green" },
+          { name: "User Research", color: "purple" },
+          { name: "Technical Research", color: "orange" }
+        ]}},
+        { name: "Status", type: "select", config: { options: [
+          { name: "Planning", color: "gray" },
+          { name: "In Progress", color: "blue" },
+          { name: "Completed", color: "green" }
+        ]}},
+        { name: "Researcher", type: "people" },
+        { name: "Start Date", type: "date" },
+        { name: "End Date", type: "date" },
+        { name: "Findings", type: "rich_text" },
+        { name: "Sources", type: "rich_text" }
+      ],
+      views: [
+        {
+          name: "All Research",
+          viewType: "Table"
+        },
+        {
+          name: "By Category",
+          viewType: "Board",
+          sorts: [{ property: "Category", direction: "ascending" }]
+        },
+        {
+          name: "Active Research",
+          viewType: "Table",
+          filters: [{ property: "Status", operator: "=", value: "In Progress" }]
+        }
+      ]
+    },
+    "Learning Management": {
+      properties: [
+        { name: "Course", type: "title" },
+        { name: "Category", type: "select", config: { options: [
+          { name: "Technical Skills", color: "blue" },
+          { name: "Soft Skills", color: "green" },
+          { name: "Leadership", color: "purple" },
+          { name: "Industry Knowledge", color: "orange" }
+        ]}},
+        { name: "Instructor", type: "people" },
+        { name: "Status", type: "select", config: { options: [
+          { name: "Not Started", color: "gray" },
+          { name: "In Progress", color: "blue" },
+          { name: "Completed", color: "green" }
+        ]}},
+        { name: "Start Date", type: "date" },
+        { name: "Duration", type: "number" },
+        { name: "Description", type: "rich_text" },
+        { name: "Materials", type: "files" }
+      ],
+      views: [
+        {
+          name: "All Courses",
+          viewType: "Table"
+        },
+        {
+          name: "By Category",
+          viewType: "Board",
+          sorts: [{ property: "Category", direction: "ascending" }]
+        },
+        {
+          name: "In Progress",
+          viewType: "Table",
+          filters: [{ property: "Status", operator: "=", value: "In Progress" }]
+        }
+      ]
+    }
+  }
+  
+  return templates[template] || null
+}
 
 // Enhanced File Input Component for Icon/Cover Images
 interface EnhancedFileInputProps {
@@ -91,46 +836,15 @@ const EnhancedFileInput = ({ fieldDef, fieldValue, onValueChange, workflowData, 
 
   return (
     <div className="space-y-3">
-      {/* Simple button-based tab navigation for better cross-platform compatibility */}
-      <div className="flex gap-1 p-1 bg-muted rounded-lg">
-        <button
-          type="button"
-          onClick={() => setActiveTab("upload")}
-          className={`flex-1 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-            activeTab === "upload" 
-              ? "bg-background text-foreground shadow-sm" 
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          Upload
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab("url")}
-          className={`flex-1 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-            activeTab === "url" 
-              ? "bg-background text-foreground shadow-sm" 
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          URL
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab("emoji")}
-          className={`flex-1 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-            activeTab === "emoji" 
-              ? "bg-background text-foreground shadow-sm" 
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          Emoji
-        </button>
-      </div>
-      
-      {/* Upload Tab */}
-      {activeTab === "upload" && (
-        <div className="space-y-2">
+      {/* Removed DEBUG label */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-3 mb-2">
+          <TabsTrigger value="upload">Upload</TabsTrigger>
+          <TabsTrigger value="url">URL</TabsTrigger>
+          <TabsTrigger value="emoji">Emoji</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="upload" className="space-y-2">
           <input
             type="file"
             id={`file-${fieldDef.name}`}
@@ -159,12 +873,9 @@ const EnhancedFileInput = ({ fieldDef, fieldValue, onValueChange, workflowData, 
               }
             />
           </div>
-        </div>
-      )}
-      
-      {/* URL Tab */}
-      {activeTab === "url" && (
-        <div className="space-y-2">
+        </TabsContent>
+        
+        <TabsContent value="url" className="space-y-2">
           <div className="flex gap-2">
             <Input
               placeholder="Enter image URL (e.g., https://example.com/image.jpg)"
@@ -187,27 +898,25 @@ const EnhancedFileInput = ({ fieldDef, fieldValue, onValueChange, workflowData, 
               Press Enter or click Add to use this URL
             </div>
           )}
-        </div>
-      )}
-      
-      {/* Emoji Tab */}
-      {activeTab === "emoji" && (
-        <div className="space-y-2">
+        </TabsContent>
+        
+        <TabsContent value="emoji" className="space-y-2">
           <div className="grid grid-cols-8 gap-2 max-h-32 overflow-y-auto">
             {commonEmojis.map((emoji, index) => (
-              <button
-                key={index}
-                type="button"
+              <Button
+                key={`emoji-${index}-${emoji}`}
+                variant="outline"
+                size="sm"
+                className="h-8 w-8 p-0 text-lg"
                 onClick={() => handleEmojiSelect(emoji)}
-                className="h-8 w-8 p-0 text-lg border border-border rounded hover:bg-accent hover:text-accent-foreground transition-colors"
               >
                 {emoji}
-              </button>
+              </Button>
             ))}
           </div>
           <div className="flex gap-2">
             <Input
-              placeholder="Or type custom emoji"
+              placeholder="Paste custom emoji"
               value={emojiInput}
               onChange={(e) => setEmojiInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && emojiInput && handleEmojiSelect(emojiInput)}
@@ -221,8 +930,11 @@ const EnhancedFileInput = ({ fieldDef, fieldValue, onValueChange, workflowData, 
               Add
             </Button>
           </div>
-        </div>
-      )}
+          <div className="text-xs text-muted-foreground mt-1">
+            Tip: On Mac, press <b>Control + Command + Space</b>. On Windows, press <b>Windows + . (period)</b>. Or copy an emoji from another site.
+          </div>
+        </TabsContent>
+      </Tabs>
       
       {/* Current Value Display */}
       {fieldValue && (
@@ -289,6 +1001,44 @@ export default function ConfigurationModal({
   const hasInitializedTimezone = useRef<boolean>(false)
   const hasInitializedDefaults = useRef<boolean>(false)
   const abortControllerRef = useRef<AbortController | null>(null)
+  
+  // Loading state management to prevent flashing
+  const loadingStartTimeRef = useRef<number | null>(null)
+  const minLoadingTimeRef = useRef<number>(1000) // Minimum 1 second loading time
+  const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  
+  // Debounced loading state setter
+  const setLoadingDynamicDebounced = useCallback((loading: boolean) => {
+    if (loading) {
+      // Start loading
+      loadingStartTimeRef.current = Date.now()
+      setLoadingDynamic(true)
+    } else {
+      // Check if minimum loading time has passed
+      const elapsed = Date.now() - (loadingStartTimeRef.current || 0)
+      const remainingTime = Math.max(0, minLoadingTimeRef.current - elapsed)
+      
+      if (remainingTime > 0) {
+        // Set a timeout to hide loading after minimum time
+        if (loadingTimeoutRef.current) {
+          clearTimeout(loadingTimeoutRef.current)
+        }
+        loadingTimeoutRef.current = setTimeout(() => {
+          setLoadingDynamic(false)
+          loadingStartTimeRef.current = null
+          loadingTimeoutRef.current = null
+        }, remainingTime)
+      } else {
+        // Hide loading immediately
+        setLoadingDynamic(false)
+        loadingStartTimeRef.current = null
+        if (loadingTimeoutRef.current) {
+          clearTimeout(loadingTimeoutRef.current)
+          loadingTimeoutRef.current = null
+        }
+      }
+    }
+  }, [])
   
   // Create Spreadsheet specific state
   const [spreadsheetRows, setSpreadsheetRows] = useState<Record<string, string>[]>([{}])
@@ -1056,7 +1806,7 @@ export default function ConfigurationModal({
     const controller = new AbortController()
     abortControllerRef.current = controller
 
-    setLoadingDynamic(true)
+    setLoadingDynamicDebounced(true)
     let hasData = false
     const newOptions: Record<string, any[]> = {}
 
@@ -1286,9 +2036,9 @@ export default function ConfigurationModal({
         })
         setDynamicOptions(newOptions)
       }
-      setLoadingDynamic(false)
+      setLoadingDynamicDebounced(false)
     }
-  }, [nodeInfo, getIntegrationByProvider, checkIntegrationScopes, loadIntegrationData, integrationData])
+  }, [nodeInfo, getIntegrationByProvider, checkIntegrationScopes, loadIntegrationData, integrationData, setLoadingDynamicDebounced])
 
   useEffect(() => {
     if (isOpen && nodeInfo?.providerId) {
@@ -1535,22 +2285,24 @@ export default function ConfigurationModal({
     }
   }, [isOpen, nodeInfo, config.tableName, config.baseId, fetchTableFields, getIntegrationByProvider, loadIntegrationData, dynamicOptions])
 
-  // Retry mechanism for stuck loading states
+  // Retry mechanism for stuck loading states - only retry after 10 seconds and max 2 retries
   useEffect(() => {
     if (!loadingDynamic) {
       setRetryCount(0)
       return
     }
     
+    // Only retry if we've been loading for more than 10 seconds and haven't exceeded max retries
     const retryTimeout = setTimeout(() => {
-      if (loadingDynamic && isOpen && nodeInfo?.providerId) {
+      if (loadingDynamic && isOpen && nodeInfo?.providerId && retryCount < 2) {
+        console.log(`🔄 Retrying dynamic data fetch (attempt ${retryCount + 1}/2)`)
         setRetryCount((c) => c + 1)
         fetchDynamicData()
       }
-    }, 5000)
+    }, 10000) // Increased from 5 to 10 seconds
     
     return () => clearTimeout(retryTimeout)
-  }, [loadingDynamic, isOpen, nodeInfo?.providerId, fetchDynamicData])
+  }, [loadingDynamic, isOpen, nodeInfo?.providerId, fetchDynamicData, retryCount])
 
   // Auto-load sheet data when spreadsheet and sheet are selected
   useEffect(() => {
@@ -1579,7 +2331,7 @@ export default function ConfigurationModal({
       const controller = new AbortController()
       abortControllerRef.current = controller
       try {
-        setLoadingDynamic(true)
+        setLoadingDynamicDebounced(true)
         const integration = getIntegrationByProvider(nodeInfo?.providerId || "")
         if (!integration) return
         const data = await loadIntegrationData(
@@ -1600,7 +2352,7 @@ export default function ConfigurationModal({
         }
       } finally {
         if (!controller.signal.aborted) {
-          setLoadingDynamic(false)
+          setLoadingDynamicDebounced(false)
         }
       }
     }
@@ -1626,7 +2378,7 @@ export default function ConfigurationModal({
         abortControllerRef.current = controller
 
         try {
-          setLoadingDynamic(true)
+          setLoadingDynamicDebounced(true)
           const previewData = await loadIntegrationData(
             "google-sheets_sheet-preview",
             integration.id,
@@ -1657,7 +2409,7 @@ export default function ConfigurationModal({
         } finally {
           // Only update loading state if the request wasn't aborted
           if (!controller.signal.aborted) {
-            setLoadingDynamic(false)
+            setLoadingDynamicDebounced(false)
           }
         }
       } else {
@@ -1793,6 +2545,18 @@ export default function ConfigurationModal({
   }
 
   const renderField = (field: ConfigField | NodeField) => {
+    // Debug: Log every field name and type as it is rendered
+    console.log('[ConfigModal] Rendering field:', field.name, 'type:', field.type);
+    
+    // DEBUG: Extra logging for icon/cover fields
+    if (field.name === "icon" || field.name === "cover") {
+      console.log(`🔍 DEBUG ${field.name} field:`, {
+        fieldName: field.name,
+        fieldType: field.type,
+        nodeType: nodeInfo?.type,
+        fieldDef: field
+      })
+    }
     // Custom Google Meet button/card rendering for Google Calendar create event
     if (nodeInfo?.type === "google_calendar_action_create_event" && field.name === "createMeetLink") {
       const handleAddMeet = async () => {
@@ -1965,7 +2729,7 @@ export default function ConfigurationModal({
           {renderLabel()}
           <div className="space-y-3">
             {sheets.map((sheet, index) => (
-              <div key={index} className="border rounded-lg p-4 space-y-3">
+              <div key={`sheet-${index}-${sheet.name || index}`} className="border rounded-lg p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <h4 className="text-sm font-medium">Sheet {index + 1}</h4>
                   {sheets.length > 1 && (
@@ -2008,7 +2772,7 @@ export default function ConfigurationModal({
                   <Label className="text-xs font-medium">Column Names</Label>
                   <div className="grid grid-cols-2 gap-2">
                     {Array.from({ length: sheet.columns }, (_, colIndex) => (
-                      <div key={colIndex} className="space-y-1">
+                      <div key={`sheet-${index}-col-${colIndex}`} className="space-y-1">
                         <Label className="text-xs text-muted-foreground">
                           Column {colIndex + 1}
                         </Label>
@@ -2177,7 +2941,7 @@ export default function ConfigurationModal({
           
           {/* Main Fields Grid */}
           <div className="grid gap-4 sm:grid-cols-2">
-            {sortedFields.map((fieldDef: any) => {
+            {sortedFields.map((fieldDef: any, fieldIndex: number) => {
               const fieldValue = config.fields?.[fieldDef.name] || ""
               
               // Check if this field represents a linked table (foreign key relationship)
@@ -2198,7 +2962,7 @@ export default function ConfigurationModal({
 
 
               return (
-                <div key={fieldDef.name} className="space-y-2">
+                <div key={`airtable-field-${fieldIndex}-${fieldDef.name}`} className="space-y-2">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Label className="text-sm font-medium">
@@ -2236,8 +3000,8 @@ export default function ConfigurationModal({
                           <SelectValue placeholder={`Select ${fieldDef.name.toLowerCase()}`} />
                         </SelectTrigger>
                         <SelectContent className="max-h-96">
-                          {fieldDef.options.choices.map((choice: any) => (
-                            <SelectItem key={choice.name} value={choice.name} className="whitespace-nowrap">
+                          {fieldDef.options.choices.map((choice: any, choiceIndex: number) => (
+                            <SelectItem key={`choice-${choiceIndex}-${choice.name}`} value={choice.name} className="whitespace-nowrap">
                               {choice.name}
                             </SelectItem>
                           ))}
@@ -2384,19 +3148,15 @@ export default function ConfigurationModal({
                         />
                       </div>
                     </div>
-                  ) : (fieldDef.name === "icon" || fieldDef.name === "cover") ? (
-                    <EnhancedFileInput
-                      fieldDef={fieldDef}
-                      fieldValue={fieldValue}
-                      onValueChange={(value) => {
-                        const newFields = { ...config.fields, [fieldDef.name]: value }
-                        setConfig(prev => ({ ...prev, fields: newFields }))
-                      }}
-                      workflowData={workflowData}
-                      currentNodeId={currentNodeId}
-                    />
                   ) : fieldDef.type === "attachment" || fieldDef.type === "file" || fieldDef.type === "image" || fieldDef.name.toLowerCase().includes('image') || fieldDef.name.toLowerCase().includes('photo') || fieldDef.name.toLowerCase().includes('picture') ? (
                     <div className="flex flex-col gap-1">
+                      {/* DEBUG: Log when generic file input is used for icon/cover */}
+                      {(fieldDef.name === "icon" || fieldDef.name === "cover") && console.log('❌ Generic file input used for icon/cover:', { fieldName: fieldDef.name, nodeType: nodeInfo?.type, fieldType: fieldDef.type })}
+                      {(fieldDef.name === "icon" || fieldDef.name === "cover") && (
+                        <div style={{ color: 'white', background: 'red', padding: 4, fontWeight: 'bold', borderRadius: 4, marginBottom: 8 }}>
+                          USING GENERIC FILE INPUT FOR {fieldDef.name.toUpperCase()} (SHOULD USE ENHANCED)
+                        </div>
+                      )}
                       <input
                         type="file"
                         id={`file-${fieldDef.name}`}
@@ -2606,8 +3366,32 @@ export default function ConfigurationModal({
         isBaseIdField: field.name === "baseId"
       })
       
+      // Handle template changes for Notion database creation
+      if (nodeInfo?.type === "notion_action_create_database" && field.name === "template") {
+        if (newValue) {
+          const templateConfig = getTemplateConfiguration(newValue)
+          if (templateConfig) {
+            setConfig(prev => ({
+              ...prev,
+              [field.name]: newValue,
+              properties: templateConfig.properties,
+              views: templateConfig.views
+            }))
+          } else {
+            setConfig({ ...config, [field.name]: newValue })
+          }
+        } else {
+          // Clear template - reset to empty properties and views
+          setConfig(prev => ({
+            ...prev,
+            [field.name]: newValue,
+            properties: [],
+            views: []
+          }))
+        }
+      }
       // Clear dependent fields when base changes for Airtable
-      if ((nodeInfo?.type === "airtable_action_create_record" || 
+      else if ((nodeInfo?.type === "airtable_action_create_record" || 
            nodeInfo?.type === "airtable_action_update_record" ||
            nodeInfo?.type === "airtable_action_move_record" ||
            nodeInfo?.type === "airtable_action_list_records") && 
@@ -2737,6 +3521,28 @@ export default function ConfigurationModal({
           return newErrors
         })
       }
+    }
+
+    // Special handling for icon and cover fields in Notion create page
+    if ((field.name === "icon" || field.name === "cover") && nodeInfo?.type === "notion_action_create_page") {
+      console.log(`🎯 EnhancedFileInput triggered for:`, { fieldName: field.name, nodeType: nodeInfo?.type, fieldType: field.type })
+      return (
+        <div className="space-y-2">
+          {renderLabel()}
+          <EnhancedFileInput
+            fieldDef={field as NodeField}
+            fieldValue={value}
+            onValueChange={(newValue) => {
+              setConfig(prev => ({ ...prev, [field.name]: newValue }))
+            }}
+            workflowData={workflowData}
+            currentNodeId={currentNodeId}
+          />
+          {hasError && (
+            <p className="text-xs text-red-500">{errors[field.name]}</p>
+          )}
+        </div>
+      )
     }
 
     switch (String(field.type)) {
@@ -3236,35 +4042,36 @@ export default function ConfigurationModal({
 
                   <div className="w-px h-6 bg-border mx-1"></div>
 
-                  {/* Signature Control - Only show for email content fields */}
-                  {(field.name === 'content' || field.name === 'body' || field.name === 'message') && (
-                    <div className="flex items-center gap-1">
-                      <select 
-                        className="h-8 px-2 text-xs border rounded bg-background hover:bg-muted"
-                        onChange={(e) => {
-                          const editor = document.querySelector(`[data-rich-editor="${field.name}"]`) as HTMLElement
-                          if (editor && e.target.value) {
-                            const signatureKey = nodeInfo?.providerId === 'gmail' ? 'gmail_signatures' : 'outlook_signatures'
-                            const signatures = dynamicOptions[signatureKey] || []
-                            const selectedSignature = signatures.find(sig => sig.value === e.target.value) as any
-                            if (selectedSignature && selectedSignature.content) {
-                              // Convert plain text signature to HTML with line breaks
-                              const htmlSignature = '<br><br>' + selectedSignature.content.replace(/\n/g, '<br>')
-                              document.execCommand('insertHTML', false, htmlSignature)
-                              setConfig(prev => ({ ...prev, [field.name]: editor.innerHTML }))
+                  {/* Signature Control - Only show for Gmail and Outlook email actions */}
+                  {(field.name === 'content' || field.name === 'body') &&
+                    (nodeInfo?.providerId === 'gmail' || nodeInfo?.providerId === 'microsoft-outlook') && (
+                      <div className="flex items-center gap-1">
+                        <select 
+                          className="h-8 px-2 text-xs border rounded bg-background hover:bg-muted"
+                          onChange={(e) => {
+                            const editor = document.querySelector(`[data-rich-editor="${field.name}"]`) as HTMLElement
+                            if (editor && e.target.value) {
+                              const signatureKey = nodeInfo?.providerId === 'gmail' ? 'gmail_signatures' : 'outlook_signatures'
+                              const signatures = dynamicOptions[signatureKey] || []
+                              const selectedSignature = signatures.find(sig => sig.value === e.target.value) as any
+                              if (selectedSignature && selectedSignature.content) {
+                                // Convert plain text signature to HTML with line breaks
+                                const htmlSignature = '<br><br>' + selectedSignature.content.replace(/\n/g, '<br>')
+                                document.execCommand('insertHTML', false, htmlSignature)
+                                setConfig(prev => ({ ...prev, [field.name]: editor.innerHTML }))
+                              }
                             }
-                          }
-                        }}
-                        title="Insert Signature - Add a signature to the email"
-                      >
-                        <option value="">Signature</option>
-                        {(dynamicOptions[nodeInfo?.providerId === 'gmail' ? 'gmail_signatures' : 'outlook_signatures'] || []).map((signature: any) => (
-                          <option key={signature.value} value={signature.value}>
-                            {signature.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                          }}
+                          title="Insert Signature - Add a signature to the email"
+                        >
+                          <option value="">Signature</option>
+                          {(dynamicOptions[nodeInfo?.providerId === 'gmail' ? 'gmail_signatures' : 'outlook_signatures'] || []).map((signature: any, sigIndex: number) => (
+                            <option key={`signature-${sigIndex}-${signature.value}`} value={signature.value}>
+                              {signature.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
                   )}
                 </div>
 
@@ -3316,7 +4123,7 @@ export default function ConfigurationModal({
                     </div>
                     <div className="space-y-1">
                       {attachments[field.name].map((file, index) => (
-                        <div key={index} className="flex items-center justify-between p-2 bg-background border rounded text-xs">
+                        <div key={`attachment-${index}-${file.name}`} className="flex items-center justify-between p-2 bg-background border rounded text-xs">
                           <div className="flex items-center gap-2">
                             <span className="text-muted-foreground">📎</span>
                             <span className="font-medium">{file.name}</span>
@@ -3502,11 +4309,11 @@ export default function ConfigurationModal({
                   })
                 }}
               >
-                {options.map((option) => {
+                {options.map((option, optionIndex) => {
                   const optionValue = typeof option === 'string' ? option : option.value
                   const optionLabel = typeof option === 'string' ? option : option.label
                   return (
-                    <SelectItem key={optionValue} value={optionValue} className="whitespace-nowrap">
+                    <SelectItem key={`select-option-${optionIndex}-${optionValue || 'undefined'}`} value={optionValue} className="whitespace-nowrap">
                       {optionLabel}
                     </SelectItem>
                   )
@@ -3883,6 +4690,222 @@ export default function ConfigurationModal({
           </div>
         )
 
+      case "notion_pages": {
+        // Type guard for expected structure
+        const isNotionData = (data: any): data is { workspace: any; pages: any[] } =>
+          data && typeof data === 'object' && 'workspace' in data && 'pages' in data
+
+        const notionDataRaw = Array.isArray(dynamicOptions[field.name]) ? dynamicOptions[field.name][0] : undefined
+        const notionData = isNotionData(notionDataRaw) ? notionDataRaw : { workspace: { id: 'default', name: 'Workspace' }, pages: [] }
+        const workspace = notionData.workspace
+        const pages = Array.isArray(notionData.pages) ? notionData.pages : []
+
+        // Build hierarchical options
+        console.log('🔍 Notion data processing:', {
+          workspace,
+          pagesCount: pages.length,
+          pages: pages.slice(0, 2) // Log first 2 pages for debugging
+        })
+        
+        const notionOptions = [
+          {
+            value: `group_${workspace?.id || "default"}`,
+            label: workspace?.name || "Workspace",
+            isGroup: true,
+            emails: pages.map((page: any) => ({
+              key: page.id,
+              value: page.id,
+              label: `${page.icon ? page.icon + ' ' : ''}${page.title}`,
+              description: page.url,
+              ...(Array.isArray(page.subpages) && page.subpages.length > 0
+                ? {
+                    emails: page.subpages.map((sub: any) => ({
+                      key: sub.id,
+                      value: sub.id,
+                      label: `${sub.icon ? sub.icon + ' ' : ''}${sub.title}`,
+                      description: sub.url,
+                    })),
+                    isGroup: true,
+                    groupId: page.id,
+                    groupName: page.title,
+                  }
+                : {})
+            })),
+          },
+        ]
+        
+        console.log('🔍 Built notion options:', notionOptions)
+
+        return (
+          <div className="space-y-2">
+            {renderLabel()}
+            <HierarchicalCombobox
+              options={notionOptions}
+              value={value}
+              onChange={handleSelectChange}
+              disabled={loadingDynamic}
+              placeholder={loadingDynamic ? "Loading..." : field.placeholder}
+              searchPlaceholder="Search pages..."
+              emptyPlaceholder={loadingDynamic ? "Loading..." : "No pages found."}
+            />
+            {hasError && (
+              <p className="text-xs text-red-500">{errors[field.name]}</p>
+            )}
+          </div>
+        )
+      }
+
+      case "custom":
+        // Custom field renderer for Slack iconUrl
+        if (field.name === "iconUrl" && nodeInfo?.type === "slack_action_send_message") {
+          const [iconMode, setIconMode] = useState<"url" | "upload">("url")
+          const [iconFile, setIconFile] = useState<File | null>(null)
+          const iconFileInputRef = useRef<HTMLInputElement>(null)
+
+          const handleIconFileUpload = (files: FileList | null) => {
+            if (!files || files.length === 0) return
+            const file = files[0]
+            setIconFile(file)
+            setConfig(prev => ({ ...prev, [field.name]: { mode: "upload", file, fileName: file.name } }))
+          }
+
+          return (
+            <div className="space-y-2">
+              {renderLabel()}
+              <div className="space-y-3">
+                {/* Mode Toggle */}
+                <div className="flex items-center space-x-2">
+                  <Button
+                    type="button"
+                    variant={iconMode === "url" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setIconMode("url")}
+                  >
+                    URL
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={iconMode === "upload" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setIconMode("upload")}
+                  >
+                    Upload
+                  </Button>
+                </div>
+
+                {/* URL Input */}
+                {iconMode === "url" ? (
+                  <div className="flex gap-2">
+                    <Input
+                      value={typeof value === "string" ? value : ""}
+                      onChange={handleChange}
+                      placeholder="https://example.com/icon.png"
+                      className="flex-1"
+                    />
+                    <VariablePicker
+                      workflowData={workflowData}
+                      currentNodeId={currentNodeId}
+                      onVariableSelect={handleVariableSelect}
+                      fieldType="text"
+                      trigger={
+                        <Button variant="outline" size="sm" className="flex-shrink-0 px-3">
+                          <Database className="w-4 h-4" />
+                        </Button>
+                      }
+                    />
+                  </div>
+                ) : (
+                  /* File Upload */
+                  <div className="space-y-2">
+                    <input
+                      ref={iconFileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleIconFileUpload(e.target.files)}
+                      className="hidden"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => iconFileInputRef.current?.click()}
+                    >
+                      <Upload className="w-4 h-4 mr-2" />
+                      {iconFile ? iconFile.name : "Upload Image File"}
+                    </Button>
+                    {iconFile && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <span>Selected: {iconFile.name}</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setIconFile(null)
+                            setConfig(prev => ({ ...prev, [field.name]: "" }))
+                          }}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+              {hasError && (
+                <p className="text-xs text-red-500">{errors[field.name]}</p>
+              )}
+            </div>
+          )
+        }
+        
+        // Handle custom field types for Notion database configuration
+        if (field.name === "properties" || field.name === "views" || field.name === "icon" || field.name === "cover") {
+          return (
+            <div className="space-y-2">
+              {renderLabel()}
+              <NotionDatabaseConfig
+                value={value}
+                onChange={(newValue: any) => setConfig(prev => ({ ...prev, [field.name]: newValue }))}
+                fieldName={field.name}
+              />
+              {hasError && (
+                <p className="text-xs text-red-500">{errors[field.name]}</p>
+              )}
+            </div>
+          )
+        }
+        
+        // Fall through to default for other custom fields
+        return (
+          <div className="space-y-2">
+            {renderLabel()}
+            <Input
+              value={value}
+              onChange={handleChange}
+              placeholder={field.placeholder}
+              readOnly={field.readonly}
+              className={cn(
+                "w-full", 
+                hasError && "border-red-500",
+                field.readonly && "bg-muted/50 cursor-not-allowed"
+              )}
+              autoComplete="new-password"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck="false"
+              data-form-type="other"
+              data-lpignore="true"
+              data-1p-ignore="true"
+              data-bwignore="true"
+              data-dashlane-ignore="true"
+              name={`custom-field-${Math.random().toString(36).substr(2, 9)}`}
+            />
+            {hasError && (
+              <p className="text-xs text-red-500">{errors[field.name]}</p>
+            )}
+          </div>
+        )
+
       default:
         return (
           <div className="space-y-2">
@@ -3975,8 +4998,8 @@ export default function ConfigurationModal({
                     Available Fields:
                   </div>
                   <div className="space-y-1">
-                    {nodeInfo.outputSchema.map((field) => (
-                      <div key={field.name} className="text-xs border rounded p-2 bg-background">
+                    {nodeInfo.outputSchema.map((field, outputFieldIndex) => (
+                      <div key={`output-field-${outputFieldIndex}-${field.name}`} className="text-xs border rounded p-2 bg-background">
                         <div className="font-medium text-foreground">
                           {field.label} ({field.type})
                         </div>
@@ -4003,6 +5026,21 @@ export default function ConfigurationModal({
   }
 
   if (!nodeInfo) return null
+
+  // Find the configSchema fields for Notion database creation
+  const isNotionDatabaseNode = nodeInfo?.type === "notion_action_create_database"
+  let notionConfigFields: any[] = []
+  let notionCustomConfig: any = {}
+  if (isNotionDatabaseNode && nodeInfo?.configSchema) {
+    // Group all custom fields for Notion database config
+    notionConfigFields = nodeInfo.configSchema.filter(f => !["properties","views","icon","cover"].includes(f.name))
+    notionCustomConfig = {
+      properties: config.properties || [],
+      views: config.views || [],
+      icon: config.icon || {},
+      cover: config.cover || {},
+    }
+  }
 
   return (
     <TooltipProvider>
@@ -4243,26 +5281,40 @@ export default function ConfigurationModal({
                   )}
 
                   {/* Configuration Fields */}
-                  {nodeInfo.configSchema?.map((field) => {
-                    // Hide time fields and time zone field for Google Calendar when "All Day" is enabled
-                    if (nodeInfo?.type === "google_calendar_action_create_event" && 
-                        ((field.type === "time" && config.allDay) || 
-                         (field.name === "timeZone" && config.allDay))) {
-                      return null
-                    }
-                    
-                    // Hide fields that depend on other fields that haven't been selected
-                    if (!shouldShowField(field)) {
-                      return null
-                    }
-                    
-                    return (
-                      <div key={field.name} className="flex flex-col space-y-3 pb-4 border-b border-border/50 last:border-b-0 last:pb-0">
-                        {renderField(field)}
+                  {isNotionDatabaseNode ? (
+                    <>
+                      {notionConfigFields.map((field, idx) => (
+                        <div key={`notion-config-field-${field.name}-${idx}`} className="flex flex-col space-y-3 pb-4 border-b border-border/50 last:border-b-0 last:pb-0">
+                          {renderField(field)}
+                        </div>
+                      ))}
+                      {/* Render the NotionDatabaseConfig tabbed editor ONCE for all custom fields */}
+                      <div className="flex flex-col space-y-3 pb-4 border-b border-border/50 last:border-b-0 last:pb-0">
+                        <NotionDatabaseConfig
+                          value={notionCustomConfig}
+                          onChange={(newValue: any) => setConfig(prev => ({
+                            ...prev,
+                            properties: newValue.properties,
+                            views: newValue.views,
+                            icon: newValue.icon,
+                            cover: newValue.cover,
+                          }))}
+                          fieldName="notionDatabaseConfig"
+                        />
                       </div>
-                    )
-                  })}
-
+                    </>
+                  ) : (
+                    // Default: render all fields as before
+                    nodeInfo?.configSchema?.map((field, configFieldIndex) => {
+                      if (!shouldShowField(field)) return null
+                      return (
+                        <div key={`config-field-${configFieldIndex}-${field.name}`} className="flex flex-col space-y-3 pb-4 border-b border-border/50 last:border-b-0 last:pb-0">
+                          {renderField(field)}
+                        </div>
+                      )
+                    })
+                  )}
+                  
                   {/* Data Preview Table for Google Sheets Actions */}
                   {((nodeInfo?.type === "google_sheets_unified_action" && config.action && config.spreadsheetId && config.sheetName) || 
                     (nodeInfo?.type === "google-sheets_action_create_row" && config.spreadsheetId && config.sheetName) ||
@@ -4297,7 +5349,7 @@ export default function ConfigurationModal({
                           msUserSelect: 'none'
                         }}>
                           {(dynamicOptions.sheetData as any).headers.map((header: any, index: number) => (
-                            <div key={index} className="text-xs font-medium text-center p-1 select-none" style={{ userSelect: 'none', WebkitUserSelect: 'none', MozUserSelect: 'none', msUserSelect: 'none' }}>
+                            <div key={`header-${index}-${header.column || index}`} className="text-xs font-medium text-center p-1 select-none" style={{ userSelect: 'none', WebkitUserSelect: 'none', MozUserSelect: 'none', msUserSelect: 'none' }}>
                               <div className="font-mono bg-background px-2 py-1 rounded mb-1">
                                 {header.column}
                               </div>
@@ -4310,7 +5362,7 @@ export default function ConfigurationModal({
                         <div className="max-h-80 overflow-y-auto">
                           {(dynamicOptions.sheetData as any).data.map((row: any, index: number) => (
                             <div 
-                              key={index} 
+                              key={`row-${index}-${row.rowIndex || index}`} 
                               className={`grid gap-2 p-2 border-t select-none ${
                                 (nodeInfo?.type === "google_sheets_unified_action" && config.action !== "add") ||
                                 nodeInfo?.type === "google-sheets_action_create_row" ||
@@ -4378,7 +5430,7 @@ export default function ConfigurationModal({
                             >
                               {row.values.map((cell: string, cellIndex: number) => (
                                 <div 
-                                  key={cellIndex} 
+                                  key={`cell-${index}-${cellIndex}`} 
                                   className={`text-sm truncate p-1 select-none ${
                                     nodeInfo?.type === "google_sheets_action_read_data" && config.readMode === "range"
                                       ? `cursor-crosshair ${
@@ -4472,7 +5524,7 @@ export default function ConfigurationModal({
                           
                           <div className="space-y-3">
                             {(dynamicOptions.sheetData as any).headers.map((header: any, index: number) => (
-                              <div key={index} className="flex flex-col space-y-2">
+                              <div key={`column-input-${index}-${header.column || index}`} className="flex flex-col space-y-2">
                                 <Label className="text-sm font-medium">
                                   {header.name} ({header.column})
                                 </Label>

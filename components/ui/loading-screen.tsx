@@ -78,7 +78,7 @@ export function DataLoadingScreen({ entityName = "data" }: { entityName?: string
 
 export function ConfigurationLoadingScreen({ integrationName }: { integrationName: string }) {
   return (
-    <div className="bg-background/80 backdrop-blur-sm">
+    <div>
       <LoadingScreen
         title="Loading Configuration"
         description={`Fetching ${integrationName} data for autocomplete suggestions...`}

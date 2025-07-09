@@ -234,7 +234,9 @@ const useWorkflowBuilderState = () => {
     
     // Use the integration store to check if this integration is connected
     const connectedProviders = getConnectedProviders();
-    return connectedProviders.includes(integrationId);
+    const isConnected = connectedProviders.includes(integrationId);
+    console.log('🔍 Integration connection check:', { integrationId, connectedProviders, isConnected });
+    return isConnected;
   }, [getConnectedProviders])
 
 
@@ -270,12 +272,27 @@ const useWorkflowBuilderState = () => {
   }, [getNodes])
 
   const handleAddActionClick = useCallback((nodeId: string, parentId: string) => {
+    console.log('🔍 handleAddActionClick called:', { nodeId, parentId })
     setSourceAddNode({ id: nodeId, parentId })
     setSelectedIntegration(null)
     setSelectedAction(null)
     setSearchQuery("")
     setShowActionDialog(true)
+    console.log('✅ Action dialog opened, sourceAddNode set')
   }, [])
+
+  const handleActionDialogClose = useCallback((open: boolean) => {
+    if (!open) {
+      // Only clear sourceAddNode if we're not in the middle of configuring a node
+      if (!configuringNode) {
+        setSourceAddNode(null)
+        setSelectedIntegration(null)
+        setSelectedAction(null)
+        setSearchQuery("")
+      }
+    }
+    setShowActionDialog(open)
+  }, [configuringNode])
 
   const recalculateLayout = useCallback(() => {
     const nodeList = getNodes()
@@ -466,6 +483,11 @@ const useWorkflowBuilderState = () => {
       isSavingRef.current = false
     }
   }, [workflowId, joinCollaboration, leaveCollaboration])
+
+  // Debug sourceAddNode changes
+  useEffect(() => {
+    console.log('🔍 sourceAddNode changed:', sourceAddNode)
+  }, [sourceAddNode])
 
   useEffect(() => {
     if (!workflows.length) fetchWorkflows()
@@ -724,11 +746,36 @@ const useWorkflowBuilderState = () => {
   }
 
   const handleActionSelect = (integration: IntegrationInfo, action: NodeComponent) => {
-    if (!sourceAddNode) return
+    console.log('🔍 handleActionSelect called:', { integration: integration.id, action: action.type, sourceAddNode })
+    
+    let effectiveSourceAddNode = sourceAddNode
+    
+    // Fallback: if sourceAddNode is null, try to find the last Add Action node
+    if (!effectiveSourceAddNode) {
+      const addActionNodes = getNodes().filter(n => n.type === 'addAction')
+      const lastAddActionNode = addActionNodes[addActionNodes.length - 1]
+      if (lastAddActionNode && lastAddActionNode.data?.parentId) {
+        effectiveSourceAddNode = { 
+          id: lastAddActionNode.id, 
+          parentId: lastAddActionNode.data.parentId as string
+        }
+        console.log('🔍 Using fallback sourceAddNode:', effectiveSourceAddNode)
+      }
+    }
+    
+    if (!effectiveSourceAddNode) {
+      console.error('❌ sourceAddNode is null - cannot add action')
+      toast({ 
+        title: "Error", 
+        description: "Unable to add action. Please try clicking the 'Add Action' button again.", 
+        variant: "destructive" 
+      })
+      return
+    }
     
     if (nodeNeedsConfiguration(action)) {
       // Store the pending action info and open configuration
-      setPendingNode({ type: 'action', integration, nodeComponent: action, sourceNodeInfo: sourceAddNode });
+      setPendingNode({ type: 'action', integration, nodeComponent: action, sourceNodeInfo: effectiveSourceAddNode });
       const integrationConfig = INTEGRATION_CONFIGS[integration.id as keyof typeof INTEGRATION_CONFIGS] || integration;
       
       setConfiguringNode({ 
@@ -740,7 +787,7 @@ const useWorkflowBuilderState = () => {
       setShowActionDialog(false);
     } else {
       // Add action directly if no configuration needed
-      addActionToWorkflow(integration, action, {}, sourceAddNode);
+      addActionToWorkflow(integration, action, {}, effectiveSourceAddNode);
     }
   }
 
@@ -1080,11 +1127,26 @@ const useWorkflowBuilderState = () => {
   }
 
   const filteredIntegrations = useMemo(() => {
-    return availableIntegrations
-      .filter(int => int.triggers.length > 0)
+    console.log('🔍 Computing filteredIntegrations:', { 
+      availableIntegrationsCount: availableIntegrations.length,
+      showConnectedOnly,
+      filterCategory,
+      searchQuery,
+      integrationsLoading
+    });
+    
+    // If integrations are still loading, show all integrations to avoid empty state
+    if (integrationsLoading) {
+      console.log('🔍 Integrations still loading, showing all integrations');
+      return availableIntegrations;
+    }
+    
+    const result = availableIntegrations
       .filter(int => {
         if (showConnectedOnly) {
-          return isIntegrationConnected(int.id);
+          const isConnected = isIntegrationConnected(int.id);
+          console.log('🔍 Filtering integration:', { id: int.id, name: int.name, isConnected });
+          return isConnected;
         }
         return true;
       })
@@ -1110,7 +1172,14 @@ const useWorkflowBuilderState = () => {
         
         return integrationMatches || triggerMatches;
       });
-  }, [availableIntegrations, searchQuery, filterCategory, showConnectedOnly]);
+    
+    console.log('🔍 filteredIntegrations result:', { 
+      resultCount: result.length,
+      integrations: result.map(int => ({ id: int.id, name: int.name }))
+    });
+    
+    return result;
+  }, [availableIntegrations, searchQuery, filterCategory, showConnectedOnly, isIntegrationConnected, integrationsLoading]);
   
   const displayedTriggers = useMemo(() => {
     if (!selectedIntegration) return [];
@@ -1222,7 +1291,9 @@ const useWorkflowBuilderState = () => {
     testMode,
     setTestMode,
     handleResetLoadingStates,
-    sourceAddNode
+    sourceAddNode,
+    handleActionDialogClose,
+    nodeNeedsConfiguration
   }
 }
 
@@ -1244,12 +1315,11 @@ function WorkflowBuilderContent() {
     configuringNode, setConfiguringNode, handleSaveConfiguration, collaborators, pendingNode, setPendingNode,
     selectedTrigger, setSelectedTrigger, selectedAction, setSelectedAction, searchQuery, setSearchQuery, filterCategory, setFilterCategory, showConnectedOnly, setShowConnectedOnly,
     filteredIntegrations, displayedTriggers, deletingNode, setDeletingNode, confirmDeleteNode, isIntegrationConnected, integrationsLoading, testMode, setTestMode, handleResetLoadingStates,
-    sourceAddNode
+    sourceAddNode, handleActionDialogClose, nodeNeedsConfiguration
   } = useWorkflowBuilderState()
 
   const categories = useMemo(() => {
     const allCategories = availableIntegrations
-      .filter(int => int.triggers.length > 0)
       .map(int => int.category);
     return ['all', ...Array.from(new Set(allCategories))];
   }, [availableIntegrations]);
@@ -1459,24 +1529,38 @@ function WorkflowBuilderContent() {
                 <div className="p-4">
                 {selectedIntegration ? (
                   <div className="h-full">
-                    <div className="grid grid-cols-1 gap-3">
-                      {displayedTriggers.map((trigger) => (
-                        <div
-                          key={trigger.type}
-                          className={`p-4 border rounded-lg cursor-pointer transition-all ${selectedTrigger?.type === trigger.type ? 'border-primary bg-primary/10 ring-1 ring-primary/20' : 'border-border hover:border-muted-foreground hover:shadow-sm'}`}
-                          onClick={() => setSelectedTrigger(trigger)}
-                          onDoubleClick={() => {
-                            setSelectedTrigger(trigger)
-                            if (selectedIntegration) {
-                              handleTriggerSelect(selectedIntegration, trigger)
-                            }
-                          }}
-                        >
-                          <p className="font-medium">{trigger.title}</p>
-                          <p className="text-sm text-muted-foreground mt-1">{trigger.description}</p>
+                    {displayedTriggers.length > 0 ? (
+                      <div className="grid grid-cols-1 gap-3">
+                        {displayedTriggers.map((trigger) => (
+                          <div
+                            key={trigger.type}
+                            className={`p-4 border rounded-lg cursor-pointer transition-all ${selectedTrigger?.type === trigger.type ? 'border-primary bg-primary/10 ring-1 ring-primary/20' : 'border-border hover:border-muted-foreground hover:shadow-sm'}`}
+                            onClick={() => setSelectedTrigger(trigger)}
+                            onDoubleClick={() => {
+                              setSelectedTrigger(trigger)
+                              if (selectedIntegration) {
+                                handleTriggerSelect(selectedIntegration, trigger)
+                              }
+                            }}
+                          >
+                            <p className="font-medium">{trigger.title}</p>
+                            <p className="text-sm text-muted-foreground mt-1">{trigger.description}</p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center py-8 text-center">
+                        <div className="text-muted-foreground mb-2">
+                          <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                          </svg>
                         </div>
-                      ))}
-                    </div>
+                        <p className="text-sm text-muted-foreground mb-2">No triggers available</p>
+                        <p className="text-xs text-muted-foreground/70">
+                          {selectedIntegration.name} doesn't have any triggers defined yet
+                        </p>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="flex items-center justify-center h-full text-muted-foreground">
@@ -1514,7 +1598,7 @@ function WorkflowBuilderContent() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showActionDialog} onOpenChange={setShowActionDialog}>
+      <Dialog open={showActionDialog} onOpenChange={handleActionDialogClose}>
         <DialogContent className="max-w-4xl h-[85vh] flex flex-col p-0 bg-card rounded-lg shadow-2xl">
           <DialogHeader className="p-6 pb-4 border-b border-border">
             <DialogTitle className="text-xl font-bold">Select an Action</DialogTitle>
@@ -1693,7 +1777,13 @@ function WorkflowBuilderContent() {
                           <div
                             key={action.type}
                             className={`p-4 border rounded-lg cursor-pointer transition-all ${selectedAction?.type === action.type ? 'border-primary bg-primary/10 ring-1 ring-primary/20' : 'border-border hover:border-muted-foreground hover:shadow-sm'}`}
-                            onClick={() => setSelectedAction(action)}
+                            onClick={() => {
+                              setSelectedAction(action)
+                              // If action doesn't need configuration, add it immediately
+                              if (selectedIntegration && !nodeNeedsConfiguration(action)) {
+                                handleActionSelect(selectedIntegration, action)
+                              }
+                            }}
                             onDoubleClick={() => {
                               setSelectedAction(action)
                               if (selectedIntegration) {
@@ -1731,6 +1821,11 @@ function WorkflowBuilderContent() {
               <Button 
                 disabled={!selectedAction || !selectedIntegration}
                 onClick={() => {
+                  console.log('🔍 Continue button clicked:', { 
+                    selectedIntegration: selectedIntegration?.id, 
+                    selectedAction: selectedAction?.type,
+                    sourceAddNode 
+                  })
                   if (selectedIntegration && selectedAction) {
                     handleActionSelect(selectedIntegration, selectedAction)
                   }

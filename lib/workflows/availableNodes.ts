@@ -74,7 +74,7 @@ export interface ConfigField {
   placeholder?: string
   description?: string
   options?: { value: string; label: string }[] | string[]
-  dynamic?: "slack-channels" | "google-calendars" | "google-drive-folders" | "google-drive-files" | "onedrive-folders" | "dropbox-folders" | "box-folders" | "gmail-recent-recipients" | "gmail-enhanced-recipients" | "gmail-contact-groups" | "gmail_messages" | "gmail_labels" | "gmail_recent_senders" | "google-sheets_spreadsheets" | "google-sheets_sheets" | "google-docs_documents" | "google-docs_templates" | "google-docs_recent_documents" | "google-docs_shared_documents" | "google-docs_folders" | "youtube_channels" | "youtube_videos" | "youtube_playlists" | "teams_chats" | "teams_teams" | "teams_channels" | "github_repositories" | "gitlab_projects" | "notion_databases" | "notion_pages" | "trello_boards" | "trello_lists" | "hubspot_companies" | "hubspot_contacts" | "hubspot_deals" | "hubspot_lists" | "hubspot_pipelines" | "hubspot_deal_stages" | "airtable_workspaces" | "airtable_bases" | "airtable_tables" | "airtable_records" | "airtable_feedback_records" | "airtable_task_records" | "airtable_project_records" | "gumroad_products" | "blackbaud_constituents" | "facebook_pages" | "onenote_notebooks" | "onenote_sections" | "onenote_pages" | "outlook_folders" | "outlook_messages" | "outlook_contacts" | "outlook_calendars" | "outlook_events" | "outlook-enhanced-recipients"
+  dynamic?: "slack-channels" | "google-calendars" | "google-drive-folders" | "google-drive-files" | "onedrive-folders" | "dropbox-folders" | "box-folders" | "gmail-recent-recipients" | "gmail-enhanced-recipients" | "gmail-contact-groups" | "gmail_messages" | "gmail_labels" | "gmail_recent_senders" | "google-sheets_spreadsheets" | "google-sheets_sheets" | "google-docs_documents" | "google-docs_templates" | "google-docs_recent_documents" | "google-docs_shared_documents" | "google-docs_folders" | "youtube_channels" | "youtube_videos" | "youtube_playlists" | "teams_chats" | "teams_teams" | "teams_channels" | "github_repositories" | "gitlab_projects" | "notion_databases" | "notion_pages" | "notion_workspaces" | "notion_users" | "trello_boards" | "trello_lists" | "hubspot_companies" | "hubspot_contacts" | "hubspot_deals" | "hubspot_lists" | "hubspot_pipelines" | "hubspot_deal_stages" | "airtable_workspaces" | "airtable_bases" | "airtable_tables" | "airtable_records" | "airtable_feedback_records" | "airtable_task_records" | "airtable_project_records" | "gumroad_products" | "blackbaud_constituents" | "facebook_pages" | "onenote_notebooks" | "onenote_sections" | "onenote_pages" | "outlook_folders" | "outlook_messages" | "outlook_contacts" | "outlook_calendars" | "outlook_events" | "outlook-enhanced-recipients"
   accept?: string // For file inputs, specify accepted file types
   maxSize?: number // For file inputs, specify max file size in bytes
   defaultValue?: string | number | boolean // Default value for the field
@@ -1655,14 +1655,62 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         type: "select",
         required: true,
         dynamic: "slack-channels",
+        description: "Select the Slack channel where you want to send the message"
       },
-      { name: "message", label: "Message Text", type: "textarea", required: true },
-      { name: "thread_ts", label: "Thread Timestamp", type: "text", placeholder: "Optional: Reply to a specific message" },
-      { name: "username", label: "Username", type: "text", placeholder: "Optional: Override bot username" },
-      { name: "icon_emoji", label: "Icon Emoji", type: "text", placeholder: "e.g., :robot_face:" },
-      { name: "icon_url", label: "Icon URL", type: "text", placeholder: "URL to custom icon" },
-      { name: "unfurl_links", label: "Unfurl Links", type: "boolean", defaultValue: true },
-      { name: "unfurl_media", label: "Unfurl Media", type: "boolean", defaultValue: true }
+      {
+        name: "message",
+        label: "Message",
+        type: "rich-text",
+        required: true,
+        placeholder: "Type your message...",
+        description: "The message content with rich text formatting (bold, italic, links, etc.)"
+      },
+      { 
+        name: "attachments", 
+        label: "Attachments", 
+        type: "file", 
+        required: false,
+        placeholder: "Select files to attach", 
+        multiple: true,
+        accept: ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.jpg,.jpeg,.png,.gif,.zip,.rar",
+        maxSize: 25 * 1024 * 1024, // 25MB limit
+        description: "Attach files from your computer or select files from previous workflow nodes"
+      },
+      { 
+        name: "linkNames", 
+        label: "Link Names", 
+        type: "boolean", 
+        defaultValue: false,
+        description: "When enabled, automatically converts @mentions and #channels to clickable links"
+      },
+      { 
+        name: "unfurlLinks", 
+        label: "Unfurl Links", 
+        type: "boolean", 
+        defaultValue: true,
+        description: "When enabled, Slack will automatically expand links to show previews"
+      },
+      { 
+        name: "username", 
+        label: "Username Override", 
+        type: "text", 
+        placeholder: "Optional: Override bot username",
+        description: "Override the default bot username that appears with the message"
+      },
+      { 
+        name: "iconUrl", 
+        label: "Icon URL", 
+        type: "custom", 
+        placeholder: "URL to custom icon or upload image file",
+        description: "Set a custom icon for the message. You can provide a URL or upload an image file"
+      },
+      { 
+        name: "asUser", 
+        label: "As User", 
+        type: "boolean", 
+        defaultValue: false,
+        description: "When enabled, the message will appear to be sent by the authenticated user instead of the bot"
+      }
     ],
     outputSchema: [
       {
@@ -1890,6 +1938,10 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "notion",
     category: "Productivity",
     isTrigger: false,
+    configSchema: [
+      { name: "page", label: "Page", type: "select", dynamic: "notion_pages", required: true, placeholder: "Select a page" },
+      { name: "content", label: "Content", type: "textarea", required: true, placeholder: "Content to append" }
+    ]
   },
 
   // GitHub
@@ -3924,16 +3976,135 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   {
     type: "notion_action_create_database",
     title: "Create Database (Notion)",
-    description: "Create a new database in Notion",
+    description: "Create a new database in Notion with advanced configuration",
     icon: Database,
     providerId: "notion",
     requiredScopes: ["content.write"],
     category: "Productivity",
     isTrigger: false,
     configSchema: [
-      { name: "parentPageId", label: "Parent Page ID", type: "text", required: true, placeholder: "Enter parent page ID" },
-      { name: "title", label: "Database Title", type: "text", required: true, placeholder: "Enter database title" },
-      { name: "properties", label: "Properties (JSON)", type: "textarea", required: false, placeholder: '{"Name": {"title": {}}, "Status": {"select": {"options": [{"name": "Not Started"}, {"name": "In Progress"}, {"name": "Done"}]}}}' }
+      { 
+        name: "workspace", 
+        label: "Workspace", 
+        type: "select", 
+        dynamic: "notion_workspaces",
+        required: true,
+        placeholder: "Select Notion workspace"
+      },
+      { 
+        name: "template", 
+        label: "Template", 
+        type: "select", 
+        required: false,
+        options: [
+          { value: "Project Tracker", label: "Project Tracker" },
+          { value: "CRM", label: "CRM" },
+          { value: "Content Calendar", label: "Content Calendar" },
+          { value: "Task Management", label: "Task Management" },
+          { value: "Bug Tracker", label: "Bug Tracker" },
+          { value: "Feature Requests", label: "Feature Requests" },
+          { value: "Customer Support", label: "Customer Support" },
+          { value: "Sales Pipeline", label: "Sales Pipeline" },
+          { value: "Marketing Campaigns", label: "Marketing Campaigns" },
+          { value: "Event Planning", label: "Event Planning" },
+          { value: "Product Roadmap", label: "Product Roadmap" },
+          { value: "Team Directory", label: "Team Directory" },
+          { value: "Knowledge Base", label: "Knowledge Base" },
+          { value: "Inventory Management", label: "Inventory Management" },
+          { value: "Expense Tracker", label: "Expense Tracker" },
+          { value: "Time Tracking", label: "Time Tracking" },
+          { value: "Meeting Notes", label: "Meeting Notes" },
+          { value: "Research Database", label: "Research Database" },
+          { value: "Learning Management", label: "Learning Management" }
+        ],
+        placeholder: "Select template (optional)"
+      },
+      { 
+        name: "databaseType", 
+        label: "Database Type", 
+        type: "select", 
+        required: true,
+        defaultValue: "Full page",
+        options: [
+          { value: "Full page", label: "Full page" },
+          { value: "Inline", label: "Inline" }
+        ],
+        placeholder: "Select database type"
+      },
+      { 
+        name: "title", 
+        label: "Title", 
+        type: "text", 
+        required: true, 
+        placeholder: "Enter database title" 
+      },
+      { 
+        name: "description", 
+        label: "Description", 
+        type: "textarea", 
+        required: false, 
+        placeholder: "Enter database description (optional)" 
+      },
+      { 
+        name: "icon", 
+        label: "Icon", 
+        type: "custom", 
+        required: false,
+        description: "Upload or provide URL for database icon"
+      },
+      { 
+        name: "cover", 
+        label: "Cover", 
+        type: "custom", 
+        required: false,
+        description: "Upload or provide URL for database cover image"
+      },
+      { 
+        name: "properties", 
+        label: "Properties", 
+        type: "custom", 
+        required: true,
+        description: "Configure database properties with types and options"
+      },
+      { 
+        name: "views", 
+        label: "Views", 
+        type: "custom", 
+        required: false,
+        description: "Configure database views (optional)"
+      }
+    ],
+    outputSchema: [
+      {
+        name: "databaseId",
+        label: "Database ID",
+        type: "string",
+        description: "The unique ID of the created database"
+      },
+      {
+        name: "databaseTitle",
+        label: "Database Title",
+        type: "string",
+        description: "The title of the created database"
+      },
+      {
+        name: "databaseUrl",
+        label: "Database URL",
+        type: "string",
+        description: "The URL to access the database in Notion"
+      },
+      {
+        name: "createdTime",
+        label: "Created Time",
+        type: "string",
+        description: "When the database was created"
+      },
+      {
+        name: "lastEditedTime",
+        label: "Last Edited Time",
+        type: "string",
+        description: "When the database was last edited"
+      }
     ]
   },
   {
@@ -3964,7 +4135,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Productivity",
     isTrigger: false,
     configSchema: [
-      { name: "pageId", label: "Page ID", type: "text", required: true, placeholder: "Enter page ID" },
+      { name: "page", label: "Page", type: "select", dynamic: "notion_pages", required: true, placeholder: "Select a page" },
       { name: "title", label: "New Title", type: "text", required: false, placeholder: "New page title" },
       { name: "content", label: "Content", type: "textarea", required: false, placeholder: "New page content" }
     ]

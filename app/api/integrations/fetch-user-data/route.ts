@@ -337,7 +337,21 @@ async function fetchWithRetry<T>(fetchFn: () => Promise<T>, maxRetries: number, 
 const dataFetchers: DataFetcher = {
   notion_pages: async (integration: any) => {
     try {
-      const response = await fetch("https://api.notion.com/v1/search", {
+      // 1. Fetch workspace info
+      const workspaceRes = await fetch("https://api.notion.com/v1/users/me", {
+        headers: {
+          Authorization: `Bearer ${integration.access_token}`,
+          "Notion-Version": "2022-06-28",
+        },
+      })
+      let workspace = { id: "default", name: "My Workspace" }
+      if (workspaceRes.ok) {
+        const wsData = await workspaceRes.json()
+        workspace = { id: wsData.id || "default", name: wsData.name || "My Workspace" }
+      }
+
+      // 2. Fetch all top-level pages
+      const pagesRes = await fetch("https://api.notion.com/v1/search", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${integration.access_token}`,
@@ -349,26 +363,43 @@ const dataFetchers: DataFetcher = {
           page_size: 100,
         }),
       })
+      if (!pagesRes.ok) throw new Error("Failed to fetch Notion pages")
+      const pagesData = await pagesRes.json()
+      const topPages = pagesData.results || []
 
-      if (!response.ok) {
-        if (response.status === 401) {
-          throw new Error("Notion authentication expired. Please reconnect your account.")
-        }
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(`Notion API error: ${response.status} - ${errorData.message || response.statusText}`)
+      // 3. For each page, fetch subpages (child_page blocks)
+      async function fetchSubpages(pageId: string) {
+        const childrenRes = await fetch(`https://api.notion.com/v1/blocks/${pageId}/children`, {
+          headers: {
+            Authorization: `Bearer ${integration.access_token}`,
+            "Notion-Version": "2022-06-28",
+          },
+        })
+        if (!childrenRes.ok) return []
+        const childrenData = await childrenRes.json()
+        return (childrenData.results || [])
+          .filter((block: any) => block.type === "child_page")
+          .map((block: any) => ({
+            id: block.id,
+            title: block.child_page?.title || "Untitled",
+            icon: block.child_page?.icon?.emoji || undefined,
+            url: `https://notion.so/${block.id.replace(/-/g, "")}`,
+          }))
       }
 
-      const data = await response.json()
-      return (data.results || []).map((page: any) => ({
-        id: page.id,
-        name: getPageTitle(page),
-        value: page.id,
-        url: page.url,
-        created_time: page.created_time,
-        last_edited_time: page.last_edited_time,
+      // 4. Build the nested structure
+      const resultPages = await Promise.all(topPages.map(async (page: any) => {
+        const title = getPageTitle(page) || "Untitled"
+        let icon = undefined
+        if (page.icon && page.icon.type === "emoji") icon = page.icon.emoji
+        const url = page.url
+        const subpages = await fetchSubpages(page.id)
+        return { id: page.id, title, icon, url, subpages }
       }))
+
+      return [{ workspace, pages: resultPages }]
     } catch (error: any) {
-      console.error("Error fetching Notion pages:", error)
+      console.error("Error fetching Notion pages (hierarchical):", error)
       throw error
     }
   },
@@ -492,6 +523,22 @@ const dataFetchers: DataFetcher = {
       }))
     } catch (error: any) {
       console.error("Error fetching Notion databases:", error)
+      throw error
+    }
+  },
+
+  notion_users: async (integration: any) => {
+    try {
+      // Notion API doesn't provide a direct way to get all users in a workspace
+      // We'll return a list of common assignee options that users can customize
+      return [
+        { id: "me", name: "Me", value: "me", description: "Current user" },
+        { id: "unassigned", name: "Unassigned", value: "unassigned", description: "No assignee" },
+        { id: "team", name: "Team", value: "team", description: "Team members" },
+        { id: "anyone", name: "Anyone", value: "anyone", description: "Any workspace member" }
+      ]
+    } catch (error: any) {
+      console.error("Error fetching Notion users:", error)
       throw error
     }
   },
@@ -3629,12 +3676,81 @@ const dataFetchers: DataFetcher = {
 
 // Helper functions
 function getPageTitle(page: any): string {
+  // First, try the standard title property
   if (page.properties?.title?.title?.[0]?.plain_text) {
     return page.properties.title.title[0].plain_text
   }
+  
+  // Try the Name property (common alternative)
   if (page.properties?.Name?.title?.[0]?.plain_text) {
     return page.properties.Name.title[0].plain_text
   }
+  
+  // Search through all properties for any title-like field
+  if (page.properties) {
+    for (const [key, prop] of Object.entries(page.properties)) {
+      const typedProp = prop as any
+      
+      // Check for title arrays
+      if (typedProp.title && Array.isArray(typedProp.title) && typedProp.title.length > 0) {
+        const titleText = typedProp.title[0].plain_text
+        if (titleText && titleText.trim() !== '') {
+          return titleText
+        }
+      }
+      
+      // Check for rich_text arrays (another common title format)
+      if (typedProp.rich_text && Array.isArray(typedProp.rich_text) && typedProp.rich_text.length > 0) {
+        const richText = typedProp.rich_text[0].plain_text
+        if (richText && richText.trim() !== '') {
+          return richText
+        }
+      }
+      
+      // Check for name properties
+      if (typedProp.name && Array.isArray(typedProp.name) && typedProp.name.length > 0) {
+        const nameText = typedProp.name[0].plain_text
+        if (nameText && nameText.trim() !== '') {
+          return nameText
+        }
+      }
+      
+      // Check for text properties
+      if (typedProp.text && Array.isArray(typedProp.text) && typedProp.text.length > 0) {
+        const textText = typedProp.text[0].plain_text
+        if (textText && textText.trim() !== '') {
+          return textText
+        }
+      }
+    }
+  }
+  
+  // If we still can't find a title, try to extract from the URL
+  if (page.url) {
+    const urlParts = page.url.split('/')
+    const lastPart = urlParts[urlParts.length - 1]
+    if (lastPart && lastPart !== page.id) {
+      // Decode URL and replace dashes with spaces
+      try {
+        const decoded = decodeURIComponent(lastPart.replace(/-/g, ' '))
+        if (decoded && decoded.trim() !== '') {
+          return decoded
+        }
+      } catch (e) {
+        // If decoding fails, just use the last part with dashes replaced
+        const cleaned = lastPart.replace(/-/g, ' ')
+        if (cleaned && cleaned.trim() !== '') {
+          return cleaned
+        }
+      }
+    }
+  }
+  
+  // Last resort: use the page ID as a fallback
+  if (page.id) {
+    return `Page ${page.id.slice(0, 8)}...`
+  }
+  
   return "Untitled"
 }
 

@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
 
     // Log the AI generation
     await supabase.from("ai_workflow_generations").insert({
-      user_id: session.user.id,
+      user_id: user.id,
       prompt,
       generated_workflow: generatedWorkflow,
       confidence_score: 0.8,

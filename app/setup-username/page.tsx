@@ -136,7 +136,7 @@ export default function SetupUsernamePage() {
         <CardContent className="space-y-6 p-6">
           <div className="text-center">
             <p className="text-slate-600 mb-4">
-              Welcome, {profile?.full_name || user.email}! Please choose a username to complete your account setup.
+              Welcome, {profile?.full_name || user?.email || 'User'}! Please choose a username to complete your account setup.
             </p>
           </div>
 

@@ -36,5 +36,5 @@ export async function getSlackChannels(token?: string): Promise<any> {
 export async function getSlackUsers(token?: string): Promise<any> {
   const client = await getSlackClient(token)
 
-  return client.users.list()
+  return client.users.list({})
 }
