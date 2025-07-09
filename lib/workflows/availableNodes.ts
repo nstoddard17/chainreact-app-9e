@@ -43,6 +43,10 @@ import {
   Layout,
   Shield,
   Package,
+  Check,
+  X,
+  Reply,
+  Forward,
 } from "lucide-react"
 
 // Import Gmail action metadata
@@ -65,12 +69,12 @@ import { AI_AGENT_METADATA } from "@/lib/workflows/aiAgent"
 export interface ConfigField {
   name: string
   label: string
-  type: "string" | "number" | "boolean" | "select" | "combobox" | "textarea" | "text" | "email" | "password" | "email-autocomplete" | "location-autocomplete" | "file" | "date" | "time" | "datetime" | "custom"
+  type: "string" | "number" | "boolean" | "select" | "combobox" | "textarea" | "text" | "email" | "password" | "email-autocomplete" | "location-autocomplete" | "file" | "date" | "time" | "datetime" | "custom" | "rich-text"
   required?: boolean
   placeholder?: string
   description?: string
   options?: { value: string; label: string }[] | string[]
-  dynamic?: "slack-channels" | "google-calendars" | "google-drive-folders" | "google-drive-files" | "onedrive-folders" | "dropbox-folders" | "box-folders" | "gmail-recent-recipients" | "gmail-enhanced-recipients" | "gmail-contact-groups" | "gmail_messages" | "gmail_labels" | "gmail_recent_senders" | "google-sheets_spreadsheets" | "google-sheets_sheets" | "google-docs_documents" | "google-docs_templates" | "google-docs_recent_documents" | "google-docs_shared_documents" | "google-docs_folders" | "youtube_channels" | "youtube_videos" | "youtube_playlists" | "teams_chats" | "teams_teams" | "teams_channels" | "github_repositories" | "gitlab_projects" | "notion_databases" | "notion_pages" | "trello_boards" | "trello_lists" | "hubspot_companies" | "airtable_workspaces" | "airtable_bases" | "airtable_tables" | "airtable_records" | "airtable_feedback_records" | "airtable_task_records" | "airtable_project_records" | "gumroad_products" | "blackbaud_constituents" | "facebook_pages"
+  dynamic?: "slack-channels" | "google-calendars" | "google-drive-folders" | "google-drive-files" | "onedrive-folders" | "dropbox-folders" | "box-folders" | "gmail-recent-recipients" | "gmail-enhanced-recipients" | "gmail-contact-groups" | "gmail_messages" | "gmail_labels" | "gmail_recent_senders" | "google-sheets_spreadsheets" | "google-sheets_sheets" | "google-docs_documents" | "google-docs_templates" | "google-docs_recent_documents" | "google-docs_shared_documents" | "google-docs_folders" | "youtube_channels" | "youtube_videos" | "youtube_playlists" | "teams_chats" | "teams_teams" | "teams_channels" | "github_repositories" | "gitlab_projects" | "notion_databases" | "notion_pages" | "trello_boards" | "trello_lists" | "hubspot_companies" | "hubspot_contacts" | "hubspot_deals" | "hubspot_lists" | "hubspot_pipelines" | "hubspot_deal_stages" | "airtable_workspaces" | "airtable_bases" | "airtable_tables" | "airtable_records" | "airtable_feedback_records" | "airtable_task_records" | "airtable_project_records" | "gumroad_products" | "blackbaud_constituents" | "facebook_pages" | "onenote_notebooks" | "onenote_sections" | "onenote_pages" | "outlook_folders" | "outlook_messages" | "outlook_contacts" | "outlook_calendars" | "outlook_events" | "outlook-enhanced-recipients"
   accept?: string // For file inputs, specify accepted file types
   maxSize?: number // For file inputs, specify max file size in bytes
   defaultValue?: string | number | boolean // Default value for the field
@@ -81,7 +85,7 @@ export interface ConfigField {
 export interface NodeField {
   name: string
   label: string
-  type: "text" | "textarea" | "number" | "boolean" | "select" | "combobox" | "file" | "custom" | "email" | "time" | "datetime" | "email-autocomplete" | "date" | "location-autocomplete"
+  type: "text" | "textarea" | "number" | "boolean" | "select" | "combobox" | "file" | "custom" | "email" | "time" | "datetime" | "email-autocomplete" | "date" | "location-autocomplete" | "rich-text"
   required?: boolean
   placeholder?: string
   defaultValue?: any
@@ -738,20 +742,23 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         label: "To",
         type: "email-autocomplete",
         required: true,
-        dynamic: "gmail-recent-recipients",
+        dynamic: "gmail-enhanced-recipients",
         placeholder: "Enter recipient email addresses...",
       },
-      { name: "cc", label: "CC", type: "email-autocomplete", placeholder: "optional: cc@example.com", dynamic: "gmail-recent-recipients" },
-      { name: "bcc", label: "BCC", type: "email-autocomplete", placeholder: "optional: bcc@example.com", dynamic: "gmail-recent-recipients" },
-      { name: "subject", label: "Subject", type: "text", placeholder: "Your email subject", required: true },
-      { name: "body", label: "Body", type: "textarea", placeholder: "Your email body", required: true },
+      { name: "cc", label: "CC", type: "email-autocomplete", placeholder: "Enter CC email addresses...", dynamic: "gmail-enhanced-recipients" },
+      { name: "bcc", label: "BCC", type: "email-autocomplete", placeholder: "Enter BCC email addresses...", dynamic: "gmail-enhanced-recipients" },
+      { name: "subject", label: "Subject", type: "text", placeholder: "Email subject", required: true },
+      { name: "body", label: "Body", type: "rich-text", required: true, placeholder: "Compose your email message..." },
       { 
         name: "attachments", 
         label: "Attachments", 
         type: "file", 
-        placeholder: "Choose files to attach...",
+        required: false,
+        placeholder: "Select files to attach", 
+        multiple: true,
         accept: ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.jpg,.jpeg,.png,.gif,.zip,.rar",
-        maxSize: 25 * 1024 * 1024 // 25MB limit (Gmail's attachment limit)
+        maxSize: 25 * 1024 * 1024, // 25MB limit (Gmail's attachment limit)
+        description: "Attach files from your computer or select files from previous workflow nodes"
       },
     ],
     actionParamsSchema: {
@@ -1912,12 +1919,20 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
       { name: "firstname", label: "First Name", type: "text" },
       { name: "lastname", label: "Last Name", type: "text" },
       { name: "phone", label: "Phone", type: "text" },
-      { name: "company", label: "Company", type: "text" },
+      { 
+        name: "company", 
+        label: "Company", 
+        type: "combobox",
+        dynamic: "hubspot_companies",
+        required: false,
+        placeholder: "Select a company or type to create new",
+        creatable: true
+      },
       { name: "jobtitle", label: "Job Title", type: "text" },
       { 
         name: "lifecycle_stage", 
         label: "Lifecycle Stage", 
-        type: "select",
+        type: "combobox",
         options: [
           { value: "subscriber", label: "Subscriber" },
           { value: "lead", label: "Lead" },
@@ -1927,12 +1942,14 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
           { value: "customer", label: "Customer" },
           { value: "evangelist", label: "Evangelist" },
           { value: "other", label: "Other" }
-        ]
+        ],
+        placeholder: "Select a lifecycle stage or type to create new",
+        creatable: true
       },
       { 
         name: "lead_status", 
         label: "Lead Status", 
-        type: "select",
+        type: "combobox",
         options: [
           { value: "NEW", label: "New" },
           { value: "OPEN", label: "Open" },
@@ -1941,7 +1958,9 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
           { value: "CONTRACT_SENT", label: "Contract Sent" },
           { value: "CLOSED_WON", label: "Closed Won" },
           { value: "CLOSED_LOST", label: "Closed Lost" }
-        ]
+        ],
+        placeholder: "Select a lead status or type to create new",
+        creatable: true
       },
       { name: "custom_properties", label: "Custom Properties (JSON)", type: "textarea", placeholder: '{"custom_field": "value"}' }
     ],
@@ -3049,8 +3068,8 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     isTrigger: false,
     requiredScopes: ["Mail.ReadWrite"],
     configSchema: [
-      { name: "messageId", label: "Message ID", type: "text" },
-      { name: "folderName", label: "Folder Name", type: "text" },
+      { name: "messageId", label: "Message", type: "select", required: true, dynamic: "outlook_messages", placeholder: "Select a message" },
+      { name: "folderId", label: "Destination Folder", type: "select", required: true, dynamic: "outlook_folders", placeholder: "Select a folder" },
     ],
   },
   {
@@ -3062,7 +3081,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Communication",
     isTrigger: false,
     requiredScopes: ["Mail.ReadWrite"],
-    configSchema: [{ name: "messageId", label: "Message ID", type: "text" }],
+    configSchema: [{ name: "messageId", label: "Message", type: "select", required: true, dynamic: "outlook_messages", placeholder: "Select a message" }],
   },
   {
     type: "microsoft-outlook_action_search_email",
@@ -3073,7 +3092,10 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Communication",
     isTrigger: false,
     requiredScopes: ["Mail.Read"],
-    configSchema: [{ name: "query", label: "Search Query", type: "text" }],
+    configSchema: [
+      { name: "query", label: "Search Query", type: "text", required: true, placeholder: "Enter search terms (e.g., from:john@example.com subject:meeting)" },
+      { name: "folderId", label: "Search in Folder", type: "select", required: false, dynamic: "outlook_folders", placeholder: "Select a folder (optional, searches all folders if not specified)" },
+    ],
   },
 
   // Teams / Slack / Discord Triggers and Actions
@@ -3868,8 +3890,25 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     configSchema: [
       { name: "dealName", label: "Deal Name", type: "text", required: true, placeholder: "Enter deal name" },
       { name: "amount", label: "Amount", type: "number", required: false, placeholder: "10000" },
-      { name: "pipeline", label: "Pipeline", type: "text", required: false, placeholder: "default" },
-      { name: "stage", label: "Stage", type: "text", required: false, placeholder: "appointmentscheduled" },
+      { 
+        name: "pipeline", 
+        label: "Pipeline", 
+        type: "combobox",
+        dynamic: "hubspot_pipelines",
+        required: false,
+        placeholder: "Select a pipeline or type to create new",
+        creatable: true
+      },
+      { 
+        name: "stage", 
+        label: "Stage", 
+        type: "combobox",
+        dynamic: "hubspot_deal_stages",
+        required: false,
+        placeholder: "Select a stage or type to create new",
+        dependsOn: "pipeline",
+        creatable: true
+      },
       { name: "closeDate", label: "Close Date", type: "date", required: false }
     ]
   },
@@ -3883,8 +3922,118 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "CRM",
     isTrigger: false,
     configSchema: [
-      { name: "contactId", label: "Contact ID", type: "text", required: true, placeholder: "Enter contact ID" },
-      { name: "listId", label: "List ID", type: "text", required: true, placeholder: "Enter list ID" }
+      { 
+        name: "contactId", 
+        label: "Contact", 
+        type: "combobox",
+        dynamic: "hubspot_contacts",
+        required: true,
+        placeholder: "Select a contact or type to create new",
+        creatable: true
+      },
+      { 
+        name: "listId", 
+        label: "List", 
+        type: "combobox",
+        dynamic: "hubspot_lists",
+        required: true,
+        placeholder: "Select a list or type to create new",
+        creatable: true
+      }
+    ]
+  },
+  {
+    type: "hubspot_action_update_contact",
+    title: "Update Contact (HubSpot)",
+    description: "Update an existing contact in HubSpot",
+    icon: Edit,
+    providerId: "hubspot",
+    requiredScopes: ["crm.objects.contacts.write"],
+    category: "CRM",
+    isTrigger: false,
+    configSchema: [
+      { 
+        name: "contactId", 
+        label: "Contact", 
+        type: "select",
+        dynamic: "hubspot_contacts",
+        required: true,
+        placeholder: "Select a contact to update"
+      },
+      { name: "email", label: "Email", type: "email", required: false },
+      { name: "firstname", label: "First Name", type: "text", required: false },
+      { name: "lastname", label: "Last Name", type: "text", required: false },
+      { name: "phone", label: "Phone", type: "text", required: false },
+      { 
+        name: "company", 
+        label: "Company", 
+        type: "combobox",
+        dynamic: "hubspot_companies",
+        required: false,
+        placeholder: "Select a company or type to create new",
+        creatable: true
+      },
+      { name: "jobtitle", label: "Job Title", type: "text", required: false },
+      { 
+        name: "lifecycle_stage", 
+        label: "Lifecycle Stage", 
+        type: "combobox",
+        options: [
+          { value: "subscriber", label: "Subscriber" },
+          { value: "lead", label: "Lead" },
+          { value: "marketingqualifiedlead", label: "Marketing Qualified Lead" },
+          { value: "salesqualifiedlead", label: "Sales Qualified Lead" },
+          { value: "opportunity", label: "Opportunity" },
+          { value: "customer", label: "Customer" },
+          { value: "evangelist", label: "Evangelist" },
+          { value: "other", label: "Other" }
+        ],
+        placeholder: "Select a lifecycle stage or type to create new",
+        creatable: true
+      },
+      { name: "custom_properties", label: "Custom Properties (JSON)", type: "textarea", placeholder: '{"custom_field": "value"}' }
+    ]
+  },
+  {
+    type: "hubspot_action_update_deal",
+    title: "Update Deal (HubSpot)",
+    description: "Update an existing deal in HubSpot",
+    icon: Edit,
+    providerId: "hubspot",
+    requiredScopes: ["crm.objects.deals.write"],
+    category: "CRM",
+    isTrigger: false,
+    configSchema: [
+      { 
+        name: "dealId", 
+        label: "Deal", 
+        type: "select",
+        dynamic: "hubspot_deals",
+        required: true,
+        placeholder: "Select a deal to update"
+      },
+      { name: "dealName", label: "Deal Name", type: "text", required: false },
+      { name: "amount", label: "Amount", type: "number", required: false },
+      { 
+        name: "pipeline", 
+        label: "Pipeline", 
+        type: "combobox",
+        dynamic: "hubspot_pipelines",
+        required: false,
+        placeholder: "Select a pipeline or type to create new",
+        creatable: true
+      },
+      { 
+        name: "stage", 
+        label: "Stage", 
+        type: "combobox",
+        dynamic: "hubspot_deal_stages",
+        required: false,
+        placeholder: "Select a stage or type to create new",
+        dependsOn: "pipeline",
+        creatable: true
+      },
+      { name: "closeDate", label: "Close Date", type: "date", required: false }
     ]
   },
 
@@ -4310,12 +4459,12 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Communication",
     isTrigger: false,
     configSchema: [
-      { name: "to", label: "To", type: "text", required: true, placeholder: "recipient@example.com" },
+      { name: "to", label: "To", type: "email-autocomplete", required: true, placeholder: "Enter recipient email addresses...", dynamic: "outlook-enhanced-recipients" },
+      { name: "cc", label: "CC", type: "email-autocomplete", required: false, placeholder: "Enter CC email addresses...", dynamic: "outlook-enhanced-recipients" },
+      { name: "bcc", label: "BCC", type: "email-autocomplete", required: false, placeholder: "Enter BCC email addresses...", dynamic: "outlook-enhanced-recipients" },
       { name: "subject", label: "Subject", type: "text", required: true, placeholder: "Email subject" },
-      { name: "body", label: "Body", type: "textarea", required: true, placeholder: "Email body" },
-      { name: "cc", label: "CC", type: "text", required: false, placeholder: "cc@example.com" },
-      { name: "bcc", label: "BCC", type: "text", required: false, placeholder: "bcc@example.com" },
-      { name: "isHtml", label: "HTML Body", type: "boolean", required: false, defaultValue: false }
+      { name: "body", label: "Body", type: "rich-text", required: true, placeholder: "Compose your email message..." },
+      { name: "attachments", label: "Attachments", type: "file", required: false, placeholder: "Select files to attach", multiple: true, description: "Attach files from your computer or select files from previous workflow nodes" }
     ]
   },
   {
@@ -4328,12 +4477,131 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Communication",
     isTrigger: false,
     configSchema: [
+      // Calendar Section
+      { name: "calendarId", label: "Calendar", type: "combobox", required: false, creatable: true, dynamic: "outlook_calendars", placeholder: "Select a calendar or type to create new" },
+      
+      // General Section
       { name: "subject", label: "Subject", type: "text", required: true, placeholder: "Event subject" },
-      { name: "startTime", label: "Start Time", type: "datetime", required: true },
-      { name: "endTime", label: "End Time", type: "datetime", required: true },
+      { name: "isAllDay", label: "All Day", type: "boolean", required: false, defaultValue: false },
+      { name: "startDate", label: "Start Date", type: "date", required: true, defaultValue: "today" },
+      { name: "startTime", label: "Start Time", type: "time", required: true, defaultValue: "next-hour" },
+      { name: "endDate", label: "End Date", type: "date", required: true, defaultValue: "same-as-start" },
+      { name: "endTime", label: "End Time", type: "time", required: true, defaultValue: "1-hour-after-start" },
+      { name: "timeZone", label: "Time Zone", type: "combobox", required: false, defaultValue: "user-timezone", creatable: true, placeholder: "Select or type timezone", options: [
+        { value: "user-timezone", label: "Your timezone (auto-detected)" },
+        { value: "America/New_York", label: "Eastern Time (ET)" },
+        { value: "America/Chicago", label: "Central Time (CT)" },
+        { value: "America/Denver", label: "Mountain Time (MT)" },
+        { value: "America/Los_Angeles", label: "Pacific Time (PT)" },
+        { value: "America/Anchorage", label: "Alaska Time (AKT)" },
+        { value: "Pacific/Honolulu", label: "Hawaii Time (HST)" },
+        { value: "UTC", label: "UTC (Coordinated Universal Time)" },
+        { value: "Europe/London", label: "London (GMT/BST)" },
+        { value: "Europe/Paris", label: "Paris (CET/CEST)" },
+        { value: "Europe/Berlin", label: "Berlin (CET/CEST)" },
+        { value: "Europe/Moscow", label: "Moscow (MSK)" },
+        { value: "Asia/Tokyo", label: "Tokyo (JST)" },
+        { value: "Asia/Shanghai", label: "Shanghai (CST)" },
+        { value: "Asia/Dubai", label: "Dubai (GST)" },
+        { value: "Asia/Kolkata", label: "Mumbai (IST)" },
+        { value: "Australia/Sydney", label: "Sydney (AEDT/AEST)" },
+        { value: "Pacific/Auckland", label: "Auckland (NZDT/NZST)" }
+      ], description: "Your timezone will be automatically detected and set as the default" },
       { name: "body", label: "Description", type: "textarea", required: false, placeholder: "Event description" },
-      { name: "attendees", label: "Attendees", type: "text", required: false, placeholder: "attendee1@example.com,attendee2@example.com" },
-      { name: "location", label: "Location", type: "text", required: false, placeholder: "Meeting location" }
+      { name: "attendees", label: "Attendees", type: "email-autocomplete", required: false, placeholder: "Enter attendee email addresses...", dynamic: "outlook-enhanced-recipients" },
+      { name: "location", label: "Location", type: "location-autocomplete", required: false, placeholder: "Enter location or address" },
+      { name: "locations", label: "Additional Locations", type: "text", required: false, placeholder: "Additional location details" },
+      
+      // Scheduling Section
+      { name: "recurrence", label: "Repeat", type: "select", required: false, defaultValue: "none", options: [
+        { value: "none", label: "Does not repeat" },
+        { value: "RRULE:FREQ=DAILY", label: "Daily" },
+        { value: "RRULE:FREQ=WEEKLY", label: "Weekly" },
+        { value: "RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR", label: "Every weekday (Monday to Friday)" },
+        { value: "RRULE:FREQ=MONTHLY", label: "Monthly" },
+        { value: "RRULE:FREQ=YEARLY", label: "Annually" }
+      ]},
+      { name: "showAs", label: "Show as", type: "select", required: false, defaultValue: "free", options: [
+        { value: "free", label: "Free" },
+        { value: "busy", label: "Busy" },
+        { value: "tentative", label: "Tentative" },
+        { value: "oof", label: "Out of office" }
+      ]},
+      
+      // Notifications Section
+      { name: "isReminderOn", label: "Enable reminder", type: "boolean", required: false, defaultValue: true },
+      { name: "reminderMinutesBeforeStart", label: "Reminder time", type: "select", required: false, defaultValue: "30", options: [
+        { value: "0", label: "At start time" },
+        { value: "5", label: "5 minutes before" },
+        { value: "10", label: "10 minutes before" },
+        { value: "15", label: "15 minutes before" },
+        { value: "30", label: "30 minutes before" },
+        { value: "60", label: "1 hour before" },
+        { value: "120", label: "2 hours before" },
+        { value: "1440", label: "1 day before" },
+        { value: "2880", label: "2 days before" },
+        { value: "10080", label: "1 week before" }
+      ]},
+      { name: "allowNewTimeProposals", label: "Allow time proposals", type: "boolean", required: false, defaultValue: true, description: "Allow attendees to propose new meeting times" },
+      { name: "responseRequested", label: "Response requested", type: "boolean", required: false, defaultValue: true, description: "Request responses from attendees" },
+      
+      // Online Meeting Section
+      { name: "isOnlineMeeting", label: "Add online meeting", type: "boolean", required: false, defaultValue: false, description: "Automatically add a Teams meeting link to this event" },
+      { name: "onlineMeetingProvider", label: "Online meeting provider", type: "select", required: false, defaultValue: "teamsForBusiness", options: [
+        { value: "teamsForBusiness", label: "Microsoft Teams" },
+        { value: "skypeForBusiness", label: "Skype for Business" },
+        { value: "skypeForConsumer", label: "Skype for Consumer" }
+      ]},
+      
+      // Classification Section
+      { name: "categories", label: "Categories", type: "combobox", required: false, placeholder: "Type category name and press Tab to add", creatable: true, multiple: true },
+      { name: "importance", label: "Importance", type: "select", required: false, defaultValue: "normal", options: [
+        { value: "low", label: "Low" },
+        { value: "normal", label: "Normal" },
+        { value: "high", label: "High" }
+      ]},
+      { name: "sensitivity", label: "Sensitivity", type: "select", required: false, defaultValue: "normal", options: [
+        { value: "normal", label: "Normal" },
+        { value: "personal", label: "Personal" },
+        { value: "private", label: "Private" },
+        { value: "confidential", label: "Confidential" }
+      ]},
+      
+      // Advanced Section
+      { name: "transactionId", label: "Transaction ID", type: "text", required: false, placeholder: "Custom transaction identifier" },
+      { name: "hideAttendees", label: "Hide attendees", type: "boolean", required: false, defaultValue: false, description: "Hide attendee list from other attendees" },
+      { name: "singleValueExtendedProperties", label: "Single-value extended properties", type: "textarea", required: false, placeholder: "JSON format: [{\"id\":\"property-id\",\"value\":\"property-value\"}]" },
+      { name: "multiValueExtendedProperties", label: "Multi-value extended properties", type: "textarea", required: false, placeholder: "JSON format: [{\"id\":\"property-id\",\"values\":[\"value1\",\"value2\"]}]" },
+      
+      // Legacy/Compatibility Fields (mapped to new fields)
+      { name: "reminderMinutes", label: "Notification (legacy)", type: "select", required: false, defaultValue: "30", options: [
+        { value: "30", label: "30 minutes before" },
+        { value: "0", label: "None" },
+        { value: "5", label: "5 minutes before" },
+        { value: "10", label: "10 minutes before" },
+        { value: "15", label: "15 minutes before" },
+        { value: "60", label: "1 hour before" },
+        { value: "120", label: "2 hours before" },
+        { value: "1440", label: "1 day before" },
+        { value: "2880", label: "2 days before" },
+        { value: "10080", label: "1 week before" }
+      ], hidden: true },
+      { name: "reminderMethod", label: "Notification method (legacy)", type: "select", required: false, defaultValue: "popup", options: [
+        { value: "popup", label: "Notification" },
+        { value: "email", label: "Email" }
+      ], hidden: true },
+      { name: "sendNotifications", label: "Send invitations (legacy)", type: "select", required: false, defaultValue: "all", options: [
+        { value: "all", label: "Send to all attendees" },
+        { value: "externalOnly", label: "Send to attendees outside your organization" },
+        { value: "none", label: "Don't send" }
+      ], hidden: true },
+      { name: "guestsCanInviteOthers", label: "Guests can invite others (legacy)", type: "boolean", required: false, defaultValue: true, hidden: true },
+      { name: "guestsCanSeeOtherGuests", label: "Guests can see guest list (legacy)", type: "boolean", required: false, defaultValue: true, hidden: true },
+      { name: "guestsCanModify", label: "Guests can modify event (legacy)", type: "boolean", required: false, defaultValue: false, hidden: true },
+      { name: "visibility", label: "Visibility (legacy)", type: "select", required: false, defaultValue: "public", options: [
+        { value: "public", label: "Public" },
+        { value: "private", label: "Private" }
+      ], hidden: true }
     ]
   },
   {
@@ -4354,6 +4622,143 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
       { name: "jobTitle", label: "Job Title", type: "text", required: false, placeholder: "Software Engineer" }
     ]
   },
+  {
+    type: "microsoft-outlook_action_move_email",
+    title: "Move Email (Outlook)",
+    description: "Move an email to a different folder",
+    icon: Move,
+    providerId: "microsoft-outlook",
+    requiredScopes: ["Mail.ReadWrite"],
+    category: "Communication",
+    isTrigger: false,
+    configSchema: [
+      { name: "messageId", label: "Message", type: "select", required: true, dynamic: "outlook_messages", placeholder: "Select a message" },
+      { name: "sourceFolderId", label: "Source Folder", type: "select", required: false, dynamic: "outlook_folders", placeholder: "Select source folder (optional)" },
+      { name: "destinationFolderId", label: "Destination Folder", type: "select", required: true, dynamic: "outlook_folders", placeholder: "Select destination folder" },
+    ]
+  },
+  {
+    type: "microsoft-outlook_action_mark_as_read",
+    title: "Mark Email as Read (Outlook)",
+    description: "Mark an email as read",
+    icon: Check,
+    providerId: "microsoft-outlook",
+    requiredScopes: ["Mail.ReadWrite"],
+    category: "Communication",
+    isTrigger: false,
+    configSchema: [
+      { name: "messageId", label: "Message", type: "select", required: true, dynamic: "outlook_messages", placeholder: "Select a message" },
+    ]
+  },
+  {
+    type: "microsoft-outlook_action_mark_as_unread",
+    title: "Mark Email as Unread (Outlook)",
+    description: "Mark an email as unread",
+    icon: X,
+    providerId: "microsoft-outlook",
+    requiredScopes: ["Mail.ReadWrite"],
+    category: "Communication",
+    isTrigger: false,
+    configSchema: [
+      { name: "messageId", label: "Message", type: "select", required: true, dynamic: "outlook_messages", placeholder: "Select a message" },
+    ]
+  },
+  {
+    type: "microsoft-outlook_action_reply_to_email",
+    title: "Reply to Email (Outlook)",
+    description: "Reply to an existing email",
+    icon: Reply,
+    providerId: "microsoft-outlook",
+    requiredScopes: ["Mail.Send"],
+    category: "Communication",
+    isTrigger: false,
+    configSchema: [
+      { name: "messageId", label: "Message", type: "select", required: true, dynamic: "outlook_messages", placeholder: "Select a message" },
+      { name: "body", label: "Reply Body", type: "textarea", required: true, placeholder: "Your reply message" },
+      { name: "isHtml", label: "HTML Body", type: "boolean", required: false, defaultValue: false }
+    ]
+  },
+  {
+    type: "microsoft-outlook_action_forward_email",
+    title: "Forward Email (Outlook)",
+    description: "Forward an email to other recipients",
+    icon: Forward,
+    providerId: "microsoft-outlook",
+    requiredScopes: ["Mail.Send"],
+    category: "Communication",
+    isTrigger: false,
+    configSchema: [
+      { name: "messageId", label: "Message", type: "select", required: true, dynamic: "outlook_messages", placeholder: "Select a message" },
+      { name: "to", label: "To", type: "email-autocomplete", required: true, placeholder: "Enter recipient email addresses...", dynamic: "outlook-enhanced-recipients" },
+      { name: "cc", label: "CC", type: "email-autocomplete", required: false, placeholder: "Enter CC email addresses...", dynamic: "outlook-enhanced-recipients" },
+      { name: "bcc", label: "BCC", type: "email-autocomplete", required: false, placeholder: "Enter BCC email addresses...", dynamic: "outlook-enhanced-recipients" },
+      { name: "body", label: "Additional Message", type: "textarea", required: false, placeholder: "Additional message to include with the forwarded email" },
+    ]
+  },
+  {
+    type: "microsoft-outlook_action_get_messages",
+    title: "Get Messages (Outlook)",
+    description: "Retrieve emails from a specific folder",
+    icon: MailOpen,
+    providerId: "microsoft-outlook",
+    requiredScopes: ["Mail.Read"],
+    category: "Communication",
+    isTrigger: false,
+    producesOutput: true,
+    configSchema: [
+      { name: "folderId", label: "Folder", type: "select", required: false, dynamic: "outlook_folders", placeholder: "Select a folder (uses inbox if not specified)" },
+      { name: "limit", label: "Number of Messages", type: "select", required: false, defaultValue: "10", options: [
+        { value: "5", label: "5 messages" },
+        { value: "10", label: "10 messages" },
+        { value: "25", label: "25 messages" },
+        { value: "50", label: "50 messages" },
+        { value: "100", label: "100 messages" }
+      ]},
+      { name: "unreadOnly", label: "Unread Only", type: "boolean", required: false, defaultValue: false },
+    ]
+  },
+  {
+    type: "microsoft-outlook_action_get_contacts",
+    title: "Get Contacts (Outlook)",
+    description: "Retrieve contacts from Outlook",
+    icon: Users,
+    providerId: "microsoft-outlook",
+    requiredScopes: ["Contacts.Read"],
+    category: "Communication",
+    isTrigger: false,
+    producesOutput: true,
+    configSchema: [
+      { name: "limit", label: "Number of Contacts", type: "select", required: false, defaultValue: "50", options: [
+        { value: "10", label: "10 contacts" },
+        { value: "25", label: "25 contacts" },
+        { value: "50", label: "50 contacts" },
+        { value: "100", label: "100 contacts" },
+        { value: "all", label: "All contacts" }
+      ]},
+    ]
+  },
+  {
+    type: "microsoft-outlook_action_get_calendar_events",
+    title: "Get Calendar Events (Outlook)",
+    description: "Retrieve calendar events from Outlook",
+    icon: Calendar,
+    providerId: "microsoft-outlook",
+    requiredScopes: ["Calendars.Read"],
+    category: "Communication",
+    isTrigger: false,
+    producesOutput: true,
+    configSchema: [
+      { name: "calendarId", label: "Calendar", type: "select", required: false, dynamic: "outlook_calendars", placeholder: "Select a calendar (uses default if not specified)" },
+      { name: "startDate", label: "Start Date", type: "date", required: false, placeholder: "Start date for events" },
+      { name: "endDate", label: "End Date", type: "date", required: false, placeholder: "End date for events" },
+      { name: "limit", label: "Number of Events", type: "select", required: false, defaultValue: "25", options: [
+        { value: "10", label: "10 events" },
+        { value: "25", label: "25 events" },
+        { value: "50", label: "50 events" },
+        { value: "100", label: "100 events" }
+      ]},
+    ]
+  },
 
   // Microsoft OneNote Actions
   {
@@ -4366,7 +4771,25 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Productivity",
     isTrigger: false,
     configSchema: [
-      { name: "sectionId", label: "Section ID", type: "text", required: true, placeholder: "Enter section ID" },
+      { 
+        name: "notebookId", 
+        label: "Notebook", 
+        type: "combobox",
+        dynamic: "onenote_notebooks",
+        required: true,
+        placeholder: "Select a notebook or type to create new",
+        creatable: true
+      },
+      { 
+        name: "sectionId", 
+        label: "Section", 
+        type: "combobox",
+        dynamic: "onenote_sections",
+        required: true,
+        placeholder: "Select a section or type to create new",
+        dependsOn: "notebookId",
+        creatable: true
+      },
       { name: "title", label: "Page Title", type: "text", required: true, placeholder: "Enter page title" },
       { name: "content", label: "Content", type: "textarea", required: false, placeholder: "Enter page content" }
     ]
@@ -4381,7 +4804,15 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Productivity",
     isTrigger: false,
     configSchema: [
-      { name: "notebookId", label: "Notebook ID", type: "text", required: true, placeholder: "Enter notebook ID" },
+      { 
+        name: "notebookId", 
+        label: "Notebook", 
+        type: "combobox",
+        dynamic: "onenote_notebooks",
+        required: true,
+        placeholder: "Select a notebook or type to create new",
+        creatable: true
+      },
       { name: "displayName", label: "Section Name", type: "text", required: true, placeholder: "Enter section name" }
     ]
   },
@@ -4395,7 +4826,35 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Productivity",
     isTrigger: false,
     configSchema: [
-      { name: "pageId", label: "Page ID", type: "text", required: true, placeholder: "Enter page ID" },
+      { 
+        name: "notebookId", 
+        label: "Notebook", 
+        type: "combobox",
+        dynamic: "onenote_notebooks",
+        required: true,
+        placeholder: "Select a notebook or type to create new",
+        creatable: true
+      },
+      { 
+        name: "sectionId", 
+        label: "Section", 
+        type: "combobox",
+        dynamic: "onenote_sections",
+        required: true,
+        placeholder: "Select a section or type to create new",
+        dependsOn: "notebookId",
+        creatable: true
+      },
+      { 
+        name: "pageId", 
+        label: "Page", 
+        type: "combobox",
+        dynamic: "onenote_pages",
+        required: true,
+        placeholder: "Select a page or type to create new",
+        dependsOn: "sectionId",
+        creatable: true
+      },
       { name: "title", label: "New Title", type: "text", required: false, placeholder: "New page title" },
       { name: "content", label: "New Content", type: "textarea", required: false, placeholder: "New page content" }
     ]

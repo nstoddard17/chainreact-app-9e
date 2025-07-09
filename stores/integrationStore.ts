@@ -695,6 +695,26 @@ export const useIntegrationStore = create<IntegrationStore>()(
             url = "/api/integrations/fetch-user-data"
             dataType = "hubspot_companies"
             break
+          case "hubspot_contacts":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "hubspot_contacts"
+            break
+          case "hubspot_deals":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "hubspot_deals"
+            break
+          case "hubspot_lists":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "hubspot_lists"
+            break
+          case "hubspot_pipelines":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "hubspot_pipelines"
+            break
+          case "hubspot_deal_stages":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "hubspot_deal_stages"
+            break
           case "airtable_bases":
             url = "/api/integrations/fetch-user-data"
             dataType = "airtable_bases"
@@ -743,14 +763,65 @@ export const useIntegrationStore = create<IntegrationStore>()(
             url = "/api/integrations/fetch-user-data"
             dataType = "facebook_pages"
             break
+          case "onenote_notebooks":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "onenote_notebooks"
+            break
+          case "onenote_sections":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "onenote_sections"
+            break
+          case "onenote_pages":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "onenote_pages"
+            break
+          case "outlook_folders":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "outlook_folders"
+            break
+          case "outlook_messages":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "outlook_messages"
+            break
+          case "outlook_contacts":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "outlook_contacts"
+            break
+          case "outlook-enhanced-recipients":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "outlook-enhanced-recipients"
+            break
+          case "outlook_calendars":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "outlook_calendars"
+            break
+          case "outlook_events":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "outlook_events"
+            break
+          case "outlook_signatures":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "outlook_signatures"
+            break
+          case "gmail_signatures":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "gmail_signatures"
+            break
           default:
             throw new Error(`Loading data for ${providerId} is not supported.`)
         }
 
-        const requestBody = url.includes('/gmail/') && !url.includes('/fetch-user-data') 
-          ? { integrationId } 
-          : { 
-              provider: providerId.includes('_') ? providerId.split('_')[0] : 
+        const provider = providerId === 'onenote_notebooks' ? 'microsoft-onenote' :
+                       providerId === 'onenote_sections' ? 'microsoft-onenote' :
+                       providerId === 'onenote_pages' ? 'microsoft-onenote' :
+                       providerId === 'outlook_folders' ? 'microsoft-outlook' :
+                       providerId === 'outlook_messages' ? 'microsoft-outlook' :
+                       providerId === 'outlook_contacts' ? 'microsoft-outlook' :
+                       providerId === 'outlook-enhanced-recipients' ? 'microsoft-outlook' :
+                       providerId === 'outlook_calendars' ? 'microsoft-outlook' :
+                       providerId === 'outlook_events' ? 'microsoft-outlook' :
+                       providerId === 'outlook_signatures' ? 'microsoft-outlook' :
+                       providerId === 'gmail_signatures' ? 'gmail' :
                        providerId === 'gmail-recent-recipients' ? 'gmail' :
                        providerId === 'gmail-enhanced-recipients' ? 'gmail' :
                        providerId === 'google-calendars' ? 'google-calendar' :
@@ -766,20 +837,33 @@ export const useIntegrationStore = create<IntegrationStore>()(
                        providerId === 'google-docs_recent_documents' ? 'google-docs' :
                        providerId === 'google-docs_shared_documents' ? 'google-docs' :
                        providerId === 'google-docs_folders' ? 'google-docs' :
+                       providerId.includes('_') ? providerId.split('_')[0] : 
                        providerId.includes('-') ? providerId.split('-')[0] : 
-                       providerId, // Extract base provider name
+                       providerId // Extract base provider name
+
+        console.log(`🔍 Provider mapping result: providerId="${providerId}" -> provider="${provider}"`)
+
+        const requestBody = url.includes('/gmail/') && !url.includes('/fetch-user-data') 
+          ? { integrationId } 
+          : { 
+              provider,
               dataType: params?.dataType || dataType, // Allow override via params
             }
 
-        console.log(`🌐 Integration Store: Loading data for ${providerId}, URL: ${url}, integrationId: ${integrationId}, requestBody:`, requestBody)
+        console.log(`🌐 Integration Store: Loading data for ${providerId}, URL: ${url}, integrationId: ${integrationId}`)
+        console.log(`🔍 Provider mapping debug: providerId="${providerId}", includes('_')=${providerId.includes('_')}, includes('-')=${providerId.includes('-')}`)
+        console.log(`🔍 Request body:`, requestBody)
 
         const response = await apiClient.post(url, { 
           ...requestBody,
           ...params 
         })
         
+        console.log(`🔍 Integration Store: API Response for ${providerId}:`, response)
+        
         // Handle the structured response from apiClient
         if (!response.success) {
+          console.error(`❌ Integration Store: Failed response for ${providerId}:`, response)
           throw new Error(response.error || 'Failed to load integration data')
         }
         

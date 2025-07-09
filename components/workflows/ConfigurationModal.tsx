@@ -47,7 +47,23 @@ export default function ConfigurationModal({
   workflowData,
   currentNodeId,
 }: ConfigurationModalProps) {
+  // State to control tooltip visibility
+  const [tooltipsEnabled, setTooltipsEnabled] = useState(false)
   const [config, setConfig] = useState<Record<string, any>>(initialData)
+  
+  // Enable tooltips after modal opens
+  useEffect(() => {
+    if (isOpen) {
+      const timer = setTimeout(() => {
+        setTooltipsEnabled(true)
+      }, 2000) // 2 second delay
+      
+      return () => {
+        clearTimeout(timer)
+        setTooltipsEnabled(false)
+      }
+    }
+  }, [isOpen])
   const [errors, setErrors] = useState<Record<string, string>>({})
   const { loadIntegrationData, getIntegrationByProvider, checkIntegrationScopes } = useIntegrationStore()
   const [dynamicOptions, setDynamicOptions] = useState<
@@ -103,6 +119,9 @@ export default function ConfigurationModal({
     getNodeTestResult,
     testTimestamp
   } = useWorkflowTestStore()
+
+  // File attachment state for rich text editors
+  const [attachments, setAttachments] = useState<Record<string, File[]>>({})
 
   // Helper functions for range selection
   const getCellCoordinate = (rowIndex: number, colIndex: number): string => {
@@ -192,6 +211,10 @@ export default function ConfigurationModal({
 
   useEffect(() => {
     setConfig(initialData)
+    // Initialize attachments from initialData if they exist
+    if (initialData.attachments) {
+      setAttachments(initialData.attachments)
+    }
     // Reset the initialization flag when initialData changes
     hasInitializedDefaults.current = false
   }, [initialData])
@@ -381,6 +404,14 @@ export default function ConfigurationModal({
     if (nodeInfo?.type === "google_sheets_action_create_spreadsheet") {
       // Set default timezone to user's current timezone if not specified
       if (config.timeZone === undefined) {
+        defaultValues.timeZone = getUserTimezone()
+      }
+    }
+
+    // Initialize Outlook calendar event defaults
+    if (nodeInfo?.type === "microsoft-outlook_action_create_calendar_event") {
+      // Set default timezone to user's current timezone if not specified
+      if (config.timeZone === undefined || config.timeZone === "user-timezone") {
         defaultValues.timeZone = getUserTimezone()
       }
     }
@@ -668,6 +699,14 @@ export default function ConfigurationModal({
       }
     }
 
+    // Special logic for Outlook calendar event - hide time fields when all day is selected
+    if (nodeInfo?.type === "microsoft-outlook_action_create_calendar_event") {
+      // Hide start and end time fields when isAllDay is true
+      if ((field.name === "startTime" || field.name === "endTime") && config.isAllDay === true) {
+        return false
+      }
+    }
+
     if (!field.dependsOn) {
       // Special logic for unified Google Sheets action
       if (nodeInfo?.type === "google_sheets_unified_action") {
@@ -718,16 +757,35 @@ export default function ConfigurationModal({
       
       // Only update state if the request wasn't aborted
       if (!controller.signal.aborted && data) {
-
-        setDynamicOptions(prev => ({
-          ...prev,
-          [field.name]: data.map((item: any) => ({
+        let mappedData
+        
+        // OneNote-specific mapping
+        if (field.dynamic === "onenote_sections") {
+          mappedData = data.map((section: any) => ({
+            value: section.id,
+            label: section.name,
+            description: section.description,
+          }))
+        } else if (field.dynamic === "onenote_pages") {
+          mappedData = data.map((page: any) => ({
+            value: page.id,
+            label: page.name,
+            description: page.description,
+          }))
+        } else {
+          // Default mapping for other integrations
+          mappedData = data.map((item: any) => ({
             value: item.value || item.id || item.name,
             label: item.name || item.label || item.title,
             description: item.description,
             fields: item.fields || [],
             ...item
           }))
+        }
+
+        setDynamicOptions(prev => ({
+          ...prev,
+          [field.name]: mappedData
         }))
       } else if (!controller.signal.aborted) {
         console.log(`⚠️ No data received for ${field.name}`)
@@ -743,6 +801,11 @@ export default function ConfigurationModal({
           setErrors(prev => ({
             ...prev,
             integrationError: `Your ${nodeInfo?.providerId || 'integration'} connection has expired. Please reconnect your account to continue.`
+          }))
+        } else if (errorMessage.includes('not found') || errorMessage.includes('not connected')) {
+          setErrors(prev => ({
+            ...prev,
+            integrationError: `Please connect your ${nodeInfo?.providerId || 'integration'} account first to load available options. You can connect it in the integrations page.`
           }))
         } else {
           setErrors(prev => ({
@@ -942,6 +1005,74 @@ export default function ConfigurationModal({
                 label: page.name,
               }))
               console.log("🔍 Mapped Facebook pages options:", newOptions[field.name])
+            } else if (field.dynamic === "onenote_notebooks") {
+              newOptions[field.name] = data.map((notebook: any) => ({
+                value: notebook.id,
+                label: notebook.name,
+                description: notebook.is_default ? "Default notebook" : undefined
+              }))
+            } else if (field.dynamic === "onenote_sections") {
+              newOptions[field.name] = data.map((section: any) => ({
+                value: section.id,
+                label: section.name,
+              }))
+            } else if (field.dynamic === "onenote_pages") {
+              newOptions[field.name] = data.map((page: any) => ({
+                value: page.id,
+                label: page.name,
+              }))
+            } else if (field.dynamic === "outlook_folders") {
+              newOptions[field.name] = data.map((folder: any) => ({
+                value: folder.id,
+                label: folder.name,
+                description: folder.unreadItemCount ? `${folder.unreadItemCount} unread` : undefined
+              }))
+            } else if (field.dynamic === "outlook_messages") {
+              newOptions[field.name] = data.map((message: any) => ({
+                value: message.id,
+                label: message.name,
+                description: `${message.fromName} (${message.from})`,
+                email: message.from,
+                fromName: message.fromName,
+                receivedDateTime: message.receivedDateTime,
+                isRead: message.isRead,
+                hasAttachments: message.hasAttachments,
+              }))
+            } else if (field.dynamic === "outlook_contacts") {
+              newOptions[field.name] = data.map((contact: any) => ({
+                value: contact.id,
+                label: contact.name,
+                description: contact.email ? contact.email : contact.company ? contact.company : undefined,
+                email: contact.email,
+                businessPhone: contact.businessPhone,
+                mobilePhone: contact.mobilePhone,
+                company: contact.company,
+                jobTitle: contact.jobTitle,
+              }))
+            } else if (field.dynamic === "outlook-enhanced-recipients") {
+              newOptions[field.name] = data.map((recipient: any) => ({
+                value: recipient.value,
+                label: recipient.label,
+                description: recipient.description,
+                type: recipient.type,
+              }))
+            } else if (field.dynamic === "outlook_calendars") {
+              newOptions[field.name] = data.map((calendar: any) => ({
+                value: calendar.id,
+                label: calendar.name,
+                description: calendar.isDefaultCalendar ? "Default calendar" : undefined
+              }))
+            } else if (field.dynamic === "outlook_events") {
+              newOptions[field.name] = data.map((event: any) => ({
+                value: event.id,
+                label: event.name,
+                description: event.start ? new Date(event.start).toLocaleString() : undefined,
+                start: event.start,
+                end: event.end,
+                isAllDay: event.isAllDay,
+                location: event.location,
+                attendees: event.attendees,
+              }))
             } else {
               newOptions[field.name] = data.map((item: any) => ({
                 value: item.value || item.id || item.name,
@@ -962,6 +1093,17 @@ export default function ConfigurationModal({
                 integrationError: `Your ${nodeInfo?.providerId || 'integration'} connection has expired. Please reconnect your account to continue.`
               }))
               break // Stop processing other fields if authentication failed
+            } else if (errorMessage.includes('not found') || errorMessage.includes('not connected') || errorMessage.includes('404')) {
+              setErrors(prev => ({
+                ...prev,
+                integrationError: `Please connect your ${nodeInfo?.providerId || 'integration'} account first to load available options. You can connect it in the integrations page.`
+              }))
+              break // Stop processing other fields if integration not connected
+            } else if (errorMessage.includes('{}') || errorMessage.includes('empty response')) {
+              setErrors(prev => ({
+                ...prev,
+                integrationError: `Unable to load ${field.label || field.name} data. Please check if your ${nodeInfo?.providerId || 'integration'} account is connected and try again.`
+              }))
             } else {
               setErrors(prev => ({
                 ...prev,
@@ -1484,7 +1626,12 @@ export default function ConfigurationModal({
 
   const handleSave = () => {
     if (validateRequiredFields()) {
-      onSave(config)
+      // Include attachments in the saved configuration
+      const configWithAttachments = {
+        ...config,
+        attachments
+      }
+      onSave(configWithAttachments)
       onClose()
     }
   }
@@ -1589,6 +1736,7 @@ export default function ConfigurationModal({
             description={field.description}
             title={`${field.label || field.name} Information`}
             showExpandButton={field.description.length > 150}
+            disabled={!tooltipsEnabled}
           />
         )}
       </div>
@@ -2076,6 +2224,7 @@ export default function ConfigurationModal({
                           title="Auto Date Information"
                           buttonClassName="h-7 w-7 p-0 flex-shrink-0"
                           showExpandButton={false}
+                          disabled={!tooltipsEnabled}
                         />
                       </div>
                     </div>
@@ -2442,6 +2591,16 @@ export default function ConfigurationModal({
                   hasError && "border-red-500",
                   field.readonly && "bg-muted/50 cursor-not-allowed"
                 )}
+                autoComplete="new-password"
+                autoCorrect="off"
+                autoCapitalize="off"
+                spellCheck="false"
+                data-form-type="other"
+                data-lpignore="true"
+                data-1p-ignore="true"
+                data-bwignore="true"
+                data-dashlane-ignore="true"
+                name={`custom-${field.type}-${Math.random().toString(36).substr(2, 9)}`}
               />
               {!field.readonly && (
                 <VariablePicker
@@ -2473,6 +2632,16 @@ export default function ConfigurationModal({
               onChange={handleChange}
               placeholder={field.placeholder}
               className={cn("w-full", hasError && "border-red-500")}
+              autoComplete="new-password"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck="false"
+              data-form-type="other"
+              data-lpignore="true"
+              data-1p-ignore="true"
+              data-bwignore="true"
+              data-dashlane-ignore="true"
+              name={`custom-number-${Math.random().toString(36).substr(2, 9)}`}
             />
             {hasError && (
               <p className="text-xs text-red-500">{errors[field.name]}</p>
@@ -2490,8 +2659,535 @@ export default function ConfigurationModal({
                 onChange={handleChange}
                 placeholder={field.placeholder}
                 className={cn("w-full min-h-[100px] resize-y", hasError && "border-red-500")}
+                autoComplete="new-password"
+                autoCorrect="off"
+                autoCapitalize="off"
+                spellCheck="false"
+                data-form-type="other"
+                data-lpignore="true"
+                data-1p-ignore="true"
+                data-bwignore="true"
+                data-dashlane-ignore="true"
+                name={`custom-textarea-${Math.random().toString(36).substr(2, 9)}`}
               />
               <div className="flex justify-end">
+                <VariablePicker
+                  workflowData={workflowData}
+                  currentNodeId={currentNodeId}
+                  onVariableSelect={handleVariableSelect}
+                  fieldType={field.type}
+                  trigger={
+                    <Button variant="outline" size="sm" className="gap-2">
+                      <Database className="w-4 h-4" />
+                      Insert Variable
+                    </Button>
+                  }
+                />
+              </div>
+            </div>
+            {hasError && (
+              <p className="text-xs text-red-500">{errors[field.name]}</p>
+            )}
+          </div>
+        )
+
+      case "rich-text":
+        // Load signatures if this is an email field
+        useEffect(() => {
+          if (nodeInfo?.providerId === 'microsoft-outlook' && !dynamicOptions['outlook_signatures']) {
+            loadIntegrationData('outlook_signatures', getIntegrationByProvider('microsoft-outlook')?.id || '')
+          }
+          if (nodeInfo?.providerId === 'gmail' && !dynamicOptions['gmail_signatures']) {
+            loadIntegrationData('gmail_signatures', getIntegrationByProvider('gmail')?.id || '')
+          }
+        }, [nodeInfo?.providerId])
+
+        return (
+          <div className="space-y-2">
+            {renderLabel()}
+            <div className="w-full space-y-2">
+              <div className="border rounded-md">
+                {/* Email Compose Toolbar */}
+                <div className="flex flex-wrap items-center gap-1 p-2 border-b bg-muted/30">
+                  {/* Font Controls Group */}
+                  <div className="flex items-center gap-1 mr-2">
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs text-muted-foreground">Font:</span>
+                      <select 
+                        className="h-8 px-2 text-xs border rounded bg-background hover:bg-muted"
+                        onChange={(e) => {
+                          const editor = document.querySelector(`[data-rich-editor="${field.name}"]`) as HTMLElement
+                          if (editor) {
+                            document.execCommand('fontName', false, e.target.value)
+                            setConfig(prev => ({ ...prev, [field.name]: editor.innerHTML }))
+                          }
+                        }}
+                        title="Font Family - Change text font"
+                      >
+                        <option value="Arial">Arial</option>
+                        <option value="Times New Roman">Times New Roman</option>
+                        <option value="Courier New">Courier New</option>
+                        <option value="Georgia">Georgia</option>
+                        <option value="Verdana">Verdana</option>
+                        <option value="Helvetica">Helvetica</option>
+                      </select>
+                    </div>
+                    
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs text-muted-foreground">Size:</span>
+                      <select 
+                        className="h-8 px-2 text-xs border rounded bg-background hover:bg-muted"
+                        onChange={(e) => {
+                          const editor = document.querySelector(`[data-rich-editor="${field.name}"]`) as HTMLElement
+                          if (editor) {
+                            document.execCommand('fontSize', false, e.target.value)
+                            setConfig(prev => ({ ...prev, [field.name]: editor.innerHTML }))
+                          }
+                        }}
+                        title="Font Size - Change text size"
+                      >
+                        <option value="1">8pt</option>
+                        <option value="2">10pt</option>
+                        <option value="3">12pt</option>
+                        <option value="4">14pt</option>
+                        <option value="5">18pt</option>
+                        <option value="6">24pt</option>
+                        <option value="7">36pt</option>
+                      </select>
+                    </div>
+                    
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs text-muted-foreground">Color:</span>
+                      <input 
+                        type="color" 
+                        className="h-8 w-8 border rounded cursor-pointer"
+                        onChange={(e) => {
+                          const editor = document.querySelector(`[data-rich-editor="${field.name}"]`) as HTMLElement
+                          if (editor) {
+                            document.execCommand('foreColor', false, e.target.value)
+                            setConfig(prev => ({ ...prev, [field.name]: editor.innerHTML }))
+                          }
+                        }}
+                        title="Text Color - Change text color"
+                      />
+                    </div>
+                    
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs text-muted-foreground">Highlight:</span>
+                      <input 
+                        type="color" 
+                        className="h-8 w-8 border rounded cursor-pointer"
+                        onChange={(e) => {
+                          const editor = document.querySelector(`[data-rich-editor="${field.name}"]`) as HTMLElement
+                          if (editor) {
+                            document.execCommand('backColor', false, e.target.value)
+                            setConfig(prev => ({ ...prev, [field.name]: editor.innerHTML }))
+                          }
+                        }}
+                        title="Highlight Color - Highlight text with background color"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="w-px h-6 bg-border mx-1"></div>
+
+                  {/* Style Controls Group */}
+                  <div className="flex items-center gap-1 mr-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const editor = document.querySelector(`[data-rich-editor="${field.name}"]`) as HTMLElement
+                        if (editor) {
+                          document.execCommand('bold', false)
+                          setConfig(prev => ({ ...prev, [field.name]: editor.innerHTML }))
+                        }
+                      }}
+                      className="h-8 w-8 p-0 hover:bg-muted"
+                      title="Bold (Ctrl+B) - Make text bold"
+                    >
+                      <strong className="text-sm">B</strong>
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const editor = document.querySelector(`[data-rich-editor="${field.name}"]`) as HTMLElement
+                        if (editor) {
+                          document.execCommand('italic', false)
+                          setConfig(prev => ({ ...prev, [field.name]: editor.innerHTML }))
+                        }
+                      }}
+                      className="h-8 w-8 p-0 hover:bg-muted"
+                      title="Italic (Ctrl+I) - Make text italic"
+                    >
+                      <em className="text-sm">I</em>
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const editor = document.querySelector(`[data-rich-editor="${field.name}"]`) as HTMLElement
+                        if (editor) {
+                          document.execCommand('underline', false)
+                          setConfig(prev => ({ ...prev, [field.name]: editor.innerHTML }))
+                        }
+                      }}
+                      className="h-8 w-8 p-0 hover:bg-muted"
+                      title="Underline (Ctrl+U) - Underline text"
+                    >
+                      <u className="text-sm">U</u>
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const editor = document.querySelector(`[data-rich-editor="${field.name}"]`) as HTMLElement
+                        if (editor) {
+                          document.execCommand('strikeThrough', false)
+                          setConfig(prev => ({ ...prev, [field.name]: editor.innerHTML }))
+                        }
+                      }}
+                      className="h-8 w-8 p-0 hover:bg-muted"
+                      title="Strikethrough - Draw a line through text"
+                    >
+                      <s className="text-sm">S</s>
+                    </Button>
+                  </div>
+
+                  <div className="w-px h-6 bg-border mx-1"></div>
+
+                  {/* Alignment Controls Group */}
+                  <div className="flex items-center gap-1 mr-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const editor = document.querySelector(`[data-rich-editor="${field.name}"]`) as HTMLElement
+                        if (editor) {
+                          document.execCommand('justifyLeft', false)
+                          setConfig(prev => ({ ...prev, [field.name]: editor.innerHTML }))
+                        }
+                      }}
+                      className="h-8 w-8 p-0 hover:bg-muted"
+                      title="Align Left - Align text to the left"
+                    >
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M3 3h18v2H3V3zm0 8h14v2H3v-2zm0 8h18v2H3v-2z"/>
+                      </svg>
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const editor = document.querySelector(`[data-rich-editor="${field.name}"]`) as HTMLElement
+                        if (editor) {
+                          document.execCommand('justifyCenter', false)
+                          setConfig(prev => ({ ...prev, [field.name]: editor.innerHTML }))
+                        }
+                      }}
+                      className="h-8 w-8 p-0 hover:bg-muted"
+                      title="Align Center - Center align text"
+                    >
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M3 3h18v2H3V3zm2 8h14v2H5v-2zm-2 8h18v2H3v-2z"/>
+                      </svg>
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const editor = document.querySelector(`[data-rich-editor="${field.name}"]`) as HTMLElement
+                        if (editor) {
+                          document.execCommand('justifyRight', false)
+                          setConfig(prev => ({ ...prev, [field.name]: editor.innerHTML }))
+                        }
+                      }}
+                      className="h-8 w-8 p-0 hover:bg-muted"
+                      title="Align Right - Align text to the right"
+                    >
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M3 3h18v2H3V3zm6 8h12v2H9v-2zm-6 8h18v2H3v-2z"/>
+                      </svg>
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const editor = document.querySelector(`[data-rich-editor="${field.name}"]`) as HTMLElement
+                        if (editor) {
+                          document.execCommand('justifyFull', false)
+                          setConfig(prev => ({ ...prev, [field.name]: editor.innerHTML }))
+                        }
+                      }}
+                      className="h-8 w-8 p-0 hover:bg-muted"
+                      title="Justify - Justify text alignment"
+                    >
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M3 3h18v2H3V3zm0 8h18v2H3v-2zm0 8h18v2H3v-2z"/>
+                      </svg>
+                    </Button>
+                  </div>
+
+                  <div className="w-px h-6 bg-border mx-1"></div>
+
+                  {/* List and Indent Controls Group */}
+                  <div className="flex items-center gap-1 mr-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const editor = document.querySelector(`[data-rich-editor="${field.name}"]`) as HTMLElement
+                        if (editor) {
+                          document.execCommand('insertUnorderedList', false)
+                          setConfig(prev => ({ ...prev, [field.name]: editor.innerHTML }))
+                        }
+                      }}
+                      className="h-8 w-8 p-0 hover:bg-muted"
+                      title="Bullet List - Create a bulleted list"
+                    >
+                      <span className="text-sm">•</span>
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const editor = document.querySelector(`[data-rich-editor="${field.name}"]`) as HTMLElement
+                        if (editor) {
+                          document.execCommand('insertOrderedList', false)
+                          setConfig(prev => ({ ...prev, [field.name]: editor.innerHTML }))
+                        }
+                      }}
+                      className="h-8 w-8 p-0 hover:bg-muted"
+                      title="Numbered List - Create a numbered list"
+                    >
+                      <span className="text-sm">1.</span>
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const editor = document.querySelector(`[data-rich-editor="${field.name}"]`) as HTMLElement
+                        if (editor) {
+                          document.execCommand('indent', false)
+                          setConfig(prev => ({ ...prev, [field.name]: editor.innerHTML }))
+                        }
+                      }}
+                      className="h-8 w-8 p-0 hover:bg-muted"
+                      title="Indent - Increase indentation"
+                    >
+                      <span className="text-sm">→</span>
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const editor = document.querySelector(`[data-rich-editor="${field.name}"]`) as HTMLElement
+                        if (editor) {
+                          document.execCommand('outdent', false)
+                          setConfig(prev => ({ ...prev, [field.name]: editor.innerHTML }))
+                        }
+                      }}
+                      className="h-8 w-8 p-0 hover:bg-muted"
+                      title="Outdent - Decrease indentation"
+                    >
+                      <span className="text-sm">←</span>
+                    </Button>
+                  </div>
+
+                  <div className="w-px h-6 bg-border mx-1"></div>
+
+                  {/* Media and Insert Controls Group */}
+                  <div className="flex items-center gap-1 mr-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const url = prompt('Enter URL:')
+                        if (url) {
+                          const editor = document.querySelector(`[data-rich-editor="${field.name}"]`) as HTMLElement
+                          if (editor) {
+                            document.execCommand('createLink', false, url)
+                            setConfig(prev => ({ ...prev, [field.name]: editor.innerHTML }))
+                          }
+                        }
+                      }}
+                      className="h-8 w-8 p-0 hover:bg-muted"
+                      title="Insert Link (Ctrl+K) - Add a hyperlink to selected text"
+                    >
+                      🔗
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const imageUrl = prompt('Enter image URL:')
+                        if (imageUrl) {
+                          const editor = document.querySelector(`[data-rich-editor="${field.name}"]`) as HTMLElement
+                          if (editor) {
+                            document.execCommand('insertImage', false, imageUrl)
+                            setConfig(prev => ({ ...prev, [field.name]: editor.innerHTML }))
+                          }
+                        }
+                      }}
+                      className="h-8 w-8 p-0 hover:bg-muted"
+                      title="Insert Image - Add an image to the email"
+                    >
+                      🖼️
+                    </Button>
+
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const input = document.createElement('input')
+                        input.type = 'file'
+                        input.multiple = true
+                        input.accept = '*/*'
+                        input.onchange = (e) => {
+                          const files = Array.from((e.target as HTMLInputElement).files || [])
+                          if (files.length > 0) {
+                            setAttachments(prev => ({
+                              ...prev,
+                              [field.name]: [...(prev[field.name] || []), ...files]
+                            }))
+                          }
+                        }
+                        input.click()
+                      }}
+                      className="h-8 w-8 p-0 hover:bg-muted"
+                      title="Attach File - Attach a file to the email"
+                    >
+                      📎
+                    </Button>
+                  </div>
+
+                  <div className="w-px h-6 bg-border mx-1"></div>
+
+                  {/* Signature Control */}
+                  <div className="flex items-center gap-1">
+                    <select 
+                      className="h-8 px-2 text-xs border rounded bg-background hover:bg-muted"
+                      onChange={(e) => {
+                        const editor = document.querySelector(`[data-rich-editor="${field.name}"]`) as HTMLElement
+                        if (editor && e.target.value) {
+                          const signatureKey = nodeInfo?.providerId === 'gmail' ? 'gmail_signatures' : 'outlook_signatures'
+                          const signatures = dynamicOptions[signatureKey] || []
+                          const selectedSignature = signatures.find(sig => sig.value === e.target.value) as any
+                          if (selectedSignature && selectedSignature.content) {
+                            // Convert plain text signature to HTML with line breaks
+                            const htmlSignature = '<br><br>' + selectedSignature.content.replace(/\n/g, '<br>')
+                            document.execCommand('insertHTML', false, htmlSignature)
+                            setConfig(prev => ({ ...prev, [field.name]: editor.innerHTML }))
+                          }
+                        }
+                      }}
+                      title="Insert Signature - Add a signature to the email"
+                    >
+                      <option value="">Signature</option>
+                      {(dynamicOptions[nodeInfo?.providerId === 'gmail' ? 'gmail_signatures' : 'outlook_signatures'] || []).map((signature: any) => (
+                        <option key={signature.value} value={signature.value}>
+                          {signature.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Visual Rich Text Editor */}
+                <div
+                  contentEditable
+                  data-rich-editor={field.name}
+                  onInput={(e) => {
+                    const target = e.target as HTMLElement
+                    setConfig(prev => ({ ...prev, [field.name]: target.innerHTML }))
+                  }}
+                  onFocus={(e) => {
+                    const target = e.target as HTMLElement
+                    if (target.innerHTML === '' || target.innerHTML === '<br>') {
+                      target.innerHTML = ''
+                    }
+                  }}
+                  onBlur={(e) => {
+                    const target = e.target as HTMLElement
+                    setConfig(prev => ({ ...prev, [field.name]: target.innerHTML }))
+                    if (target.innerHTML === '' || target.innerHTML === '<br>') {
+                      target.innerHTML = ''
+                    }
+                  }}
+                  className={cn(
+                    "w-full min-h-[120px] p-3 border-0 focus-visible:ring-0 outline-none resize-y overflow-y-auto",
+                    "prose prose-sm max-w-none",
+                    hasError && "border-red-500"
+                  )}
+                  style={{
+                    fontFamily: 'inherit',
+                    fontSize: '14px',
+                    lineHeight: '1.5'
+                  }}
+                  data-placeholder={field.placeholder}
+                  suppressContentEditableWarning={true}
+                  ref={(el) => {
+                    if (el && el.innerHTML !== (value || '')) {
+                      el.innerHTML = value || ''
+                    }
+                  }}
+                />
+
+                {/* Attachments Display */}
+                {attachments[field.name] && attachments[field.name].length > 0 && (
+                  <div className="p-3 border-t bg-muted/20">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-xs font-medium text-muted-foreground">Attachments:</span>
+                    </div>
+                    <div className="space-y-1">
+                      {attachments[field.name].map((file, index) => (
+                        <div key={index} className="flex items-center justify-between p-2 bg-background border rounded text-xs">
+                          <div className="flex items-center gap-2">
+                            <span className="text-muted-foreground">📎</span>
+                            <span className="font-medium">{file.name}</span>
+                            <span className="text-muted-foreground">({(file.size / 1024).toFixed(1)} KB)</span>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setAttachments(prev => ({
+                                ...prev,
+                                [field.name]: prev[field.name].filter((_, i) => i !== index)
+                              }))
+                            }}
+                            className="h-6 w-6 p-0 hover:bg-muted"
+                            title="Remove attachment"
+                          >
+                            <span className="text-xs">×</span>
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="flex justify-between items-center">
+                <p className="text-xs text-muted-foreground">
+                  Format your text visually. The formatted content will be sent as HTML.
+                </p>
                 <VariablePicker
                   workflowData={workflowData}
                   currentNodeId={currentNodeId}
@@ -2579,7 +3275,33 @@ export default function ConfigurationModal({
           )
         }
         
-        // Use regular Select for single select
+        // Use Combobox for single select with creatable option
+        if (field.creatable) {
+          return (
+            <div className="space-y-2">
+              {renderLabel()}
+              <Combobox
+                options={options.map((option) => ({
+                  value: typeof option === 'string' ? option : option.value,
+                  label: typeof option === 'string' ? option : option.label,
+                  description: typeof option === 'object' && 'description' in option && typeof option.description === 'string' ? option.description : undefined
+                }))}
+                value={value}
+                onChange={handleSelectChange}
+                disabled={loadingDynamic}
+                placeholder={loadingDynamic ? "Loading..." : field.placeholder}
+                searchPlaceholder="Search or type to create new..."
+                emptyPlaceholder={loadingDynamic ? "Loading..." : "No results found."}
+                creatable={true}
+              />
+              {hasError && (
+                <p className="text-xs text-red-500">{errors[field.name]}</p>
+              )}
+            </div>
+          )
+        }
+        
+        // Use regular Select for single select without creatable option
         // Debug logging for Dropbox folders
         if (field.dynamic === "dropbox-folders") {
           console.log('🎯 Dropbox folder field detected:', {
@@ -2772,8 +3494,9 @@ export default function ConfigurationModal({
                 label: typeof option === 'string' ? option : option.label,
                 description: typeof option === 'object' && 'description' in option && typeof option.description === 'string' ? option.description : undefined
               }))}
-              searchPlaceholder="Search records..."
-              emptyPlaceholder="No records found."
+              searchPlaceholder={field.creatable ? "Search or type to create new..." : "Search records..."}
+              emptyPlaceholder={loadingDynamic ? "Loading..." : "No records found."}
+              creatable={field.creatable || false}
             />
             {hasError && (
               <p className="text-xs text-red-500">{errors[field.name]}</p>
@@ -2805,15 +3528,37 @@ export default function ConfigurationModal({
         return (
           <div className="space-y-2">
             {renderLabel()}
-            <FileUpload
-              value={value}
-              onChange={handleFileChange}
-              accept={field.accept}
-              maxFiles={field.multiple ? 10 : 1}
-              maxSize={typeof field.maxSize === 'number' ? field.maxSize : undefined}
-              placeholder={field.placeholder}
-              className={cn(hasError && "border-red-500")}
-            />
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <FileUpload
+                  value={value}
+                  onChange={handleFileChange}
+                  accept={field.accept}
+                  maxFiles={field.multiple ? 10 : 1}
+                  maxSize={typeof field.maxSize === 'number' ? field.maxSize : undefined}
+                  placeholder={field.placeholder}
+                  className={cn(hasError && "border-red-500")}
+                />
+              </div>
+              <VariablePicker
+                workflowData={workflowData}
+                currentNodeId={currentNodeId}
+                onVariableSelect={(variable) => {
+                  // For file fields, we can set the variable path as a string
+                  // The actual file handling will be done during execution
+                  setConfig(prev => ({ ...prev, [field.name]: variable }))
+                }}
+                fieldType="file"
+                trigger={
+                  <Button variant="outline" size="sm" className="flex-shrink-0 px-3 h-auto">
+                    <Database className="w-4 h-4" />
+                  </Button>
+                }
+              />
+            </div>
+            {field.description && (
+              <p className="text-xs text-muted-foreground">{field.description}</p>
+            )}
             {hasError && (
               <p className="text-xs text-red-500">{errors[field.name]}</p>
             )}
@@ -2993,6 +3738,16 @@ export default function ConfigurationModal({
                 hasError && "border-red-500",
                 field.readonly && "bg-muted/50 cursor-not-allowed"
               )}
+              autoComplete="new-password"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck="false"
+              data-form-type="other"
+              data-lpignore="true"
+              data-1p-ignore="true"
+              data-bwignore="true"
+              data-dashlane-ignore="true"
+              name={`custom-field-${Math.random().toString(36).substr(2, 9)}`}
             />
             {hasError && (
               <p className="text-xs text-red-500">{errors[field.name]}</p>
