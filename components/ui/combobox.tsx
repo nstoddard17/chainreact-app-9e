@@ -35,6 +35,7 @@ interface ComboboxProps {
   searchPlaceholder?: string;
   emptyPlaceholder?: string;
   disabled?: boolean;
+  creatable?: boolean;
 }
 
 interface MultiComboboxProps {
@@ -76,9 +77,15 @@ export function Combobox({
   searchPlaceholder,
   emptyPlaceholder,
   disabled,
+  creatable = false,
 }: ComboboxProps) {
   const [open, setOpen] = React.useState(false)
   const [inputValue, setInputValue] = React.useState("")
+  const [localOptions, setLocalOptions] = React.useState<ComboboxOption[]>(options)
+
+  React.useEffect(() => {
+    setLocalOptions(options)
+  }, [options])
 
   React.useEffect(() => {
     // Clear input value when dropdown opens to show all options
@@ -87,7 +94,7 @@ export function Combobox({
     }
   }, [open])
   
-  const selectedOption = options.find((option) => option.value.toLowerCase() === value?.toLowerCase());
+  const selectedOption = localOptions.find((option) => option.value.toLowerCase() === value?.toLowerCase());
 
   const handleSelect = (currentValue: string) => {
     const newValue = currentValue === value ? "" : currentValue
@@ -105,7 +112,32 @@ export function Combobox({
   // We need to handle the input within the Command component separately
   const handleCommandInputChange = (search: string) => {
     setInputValue(search);
-    onChange(search);
+    // Don't call onChange here for creatable comboboxes - only when item is selected/created
+    if (!creatable) {
+      onChange(search);
+    }
+  }
+
+  // Handle Enter key for creatable
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (creatable && (e.key === "Enter" || e.key === "Tab") && inputValue.trim()) {
+      const exists = localOptions.some(
+        (option) => option.value.toLowerCase() === inputValue.trim().toLowerCase()
+      )
+      if (!exists) {
+        const newOption = { value: inputValue.trim(), label: inputValue.trim(), isExisting: false }
+        setLocalOptions((prev) => [...prev, newOption])
+        onChange(inputValue.trim())
+        setInputValue("")
+        setOpen(false)
+        e.preventDefault()
+      } else {
+        // If already exists, just select it
+        handleSelect(inputValue.trim())
+        setInputValue("")
+        e.preventDefault()
+      }
+    }
   }
 
   return (
@@ -118,7 +150,7 @@ export function Combobox({
           className="w-full justify-between"
           disabled={disabled}
         >
-          {selectedOption ? selectedOption.label : inputValue || placeholder || "Select option..."}
+          {selectedOption ? selectedOption.label : value || placeholder || "Select option..."}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
@@ -128,6 +160,7 @@ export function Combobox({
             placeholder={searchPlaceholder || "Search..."}
             value={inputValue}
             onValueChange={handleCommandInputChange}
+            onKeyDown={handleInputKeyDown}
           />
           <CommandList 
             className="max-h-60 overflow-y-auto" 
@@ -140,7 +173,7 @@ export function Combobox({
           >
             <CommandEmpty>{emptyPlaceholder || "No results found."}</CommandEmpty>
             <CommandGroup>
-              {options.map((option) => (
+              {localOptions.map((option) => (
                 <CommandItem
                   key={option.value}
                   value={option.value}
@@ -160,6 +193,25 @@ export function Combobox({
                   </div>
                 </CommandItem>
               ))}
+              {/* Show create option if creatable and inputValue is not empty and not in options */}
+              {creatable && inputValue.trim() && !localOptions.some(option => option.value.toLowerCase() === inputValue.trim().toLowerCase()) && (
+                <CommandItem
+                  key={"create-" + inputValue.trim()}
+                  value={inputValue.trim()}
+                  onSelect={() => {
+                    const newOption = { value: inputValue.trim(), label: inputValue.trim(), isExisting: false }
+                    setLocalOptions((prev) => [...prev, newOption])
+                    onChange(inputValue.trim())
+                    setInputValue("")
+                    setOpen(false)
+                  }}
+                >
+                  <div className="flex items-center">
+                    <span className="text-primary font-semibold">Create "{inputValue.trim()}"</span>
+                    <span className="ml-auto text-xs text-muted-foreground">Press Enter</span>
+                  </div>
+                </CommandItem>
+              )}
             </CommandGroup>
           </CommandList>
         </Command>
@@ -308,7 +360,10 @@ export function MultiCombobox({
                     setInputValue("")
                   }}
                 >
-                  <span className="text-primary">Create "{inputValue.trim()}"</span>
+                  <div className="flex items-center">
+                    <span className="text-primary font-semibold">Create "{inputValue.trim()}"</span>
+                    <span className="ml-auto text-xs text-muted-foreground">Press Enter</span>
+                  </div>
                 </CommandItem>
               )}
             </CommandGroup>

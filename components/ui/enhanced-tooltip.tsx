@@ -15,6 +15,8 @@ interface EnhancedTooltipProps {
   buttonClassName?: string
   showExpandButton?: boolean
   maxLength?: number
+  delayDuration?: number
+  disabled?: boolean
 }
 
 export function EnhancedTooltip({
@@ -23,7 +25,9 @@ export function EnhancedTooltip({
   className,
   buttonClassName,
   showExpandButton = true,
-  maxLength = 200
+  maxLength = 200,
+  delayDuration = 1000,
+  disabled = false
 }: EnhancedTooltipProps) {
   const isLongDescription = description.length > maxLength
   const shouldShowExpandButton = showExpandButton && isLongDescription
@@ -31,9 +35,17 @@ export function EnhancedTooltip({
   return (
     <div className={cn("flex items-center gap-1", className)}>
       <TooltipProvider>
-        <Tooltip>
+        <Tooltip delayDuration={delayDuration} disableHoverableContent={true} open={disabled ? false : undefined}>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="sm" className={cn("h-6 w-6 p-0", buttonClassName)}>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className={cn("h-6 w-6 p-0", buttonClassName)}
+              onMouseEnter={(e) => {
+                // Prevent any auto-focus or auto-hover behavior
+                e.currentTarget.blur()
+              }}
+            >
               <HelpCircle className="h-4 w-4 text-muted-foreground" />
             </Button>
           </TooltipTrigger>

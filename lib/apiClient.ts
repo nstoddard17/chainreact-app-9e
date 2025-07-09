@@ -52,6 +52,10 @@ class ApiClient {
       }
 
       console.log(`🌐 API Request: ${config.method || "GET"} ${url}`)
+      console.log(`🌐 API Request Headers:`, config.headers)
+      if (config.body) {
+        console.log(`🌐 API Request Body:`, config.body)
+      }
 
       const response = await fetch(url, config)
 
@@ -60,17 +64,28 @@ class ApiClient {
         let errorMessage = `HTTP ${response.status}: ${response.statusText}`
         let errorDetails: any = undefined
 
+        console.error(`❌ API Error Response: ${endpoint}`, { 
+          status: response.status, 
+          statusText: response.statusText,
+          headers: Object.fromEntries(response.headers.entries())
+        })
+
         try {
-          const errorData = await response.json()
-          if (errorData.error) {
-            errorMessage = errorData.error
-          } else if (errorData.message) {
-            errorMessage = errorData.message
+          const responseText = await response.text()
+          console.error(`❌ API Error Response Body: ${endpoint}`, responseText)
+          
+          if (responseText.trim()) {
+            const errorData = JSON.parse(responseText)
+            if (errorData.error) {
+              errorMessage = errorData.error
+            } else if (errorData.message) {
+              errorMessage = errorData.message
+            }
+            errorDetails = errorData
           }
-          errorDetails = errorData
         } catch (e) {
           // If response is not JSON, use status text
-          console.warn("Failed to parse error response as JSON")
+          console.warn("Failed to parse error response as JSON:", e)
         }
 
         console.error(`❌ API Error: ${endpoint}`, { status: response.status, message: errorMessage })

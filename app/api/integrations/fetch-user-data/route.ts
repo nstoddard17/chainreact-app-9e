@@ -13,11 +13,16 @@ interface DataFetcher {
 
 // Add comprehensive error handling and fix API calls
 export async function POST(request: NextRequest) {
+  console.log("🚀 API endpoint called")
   try {
+    console.log("📝 Parsing request body...")
     const requestBody = await request.json()
+    console.log("🔍 API Request Body:", JSON.stringify(requestBody, null, 2))
+    
     const { provider, dataType, batchSize = 100, preload = false, ...additionalParams } = requestBody
 
     if (!provider || !dataType) {
+      console.error("❌ Missing provider or dataType:", { provider, dataType })
       return NextResponse.json(
         {
           success: false,
@@ -132,6 +137,11 @@ export async function POST(request: NextRequest) {
       fetcherKey = "gmail-enhanced-recipients"
     }
     
+    // Special case for outlook-enhanced-recipients
+    if (provider === "microsoft-outlook" && dataType === "outlook-enhanced-recipients") {
+      fetcherKey = "outlook-enhanced-recipients"
+    }
+    
     // Special case for google-calendars
     if (provider === "google-calendar" && dataType === "google-calendars") {
       fetcherKey = "google-calendars"
@@ -148,11 +158,13 @@ export async function POST(request: NextRequest) {
     
     console.log(`🔍 API: provider=${provider}, dataType=${dataType}, fetcherKey=${fetcherKey}`)
     console.log(`🔍 Available fetchers:`, Object.keys(dataFetchers))
+    console.log(`🔍 Integration details:`, { id: integration.id, provider: integration.provider, status: integration.status })
     
     const fetcher = dataFetchers[fetcherKey]
 
     if (!fetcher) {
       console.error(`❌ No fetcher found for key: ${fetcherKey}`)
+      console.error(`❌ Available fetcher keys:`, Object.keys(dataFetchers))
       return NextResponse.json(
         {
           success: false,
@@ -164,36 +176,47 @@ export async function POST(request: NextRequest) {
 
     // Fetch the data with timeout and retry logic
     console.log(`🌐 Fetching ${dataType} for ${provider}${preload ? " (preload)" : ""}`)
+    console.log(`🔍 About to call fetcher function for key: ${fetcherKey}`)
+    console.log(`🔍 Integration token length: ${validToken ? validToken.length : 0}`)
     const startTime = Date.now()
 
-    const data = await fetchWithRetry(
-        () => fetcher({ ...integration, access_token: validToken }, { batchSize, ...additionalParams }),
-      3, // max retries
-      2000, // initial delay
-    )
+    try {
+      const data = await fetchWithRetry(
+          () => fetcher({ ...integration, access_token: validToken }, { batchSize, ...additionalParams }),
+        3, // max retries
+        2000, // initial delay
+      )
+      
+      console.log(`✅ Fetcher completed successfully, data length: ${data.length}`)
+      
+      const endTime = Date.now()
+      console.log(`✅ Fetched ${data.length} ${dataType} for ${provider} in ${endTime - startTime}ms`)
 
-    const endTime = Date.now()
-    console.log(`✅ Fetched ${data.length} ${dataType} for ${provider} in ${endTime - startTime}ms`)
-
-    return NextResponse.json(
-      {
-        success: true,
-        data,
-        count: data.length,
-        provider,
-        dataType,
-        fetchTime: endTime - startTime,
-        cached: false,
-      },
-      {
-        headers: {
-          "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
-          "Content-Type": "application/json",
+      return NextResponse.json(
+        {
+          success: true,
+          data,
+          count: data.length,
+          provider,
+          dataType,
+          fetchTime: endTime - startTime,
+          cached: false,
         },
-      },
-    )
+        {
+          headers: {
+            "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
+            "Content-Type": "application/json",
+          },
+        },
+      )
+    } catch (fetcherError: any) {
+      console.error(`💥 Fetcher error for ${fetcherKey}:`, fetcherError)
+      console.error(`💥 Fetcher error stack:`, fetcherError.stack)
+      throw fetcherError
+    }
   } catch (error: any) {
     console.error("💥 Error in fetch-user-data API:", error)
+    console.error("💥 Error stack:", error.stack)
 
     let errorMessage = "Failed to fetch user data"
     let statusCode = 500
@@ -1203,6 +1226,146 @@ const dataFetchers: DataFetcher = {
     }
   },
 
+  "outlook-enhanced-recipients": async (integration: any) => {
+    try {
+      console.log("🔍 Starting Outlook enhanced recipients fetch...")
+      
+      // First, try to get contacts as a fallback
+      const contactsResponse = await fetch("https://graph.microsoft.com/v1.0/me/contacts?$top=100&$select=id,displayName,emailAddresses", {
+        headers: {
+          Authorization: `Bearer ${integration.access_token}`,
+          "Content-Type": "application/json",
+        },
+      })
+      
+      const contacts: Array<{ value: string; label: string; type: string; description: string }> = []
+      if (contactsResponse.ok) {
+        const contactsData = await contactsResponse.json()
+        contactsData.value?.forEach((contact: any) => {
+          if (contact.emailAddresses && contact.emailAddresses.length > 0) {
+            contact.emailAddresses.forEach((email: any) => {
+              if (email.address && isValidEmail(email.address)) {
+                contacts.push({
+                  value: email.address,
+                  label: contact.displayName || email.address,
+                  type: "contact",
+                  description: `${email.address} (contact)`
+                })
+              }
+            })
+          }
+        })
+      }
+
+      // Try to fetch recent emails
+      const inboxResponse = await fetch("https://graph.microsoft.com/v1.0/me/messages?$top=50&$orderby=receivedDateTime desc&$select=id,from,toRecipients,ccRecipients,bccRecipients", {
+        headers: {
+          Authorization: `Bearer ${integration.access_token}`,
+          "Content-Type": "application/json",
+        },
+      })
+      
+      const addressMap = new Map<string, { email: string; name: string; count: number; type: string }>()
+
+      const addAddress = (email: string, name: string, type: string) => {
+        if (!email || !isValidEmail(email)) return
+        if (addressMap.has(email)) {
+          addressMap.get(email)!.count++
+        } else {
+          addressMap.set(email, { email, name, count: 1, type })
+        }
+      }
+
+      if (inboxResponse.ok) {
+        const inboxData = await inboxResponse.json()
+        console.log(`📧 Found ${inboxData.value?.length || 0} inbox messages`)
+        
+        inboxData.value?.forEach((message: any) => {
+          if (message.from?.emailAddress) {
+            const email = message.from.emailAddress.address
+            const name = message.from.emailAddress.name || email
+            addAddress(email, name, "sender")
+          }
+        })
+      } else {
+        console.log(`⚠️ Inbox fetch failed: ${inboxResponse.status}`)
+      }
+
+      // Try to fetch sent emails
+      const sentResponse = await fetch("https://graph.microsoft.com/v1.0/me/mailFolders/sentitems/messages?$top=50&$orderby=receivedDateTime desc&$select=id,from,toRecipients,ccRecipients,bccRecipients", {
+        headers: {
+          Authorization: `Bearer ${integration.access_token}`,
+          "Content-Type": "application/json",
+        },
+      })
+      
+      if (sentResponse.ok) {
+        const sentData = await sentResponse.json()
+        console.log(`📤 Found ${sentData.value?.length || 0} sent messages`)
+        
+        sentData.value?.forEach((message: any) => {
+          // Process To recipients
+          if (message.toRecipients) {
+            message.toRecipients.forEach((recipient: any) => {
+              if (recipient.emailAddress) {
+                const email = recipient.emailAddress.address
+                const name = recipient.emailAddress.name || email
+                addAddress(email, name, "recipient")
+              }
+            })
+          }
+          
+          // Process CC recipients
+          if (message.ccRecipients) {
+            message.ccRecipients.forEach((recipient: any) => {
+              if (recipient.emailAddress) {
+                const email = recipient.emailAddress.address
+                const name = recipient.emailAddress.name || email
+                addAddress(email, name, "cc")
+              }
+            })
+          }
+          
+          // Process BCC recipients
+          if (message.bccRecipients) {
+            message.bccRecipients.forEach((recipient: any) => {
+              if (recipient.emailAddress) {
+                const email = recipient.emailAddress.address
+                const name = recipient.emailAddress.name || email
+                addAddress(email, name, "bcc")
+              }
+            })
+          }
+        })
+      } else {
+        console.log(`⚠️ Sent items fetch failed: ${sentResponse.status}`)
+      }
+
+      // Convert to array and sort by frequency
+      const addresses = Array.from(addressMap.values())
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 50)
+        .map((addr) => ({
+          value: addr.email,
+          label: addr.name,
+          type: addr.type,
+          description: `${addr.email} (${addr.count} emails)`
+        }))
+
+      // Combine with contacts and remove duplicates
+      const allAddresses = [...contacts, ...addresses]
+      const uniqueAddresses = allAddresses.filter((addr, index, self) => 
+        index === self.findIndex(a => a.value === addr.value)
+      )
+
+      console.log(`✅ Returning ${uniqueAddresses.length} enhanced recipients (${contacts.length} contacts + ${addresses.length} email addresses)`)
+      return uniqueAddresses
+    } catch (error: any) {
+      console.error("Error fetching Outlook enhanced recipients:", error)
+      return []
+    }
+  },
+
   "hubspot_companies": async (integration: any) => {
     try {
       const response = await fetch(
@@ -1229,6 +1392,169 @@ const dataFetchers: DataFetcher = {
       })) || []
     } catch (error: any) {
       console.error("Error fetching HubSpot companies:", error)
+      throw error
+    }
+  },
+
+  "hubspot_contacts": async (integration: any) => {
+    try {
+      const response = await fetch(
+        "https://api.hubapi.com/crm/v3/objects/contacts?limit=100",
+        {
+          headers: {
+            Authorization: `Bearer ${integration.access_token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      )
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("HubSpot authentication expired. Please reconnect your account.")
+        }
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(`HubSpot API error: ${response.status} - ${errorData.message || "Unknown error"}`)
+      }
+      const data = await response.json()
+      return data.results?.map((contact: any) => ({
+        value: contact.id,
+        label: `${contact.properties.firstname || ''} ${contact.properties.lastname || ''}`.trim() || contact.properties.email || "Unnamed Contact",
+        description: contact.properties.email,
+      })) || []
+    } catch (error: any) {
+      console.error("Error fetching HubSpot contacts:", error)
+      throw error
+    }
+  },
+
+  "hubspot_deals": async (integration: any) => {
+    try {
+      const response = await fetch(
+        "https://api.hubapi.com/crm/v3/objects/deals?limit=100",
+        {
+          headers: {
+            Authorization: `Bearer ${integration.access_token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      )
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("HubSpot authentication expired. Please reconnect your account.")
+        }
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(`HubSpot API error: ${response.status} - ${errorData.message || "Unknown error"}`)
+      }
+      const data = await response.json()
+      return data.results?.map((deal: any) => ({
+        value: deal.id,
+        label: deal.properties.dealname || "Unnamed Deal",
+        description: `$${deal.properties.amount || 0}`,
+      })) || []
+    } catch (error: any) {
+      console.error("Error fetching HubSpot deals:", error)
+      throw error
+    }
+  },
+
+  "hubspot_lists": async (integration: any) => {
+    try {
+      const response = await fetch(
+        "https://api.hubapi.com/contacts/v1/lists?count=100",
+        {
+          headers: {
+            Authorization: `Bearer ${integration.access_token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      )
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("HubSpot authentication expired. Please reconnect your account.")
+        }
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(`HubSpot API error: ${response.status} - ${errorData.message || "Unknown error"}`)
+      }
+      const data = await response.json()
+      return data.lists?.map((list: any) => ({
+        value: list.listId.toString(),
+        label: list.name,
+        description: `${list.metaData.size || 0} contacts`,
+      })) || []
+    } catch (error: any) {
+      console.error("Error fetching HubSpot lists:", error)
+      throw error
+    }
+  },
+
+  "hubspot_pipelines": async (integration: any) => {
+    try {
+      const response = await fetch(
+        "https://api.hubapi.com/crm/v3/pipelines/deals",
+        {
+          headers: {
+            Authorization: `Bearer ${integration.access_token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      )
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("HubSpot authentication expired. Please reconnect your account.")
+        }
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(`HubSpot API error: ${response.status} - ${errorData.message || "Unknown error"}`)
+      }
+      const data = await response.json()
+      return data.results?.map((pipeline: any) => ({
+        value: pipeline.id,
+        label: pipeline.label,
+        description: `${pipeline.stages?.length || 0} stages`,
+        stages: pipeline.stages,
+      })) || []
+    } catch (error: any) {
+      console.error("Error fetching HubSpot pipelines:", error)
+      throw error
+    }
+  },
+
+  "hubspot_deal_stages": async (integration: any, options?: { pipeline?: string }) => {
+    try {
+      if (!options?.pipeline) {
+        // If no pipeline is selected, return empty array
+        return []
+      }
+
+      const response = await fetch(
+        "https://api.hubapi.com/crm/v3/pipelines/deals",
+        {
+          headers: {
+            Authorization: `Bearer ${integration.access_token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      )
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("HubSpot authentication expired. Please reconnect your account.")
+        }
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(`HubSpot API error: ${response.status} - ${errorData.message || "Unknown error"}`)
+      }
+      const data = await response.json()
+      
+      // Find the selected pipeline
+      const selectedPipeline = data.results?.find((pipeline: any) => pipeline.id === options.pipeline)
+      if (!selectedPipeline) {
+        return []
+      }
+
+      return selectedPipeline.stages?.map((stage: any) => ({
+        value: stage.id,
+        label: stage.label,
+        description: stage.probability ? `${stage.probability}% probability` : undefined,
+      })) || []
+    } catch (error: any) {
+      console.error("Error fetching HubSpot deal stages:", error)
       throw error
     }
   },
@@ -2694,6 +3020,484 @@ const dataFetchers: DataFetcher = {
       console.error("Error fetching Facebook pages:", error)
       // Return empty array instead of throwing to prevent breaking the UI
       return []
+    }
+  },
+
+  // Microsoft OneNote data fetchers
+  "onenote_notebooks": async (integration: any) => {
+    try {
+      console.log("🔍 OneNote notebooks fetcher called with integration:", {
+        id: integration.id,
+        provider: integration.provider,
+        hasToken: !!integration.access_token,
+        tokenLength: integration.access_token?.length
+      })
+      
+      const response = await fetch("https://graph.microsoft.com/v1.0/me/onenote/notebooks", {
+        headers: {
+          Authorization: `Bearer ${integration.access_token}`,
+          "Content-Type": "application/json",
+        },
+      })
+
+      console.log("🔍 OneNote API response status:", response.status, response.statusText)
+      console.log("🔍 OneNote API response headers:", Object.fromEntries(response.headers.entries()))
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        console.error("🔍 OneNote API error response:", errorData)
+        
+        if (response.status === 401) {
+          console.warn("OneNote authentication expired, returning empty array to prevent UI break")
+          // Return empty array instead of throwing to prevent breaking the entire modal
+          return []
+        }
+        console.error(`Microsoft Graph API error: ${response.status} - ${errorData.error?.message || response.statusText}`)
+        // Return empty array for other errors too to maintain UI stability
+        return []
+      }
+
+      const data = await response.json()
+      console.log("🔍 OneNote API success response:", data)
+      
+      const notebooks = (data.value || []).map((notebook: any) => ({
+        id: notebook.id,
+        name: notebook.displayName || notebook.name || "Untitled Notebook",
+        value: notebook.id,
+        created_time: notebook.createdDateTime,
+        modified_time: notebook.lastModifiedDateTime,
+        sections_url: notebook.sectionsUrl,
+        is_default: notebook.isDefault || false,
+      }))
+      
+      console.log("🔍 Processed OneNote notebooks:", notebooks)
+      return notebooks
+    } catch (error: any) {
+      console.error("Error fetching OneNote notebooks:", error)
+      // Return empty array instead of throwing to prevent breaking the UI
+      return []
+    }
+  },
+
+  "onenote_sections": async (integration: any, options: any) => {
+    try {
+      const { notebookId } = options || {}
+      
+      if (!notebookId) {
+        console.error("Notebook ID is required to fetch OneNote sections")
+        return []
+      }
+
+      const response = await fetch(`https://graph.microsoft.com/v1.0/me/onenote/notebooks/${notebookId}/sections`, {
+        headers: {
+          Authorization: `Bearer ${integration.access_token}`,
+          "Content-Type": "application/json",
+        },
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        if (response.status === 401) {
+          console.warn("OneNote authentication expired, returning empty array to prevent UI break")
+          return []
+        }
+        console.error(`Microsoft Graph API error: ${response.status} - ${errorData.error?.message || response.statusText}`)
+        return []
+      }
+
+      const data = await response.json()
+      return (data.value || []).map((section: any) => ({
+        id: section.id,
+        name: section.displayName || section.name || "Untitled Section",
+        value: section.id,
+        created_time: section.createdDateTime,
+        modified_time: section.lastModifiedDateTime,
+        pages_url: section.pagesUrl,
+        notebook_id: notebookId,
+      }))
+    } catch (error: any) {
+      console.error("Error fetching OneNote sections:", error)
+      return []
+    }
+  },
+
+  "onenote_pages": async (integration: any, options: any) => {
+    try {
+      const { sectionId } = options || {}
+      
+      if (!sectionId) {
+        console.error("Section ID is required to fetch OneNote pages")
+        return []
+      }
+
+      const response = await fetch(`https://graph.microsoft.com/v1.0/me/onenote/sections/${sectionId}/pages`, {
+        headers: {
+          Authorization: `Bearer ${integration.access_token}`,
+          "Content-Type": "application/json",
+        },
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        if (response.status === 401) {
+          console.warn("OneNote authentication expired, returning empty array to prevent UI break")
+          return []
+        }
+        console.error(`Microsoft Graph API error: ${response.status} - ${errorData.error?.message || response.statusText}`)
+        return []
+      }
+
+      const data = await response.json()
+      return (data.value || []).map((page: any) => ({
+        id: page.id,
+        name: page.title || "Untitled Page",
+        value: page.id,
+        created_time: page.createdDateTime,
+        modified_time: page.lastModifiedDateTime,
+        content_url: page.contentUrl,
+        links: page.links,
+        section_id: sectionId,
+      }))
+    } catch (error: any) {
+      console.error("Error fetching OneNote pages:", error)
+      return []
+    }
+  },
+
+  // Microsoft Outlook data fetchers
+  "outlook_folders": async (integration: any) => {
+    try {
+      console.log("🔍 Outlook folders fetcher called with integration:", {
+        id: integration.id,
+        provider: integration.provider,
+        hasToken: !!integration.access_token,
+        tokenLength: integration.access_token?.length
+      })
+      
+      const response = await fetch("https://graph.microsoft.com/v1.0/me/mailFolders", {
+        headers: {
+          Authorization: `Bearer ${integration.access_token}`,
+          "Content-Type": "application/json",
+        },
+      })
+
+      console.log("🔍 Outlook API response status:", response.status, response.statusText)
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        console.error("🔍 Outlook API error response:", errorData)
+        
+        if (response.status === 401) {
+          console.warn("Outlook authentication expired, returning empty array to prevent UI break")
+          return []
+        }
+        console.error(`Microsoft Graph API error: ${response.status} - ${errorData.error?.message || response.statusText}`)
+        return []
+      }
+
+      const data = await response.json()
+      console.log("🔍 Outlook API success response:", data)
+      
+      const folders = (data.value || []).map((folder: any) => ({
+        id: folder.id,
+        name: folder.displayName || folder.name || "Untitled Folder",
+        value: folder.id,
+        totalItemCount: folder.totalItemCount,
+        unreadItemCount: folder.unreadItemCount,
+        isHidden: folder.isHidden || false,
+      }))
+      
+      console.log("🔍 Processed Outlook folders:", folders)
+      return folders
+    } catch (error: any) {
+      console.error("Error fetching Outlook folders:", error)
+      return []
+    }
+  },
+
+  "outlook_messages": async (integration: any, options: any) => {
+    try {
+      const { folderId, limit = 50 } = options || {}
+      
+      let url = "https://graph.microsoft.com/v1.0/me/messages"
+      if (folderId) {
+        url = `https://graph.microsoft.com/v1.0/me/mailFolders/${folderId}/messages`
+      }
+      
+      url += `?$top=${limit}&$orderby=receivedDateTime desc&$select=id,subject,from,receivedDateTime,isRead,hasAttachments`
+
+      const response = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${integration.access_token}`,
+          "Content-Type": "application/json",
+        },
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        if (response.status === 401) {
+          console.warn("Outlook authentication expired, returning empty array to prevent UI break")
+          return []
+        }
+        console.error(`Microsoft Graph API error: ${response.status} - ${errorData.error?.message || response.statusText}`)
+        return []
+      }
+
+      const data = await response.json()
+      return (data.value || []).map((message: any) => ({
+        id: message.id,
+        name: message.subject || "No Subject",
+        value: message.id,
+        from: message.from?.emailAddress?.address || "",
+        fromName: message.from?.emailAddress?.name || "",
+        receivedDateTime: message.receivedDateTime,
+        isRead: message.isRead,
+        hasAttachments: message.hasAttachments,
+        folderId: folderId || "inbox",
+      }))
+    } catch (error: any) {
+      console.error("Error fetching Outlook messages:", error)
+      return []
+    }
+  },
+
+  "outlook_contacts": async (integration: any) => {
+    try {
+      const response = await fetch("https://graph.microsoft.com/v1.0/me/contacts?$top=100&$orderby=displayName", {
+        headers: {
+          Authorization: `Bearer ${integration.access_token}`,
+          "Content-Type": "application/json",
+        },
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        if (response.status === 401) {
+          console.warn("Outlook authentication expired, returning empty array to prevent UI break")
+          return []
+        }
+        console.error(`Microsoft Graph API error: ${response.status} - ${errorData.error?.message || response.statusText}`)
+        return []
+      }
+
+      const data = await response.json()
+      return (data.value || []).map((contact: any) => ({
+        id: contact.id,
+        name: contact.displayName || `${contact.givenName || ""} ${contact.surname || ""}`.trim() || "Unknown Contact",
+        value: contact.id,
+        email: contact.emailAddresses?.[0]?.address || "",
+        businessPhone: contact.businessPhones?.[0] || "",
+        mobilePhone: contact.mobilePhones?.[0] || "",
+        company: contact.companyName || "",
+        jobTitle: contact.jobTitle || "",
+      }))
+    } catch (error: any) {
+      console.error("Error fetching Outlook contacts:", error)
+      return []
+    }
+  },
+
+  "outlook_calendars": async (integration: any) => {
+    try {
+      const response = await fetch("https://graph.microsoft.com/v1.0/me/calendars", {
+        headers: {
+          Authorization: `Bearer ${integration.access_token}`,
+          "Content-Type": "application/json",
+        },
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        if (response.status === 401) {
+          console.warn("Outlook authentication expired, returning empty array to prevent UI break")
+          return []
+        }
+        console.error(`Microsoft Graph API error: ${response.status} - ${errorData.error?.message || response.statusText}`)
+        return []
+      }
+
+      const data = await response.json()
+      return (data.value || []).map((calendar: any) => ({
+        id: calendar.id,
+        name: calendar.name || "Untitled Calendar",
+        value: calendar.id,
+        isDefaultCalendar: calendar.isDefaultCalendar || false,
+        color: calendar.color || "auto",
+        canEdit: calendar.canEdit || false,
+        canShare: calendar.canShare || false,
+        canViewPrivateItems: calendar.canViewPrivateItems || false,
+      }))
+    } catch (error: any) {
+      console.error("Error fetching Outlook calendars:", error)
+      return []
+    }
+  },
+
+  "outlook_events": async (integration: any, options: any) => {
+    try {
+      const { calendarId, startDate, endDate } = options || {}
+      
+      let url = "https://graph.microsoft.com/v1.0/me/events"
+      if (calendarId) {
+        url = `https://graph.microsoft.com/v1.0/me/calendars/${calendarId}/events`
+      }
+      
+      const params = new URLSearchParams()
+      if (startDate) params.append("$filter", `start/dateTime ge '${startDate}'`)
+      if (endDate) params.append("$filter", `end/dateTime le '${endDate}'`)
+      params.append("$orderby", "start/dateTime")
+      params.append("$top", "50")
+      
+      if (params.toString()) {
+        url += `?${params.toString()}`
+      }
+
+      const response = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${integration.access_token}`,
+          "Content-Type": "application/json",
+        },
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        if (response.status === 401) {
+          console.warn("Outlook authentication expired, returning empty array to prevent UI break")
+          return []
+        }
+        console.error(`Microsoft Graph API error: ${response.status} - ${errorData.error?.message || response.statusText}`)
+        return []
+      }
+
+      const data = await response.json()
+      return (data.value || []).map((event: any) => ({
+        id: event.id,
+        name: event.subject || "Untitled Event",
+        value: event.id,
+        start: event.start?.dateTime,
+        end: event.end?.dateTime,
+        isAllDay: event.isAllDay || false,
+        location: event.location?.displayName || "",
+        attendees: event.attendees?.map((a: any) => a.emailAddress?.address).filter(Boolean) || [],
+        calendarId: calendarId || "default",
+      }))
+    } catch (error: any) {
+      console.error("Error fetching Outlook events:", error)
+      return []
+    }
+  },
+
+  "outlook_signatures": async (integration: any) => {
+    try {
+      // Fetch user's mail settings which includes signatures
+      const response = await fetch("https://graph.microsoft.com/v1.0/me/mailboxSettings", {
+        headers: {
+          Authorization: `Bearer ${integration.access_token}`,
+          "Content-Type": "application/json",
+        },
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        if (response.status === 401) {
+          console.warn("Outlook authentication expired, returning default signatures")
+          return [
+            { value: "personal", label: "Personal", content: "Best regards,\nYour Name\nYour Company" },
+            { value: "professional", label: "Professional", content: "Sincerely,\nYour Name\nYour Title\nYour Company" },
+            { value: "casual", label: "Casual", content: "Thanks!\nYour Name" }
+          ]
+        }
+        console.error(`Microsoft Graph API error: ${response.status} - ${errorData.error?.message || response.statusText}`)
+        return []
+      }
+
+      const data = await response.json()
+      const signatures = []
+
+      // Add default signatures
+      signatures.push(
+        { value: "personal", label: "Personal", content: "Best regards,\nYour Name\nYour Company" },
+        { value: "professional", label: "Professional", content: "Sincerely,\nYour Name\nYour Title\nYour Company" },
+        { value: "casual", label: "Casual", content: "Thanks!\nYour Name" }
+      )
+
+      // If user has custom signatures, add them
+      if (data.signature) {
+        signatures.push({
+          value: "custom",
+          label: "Custom Signature",
+          content: data.signature
+        })
+      }
+
+      return signatures
+    } catch (error: any) {
+      console.error("Error fetching Outlook signatures:", error)
+      // Return default signatures as fallback
+      return [
+        { value: "personal", label: "Personal", content: "Best regards,\nYour Name\nYour Company" },
+        { value: "professional", label: "Professional", content: "Sincerely,\nYour Name\nYour Title\nYour Company" },
+        { value: "casual", label: "Casual", content: "Thanks!\nYour Name" }
+      ]
+    }
+  },
+
+  "gmail_signatures": async (integration: any) => {
+    try {
+      // Fetch user's Gmail settings which includes signatures
+      const response = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/settings/sendAs", {
+        headers: {
+          Authorization: `Bearer ${integration.access_token}`,
+          "Content-Type": "application/json",
+        },
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        if (response.status === 401) {
+          console.warn("Gmail authentication expired, returning default signatures")
+          return [
+            { value: "personal", label: "Personal", content: "Best regards,\nYour Name\nYour Company" },
+            { value: "professional", label: "Professional", content: "Sincerely,\nYour Name\nYour Title\nYour Company" },
+            { value: "casual", label: "Casual", content: "Thanks!\nYour Name" }
+          ]
+        }
+        console.error(`Gmail API error: ${response.status} - ${errorData.error?.message || response.statusText}`)
+        return []
+      }
+
+      const data = await response.json()
+      const signatures = []
+
+      // Add default signatures
+      signatures.push(
+        { value: "personal", label: "Personal", content: "Best regards,\nYour Name\nYour Company" },
+        { value: "professional", label: "Professional", content: "Sincerely,\nYour Name\nYour Title\nYour Company" },
+        { value: "casual", label: "Casual", content: "Thanks!\nYour Name" }
+      )
+
+      // If user has custom signatures, add them
+      if (data.sendAs && data.sendAs.length > 0) {
+        data.sendAs.forEach((sendAs: any) => {
+          if (sendAs.signature) {
+            signatures.push({
+              value: `custom_${sendAs.sendAsEmail}`,
+              label: `Custom Signature (${sendAs.sendAsEmail})`,
+              content: sendAs.signature
+            })
+          }
+        })
+      }
+
+      return signatures
+    } catch (error: any) {
+      console.error("Error fetching Gmail signatures:", error)
+      // Return default signatures as fallback
+      return [
+        { value: "personal", label: "Personal", content: "Best regards,\nYour Name\nYour Company" },
+        { value: "professional", label: "Professional", content: "Sincerely,\nYour Name\nYour Title\nYour Company" },
+        { value: "casual", label: "Casual", content: "Thanks!\nYour Name" }
+      ]
     }
   },
 }

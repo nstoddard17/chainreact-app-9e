@@ -74,17 +74,20 @@ export default function VariablePicker({
 
     // 3. Get variables from node's output schema (if available)
     const nodeType = getNodeTypeInfo(node)
-    if (nodeType && 'outputSchema' in nodeType && nodeType.outputSchema) {
-      nodeType.outputSchema.forEach((field: any) => {
-        variables.push({
-          path: `{{data.${field.name}}}`,
-          label: field.label || field.name,
-          type: field.type,
-          description: field.description,
-          example: field.example,
-          category: 'schema'
+    if (nodeType && typeof nodeType === 'object' && 'outputSchema' in nodeType) {
+      const schema = (nodeType as any).outputSchema
+      if (schema) {
+        schema.forEach((field: any) => {
+          variables.push({
+            path: `{{data.${field.name}}}`,
+            label: field.label || field.name,
+            type: field.type,
+            description: field.description,
+            example: field.example,
+            category: 'schema'
+          })
         })
-      })
+      }
     }
 
     return variables
@@ -175,6 +178,15 @@ export default function VariablePicker({
       if (fieldType === 'email' && variable.label.toLowerCase().includes('to')) return true
       if (fieldType === 'text' || fieldType === 'string') return variable.type === 'string'
       if (fieldType === 'number') return variable.type === 'number'
+      if (fieldType === 'file') {
+        // Show file-related variables
+        const fileKeywords = ['file', 'attachment', 'document', 'upload', 'download', 'path', 'url']
+        const hasFileKeyword = fileKeywords.some(keyword => 
+          variable.label.toLowerCase().includes(keyword) || 
+          variable.path.toLowerCase().includes(keyword)
+        )
+        return hasFileKeyword || variable.type === 'file' || variable.type === 'string'
+      }
       return true // Show all by default
     })
   }
