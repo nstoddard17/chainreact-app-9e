@@ -224,6 +224,9 @@ export async function POST(request: NextRequest) {
     if (error.message.includes("authentication") || error.message.includes("expired")) {
       errorMessage = error.message
       statusCode = 401
+    } else if (error.message.includes("Teams access denied") || error.message.includes("403")) {
+      errorMessage = error.message
+      statusCode = 403
     } else if (error.message.includes("timeout")) {
       errorMessage = "Request timed out. Please try again."
       statusCode = 408
@@ -366,6 +369,91 @@ const dataFetchers: DataFetcher = {
       }))
     } catch (error: any) {
       console.error("Error fetching Notion pages:", error)
+      throw error
+    }
+  },
+
+  notion_workspaces: async (integration: any) => {
+    try {
+      // Notion doesn't have a direct API for workspaces, but we can get user info
+      // which includes workspace information
+      const response = await fetch("https://api.notion.com/v1/users/me", {
+        headers: {
+          Authorization: `Bearer ${integration.access_token}`,
+          "Content-Type": "application/json",
+          "Notion-Version": "2022-06-28",
+        },
+      })
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("Notion authentication expired. Please reconnect your account.")
+        }
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(`Notion API error: ${response.status} - ${errorData.message || response.statusText}`)
+      }
+
+      const userData = await response.json()
+      
+      // For now, return a single workspace since Notion doesn't expose multiple workspaces via API
+      // In the future, this could be enhanced to support multiple workspaces if Notion adds that API
+      return [{
+        id: "default",
+        name: "My Workspace",
+        value: "default",
+        description: "Default Notion workspace",
+        user_id: userData.id,
+        user_name: userData.name,
+      }]
+    } catch (error: any) {
+      console.error("Error fetching Notion workspaces:", error)
+      throw error
+    }
+  },
+
+  notion_templates: async (integration: any) => {
+    try {
+      // Search for all pages and filter for templates on the client side
+      // Notion API doesn't support filtering by title content in search
+      const response = await fetch("https://api.notion.com/v1/search", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${integration.access_token}`,
+          "Content-Type": "application/json",
+          "Notion-Version": "2022-06-28",
+        },
+        body: JSON.stringify({
+          filter: { property: "object", value: "page" },
+          page_size: 100,
+        }),
+      })
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("Notion authentication expired. Please reconnect your account.")
+        }
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(`Notion API error: ${response.status} - ${errorData.message || response.statusText}`)
+      }
+
+      const data = await response.json()
+      
+      // Filter pages that contain "template" in their title (case insensitive)
+      const templatePages = (data.results || []).filter((page: any) => {
+        const title = getPageTitle(page).toLowerCase()
+        return title.includes('template')
+      })
+      
+      return templatePages.map((template: any) => ({
+        id: template.id,
+        name: getPageTitle(template),
+        value: template.id,
+        url: template.url,
+        created_time: template.created_time,
+        last_edited_time: template.last_edited_time,
+      }))
+    } catch (error: any) {
+      console.error("Error fetching Notion templates:", error)
       throw error
     }
   },
@@ -2385,6 +2473,11 @@ const dataFetchers: DataFetcher = {
   },
   "teams_chats": async (integration: any) => {
     try {
+      // Check if integration has access token
+      if (!integration.access_token) {
+        throw new Error("Teams integration not connected. Please connect your Teams account first.")
+      }
+
       const response = await fetch(
         "https://graph.microsoft.com/v1.0/me/chats",
         {
@@ -2397,6 +2490,9 @@ const dataFetchers: DataFetcher = {
       if (!response.ok) {
         if (response.status === 401) {
           throw new Error("Teams authentication expired. Please reconnect your account.")
+        }
+        if (response.status === 403) {
+          throw new Error("Teams access denied. Please check your permissions and reconnect your account.")
         }
         const errorData = await response.json().catch(() => ({}))
         throw new Error(`Teams API error: ${response.status} - ${errorData.error?.message || "Unknown error"}`)
@@ -2413,6 +2509,11 @@ const dataFetchers: DataFetcher = {
   },
   "teams_teams": async (integration: any) => {
     try {
+      // Check if integration has access token
+      if (!integration.access_token) {
+        throw new Error("Teams integration not connected. Please connect your Teams account first.")
+      }
+
       const response = await fetch(
         "https://graph.microsoft.com/v1.0/me/joinedTeams",
         {
@@ -2425,6 +2526,9 @@ const dataFetchers: DataFetcher = {
       if (!response.ok) {
         if (response.status === 401) {
           throw new Error("Teams authentication expired. Please reconnect your account.")
+        }
+        if (response.status === 403) {
+          throw new Error("Teams access denied. Please check your permissions and reconnect your account.")
         }
         const errorData = await response.json().catch(() => ({}))
         throw new Error(`Teams API error: ${response.status} - ${errorData.error?.message || "Unknown error"}`)
@@ -2441,6 +2545,11 @@ const dataFetchers: DataFetcher = {
   },
   "teams_channels": async (integration: any) => {
     try {
+      // Check if integration has access token
+      if (!integration.access_token) {
+        throw new Error("Teams integration not connected. Please connect your Teams account first.")
+      }
+
       // First get all teams, then get channels for each team
       const teamsResponse = await fetch(
         "https://graph.microsoft.com/v1.0/me/joinedTeams",
@@ -2455,8 +2564,24 @@ const dataFetchers: DataFetcher = {
         if (teamsResponse.status === 401) {
           throw new Error("Teams authentication expired. Please reconnect your account.")
         }
+        if (teamsResponse.status === 403) {
+          // Try to get more details from the response
+          let errorDetails = "Teams access denied. Please check your permissions and reconnect your account."
+          try {
+            const errorData = await teamsResponse.json()
+            if (errorData.error?.message) {
+              errorDetails = `Teams access denied: ${errorData.error.message}`
+            } else if (errorData.message) {
+              errorDetails = `Teams access denied: ${errorData.message}`
+            }
+          } catch (e) {
+            // If we can't parse the response, use the default message
+            console.warn("Could not parse Teams 403 error response:", e)
+          }
+          throw new Error(errorDetails)
+        }
         const errorData = await teamsResponse.json().catch(() => ({}))
-        throw new Error(`Teams API error: ${teamsResponse.status} - ${errorData.error?.message || "Unknown error"}`)
+        throw new Error(`Teams API error: ${teamsResponse.status} - ${errorData.error?.message || errorData.message || "Unknown error"}`)
       }
       const teamsData = await teamsResponse.json()
       

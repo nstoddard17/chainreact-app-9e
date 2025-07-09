@@ -340,6 +340,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     sendScopeWithRefresh: true,
     sendRedirectUriWithRefresh: true,
     redirectUriPath: "/api/integrations/teams/callback",
+    scope: "User.Read Team.ReadBasic.All Channel.ReadBasic.All Chat.Read ChatMessage.Send OnlineMeetings.ReadWrite",
   },
   hubspot: {
     id: "hubspot",

@@ -56,18 +56,27 @@ export async function createNotionPage(params: ActionParams): Promise<ActionResu
     
     // 3. Extract required parameters
     const { 
-      parent_type, // "database_id" or "page_id"
-      parent_id,
+      workspace,
       title,
-      properties = {},
-      content = []
+      icon,
+      cover,
+      template,
+      page_content,
+      heading_1,
+      heading_2,
+      heading_3,
+      bullet_list,
+      numbered_list,
+      quote,
+      code_block,
+      divider
     } = resolvedConfig
     
     // 4. Validate required parameters
-    if (!parent_type || !parent_id) {
+    if (!title) {
       return {
         success: false,
-        error: "Missing required parameters: parent_type and parent_id"
+        error: "Missing required parameter: title"
       }
     }
     
@@ -80,8 +89,10 @@ export async function createNotionPage(params: ActionParams): Promise<ActionResu
     
     // 5. Prepare the request payload
     const payload: any = {
+      // Create page in the user's workspace (no specific parent)
       parent: {
-        [parent_type]: parent_id
+        type: "workspace_id",
+        workspace_id: true // This creates the page in the root of the workspace
       },
       properties: {
         title: {
@@ -92,14 +103,169 @@ export async function createNotionPage(params: ActionParams): Promise<ActionResu
               }
             }
           ]
-        },
-        ...properties
+        }
       }
     }
     
-    // Add content blocks if provided
-    if (content && content.length > 0) {
-      payload.children = content
+    // Add icon if provided
+    if (icon) {
+      // Handle different icon input types
+      if (typeof icon === 'string') {
+        if (icon.startsWith('http')) {
+          // External URL
+          payload.icon = { type: "external", external: { url: icon } }
+        } else if (icon.length <= 2) {
+          // Emoji
+          payload.icon = { type: "emoji", emoji: icon }
+        } else {
+          // Assume it's a file path or URL
+          payload.icon = { type: "external", external: { url: icon } }
+        }
+      } else if (icon && typeof icon === 'object') {
+        if (icon.url) {
+          // File object with URL
+          payload.icon = { type: "external", external: { url: icon.url } }
+        } else if (icon.file) {
+          // Upload file to Notion and get URL
+          // For now, we'll need to implement file upload to Notion
+          // This would require uploading to a file service first
+          console.warn("File upload for Notion icons not yet implemented")
+        }
+      }
+    }
+    
+    // Add cover if provided
+    if (cover) {
+      // Handle different cover input types
+      if (typeof cover === 'string') {
+        if (cover.startsWith('http')) {
+          // External URL
+          payload.cover = { type: "external", external: { url: cover } }
+        } else {
+          // Assume it's a file path or URL
+          payload.cover = { type: "external", external: { url: cover } }
+        }
+      } else if (cover && typeof cover === 'object') {
+        if (cover.url) {
+          // File object with URL
+          payload.cover = { type: "external", external: { url: cover.url } }
+        } else if (cover.file) {
+          // Upload file to Notion and get URL
+          // For now, we'll need to implement file upload to Notion
+          // This would require uploading to a file service first
+          console.warn("File upload for Notion covers not yet implemented")
+        }
+      }
+    }
+    
+    // Build content blocks from separate fields
+    const contentBlocks = []
+    
+    // Add headings if provided
+    if (heading_1) {
+      contentBlocks.push({
+        object: "block",
+        type: "heading_1",
+        heading_1: {
+          rich_text: [{ type: "text", text: { content: heading_1 } }]
+        }
+      })
+    }
+    
+    if (heading_2) {
+      contentBlocks.push({
+        object: "block",
+        type: "heading_2",
+        heading_2: {
+          rich_text: [{ type: "text", text: { content: heading_2 } }]
+        }
+      })
+    }
+    
+    if (heading_3) {
+      contentBlocks.push({
+        object: "block",
+        type: "heading_3",
+        heading_3: {
+          rich_text: [{ type: "text", text: { content: heading_3 } }]
+        }
+      })
+    }
+    
+    // Add main page content if provided
+    if (page_content) {
+      contentBlocks.push({
+        object: "block",
+        type: "paragraph",
+        paragraph: {
+          rich_text: [{ type: "text", text: { content: page_content } }]
+        }
+      })
+    }
+    
+    // Add bullet list if provided
+    if (bullet_list) {
+      const listItems = bullet_list.split('\n').filter((item: string) => item.trim())
+      listItems.forEach((item: string) => {
+        contentBlocks.push({
+          object: "block",
+          type: "bulleted_list_item",
+          bulleted_list_item: {
+            rich_text: [{ type: "text", text: { content: item.trim() } }]
+          }
+        })
+      })
+    }
+    
+    // Add numbered list if provided
+    if (numbered_list) {
+      const listItems = numbered_list.split('\n').filter((item: string) => item.trim())
+      listItems.forEach((item: string) => {
+        contentBlocks.push({
+          object: "block",
+          type: "numbered_list_item",
+          numbered_list_item: {
+            rich_text: [{ type: "text", text: { content: item.trim() } }]
+          }
+        })
+      })
+    }
+    
+    // Add quote if provided
+    if (quote) {
+      contentBlocks.push({
+        object: "block",
+        type: "quote",
+        quote: {
+          rich_text: [{ type: "text", text: { content: quote } }]
+        }
+      })
+    }
+    
+    // Add code block if provided
+    if (code_block) {
+      contentBlocks.push({
+        object: "block",
+        type: "code",
+        code: {
+          rich_text: [{ type: "text", text: { content: code_block } }],
+          language: "plain text"
+        }
+      })
+    }
+    
+    // Add divider if requested
+    if (divider) {
+      contentBlocks.push({
+        object: "block",
+        type: "divider",
+        divider: {}
+      })
+    }
+    
+    // Add content blocks to payload if any exist
+    if (contentBlocks.length > 0) {
+      payload.children = contentBlocks
     }
     
     // 6. Make Notion API request

@@ -1749,25 +1749,111 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     isTrigger: false,
     configSchema: [
       { 
-        name: "parent_type", 
-        label: "Parent Type", 
+        name: "workspace", 
+        label: "Workspace", 
         type: "select", 
+        dynamic: "notion_workspaces",
         required: true,
-        options: [
-          { value: "database_id", label: "Database" },
-          { value: "page_id", label: "Page" }
-        ]
+        placeholder: "Select Notion workspace"
       },
       { 
-        name: "parent_id", 
-        label: "Parent ID", 
+        name: "title", 
+        label: "Page Title", 
         type: "text", 
         required: true,
-        placeholder: "Database or page ID"
+        placeholder: "Enter page title"
       },
-      { name: "title", label: "Page Title", type: "text", required: true },
-      { name: "properties", label: "Properties (JSON)", type: "textarea", placeholder: '{"Status": {"select": {"name": "In Progress"}}}' },
-      { name: "content", label: "Content Blocks (JSON)", type: "textarea", placeholder: "Optional: Array of content blocks" }
+      { 
+        name: "icon", 
+        label: "Icon (Optional)", 
+        type: "file", 
+        required: false,
+        placeholder: "Select emoji, upload file, or enter URL",
+        accept: "image/*,.svg,.png,.jpg,.jpeg,.gif",
+        maxSize: 5242880, // 5MB
+        description: "Upload an image file, enter an emoji, or provide a URL"
+      },
+      { 
+        name: "cover", 
+        label: "Cover Image (Optional)", 
+        type: "file", 
+        required: false,
+        placeholder: "Upload file, enter URL, or select from previous nodes",
+        accept: "image/*,.jpg,.jpeg,.png,.gif,.webp",
+        maxSize: 10485760, // 10MB
+        description: "Upload an image file, enter a URL, or select from previous node outputs"
+      },
+      { 
+        name: "template", 
+        label: "Template (Optional)", 
+        type: "select", 
+        dynamic: "notion_templates",
+        required: false,
+        placeholder: "Select a template"
+      },
+      { 
+        name: "page_content", 
+        label: "Page Content", 
+        type: "rich-text", 
+        required: false,
+        placeholder: "Enter the main content of your page"
+      },
+      { 
+        name: "heading_1", 
+        label: "Heading 1 (Optional)", 
+        type: "text", 
+        required: false,
+        placeholder: "Main heading for the page"
+      },
+      { 
+        name: "heading_2", 
+        label: "Heading 2 (Optional)", 
+        type: "text", 
+        required: false,
+        placeholder: "Secondary heading"
+      },
+      { 
+        name: "heading_3", 
+        label: "Heading 3 (Optional)", 
+        type: "text", 
+        required: false,
+        placeholder: "Tertiary heading"
+      },
+      { 
+        name: "bullet_list", 
+        label: "Bullet List (Optional)", 
+        type: "textarea", 
+        required: false,
+        placeholder: "Enter list items, one per line"
+      },
+      { 
+        name: "numbered_list", 
+        label: "Numbered List (Optional)", 
+        type: "textarea", 
+        required: false,
+        placeholder: "Enter list items, one per line"
+      },
+      { 
+        name: "quote", 
+        label: "Quote (Optional)", 
+        type: "textarea", 
+        required: false,
+        placeholder: "Enter a quote or callout text"
+      },
+      { 
+        name: "code_block", 
+        label: "Code Block (Optional)", 
+        type: "textarea", 
+        required: false,
+        placeholder: "Enter code or technical content"
+      },
+      { 
+        name: "divider", 
+        label: "Add Divider", 
+        type: "boolean", 
+        required: false,
+        defaultValue: false
+      }
     ],
     outputSchema: [
       {
@@ -2210,6 +2296,19 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Communication",
     isTrigger: true,
     producesOutput: true,
+    configSchema: [
+      { name: "channelId", label: "Channel", type: "select", dynamic: "teams_channels", required: true, placeholder: "Select a channel to monitor" }
+    ],
+    outputSchema: [
+      { name: "messageId", label: "Message ID", type: "string", description: "The ID of the new message" },
+      { name: "content", label: "Message Content", type: "string", description: "The content of the message" },
+      { name: "senderId", label: "Sender ID", type: "string", description: "The ID of the message sender" },
+      { name: "senderName", label: "Sender Name", type: "string", description: "The name of the message sender" },
+      { name: "channelId", label: "Channel ID", type: "string", description: "The ID of the channel where the message was posted" },
+      { name: "channelName", label: "Channel Name", type: "string", description: "The name of the channel where the message was posted" },
+      { name: "timestamp", label: "Message Time", type: "string", description: "When the message was posted (ISO 8601 format)" },
+      { name: "attachments", label: "Attachments", type: "array", description: "Array of file attachments in the message" }
+    ]
   },
   {
     type: "teams_action_send_message",
@@ -2220,6 +2319,17 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     requiredScopes: ["Chat.ReadWrite"],
     category: "Communication",
     isTrigger: false,
+    configSchema: [
+      { name: "channelId", label: "Channel", type: "select", dynamic: "teams_channels", required: true, placeholder: "Select a channel" },
+      { name: "message", label: "Message", type: "textarea", required: true, placeholder: "Enter your message" },
+      { name: "attachments", label: "Attachments", type: "file", required: false, accept: ".pdf,.doc,.docx,.txt,.jpg,.png,.gif", multiple: true, placeholder: "Add file attachments (optional)" }
+    ],
+    outputSchema: [
+      { name: "messageId", label: "Message ID", type: "string", description: "The ID of the sent message" },
+      { name: "channelId", label: "Channel ID", type: "string", description: "The ID of the channel where the message was sent" },
+      { name: "timestamp", label: "Sent Time", type: "string", description: "When the message was sent (ISO 8601 format)" },
+      { name: "success", label: "Success Status", type: "boolean", description: "Whether the message was sent successfully" }
+    ]
   },
   {
     type: "teams_action_create_meeting",
@@ -2230,6 +2340,24 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     requiredScopes: ["OnlineMeetings.ReadWrite"],
     category: "Communication",
     isTrigger: false,
+    configSchema: [
+      { name: "subject", label: "Meeting Subject", type: "text", required: true, placeholder: "Enter meeting subject" },
+      { name: "startTime", label: "Start Time", type: "datetime", required: true },
+      { name: "endTime", label: "End Time", type: "datetime", required: true },
+      { name: "attendees", label: "Attendees", type: "email-autocomplete", dynamic: "outlook-enhanced-recipients", required: false, placeholder: "Select or enter attendee email addresses" },
+      { name: "description", label: "Description", type: "textarea", required: false, placeholder: "Meeting description" },
+      { name: "allowMeetingChat", label: "Allow Meeting Chat", type: "boolean", required: false, defaultValue: true },
+      { name: "allowCamera", label: "Allow Camera", type: "boolean", required: false, defaultValue: true },
+      { name: "allowMic", label: "Allow Microphone", type: "boolean", required: false, defaultValue: true }
+    ],
+    outputSchema: [
+      { name: "meetingId", label: "Meeting ID", type: "string", description: "The ID of the created meeting" },
+      { name: "joinUrl", label: "Join URL", type: "string", description: "The URL to join the meeting" },
+      { name: "subject", label: "Meeting Subject", type: "string", description: "The subject of the meeting" },
+      { name: "startTime", label: "Start Time", type: "string", description: "When the meeting starts (ISO 8601 format)" },
+      { name: "endTime", label: "End Time", type: "string", description: "When the meeting ends (ISO 8601 format)" },
+      { name: "success", label: "Success Status", type: "boolean", description: "Whether the meeting was created successfully" }
+    ]
   },
   {
     type: "teams_action_send_chat_message",
@@ -2260,6 +2388,13 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
       { name: "channelName", label: "Channel Name", type: "text", required: true, placeholder: "Enter channel name" },
       { name: "description", label: "Description", type: "textarea", required: false, placeholder: "Channel description (optional)" },
       { name: "isPrivate", label: "Private Channel", type: "boolean", required: false, defaultValue: false }
+    ],
+    outputSchema: [
+      { name: "channelId", label: "Channel ID", type: "string", description: "The ID of the created channel" },
+      { name: "channelName", label: "Channel Name", type: "string", description: "The name of the created channel" },
+      { name: "teamId", label: "Team ID", type: "string", description: "The ID of the team where the channel was created" },
+      { name: "isPrivate", label: "Is Private", type: "boolean", description: "Whether the channel is private" },
+      { name: "success", label: "Success Status", type: "boolean", description: "Whether the channel was created successfully" }
     ]
   },
   {
@@ -2273,7 +2408,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     isTrigger: false,
     configSchema: [
       { name: "teamId", label: "Team", type: "select", dynamic: "teams_teams", required: true, placeholder: "Select a team" },
-      { name: "userEmail", label: "User Email", type: "email", required: true, placeholder: "Enter user's email address" },
+      { name: "userEmail", label: "User Email", type: "email-autocomplete", dynamic: "outlook-enhanced-recipients", required: true, placeholder: "Select or enter user's email address" },
       { name: "role", label: "Role", type: "select", required: true, defaultValue: "member", options: [
         { value: "member", label: "Member" },
         { value: "owner", label: "Owner" }
@@ -2293,7 +2428,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
       { name: "subject", label: "Meeting Subject", type: "text", required: true, placeholder: "Enter meeting subject" },
       { name: "startTime", label: "Start Time", type: "datetime", required: true },
       { name: "endTime", label: "End Time", type: "datetime", required: true },
-      { name: "attendees", label: "Attendees", type: "text", required: false, placeholder: "Comma-separated email addresses" },
+      { name: "attendees", label: "Attendees", type: "email-autocomplete", dynamic: "outlook-enhanced-recipients", required: false, placeholder: "Select or enter attendee email addresses" },
       { name: "description", label: "Description", type: "textarea", required: false, placeholder: "Meeting description" },
       { name: "isOnlineMeeting", label: "Online Meeting", type: "boolean", required: false, defaultValue: true }
     ]
@@ -2329,6 +2464,12 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     isTrigger: false,
     configSchema: [
       { name: "teamId", label: "Team", type: "select", dynamic: "teams_teams", required: true, placeholder: "Select a team" }
+    ],
+    outputSchema: [
+      { name: "members", label: "Team Members", type: "array", description: "Array of team member objects" },
+      { name: "memberCount", label: "Member Count", type: "number", description: "Total number of team members" },
+      { name: "teamId", label: "Team ID", type: "string", description: "The ID of the team" },
+      { name: "success", label: "Success Status", type: "boolean", description: "Whether the members were retrieved successfully" }
     ]
   },
   {
@@ -2434,6 +2575,19 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "teams",
     category: "Communication",
     isTrigger: true,
+    configSchema: [
+      { name: "chatId", label: "Chat", type: "select", dynamic: "teams_chats", required: true, placeholder: "Select a chat to monitor" }
+    ],
+    outputSchema: [
+      { name: "messageId", label: "Message ID", type: "string", description: "The ID of the new message" },
+      { name: "content", label: "Message Content", type: "string", description: "The content of the message" },
+      { name: "senderId", label: "Sender ID", type: "string", description: "The ID of the message sender" },
+      { name: "senderName", label: "Sender Name", type: "string", description: "The name of the message sender" },
+      { name: "chatId", label: "Chat ID", type: "string", description: "The ID of the chat where the message was posted" },
+      { name: "chatName", label: "Chat Name", type: "string", description: "The name of the chat where the message was posted" },
+      { name: "timestamp", label: "Message Time", type: "string", description: "When the message was posted (ISO 8601 format)" },
+      { name: "attachments", label: "Attachments", type: "array", description: "Array of file attachments in the message" }
+    ]
   },
   {
     type: "teams_trigger_user_joins_team",
@@ -2443,6 +2597,18 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     providerId: "teams",
     category: "Communication",
     isTrigger: true,
+    configSchema: [
+      { name: "teamId", label: "Team", type: "select", dynamic: "teams_teams", required: true, placeholder: "Select a team to monitor" }
+    ],
+    outputSchema: [
+      { name: "userId", label: "User ID", type: "string", description: "The ID of the user who joined" },
+      { name: "userName", label: "User Name", type: "string", description: "The name of the user who joined" },
+      { name: "userEmail", label: "User Email", type: "string", description: "The email of the user who joined" },
+      { name: "teamId", label: "Team ID", type: "string", description: "The ID of the team the user joined" },
+      { name: "teamName", label: "Team Name", type: "string", description: "The name of the team the user joined" },
+      { name: "joinTime", label: "Join Time", type: "string", description: "When the user joined the team (ISO 8601 format)" },
+      { name: "role", label: "User Role", type: "string", description: "The role assigned to the user in the team" }
+    ]
   },
 
   // Twitter (X)
