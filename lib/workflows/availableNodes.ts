@@ -1739,7 +1739,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     description: "Create a new Slack channel with advanced options",
     icon: Hash,
     providerId: "slack",
-    requiredScopes: ["conversations:write", "users:read"],
+    requiredScopes: ["groups:write", "users:read"],
     category: "Communication",
     isTrigger: false,
     configSchema: [

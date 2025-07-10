@@ -185,8 +185,8 @@ function generateSlackAuthUrl(state: string): string {
 
   const params = new URLSearchParams({
     client_id: clientId,
-    scope: "channels:read,conversations:write,chat:write,users:read,team:read", // Bot permissions (if user has admin access)
-    user_scope: "channels:read,conversations:write,chat:write,users:read,team:read", // User permissions (fallback)
+    scope: "channels:read,groups:write,chat:write,users:read,team:read", // Bot permissions (if user has admin access)
+    user_scope: "channels:read,groups:write,chat:write,users:read,team:read", // User permissions (fallback)
     redirect_uri: `${baseUrl}/api/integrations/slack/callback`,
     state,
     response_type: "code",
