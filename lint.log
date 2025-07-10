@@ -1,0 +1,7 @@
+
+> my-v0-project@0.1.0 lint
+> next lint
+
+Cannot read config file: /Users/nathanielstoddard/.Trash/package.json
+Error: Cannot read config file: /Users/nathanielstoddard/.Trash/package.json
+Error: EPERM: operation not permitted, open '/Users/nathanielstoddard/.Trash/package.json'

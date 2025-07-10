@@ -69,12 +69,12 @@ import { AI_AGENT_METADATA } from "@/lib/workflows/aiAgent"
 export interface ConfigField {
   name: string
   label: string
-  type: "string" | "number" | "boolean" | "select" | "combobox" | "textarea" | "text" | "email" | "password" | "email-autocomplete" | "location-autocomplete" | "file" | "date" | "time" | "datetime" | "custom" | "rich-text"
+  type: "string" | "number" | "boolean" | "select" | "combobox" | "textarea" | "text" | "email" | "password" | "email-autocomplete" | "location-autocomplete" | "file" | "date" | "time" | "datetime" | "custom" | "rich-text" | "multi-select"
   required?: boolean
   placeholder?: string
   description?: string
   options?: { value: string; label: string }[] | string[]
-  dynamic?: "slack-channels" | "google-calendars" | "google-drive-folders" | "google-drive-files" | "onedrive-folders" | "dropbox-folders" | "box-folders" | "gmail-recent-recipients" | "gmail-enhanced-recipients" | "gmail-contact-groups" | "gmail_messages" | "gmail_labels" | "gmail_recent_senders" | "google-sheets_spreadsheets" | "google-sheets_sheets" | "google-docs_documents" | "google-docs_templates" | "google-docs_recent_documents" | "google-docs_shared_documents" | "google-docs_folders" | "youtube_channels" | "youtube_videos" | "youtube_playlists" | "teams_chats" | "teams_teams" | "teams_channels" | "github_repositories" | "gitlab_projects" | "notion_databases" | "notion_pages" | "notion_workspaces" | "notion_users" | "trello_boards" | "trello_lists" | "hubspot_companies" | "hubspot_contacts" | "hubspot_deals" | "hubspot_lists" | "hubspot_pipelines" | "hubspot_deal_stages" | "airtable_workspaces" | "airtable_bases" | "airtable_tables" | "airtable_records" | "airtable_feedback_records" | "airtable_task_records" | "airtable_project_records" | "gumroad_products" | "blackbaud_constituents" | "facebook_pages" | "onenote_notebooks" | "onenote_sections" | "onenote_pages" | "outlook_folders" | "outlook_messages" | "outlook_contacts" | "outlook_calendars" | "outlook_events" | "outlook-enhanced-recipients"
+  dynamic?: "slack-channels" | "slack_workspaces" | "slack_users" | "google-calendars" | "google-drive-folders" | "google-drive-files" | "onedrive-folders" | "dropbox-folders" | "box-folders" | "gmail-recent-recipients" | "gmail-enhanced-recipients" | "gmail-contact-groups" | "gmail_messages" | "gmail_labels" | "gmail_recent_senders" | "google-sheets_spreadsheets" | "google-sheets_sheets" | "google-docs_documents" | "google-docs_templates" | "google-docs_recent_documents" | "google-docs_shared_documents" | "google-docs_folders" | "youtube_channels" | "youtube_videos" | "youtube_playlists" | "teams_chats" | "teams_teams" | "teams_channels" | "github_repositories" | "gitlab_projects" | "notion_databases" | "notion_pages" | "notion_workspaces" | "notion_users" | "trello_boards" | "trello_lists" | "hubspot_companies" | "hubspot_contacts" | "hubspot_deals" | "hubspot_lists" | "hubspot_pipelines" | "hubspot_deal_stages" | "airtable_workspaces" | "airtable_bases" | "airtable_tables" | "airtable_records" | "airtable_feedback_records" | "airtable_task_records" | "airtable_project_records" | "gumroad_products" | "blackbaud_constituents" | "facebook_pages" | "onenote_notebooks" | "onenote_sections" | "onenote_pages" | "outlook_folders" | "outlook_messages" | "outlook_contacts" | "outlook_calendars" | "outlook_events" | "outlook-enhanced-recipients"
   accept?: string // For file inputs, specify accepted file types
   maxSize?: number // For file inputs, specify max file size in bytes
   defaultValue?: string | number | boolean // Default value for the field
@@ -1699,7 +1699,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
       },
       { 
         name: "iconUrl", 
-        label: "Icon URL", 
+        label: "Icon", 
         type: "custom", 
         placeholder: "URL to custom icon or upload image file",
         description: "Set a custom icon for the message. You can provide a URL or upload an image file"
@@ -1736,41 +1736,75 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   {
     type: "slack_action_create_channel",
     title: "Create Channel (Slack)",
-    description: "Create a new public or private Slack channel",
+    description: "Create a new Slack channel with advanced options",
     icon: Hash,
     providerId: "slack",
-    requiredScopes: ["channels:write", "groups:write"],
+    requiredScopes: ["channels:write", "users:read"],
     category: "Communication",
     isTrigger: false,
     configSchema: [
-      { name: "name", label: "Channel Name", type: "text", required: true, placeholder: "e.g., project-updates" },
-      { name: "is_private", label: "Private Channel", type: "boolean", defaultValue: false },
-      { name: "description", label: "Description", type: "textarea", placeholder: "Optional channel description" }
-    ],
-    outputSchema: [
       {
-        name: "channelId",
-        label: "Channel ID",
-        type: "string",
-        description: "The unique ID of the created channel"
+        name: "workspace",
+        label: "Workspace",
+        type: "select",
+        required: true,
+        dynamic: "slack_workspaces",
+        description: "Select the Slack workspace."
+      },
+      {
+        name: "template",
+        label: "Template",
+        type: "select",
+        required: false,
+        options: [
+          { value: "announcements", label: "Announcements" },
+          { value: "project", label: "Project" },
+          { value: "social", label: "Social" },
+          { value: "support", label: "Support" },
+          { value: "team", label: "Team" },
+        ],
+        description: "Choose a channel template."
+      },
+      {
+        name: "templatePreview",
+        label: "Template Preview",
+        type: "custom",
+        required: false
       },
       {
         name: "channelName",
         label: "Channel Name",
-        type: "string",
-        description: "The name of the created channel"
+        type: "text",
+        required: true,
+        placeholder: "e.g. plan-budget",
+        description: "Enter a channel name (lowercase, no spaces)."
       },
       {
-        name: "isPrivate",
-        label: "Is Private",
+        name: "visibility",
+        label: "Visibility",
+        type: "select",
+        required: true,
+        options: [
+          { value: "public", label: "Public" },
+          { value: "private", label: "Private" }
+        ],
+        description: "Choose whether the channel is public or private."
+      },
+      {
+        name: "addPeople",
+        label: "Add People to Channel",
+        type: "combobox",
+        multiple: true,
+        required: false,
+        dynamic: "slack_users",
+        description: "Add people by name or email."
+      },
+      {
+        name: "autoAddNewMembers",
+        label: "Auto-add new workspace members",
         type: "boolean",
-        description: "Whether the channel is private"
-      },
-      {
-        name: "created",
-        label: "Created Timestamp",
-        type: "string",
-        description: "When the channel was created"
+        required: false,
+        description: "When new people join your workspace, automatically add them to this channel. (Admins only)"
       }
     ]
   },

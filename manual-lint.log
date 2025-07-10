@@ -1,0 +1,18 @@
+
+Oops! Something went wrong! :(
+
+ESLint: 8.56.0
+
+Error: Failed to patch ESLint because the calling module was not recognized.
+If you are using a newer ESLint version that may be unsupported, please create a GitHub issue:
+https://github.com/microsoft/rushstack/issues
+    at Object.<anonymous> (/Users/nathanielstoddard/.Trash/chainreact-app-9e-1/chainreact-app-9e/node_modules/@rushstack/eslint-patch/lib/_patch-base.js:244:19)
+    at Module._compile (node:internal/modules/cjs/loader:1723:14)
+    at Object..js (node:internal/modules/cjs/loader:1888:10)
+    at Module.load (node:internal/modules/cjs/loader:1458:32)
+    at Function._load (node:internal/modules/cjs/loader:1275:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:234:24)
+    at Module.require (node:internal/modules/cjs/loader:1480:12)
+    at require (node:internal/modules/helpers:135:16)
+    at Object.<anonymous> (/Users/nathanielstoddard/.Trash/chainreact-app-9e-1/chainreact-app-9e/node_modules/@rushstack/eslint-patch/lib/modern-module-resolution.js:11:23)

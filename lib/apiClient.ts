@@ -17,15 +17,26 @@ class ApiClient {
 
   private async getAuthHeaders(): Promise<Record<string, string>> {
     try {
+      console.log("🔍 Getting auth headers...")
       const { data: { session } } = await supabase.auth.getSession()
+      console.log("🔍 Session data:", session ? { 
+        hasAccessToken: !!session.access_token, 
+        tokenLength: session.access_token?.length || 0,
+        expiresAt: session.expires_at 
+      } : null)
+      
       if (session?.access_token) {
+        console.log("✅ Auth token found, returning Authorization header")
         return {
           "Authorization": `Bearer ${session.access_token}`,
         }
+      } else {
+        console.warn("⚠️ No session or access token found")
       }
     } catch (error) {
-      console.warn("Failed to get auth token:", error)
+      console.error("❌ Failed to get auth token:", error)
     }
+    console.log("❌ Returning empty auth headers")
     return {}
   }
 
@@ -40,6 +51,7 @@ class ApiClient {
 
       // Get authentication headers
       const authHeaders = await this.getAuthHeaders()
+      console.log("🔍 Auth headers retrieved:", authHeaders)
 
       const config: RequestInit = {
         ...options,
@@ -52,7 +64,11 @@ class ApiClient {
       }
 
       console.log(`🌐 API Request: ${config.method || "GET"} ${url}`)
-      console.log(`🌐 API Request Headers:`, config.headers)
+      if (config.headers) {
+        const headersObj = config.headers as Record<string, string>
+        console.log(`🌐 API Request Headers:`, Object.fromEntries(Object.entries(headersObj).filter(([key]) => key.toLowerCase() !== 'authorization')))
+        console.log(`🔍 Has Authorization header:`, !!headersObj['Authorization'])
+      }
       if (config.body) {
         console.log(`🌐 API Request Body:`, config.body)
       }

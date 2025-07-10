@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -1781,9 +1781,21 @@ export default function ConfigurationModal({
   }, [config, nodeInfo?.providerId, getIntegrationByProvider, loadIntegrationData])
 
   const fetchDynamicData = useCallback(async () => {
+    console.log('🔍 fetchDynamicData called with:', { 
+      nodeInfo: nodeInfo ? { type: nodeInfo.type, providerId: nodeInfo.providerId } : null,
+      hasConfigSchema: !!(nodeInfo?.configSchema),
+      configSchemaLength: nodeInfo?.configSchema?.length || 0
+    })
+    
     if (!nodeInfo || !nodeInfo.providerId) return
 
     const integration = getIntegrationByProvider(nodeInfo.providerId)
+    console.log('🔍 Integration found:', integration ? { 
+      id: integration.id, 
+      provider: integration.provider, 
+      status: integration.status 
+    } : null)
+    
     if (!integration) {
       console.warn('⚠️ No integration found for provider:', nodeInfo.providerId)
       return
@@ -1858,13 +1870,26 @@ export default function ConfigurationModal({
     }
 
     // Build fetch promises only for missing data
+    console.log('🔍 Building fetch promises for:', {
+      fieldsToFetch: fieldsToFetch.map(f => ({ name: f.name, dynamic: f.dynamic })),
+      signaturesNotCached: signaturesNotCached.map(s => ({ name: s.name, dynamic: s.dynamic }))
+    })
+    
     const fetchPromises = [
       ...fieldsToFetch.map(field => {
+        console.log(`🔍 Fetching data for field: ${field.name} (${field.dynamic})`)
         return loadIntegrationData(field.dynamic as string, integration.id)
-          .then(data => ({ field, data, error: null }))
-          .catch(error => ({ field, data: null, error }))
+          .then(data => {
+            console.log(`✅ Successfully loaded data for ${field.dynamic}:`, data ? data.length : 0, 'items')
+            return { field, data, error: null }
+          })
+          .catch(error => {
+            console.error(`❌ Failed to load data for ${field.dynamic}:`, error)
+            return { field, data: null, error }
+          })
       }),
       ...signaturesNotCached.map(sig => {
+        console.log(`🔍 Fetching signature data for: ${sig.dynamic}`)
         return loadIntegrationData(sig.dynamic, integration.id)
           .then(data => ({ field: { name: sig.name, dynamic: sig.dynamic }, data, error: null }))
           .catch(error => ({ field: { name: sig.name, dynamic: sig.dynamic }, data: null, error }))
@@ -4773,83 +4798,75 @@ export default function ConfigurationModal({
             <div className="space-y-2">
               {renderLabel()}
               <div className="space-y-3">
-                {/* Mode Toggle */}
-                <div className="flex items-center space-x-2">
-                  <Button
-                    type="button"
-                    variant={iconMode === "url" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setIconMode("url")}
-                  >
-                    URL
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={iconMode === "upload" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setIconMode("upload")}
-                  >
-                    Upload
-                  </Button>
+                <div>
+                  <Label>Mode</Label>
+                  <div className="flex items-center space-x-1 p-1 bg-muted rounded-lg w-full">
+                    <Button
+                      type="button"
+                      variant={iconMode === "url" ? "default" : "ghost"}
+                      size="sm"
+                      onClick={() => setIconMode("url")}
+                      className="h-8 flex-1"
+                    >
+                      URL
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={iconMode === "upload" ? "default" : "ghost"}
+                      size="sm"
+                      onClick={() => setIconMode("upload")}
+                      className="h-8 flex-1"
+                    >
+                      Upload
+                    </Button>
+                  </div>
                 </div>
 
-                {/* URL Input */}
-                {iconMode === "url" ? (
-                  <div className="flex gap-2">
-                    <Input
-                      value={typeof value === "string" ? value : ""}
-                      onChange={handleChange}
-                      placeholder="https://example.com/icon.png"
-                      className="flex-1"
-                    />
-                    <VariablePicker
-                      workflowData={workflowData}
-                      currentNodeId={currentNodeId}
-                      onVariableSelect={handleVariableSelect}
-                      fieldType="text"
-                      trigger={
-                        <Button variant="outline" size="sm" className="flex-shrink-0 px-3">
-                          <Database className="w-4 h-4" />
-                        </Button>
-                      }
-                    />
-                  </div>
-                ) : (
-                  /* File Upload */
-                  <div className="space-y-2">
-                    <input
-                      ref={iconFileInputRef}
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => handleIconFileUpload(e.target.files)}
-                      className="hidden"
-                    />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full"
-                      onClick={() => iconFileInputRef.current?.click()}
-                    >
-                      <Upload className="w-4 h-4 mr-2" />
-                      {iconFile ? iconFile.name : "Upload Image File"}
-                    </Button>
-                    {iconFile && (
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <span>Selected: {iconFile.name}</span>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setIconFile(null)
-                            setConfig(prev => ({ ...prev, [field.name]: "" }))
-                          }}
-                        >
-                          Remove
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                )}
+                <div className="flex flex-col gap-2 w-full">
+                  {iconMode === "upload" ? (
+                    <>
+                      <input
+                        ref={iconFileInputRef}
+                        type="file"
+                        accept="image/*,.svg,.png,.jpg,.jpeg,.gif"
+                        onChange={(e) => handleIconFileUpload(e.target.files)}
+                        className="hidden"
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => iconFileInputRef.current?.click()}
+                      >
+                        <Upload className="w-4 h-4 mr-2" />
+                        Upload File
+                      </Button>
+                      {iconFile && (
+                        <div className="text-xs text-muted-foreground truncate">{iconFile.name}</div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="flex gap-2">
+                      <Input
+                        value={typeof value === "string" ? value : ""}
+                        onChange={handleChange}
+                        placeholder="https://example.com/icon.png"
+                        className="flex-1"
+                      />
+                      <VariablePicker
+                        workflowData={workflowData}
+                        currentNodeId={currentNodeId}
+                        onVariableSelect={handleVariableSelect}
+                        fieldType="text"
+                        trigger={
+                          <Button variant="outline" size="sm" className="flex-shrink-0 px-3">
+                            <Database className="w-4 h-4" />
+                          </Button>
+                        }
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
               {hasError && (
                 <p className="text-xs text-red-500">{errors[field.name]}</p>
@@ -5040,6 +5057,50 @@ export default function ConfigurationModal({
       icon: config.icon || {},
       cover: config.cover || {},
     }
+  }
+
+  // Helper: Fetch Slack users for workspace
+  const fetchSlackUsers = async (workspaceId: string, userId: string) => {
+    const res = await fetch("/api/integrations/slack/users", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ workspaceId, userId })
+    })
+    const data = await res.json()
+    return data.success ? data.users : []
+  }
+
+  // Helper: Check if user is admin in workspace
+  const fetchSlackAdminStatus = async (workspaceId: string, userId: string) => {
+    const res = await fetch("/api/integrations/slack/admin-status", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ workspaceId, userId })
+    })
+    const data = await res.json()
+    return data.success ? data.is_admin : false
+  }
+
+  // Helper: Slack template preview
+  const SlackTemplatePreview = ({ template, channelName, visibility }: { template: string, channelName: string, visibility: string }) => {
+    // Example preview content for each template
+    const templateContent: Record<string, string> = {
+      announcements: "A channel for important updates and announcements.",
+      project: "A channel for project discussions and collaboration.",
+      social: "A channel for team socializing and fun.",
+      support: "A channel for support and help requests.",
+      team: "A channel for your team to communicate and share info."
+    }
+    return (
+      <div className="border rounded-lg p-4 bg-muted mb-4">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="font-semibold">{visibility === "private" ? <span className="text-orange-600">Private</span> : <span className="text-green-700">Public</span>}</span>
+          <span className="text-muted-foreground">Channel</span>
+        </div>
+        <div className="text-lg font-bold mb-1">#{channelName || "channel-name"}</div>
+        <div className="text-sm text-muted-foreground">{templateContent[template] || "Select a template to see a preview."}</div>
+      </div>
+    )
   }
 
   return (

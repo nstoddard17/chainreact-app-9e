@@ -14,6 +14,10 @@ interface DataFetcher {
 // Add comprehensive error handling and fix API calls
 export async function POST(request: NextRequest) {
   console.log("🚀 API endpoint called")
+  console.log("🔍 Request URL:", request.url)
+  console.log("🔍 Request method:", request.method)
+  console.log("🔍 Request headers:", Object.fromEntries(request.headers.entries()))
+  
   try {
     console.log("📝 Parsing request body...")
     const requestBody = await request.json()
@@ -154,6 +158,15 @@ export async function POST(request: NextRequest) {
     
     if (provider === "google-drive" && dataType === "google-drive-files") {
       fetcherKey = "google-drive-files"
+    }
+    
+    // Special cases for Slack
+    if (provider === "slack" && dataType === "slack_workspaces") {
+      fetcherKey = "slack_workspaces"
+    }
+    
+    if (provider === "slack" && dataType === "slack_users") {
+      fetcherKey = "slack_users"
     }
     
     console.log(`🔍 API: provider=${provider}, dataType=${dataType}, fetcherKey=${fetcherKey}`)
@@ -3670,6 +3683,116 @@ const dataFetchers: DataFetcher = {
         { value: "professional", label: "Professional", content: "Sincerely,\nYour Name\nYour Title\nYour Company" },
         { value: "casual", label: "Casual", content: "Thanks!\nYour Name" }
       ]
+    }
+  },
+
+  slack_workspaces: async (integration: any) => {
+    try {
+      console.log(`🔍 Slack workspaces fetcher called with integration:`, {
+        id: integration.id,
+        provider: integration.provider,
+        status: integration.status,
+        hasToken: !!integration.access_token,
+        tokenLength: integration.access_token?.length || 0
+      })
+
+      // Slack doesn't have a direct API for multiple workspaces, but we can get team info
+      const response = await fetch("https://slack.com/api/team.info", {
+        headers: {
+          Authorization: `Bearer ${integration.access_token}`,
+          "Content-Type": "application/json",
+        },
+      })
+
+      console.log(`🔍 Slack API response status:`, response.status)
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error(`❌ Slack API error response:`, {
+          status: response.status,
+          statusText: response.statusText,
+          body: errorText
+        })
+        
+        if (response.status === 401) {
+          throw new Error("Slack authentication expired. Please reconnect your account.")
+        }
+        
+        let errorData
+        try {
+          errorData = JSON.parse(errorText)
+        } catch (e) {
+          errorData = { error: errorText }
+        }
+        
+        throw new Error(`Slack API error: ${response.status} - ${errorData.error || response.statusText}`)
+      }
+
+      const data = await response.json()
+      console.log(`🔍 Slack API response data:`, data)
+      
+      if (!data.ok) {
+        console.error(`❌ Slack API returned ok=false:`, data)
+        throw new Error(`Slack API error: ${data.error}`)
+      }
+
+      // Return the team/workspace info
+      const result = [{
+        id: data.team.id,
+        name: data.team.name,
+        value: data.team.id,
+        description: `Slack workspace: ${data.team.name}`,
+        domain: data.team.domain,
+        icon: data.team.icon?.image_132 || undefined,
+      }]
+      
+      console.log(`✅ Slack workspaces fetcher returning:`, result)
+      return result
+    } catch (error: any) {
+      console.error("❌ Error fetching Slack workspaces:", error)
+      console.error("❌ Error stack:", error.stack)
+      throw error
+    }
+  },
+
+  slack_users: async (integration: any) => {
+    try {
+      const response = await fetch("https://slack.com/api/users.list", {
+        headers: {
+          Authorization: `Bearer ${integration.access_token}`,
+          "Content-Type": "application/json",
+        },
+      })
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("Slack authentication expired. Please reconnect your account.")
+        }
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(`Slack API error: ${response.status} - ${errorData.error || response.statusText}`)
+      }
+
+      const data = await response.json()
+      
+      if (!data.ok) {
+        throw new Error(`Slack API error: ${data.error}`)
+      }
+
+      // Filter out bots and return active users
+      return (data.members || [])
+        .filter((user: any) => !user.is_bot && !user.deleted && user.id !== 'USLACKBOT')
+        .map((user: any) => ({
+          id: user.id,
+          name: user.real_name || user.name,
+          value: user.id,
+          label: user.real_name || user.name,
+          email: user.profile?.email,
+          avatar: user.profile?.image_32,
+          status: user.profile?.status_text,
+        }))
+    } catch (error: any) {
+      console.error("Error fetching Slack users:", error)
+      throw error
     }
   },
 }

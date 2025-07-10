@@ -1,0 +1,214 @@
+
+> my-v0-project@0.1.0 build
+> next build
+
+[Browserslist] Could not parse /Users/nathanielstoddard/.Trash/package.json. Ignoring it.
+   ▲ Next.js 15.2.4
+   - Environments: .env.local
+
+   Creating an optimized production build ...
+ ✓ Compiled successfully
+   Skipping validation of types
+   Skipping linting
+   Collecting page data ...
+   Generating static pages (0/147) ...
+   Generating static pages (36/147) 
+   Generating static pages (73/147) 
+   Generating static pages (110/147) 
+Error fetching server profile: Error: Dynamic server usage: Route /profile couldn't be rendered statically because it used `cookies`. See more info here: https://nextjs.org/docs/messages/dynamic-server-error
+    at v (.next/server/chunks/7719.js:12:41210)
+    at Object.f [as cookies] (.next/server/chunks/4999.js:1:14197)
+    at S.getCookie (.next/server/chunks/1223.js:1:4614)
+    at S.getItem (.next/server/chunks/1223.js:1:12327)
+    at e8 (.next/server/chunks/6437.js:7:24134)
+    at aL.__loadSession (.next/server/chunks/6437.js:7:54168)
+    at aL._useSession (.next/server/chunks/6437.js:7:53905)
+    at <unknown> (.next/server/chunks/6437.js:7:52975)
+    at <unknown> (.next/server/chunks/6437.js:7:53214) {
+  description: "Route /profile couldn't be rendered statically because it used `cookies`. See more info here: https://nextjs.org/docs/messages/dynamic-server-error",
+  digest: 'DYNAMIC_SERVER_USAGE'
+}
+ ✓ Generating static pages (147/147)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                                                Size  First Load JS
+┌ ○ /                                                   9.72 kB         195 kB
+├ ○ /_not-found                                           992 B         102 kB
+├ ○ /admin                                              7.88 kB         224 kB
+├ ○ /admin/token-health                                 3.45 kB         112 kB
+├ ƒ /ai-assistant                                        6.5 kB         214 kB
+├ ƒ /analytics                                          14.2 kB         316 kB
+├ ƒ /api/admin/online-users                               475 B         102 kB
+├ ƒ /api/admin/reactivate-integration                     475 B         102 kB
+├ ƒ /api/admin/reset-integration                          475 B         102 kB
+├ ƒ /api/admin/reset-problem-integrations                 475 B         102 kB
+├ ƒ /api/admin/token-refresh-stats                        475 B         102 kB
+├ ƒ /api/admin/update-user-role                           475 B         102 kB
+├ ƒ /api/admin/user-stats                                 475 B         102 kB
+├ ƒ /api/admin/users-list                                 475 B         102 kB
+├ ƒ /api/ai/assistant                                     475 B         102 kB
+├ ƒ /api/ai/chat                                          475 B         102 kB
+├ ƒ /api/ai/confirm-action                                475 B         102 kB
+├ ƒ /api/ai/generate-workflow                             475 B         102 kB
+├ ƒ /api/ai/workflow-generation                           475 B         102 kB
+├ ƒ /api/analytics/chart-data                             475 B         102 kB
+├ ƒ /api/analytics/executions                             475 B         102 kB
+├ ƒ /api/analytics/integration-metrics                    475 B         102 kB
+├ ƒ /api/analytics/metrics                                475 B         102 kB
+├ ƒ /api/audit/log-integration-event                      475 B         102 kB
+├ ƒ /api/auth/callback                                    475 B         102 kB
+├ ƒ /api/auth/check-provider                              475 B         102 kB
+├ ƒ /api/auth/check-username                              475 B         102 kB
+├ ƒ /api/billing/checkout                                 475 B         102 kB
+├ ƒ /api/billing/portal                                   475 B         102 kB
+├ ƒ /api/billing/subscriptions/[id]/cancel                475 B         102 kB
+├ ƒ /api/collaboration/apply-change                       475 B         102 kB
+├ ƒ /api/collaboration/collaborators                      475 B         102 kB
+├ ƒ /api/collaboration/join                               475 B         102 kB
+├ ƒ /api/collaboration/leave                              475 B         102 kB
+├ ƒ /api/cron/cleanup-expired-files                       475 B         102 kB
+├ ƒ /api/cron/cleanup-stale-presence                      475 B         102 kB
+├ ƒ /api/cron/debug-expired                               475 B         102 kB
+├ ƒ /api/cron/debug-integrations                          475 B         102 kB
+├ ƒ /api/cron/debug-refresh                               475 B         102 kB
+├ ƒ /api/cron/poll-triggers                               475 B         102 kB
+├ ƒ /api/cron/process-scheduled-executions                475 B         102 kB
+├ ƒ /api/cron/refresh-status                              475 B         102 kB
+├ ƒ /api/cron/refresh-tokens-simple                       475 B         102 kB
+├ ƒ /api/cron/test-onedrive-refresh                       475 B         102 kB
+├ ƒ /api/cron/token-refresh                               475 B         102 kB
+├ ƒ /api/dashboard                                        475 B         102 kB
+├ ƒ /api/debug-integrations                               475 B         102 kB
+├ ƒ /api/developer/api-keys                               475 B         102 kB
+├ ƒ /api/health                                           475 B         102 kB
+├ ƒ /api/integrations                                     475 B         102 kB
+├ ƒ /api/integrations/[id]                                475 B         102 kB
+├ ƒ /api/integrations/airtable/callback                   475 B         102 kB
+├ ƒ /api/integrations/auth                                475 B         102 kB
+├ ƒ /api/integrations/auth/generate-url                   475 B         102 kB
+├ ƒ /api/integrations/available                           475 B         102 kB
+├ ƒ /api/integrations/blackbaud/callback                  475 B         102 kB
+├ ƒ /api/integrations/box/callback                        475 B         102 kB
+├ ƒ /api/integrations/clear-cache                         475 B         102 kB
+├ ƒ /api/integrations/debug                               475 B         102 kB
+├ ƒ /api/integrations/debug-email-cache                   475 B         102 kB
+├ ƒ /api/integrations/debug-env                           475 B         102 kB
+├ ƒ /api/integrations/debug-tokens                        475 B         102 kB
+├ ƒ /api/integrations/debug-youtube                       475 B         102 kB
+├ ƒ /api/integrations/diagnose                            475 B         102 kB
+├ ƒ /api/integrations/discord/callback                    475 B         102 kB
+├ ƒ /api/integrations/discord/check-bot-in-guild          475 B         102 kB
+├ ƒ /api/integrations/dropbox/callback                    475 B         102 kB
+├ ƒ /api/integrations/email-cache/track-usage             475 B         102 kB
+├ ƒ /api/integrations/execute                             475 B         102 kB
+├ ƒ /api/integrations/facebook/callback                   475 B         102 kB
+├ ƒ /api/integrations/fetch-user-data                     475 B         102 kB
+├ ƒ /api/integrations/github/callback                     475 B         102 kB
+├ ƒ /api/integrations/github/revoke-and-auth              475 B         102 kB
+├ ƒ /api/integrations/gitlab/callback                     475 B         102 kB
+├ ƒ /api/integrations/gmail/callback                      475 B         102 kB
+├ ƒ /api/integrations/gmail/contact-groups                475 B         102 kB
+├ ƒ /api/integrations/gmail/enhanced-recipients           475 B         102 kB
+├ ƒ /api/integrations/gmail/labels                        475 B         102 kB
+├ ƒ /api/integrations/gmail/load-data                     475 B         102 kB
+├ ƒ /api/integrations/gmail/messages                      475 B         102 kB
+├ ƒ /api/integrations/gmail/recent-recipients             475 B         102 kB
+├ ƒ /api/integrations/google-calendar/callback            475 B         102 kB
+├ ƒ /api/integrations/google-calendar/load-data           475 B         102 kB
+├ ƒ /api/integrations/google-calendar/meet-draft          475 B         102 kB
+├ ƒ /api/integrations/google-docs/callback                475 B         102 kB
+├ ƒ /api/integrations/google-drive/callback               475 B         102 kB
+├ ƒ /api/integrations/google-drive/load-data              475 B         102 kB
+├ ƒ /api/integrations/google-sheets/callback              475 B         102 kB
+├ ƒ /api/integrations/gumroad/callback                    475 B         102 kB
+├ ƒ /api/integrations/hubspot/callback                    475 B         102 kB
+├ ƒ /api/integrations/hubspot/debug                       475 B         102 kB
+├ ƒ /api/integrations/instagram/callback                  475 B         102 kB
+├ ƒ /api/integrations/kit/callback                        475 B         102 kB
+├ ƒ /api/integrations/linkedin/callback                   475 B         102 kB
+├ ƒ /api/integrations/mailchimp/callback                  475 B         102 kB
+├ ƒ /api/integrations/microsoft-onenote/callback          475 B         102 kB
+├ ƒ /api/integrations/microsoft-outlook/callback          475 B         102 kB
+├ ƒ /api/integrations/notion/callback                     475 B         102 kB
+├ ƒ /api/integrations/notion/debug                        475 B         102 kB
+├ ƒ /api/integrations/notion/test                         475 B         102 kB
+├ ƒ /api/integrations/onedrive/callback                   475 B         102 kB
+├ ƒ /api/integrations/paypal/callback                     475 B         102 kB
+├ ƒ /api/integrations/shopify/callback                    475 B         102 kB
+├ ƒ /api/integrations/slack/admin-status                  475 B         102 kB
+├ ƒ /api/integrations/slack/callback                      475 B         102 kB
+├ ƒ /api/integrations/slack/load-data                     475 B         102 kB
+├ ƒ /api/integrations/slack/users                         475 B         102 kB
+├ ƒ /api/integrations/stripe/callback                     475 B         102 kB
+├ ƒ /api/integrations/teams/callback                      475 B         102 kB
+├ ƒ /api/integrations/test-db                             475 B         102 kB
+├ ƒ /api/integrations/tiktok/callback                     475 B         102 kB
+├ ƒ /api/integrations/tiktok/debug                        475 B         102 kB
+├ ƒ /api/integrations/token-health                        475 B         102 kB
+├ ƒ /api/integrations/token-management                    475 B         102 kB
+├ ƒ /api/integrations/trello/callback                     475 B         102 kB
+├ ƒ /api/integrations/trello/process-token                475 B         102 kB
+├ ƒ /api/integrations/twitter/callback                    475 B         102 kB
+├ ƒ /api/integrations/verify-scopes                       475 B         102 kB
+├ ƒ /api/integrations/youtube-studio/callback             475 B         102 kB
+├ ƒ /api/integrations/youtube/callback                    475 B         102 kB
+├ ƒ /api/organizations                                    475 B         102 kB
+├ ƒ /api/organizations/[id]                               475 B         102 kB
+├ ƒ /api/organizations/[id]/invitations                   475 B         102 kB
+├ ƒ /api/organizations/[id]/members                       475 B         102 kB
+├ ƒ /api/places/autocomplete                              475 B         102 kB
+├ ƒ /api/privacy/data-deletion                            475 B         102 kB
+├ ƒ /api/templates                                        475 B         102 kB
+├ ƒ /api/templates/[id]/copy                              475 B         102 kB
+├ ƒ /api/templates/[id]/download                          475 B         102 kB
+├ ƒ /api/templates/[id]/reviews                           475 B         102 kB
+├ ƒ /api/test                                             475 B         102 kB
+├ ƒ /api/v1/workflows                                     475 B         102 kB
+├ ƒ /api/webhooks/[workflowId]                            475 B         102 kB
+├ ƒ /api/webhooks/stripe                                  475 B         102 kB
+├ ƒ /api/workflows                                        475 B         102 kB
+├ ƒ /api/workflows/[id]                                   475 B         102 kB
+├ ƒ /api/workflows/[id]/test-suites/[suiteId]/generate    475 B         102 kB
+├ ƒ /api/workflows/debug                                  475 B         102 kB
+├ ƒ /api/workflows/execute                                475 B         102 kB
+├ ƒ /api/workflows/execute-advanced                       475 B         102 kB
+├ ƒ /api/workflows/files/store                            475 B         102 kB
+├ ƒ /api/workflows/node-outputs                           475 B         102 kB
+├ ƒ /api/workflows/test-node                              475 B         102 kB
+├ ƒ /api/workflows/test-workflow-segment                  475 B         102 kB
+├ ○ /auth/login                                         7.45 kB         164 kB
+├ ○ /auth/register                                      8.34 kB         165 kB
+├ ƒ /community                                          4.39 kB         212 kB
+├ ƒ /dashboard                                          7.26 kB         309 kB
+├ ○ /debug-notion                                         902 B         102 kB
+├ ○ /enterprise                                         3.88 kB         211 kB
+├ ƒ /integrations                                       11.3 kB         228 kB
+├ ○ /integrations/cache-example                         1.16 kB         154 kB
+├ ƒ /integrations/ssr-example                           1.24 kB         154 kB
+├ ○ /integrations/trello-auth                           2.81 kB         144 kB
+├ ƒ /learn                                              3.82 kB         211 kB
+├ ○ /privacy                                            3.67 kB         165 kB
+├ ƒ /profile                                             3.2 kB         211 kB
+├ ƒ /settings                                           4.64 kB         223 kB
+├ ƒ /settings/billing                                   3.19 kB         174 kB
+├ ○ /setup-username                                     5.61 kB         158 kB
+├ ○ /sub-processors                                     3.76 kB         165 kB
+├ ○ /support                                            9.81 kB         174 kB
+├ ƒ /teams                                              6.11 kB         214 kB
+├ ƒ /teams/[slug]                                         11 kB         227 kB
+├ ○ /templates                                          5.68 kB         167 kB
+├ ○ /terms                                              4.29 kB         165 kB
+├ ƒ /workflows                                          11.6 kB         233 kB
+└ ƒ /workflows/builder                                   263 kB         469 kB
++ First Load JS shared by all                            101 kB
+  ├ chunks/1684-df2be7de9efc3ed5.js                     45.6 kB
+  ├ chunks/4bd1b696-e6d439711f742c03.js                 53.3 kB
+  └ other shared chunks (total)                         2.17 kB
+
+
+ƒ Middleware                                              65 kB
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+

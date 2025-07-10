@@ -1,48 +1,14 @@
-/**
- * Slack Create Channel Action Handler
- * 
- * Creates a new Slack channel using the Slack API
- */
-
+import { ActionResult } from '../core'
 import { getIntegrationCredentials } from "@/lib/integrations/getDecryptedAccessToken"
 import { resolveValue } from "@/lib/integrations/resolveValue"
 
-/**
- * Action metadata for UI display and reference
- */
-export const ACTION_METADATA = {
-  key: "slack_action_create_channel",
-  name: "Create Slack Channel",
-  description: "Create a new public or private Slack channel",
-  icon: "hash"
-};
-
-/**
- * Standard interface for action parameters
- */
-export interface ActionParams {
+export interface CreateChannelParams {
   userId: string
   config: Record<string, any>
   input: Record<string, any>
 }
 
-/**
- * Standard interface for action results
- */
-export interface ActionResult {
-  success: boolean
-  output?: Record<string, any>
-  message?: string
-  error?: string
-}
-
-/**
- * Creates a new Slack channel
- * 
- * @param params - Standard action parameters
- * @returns Action result with success/failure and any outputs
- */
-export async function createSlackChannel(params: ActionParams): Promise<ActionResult> {
+export async function createSlackChannel(params: CreateChannelParams): Promise<ActionResult> {
   try {
     const { userId, config, input } = params
     
