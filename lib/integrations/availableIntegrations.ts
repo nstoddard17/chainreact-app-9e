@@ -153,7 +153,7 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     description: "Team communication and collaboration platform",
     category: "communication",
     capabilities: ["Send Messages", "Create Channels", "File Sharing", "Notifications"],
-    scopes: ["chat:write", "channels:read", "channels:write", "users:read", "team:read"],
+    scopes: ["chat:write", "channels:read", "conversations:write", "users:read", "team:read"],
     isAvailable: false,
     requiresClientId: "NEXT_PUBLIC_SLACK_CLIENT_ID",
     requiresClientSecret: "SLACK_CLIENT_SECRET",
