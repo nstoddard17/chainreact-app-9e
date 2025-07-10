@@ -827,6 +827,18 @@ export const useIntegrationStore = create<IntegrationStore>()(
             url = "/api/integrations/fetch-user-data"
             dataType = "gmail_signatures"
             break
+          case "slack-channels":
+            url = "/api/integrations/slack/load-data"
+            dataType = "slack-channels"
+            break
+          case "slack_workspaces":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "slack_workspaces"
+            break
+          case "slack_users":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "slack_users"
+            break
           default:
             throw new Error(`Loading data for ${providerId} is not supported.`)
         }
@@ -857,6 +869,8 @@ export const useIntegrationStore = create<IntegrationStore>()(
                        providerId === 'google-docs_recent_documents' ? 'google-docs' :
                        providerId === 'google-docs_shared_documents' ? 'google-docs' :
                        providerId === 'google-docs_folders' ? 'google-docs' :
+                       providerId === 'slack_workspaces' ? 'slack' :
+                       providerId === 'slack_users' ? 'slack' :
                        providerId.includes('_') ? providerId.split('_')[0] : 
                        providerId.includes('-') ? providerId.split('-')[0] : 
                        providerId // Extract base provider name

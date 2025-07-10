@@ -8,4 +8,7 @@ export * from './gmail'
 export * from './googleSheets'
 
 // Airtable actions
-export * from './airtable' 
+export * from './airtable'
+
+// Slack actions
+export * from './slack' 

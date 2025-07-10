@@ -22,6 +22,9 @@ import {
   updateAirtableRecord,
   listAirtableRecords,
   
+  // Slack actions
+  createSlackChannel,
+  
   // Workflow control actions
   executeIfThenCondition,
   executeWaitForTime
@@ -269,11 +272,14 @@ export async function executeAction({ node, input, userId, workflowId }: Execute
     // Google Sheets actions
     "google_sheets_action_read_data": readGoogleSheetsData,
     
-      // Airtable actions
-  "airtable_action_move_record": moveAirtableRecord,
-  "airtable_action_create_record": createAirtableRecord,
-  "airtable_action_update_record": updateAirtableRecord,
-  "airtable_action_list_records": listAirtableRecords,
+    // Airtable actions
+    "airtable_action_move_record": moveAirtableRecord,
+    "airtable_action_create_record": createAirtableRecord,
+    "airtable_action_update_record": updateAirtableRecord,
+    "airtable_action_list_records": listAirtableRecords,
+    
+    // Slack actions
+    "slack_action_create_channel": createSlackChannel,
     
     // Workflow control actions
     "if_then_condition": executeIfThenCondition,
