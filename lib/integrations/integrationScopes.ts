@@ -3,7 +3,7 @@ import { useIntegrationStore } from "@/stores/integrationStore"
 // Add comprehensive scope definitions for all providers
 export const INTEGRATION_SCOPES = {
   slack: {
-    required: ["chat:write", "channels:read", "conversations:write", "users:read", "team:read"],
+    required: ["chat:write", "channels:read", "groups:write", "users:read", "team:read"],
     optional: ["files:read", "groups:read", "im:read", "mpim:read"],
   },
   discord: {
