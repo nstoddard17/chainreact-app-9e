@@ -27,6 +27,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import GoogleMeetCard from "@/components/ui/google-meet-card"
 import VariablePicker from "./VariablePicker"
 import { NotionDatabaseConfig } from "./NotionDatabaseConfig"
+import SlackTemplatePreview from "../ui/slack-template-preview"
 
 // Import template configuration function
 const getTemplateConfiguration = (template: string): any => {
@@ -4874,7 +4875,20 @@ export default function ConfigurationModal({
             </div>
           )
         }
-        
+        // Custom field renderer for Slack template preview
+        if (field.name === "templatePreview" && nodeInfo?.type === "slack_action_create_channel") {
+          if (!config.template) return null;
+          return (
+            <div className="space-y-2">
+              {renderLabel()}
+              <SlackTemplatePreview
+                template={config.template}
+                channelName={config.channelName}
+                visibility={config.visibility}
+              />
+            </div>
+          )
+        }
         // Handle custom field types for Notion database configuration
         if (field.name === "properties" || field.name === "views" || field.name === "icon" || field.name === "cover") {
           return (
@@ -5082,26 +5096,7 @@ export default function ConfigurationModal({
   }
 
   // Helper: Slack template preview
-  const SlackTemplatePreview = ({ template, channelName, visibility }: { template: string, channelName: string, visibility: string }) => {
-    // Example preview content for each template
-    const templateContent: Record<string, string> = {
-      announcements: "A channel for important updates and announcements.",
-      project: "A channel for project discussions and collaboration.",
-      social: "A channel for team socializing and fun.",
-      support: "A channel for support and help requests.",
-      team: "A channel for your team to communicate and share info."
-    }
-    return (
-      <div className="border rounded-lg p-4 bg-muted mb-4">
-        <div className="flex items-center gap-2 mb-2">
-          <span className="font-semibold">{visibility === "private" ? <span className="text-orange-600">Private</span> : <span className="text-green-700">Public</span>}</span>
-          <span className="text-muted-foreground">Channel</span>
-        </div>
-        <div className="text-lg font-bold mb-1">#{channelName || "channel-name"}</div>
-        <div className="text-sm text-muted-foreground">{templateContent[template] || "Select a template to see a preview."}</div>
-      </div>
-    )
-  }
+
 
   return (
     <TooltipProvider>
