@@ -46,7 +46,7 @@ export async function prepareIntegrationData(
   
   const expiresAt = expiresIn ? new Date(new Date().getTime() + expiresIn * 1000) : null
 
-  return {
+  const baseData = {
     user_id: userId,
     provider,
     access_token: encryptedAccessToken,
@@ -57,4 +57,14 @@ export async function prepareIntegrationData(
     updated_at: new Date().toISOString(),
     ...(metadata && { metadata })
   }
+
+  // For Slack integrations, extract team_id from metadata and set it as a direct column
+  if (provider === 'slack' && metadata?.team_id) {
+    return {
+      ...baseData,
+      team_id: metadata.team_id
+    }
+  }
+
+  return baseData
 }

@@ -22,9 +22,10 @@ import { Badge } from "@/components/ui/badge"
 
 export interface ComboboxOption {
   value: string;
-  label: string;
+  label: React.ReactNode; // was string, now ReactNode
   description?: string;
   isExisting?: boolean;
+  disabled?: boolean;
 }
 
 interface ComboboxProps {
@@ -69,6 +70,11 @@ interface HierarchicalComboboxProps {
   disabled?: boolean;
 }
 
+function isValidEmail(email: string): boolean {
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
+  return emailRegex.test(email.trim())
+}
+
 export function Combobox({
   options,
   value,
@@ -94,7 +100,8 @@ export function Combobox({
     }
   }, [open])
   
-  const selectedOption = localOptions.find((option) => option.value.toLowerCase() === value?.toLowerCase());
+  // Fix selectedOption logic
+  const selectedOption = localOptions.find((option) => option.value === value);
 
   const handleSelect = (currentValue: string) => {
     const newValue = currentValue === value ? "" : currentValue
@@ -122,7 +129,7 @@ export function Combobox({
   const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (creatable && (e.key === "Enter" || e.key === "Tab") && inputValue.trim()) {
       const exists = localOptions.some(
-        (option) => option.value.toLowerCase() === inputValue.trim().toLowerCase()
+        (option) => option.value === inputValue.trim()
       )
       if (!exists) {
         const newOption = { value: inputValue.trim(), label: inputValue.trim(), isExisting: false }
@@ -177,7 +184,11 @@ export function Combobox({
                 <CommandItem
                   key={`${index}-${option.value || 'undefined'}`}
                   value={option.value}
-                  onSelect={handleSelect}
+                  onSelect={() => {
+                    if (!option.disabled) handleSelect(option.value)
+                  }}
+                  disabled={option.disabled}
+                  className={cn(option.disabled ? "opacity-50 pointer-events-none cursor-not-allowed" : "")}
                 >
                   <Check
                     className={cn(
@@ -186,7 +197,7 @@ export function Combobox({
                     )}
                   />
                   <div className="flex flex-col">
-                    <span>{option.label}</span>
+                    {option.label !== undefined && option.label !== null ? option.label : String(option.value)}
                     {option.description && (
                       <span className="text-sm text-muted-foreground">{option.description}</span>
                     )}
@@ -194,7 +205,7 @@ export function Combobox({
                 </CommandItem>
               ))}
               {/* Show create option if creatable and inputValue is not empty and not in options */}
-              {creatable && inputValue.trim() && !localOptions.some(option => option.value.toLowerCase() === inputValue.trim().toLowerCase()) && (
+              {creatable && inputValue.trim() && !localOptions.some(option => option.value === inputValue.trim()) && (
                 <CommandItem
                   key={"create-" + inputValue.trim()}
                   value={inputValue.trim()}
@@ -259,7 +270,7 @@ export function MultiCombobox({
   const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (creatable && (e.key === "Enter" || e.key === "Tab") && inputValue.trim()) {
       const exists = options.some(
-        (option) => option.value.toLowerCase() === inputValue.trim().toLowerCase()
+        (option) => option.value === inputValue.trim()
       )
       if (!exists) {
         const newOption = { value: inputValue.trim(), label: inputValue.trim() }
@@ -348,8 +359,8 @@ export function MultiCombobox({
                   </div>
                 </CommandItem>
               ))}
-              {/* Show create option if inputValue is not empty and not in options */}
-              {creatable && inputValue.trim() && !options.some(option => option.value.toLowerCase() === inputValue.trim().toLowerCase()) && (
+              {/* Show create option if inputValue is not empty, not in options, and is a valid email */}
+              {creatable && inputValue.trim() && isValidEmail(inputValue.trim()) && !options.some(option => option.value === inputValue.trim()) && (
                 <CommandItem
                   key={"create-" + inputValue.trim()}
                   value={inputValue.trim()}
@@ -361,7 +372,7 @@ export function MultiCombobox({
                   }}
                 >
                   <div className="flex items-center">
-                    <span className="text-primary font-semibold">Create "{inputValue.trim()}"</span>
+                    <span className="text-primary font-semibold">Invite {inputValue.trim()}</span>
                     <span className="ml-auto text-xs text-muted-foreground">Press Enter</span>
                   </div>
                 </CommandItem>
@@ -434,10 +445,12 @@ export function HierarchicalCombobox({
     return [option]
   })
 
-  const filteredOptions = allOptions.filter((option) =>
-    option.label.toLowerCase().includes(inputValue.toLowerCase()) ||
-    option.description?.toLowerCase().includes(inputValue.toLowerCase())
-  )
+  const filteredOptions = allOptions.filter((option) => {
+    // Only filter by label if label is a string
+    const labelMatch = typeof option.label === 'string' ? option.label.toLowerCase().includes(inputValue.toLowerCase()) : false;
+    const descMatch = option.description ? option.description.toLowerCase().includes(inputValue.toLowerCase()) : false;
+    return labelMatch || descMatch;
+  })
 
   return (
     <Popover open={open} onOpenChange={setOpen}>

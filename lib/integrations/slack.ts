@@ -1,5 +1,7 @@
 import { WebClient, CodedError } from "@slack/web-api"
 import { createClient } from "@supabase/supabase-js"
+import { getIntegrationCredentials } from "@/lib/integrations/getDecryptedAccessToken";
+import { createSupabaseServerClient } from "@/utils/supabase/server";
 
 export interface SlackOAuthClient {
   getAuthUrl: (scopes: string[], state?: string) => string
@@ -205,4 +207,34 @@ export class SlackService {
 
     return integration.access_token
   }
+}
+
+/**
+ * Fetches the Slack workspace plan from Slack API and updates provider_plan in the integrations table.
+ * @param userId The user ID who owns the integration
+ * @param teamId The Slack workspace/team ID
+ */
+export async function updateSlackProviderPlan(userId: string, teamId: string) {
+  const credentials = await getIntegrationCredentials(userId, "slack");
+  if (!credentials?.accessToken) return;
+
+  // Fetch plan from Slack API
+  const response = await fetch("https://slack.com/api/team.info", {
+    headers: {
+      Authorization: `Bearer ${credentials.accessToken}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+  });
+  const data = await response.json();
+  if (!data.ok) return;
+
+  const plan = data.team?.plan || "free";
+
+  // Update the integration record
+  const supabase = await createSupabaseServerClient();
+  await supabase
+    .from("integrations")
+    .update({ provider_plan: plan })
+    .eq("provider", "slack")
+    .eq("team_id", teamId);
 }

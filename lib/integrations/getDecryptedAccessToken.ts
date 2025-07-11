@@ -12,6 +12,8 @@ export async function getDecryptedAccessToken(
 ): Promise<string> {
   const supabase = createClient()
   
+  console.log(`🔍 getDecryptedAccessToken: Looking for integration with userId=${userId}, provider=${provider}`);
+  
   // Get the integration record from the database
   const { data, error } = await supabase
     .from("integrations")
@@ -21,7 +23,10 @@ export async function getDecryptedAccessToken(
     .eq("status", "connected")
     .single()
   
+  console.log(`🔍 getDecryptedAccessToken: Query result:`, { data, error });
+  
   if (error || !data) {
+    console.log(`🔍 getDecryptedAccessToken: No integration found for userId=${userId}, provider=${provider}`);
     throw new Error(`Integration not found: ${provider}`)
   }
 
