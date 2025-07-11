@@ -1,5 +1,6 @@
 "use client"
 
+import React from "react";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -18,7 +19,7 @@ import { ConfigurationLoadingScreen } from "@/components/ui/loading-screen"
 import { FileUpload } from "@/components/ui/file-upload"
 import { DatePicker } from "@/components/ui/date-picker"
 import { TimePicker } from "@/components/ui/time-picker"
-import { Play, X, Loader2, TestTube, Clock, HelpCircle, AlertCircle, Video, ChevronLeft, ChevronRight, Database, Calendar, Upload } from "lucide-react"
+import { Play, X, Loader2, TestTube, Clock, HelpCircle, AlertCircle, Video, ChevronLeft, ChevronRight, Database, Calendar, Upload, Eye, RefreshCw } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 import { cn } from "@/lib/utils"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -28,6 +29,8 @@ import GoogleMeetCard from "@/components/ui/google-meet-card"
 import VariablePicker from "./VariablePicker"
 import { NotionDatabaseConfig } from "./NotionDatabaseConfig"
 import SlackTemplatePreview from "../ui/slack-template-preview"
+import { SlackEmailInviteMultiCombobox } from "@/components/ui/SlackEmailInviteMultiCombobox"
+import { getUser } from "@/lib/supabase-client";
 
 // Import template configuration function
 const getTemplateConfiguration = (template: string): any => {
@@ -958,6 +961,36 @@ interface ConfigurationModalProps {
   currentNodeId?: string
 }
 
+// Add at the top, after imports
+const ProLabel = () => (
+  <span style={{
+    background: '#b983d9',
+    color: '#19171c',
+    fontWeight: 700,
+    fontSize: 12,
+    borderRadius: 6,
+    padding: '2px 8px',
+    marginLeft: 8,
+    display: 'inline-block',
+    verticalAlign: 'middle',
+    letterSpacing: 1,
+  }}>PRO</span>
+);
+const FreeLabel = () => (
+  <span style={{
+    background: '#e6f4ea',
+    color: '#1a7f37',
+    fontWeight: 700,
+    fontSize: 12,
+    borderRadius: 6,
+    padding: '2px 8px',
+    marginLeft: 8,
+    display: 'inline-block',
+    verticalAlign: 'middle',
+    letterSpacing: 1,
+  }}>✅ Free</span>
+);
+
 export default function ConfigurationModal({
   isOpen,
   onClose,
@@ -968,6 +1001,11 @@ export default function ConfigurationModal({
   workflowData,
   currentNodeId,
 }: ConfigurationModalProps) {
+  console.log("🔍 ConfigurationModal rendered:", { 
+    isOpen, 
+    nodeType: nodeInfo?.type, 
+    integrationName 
+  });
   // State to control tooltip visibility
   const [tooltipsEnabled, setTooltipsEnabled] = useState(false)
   const [config, setConfig] = useState<Record<string, any>>(initialData)
@@ -985,6 +1023,14 @@ export default function ConfigurationModal({
       }
     }
   }, [isOpen])
+
+  // Reset Slack plan state when modal opens
+  useEffect(() => {
+    if (isOpen && nodeInfo?.type === "slack_action_create_channel") {
+      setSlackPlanError(null);
+      setSlackPlanLoading(false);
+    }
+  }, [isOpen, nodeInfo?.type])
   const [errors, setErrors] = useState<Record<string, string>>({})
   const { loadIntegrationData, getIntegrationByProvider, checkIntegrationScopes, integrationData } = useIntegrationStore()
   const [dynamicOptions, setDynamicOptions] = useState<
@@ -1081,6 +1127,10 @@ export default function ConfigurationModal({
 
   // File attachment state for rich text editors
   const [attachments, setAttachments] = useState<Record<string, File[]>>({})
+
+  // Slack plan fetching state
+  const [slackPlanError, setSlackPlanError] = useState<string | null>(null)
+  const [slackPlanLoading, setSlackPlanLoading] = useState(false)
 
   // Helper functions for range selection
   const getCellCoordinate = (rowIndex: number, colIndex: number): string => {
@@ -4472,7 +4522,205 @@ export default function ConfigurationModal({
         )
 
       case "combobox":
-        const comboboxOptions = field.dynamic ? dynamicOptions[field.name] || [] : field.options || []
+        // Special case for Slack addPeople field
+        if (nodeInfo?.type === "slack_action_create_channel" && field.name === "addPeople") {
+          const slackPeopleOptions = field.dynamic ? dynamicOptions[field.name] || [] : field.options || [];
+          const emailsArray = Array.isArray(value)
+            ? value
+            : (typeof value === "string" && value ? value.split(",").map(e => e.trim()).filter(Boolean) : []);
+          return (
+            <div className="space-y-2">
+              {renderLabel()}
+              {slackUserFetchError && (
+                <div className="text-red-500 text-xs flex items-center gap-2">
+                  {slackUserFetchError}
+                  <button type="button" className="underline" onClick={() => { setSlackUserFetchError(null); fetchDynamicData(); }}>Retry</button>
+                </div>
+              )}
+              <SlackEmailInviteMultiCombobox
+                value={emailsArray}
+                onChange={emails => {
+                  setConfig(prev => ({
+                    ...prev,
+                    [field.name]: emails
+                  }))
+                }}
+                options={slackPeopleOptions.map((option) => ({
+                  value: typeof option === 'string' ? option : option.value,
+                  label: typeof option === 'string' ? option : option.label,
+                  description: typeof option === 'object' && 'description' in option && typeof option.description === 'string' ? option.description : undefined
+                }))}
+                placeholder={loadingDynamic ? "Loading..." : field.placeholder || "Enter a name or email"}
+                disabled={loadingDynamic}
+              />
+              {hasError && (
+                <p className="text-xs text-red-500">{errors[field.name]}</p>
+              )}
+            </div>
+          );
+        }
+        // Special case for Slack template field
+        if (nodeInfo?.type === "slack_action_create_channel" && field.name === "template") {
+          // Use workspace-specific plan check from config.isSlackPro (fetched via workspace-plan API)
+          const isSlackPro = config.isSlackPro || false;
+          const templateOptions = field.options || [];
+          const templateValue = value || 'blank';
+          
+          // Custom label with upgrade/refresh buttons
+          const customLabel = (
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-medium">
+                {field.label}
+                {field.required && <span className="text-red-500 ml-1">*</span>}
+              </Label>
+              {!isSlackPro && (
+                <div className="flex items-center gap-2">
+                  <a
+                    href="https://slack.com/plans"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <Button variant="outline" size="sm" className="h-7 px-3 flex items-center gap-2">
+                      <img src="/slack.svg" alt="Slack" className="w-4 h-4" />
+                      Upgrade to Slack Pro
+                    </Button>
+                  </a>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-3 flex items-center gap-1"
+                    onClick={() => {
+                      setSlackPlanLoading(true);
+                      setSlackPlanError(null);
+                      // Trigger refetch by temporarily clearing and setting the workspace
+                      const currentWorkspace = config.workspace;
+                      setConfig(prev => ({ ...prev, workspace: undefined }));
+                      setTimeout(() => {
+                        setConfig(prev => ({ ...prev, workspace: currentWorkspace }));
+                      }, 100);
+                    }}
+                    disabled={slackPlanLoading || refreshCooldown > 0}
+                  >
+                    {slackPlanLoading ? (
+                      <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                    ) : (
+                      <RefreshCw className="w-3 h-3 mr-1" />
+                    )}
+                    {refreshCooldown > 0 ? `Refresh (${refreshCooldown})` : 'Refresh Slack Plan'}
+                  </Button>
+                </div>
+              )}
+            </div>
+          );
+          
+          return (
+            <div className="space-y-2">
+              {customLabel}
+              <Combobox
+                value={templateValue}
+                onChange={val => {
+                  setConfig(prev => ({ ...prev, [field.name]: val }))
+                  setErrors(prev => {
+                    const newErrors = { ...prev };
+                    if (field.name in newErrors) {
+                      delete newErrors[field.name];
+                    }
+                    return newErrors;
+                  });
+                }}
+                options={templateOptions.map(opt => {
+                  const val = typeof opt === 'string' ? opt : opt.value;
+                  const label = typeof opt === 'string' ? opt : opt.label;
+                  if (val === 'blank') {
+                    return {
+                      value: val,
+                      label: <span>{label}<FreeLabel /></span>,
+                    };
+                  }
+                  // Pro template option
+                  return {
+                    value: val,
+                    label: (
+                      <div className="relative flex items-center gap-2 w-full min-h-[2.5rem] pr-14">
+                        <span className="flex items-center gap-2">
+                          {label}<ProLabel />
+                        </span>
+                        <button
+                          type="button"
+                          className="absolute right-0 top-1/2 -translate-y-1/2 text-xs text-blue-600 hover:text-blue-800 underline flex items-center gap-1 bg-white/80 px-2 py-1 rounded z-10"
+                          style={{ pointerEvents: 'auto' }}
+                          onClick={e => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setPreviewTemplate(val);
+                          }}
+                          onMouseDown={e => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                          }}
+                        >
+                          <Eye className="w-4 h-4" /> Preview
+                        </button>
+                      </div>
+                    ),
+                    disabled: !isSlackPro,
+                  };
+                })}
+                placeholder={field.placeholder || 'Select a template'}
+                searchPlaceholder="Search templates..."
+                emptyPlaceholder="No templates found."
+                creatable={false}
+                disabled={loadingDynamic}
+              />
+              {/* Show loading state */}
+              {slackPlanLoading && (
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  Checking workspace plan...
+                </p>
+              )}
+              {/* Show error message with retry button */}
+              {slackPlanError && (
+                <div className="text-red-500 text-xs flex items-center gap-2">
+                  {slackPlanError}
+                  <button 
+                    type="button" 
+                    className="underline" 
+                    onClick={() => {
+                      setSlackPlanError(null);
+                      // Trigger refetch by temporarily clearing and setting the workspace
+                      const currentWorkspace = config.workspace;
+                      setConfig(prev => ({ ...prev, workspace: undefined }));
+                      setTimeout(() => {
+                        setConfig(prev => ({ ...prev, workspace: currentWorkspace }));
+                      }, 100);
+                    }}
+                  >
+                    Retry
+                  </button>
+                </div>
+              )}
+              {/* Show info message for non-pro users */}
+              {!isSlackPro && !slackPlanLoading && !slackPlanError && (
+                <div className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                  <span>💡</span>
+                  Pro templates require a paid Slack workspace plan. Only the free blank template is available. You can preview Pro templates using the Preview button.
+                </div>
+              )}
+              {/* Show rate limit error */}
+              {rateLimitError && (
+                <div className="text-red-500 text-xs flex items-center gap-2 mt-1">
+                  {rateLimitError}
+                </div>
+              )}
+              {hasError && (
+                <p className="text-xs text-red-500">{errors[field.name]}</p>
+              )}
+            </div>
+          );
+        }
+        // Regular combobox logic
+        const comboboxOptions = field.dynamic ? dynamicOptions[field.name] || [] : field.options || [];
         return (
           <div className="space-y-2">
             {renderLabel()}
@@ -4937,6 +5185,40 @@ export default function ConfigurationModal({
           </div>
         )
 
+      case "combobox":
+        // Special case for Slack addPeople field
+        if (nodeInfo?.type === "slack_action_create_channel" && field.name === "addPeople") {
+          const slackPeopleOptions = field.dynamic ? dynamicOptions[field.name] || [] : field.options || [];
+          // Ensure value is always an array
+          const emailsArray = Array.isArray(value)
+            ? value
+            : (typeof value === "string" && value ? value.split(",").map(e => e.trim()).filter(Boolean) : []);
+          return (
+            <div className="space-y-2">
+              {renderLabel()}
+              <SlackEmailInviteMultiCombobox
+                value={emailsArray}
+                onChange={emails => {
+                  setConfig(prev => ({
+                    ...prev,
+                    [field.name]: emails // If backend expects string: emails.join(",")
+                  }))
+                }}
+                options={slackPeopleOptions.map((option) => ({
+                  value: typeof option === 'string' ? option : option.value,
+                  label: typeof option === 'string' ? option : option.label,
+                  description: typeof option === 'object' && 'description' in option && typeof option.description === 'string' ? option.description : undefined
+                }))}
+                placeholder={loadingDynamic ? "Loading..." : field.placeholder || "Enter a name or email"}
+                disabled={loadingDynamic}
+              />
+              {hasError && (
+                <p className="text-xs text-red-500">{errors[field.name]}</p>
+              )}
+            </div>
+          );
+        }
+
       default:
         return (
           <div className="space-y-2">
@@ -5097,6 +5379,119 @@ export default function ConfigurationModal({
 
   // Helper: Slack template preview
 
+  // Add a state for Slack user fetch error
+  const [slackUserFetchError, setSlackUserFetchError] = React.useState<string | null>(null);
+
+  // In the effect or callback that fetches Slack users, catch timeout errors and set the error state
+  // Example (pseudo):
+  // try { await fetchSlackUsers(); setSlackUserFetchError(null); } catch (e) { if (e.message.includes('timeout')) setSlackUserFetchError('Fetching Slack users timed out. Please try again.'); }
+
+  // In the UI where Slack users are fetched (e.g., addPeople field), show the error and a retry button
+  // Example:
+  {slackUserFetchError && (
+    <div className="text-red-500 text-xs flex items-center gap-2">
+      {slackUserFetchError}
+      <button type="button" className="underline" onClick={() => { setSlackUserFetchError(null); fetchDynamicData(); }}>Retry</button>
+    </div>
+  )}
+
+  // Fetch Slack workspace plan when workspace changes (for Slack Create Channel modal)
+  useEffect(() => {
+    console.log("🔍 useEffect triggered for workspace plan:", { 
+      nodeType: nodeInfo?.type, 
+      workspace: config.workspace,
+      isOpen: isOpen
+    });
+    
+    async function fetchSlackWorkspacePlan() {
+      console.log("🔍 fetchSlackWorkspacePlan called with:", { 
+        nodeType: nodeInfo?.type, 
+        workspace: config.workspace,
+        isSlackAction: nodeInfo?.type === "slack_action_create_channel"
+      });
+      
+      if (nodeInfo?.type === "slack_action_create_channel" && config.workspace) {
+        console.log("🔍 Fetching Slack workspace plan for:", config.workspace);
+        setSlackPlanLoading(true);
+        setSlackPlanError(null);
+        setRateLimitError(null);
+        try {
+          const res = await fetch("/api/integrations/slack/workspace-plan", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ workspaceId: config.workspace }),
+          });
+          if (!res.ok) {
+            if (res.status === 429) {
+              setRateLimitError("Slack API rate limit reached. Please wait a minute before trying again.");
+              setRefreshCooldown(60);
+            }
+            throw new Error(`HTTP error! status: ${res.status}`);
+          }
+          const data = await res.json();
+          console.log("🔍 Received workspace plan:", data.plan);
+          const isSlackPro = ["pro", "business", "enterprise"].includes(data.plan);
+          console.log("🔍 isSlackPro:", isSlackPro);
+          setConfig(prev => ({
+            ...prev,
+            isSlackPro
+          }));
+        } catch (e) {
+          console.error("Failed to fetch Slack workspace plan:", e);
+          setSlackPlanError("Failed to check workspace plan. Assuming free plan.");
+          setConfig(prev => ({ ...prev, isSlackPro: false }));
+          if (rateLimitError) setRefreshCooldown(60);
+        } finally {
+          setSlackPlanLoading(false);
+        }
+      } else {
+        console.log("🔍 Not fetching workspace plan - conditions not met");
+      }
+    }
+    fetchSlackWorkspacePlan();
+    // Only run when workspace or node type changes
+  }, [config.workspace, nodeInfo?.type]);
+
+  useEffect(() => {
+    async function refreshSlackProviderPlanAndIntegration() {
+      if (
+        isOpen &&
+        nodeInfo?.type === "slack_action_create_channel" &&
+        config.workspace
+      ) {
+        try {
+          // Get current user ID
+          const user = await getUser();
+          if (!user?.id) return;
+          // Call refresh-plan API
+          await fetch("/api/integrations/slack/refresh-plan", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ userId: user.id, workspaceId: config.workspace }),
+          });
+          // Reload integration data from store
+          await loadIntegrationData("slack", config.workspace, { forceRefresh: true });
+        } catch (err) {
+          console.error("Failed to refresh Slack provider plan:", err);
+        }
+      }
+    }
+    refreshSlackProviderPlanAndIntegration();
+    // Only run when modal opens, workspace changes, or node type changes
+  }, [isOpen, config.workspace, nodeInfo?.type]);
+
+  // Add state for preview modal
+  const [previewTemplate, setPreviewTemplate] = useState<string | null>(null);
+  const [refreshCooldown, setRefreshCooldown] = useState(0);
+  const [rateLimitError, setRateLimitError] = useState<string | null>(null);
+
+  // Cooldown timer for refresh
+  useEffect(() => {
+    if (refreshCooldown > 0) {
+      const timer = setTimeout(() => setRefreshCooldown(refreshCooldown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [refreshCooldown]);
 
   return (
     <TooltipProvider>
@@ -5676,6 +6071,33 @@ export default function ConfigurationModal({
           )}
         </DialogContent>
       </Dialog>
+      {/* Preview Modal */}
+      {previewTemplate && (
+        <Dialog open={!!previewTemplate} onOpenChange={() => setPreviewTemplate(null)}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Pro Template Preview</DialogTitle>
+              <DialogDescription>
+                This is a preview of the <b>{previewTemplate}</b> template. Upgrade to Slack Pro to use this template.
+              </DialogDescription>
+            </DialogHeader>
+            {/* Example preview content, can be replaced with real template details */}
+            <div className="p-4 bg-muted rounded-md">
+              <p>Example workflow, fields, and features for <b>{previewTemplate}</b>...</p>
+            </div>
+            <div className="flex justify-end mt-4">
+              <a
+                href="https://slack.com/plans"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 underline hover:text-blue-800"
+              >
+                Upgrade to Slack Pro
+              </a>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </TooltipProvider>
   )
 }

@@ -327,7 +327,7 @@ async function fetchWithRetry<T>(fetchFn: () => Promise<T>, maxRetries: number, 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error("Request timeout")), 15000)
+        setTimeout(() => reject(new Error("Request timeout")), 30000) // 30 seconds
       })
 
       return await Promise.race([fetchFn(), timeoutPromise])
@@ -3757,39 +3757,49 @@ const dataFetchers: DataFetcher = {
 
   slack_users: async (integration: any) => {
     try {
-      const response = await fetch("https://slack.com/api/users.list", {
-        headers: {
-          Authorization: `Bearer ${integration.access_token}`,
-          "Content-Type": "application/json",
-        },
-      })
+      return await fetchWithRetry(async () => {
+        const response = await fetch("https://slack.com/api/users.list", {
+          headers: {
+            Authorization: `Bearer ${integration.access_token}`,
+            "Content-Type": "application/json",
+          },
+        })
 
-      if (!response.ok) {
-        if (response.status === 401) {
-          throw new Error("Slack authentication expired. Please reconnect your account.")
+        if (!response.ok) {
+          if (response.status === 401) {
+            throw new Error("Slack authentication expired. Please reconnect your account.")
+          }
+          if (response.status === 429) {
+            // Rate limited - get retry-after header or use default
+            const retryAfter = response.headers.get('retry-after')
+            const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : 1000
+            console.log(`🚦 Slack API rate limited, waiting ${waitTime}ms before retry`)
+            await new Promise(resolve => setTimeout(resolve, waitTime))
+            throw new Error(`Slack API rate limited - retrying`)
+          }
+          const errorData = await response.json().catch(() => ({}))
+          throw new Error(`Slack API error: ${response.status} - ${errorData.error || response.statusText}`)
         }
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(`Slack API error: ${response.status} - ${errorData.error || response.statusText}`)
-      }
 
-      const data = await response.json()
-      
-      if (!data.ok) {
-        throw new Error(`Slack API error: ${data.error}`)
-      }
+        const data = await response.json()
+        
+        if (!data.ok) {
+          throw new Error(`Slack API error: ${data.error}`)
+        }
 
-      // Filter out bots and return active users
-      return (data.members || [])
-        .filter((user: any) => !user.is_bot && !user.deleted && user.id !== 'USLACKBOT')
-        .map((user: any) => ({
-          id: user.id,
-          name: user.real_name || user.name,
-          value: user.id,
-          label: user.real_name || user.name,
-          email: user.profile?.email,
-          avatar: user.profile?.image_32,
-          status: user.profile?.status_text,
-        }))
+        // Filter out bots and return active users
+        return (data.members || [])
+          .filter((user: any) => !user.is_bot && !user.deleted && user.id !== 'USLACKBOT')
+          .map((user: any) => ({
+            id: user.id,
+            name: user.real_name || user.name,
+            value: user.id,
+            label: user.real_name || user.name,
+            email: user.profile?.email,
+            avatar: user.profile?.image_32,
+            status: user.profile?.status_text,
+          }))
+      }, 3, 1000) // 3 retries with 1 second initial delay
     } catch (error: any) {
       console.error("Error fetching Slack users:", error)
       throw error
