@@ -169,6 +169,15 @@ export async function POST(request: NextRequest) {
       fetcherKey = "slack_users"
     }
     
+    // Special cases for Trello
+    if (provider === "trello" && dataType === "trello-boards") {
+      fetcherKey = "trello-boards"
+    }
+    
+    if (provider === "trello" && dataType === "trello-list-templates") {
+      fetcherKey = "trello-list-templates"
+    }
+    
     console.log(`🔍 API: provider=${provider}, dataType=${dataType}, fetcherKey=${fetcherKey}`)
     console.log(`🔍 Available fetchers:`, Object.keys(dataFetchers))
     console.log(`🔍 Integration details:`, { id: integration.id, provider: integration.provider, status: integration.status })
@@ -2130,10 +2139,10 @@ const dataFetchers: DataFetcher = {
       throw error
     }
   },
-  trello_boards: async (integration: any) => {
+  "trello-boards": async (integration: any) => {
     try {
       const response = await fetch(
-        `https://api.trello.com/1/members/me/boards?token=${integration.access_token}&fields=id,name,desc,url,closed`,
+        `https://api.trello.com/1/members/me/boards?key=${process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID}&token=${integration.access_token}&fields=id,name,desc,url,closed`,
         {
           headers: {
             "Content-Type": "application/json",
@@ -2160,6 +2169,48 @@ const dataFetchers: DataFetcher = {
         }))
     } catch (error: any) {
       console.error("Error fetching Trello boards:", error)
+      throw error
+    }
+  },
+
+  "trello-list-templates": async (integration: any) => {
+    try {
+      // Fetch list templates from Trello
+      const response = await fetch(
+        `https://api.trello.com/1/members/me/cards?key=${process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID}&token=${integration.access_token}&fields=id,name,desc,idList&filter=template`,
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+        },
+      )
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("Trello authentication expired. Please reconnect your account.")
+        }
+        throw new Error(`Trello API error: ${response.status} ${response.statusText}`)
+      }
+
+      const data = await response.json()
+      
+      // Get unique list templates
+      const templates = data
+        .filter((card: any) => card.desc && card.desc.includes('template'))
+        .map((card: any) => ({
+          id: card.id,
+          name: card.name,
+          value: card.id,
+          description: card.desc,
+          listId: card.idList,
+        }))
+        .filter((template: any, index: number, self: any[]) => 
+          index === self.findIndex((t: any) => t.name === template.name)
+        )
+
+      return templates
+    } catch (error: any) {
+      console.error("Error fetching Trello list templates:", error)
       throw error
     }
   },

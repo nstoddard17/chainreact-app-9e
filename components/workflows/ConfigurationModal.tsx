@@ -1980,6 +1980,12 @@ export default function ConfigurationModal({
                 integrationError: `Teams access denied. This may be due to missing permissions. Please reconnect your Teams account to grant the necessary access.`
               }))
               break
+            } else if (errorMessage.includes('trello integration not found') || errorMessage.includes('trello integration not connected')) {
+              setErrors(prev => ({
+                ...prev,
+                integrationError: `Please connect your Trello account first to load available boards. You can connect it in the integrations page.`
+              }))
+              break
             } else if (errorMessage.includes('not found') || errorMessage.includes('not connected') || errorMessage.includes('404')) {
               setErrors(prev => ({
                 ...prev,
@@ -4628,44 +4634,52 @@ export default function ConfigurationModal({
                     return newErrors;
                   });
                 }}
-                options={templateOptions.map(opt => {
-                  const val = typeof opt === 'string' ? opt : opt.value;
-                  const label = typeof opt === 'string' ? opt : opt.label;
-                  if (val === 'blank') {
+                options={templateOptions
+                  .filter(opt => {
+                    // Remove 'Add Reaction' option
+                    const val = typeof opt === 'string' ? opt : opt.value;
+                    return val !== 'add_reaction';
+                  })
+                  .map(opt => {
+                    const val = typeof opt === 'string' ? opt : opt.value;
+                    let label = typeof opt === 'string' ? opt : opt.label;
+                    // Mark 'Post Interactive Blocks' as coming soon
+                    if (val === 'post_interactive_blocks') {
+                      label = `${label} (Coming Soon)`
+                    }
+                    if (val === 'blank') {
+                      return {
+                        value: val,
+                        label: <span>{label}<FreeLabel /></span>,
+                      };
+                    }
                     return {
                       value: val,
-                      label: <span>{label}<FreeLabel /></span>,
+                      label: (
+                        <div className="flex items-center gap-2 w-full min-h-[2.5rem]">
+                          {label}
+                          <ProLabel />
+                          <button
+                            type="button"
+                            className="text-xs text-blue-600 hover:text-blue-800 underline flex items-center gap-1 ml-2 bg-white/80 px-2 py-1 rounded z-10"
+                            style={{ pointerEvents: 'auto' }}
+                            onClick={e => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setPreviewTemplate(val);
+                            }}
+                            onMouseDown={e => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                            }}
+                          >
+                            <Eye className="w-4 h-4" /> Preview
+                          </button>
+                        </div>
+                      ),
+                      disabled: !isSlackPro || val === 'post_interactive_blocks',
                     };
-                  }
-                  // Pro template option
-                  return {
-                    value: val,
-                    label: (
-                      <div className="relative flex items-center gap-2 w-full min-h-[2.5rem] pr-14">
-                        <span className="flex items-center gap-2">
-                          {label}<ProLabel />
-                        </span>
-                        <button
-                          type="button"
-                          className="absolute right-0 top-1/2 -translate-y-1/2 text-xs text-blue-600 hover:text-blue-800 underline flex items-center gap-1 bg-white/80 px-2 py-1 rounded z-10"
-                          style={{ pointerEvents: 'auto' }}
-                          onClick={e => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setPreviewTemplate(val);
-                          }}
-                          onMouseDown={e => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                          }}
-                        >
-                          <Eye className="w-4 h-4" /> Preview
-                        </button>
-                      </div>
-                    ),
-                    disabled: !isSlackPro,
-                  };
-                })}
+                  })}
                 placeholder={field.placeholder || 'Select a template'}
                 searchPlaceholder="Search templates..."
                 emptyPlaceholder="No templates found."

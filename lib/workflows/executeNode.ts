@@ -25,6 +25,9 @@ import {
   // Slack actions
   createSlackChannel,
   
+  // Trello actions
+  createTrelloList,
+  
   // Workflow control actions
   executeIfThenCondition,
   executeWaitForTime
@@ -40,7 +43,7 @@ export interface ExecuteActionParams {
   workflowId: string
 }
 
-async function getDecryptedAccessToken(userId: string, provider: string): Promise<string> {
+export async function getDecryptedAccessToken(userId: string, provider: string): Promise<string> {
   try {
     const supabase = await createSupabaseServerClient()
     
@@ -280,6 +283,9 @@ export async function executeAction({ node, input, userId, workflowId }: Execute
     
     // Slack actions
     "slack_action_create_channel": createSlackChannel,
+    
+    // Trello actions
+    "trello_action_create_list": createTrelloList,
     
     // Workflow control actions
     "if_then_condition": executeIfThenCondition,
