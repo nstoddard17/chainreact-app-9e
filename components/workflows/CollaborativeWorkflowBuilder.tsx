@@ -1773,28 +1773,52 @@ function WorkflowBuilderContent() {
                           }
                           return true
                         })
-                        .map((action) => (
-                          <div
-                            key={action.type}
-                            className={`p-4 border rounded-lg cursor-pointer transition-all ${selectedAction?.type === action.type ? 'border-primary bg-primary/10 ring-1 ring-primary/20' : 'border-border hover:border-muted-foreground hover:shadow-sm'}`}
-                            onClick={() => {
-                              setSelectedAction(action)
-                              // If action doesn't need configuration, add it immediately
-                              if (selectedIntegration && !nodeNeedsConfiguration(action)) {
-                                handleActionSelect(selectedIntegration, action)
-                              }
-                            }}
-                            onDoubleClick={() => {
-                              setSelectedAction(action)
-                              if (selectedIntegration) {
-                                handleActionSelect(selectedIntegration, action)
-                              }
-                            }}
-                          >
-                            <p className="font-medium">{action.title || 'Unnamed Action'}</p>
-                            <p className="text-sm text-muted-foreground mt-1">{action.description || 'No description available'}</p>
-                          </div>
-                        ))}
+                        .map((action) => {
+                          const isComingSoon = action.comingSoon
+                          return (
+                            <div
+                              key={action.type}
+                              className={`p-4 border rounded-lg transition-all ${
+                                isComingSoon 
+                                  ? 'border-muted bg-muted/30 cursor-not-allowed opacity-60' 
+                                  : selectedAction?.type === action.type 
+                                    ? 'border-primary bg-primary/10 ring-1 ring-primary/20 cursor-pointer' 
+                                    : 'border-border hover:border-muted-foreground hover:shadow-sm cursor-pointer'
+                              }`}
+                              onClick={() => {
+                                if (isComingSoon) return
+                                setSelectedAction(action)
+                                // If action doesn't need configuration, add it immediately
+                                if (selectedIntegration && !nodeNeedsConfiguration(action)) {
+                                  handleActionSelect(selectedIntegration, action)
+                                }
+                              }}
+                              onDoubleClick={() => {
+                                if (isComingSoon) return
+                                setSelectedAction(action)
+                                if (selectedIntegration) {
+                                  handleActionSelect(selectedIntegration, action)
+                                }
+                              }}
+                            >
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  <p className={`font-medium ${isComingSoon ? 'text-muted-foreground' : ''}`}>
+                                    {action.title || 'Unnamed Action'}
+                                  </p>
+                                  <p className="text-sm text-muted-foreground mt-1">
+                                    {action.description || 'No description available'}
+                                  </p>
+                                </div>
+                                {isComingSoon && (
+                                  <span className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded-full ml-2">
+                                    Coming Soon
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          )
+                        })}
                     </div>
                   </div>
                 ) : (
@@ -1819,14 +1843,14 @@ function WorkflowBuilderContent() {
             </div>
             <div className="flex space-x-2">
               <Button 
-                disabled={!selectedAction || !selectedIntegration}
+                disabled={!selectedAction || !selectedIntegration || selectedAction?.comingSoon}
                 onClick={() => {
                   console.log('🔍 Continue button clicked:', { 
                     selectedIntegration: selectedIntegration?.id, 
                     selectedAction: selectedAction?.type,
                     sourceAddNode 
                   })
-                  if (selectedIntegration && selectedAction) {
+                  if (selectedIntegration && selectedAction && !selectedAction.comingSoon) {
                     handleActionSelect(selectedIntegration, selectedAction)
                   }
                 }}

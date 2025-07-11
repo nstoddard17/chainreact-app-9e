@@ -839,6 +839,14 @@ export const useIntegrationStore = create<IntegrationStore>()(
             url = "/api/integrations/fetch-user-data"
             dataType = "slack_users"
             break
+          case "trello-boards":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "trello-boards"
+            break
+          case "trello-list-templates":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "trello-list-templates"
+            break
           default:
             throw new Error(`Loading data for ${providerId} is not supported.`)
         }

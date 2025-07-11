@@ -11,4 +11,7 @@ export * from './googleSheets'
 export * from './airtable'
 
 // Slack actions
-export * from './slack' 
+export * from './slack'
+
+// Trello actions
+export * from './trello' 

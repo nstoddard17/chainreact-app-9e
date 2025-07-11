@@ -135,6 +135,8 @@ export interface NodeComponent {
   requiresTriggerProvider?: string
   // New property to identify nodes that produce outputs suitable for AI Agent input
   producesOutput?: boolean
+  // New property to mark actions as coming soon
+  comingSoon?: boolean
 }
 
 export const ALL_NODE_COMPONENTS: NodeComponent[] = [
@@ -3386,26 +3388,13 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Communication",
     isTrigger: false,
     requiredScopes: ["chat:write"],
+    comingSoon: true,
     configSchema: [
       { name: "channelId", label: "Channel ID", type: "text" },
       { name: "blocks", label: "Blocks (JSON)", type: "textarea" },
     ],
   },
-  {
-    type: "slack_action_add_reaction",
-    title: "Add Reaction (Slack)",
-    description: "Add a reaction to a message",
-    icon: MessageSquare,
-    providerId: "slack",
-    category: "Communication",
-    isTrigger: false,
-    requiredScopes: ["reactions:write"],
-    configSchema: [
-      { name: "channelId", label: "Channel ID", type: "text" },
-      { name: "timestamp", label: "Message Timestamp", type: "text" },
-      { name: "reaction", label: "Reaction", type: "text" },
-    ],
-  },
+
   {
     type: "discord_trigger_slash_command",
     title: "Slash Command (Discord)",
@@ -4205,7 +4194,8 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
       { name: "description", label: "Description", type: "textarea", required: false, placeholder: "Board description" },
       { name: "visibility", label: "Visibility", type: "select", required: true, defaultValue: "private", options: [
         { value: "private", label: "Private" },
-        { value: "public", label: "Public" }
+        { value: "public", label: "Public" },
+        { value: "workspace", label: "Workspace" }
       ] }
     ]
   },
@@ -4219,12 +4209,9 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Productivity",
     isTrigger: false,
     configSchema: [
-      { name: "boardId", label: "Board ID", type: "text", required: true, placeholder: "Enter board ID" },
+      { name: "boardId", label: "Board", type: "select", required: true, dynamic: "trello-boards", placeholder: "Select a board" },
       { name: "name", label: "List Name", type: "text", required: true, placeholder: "Enter list name" },
-      { name: "position", label: "Position", type: "select", required: false, defaultValue: "bottom", options: [
-        { value: "top", label: "Top" },
-        { value: "bottom", label: "Bottom" }
-      ] }
+      { name: "template", label: "Template", type: "select", required: false, dynamic: "trello-list-templates", placeholder: "Select a template (optional)" }
     ]
   },
   {
