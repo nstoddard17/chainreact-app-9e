@@ -191,6 +191,7 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     color: "#000000",
     docsUrl: "https://developer.x.com/en/docs",
     authType: "oauth",
+    // dynamicTypes: ["twitter_mentions"] // (optional, for documentation)
   },
 
   facebook: {
