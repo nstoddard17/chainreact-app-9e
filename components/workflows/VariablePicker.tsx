@@ -173,9 +173,15 @@ export default function VariablePicker({
     if (!fieldType) return filteredVariables
     
     return filteredVariables.filter(variable => {
-      if (fieldType === 'email' && variable.label.toLowerCase().includes('email')) return true
-      if (fieldType === 'email' && variable.label.toLowerCase().includes('from')) return true
-      if (fieldType === 'email' && variable.label.toLowerCase().includes('to')) return true
+      if (fieldType === 'email') {
+        // Show email-related variables and any string variables for email fields
+        const emailKeywords = ['email', 'from', 'to', 'cc', 'bcc', 'recipient', 'sender', 'address']
+        const hasEmailKeyword = emailKeywords.some(keyword => 
+          variable.label.toLowerCase().includes(keyword) || 
+          variable.path.toLowerCase().includes(keyword)
+        )
+        return hasEmailKeyword || variable.type === 'string'
+      }
       if (fieldType === 'text' || fieldType === 'string') return variable.type === 'string'
       if (fieldType === 'number') return variable.type === 'number'
       if (fieldType === 'file') {
