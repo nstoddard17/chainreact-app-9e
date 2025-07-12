@@ -1006,6 +1006,19 @@ export default function ConfigurationModal({
     nodeType: nodeInfo?.type, 
     integrationName 
   });
+  
+  // ADD DEBUG LOG FOR TRELLO
+  if (nodeInfo?.type === "trello_action_create_card" || nodeInfo?.type === "trello_action_move_card") {
+    console.log("🔍 TRELLO CONFIG MODAL DEBUG:", {
+      nodeType: nodeInfo.type,
+      providerId: nodeInfo.providerId,
+      configSchema: nodeInfo.configSchema,
+      configSchemaLength: nodeInfo.configSchema?.length || 0,
+      configSchemaFields: nodeInfo.configSchema?.map(f => ({ name: f.name, dependsOn: f.dependsOn, dynamic: f.dynamic })),
+      isModalOpen: isOpen
+    });
+  }
+  
   // State to control tooltip visibility
   const [tooltipsEnabled, setTooltipsEnabled] = useState(false)
   const [config, setConfig] = useState<Record<string, any>>(initialData)
@@ -1317,46 +1330,15 @@ export default function ConfigurationModal({
         const isBotPresent = data.present
         setBotStatus(prev => ({ ...prev, [guildId]: isBotPresent }))
         
-        // If bot is connected, fetch channels for this guild
-        if (isBotPresent && nodeInfo?.type === "discord_action_send_message") {
-          console.log('✅ Bot is connected, fetching channels for guild:', guildId)
-          const integration = getIntegrationByProvider(nodeInfo?.providerId || "")
-          if (integration) {
-            try {
-              // Use a direct API call to avoid triggering the loading modal
-              const response = await fetch('/api/integrations/fetch-user-data', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  integrationId: integration.id,
-                  providerId: 'discord',
-                  dataType: 'discord_channels',
-                  guildId: guildId
-                })
-              })
-              
-              if (response.ok) {
-                const result = await response.json()
-                if (result.success && result.data) {
-                  const mappedChannels = result.data.map((channel: any) => ({
-                    value: channel.value,
-                    label: channel.name || channel.label,
-                  }))
-                  setDynamicOptions(prev => ({
-                    ...prev,
-                    "channelId": mappedChannels,
-                  }))
-                  console.log('✅ Channels loaded:', mappedChannels.length)
-                } else {
-                  console.log('⚠️ No channels found for guild:', guildId)
-                }
-              } else {
-                console.error("Error fetching channels:", response.statusText)
-              }
-            } catch (error) {
-              console.error("Error fetching channels:", error)
-            }
-          }
+        if (isBotPresent) {
+          console.log('✅ Bot is connected to guild:', guildId, '- channels will be fetched by fetchDependentFields')
+        } else {
+          console.log('❌ Bot is not connected to guild:', guildId)
+          // Clear any existing channels when bot is not connected
+          setDynamicOptions(prev => ({
+            ...prev,
+            "channelId": [],
+          }))
         }
       } else {
         console.error('Failed to check bot status')
@@ -1741,9 +1723,7 @@ export default function ConfigurationModal({
   // Function to fetch dynamic data for dependent fields
   const fetchDependentData = useCallback(async (field: ConfigField | NodeField, dependentValue: any) => {
     if (!field.dynamic || !field.dependsOn) return
-    
 
-    
     const integration = getIntegrationByProvider(nodeInfo?.providerId || "")
     if (!integration) return
 
@@ -1758,14 +1738,55 @@ export default function ConfigurationModal({
 
     try {
       setLoadingDynamic(true)
-      const data = await loadIntegrationData(
-        field.dynamic as string,
-        integration.id,
-        { [field.dependsOn]: dependentValue }
-      )
+      let data
+      // Special handling for Trello lists: pass boardId as param
+      if (field.dynamic === "trello_lists" && field.dependsOn === "boardId") {
+        data = await loadIntegrationData(
+          field.dynamic as string,
+          integration.id,
+          { boardId: dependentValue }
+        )
+      } else if (field.dynamic === "trello_cards" && field.dependsOn === "boardId") {
+        data = await loadIntegrationData(
+          field.dynamic as string,
+          integration.id,
+          { boardId: dependentValue }
+        )
+      } else if (field.dynamic === "trello-list-templates" && field.dependsOn === "listId") {
+        data = await loadIntegrationData(
+          field.dynamic as string,
+          integration.id,
+          { listId: dependentValue }
+        )
+      } else if (field.dynamic === "trello-card-templates" && field.dependsOn === "listId") {
+        data = await loadIntegrationData(
+          field.dynamic as string,
+          integration.id,
+          { listId: dependentValue }
+        )
+      } else if (field.dynamic === "trello-card-templates" && field.dependsOn === "boardId") {
+        data = await loadIntegrationData(
+          field.dynamic as string,
+          integration.id,
+          { boardId: dependentValue }
+        )
+      } else if (field.dynamic === "discord_channels" && field.dependsOn === "guildId") {
+        data = await loadIntegrationData(
+          field.dynamic as string,
+          integration.id,
+          { guildId: dependentValue }
+        )
+      } else {
+        data = await loadIntegrationData(
+          field.dynamic as string,
+          integration.id,
+          { [field.dependsOn]: dependentValue }
+        )
+      }
       
       // Only update state if the request wasn't aborted
       if (!controller.signal.aborted && data) {
+        console.log(`🔍 Raw data received for ${field.name} (${field.dynamic}):`, data)
         let mappedData
         
         // OneNote-specific mapping
@@ -1781,6 +1802,27 @@ export default function ConfigurationModal({
             label: page.name,
             description: page.description,
           }))
+        } else if (field.dynamic === "trello_lists") {
+          // Trello lists specific mapping
+          mappedData = data.map((list: any) => ({
+            value: list.value || list.id,
+            label: list.label || list.name,
+            description: list.description || list.name,
+          }))
+        } else if (field.dynamic === "trello_cards") {
+          // Trello cards specific mapping
+          mappedData = data.map((card: any) => ({
+            value: card.value || card.id,
+            label: card.label || card.name,
+            description: card.description || card.name,
+          }))
+        } else if (field.dynamic === "trello-card-templates") {
+          // Trello card templates specific mapping
+          mappedData = data.map((template: any) => ({
+            value: template.value || template.id,
+            label: template.name,
+            description: template.description || template.originalCardName,
+          }))
         } else {
           // Default mapping for other integrations
           mappedData = data.map((item: any) => ({
@@ -1792,10 +1834,51 @@ export default function ConfigurationModal({
           }))
         }
 
-        setDynamicOptions(prev => ({
-          ...prev,
-          [field.name]: mappedData
-        }))
+        console.log(`🔍 Mapped data for ${field.name}:`, mappedData)
+        console.log(`🔍 Field details:`, { name: field.name, dynamic: field.dynamic, dependsOn: field.dependsOn })
+        
+        setDynamicOptions(prev => {
+          // Enhanced debugging for Trello dependent fields
+          if (nodeInfo?.type === "trello_action_create_card" || nodeInfo?.type === "trello_action_move_card") {
+            console.log(`🎯 TRELLO DEPENDENT DATA MAPPED for "${field.name}":`, {
+              fieldName: field.name,
+              fieldDynamic: field.dynamic,
+              fieldDependsOn: field.dependsOn,
+              dependentValue: dependentValue,
+              mappedDataCount: mappedData.length,
+              mappedData: mappedData,
+              previousDynamicOptions: prev
+            })
+          }
+          
+          const newOptions = {
+            ...prev,
+            [field.name]: mappedData
+          }
+          
+          // Also store under the dynamic key for compatibility
+          if (typeof field.dynamic === 'string') {
+            newOptions[field.dynamic] = mappedData
+          }
+          console.log(`🔍 Updated dynamicOptions for ${field.name}:`, newOptions[field.name])
+          console.log(`🔍 All dynamicOptions keys:`, Object.keys(newOptions))
+          
+          // Enhanced debugging for Trello
+          if (nodeInfo?.type === "trello_action_create_card" || nodeInfo?.type === "trello_action_move_card") {
+            console.log(`🎯 TRELLO dynamicOptions UPDATED:`, {
+              fieldName: field.name,
+              fieldDynamic: field.dynamic,
+              newOptionsForField: newOptions[field.name],
+              newOptionsForDynamic: typeof field.dynamic === 'string' ? newOptions[field.dynamic] : undefined,
+              allKeys: Object.keys(newOptions),
+              fullNewOptions: newOptions,
+              mappedDataCount: mappedData.length,
+              mappedData: mappedData
+            })
+          }
+          
+          return newOptions
+        })
       } else if (!controller.signal.aborted) {
         console.log(`⚠️ No data received for ${field.name}`)
       }
@@ -1837,6 +1920,19 @@ export default function ConfigurationModal({
       hasConfigSchema: !!(nodeInfo?.configSchema),
       configSchemaLength: nodeInfo?.configSchema?.length || 0
     })
+    
+    // Special debug for Trello
+    if (nodeInfo?.type === "trello_action_create_card" || nodeInfo?.type === "trello_action_move_card") {
+      console.log("🔍 TRELLO fetchDynamicData:", {
+        nodeType: nodeInfo.type,
+        providerId: nodeInfo.providerId,
+        configSchema: nodeInfo.configSchema?.map(field => ({ 
+          name: field.name, 
+          dynamic: field.dynamic, 
+          dependsOn: field.dependsOn 
+        }))
+      });
+    }
     
     if (!nodeInfo || !nodeInfo.providerId) return
 
@@ -2058,6 +2154,10 @@ export default function ConfigurationModal({
               processedData = data.map((record: any) => ({ value: record.value, label: record.label, description: record.description, fields: record.fields || {} }))
             } else if (field.dynamic === "trello-boards") {
               processedData = data.map((board: any) => ({ value: board.id, label: board.name }))
+            } else if (field.dynamic === "trello_lists") {
+              processedData = data.map((list: any) => ({ value: list.value || list.id, label: list.label || list.name, description: list.description }))
+            } else if (field.dynamic === "trello-card-templates") {
+              processedData = data.map((template: any) => ({ value: template.value || template.id, label: template.name, description: template.description }))
             } else if (field.dynamic === "notion-databases") {
               processedData = data.map((database: any) => ({ value: database.id, label: database.title[0]?.plain_text || "Untitled Database" }))
             } else if (field.dynamic === "youtube-channels") {
@@ -2094,6 +2194,14 @@ export default function ConfigurationModal({
               processedData = data.map((team: any) => ({ value: team.value, label: team.label }))
             } else if (field.dynamic === "teams_chats") {
               processedData = data.map((chat: any) => ({ value: chat.value, label: chat.label }))
+            } else if (field.dynamic === "youtube_videos") {
+              processedData = data.map((video: any) => ({ 
+                value: video.value || video.id, 
+                label: video.name || video.title,
+                description: video.description,
+                publishedAt: video.publishedAt,
+                thumbnail: video.thumbnail
+              }))
             } else if (field.name === 'outlook_signatures' || field.name === 'gmail_signatures') {
               processedData = data
             } else {
@@ -2105,6 +2213,24 @@ export default function ConfigurationModal({
             if (typeof field.dynamic === 'string') {
               newOptions[field.dynamic] = processedData
             }
+            
+            // For Trello, also store under the dynamic key to ensure compatibility
+            if ((nodeInfo?.type === "trello_action_create_card" || nodeInfo?.type === "trello_action_move_card") && typeof field.dynamic === 'string') {
+              newOptions[field.dynamic] = processedData
+              console.log(`🎯 TRELLO: Stored data under both "${field.name}" and "${field.dynamic}"`)
+            }
+            
+            // Enhanced debugging for Trello initial data
+            if (nodeInfo?.type === "trello_action_create_card" || nodeInfo?.type === "trello_action_move_card") {
+              console.log(`🎯 TRELLO INITIAL DATA STORED for "${field.name}":`, {
+                fieldName: field.name,
+                fieldDynamic: field.dynamic,
+                processedDataCount: processedData.length,
+                processedData: processedData,
+                storedUnderFieldName: newOptions[field.name],
+                storedUnderDynamicKey: typeof field.dynamic === 'string' ? newOptions[field.dynamic] : undefined
+              })
+            }
           }
       }
       if (hasData) {
@@ -2114,8 +2240,20 @@ export default function ConfigurationModal({
             field: key,
             count: value.length,
             sample: value[0]
-          }))
+          })),
+          fullNewOptions: newOptions
         })
+        
+        // Enhanced debugging for Trello state update
+        if (nodeInfo?.type === "trello_action_create_card" || nodeInfo?.type === "trello_action_move_card") {
+          console.log(`🎯 TRELLO STATE UPDATE:`, {
+            currentDynamicOptions: dynamicOptions,
+            newOptions: newOptions,
+            willUpdateWith: Object.keys(newOptions),
+            updateTimestamp: new Date().toISOString()
+          })
+        }
+        
         setDynamicOptions(newOptions)
       }
       setLoadingDynamicDebounced(false)
@@ -2127,6 +2265,32 @@ export default function ConfigurationModal({
       fetchDynamicData()
     }
   }, [isOpen, nodeInfo?.providerId, fetchDynamicData])
+
+  // Debug dynamicOptions state changes
+  useEffect(() => {
+    if (nodeInfo?.type === "trello_action_create_card" || nodeInfo?.type === "trello_action_move_card") {
+      console.log(`🎯 TRELLO DYNAMIC OPTIONS CHANGED:`, {
+        dynamicOptionsKeys: Object.keys(dynamicOptions),
+        dynamicOptions: dynamicOptions,
+        boardIdData: dynamicOptions.boardId,
+        trelloBoardsData: dynamicOptions['trello-boards'],
+        changeTimestamp: new Date().toISOString()
+      })
+    }
+  }, [dynamicOptions, nodeInfo?.type])
+
+  // Debug config state changes for Trello
+  useEffect(() => {
+    if (nodeInfo?.type === "trello_action_create_card" || nodeInfo?.type === "trello_action_move_card") {
+      console.log(`🎯 TRELLO CONFIG CHANGED:`, {
+        config: config,
+        boardId: config.boardId,
+        changeTimestamp: new Date().toISOString()
+      })
+      
+
+    }
+  }, [config, nodeInfo?.type, dynamicOptions])
 
   // Handle dependent field updates when their dependencies change
   useEffect(() => {
@@ -2149,8 +2313,21 @@ export default function ConfigurationModal({
             dependsOn: field.dependsOn,
             currentValue: dependentValue,
             previousValue,
-            dynamic: field.dynamic
+            dynamic: field.dynamic,
+            shouldFetch: dependentValue && dependentValue !== previousValue
           })
+          
+          // Enhanced debugging for Trello dependent fields
+          if ((nodeInfo?.type === "trello_action_create_card" || nodeInfo?.type === "trello_action_move_card") && field.dependsOn) {
+            console.log(`🎯 TRELLO DEPENDENCY CHECK for "${field.name}":`, {
+              fieldName: field.name,
+              dependsOn: field.dependsOn,
+              currentValue: dependentValue,
+              previousValue,
+              shouldFetch: dependentValue && dependentValue !== previousValue,
+              currentConfig: config
+            })
+          }
           
           // Only update if the dependent value has actually changed
           if (dependentValue !== previousValue) {
@@ -2275,25 +2452,49 @@ export default function ConfigurationModal({
           console.log(`🔄 Guild changed to ${config.guildId}, fetching Discord channels`)
           previousDependentValues.current["guildId"] = config.guildId
           
+          // Check if bot is connected to this guild before fetching channels
+          const isBotConnected = botStatus[config.guildId]
+          console.log(`🤖 Bot status for guild ${config.guildId}:`, isBotConnected)
+          
+          if (isBotConnected === false) {
+            console.log(`❌ Bot not connected to guild ${config.guildId}, clearing channels`)
+            setDynamicOptions(prev => ({
+              ...prev,
+              "channelId": [],
+            }))
+            return
+          }
+          
           const integration = getIntegrationByProvider(nodeInfo.providerId || "")
           if (integration) {
             try {
-              const channelData = await loadIntegrationData("discord_channels", integration.id, { guildId: config.guildId })
+              const channelData = await loadIntegrationData("discord_channels", integration.id, {
+                guildId: config.guildId
+              })
+              console.log(`📺 Raw Discord channel data:`, channelData)
               if (channelData && channelData.length > 0) {
                 console.log(`📺 Processing Discord channels:`, {
                   channelCount: channelData.length,
                   channels: channelData.map((c: any) => ({
                     value: c.value,
-                    label: c.label
+                    name: c.name,
+                    id: c.id
                   }))
                 })
                 const mappedChannels = channelData.map((channel: any) => ({
-                  value: channel.value,
-                  label: channel.label,
+                  value: channel.value || channel.id,
+                  label: channel.name || channel.label,
                 }))
+                console.log(`📺 Mapped channels for dropdown:`, mappedChannels)
                 setDynamicOptions(prev => ({
                   ...prev,
                   "channelId": mappedChannels,
+                }))
+              } else {
+                console.log(`⚠️ No channels returned for guild ${config.guildId}`)
+                setDynamicOptions(prev => ({
+                  ...prev,
+                  "channelId": [],
                 }))
               }
             } catch (error) {
@@ -2310,7 +2511,7 @@ export default function ConfigurationModal({
     }
 
     fetchDependentFields()
-  }, [isOpen, nodeInfo, config, fetchDependentData])
+  }, [isOpen, nodeInfo, config, fetchDependentData, botStatus])
 
   // Auto-fetch table fields when table is selected (for Airtable)
   useEffect(() => {
@@ -2627,6 +2828,202 @@ export default function ConfigurationModal({
   }
 
   const renderField = (field: ConfigField | NodeField) => {
+    // Special case: YouTube Update Video Details - fetch video data when video is selected
+    if (nodeInfo?.type === "youtube_action_update_video" && field.name === "videoId") {
+      const value = config[field.name] || "";
+      const hasError = !!errors[field.name];
+      
+      // Get options from dynamic data
+      const options = dynamicOptions[field.name] || 
+                     (typeof field.dynamic === 'string' ? dynamicOptions[field.dynamic] : []) || 
+                     [];
+      
+      const handleVideoSelect = async (newValue: string) => {
+        setConfig({ ...config, [field.name]: newValue });
+        
+        // Clear error when user selects a video
+        if (hasError) {
+          setErrors(prev => {
+            const newErrors = { ...prev };
+            delete newErrors[field.name];
+            return newErrors;
+          });
+        }
+        
+        // Fetch video details if a video is selected
+        if (newValue) {
+          try {
+            const integration = getIntegrationByProvider("youtube");
+            if (!integration) {
+              console.error("YouTube integration not found");
+              return;
+            }
+            
+            // Fetch video details from YouTube API
+            const response = await fetch("/api/integrations/youtube/get-video-details", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                videoId: newValue,
+                integrationId: integration.id,
+              }),
+            });
+            
+            if (response.ok) {
+              const videoData = await response.json();
+              
+              // Update form fields with video details
+              setConfig(prev => ({
+                ...prev,
+                title: videoData.title || "",
+                description: videoData.description || "",
+                privacyStatus: videoData.privacyStatus || "private",
+                tags: videoData.tags ? videoData.tags.join(", ") : "",
+              }));
+            } else {
+              console.error("Failed to fetch video details:", response.statusText);
+            }
+          } catch (error) {
+            console.error("Error fetching video details:", error);
+          }
+        }
+      };
+      
+      return (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 mb-2">
+            <Label className="text-sm font-medium">
+              {field.label || field.name}
+              {field.required && <span className="text-red-500 ml-1">*</span>}
+            </Label>
+            {field.description && (
+              <EnhancedTooltip 
+                description={field.description}
+                title={`${field.label || field.name} Information`}
+                showExpandButton={field.description.length > 150}
+                disabled={!tooltipsEnabled}
+              />
+            )}
+          </div>
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <Combobox
+                options={options.map((option: any) => {
+                  const videoOption = typeof option === 'string' ? { value: option, label: option } : option;
+                  const searchableText = [
+                    videoOption.label,
+                    videoOption.description,
+                    videoOption.publishedAt ? new Date(videoOption.publishedAt).toLocaleDateString() : '',
+                    videoOption.value
+                  ].filter(Boolean).join(' ').toLowerCase();
+                  
+                  return {
+                    value: videoOption.value,
+                    label: videoOption.label,
+                    description: videoOption.description,
+                    publishedAt: videoOption.publishedAt,
+                    thumbnail: videoOption.thumbnail,
+                    searchValue: searchableText
+                  };
+                })}
+                value={value}
+                onChange={handleVideoSelect}
+                disabled={loadingDynamic}
+                placeholder={loadingDynamic ? "Loading..." : field.placeholder}
+                searchPlaceholder="Search videos by title, description, or date..."
+                emptyPlaceholder={loadingDynamic ? "Loading..." : "No videos found."}
+                creatable={false}
+              />
+            </div>
+            <VariablePicker
+              workflowData={workflowData}
+              currentNodeId={currentNodeId}
+              onVariableSelect={(variable) => {
+                setConfig(prev => ({ ...prev, [field.name]: variable }))
+              }}
+              fieldType="text"
+              trigger={
+                <Button variant="outline" size="sm" className="flex-shrink-0 px-3 min-h-[2.5rem]" title="Select from previous node">
+                  <Database className="w-4 h-4" />
+                </Button>
+              }
+            />
+          </div>
+          {hasError && (
+            <p className="text-xs text-red-500">{errors[field.name]}</p>
+          )}
+        </div>
+      );
+    }
+    
+    // Special case: YouTube Fields to Return multi-select
+    if (field.name === "fieldsToReturn") {
+      const value = config[field.name] || [];
+      const hasError = !!errors[field.name];
+      
+      const handleMultiSelectChange = (newValue: string[]) => {
+        setConfig({ ...config, [field.name]: newValue })
+        
+        // Clear error when user selects values
+        if (hasError) {
+          setErrors(prev => {
+            const newErrors = { ...prev }
+            delete newErrors[field.name]
+            return newErrors
+          })
+        }
+      };
+      
+      return (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <Label className="text-sm font-medium">
+              {field.label || field.name}
+              {field.required && <span className="text-red-500 ml-1">*</span>}
+            </Label>
+            {field.name === "fieldsToReturn" && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-4 w-4 p-0">
+                    <HelpCircle className="h-3 w-3" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-sm">
+                  <div className="space-y-2">
+                    <p className="font-medium">Field Options:</p>
+                    <ul className="space-y-1 text-sm">
+                      <li><strong>ID only:</strong> Returns just video IDs</li>
+                      <li><strong>Basic info:</strong> Title, description, publish date, and thumbnail URL</li>
+                      <li><strong>Statistics:</strong> View count, like count, and comment count</li>
+                      <li><strong>Content details:</strong> Video duration and quality (SD/HD)</li>
+                      <li><strong>Status:</strong> Privacy setting and embedding permissions</li>
+                      <li><strong>Full snippet:</strong> Complete video metadata</li>
+                    </ul>
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            )}
+          </div>
+          <SlackEmailInviteMultiCombobox
+            value={Array.isArray(value) ? value : []}
+            onChange={handleMultiSelectChange}
+            options={(field.options || []).map((option: any) => ({
+              value: typeof option === 'string' ? option : option.value,
+              label: typeof option === 'string' ? option : option.label
+            }))}
+            placeholder={field.placeholder}
+            disabled={loadingDynamic}
+          />
+
+          {hasError && (
+            <p className="text-xs text-red-500">{errors[field.name]}</p>
+          )}
+        </div>
+      );
+    }
+    
     // Debug: Log every field name and type as it is rendered
     console.log('[ConfigModal] Rendering field:', field.name, 'type:', field.type);
     
@@ -3081,7 +3478,13 @@ export default function ConfigurationModal({
                         <SelectTrigger className="text-sm h-auto min-h-[2.5rem]">
                           <SelectValue placeholder={`Select ${fieldDef.name.toLowerCase()}`} />
                         </SelectTrigger>
-                        <SelectContent className="max-h-96">
+                        <SelectContent 
+                          className="max-h-[min(384px,calc(100vh-64px))] overflow-y-auto m-2"
+                          side="bottom" 
+                          sideOffset={4} 
+                          align="start" 
+                          position="popper"
+                        >
                           {fieldDef.options.choices.map((choice: any, choiceIndex: number) => (
                             <SelectItem key={`choice-${choiceIndex}-${choice.name}`} value={choice.name} className="whitespace-nowrap">
                               {choice.name}
@@ -3445,7 +3848,11 @@ export default function ConfigurationModal({
         fieldName: field.name,
         newValue,
         isAirtableAction: nodeInfo?.type === "airtable_action_create_record",
-        isBaseIdField: field.name === "baseId"
+        isBaseIdField: field.name === "baseId",
+        nodeType: nodeInfo?.type,
+        configSchema: nodeInfo?.configSchema?.map(f => ({ name: f.name, dependsOn: f.dependsOn })),
+        isTrelloAction: nodeInfo?.type === "trello_action_create_card" || nodeInfo?.type === "trello_action_move_card",
+        isBoardIdField: field.name === "boardId"
       })
       
       // Handle template changes for Notion database creation
@@ -3486,6 +3893,12 @@ export default function ConfigurationModal({
           fields: undefined
         }))
       } else {
+        console.log('🔄 Updating config state:', {
+          fieldName: field.name,
+          newValue,
+          oldConfig: config,
+          isTrelloAction: nodeInfo?.type === "trello_action_create_card" || nodeInfo?.type === "trello_action_move_card"
+        })
         setConfig({ ...config, [field.name]: newValue })
       }
       
@@ -3504,12 +3917,29 @@ export default function ConfigurationModal({
       }
       
       // Handle dependent field updates
+      console.log('🔄 Checking for dependent fields:', {
+        fieldName: field.name,
+        configSchemaLength: nodeInfo?.configSchema?.length || 0,
+        configSchema: nodeInfo?.configSchema?.map(f => ({ name: f.name, dependsOn: f.dependsOn })),
+        isTrelloAction: nodeInfo?.type === "trello_action_create_card" || nodeInfo?.type === "trello_action_move_card",
+        isBoardIdField: field.name === "boardId"
+      })
+      
       nodeInfo?.configSchema?.forEach(dependentField => {
+        console.log('🔄 Checking field:', {
+          fieldName: dependentField.name,
+          dependsOn: dependentField.dependsOn,
+          currentFieldName: field.name,
+          isMatch: dependentField.dependsOn === field.name,
+          isTrelloAction: nodeInfo?.type === "trello_action_create_card" || nodeInfo?.type === "trello_action_move_card"
+        })
+        
         if (dependentField.dependsOn === field.name) {
           console.log('🔄 Found dependent field:', {
             field: dependentField.name,
             dependsOn: field.name,
-            newValue
+            newValue,
+            isTrelloAction: nodeInfo?.type === "trello_action_create_card" || nodeInfo?.type === "trello_action_move_card"
           })
           fetchDependentData(dependentField, newValue)
         }
@@ -4257,7 +4687,75 @@ export default function ConfigurationModal({
         )
 
       case "select":
-        const options = field.dynamic ? dynamicOptions[field.name] || [] : field.options || []
+        // Try multiple keys for dynamic options to ensure compatibility
+        let options = []
+        if (field.dynamic) {
+          // Try field name first, then dynamic key, then both
+          options = dynamicOptions[field.name] || 
+                   (typeof field.dynamic === 'string' ? dynamicOptions[field.dynamic] : []) || 
+                   []
+          
+          // For Trello, ensure we have data before rendering
+          if ((nodeInfo?.type === "trello_action_create_card" || nodeInfo?.type === "trello_action_move_card") && options.length === 0) {
+            // If we don't have options yet, show loading state
+            console.log(`🎯 TRELLO: No options available for "${field.name}", showing loading state`)
+          }
+          
+          // Enhanced debugging for Trello to see what keys are available
+          if (nodeInfo?.type === "trello_action_create_card" || nodeInfo?.type === "trello_action_move_card") {
+            console.log(`🎯 TRELLO OPTIONS LOOKUP for "${field.name}":`, {
+              fieldName: field.name,
+              fieldDynamic: field.dynamic,
+              optionsFromFieldName: dynamicOptions[field.name]?.length || 0,
+              optionsFromDynamicKey: (typeof field.dynamic === 'string' ? dynamicOptions[field.dynamic]?.length : 0) || 0,
+              finalOptionsCount: options.length,
+              availableKeys: Object.keys(dynamicOptions),
+              actualDataFromFieldName: dynamicOptions[field.name],
+              actualDataFromDynamicKey: typeof field.dynamic === 'string' ? dynamicOptions[field.dynamic] : null,
+              allDynamicOptions: dynamicOptions,
+              renderTimestamp: new Date().toISOString()
+            })
+          }
+        } else {
+          options = field.options || []
+        }
+        
+        // Enhanced debugging for Trello fields
+        if (nodeInfo?.type === "trello_action_create_card") {
+          console.log(`🎯 TRELLO SELECT FIELD "${field.name}":`, {
+            fieldName: field.name,
+            fieldDynamic: field.dynamic,
+            fieldDependsOn: field.dependsOn,
+            optionsCount: options.length,
+            options: options,
+            dynamicOptionsKeys: Object.keys(dynamicOptions),
+            dynamicOptionsForField: dynamicOptions[field.name],
+            allDynamicOptions: dynamicOptions,
+            currentConfig: config,
+            dependsOnValue: field.dependsOn ? config[field.dependsOn] : null,
+            currentValue: value,
+            isDisabled: loadingDynamic || Boolean(nodeInfo?.type === "trello_action_create_card" && field.dynamic && options.length === 0 && !field.dependsOn)
+          })
+        }
+        
+        console.log(`🔍 Dropdown ${field.name} rendering:`, { 
+          fieldName: field.name,
+          dynamic: field.dynamic,
+          dependsOn: field.dependsOn,
+          availableKeys: Object.keys(dynamicOptions),
+          optionsLength: options.length,
+          options: options.slice(0, 3), // Show first 3 items
+          dynamicOptionsForField: dynamicOptions[field.name],
+          allDynamicOptions: dynamicOptions
+        })
+        console.log(`🔍 Select field "${field.name}" (${field.dynamic || 'static'}):`, {
+          fieldName: field.name,
+          fieldDynamic: field.dynamic,
+          optionsCount: options.length,
+          options: options,
+          dynamicOptionsKeys: Object.keys(dynamicOptions),
+          dynamicOptionsForField: dynamicOptions[field.name]
+        })
         
         // Use MultiCombobox for multiple select with creatable option
         if (field.multiple && field.creatable) {
@@ -4349,6 +4847,73 @@ export default function ConfigurationModal({
           )
         }
         
+        // YouTube video fields with VariablePicker support
+        if (field.dynamic === "youtube_videos") {
+          return (
+            <div className="space-y-2">
+              {renderLabel()}
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <Select
+                    value={value}
+                    onValueChange={(newValue) => {
+                      console.log('🎯 YOUTUBE VIDEO SELECT onValueChange called:', {
+                        fieldName: field.name,
+                        newValue,
+                        oldValue: value,
+                        nodeType: nodeInfo?.type
+                      })
+                      handleSelectChange(newValue)
+                    }}
+                    disabled={loadingDynamic}
+                  >
+                    <SelectTrigger className={cn("w-full", hasError && "border-red-500")}>
+                      <SelectValue placeholder={
+                        loadingDynamic 
+                          ? "Loading..." 
+                          : field.placeholder
+                      } />
+                    </SelectTrigger>
+                    <SelectContent 
+                      className="max-h-[min(384px,calc(100vh-64px))] overflow-y-auto m-2"
+                      side="bottom" 
+                      sideOffset={4} 
+                      align="start" 
+                      position="popper"
+                    >
+                      {options.map((option, optionIndex) => {
+                        const optionValue = typeof option === 'string' ? option : option.value
+                        const optionLabel = typeof option === 'string' ? option : option.label
+                        return (
+                          <SelectItem key={`select-option-${optionIndex}-${optionValue || 'undefined'}`} value={optionValue} className="whitespace-nowrap">
+                            {optionLabel}
+                          </SelectItem>
+                        )
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <VariablePicker
+                  workflowData={workflowData}
+                  currentNodeId={currentNodeId}
+                  onVariableSelect={(variable) => {
+                    setConfig(prev => ({ ...prev, [field.name]: variable }))
+                  }}
+                  fieldType="text"
+                  trigger={
+                    <Button variant="outline" size="sm" className="flex-shrink-0 px-3 min-h-[2.5rem]" title="Select from previous node">
+                      <Database className="w-4 h-4" />
+                    </Button>
+                  }
+                />
+              </div>
+              {hasError && (
+                <p className="text-xs text-red-500">{errors[field.name]}</p>
+              )}
+            </div>
+          )
+        }
+        
         // Use regular Select for single select without creatable option
         // Debug logging for Dropbox folders
         if (field.dynamic === "dropbox-folders") {
@@ -4364,32 +4929,32 @@ export default function ConfigurationModal({
             {renderLabel()}
             <Select
               value={value}
-              onValueChange={handleSelectChange}
-              disabled={loadingDynamic}
+              onValueChange={(newValue) => {
+                console.log('🎯 TRELLO SELECT onValueChange called:', {
+                  fieldName: field.name,
+                  newValue,
+                  oldValue: value,
+                  isTrelloAction: nodeInfo?.type === "trello_action_create_card" || nodeInfo?.type === "trello_action_move_card"
+                })
+                handleSelectChange(newValue)
+              }}
+              disabled={loadingDynamic || Boolean((nodeInfo?.type === "trello_action_create_card" || nodeInfo?.type === "trello_action_move_card") && field.dynamic && options.length === 0 && !field.dependsOn)}
             >
               <SelectTrigger className={cn("w-full", hasError && "border-red-500")}>
-                <SelectValue placeholder={loadingDynamic ? "Loading..." : field.placeholder} />
+                <SelectValue placeholder={
+                  loadingDynamic 
+                    ? "Loading..." 
+                    : ((nodeInfo?.type === "trello_action_create_card" || nodeInfo?.type === "trello_action_move_card") && field.dynamic && options.length === 0 && field.dependsOn)
+                    ? `Select ${field.dependsOn} first`
+                    : field.placeholder
+                } />
               </SelectTrigger>
               <SelectContent 
-                className={cn(
-                  "max-h-96",
-                  // Enhanced scroll styling for Dropbox folder dropdowns
-                  field.dynamic === "dropbox-folders" && "max-h-48 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100"
-                )} 
+                className="max-h-[min(384px,calc(100vh-64px))] overflow-y-auto m-2"
                 side="bottom" 
                 sideOffset={4} 
                 align="start" 
-                avoidCollisions={false} 
-                style={{ 
-                  transform: 'translateY(0) !important',
-                  // Additional scroll styling for Dropbox folders
-                  ...(field.dynamic === "dropbox-folders" && {
-                    maxHeight: '192px', // Reduced to 48 * 4px (12rem)
-                    overflowY: 'scroll', // Force scrollbar to be visible
-                    scrollbarWidth: 'thin',
-                    scrollbarColor: '#d1d5db #f3f4f6'
-                  })
-                }}
+                position="popper"
               >
                 {options.map((option, optionIndex) => {
                   const optionValue = typeof option === 'string' ? option : option.value

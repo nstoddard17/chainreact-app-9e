@@ -86,7 +86,7 @@
     "framer-motion": "^12.18.1",
     "fs": "latest",
     "gel": "latest",
-    "googleapis": "latest",
+    "googleapis": "^152.0.0",
     "immer": "latest",
     "input-otp": "latest",
     "knex": "latest",
@@ -123,7 +123,7 @@
     "zustand": "latest"
   },
   "devDependencies": {
-    "@types/node": "^22",
+    "@types/node": "^22.16.3",
     "@types/react": "19.1.8",
     "@types/react-dom": "^19",
     "@types/uuid": "^10.0.0",

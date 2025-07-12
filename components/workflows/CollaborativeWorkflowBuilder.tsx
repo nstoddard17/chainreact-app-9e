@@ -237,7 +237,7 @@ const useWorkflowBuilderState = () => {
     const isConnected = connectedProviders.includes(integrationId);
     console.log('🔍 Integration connection check:', { integrationId, connectedProviders, isConnected });
     return isConnected;
-  }, [getConnectedProviders])
+  }, [integrations])
 
 
 

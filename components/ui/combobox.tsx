@@ -26,6 +26,7 @@ export interface ComboboxOption {
   description?: string;
   isExisting?: boolean;
   disabled?: boolean;
+  searchValue?: string; // Additional searchable text for enhanced search
 }
 
 interface ComboboxProps {
@@ -92,6 +93,21 @@ export function Combobox({
   React.useEffect(() => {
     setLocalOptions(options)
   }, [options])
+
+  // Filter options based on search input
+  const filteredOptions = React.useMemo(() => {
+    if (!inputValue.trim()) {
+      return localOptions
+    }
+    
+    const searchLower = inputValue.toLowerCase()
+    return localOptions.filter(option => {
+      // Use searchValue if available, otherwise fall back to value and label
+      const searchText = option.searchValue || 
+        `${option.value} ${typeof option.label === 'string' ? option.label : ''}`.toLowerCase()
+      return searchText.includes(searchLower)
+    })
+  }, [localOptions, inputValue])
 
   React.useEffect(() => {
     // Clear input value when dropdown opens to show all options
@@ -180,7 +196,7 @@ export function Combobox({
           >
             <CommandEmpty>{emptyPlaceholder || "No results found."}</CommandEmpty>
             <CommandGroup>
-              {localOptions.map((option, index) => (
+              {filteredOptions.map((option, index) => (
                 <CommandItem
                   key={`${index}-${option.value || 'undefined'}`}
                   value={option.value}
@@ -205,7 +221,7 @@ export function Combobox({
                 </CommandItem>
               ))}
               {/* Show create option if creatable and inputValue is not empty and not in options */}
-              {creatable && inputValue.trim() && !localOptions.some(option => option.value === inputValue.trim()) && (
+              {creatable && inputValue.trim() && !filteredOptions.some(option => option.value === inputValue.trim()) && (
                 <CommandItem
                   key={"create-" + inputValue.trim()}
                   value={inputValue.trim()}

@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import { decrypt } from "@/lib/security/encryption"
 import { fetchAirtableWithRetry, delayBetweenRequests } from "@/lib/integrations/airtableRateLimiter"
+import { getTwitterMentionsForDropdown } from '@/lib/integrations/twitter'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
@@ -176,6 +177,10 @@ export async function POST(request: NextRequest) {
     
     if (provider === "trello" && dataType === "trello-list-templates") {
       fetcherKey = "trello-list-templates"
+    }
+    
+    if (provider === "trello" && dataType === "trello_cards") {
+      fetcherKey = "trello_cards"
     }
     
     console.log(`🔍 API: provider=${provider}, dataType=${dataType}, fetcherKey=${fetcherKey}`)
@@ -604,41 +609,7 @@ const dataFetchers: DataFetcher = {
     }
   },
 
-  slack_users: async (integration: any) => {
-    try {
-      const response = await fetch("https://slack.com/api/users.list?limit=1000", {
-        headers: {
-          Authorization: `Bearer ${integration.access_token}`,
-          "Content-Type": "application/json",
-        },
-      })
 
-      if (!response.ok) {
-        throw new Error(`Slack API error: ${response.status} ${response.statusText}`)
-      }
-
-      const data = await response.json()
-      if (!data.ok) {
-        if (data.error === "invalid_auth" || data.error === "token_revoked") {
-          throw new Error("Slack authentication expired. Please reconnect your account.")
-        }
-        throw new Error(`Slack API error: ${data.error}`)
-      }
-
-      return (data.members || [])
-        .filter((user: any) => !user.deleted && !user.is_bot && user.id !== "USLACKBOT")
-        .map((user: any) => ({
-          id: user.id,
-          name: user.real_name || user.name,
-          value: user.id,
-          display_name: user.profile?.display_name || user.name,
-          email: user.profile?.email,
-        }))
-    } catch (error: any) {
-      console.error("Error fetching Slack users:", error)
-      throw error
-    }
-  },
 
   "google-sheets_spreadsheets": async (integration: any) => {
     try {
@@ -2175,9 +2146,9 @@ const dataFetchers: DataFetcher = {
 
   "trello-list-templates": async (integration: any) => {
     try {
-      // Fetch list templates from Trello
-      const response = await fetch(
-        `https://api.trello.com/1/members/me/cards?key=${process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID}&token=${integration.access_token}&fields=id,name,desc,idList&filter=template`,
+      // First, get all boards to find lists that could serve as templates
+      const boardsResponse = await fetch(
+        `https://api.trello.com/1/members/me/boards?key=${process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID}&token=${integration.access_token}&fields=id,name,desc,url,closed`,
         {
           headers: {
             "Content-Type": "application/json",
@@ -2185,32 +2156,216 @@ const dataFetchers: DataFetcher = {
         },
       )
 
-      if (!response.ok) {
-        if (response.status === 401) {
+      if (!boardsResponse.ok) {
+        if (boardsResponse.status === 401) {
           throw new Error("Trello authentication expired. Please reconnect your account.")
         }
-        throw new Error(`Trello API error: ${response.status} ${response.statusText}`)
+        throw new Error(`Trello API error: ${boardsResponse.status} ${boardsResponse.statusText}`)
       }
 
-      const data = await response.json()
+      const boards = await boardsResponse.json()
+      const openBoards = boards.filter((board: any) => !board.closed)
       
-      // Get unique list templates
-      const templates = data
-        .filter((card: any) => card.desc && card.desc.includes('template'))
-        .map((card: any) => ({
-          id: card.id,
-          name: card.name,
-          value: card.id,
-          description: card.desc,
-          listId: card.idList,
-        }))
-        .filter((template: any, index: number, self: any[]) => 
-          index === self.findIndex((t: any) => t.name === template.name)
-        )
-
-      return templates
+      const templates: any[] = []
+      
+      // For each board, get its lists and look for template-like lists
+      for (const board of openBoards) {
+        try {
+          const listsResponse = await fetch(
+            `https://api.trello.com/1/boards/${board.id}/lists?key=${process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID}&token=${integration.access_token}&fields=id,name,desc,closed`,
+            {
+              headers: {
+                "Content-Type": "application/json",
+              },
+            },
+          )
+          
+          if (listsResponse.ok) {
+            const lists = await listsResponse.json()
+            const openLists = lists.filter((list: any) => !list.closed)
+            
+            // Look for lists that could serve as templates (contain "template" in name or description)
+            const templateLists = openLists.filter((list: any) => {
+              const name = (list.name || '').toLowerCase()
+              const desc = (list.desc || '').toLowerCase()
+              return name.includes('template') || desc.includes('template') || 
+                     name.includes('sprint') || name.includes('backlog') || 
+                     name.includes('todo') || name.includes('done') ||
+                     name.includes('in progress') || name.includes('review')
+            })
+            
+            // Add template lists with board context
+            templateLists.forEach((list: any) => {
+              templates.push({
+                id: list.id,
+                name: `${list.name} (${board.name})`,
+                value: list.id,
+                description: list.desc || `Template list from ${board.name}`,
+                listId: list.id,
+                boardId: board.id,
+                boardName: board.name,
+                originalListName: list.name
+              })
+            })
+          }
+        } catch (error) {
+          console.warn(`Failed to fetch lists for board ${board.name}:`, error)
+        }
+      }
+      
+      // Remove duplicates and return
+      const uniqueTemplates = templates.filter((template: any, index: number, self: any[]) => 
+        index === self.findIndex((t: any) => t.id === template.id)
+      )
+      
+      return uniqueTemplates
     } catch (error: any) {
       console.error("Error fetching Trello list templates:", error)
+      throw error
+    }
+  },
+
+  "trello-card-templates": async (integration: any, options?: { boardId?: string, listId?: string }) => {
+    try {
+      console.log(`🔍 Fetching trello-card-templates with options:`, options)
+      
+      let cardsResponse
+      let cards: any[] = []
+      
+      // If boardId is provided, fetch cards from that specific board
+      if (options?.boardId) {
+        console.log(`🔍 Fetching cards from board ${options.boardId}`)
+        cardsResponse = await fetch(
+          `https://api.trello.com/1/boards/${options.boardId}/cards?key=${process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID}&token=${integration.access_token}&fields=id,name,desc,idList,idBoard,labels,closed`,
+          {
+            headers: {
+              "Content-Type": "application/json",
+            },
+          }
+        )
+      } else {
+        // Fallback to fetching all cards from the user's account
+        console.log(`🔍 Fetching all cards from user's account`)
+        cardsResponse = await fetch(
+          `https://api.trello.com/1/members/me/cards?key=${process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID}&token=${integration.access_token}&fields=id,name,desc,idList,idBoard,labels,closed`,
+          {
+            headers: {
+              "Content-Type": "application/json",
+            },
+          }
+        )
+      }
+      
+      if (!cardsResponse.ok) {
+        if (cardsResponse.status === 401) {
+          throw new Error("Trello authentication expired. Please reconnect your account.")
+        }
+        throw new Error(`Trello API error: ${cardsResponse.status} ${cardsResponse.statusText}`)
+      }
+
+      cards = await cardsResponse.json()
+      console.log(`🔍 Found ${cards.length} total cards for Trello card templates`)
+      
+      // Filter out closed cards
+      const openCards = cards.filter((card: any) => !card.closed)
+      console.log(`🔍 Found ${openCards.length} open cards`)
+      
+      // All open cards can be used as templates
+      const templateCards = openCards
+      
+      console.log(`🔍 Found ${templateCards.length} cards available as templates`)
+      if (templateCards.length > 0) {
+        console.log(`🔍 Available template cards:`, templateCards.map((card: any) => ({
+          name: card.name,
+          desc: card.desc?.substring(0, 100),
+          descLength: card.desc?.length || 0
+        })))
+      }
+
+      // Filter cards based on provided options
+      let filteredCards = templateCards
+      
+      if (options?.listId) {
+        filteredCards = filteredCards.filter((card: any) => card.idList === options.listId)
+        console.log(`🔍 Filtered to ${filteredCards.length} cards in list ${options.listId}`)
+      }
+
+      // Get board and list information for better display names
+      const boardsMap: { [key: string]: string } = {}
+      const allLists: { [key: string]: { name: string, idBoard: string } } = {}
+      
+      if (filteredCards.length > 0) {
+        // Get unique board IDs
+        const boardIds = [...new Set(filteredCards.map(card => card.idBoard))]
+        
+        // Fetch board names
+        for (const boardId of boardIds) {
+          try {
+            const boardResponse = await fetch(
+              `https://api.trello.com/1/boards/${boardId}?key=${process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID}&token=${integration.access_token}&fields=name`,
+              {
+                headers: {
+                  "Content-Type": "application/json",
+                },
+              }
+            )
+            if (boardResponse.ok) {
+              const board = await boardResponse.json()
+              boardsMap[boardId] = board.name
+            }
+          } catch (error) {
+            console.warn(`Failed to fetch board ${boardId}:`, error)
+          }
+        }
+        
+        // Get unique list IDs
+        const listIds = [...new Set(filteredCards.map(card => card.idList))]
+        
+        // Fetch list names
+        for (const listId of listIds) {
+          try {
+            const listResponse = await fetch(
+              `https://api.trello.com/1/lists/${listId}?key=${process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID}&token=${integration.access_token}&fields=name,idBoard`,
+              {
+                headers: {
+                  "Content-Type": "application/json",
+                },
+              }
+            )
+            if (listResponse.ok) {
+              const list = await listResponse.json()
+              allLists[listId] = { name: list.name, idBoard: list.idBoard }
+            }
+          } catch (error) {
+            console.warn(`Failed to fetch list ${listId}:`, error)
+          }
+        }
+      }
+
+      // Map template cards to the expected format
+      const templates = filteredCards.map((card: any) => {
+        const listInfo = allLists[card.idList]
+        const boardName = boardsMap[card.idBoard] || 'Unknown Board'
+        
+        return {
+          id: card.id,
+          name: `${card.name}${listInfo ? ` (${listInfo.name})` : ''}`,
+          value: card.id,
+          description: card.desc || 'Template card',
+          listId: card.idList,
+          boardId: card.idBoard,
+          boardName: boardName,
+          listName: listInfo?.name || 'Unknown List',
+          isCard: true,
+          originalCardName: card.name,
+          labels: card.labels || []
+        }
+      })
+      
+      console.log(`🔍 Returning ${templates.length} template cards`)
+      return templates
+    } catch (error: any) {
+      console.error("Error fetching Trello card templates:", error)
       throw error
     }
   },
@@ -2510,6 +2665,7 @@ const dataFetchers: DataFetcher = {
       const channelData = await channelResp.json()
       const channelId = channelData.items?.[0]?.id
       if (!channelId) return []
+      
       // Now get videos from the uploads playlist
       const playlistResp = await fetch(
         `https://www.googleapis.com/youtube/v3/channels?part=contentDetails&id=${channelId}`,
@@ -2523,32 +2679,50 @@ const dataFetchers: DataFetcher = {
       const playlistData = await playlistResp.json()
       const uploadsPlaylistId = playlistData.items?.[0]?.contentDetails?.relatedPlaylists?.uploads
       if (!uploadsPlaylistId) return []
-      // Get videos from uploads playlist
-      const videosResp = await fetch(
-        `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${uploadsPlaylistId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${integration.access_token}`,
-            "Content-Type": "application/json",
+      
+      // Get all videos from uploads playlist with pagination
+      let allVideos: any[] = []
+      let nextPageToken: string | undefined = undefined
+      
+      do {
+        const videosResp: Response = await fetch(
+          `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${uploadsPlaylistId}${nextPageToken ? `&pageToken=${nextPageToken}` : ''}`,
+          {
+            headers: {
+              Authorization: `Bearer ${integration.access_token}`,
+              "Content-Type": "application/json",
+            },
           },
-        },
-      )
-      if (!videosResp.ok) {
-        if (videosResp.status === 401) {
-          throw new Error("YouTube authentication expired. Please reconnect your account.")
+        )
+        if (!videosResp.ok) {
+          if (videosResp.status === 401) {
+            throw new Error("YouTube authentication expired. Please reconnect your account.")
+          }
+          const errorData = await videosResp.json().catch(() => ({}))
+          throw new Error(`YouTube API error: ${videosResp.status} - ${errorData.error?.message || videosResp.statusText}`)
         }
-        const errorData = await videosResp.json().catch(() => ({}))
-        throw new Error(`YouTube API error: ${videosResp.status} - ${errorData.error?.message || videosResp.statusText}`)
-      }
-      const videosData = await videosResp.json()
-      return (videosData.items || []).map((item: any) => ({
-        id: item.snippet.resourceId.videoId,
-        name: item.snippet.title,
-        value: item.snippet.resourceId.videoId,
-        description: item.snippet.description,
-        publishedAt: item.snippet.publishedAt,
-        thumbnail: item.snippet.thumbnails?.default?.url,
-      }))
+        const videosData: any = await videosResp.json()
+        
+        const pageVideos = (videosData.items || []).map((item: any) => ({
+          id: item.snippet.resourceId.videoId,
+          name: item.snippet.title,
+          value: item.snippet.resourceId.videoId,
+          description: item.snippet.description,
+          publishedAt: item.snippet.publishedAt,
+          thumbnail: item.snippet.thumbnails?.default?.url,
+        }))
+        
+        allVideos.push(...pageVideos)
+        nextPageToken = videosData.nextPageToken
+        
+        // Safety check to prevent infinite loops
+        if (allVideos.length > 1000) {
+          console.warn("YouTube videos fetcher: Stopping at 1000 videos to prevent excessive API usage")
+          break
+        }
+      } while (nextPageToken)
+      
+      return allVideos
     } catch (error: any) {
       console.error("Error fetching YouTube videos:", error)
       throw error
@@ -2759,57 +2933,69 @@ const dataFetchers: DataFetcher = {
       throw error
     }
   },
-  "trello_lists": async (integration: any) => {
+  "trello_lists": async (integration: any, options?: { boardId?: string }) => {
     try {
-      // First get all boards, then get lists for each board
-      const boardsResponse = await fetch(
-        "https://api.trello.com/1/members/me/boards",
+      if (!options?.boardId) {
+        throw new Error("Missing boardId for Trello lists fetcher")
+      }
+      const response = await fetch(
+        `https://api.trello.com/1/boards/${options.boardId}/lists?key=${process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID}&token=${integration.access_token}&fields=id,name,closed`,
         {
           headers: {
-            Authorization: `Bearer ${integration.access_token}`,
             "Content-Type": "application/json",
           },
         },
       )
-      if (!boardsResponse.ok) {
-        if (boardsResponse.status === 401) {
+      if (!response.ok) {
+        if (response.status === 401) {
           throw new Error("Trello authentication expired. Please reconnect your account.")
         }
-        const errorData = await boardsResponse.json().catch(() => ({}))
-        throw new Error(`Trello API error: ${boardsResponse.status} - ${errorData.message || "Unknown error"}`)
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(`Trello API error: ${response.status} - ${errorData.message || "Unknown error"}`)
       }
-      const boardsData = await boardsResponse.json()
-      
-      const allLists: any[] = []
-      
-      for (const board of boardsData) {
-        try {
-          const listsResponse = await fetch(
-            `https://api.trello.com/1/boards/${board.id}/lists`,
-            {
-              headers: {
-                Authorization: `Bearer ${integration.access_token}`,
-                "Content-Type": "application/json",
-              },
-            },
-          )
-          if (listsResponse.ok) {
-            const listsData = await listsResponse.json()
-            const boardLists = listsData.map((list: any) => ({
-              value: list.id,
-              label: `${board.name} - ${list.name}`,
-              description: list.name,
-            }))
-            allLists.push(...boardLists)
-          }
-        } catch (error) {
-          console.warn(`Failed to fetch lists for board ${board.name}:`, error)
-        }
-      }
-      
-      return allLists
+      const lists = await response.json()
+      return lists.filter((list: any) => !list.closed).map((list: any) => ({
+        value: list.id,
+        label: list.name,
+        description: list.name,
+      }))
     } catch (error: any) {
       console.error("Error fetching Trello lists:", error)
+      throw error
+    }
+  },
+
+  "trello_cards": async (integration: any, options?: { boardId?: string }) => {
+    try {
+      if (!options?.boardId) {
+        throw new Error("Missing boardId for Trello cards fetcher")
+      }
+      const response = await fetch(
+        `https://api.trello.com/1/boards/${options.boardId}/cards?key=${process.env.NEXT_PUBLIC_TRELLO_CLIENT_ID}&token=${integration.access_token}&fields=id,name,desc,idList,closed`,
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+        },
+      )
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("Trello authentication expired. Please reconnect your account.")
+        }
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(`Trello API error: ${response.status} - ${errorData.message || "Unknown error"}`)
+      }
+      const cards = await response.json()
+      
+      // Filter out closed cards and map to expected format
+      return cards.filter((card: any) => !card.closed).map((card: any) => ({
+        value: card.id,
+        label: card.name,
+        description: card.desc || card.name,
+        listId: card.idList,
+      }))
+    } catch (error: any) {
+      console.error("Error fetching Trello cards:", error)
       throw error
     }
   },
@@ -3159,7 +3345,8 @@ const dataFetchers: DataFetcher = {
       // Use bot token for channel listing (bot must be in the guild)
       const botToken = process.env.DISCORD_BOT_TOKEN
       if (!botToken) {
-        throw new Error("Discord bot token not configured")
+        console.warn("Discord bot token not configured - returning empty channels list")
+        return []
       }
 
       const response = await fetch(`https://discord.com/api/v10/guilds/${guildId}/channels`, {
@@ -3177,7 +3364,9 @@ const dataFetchers: DataFetcher = {
           throw new Error("Bot does not have permission to view channels in this server. Please ensure the bot has the 'View Channels' permission and try again.")
         }
         if (response.status === 404) {
-          throw new Error("Bot is not a member of this server. Please add the bot to the server first.")
+          // Bot is not in the server - return empty array instead of throwing error
+          console.log(`Bot is not a member of server ${guildId} - returning empty channels list`)
+          return []
         }
         const errorData = await response.json().catch(() => ({}))
         throw new Error(`Discord API error: ${response.status} - ${errorData.message || response.statusText}`)
@@ -3845,7 +4034,6 @@ const dataFetchers: DataFetcher = {
             id: user.id,
             name: user.real_name || user.name,
             value: user.id,
-            label: user.real_name || user.name,
             email: user.profile?.email,
             avatar: user.profile?.image_32,
             status: user.profile?.status_text,
@@ -3856,6 +4044,7 @@ const dataFetchers: DataFetcher = {
       throw error
     }
   },
+  twitter_mentions: getTwitterMentionsForDropdown,
 }
 
 // Helper functions

@@ -711,6 +711,10 @@ export const useIntegrationStore = create<IntegrationStore>()(
             url = "/api/integrations/fetch-user-data"
             dataType = "trello_lists"
             break
+          case "trello_cards":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "trello_cards"
+            break
           case "hubspot_companies":
             url = "/api/integrations/fetch-user-data"
             dataType = "hubspot_companies"
@@ -771,14 +775,6 @@ export const useIntegrationStore = create<IntegrationStore>()(
             url = "/api/integrations/fetch-user-data"
             dataType = "blackbaud_constituents"
             break
-          case "discord_guilds":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "discord_guilds"
-            break
-          case "discord_channels":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "discord_channels"
-            break
           case "facebook_pages":
             url = "/api/integrations/fetch-user-data"
             dataType = "facebook_pages"
@@ -827,6 +823,10 @@ export const useIntegrationStore = create<IntegrationStore>()(
             url = "/api/integrations/fetch-user-data"
             dataType = "gmail_signatures"
             break
+          case "twitter_mentions":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "twitter_mentions"
+            break
           case "slack-channels":
             url = "/api/integrations/slack/load-data"
             dataType = "slack-channels"
@@ -847,6 +847,18 @@ export const useIntegrationStore = create<IntegrationStore>()(
             url = "/api/integrations/fetch-user-data"
             dataType = "trello-list-templates"
             break
+          case "trello-card-templates":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "trello-card-templates"
+            break
+          case "discord_channels":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "discord_channels"
+            break
+          case "discord_guilds":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "discord_guilds"
+            break
           default:
             throw new Error(`Loading data for ${providerId} is not supported.`)
         }
@@ -864,6 +876,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
                        providerId === 'gmail_signatures' ? 'gmail' :
                        providerId === 'gmail-recent-recipients' ? 'gmail' :
                        providerId === 'gmail-enhanced-recipients' ? 'gmail' :
+                       providerId === 'twitter_mentions' ? 'twitter' :
                        providerId === 'google-calendars' ? 'google-calendar' :
                        providerId === 'google-drive-folders' ? 'google-drive' :
                        providerId === 'google-drive-files' ? 'google-drive' :
@@ -879,6 +892,8 @@ export const useIntegrationStore = create<IntegrationStore>()(
                        providerId === 'google-docs_folders' ? 'google-docs' :
                        providerId === 'slack_workspaces' ? 'slack' :
                        providerId === 'slack_users' ? 'slack' :
+                       providerId === 'discord_channels' ? 'discord' :
+                       providerId === 'discord_guilds' ? 'discord' :
                        providerId.includes('_') ? providerId.split('_')[0] : 
                        providerId.includes('-') ? providerId.split('-')[0] : 
                        providerId // Extract base provider name
