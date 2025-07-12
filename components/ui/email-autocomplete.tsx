@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect, useRef, useMemo } from "react"
+import React, { useState, useEffect, useRef, useMemo, ReactNode } from "react"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { X, Mail, Users } from "lucide-react"
@@ -26,6 +26,7 @@ interface EmailAutocompleteProps {
   multiple?: boolean
   className?: string
   isLoading?: boolean
+  endAdornment?: ReactNode // <-- Add this line
 }
 
 export function EmailAutocomplete({
@@ -36,7 +37,8 @@ export function EmailAutocomplete({
   disabled = false,
   multiple = false,
   className,
-  isLoading = false
+  isLoading = false,
+  endAdornment // <-- Add this line
 }: EmailAutocompleteProps) {
   const [inputValue, setInputValue] = useState("")
   const [isOpen, setIsOpen] = useState(false)
@@ -265,7 +267,7 @@ export function EmailAutocomplete({
             onBlur={handleInputBlur}
             placeholder={isLoading ? "Loading suggestions..." : placeholder}
             disabled={disabled || isLoading}
-            className="w-full pr-10"
+            className="w-full pr-10" // Reduce right padding for flush button
             autoComplete="new-password"
             autoCorrect="off"
             autoCapitalize="off"
@@ -283,6 +285,14 @@ export function EmailAutocomplete({
           {isLoading && (
             <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
               <div className="w-4 h-4 border-2 border-border border-t-primary rounded-full animate-spin"></div>
+            </div>
+          )}
+          {endAdornment && !isLoading && (
+            <div className="absolute right-0 top-1/2 -translate-y-1/2 z-10">
+              {React.cloneElement(endAdornment as React.ReactElement, {
+                style: { borderRadius: 0, marginRight: 0, ...((endAdornment as any)?.props?.style || {}) },
+                className: ((endAdornment as any)?.props?.className || "") + " !rounded-none !mr-0"
+              })}
             </div>
           )}
         </div>

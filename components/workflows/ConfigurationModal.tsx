@@ -5498,7 +5498,24 @@ export default function ConfigurationModal({
               multiple={isMultipleEmail}
               disabled={loadingDynamic}
               isLoading={loadingDynamic}
-              className={cn(hasError && "border-red-500")}
+              className={cn("w-full", hasError && "border-red-500")}
+              endAdornment={
+                <VariablePicker
+                  workflowData={workflowData}
+                  currentNodeId={currentNodeId}
+                  onVariableSelect={(variable) => {
+                    const currentValue = value || ""
+                    const newValue = currentValue + variable
+                    setConfig(prev => ({ ...prev, [field.name]: newValue }))
+                  }}
+                  fieldType="email"
+                  trigger={
+                    <Button variant="outline" size="sm" className="flex-shrink-0 px-3 min-h-[2.5rem]">
+                      <Database className="w-4 h-4" />
+                    </Button>
+                  }
+                />
+              }
             />
             {hasError && (
               <p className="text-xs text-red-500">{errors[field.name]}</p>
