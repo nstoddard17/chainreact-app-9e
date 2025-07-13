@@ -146,6 +146,8 @@ export interface NodeComponent {
   comingSoon?: boolean
 }
 
+
+
 export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   // Generic Triggers
   {
@@ -3716,173 +3718,6 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     ]
   },
   {
-    type: "youtube_action_list_videos",
-    title: "List My Videos (YouTube)",
-    description: "List all videos from your YouTube channel",
-    icon: Video,
-    providerId: "youtube",
-    requiredScopes: ["https://www.googleapis.com/auth/youtube.readonly"],
-    category: "Social",
-    isTrigger: false,
-    configSchema: [
-      {
-        name: "channelId",
-        label: "Channel",
-        type: "select",
-        dynamic: "youtube_channels",
-        required: false,
-        placeholder: "Select a YouTube channel",
-        description: "Choose a specific channel to list videos from"
-      },
-      {
-        name: "playlistId",
-        label: "Playlist",
-        type: "select",
-        dynamic: "youtube_playlists",
-        required: false,
-        placeholder: "Select a playlist",
-        description: "Filter videos to a specific playlist (optional)"
-      },
-      {
-        name: "searchQuery",
-        label: "Search Query",
-        type: "text",
-        required: false,
-        placeholder: "Enter search terms",
-        description: "Search for videos by keywords (overrides Channel/Playlist when provided)"
-      },
-      {
-        name: "orderBy",
-        label: "Order By",
-        type: "select",
-        required: false,
-        defaultValue: "date",
-        description: "Sort order for the results",
-        options: [
-          { value: "date", label: "Date" },
-          { value: "rating", label: "Rating" },
-          { value: "relevance", label: "Relevance" },
-          { value: "title", label: "Title" },
-          { value: "viewCount", label: "View Count" },
-          { value: "commentCount", label: "Comment Count" }
-        ]
-      },
-      {
-        name: "publishedAfter",
-        label: "Published After",
-        type: "datetime",
-        required: false,
-        placeholder: "Select start date",
-        description: "Only include videos published after this date"
-      },
-      {
-        name: "publishedBefore",
-        label: "Published Before",
-        type: "datetime",
-        required: false,
-        placeholder: "Select end date",
-        description: "Only include videos published before this date"
-      },
-      {
-        name: "videoDefinition",
-        label: "Video Definition",
-        type: "select",
-        required: false,
-        defaultValue: "any",
-        description: "Filter by video quality",
-        options: [
-          { value: "any", label: "Any" },
-          { value: "standard", label: "Standard" },
-          { value: "high", label: "High" }
-        ]
-      },
-      {
-        name: "videoDuration",
-        label: "Video Duration",
-        type: "select",
-        required: false,
-        defaultValue: "any",
-        description: "Filter by video length",
-        options: [
-          { value: "any", label: "Any" },
-          { value: "short", label: "Short (<4m)" },
-          { value: "medium", label: "Medium (4–20m)" },
-          { value: "long", label: "Long (>20m)" }
-        ]
-      },
-      {
-        name: "regionCode",
-        label: "Region Code",
-        type: "text",
-        required: false,
-        placeholder: "US",
-        description: "ISO 3166-1 alpha-2 country code (e.g., US, GB, CA)"
-      },
-      {
-        name: "videoCategoryId",
-        label: "Video Category",
-        type: "select",
-        required: false,
-        placeholder: "Select a category",
-        description: "Filter by YouTube video category",
-        options: [
-          { value: "1", label: "Film & Animation" },
-          { value: "2", label: "Autos & Vehicles" },
-          { value: "10", label: "Music" },
-          { value: "15", label: "Pets & Animals" },
-          { value: "17", label: "Sports" },
-          { value: "19", label: "Travel & Events" },
-          { value: "20", label: "Gaming" },
-          { value: "22", label: "People & Blogs" },
-          { value: "23", label: "Comedy" },
-          { value: "24", label: "Entertainment" },
-          { value: "25", label: "News & Politics" },
-          { value: "26", label: "Howto & Style" },
-          { value: "27", label: "Education" },
-          { value: "28", label: "Science & Technology" },
-          { value: "29", label: "Nonprofits & Activism" }
-        ]
-      },
-      {
-        name: "fieldsToReturn",
-        label: "Fields to Return",
-        type: "multi-select",
-        required: true,
-        description: "Select which fields to include in the results.",
-        options: [
-          {
-            value: "items(id)",
-            label: "ID only"
-          },
-          {
-            value: "items(snippet(title,description,publishedAt,thumbnails(default(url))))",
-            label: "Basic info"
-          },
-          {
-            value: "items(statistics(viewCount,likeCount,commentCount))",
-            label: "Statistics"
-          },
-          {
-            value: "items(contentDetails(duration,definition))",
-            label: "Content details"
-          },
-          {
-            value: "items(status(privacyStatus,embeddable))",
-            label: "Status"
-          },
-          {
-            value: "items(snippet)",
-            label: "Full snippet"
-          }
-        ],
-        defaultValue: [
-          "items(snippet(title,description,publishedAt,thumbnails(default(url))))",
-          "items(statistics(viewCount,likeCount,commentCount))"
-        ]
-      }
-    ]
-  },
-  {
     type: "youtube_action_update_video",
     title: "Update Video Details (YouTube)",
     description: "Update the title, description, privacy, or tags of a video",
@@ -4511,57 +4346,6 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
           { value: "writer", label: "Writer (view, comment, and edit)" }
         ],
         description: "Permission level for shared users"
-      }
-    ],
-  },
-  {
-    type: "google_docs_action_read_document",
-    title: "Read Document (Google Docs)",
-    description: "Read content from an existing Google Document",
-    icon: FileText,
-    providerId: "google-docs",
-    category: "Productivity",
-    isTrigger: false,
-    requiredScopes: ["https://www.googleapis.com/auth/documents.readonly", "https://www.googleapis.com/auth/drive.readonly"],
-    producesOutput: true,
-    configSchema: [
-      {
-        name: "documentId",
-        label: "Document",
-        type: "select",
-        dynamic: "google-docs_recent_documents",
-        required: true,
-        placeholder: "Select a document from your Google Docs",
-        description: "Choose from your recently modified Google Docs documents"
-      },
-      {
-        name: "includeFormatting",
-        label: "Include Formatting",
-        type: "boolean",
-        required: false,
-        defaultValue: false,
-        description: "Whether to include text formatting information"
-      },
-      {
-        name: "includeComments",
-        label: "Include Comments",
-        type: "boolean",
-        required: false,
-        defaultValue: false,
-        description: "Whether to include document comments"
-      },
-      {
-        name: "outputFormat",
-        label: "Output Format",
-        type: "select",
-        required: false,
-        defaultValue: "text",
-        options: [
-          { value: "text", label: "Plain Text" },
-          { value: "html", label: "HTML" },
-          { value: "json", label: "JSON (with formatting)" }
-        ],
-        description: "How to format the output content"
       }
     ],
   },
@@ -5290,58 +5074,6 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         placeholder: "Select a list or type to create new",
         creatable: true
       }
-    ]
-  },
-  {
-    type: "hubspot_action_update_contact",
-    title: "Update Contact (HubSpot)",
-    description: "Update an existing contact in HubSpot",
-    icon: Edit,
-    providerId: "hubspot",
-    requiredScopes: ["crm.objects.contacts.write"],
-    category: "CRM",
-    isTrigger: false,
-    configSchema: [
-      { 
-        name: "contactId", 
-        label: "Contact", 
-        type: "select",
-        dynamic: "hubspot_contacts",
-        required: true,
-        placeholder: "Select a contact to update"
-      },
-      { name: "email", label: "Email", type: "email", required: false },
-      { name: "firstname", label: "First Name", type: "text", required: false },
-      { name: "lastname", label: "Last Name", type: "text", required: false },
-      { name: "phone", label: "Phone", type: "text", required: false },
-      { 
-        name: "company", 
-        label: "Company", 
-        type: "combobox",
-        dynamic: "hubspot_companies",
-        required: false,
-        placeholder: "Select a company or type to create new",
-        creatable: true
-      },
-      { name: "jobtitle", label: "Job Title", type: "text", required: false },
-      { 
-        name: "lifecycle_stage", 
-        label: "Lifecycle Stage", 
-        type: "combobox",
-        options: [
-          { value: "subscriber", label: "Subscriber" },
-          { value: "lead", label: "Lead" },
-          { value: "marketingqualifiedlead", label: "Marketing Qualified Lead" },
-          { value: "salesqualifiedlead", label: "Sales Qualified Lead" },
-          { value: "opportunity", label: "Opportunity" },
-          { value: "customer", label: "Customer" },
-          { value: "evangelist", label: "Evangelist" },
-          { value: "other", label: "Other" }
-        ],
-        placeholder: "Select a lifecycle stage or type to create new",
-        creatable: true
-      },
-      { name: "custom_properties", label: "Custom Properties (JSON)", type: "textarea", placeholder: '{"custom_field": "value"}' }
     ]
   },
   {

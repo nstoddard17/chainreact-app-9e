@@ -1,6 +1,7 @@
 import { create } from "zustand"
 import { getSupabaseClient } from "@/lib/supabase"
 import { apiClient } from "@/lib/apiClient"
+import { loadDiscordGuildsOnce } from "./discordGuildsCacheStore"
 
 // Global variables for OAuth popup management
 let currentOAuthPopup: Window | null = null
@@ -142,7 +143,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
           loading: false,
         })
 
-        console.log("✅ Providers initialized:", providers.length)
+        // console.log("✅ Providers initialized:", providers.length)
       } catch (error: any) {
         console.error("Failed to initialize providers:", error)
         set({
@@ -552,7 +553,15 @@ export const useIntegrationStore = create<IntegrationStore>()(
       set({ globalPreloadingData: true, preloadStarted: true })
 
       try {
-        await Promise.all([initializeProviders(), fetchIntegrations()])
+        await Promise.all([
+          initializeProviders(), 
+          fetchIntegrations(),
+          // Prefetch Discord guilds if user has Discord connected
+          loadDiscordGuildsOnce().catch(error => {
+            // Silently fail if Discord is not connected - this is expected
+            console.log('Discord guilds prefetch skipped:', error.message)
+          })
+        ])
       } catch (error) {
         console.error("Error during global preload:", error)
         get().setError("Failed to load initial data.")
@@ -856,8 +865,23 @@ export const useIntegrationStore = create<IntegrationStore>()(
             dataType = "discord_channels"
             break
           case "discord_guilds":
-            url = "/api/integrations/fetch-user-data"
-            dataType = "discord_guilds"
+            // Use cached Discord guilds loader instead of direct API call
+            try {
+              const cachedGuilds = await loadDiscordGuildsOnce(params?.forceRefresh)
+              set((state) => ({
+                integrationData: {
+                  ...state.integrationData,
+                  [providerId]: cachedGuilds,
+                },
+              }))
+              setLoading(`data-${providerId}`, false)
+              return cachedGuilds
+            } catch (error: any) {
+              console.error(`Failed to load Discord guilds from cache:`, error)
+              setError(`Failed to load Discord guilds.`)
+              setLoading(`data-${providerId}`, false)
+              return null
+            }
             break
           default:
             throw new Error(`Loading data for ${providerId} is not supported.`)
@@ -907,20 +931,20 @@ export const useIntegrationStore = create<IntegrationStore>()(
               dataType: params?.dataType || dataType, // Allow override via params
             }
 
-        console.log(`🌐 Integration Store: Loading data for ${providerId}, URL: ${url}, integrationId: ${integrationId}`)
-        console.log(`🔍 Provider mapping debug: providerId="${providerId}", includes('_')=${providerId.includes('_')}, includes('-')=${providerId.includes('-')}`)
-        console.log(`🔍 Request body:`, requestBody)
+        // console.log(`🌐 Integration Store: Loading data for ${providerId}, URL: ${url}, integrationId: ${integrationId}`)
+        // console.log(`🔍 Provider mapping debug: providerId="${providerId}", includes('_')=${providerId.includes('_')}, includes('-')=${providerId.includes('-')}`)
+        // console.log(`🔍 Request body:`, requestBody)
 
         const response = await apiClient.post(url, { 
           ...requestBody,
           ...params 
         })
         
-        console.log(`🔍 Integration Store: API Response for ${providerId}:`, response)
+        // console.log(`🔍 Integration Store: API Response for ${providerId}:`, response)
         
         // Handle the structured response from apiClient
         if (!response.success) {
-          console.error(`❌ Integration Store: Failed response for ${providerId}:`, response)
+          // console.error(`❌ Integration Store: Failed response for ${providerId}:`, response)
           throw new Error(response.error || 'Failed to load integration data')
         }
         

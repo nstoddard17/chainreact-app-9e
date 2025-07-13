@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useCallback, useState, useMemo, useRef } from "react"
+import React, { useEffect, useCallback, useState, useMemo, useRef, startTransition } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import {
   ReactFlow,
@@ -26,6 +26,9 @@ import { useWorkflowStore, type Workflow, type WorkflowNode, type WorkflowConnec
 import { useCollaborationStore } from "@/stores/collaborationStore"
 import { useIntegrationStore } from "@/stores/integrationStore"
 import { useWorkflowTestStore } from "@/stores/workflowTestStore"
+import { loadWorkflows, useWorkflowsListStore } from "@/stores/cachedWorkflowStore"
+import { loadIntegrationsOnce, useIntegrationsStore } from "@/stores/integrationCacheStore"
+import { supabase } from "@/utils/supabaseClient"
 import ConfigurationModal from "./ConfigurationModal"
 import AIAgentConfigModal from "./AIAgentConfigModal"
 import CustomNode from "./CustomNode"
@@ -116,17 +119,40 @@ const nodeTypes: NodeTypes = {
   addAction: AddActionNode as React.ComponentType<NodeProps>,
 }
 
-
+// Add concurrent state updates for better UX
+const useConcurrentStateUpdates = () => {
+  const updateWithTransition = useCallback((updateFn: () => void) => {
+    startTransition(() => {
+      updateFn()
+    })
+  }, [])
+  
+  return { updateWithTransition }
+}
 
 const useWorkflowBuilderState = () => {
   const router = useRouter()
   const searchParams = useSearchParams()
   const workflowId = searchParams.get("id")
 
-  const { currentWorkflow, setCurrentWorkflow, fetchWorkflows, workflows, updateWorkflow, loading: workflowLoading } = useWorkflowStore()
+  const { currentWorkflow, setCurrentWorkflow, updateWorkflow, loading: workflowLoading } = useWorkflowStore()
   const { joinCollaboration, leaveCollaboration, collaborators } = useCollaborationStore()
-  const { integrations, getConnectedProviders, fetchIntegrations, loading: integrationsLoading } = useIntegrationStore()
-
+  const { getConnectedProviders, loading: integrationsLoading } = useIntegrationStore()
+  
+  // Use cached stores for workflows and integrations
+  const { data: workflows, loading: workflowsCacheLoading } = useWorkflowsListStore()
+  const { data: integrations, loading: integrationsCacheLoading } = useIntegrationsStore()
+  
+  // Helper to get current user ID for integrations
+  const getCurrentUserId = useCallback(async (): Promise<string | null> => {
+    const { data: { user } } = await supabase.auth.getUser()
+    return user?.id || null
+  }, [])
+  
+  // Use cached data with fallbacks
+  const workflowsData = workflows || []
+  const integrationsData = integrations || []
+  
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
   const { fitView, getNodes, getEdges } = useReactFlow()
@@ -152,6 +178,8 @@ const useWorkflowBuilderState = () => {
 
   const { toast } = useToast()
   const { trackWorkflowEmails } = useWorkflowEmailTracking()
+  const { updateWithTransition } = useConcurrentStateUpdates()
+  
   const availableIntegrations = useMemo(() => {
     const integrations = getIntegrationsFromNodes()
     // Debug: Check if AI Agent integration has actions
@@ -236,7 +264,7 @@ const useWorkflowBuilderState = () => {
     // Use the integration store to check if this integration is connected
     const connectedProviders = getConnectedProviders();
     const isConnected = connectedProviders.includes(integrationId);
-    console.log('🔍 Integration connection check:', { integrationId, connectedProviders, isConnected });
+    // console.log('🔍 Integration connection check:', { integrationId, connectedProviders, isConnected });
     return isConnected;
   }, [integrations])
 
@@ -295,6 +323,9 @@ const useWorkflowBuilderState = () => {
     setShowActionDialog(open)
   }, [configuringNode])
 
+
+
+  // Memoize the recalculateLayout function to prevent unnecessary calls
   const recalculateLayout = useCallback(() => {
     const nodeList = getNodes()
       .filter((n: Node) => n.type === "custom" || n.type === "addAction")
@@ -305,39 +336,48 @@ const useWorkflowBuilderState = () => {
     const basePosition = triggerNode ? { x: triggerNode.position.x, y: triggerNode.position.y } : { x: 400, y: 100 }
     const verticalGap = 120
     let currentY = basePosition.y
-    const newNodes = getNodes()
-      .map((n: Node) => {
-        if (n.type === "custom" || n.type === "addAction") {
-          const newY = currentY
-          currentY += verticalGap
-          return { ...n, position: { x: basePosition.x, y: newY } }
-        }
-        return n
-      })
-      .sort((a: Node, b: Node) => a.position.y - b.position.y)
-    let runningNodes = newNodes
-      .filter((n: Node) => n.type === "custom" || n.type === "addAction")
-      .sort((a: Node, b: Node) => a.position.y - b.position.y)
-    const newEdges: Edge[] = []
-    for (let i = 0; i < runningNodes.length - 1; i++) {
-      const source = runningNodes[i]
-      const target = runningNodes[i + 1]
-      newEdges.push({
-        id: `${source.id}-${target.id}`,
-        source: source.id,
-        target: target.id,
-        animated: false,
-        style: { 
-          stroke: "#d1d5db", 
-          strokeWidth: 1, 
-          strokeDasharray: target.type === "addAction" ? "5,5" : undefined 
-        },
-        type: "straight",
-      })
-    }
-    setNodes(newNodes)
-    setEdges(newEdges)
-    setTimeout(() => fitView({ padding: 0.5 }), 100)
+    
+    // Use requestAnimationFrame for smoother performance
+    requestAnimationFrame(() => {
+      const newNodes = getNodes()
+        .map((n: Node) => {
+          if (n.type === "custom" || n.type === "addAction") {
+            const newY = currentY
+            currentY += verticalGap
+            return { ...n, position: { x: basePosition.x, y: newY } }
+          }
+          return n
+        })
+        .sort((a: Node, b: Node) => a.position.y - b.position.y)
+        
+      let runningNodes = newNodes
+        .filter((n: Node) => n.type === "custom" || n.type === "addAction")
+        .sort((a: Node, b: Node) => a.position.y - b.position.y)
+        
+      const newEdges: Edge[] = []
+      for (let i = 0; i < runningNodes.length - 1; i++) {
+        const source = runningNodes[i]
+        const target = runningNodes[i + 1]
+        newEdges.push({
+          id: `${source.id}-${target.id}`,
+          source: source.id,
+          target: target.id,
+          animated: false,
+          style: { 
+            stroke: "#d1d5db", 
+            strokeWidth: 1, 
+            strokeDasharray: target.type === "addAction" ? "5,5" : undefined 
+          },
+          type: "straight",
+        })
+      }
+      
+      setNodes(newNodes)
+      setEdges(newEdges)
+      
+      // Delay fitView to ensure layout is complete
+      setTimeout(() => fitView({ padding: 0.5 }), 100)
+    })
   }, [getNodes, setNodes, setEdges, fitView])
 
   const handleDeleteNode = useCallback((nodeId: string) => {
@@ -485,26 +525,38 @@ const useWorkflowBuilderState = () => {
     }
   }, [workflowId, joinCollaboration, leaveCollaboration])
 
-  // Debug sourceAddNode changes
-  useEffect(() => {
-    console.log('🔍 sourceAddNode changed:', sourceAddNode)
-  }, [sourceAddNode])
+  // Debug sourceAddNode changes (trimmed for performance)
+  // useEffect(() => {
+  //   console.log('🔍 sourceAddNode changed:', sourceAddNode)
+  // }, [sourceAddNode])
 
   useEffect(() => {
-    if (!workflows.length) fetchWorkflows()
-  }, [fetchWorkflows, workflows.length])
-
-  useEffect(() => {
-    // Fetch integrations to ensure we have up-to-date connection status
-    fetchIntegrations()
-  }, [fetchIntegrations])
-
-  useEffect(() => {
-    if (workflowId && workflows.length > 0 && !currentWorkflow) {
-      const foundWorkflow = workflows.find((w) => w.id === workflowId)
-      if (foundWorkflow) setCurrentWorkflow(foundWorkflow)
+    if (!workflowsData.length && !workflowsCacheLoading) {
+      loadWorkflows()
     }
-  }, [workflowId, workflows, currentWorkflow, setCurrentWorkflow])
+  }, [workflowsData.length, workflowsCacheLoading])
+
+  useEffect(() => {
+    // Only fetch integrations once when component mounts
+    if (integrationsData.length === 0 && !integrationsCacheLoading) {
+      getCurrentUserId().then(userId => {
+        if (userId) {
+          loadIntegrationsOnce(userId)
+        }
+      })
+    }
+  }, [integrationsData.length, integrationsCacheLoading, getCurrentUserId])
+
+  useEffect(() => {
+    if (workflowId && workflowsData.length > 0 && !currentWorkflow) {
+      const foundWorkflow = workflowsData.find((w) => w.id === workflowId)
+      if (foundWorkflow) {
+        // Convert cached workflow type to workflow store type
+        const workflowForStore = { ...foundWorkflow, description: foundWorkflow.description || null }
+        setCurrentWorkflow(workflowForStore)
+      }
+    }
+  }, [workflowId, workflowsData, currentWorkflow, setCurrentWorkflow])
 
   // Add a ref to track if we're in a save operation
   const isSavingRef = useRef(false)
@@ -523,30 +575,30 @@ const useWorkflowBuilderState = () => {
       const workflowNodeIds = (currentWorkflow.nodes || []).map(n => n.id).sort()
       const nodesChanged = JSON.stringify(currentNodeIds) !== JSON.stringify(workflowNodeIds)
       
-      if (getNodes().length === 0 || nodesChanged) {
-        const customNodes: Node[] = (currentWorkflow.nodes || []).map((node: WorkflowNode) => {
-          // Get the component definition to ensure we have the correct title
-          const nodeComponent = ALL_NODE_COMPONENTS.find(c => c.type === node.data.type);
-          
-          return {
-            id: node.id, 
-            type: "custom", 
-            position: node.position,
-            data: {
-              ...node.data,
-              // Use title from multiple sources in order of preference 
-              title: node.data.title || (nodeComponent ? nodeComponent.title : undefined),
-              // Set name for backwards compatibility (used by UI)
-              name: node.data.title || (nodeComponent ? nodeComponent.title : node.data.label || 'Unnamed Action'),
-              description: node.data.description || (nodeComponent ? nodeComponent.description : undefined),
-              onConfigure: handleConfigureNode,
-              onDelete: handleDeleteNodeWithConfirmation,
-              onChangeTrigger: node.data.type.includes('trigger') ? handleChangeTrigger : undefined,
-              // Use the saved providerId directly, fallback to extracting from type if not available
-              providerId: node.data.providerId || node.data.type.split('-')[0]
-            },
-          };
-        })
+              if (getNodes().length === 0 || nodesChanged) {
+          const customNodes: Node[] = (currentWorkflow.nodes || []).map((node: WorkflowNode) => {
+            // Get the component definition to ensure we have the correct title
+            const nodeComponent = ALL_NODE_COMPONENTS.find(c => c.type === node.data.type);
+            
+            return {
+              id: node.id, 
+              type: "custom", 
+              position: node.position,
+              data: {
+                ...node.data,
+                // Use title from multiple sources in order of preference 
+                title: node.data.title || (nodeComponent ? nodeComponent.title : undefined),
+                // Set name for backwards compatibility (used by UI)
+                name: node.data.title || (nodeComponent ? nodeComponent.title : node.data.label || 'Unnamed Action'),
+                description: node.data.description || (nodeComponent ? nodeComponent.description : undefined),
+                onConfigure: handleConfigureNode,
+                onDelete: handleDeleteNodeWithConfirmation,
+                onChangeTrigger: node.data.type.includes('trigger') ? handleChangeTrigger : undefined,
+                // Use the saved providerId directly, fallback to extracting from type if not available
+                providerId: node.data.providerId || node.data.type.split('-')[0]
+              },
+            };
+          })
 
         let allNodes: Node[] = [...customNodes]
         const lastNode = customNodes.length > 0 ? customNodes.sort((a,b) => b.position.y - a.position.y)[0] : null
@@ -580,8 +632,8 @@ const useWorkflowBuilderState = () => {
       setNodes([])
       setEdges([])
       // Don't automatically show the trigger dialog, let the user click the button
-    }
-  }, [currentWorkflow, fitView, handleAddActionClick, handleConfigureNode, handleDeleteNode, setCurrentWorkflow, setEdges, setNodes, workflowId, getNodes])
+          }
+    }, [currentWorkflow, fitView, handleAddActionClick, handleConfigureNode, handleDeleteNode, setCurrentWorkflow, setEdges, setNodes, workflowId, getNodes])
 
   const handleTriggerSelect = (integration: IntegrationInfo, trigger: NodeComponent) => {
     if (nodeNeedsConfiguration(trigger)) {
@@ -1128,17 +1180,17 @@ const useWorkflowBuilderState = () => {
   }
 
   const filteredIntegrations = useMemo(() => {
-    console.log('🔍 Computing filteredIntegrations:', { 
-      availableIntegrationsCount: availableIntegrations.length,
-      showConnectedOnly,
-      filterCategory,
-      searchQuery,
-      integrationsLoading
-    });
+    // console.log('🔍 Computing filteredIntegrations:', { 
+    //   availableIntegrationsCount: availableIntegrations.length,
+    //   showConnectedOnly,
+    //   filterCategory,
+    //   searchQuery,
+    //   integrationsLoading
+    // });
     
     // If integrations are still loading, show all integrations to avoid empty state
     if (integrationsLoading) {
-      console.log('🔍 Integrations still loading, showing all integrations');
+      // console.log('🔍 Integrations still loading, showing all integrations');
       return availableIntegrations;
     }
     
@@ -1146,7 +1198,7 @@ const useWorkflowBuilderState = () => {
       .filter(int => {
         if (showConnectedOnly) {
           const isConnected = isIntegrationConnected(int.id);
-          console.log('🔍 Filtering integration:', { id: int.id, name: int.name, isConnected });
+          // console.log('🔍 Filtering integration:', { id: int.id, name: int.name, isConnected });
           return isConnected;
         }
         return true;
@@ -1240,6 +1292,8 @@ const useWorkflowBuilderState = () => {
     })
   }
 
+
+
   return {
     nodes,
     edges,
@@ -1296,7 +1350,7 @@ const useWorkflowBuilderState = () => {
     sourceAddNode,
     handleActionDialogClose,
     nodeNeedsConfiguration,
-    workflows,
+    workflows: workflowsData,
     workflowId,
     hasShownLoading,
     setHasShownLoading
@@ -1989,3 +2043,81 @@ function WorkflowBuilderContent() {
     </div>
   )
 }
+
+// Add React.memo to prevent unnecessary re-renders
+const IntegrationItem = React.memo(({ integration, selectedIntegration, onSelect, renderLogo }: {
+  integration: IntegrationInfo
+  selectedIntegration: IntegrationInfo | null
+  onSelect: (integration: IntegrationInfo) => void
+  renderLogo: (id: string, name: string) => React.ReactNode
+}) => (
+  <div
+    className={`flex items-center p-3 rounded-md cursor-pointer ${
+      selectedIntegration?.id === integration.id 
+        ? 'bg-primary/10 ring-1 ring-primary/20' 
+        : 'hover:bg-muted/50'
+    }`}
+    onClick={() => onSelect(integration)}
+  >
+    {renderLogo(integration.id, integration.name)}
+    <span className="font-semibold ml-4 flex-grow">{integration.name}</span>
+    <ChevronRight className="w-5 h-5 text-muted-foreground" />
+  </div>
+))
+
+// Virtual scrolling component for large lists
+const VirtualIntegrationList = React.memo(({ 
+  integrations, 
+  selectedIntegration, 
+  onSelect, 
+  renderLogo 
+}: {
+  integrations: IntegrationInfo[]
+  selectedIntegration: IntegrationInfo | null
+  onSelect: (integration: IntegrationInfo) => void
+  renderLogo: (id: string, name: string) => React.ReactNode
+}) => {
+  const [scrollTop, setScrollTop] = useState(0)
+  const [containerHeight, setContainerHeight] = useState(400)
+  const itemHeight = 56 // Fixed height for each integration item
+  const bufferSize = 5 // Extra items to render for smooth scrolling
+  
+  const visibleStart = Math.max(0, Math.floor(scrollTop / itemHeight) - bufferSize)
+  const visibleEnd = Math.min(
+    integrations.length,
+    Math.ceil((scrollTop + containerHeight) / itemHeight) + bufferSize
+  )
+  
+  const visibleIntegrations = integrations.slice(visibleStart, visibleEnd)
+  
+  return (
+    <div
+      className="overflow-auto"
+      style={{ height: containerHeight }}
+      onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
+    >
+      <div style={{ height: integrations.length * itemHeight, position: 'relative' }}>
+        <div
+          style={{
+            transform: `translateY(${visibleStart * itemHeight}px)`,
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+          }}
+        >
+          {visibleIntegrations.map((integration, index) => (
+            <div key={integration.id} style={{ height: itemHeight }}>
+              <IntegrationItem
+                integration={integration}
+                selectedIntegration={selectedIntegration}
+                onSelect={onSelect}
+                renderLogo={renderLogo}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+})
