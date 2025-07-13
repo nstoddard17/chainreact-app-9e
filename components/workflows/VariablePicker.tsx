@@ -165,21 +165,25 @@ export default function VariablePicker({
   }
 
   function getFriendlyLabel(node: any, key: string) {
-    // Discord mapping
-    if (node.data?.providerId === 'discord') {
-      if (key === 'guildId') return 'Server';
-      if (key === 'channelId') return 'Channel';
-      if (key === 'messageId') return 'Message';
-      if (key === 'content') return 'Message Content';
-    }
-    // Try to get label from configSchema
-    const configSchema = node.data?.configSchema || node.data?.nodeComponent?.configSchema;
+    // 1. Try to get label from configSchema (source of truth from the modal)
+    const configSchema = node.data?.configSchema || node.data?.nodeComponent?.configSchema
     if (Array.isArray(configSchema)) {
       const field = configSchema.find(f => f.name === key)
-      if (field && field.label) return field.label
+      if (field && field.label) {
+        return field.label
+      }
     }
-    // Fallback to key
-    return key;
+
+    // 2. Fallback to hardcoded Discord mapping if schema fails
+    if (node.data?.providerId === "discord") {
+      if (key === "guildId") return "Server"
+      if (key === "channelId") return "Channel"
+      if (key === "messageId") return "Message"
+      if (key === "content") return "Message Content"
+    }
+
+    // 3. Fallback to the raw key if all else fails
+    return key
   }
 
   function getFriendlyValue(node: any, key: string, value: any) {
