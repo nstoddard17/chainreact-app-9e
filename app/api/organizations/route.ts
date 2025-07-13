@@ -8,11 +8,12 @@ export async function GET() {
 
   try {
     const {
-      data: { session },
-    } = await supabase.auth.getSession()
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
 
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (userError || !user) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
     }
 
     const { data, error } = await supabase
@@ -21,7 +22,7 @@ export async function GET() {
         *,
         organization_members!inner(role)
       `)
-      .eq("organization_members.user_id", session.user.id)
+      .eq("organization_members.user_id", user.id)
       .order("created_at", { ascending: false })
 
     if (error) {
@@ -40,11 +41,12 @@ export async function POST(request: Request) {
 
   try {
     const {
-      data: { session },
-    } = await supabase.auth.getSession()
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
 
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (userError || !user) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
     }
 
     const body = await request.json()
@@ -57,7 +59,7 @@ export async function POST(request: Request) {
         name,
         slug,
         description,
-        owner_id: session.user.id,
+        owner_id: user.id,
       })
       .select()
       .single()
@@ -69,7 +71,7 @@ export async function POST(request: Request) {
     // Add creator as admin
     const { error: memberError } = await supabase.from("organization_members").insert({
       organization_id: org.id,
-      user_id: session.user.id,
+      user_id: user.id,
       role: "admin",
     })
 
@@ -80,7 +82,7 @@ export async function POST(request: Request) {
     // Log the action
     await supabase.from("audit_logs").insert({
       organization_id: org.id,
-      user_id: session.user.id,
+      user_id: user.id,
       action: "organization.created",
       resource_type: "organization",
       resource_id: org.id,

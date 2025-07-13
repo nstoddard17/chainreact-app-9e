@@ -283,6 +283,11 @@ export default function WorkflowsContent() {
                               ? "bg-yellow-100 text-yellow-800"
                               : "bg-slate-100 text-slate-800"
                           }`}
+                          title={
+                            workflow.status === "draft" 
+                              ? `Draft: ${!workflow.nodes?.some(n => n.data?.isTrigger) ? 'Missing trigger' : !workflow.nodes?.some(n => !n.data?.isTrigger) ? 'Missing action' : 'Missing connections'}`
+                              : undefined
+                          }
                         >
                           {workflow.status === "active" ? (
                             <>
@@ -301,6 +306,13 @@ export default function WorkflowsContent() {
                             </>
                           )}
                         </div>
+                        {workflow.status === "draft" && (
+                          <div className="text-xs text-slate-400">
+                            {!workflow.nodes?.some(n => n.data?.isTrigger) && "Needs trigger"}
+                            {!workflow.nodes?.some(n => !n.data?.isTrigger) && "Needs action"}
+                            {workflow.nodes?.length > 1 && !workflow.connections?.length && "Needs connections"}
+                          </div>
+                        )}
                       </div>
                       <div className="flex justify-between items-center">
                         <div className="text-xs text-slate-500">

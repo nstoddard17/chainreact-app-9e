@@ -36,6 +36,7 @@ import {
   sendDiscordDirectMessage,
   createDiscordChannel,
   addDiscordRole,
+  editDiscordMessage,
   
   // Notion actions
   createNotionDatabase,
@@ -1672,6 +1673,7 @@ export async function executeAction({ node, input, userId, workflowId }: Execute
     "discord_action_send_direct_message": sendDiscordDirectMessage,
     "discord_action_create_channel": createDiscordChannel,
     "discord_action_add_role": addDiscordRole,
+    "discord_action_edit_message": editDiscordMessage,
     
     // Notion actions
     "notion_action_create_database": createNotionDatabase,

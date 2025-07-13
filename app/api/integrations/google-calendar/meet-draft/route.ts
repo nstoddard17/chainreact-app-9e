@@ -6,18 +6,19 @@ export async function POST(req: Request) {
   cookies()
   const supabase = await createSupabaseRouteHandlerClient()
   const {
-    data: { session },
-  } = await supabase.auth.getSession()
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser()
 
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (userError || !user) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
   }
 
   // Get integration
   const { data: integration, error } = await supabase
     .from("integrations")
     .select("*")
-    .eq("user_id", session.user.id)
+    .eq("user_id", user.id)
     .eq("provider", "google-calendar")
     .eq("status", "connected")
     .single()
@@ -65,11 +66,12 @@ export async function DELETE(req: Request) {
   cookies()
   const supabase = await createSupabaseRouteHandlerClient()
   const {
-    data: { session },
-  } = await supabase.auth.getSession()
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser()
 
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (userError || !user) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
   }
 
   const { eventId } = await req.json()
@@ -81,7 +83,7 @@ export async function DELETE(req: Request) {
   const { data: integration, error } = await supabase
     .from("integrations")
     .select("*")
-    .eq("user_id", session.user.id)
+    .eq("user_id", user.id)
     .eq("provider", "google-calendar")
     .eq("status", "connected")
     .single()

@@ -108,13 +108,31 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
   }, [providers.length, initializeProviders])
 
   useEffect(() => {
-    console.log("🔍 IntegrationsContent useEffect", { user: !!user, loading })
-    if (user) {
-      console.log("👤 User found, calling fetchIntegrations and fetchMetrics")
-      fetchIntegrations()
-      fetchMetrics()
+    console.log("🔍 IntegrationsContent useEffect", { user: !!user, loading, providersLength: providers.length })
+    if (user && providers.length > 0) {
+      console.log("👤 User found and providers initialized, calling fetchIntegrations and fetchMetrics")
+      // Add a small delay to ensure the store is properly initialized
+      const timer = setTimeout(() => {
+        fetchIntegrations()
+        fetchMetrics()
+      }, 100)
+      
+      return () => clearTimeout(timer)
     }
-  }, [user, fetchIntegrations])
+  }, [user, providers.length, fetchIntegrations])
+
+  // Add a fallback to prevent infinite loading
+  useEffect(() => {
+    if (loading && user) {
+      const timeout = setTimeout(() => {
+        console.warn("⚠️ Integration loading timeout - forcing refresh")
+        setLoading("global", false)
+        fetchIntegrations(true)
+      }, 30000) // 30 second timeout
+      
+      return () => clearTimeout(timeout)
+    }
+  }, [loading, user, fetchIntegrations])
 
   const fetchMetrics = async () => {
     if (!user) return
@@ -323,6 +341,8 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
   const filteredProviders = useMemo(() => {
     const filtered = providersWithStatus
       .filter((p) => {
+        // Exclude AI Agent, Logic, and Control integrations
+        if (["ai", "logic", "control"].includes(p.id)) return false;
         if (activeFilter !== "all" && p.status !== activeFilter) {
           return false
         }

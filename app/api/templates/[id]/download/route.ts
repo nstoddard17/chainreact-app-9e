@@ -7,11 +7,12 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     cookies()
     const supabase = await createSupabaseRouteHandlerClient()
     const {
-      data: { session },
-    } = await supabase.auth.getSession()
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
 
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (userError || !user) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
     }
 
     const body = await request.json()
@@ -20,7 +21,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     // Record the download
     const { error: downloadError } = await supabase.from("template_downloads").insert({
       template_id: params.id,
-      user_id: session.user.id,
+      user_id: user.id,
       organization_id: organization_id || null,
     })
 

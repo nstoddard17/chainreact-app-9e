@@ -8,11 +8,12 @@ export async function GET() {
   
   try {
     const {
-      data: { session },
-    } = await supabase.auth.getSession()
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
 
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (userError || !user) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
     }
 
     // Check if the email_frequency_cache table exists
@@ -84,7 +85,7 @@ export async function GET() {
       const { error: insertError } = await supabase
         .from("email_frequency_cache")
         .insert({
-          user_id: session.user.id,
+          user_id: user.id,
           email: "test@example.com",
           name: "Test User",
           frequency: 1,
@@ -107,7 +108,7 @@ export async function GET() {
       const { data, error: selectError } = await supabase
         .from("email_frequency_cache")
         .select("*")
-        .eq("user_id", session.user.id)
+        .eq("user_id", user.id)
         .limit(1)
 
       testResults.canSelect = !selectError
@@ -124,14 +125,14 @@ export async function GET() {
         .from("email_frequency_cache")
         .delete()
         .eq("email", "test@example.com")
-        .eq("user_id", session.user.id)
+        .eq("user_id", user.id)
     } catch (error) {
       console.log("Cleanup failed:", error)
     }
 
     return NextResponse.json({
       success: true,
-      userId: session.user.id,
+      userId: user.id,
       testResults,
       message: "Email cache debug completed"
     })

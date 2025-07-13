@@ -4,12 +4,13 @@ import { createSupabaseRouteHandlerClient } from "../../../../utils/supabase/ser
 export async function GET() {
   try {
     const supabase = await createSupabaseRouteHandlerClient()
-    // Check authentication
     const {
-      data: { session },
-    } = await supabase.auth.getSession()
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
+
+    if (userError || !user) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
     }
 
     // Check which environment variables are available

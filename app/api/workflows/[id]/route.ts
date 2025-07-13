@@ -8,18 +8,19 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
   try {
     const {
-      data: { session },
-    } = await supabase.auth.getSession()
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
 
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (userError || !user) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
     }
 
     const { data, error } = await supabase
       .from("workflows")
       .select("*")
       .eq("id", params.id)
-      .eq("user_id", session.user.id)
+      .eq("user_id", user.id)
       .single()
 
     if (error) {
@@ -38,11 +39,12 @@ export async function PUT(request: Request, { params }: { params: { id: string }
 
   try {
     const {
-      data: { session },
-    } = await supabase.auth.getSession()
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
 
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (userError || !user) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
     }
 
     const body = await request.json()
@@ -51,7 +53,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       .from("workflows")
       .update(body)
       .eq("id", params.id)
-      .eq("user_id", session.user.id)
+      .eq("user_id", user.id)
       .select()
       .single()
 
@@ -71,14 +73,15 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
 
   try {
     const {
-      data: { session },
-    } = await supabase.auth.getSession()
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
 
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (userError || !user) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
     }
 
-    const { error } = await supabase.from("workflows").delete().eq("id", params.id).eq("user_id", session.user.id)
+    const { error } = await supabase.from("workflows").delete().eq("id", params.id).eq("user_id", user.id)
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })

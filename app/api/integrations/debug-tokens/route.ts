@@ -9,20 +9,15 @@ export async function GET() {
     const supabase = await createSupabaseRouteHandlerClient()
 
     const {
-      data: { session },
-      error: sessionError,
-    } = await supabase.auth.getSession()
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
 
-    if (sessionError) {
-      console.error("Session error:", sessionError)
-      return NextResponse.json({ error: "Authentication error" }, { status: 401 })
-    }
-
-    if (!session) {
+    if (userError || !user) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
     }
 
-    const userId = session.user.id
+    const userId = user.id
 
     // Get all integrations for the user
     const { data: integrations, error } = await supabase

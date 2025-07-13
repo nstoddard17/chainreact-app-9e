@@ -12,16 +12,16 @@ export async function GET(request: NextRequest) {
 
     // Get the current user
     const {
-      data: { session },
-      error: sessionError,
-    } = await supabase.auth.getSession()
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
 
-    if (sessionError || !session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (userError || !user) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
     }
 
     // Validate all integrations for the user
-    const validationResults = await validateAllIntegrations(session.user.id)
+    const validationResults = await validateAllIntegrations(user.id)
 
     return NextResponse.json({
       success: true,

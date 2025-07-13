@@ -15,6 +15,28 @@ function isPopupValid(popup: Window | null): boolean {
   return !!(popup && !popup.closed)
 }
 
+// Helper function to securely get user and session data
+async function getSecureUserAndSession() {
+  const supabase = getSupabaseClient()
+  if (!supabase) {
+    throw new Error("Supabase client not available")
+  }
+
+  // First, validate the user securely
+  const { data: { user }, error: userError } = await supabase.auth.getUser()
+  if (userError || !user?.id) {
+    throw new Error("No authenticated user found. Please log in again.")
+  }
+
+  // Then get the session for the access token
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session?.access_token) {
+    throw new Error("Session expired. Please log in again.")
+  }
+
+  return { user, session }
+}
+
 // This represents the structure of a connected integration
 export interface Integration {
   id: string
@@ -112,13 +134,16 @@ export const useIntegrationStore = create<IntegrationStore>()(
       }
     },
 
-    setLoading: (key: string, loading: boolean) =>
+    setLoading: (key: string, loading: boolean) => {
       set((state) => ({
         loadingStates: {
           ...state.loadingStates,
           [key]: loading,
         },
-      })),
+        // If setting global loading state, also update the main loading state
+        ...(key === "global" && { loading }),
+      }))
+    },
 
     setError: (error: string | null) => set({ error }),
     clearError: () => set({ error: null }),
@@ -169,32 +194,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
       let timeoutId: NodeJS.Timeout | null = null
 
       try {
-        const supabase = getSupabaseClient()
-        if (!supabase) throw new Error("Supabase client not available")
-
-        const {
-          data: { session },
-        } = await supabase.auth.getSession()
-
-        if (!session?.access_token) {
-          set({
-            integrations: [],
-            loading: false,
-            error: "Please log in to view integrations",
-          })
-          return
-        }
-
-        // Get user ID from session if currentUserId is not set
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user?.id) {
-          set({
-            integrations: [],
-            loading: false,
-            error: "No authenticated user found",
-          })
-          return
-        }
+        const { user, session } = await getSecureUserAndSession()
 
         // If currentUserId is not set, set it now
         if (!currentUserId) {
@@ -309,16 +309,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
       try {
         console.log(`🔗 Connecting to ${providerId}...`)
 
-        const supabase = getSupabaseClient()
-        if (!supabase) throw new Error("Supabase client not available")
-
-        const {
-          data: { session },
-        } = await supabase.auth.getSession()
-
-        if (!session?.access_token) {
-          throw new Error("No valid session found. Please log in again.")
-        }
+        const { user, session } = await getSecureUserAndSession()
 
         const response = await fetch("/api/integrations/auth/generate-url", {
           method: "POST",
@@ -409,15 +400,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
       setError(null)
 
       try {
-        const supabase = getSupabaseClient()
-        if (!supabase) throw new Error("Supabase client not available")
-
-        const {
-          data: { session },
-        } = await supabase.auth.getSession()
-        if (!session?.access_token) {
-          throw new Error("No valid session found. Please log in again.")
-        }
+        const { user, session } = await getSecureUserAndSession()
 
         const response = await fetch("/api/integrations/token-management", {
           method: "POST",
@@ -438,8 +421,8 @@ export const useIntegrationStore = create<IntegrationStore>()(
         
         // Log the integration connection via API
         try {
-          const { data: { user } } = await supabase.auth.getUser()
-          if (user) {
+          const supabase = getSupabaseClient()
+          if (user && supabase) {
             await fetch("/api/audit/log-integration-event", {
               method: "POST",
               headers: {
@@ -476,15 +459,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
       setError(null)
 
       try {
-        const supabase = getSupabaseClient()
-        if (!supabase) throw new Error("Supabase client not available")
-
-        const {
-          data: { session },
-        } = await supabase.auth.getSession()
-        if (!session?.access_token) {
-          throw new Error("No valid session found. Please log in again.")
-        }
+        const { user, session } = await getSecureUserAndSession()
 
         const response = await fetch(`/api/integrations/${integrationId}`, {
           method: "DELETE",
@@ -1019,15 +994,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
       setError(null)
 
       try {
-        const supabase = getSupabaseClient()
-        if (!supabase) throw new Error("Supabase client not available")
-
-        const {
-          data: { session },
-        } = await supabase.auth.getSession()
-        if (!session?.access_token) {
-          throw new Error("No valid session found. Please log in again.")
-        }
+        const { user, session } = await getSecureUserAndSession()
 
         // Generate OAuth URL for reconnection
         console.log("🔄 Generating OAuth URL for reconnection...")

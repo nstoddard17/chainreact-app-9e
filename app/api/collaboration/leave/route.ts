@@ -9,14 +9,12 @@ export async function POST(request: NextRequest) {
     
     // Get the current user
     const {
-      data: { session },
-    } = await supabase.auth.getSession()
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
 
-    if (!session) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized" },
-        { status: 401 }
-      )
+    if (userError || !user) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
     }
 
     const { sessionToken } = await request.json()
@@ -33,7 +31,7 @@ export async function POST(request: NextRequest) {
       .from("collaboration_sessions")
       .update({ is_active: false })
       .eq("session_token", sessionToken)
-      .eq("user_id", session.user.id)
+      .eq("user_id", user.id)
 
     if (error) {
       console.error("Error leaving collaboration:", error)

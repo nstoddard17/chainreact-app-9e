@@ -108,19 +108,19 @@ export const useAuthStore = create<AuthState>()(
             }
           }
 
-          // Get current session from Supabase with timeout
-          const sessionPromise = supabase.auth.getSession()
-          const sessionTimeout = new Promise<never>((_, reject) => 
-            setTimeout(() => reject(new Error('Session fetch timeout')), 8000) // Increased from 3 seconds to 8 seconds
+          // Get current user from Supabase with timeout
+          const userPromise = supabase.auth.getUser()
+          const userTimeout = new Promise<never>((_, reject) => 
+            setTimeout(() => reject(new Error('User fetch timeout')), 8000) // Increased from 3 seconds to 8 seconds
           )
           
-          let sessionResult
+          let userResult
           try {
-            sessionResult = await Promise.race([sessionPromise, sessionTimeout])
+            userResult = await Promise.race([userPromise, userTimeout])
           } catch (timeoutError) {
             // Try one more time without timeout as fallback
             try {
-              sessionResult = await sessionPromise
+              userResult = await userPromise
             } catch (fallbackError) {
               set({ user: null, loading: false, initialized: true })
               clearTimeout(initTimeout)
@@ -128,20 +128,20 @@ export const useAuthStore = create<AuthState>()(
             }
           }
           
-          const { data: { session }, error: sessionError } = sessionResult
+          const { data: { user }, error: userError } = userResult
 
-          if (sessionError) {
+          if (userError) {
             set({ user: null, loading: false, initialized: true })
             clearTimeout(initTimeout)
             return
           }
 
-          if (session?.user) {
-            const user: User = {
-              id: session.user.id,
-              email: session.user.email || "",
-              name: session.user.user_metadata?.full_name || session.user.user_metadata?.name,
-              avatar: session.user.user_metadata?.avatar_url,
+          if (user) {
+            const userObj: User = {
+              id: user.id,
+              email: user.email || "",
+              name: user.user_metadata?.full_name || user.user_metadata?.name,
+              avatar: user.user_metadata?.avatar_url,
             }
 
             // Check if profile exists first, create if it doesn't
@@ -152,18 +152,18 @@ export const useAuthStore = create<AuthState>()(
               const fetchResult = await supabase
                 .from('user_profiles')
                 .select('id, first_name, last_name, full_name, company, job_title, username, secondary_email, phone_number, avatar_url, provider, role, created_at, updated_at')
-                .eq('id', session.user.id)
+                .eq('id', user.id)
                 .single()
 
               if (fetchResult.error) {
                 // If fetch fails, try to create a new profile
                 const createProfileData = {
-                  id: session.user.id,
-                  full_name: user.name,
-                  avatar_url: user.avatar,
-                  provider: session.user.app_metadata?.provider || 
-                           session.user.app_metadata?.providers?.[0] || 
-                           (session.user.identities?.some(id => id.provider === 'google') ? 'google' : 'email'),
+                  id: user.id,
+                  full_name: userObj.name,
+                  avatar_url: userObj.avatar,
+                  provider: user.app_metadata?.provider || 
+                           user.app_metadata?.providers?.[0] || 
+                           (user.identities?.some(id => id.provider === 'google') ? 'google' : 'email'),
                   role: 'free',
                   created_at: new Date().toISOString(),
                   updated_at: new Date().toISOString(),
@@ -177,43 +177,43 @@ export const useAuthStore = create<AuthState>()(
 
                 if (createResult.error) {
                   // Create a fallback profile from auth metadata
-                  const detectedProvider = session.user.app_metadata?.provider || 
-                                         session.user.app_metadata?.providers?.[0] || 
-                                         (session.user.identities?.some(id => id.provider === 'google') ? 'google' : 'email')
+                  const detectedProvider = user.app_metadata?.provider || 
+                                         user.app_metadata?.providers?.[0] || 
+                                         (user.identities?.some(id => id.provider === 'google') ? 'google' : 'email')
                       
                   // Extract name from user metadata
-                  const fullName = session.user.user_metadata?.full_name || 
-                                  session.user.user_metadata?.name || 
-                                  session.user.email?.split('@')[0] || 'User'
+                  const fullName = user.user_metadata?.full_name || 
+                                  user.user_metadata?.name || 
+                                  user.email?.split('@')[0] || 'User'
                       
                   const nameParts = fullName.split(' ')
                   const firstName = nameParts[0] || ''
                   const lastName = nameParts.slice(1).join(' ') || ''
                       
                   profile = {
-                    id: session.user.id,
+                    id: user.id,
                     full_name: fullName,
                     first_name: firstName,
                     last_name: lastName,
-                    avatar_url: session.user.user_metadata?.avatar_url,
+                    avatar_url: user.user_metadata?.avatar_url,
                     provider: detectedProvider,
                     role: 'free',
-                    username: session.user.email?.split('@')[0] || 'user',
+                    username: user.email?.split('@')[0] || 'user',
                     created_at: new Date().toISOString(),
                     updated_at: new Date().toISOString()
                   }
                       
                   // Update user object with extracted data
-                  user.first_name = firstName
-                  user.last_name = lastName
-                  user.full_name = fullName
+                  userObj.first_name = firstName
+                  userObj.last_name = lastName
+                  userObj.full_name = fullName
                 } else {
                   const createdProfileData = createResult.data
                   
                   if (createdProfileData) {
-                    user.first_name = createdProfileData.first_name
-                    user.last_name = createdProfileData.last_name
-                    user.full_name = createdProfileData.full_name || user.name
+                    userObj.first_name = createdProfileData.first_name
+                    userObj.last_name = createdProfileData.last_name
+                    userObj.full_name = createdProfileData.full_name || userObj.name
                     profile = createdProfileData
                   } else {
                     throw new Error('No profile data returned from creation')
@@ -223,9 +223,9 @@ export const useAuthStore = create<AuthState>()(
                 const fetchedProfileData = fetchResult.data
                 
                 if (fetchedProfileData) {
-                  user.first_name = fetchedProfileData.first_name
-                  user.last_name = fetchedProfileData.last_name
-                  user.full_name = fetchedProfileData.full_name || user.name
+                  userObj.first_name = fetchedProfileData.first_name
+                  userObj.last_name = fetchedProfileData.last_name
+                  userObj.full_name = fetchedProfileData.full_name || userObj.name
                   profile = fetchedProfileData
                 } else {
                   throw new Error('No profile data found')
@@ -237,7 +237,7 @@ export const useAuthStore = create<AuthState>()(
                 throw new Error('Profile was not properly initialized')
               }
 
-              set({ user, profile, loading: false, initialized: true })
+              set({ user: userObj, profile, loading: false, initialized: true })
 
               // Check for missing username and redirect if needed
               setTimeout(() => {
@@ -248,7 +248,7 @@ export const useAuthStore = create<AuthState>()(
               setTimeout(async () => {
                 try {
                   const { useIntegrationStore } = await import("./integrationStore")
-                  useIntegrationStore.getState().setCurrentUserId(session.user.id)
+                  useIntegrationStore.getState().setCurrentUserId(user.id)
                 } catch (error) {
                   console.error("Error updating integration store user ID on init:", error)
                 }
@@ -270,7 +270,7 @@ export const useAuthStore = create<AuthState>()(
                 }
               }, 2000) // Increased delay to prioritize UI responsiveness
             } catch (profileError) {
-              set({ user, profile: null, loading: false, initialized: true })
+              set({ user: userObj, profile: null, loading: false, initialized: true })
             }
           } else {
             set({ user: null, loading: false, initialized: true })
@@ -409,10 +409,10 @@ export const useAuthStore = create<AuthState>()(
               const handleVisibilityChange = () => {
                 if (document.visibilityState === 'visible') {
                   setTimeout(async () => {
-                    const { data: { session } } = await supabase.auth.getSession()
+                    const { data: { user } } = await supabase.auth.getUser()
                     const currentState = get()
                     
-                    if (session?.user && !currentState.user) {
+                    if (user && !currentState.user) {
                       setTimeout(() => {
                         get().initialize()
                       }, 100)

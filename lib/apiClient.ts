@@ -18,6 +18,18 @@ class ApiClient {
   private async getAuthHeaders(): Promise<Record<string, string>> {
     try {
       console.log("🔍 Getting auth headers...")
+      
+      // First validate user authentication
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser()
+
+      if (userError || !user) {
+        throw new Error("Not authenticated")
+      }
+
+      // Then get session for access token
       const { data: { session } } = await supabase.auth.getSession()
       console.log("🔍 Session data:", session ? { 
         hasAccessToken: !!session.access_token, 

@@ -8,11 +8,12 @@ export async function POST(request: Request) {
 
   try {
     const {
-      data: { session },
-    } = await supabase.auth.getSession()
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
 
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (userError || !user) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
     }
 
     const { integrationId, action, params } = await request.json()
@@ -22,7 +23,7 @@ export async function POST(request: Request) {
       .from("integrations")
       .select("*")
       .eq("id", integrationId)
-      .eq("user_id", session.user.id)
+      .eq("user_id", user.id)
       .single()
 
     if (error || !integration) {

@@ -175,6 +175,9 @@ const useWorkflowBuilderState = () => {
   const [deletingNode, setDeletingNode] = useState<{ id: string; name: string } | null>(null)
   const [testMode, setTestMode] = useState(false)
   const [hasShownLoading, setHasShownLoading] = useState(false)
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+  const [showUnsavedChangesModal, setShowUnsavedChangesModal] = useState(false)
+  const [pendingNavigation, setPendingNavigation] = useState<string | null>(null)
 
   const { toast } = useToast()
   const { trackWorkflowEmails } = useWorkflowEmailTracking()
@@ -312,16 +315,14 @@ const useWorkflowBuilderState = () => {
 
   const handleActionDialogClose = useCallback((open: boolean) => {
     if (!open) {
-      // Only clear sourceAddNode if we're not in the middle of configuring a node
-      if (!configuringNode) {
-        setSourceAddNode(null)
-        setSelectedIntegration(null)
-        setSelectedAction(null)
-        setSearchQuery("")
-      }
+      // Always clear sourceAddNode when dialog closes to prevent reopening
+      setSourceAddNode(null)
+      setSelectedIntegration(null)
+      setSelectedAction(null)
+      setSearchQuery("")
     }
     setShowActionDialog(open)
-  }, [configuringNode])
+  }, [])
 
 
 
@@ -552,7 +553,11 @@ const useWorkflowBuilderState = () => {
       const foundWorkflow = workflowsData.find((w) => w.id === workflowId)
       if (foundWorkflow) {
         // Convert cached workflow type to workflow store type
-        const workflowForStore = { ...foundWorkflow, description: foundWorkflow.description || null }
+        const workflowForStore = { 
+          ...foundWorkflow, 
+          description: foundWorkflow.description || null,
+          user_id: foundWorkflow.user_id || ""
+        } as Workflow
         setCurrentWorkflow(workflowForStore)
       }
     }
@@ -838,6 +843,8 @@ const useWorkflowBuilderState = () => {
         config: {} 
       });
       setShowActionDialog(false);
+      // Clear sourceAddNode immediately to prevent dialog from reopening
+      setSourceAddNode(null);
     } else {
       // Add action directly if no configuration needed
       addActionToWorkflow(integration, action, {}, effectiveSourceAddNode);
@@ -951,7 +958,6 @@ const useWorkflowBuilderState = () => {
           label: n.data.label as string, 
           type: n.data.type as string, 
           config: n.data.config || {},
-          // Preserve additional properties that might be needed
           providerId: n.data.providerId as string | undefined,
           isTrigger: n.data.isTrigger as boolean | undefined,
           title: n.data.title as string | undefined,
@@ -981,18 +987,30 @@ const useWorkflowBuilderState = () => {
       console.log("Saving updates:", updates)
 
       // Save to database with better error handling
-      await updateWorkflow(currentWorkflow.id, updates)
+      await updateWorkflow(currentWorkflow!.id, updates)
       
       // Update the current workflow state with the new data but keep React Flow intact
-      setCurrentWorkflow({
-        ...currentWorkflow,
+      const userId: string = typeof currentWorkflow!.user_id === "string" ? currentWorkflow!.user_id : (() => { throw new Error("user_id is missing from currentWorkflow"); })();
+      const newWorkflow: Workflow = {
+        id: currentWorkflow!.id,
         name: workflowName,
+        description: currentWorkflow!.description || null,
+        user_id: userId as string,
         nodes: mappedNodes,
-        connections: mappedConnections
-      })
+        connections: mappedConnections,
+        status: currentWorkflow!.status,
+        created_at: currentWorkflow!.created_at,
+        updated_at: currentWorkflow!.updated_at
+      };
+      setCurrentWorkflow(newWorkflow);
       
       console.log("Save completed successfully")
       toast({ title: "Workflow Saved", description: "Your workflow has been successfully saved." })
+      
+      // Clear unsaved changes flag after a small delay to ensure the effect has processed
+      setTimeout(() => {
+        setHasUnsavedChanges(false)
+      }, 100)
     } catch (error: any) {
       console.error("Failed to save workflow:", error)
       
@@ -1271,14 +1289,24 @@ const useWorkflowBuilderState = () => {
       isSavingRef.current = false
     }
 
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        event.preventDefault()
+        event.returnValue = "You have unsaved changes. Are you sure you want to leave?"
+        return "You have unsaved changes. Are you sure you want to leave?"
+      }
+    }
+
     window.addEventListener('error', handleGlobalError)
     window.addEventListener('unhandledrejection', handleUnhandledRejection)
+    window.addEventListener('beforeunload', handleBeforeUnload)
 
     return () => {
       window.removeEventListener('error', handleGlobalError)
       window.removeEventListener('unhandledrejection', handleUnhandledRejection)
+      window.removeEventListener('beforeunload', handleBeforeUnload)
     }
-  }, [])
+  }, [hasUnsavedChanges])
 
   const handleResetLoadingStates = () => {
     console.log("Manually resetting loading states...")
@@ -1292,7 +1320,88 @@ const useWorkflowBuilderState = () => {
     })
   }
 
+  // Track unsaved changes
+  const checkForUnsavedChanges = useCallback(() => {
+    if (!currentWorkflow) return false
+    
+    const currentNodes = getNodes().filter((n: Node) => n.type === 'custom')
+    const currentEdges = getEdges()
+    
+    // Compare nodes
+    const savedNodes = currentWorkflow.nodes || []
+    const nodesChanged = currentNodes.length !== savedNodes.length ||
+      currentNodes.some((node, index) => {
+        const savedNode = savedNodes[index]
+        if (!savedNode) return true
+        return node.id !== savedNode.id ||
+               node.data.type !== savedNode.data.type ||
+               JSON.stringify(node.data.config) !== JSON.stringify(savedNode.data.config) ||
+               node.position.x !== savedNode.position.x ||
+               node.position.y !== savedNode.position.y
+      })
+    
+    // Compare edges
+    const savedEdges = currentWorkflow.connections || []
+    const edgesChanged = currentEdges.length !== savedEdges.length ||
+      currentEdges.some((edge, index) => {
+        const savedEdge = savedEdges[index]
+        if (!savedEdge) return true
+        return edge.id !== savedEdge.id ||
+               edge.source !== savedEdge.source ||
+               edge.target !== savedEdge.target
+      })
+    
+    // Compare workflow name
+    const nameChanged = workflowName !== currentWorkflow.name
+    
+    const hasChanges = nodesChanged || edgesChanged || nameChanged
+    setHasUnsavedChanges(hasChanges)
+    return hasChanges
+  }, [currentWorkflow, getNodes, getEdges, workflowName])
 
+  // Check for unsaved changes whenever nodes, edges, or workflow name changes
+  useEffect(() => {
+    // Don't check for unsaved changes during save operations to prevent race condition
+    if (currentWorkflow && !isSaving) {
+      checkForUnsavedChanges()
+    }
+  }, [currentWorkflow, nodes, edges, workflowName, checkForUnsavedChanges, isSaving])
+
+  // Handle navigation with unsaved changes warning
+  const handleNavigation = useCallback((path: string) => {
+    if (hasUnsavedChanges) {
+      setPendingNavigation(path)
+      setShowUnsavedChangesModal(true)
+    } else {
+      router.push(path)
+    }
+  }, [hasUnsavedChanges, router])
+
+  // Handle save and continue navigation
+  const handleSaveAndNavigate = async () => {
+    try {
+      await handleSave()
+      if (pendingNavigation) {
+        router.push(pendingNavigation)
+      }
+    } catch (error) {
+      console.error('Failed to save before navigation:', error)
+      toast({ 
+        title: "Save Failed", 
+        description: "Could not save your changes. Please try again.", 
+        variant: "destructive" 
+      })
+    }
+  }
+
+  // Handle navigation without saving
+  const handleNavigateWithoutSaving = () => {
+    setShowUnsavedChangesModal(false)
+    setPendingNavigation(null)
+    if (pendingNavigation) {
+      router.push(pendingNavigation)
+    }
+  }
 
   return {
     nodes,
@@ -1353,7 +1462,16 @@ const useWorkflowBuilderState = () => {
     workflows: workflowsData,
     workflowId,
     hasShownLoading,
-    setHasShownLoading
+    setHasShownLoading,
+    hasUnsavedChanges,
+    setHasUnsavedChanges,
+    showUnsavedChangesModal,
+    setShowUnsavedChangesModal,
+    pendingNavigation,
+    setPendingNavigation,
+    handleNavigation,
+    handleSaveAndNavigate,
+    handleNavigateWithoutSaving
   }
 }
 
@@ -1375,7 +1493,8 @@ function WorkflowBuilderContent() {
     configuringNode, setConfiguringNode, handleSaveConfiguration, collaborators, pendingNode, setPendingNode,
     selectedTrigger, setSelectedTrigger, selectedAction, setSelectedAction, searchQuery, setSearchQuery, filterCategory, setFilterCategory, showConnectedOnly, setShowConnectedOnly,
     filteredIntegrations, displayedTriggers, deletingNode, setDeletingNode, confirmDeleteNode, isIntegrationConnected, integrationsLoading, workflowLoading, testMode, setTestMode, handleResetLoadingStates,
-    sourceAddNode, handleActionDialogClose, nodeNeedsConfiguration, workflows, workflowId, hasShownLoading, setHasShownLoading
+    sourceAddNode, handleActionDialogClose, nodeNeedsConfiguration, workflows, workflowId, hasShownLoading, setHasShownLoading, hasUnsavedChanges, setHasUnsavedChanges, showUnsavedChangesModal, setShowUnsavedChangesModal, pendingNavigation, setPendingNavigation,
+    handleNavigation, handleSaveAndNavigate, handleNavigateWithoutSaving
   } = useWorkflowBuilderState()
 
   const categories = useMemo(() => {
@@ -1451,11 +1570,16 @@ function WorkflowBuilderContent() {
       <div className="absolute top-0 left-0 right-0 z-10 pointer-events-none">
         <div className="flex justify-between items-start p-4 pointer-events-auto">
           <div className="flex items-center space-x-4">
-            <Button variant="ghost" size="icon" onClick={() => router.push("/workflows")}><ArrowLeft className="w-5 h-5" /></Button>
+            <Button variant="ghost" size="icon" onClick={() => handleNavigation("/workflows")}><ArrowLeft className="w-5 h-5" /></Button>
             <Input value={workflowName} onChange={(e) => setWorkflowName(e.target.value)} onBlur={handleSave} className="text-xl font-semibold !border-none !outline-none !ring-0 p-0 bg-transparent" style={{ boxShadow: "none" }} />
           </div>
           <div className="flex items-center space-x-2">
             <Badge variant={getWorkflowStatus().variant}>{getWorkflowStatus().text}</Badge>
+            {hasUnsavedChanges && (
+              <Badge variant="outline" className="text-orange-600 border-orange-600">
+                Unsaved Changes
+              </Badge>
+            )}
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild><Button onClick={handleSave} disabled={isSaving || isExecuting} variant="secondary">{isSaving ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Save className="w-5 h-5 mr-2" />}Save</Button></TooltipTrigger>
@@ -1978,8 +2102,7 @@ function WorkflowBuilderContent() {
               onClose={() => {
                 setConfiguringNode(null);
                 setPendingNode(null);
-                // Reopen the action selection modal when canceling configuration
-                setShowActionDialog(true);
+                // Don't reopen the action selection modal - let the user manually add more actions if needed
               }}
               onSave={(config) => handleSaveConfiguration(configuringNode, config)}
               onUpdateConnections={(sourceNodeId, targetNodeId) => {
@@ -2007,8 +2130,7 @@ function WorkflowBuilderContent() {
               onClose={() => {
                 setConfiguringNode(null);
                 setPendingNode(null);
-                // Reopen the action selection modal when canceling configuration
-                setShowActionDialog(true);
+                // Don't reopen the action selection modal - let the user manually add more actions if needed
               }}
               onSave={(config) => handleSaveConfiguration(configuringNode, config)}
               nodeInfo={configuringNode.nodeComponent}
@@ -2036,6 +2158,33 @@ function WorkflowBuilderContent() {
             </Button>
             <Button variant="destructive" onClick={confirmDeleteNode}>
               Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Unsaved Changes Warning Modal */}
+      <Dialog open={showUnsavedChangesModal} onOpenChange={setShowUnsavedChangesModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Unsaved Changes</DialogTitle>
+            <DialogDescription>
+              You have unsaved changes to your workflow. Would you like to save them before leaving?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex justify-end space-x-2">
+            <Button variant="outline" onClick={handleNavigateWithoutSaving}>
+              Don't Save
+            </Button>
+            <Button onClick={handleSaveAndNavigate} disabled={isSaving}>
+              {isSaving ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                'Save & Continue'
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

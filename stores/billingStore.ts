@@ -67,6 +67,9 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
 
   fetchPlans: async () => {
     const supabase = getSupabaseClient()
+    if (!supabase) {
+      throw new Error("Supabase client not available")
+    }
 
     set({ loading: true, error: null })
 
@@ -86,13 +89,20 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
   },
 
   fetchSubscription: async () => {
-    const supabase = getSupabaseClient()
-
     try {
+      const supabase = getSupabaseClient()
+      if (!supabase) {
+        throw new Error("Supabase client not available")
+      }
+
       const {
-        data: { session },
-      } = await supabase.auth.getSession()
-      if (!session) return
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser()
+
+      if (userError || !user) {
+        throw new Error("Not authenticated")
+      }
 
       const { data, error } = await supabase
         .from("subscriptions")
@@ -100,7 +110,7 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
           *,
           plans (*)
         `)
-        .eq("user_id", session.user.id)
+        .eq("user_id", user.id)
         .single()
 
       if (error && error.code !== "PGRST116") throw error
@@ -112,13 +122,20 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
   },
 
   fetchUsage: async () => {
-    const supabase = getSupabaseClient()
-
     try {
+      const supabase = getSupabaseClient()
+      if (!supabase) {
+        throw new Error("Supabase client not available")
+      }
+
       const {
-        data: { session },
-      } = await supabase.auth.getSession()
-      if (!session) return
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser()
+
+      if (userError || !user) {
+        throw new Error("Not authenticated")
+      }
 
       const currentDate = new Date()
       const year = currentDate.getFullYear()
@@ -127,7 +144,7 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
       const { data, error } = await supabase
         .from("monthly_usage")
         .select("*")
-        .eq("user_id", session.user.id)
+        .eq("user_id", user.id)
         .eq("year", year)
         .eq("month", month)
         .single()

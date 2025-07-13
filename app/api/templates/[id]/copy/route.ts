@@ -7,12 +7,12 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     cookies()
     const supabase = await createSupabaseServerClient()
     const {
-      data: { session },
-      error: sessionError,
-    } = await supabase.auth.getSession()
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
 
-    if (sessionError || !session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (userError || !user) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
     }
 
     // Get the template
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       .insert({
         name: `${template.name} (Copy)`,
         description: template.description,
-        user_id: session.user.id,
+        user_id: user.id,
         nodes: template.workflow_json.nodes || [],
         connections: template.workflow_json.connections || [],
         status: "draft",

@@ -18,11 +18,12 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
   try {
     const {
-      data: { session },
-    } = await supabase.auth.getSession()
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
 
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (userError || !user) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
     }
 
     // Get subscription
@@ -30,7 +31,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
       .from("subscriptions")
       .select("*")
       .eq("id", params.id)
-      .eq("user_id", session.user.id)
+      .eq("user_id", user.id)
       .single()
 
     if (error || !subscription) {

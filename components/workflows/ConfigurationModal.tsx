@@ -2493,6 +2493,70 @@ export default function ConfigurationModal({
     }
   }, [isOpen, nodeInfo?.type, config.guildId])
 
+  // Load dependent data when modal opens with existing configuration
+  useEffect(() => {
+    if (!isOpen || !nodeInfo) return
+
+    // Load dependent data for Discord edit message action
+    if (nodeInfo && nodeInfo.type === "discord_action_edit_message") {
+      const loadDependentData = async () => {
+        console.log('🔄 Loading dependent data for Discord edit message with config:', config)
+        
+        // If guildId is set, load channels
+        if (config.guildId) {
+          console.log('🔄 Loading channels for guildId:', config.guildId)
+          const integration = getIntegrationByProvider("discord")
+          if (integration) {
+            try {
+              const channelData = await loadIntegrationData("discord_channels", integration.id, { guildId: config.guildId })
+              if (channelData && channelData.length > 0) {
+                const mappedChannels = channelData.map((channel: any) => ({
+                  value: channel.value,
+                  label: channel.label
+                }))
+                setDynamicOptions(prev => ({
+                  ...prev,
+                  "channelId": mappedChannels
+                }))
+                console.log('✅ Loaded channels:', mappedChannels.length)
+                
+                // If channelId is also set, load messages after channels are loaded
+                if (config.channelId) {
+                  console.log('🔄 Loading messages for channelId:', config.channelId)
+                  try {
+                    const messageData = await loadIntegrationData("discord_messages", integration.id, { channelId: config.channelId })
+                    if (messageData && messageData.length > 0) {
+                      const mappedMessages = messageData.map((message: any) => ({
+                        value: message.value,
+                        label: message.label
+                      }))
+                      setDynamicOptions(prev => ({
+                        ...prev,
+                        "messageId": mappedMessages
+                      }))
+                      console.log('✅ Loaded messages:', mappedMessages.length)
+                    }
+                  } catch (error) {
+                    console.error('❌ Error loading messages:', error)
+                  }
+                }
+              }
+            } catch (error) {
+              console.error('❌ Error loading channels:', error)
+            }
+          }
+        }
+      }
+
+      // Add a small delay to ensure the modal is fully opened before loading data
+      const timer = setTimeout(() => {
+        loadDependentData()
+      }, 100)
+
+      return () => clearTimeout(timer)
+    }
+  }, [isOpen, nodeInfo, config.guildId, config.channelId])
+
   // Debug dynamicOptions state changes
   useEffect(() => {
     if (nodeInfo?.type === "trello_action_create_card" || nodeInfo?.type === "trello_action_move_card") {
@@ -2522,176 +2586,6 @@ export default function ConfigurationModal({
   // Handle dependent field updates when their dependencies change
   useEffect(() => {
     return // DISABLED to fix infinite loop - dependent fields now handled in handleSelectChange
-    if (!isOpen || !nodeInfo) return
-
-    console.log('🔄 Checking dependent fields:', {
-      nodeType: nodeInfo.type,
-      config,
-      configSchema: nodeInfo.configSchema
-    })
-
-    const fetchDependentFields = async () => {
-      console.log(`🔍 fetchDependentFields function started`)
-      console.log(`🔍 nodeInfo.configSchema:`, nodeInfo.configSchema)
-      for (const field of nodeInfo.configSchema || []) {
-        if (field.dependsOn && field.dynamic) {
-          const dependentValue = config[field.dependsOn]
-          const previousValue = previousDependentValues.current[field.dependsOn]
-          
-          console.log(`🔍 Checking field dependency:`, {
-            fieldName: field.name,
-            dependsOn: field.dependsOn,
-            currentValue: dependentValue,
-            previousValue,
-            dynamic: field.dynamic,
-            shouldFetch: dependentValue && dependentValue !== previousValue
-          })
-          
-          // Enhanced debugging for Trello dependent fields
-          if ((nodeInfo?.type === "trello_action_create_card" || nodeInfo?.type === "trello_action_move_card") && field.dependsOn) {
-            console.log(`🎯 TRELLO DEPENDENCY CHECK for "${field.name}":`, {
-              fieldName: field.name,
-              dependsOn: field.dependsOn,
-              currentValue: dependentValue,
-              previousValue,
-              shouldFetch: dependentValue && dependentValue !== previousValue,
-              currentConfig: config
-            })
-          }
-          
-          // Only update if the dependent value has actually changed
-          if (dependentValue !== previousValue) {
-            console.log(`🔄 Dependent value changed for ${field.name}, fetching new data`)
-            previousDependentValues.current[field.dependsOn] = dependentValue
-            
-            if (dependentValue) {
-              await fetchDependentData(field, dependentValue)
-            } else {
-              console.log(`❌ No dependent value for ${field.name}, clearing options`)
-              // Clear dependent field options when dependency is cleared
-              setDynamicOptions(prev => {
-                const newOptions = { ...prev }
-                delete newOptions[field.name]
-                return newOptions
-              })
-              // Clear dependent field value
-              setConfig(prev => {
-                const newConfig = { ...prev }
-                delete newConfig[field.name]
-                return newConfig
-              })
-            }
-          }
-        }
-      }
-
-      // Fetch project, task, and feedback records when base is selected for Airtable actions
-      if (nodeInfo?.type === "airtable_action_create_record" && config.baseId) {
-        const previousBaseId = previousDependentValues.current["baseId"]
-        if (config.baseId !== previousBaseId) {
-          console.log(`🔄 Base changed to ${config.baseId}, fetching project/task/feedback records`)
-          previousDependentValues.current["baseId"] = config.baseId
-          
-          const integration = getIntegrationByProvider(nodeInfo.providerId || "")
-          if (integration) {
-            try {
-              // Fetch project records
-              const projectData = await loadIntegrationData("airtable_project_records", integration.id, { baseId: config.baseId })
-              if (projectData && projectData.length > 0) {
-                console.log(`📊 Processing Airtable project records:`, {
-                  recordCount: projectData.length,
-                  records: projectData.map((r: any) => ({
-                    value: r.value,
-                    label: r.label
-                  }))
-                })
-                const mappedProjectRecords = projectData.map((record: any) => ({
-                  value: record.value,
-                  label: record.label,
-                  description: record.description,
-                  fields: record.fields || {}
-                }))
-                setDynamicOptions(prev => ({
-                  ...prev,
-                  "project_records": mappedProjectRecords,
-                  // Also store with common field name variations
-                  "Project_records": mappedProjectRecords,
-                  "Projects_records": mappedProjectRecords,
-                  "Associated Project_records": mappedProjectRecords,
-                  "Related Project_records": mappedProjectRecords
-                }))
-              }
-
-              // Fetch task records
-              const taskData = await loadIntegrationData("airtable_task_records", integration.id, { baseId: config.baseId })
-              if (taskData && taskData.length > 0) {
-                console.log(`📋 Processing Airtable task records:`, {
-                  recordCount: taskData.length,
-                  records: taskData.map((r: any) => ({
-                    value: r.value,
-                    label: r.label
-                  }))
-                })
-                const mappedTaskRecords = taskData.map((record: any) => ({
-                  value: record.value,
-                  label: record.label,
-                  description: record.description,
-                  fields: record.fields || {}
-                }))
-                setDynamicOptions(prev => ({
-                  ...prev,
-                  "task_records": mappedTaskRecords,
-                  // Also store with common field name variations
-                  "Task_records": mappedTaskRecords,
-                  "Tasks_records": mappedTaskRecords,
-                  "Associated Task_records": mappedTaskRecords,
-                  "Related Task_records": mappedTaskRecords
-                }))
-              }
-
-              // Fetch feedback records
-              const feedbackData = await loadIntegrationData("airtable_feedback_records", integration.id, { baseId: config.baseId })
-              if (feedbackData && feedbackData.length > 0) {
-                const mappedFeedbackRecords = feedbackData.map((record: any) => ({
-                  value: record.value,
-                  label: record.label,
-                  description: record.description,
-                  fields: record.fields || {}
-                }))
-                setDynamicOptions(prev => ({
-                  ...prev,
-                  "feedback_records": mappedFeedbackRecords,
-                  // Also store with common field name variations
-                  "Feedback_records": mappedFeedbackRecords,
-                  "Feedbacks_records": mappedFeedbackRecords,
-                  "Associated Feedback_records": mappedFeedbackRecords,
-                  "Related Feedback_records": mappedFeedbackRecords
-                }))
-              }
-            } catch (error) {
-              console.error(`❌ Error fetching project/task/feedback records:`, error)
-            }
-          }
-        }
-      }
-
-      // Handle Discord channels through dependent field fetching
-      if (nodeInfo?.type === "discord_action_send_message" && config.guildId) {
-        const previousGuildId = previousDependentValues.current["guildId"]
-        console.log(`🔍 Discord guild check: current=${config.guildId}, previous=${previousGuildId}`)
-        
-        // Only fetch channels if guild changed (fetchDependentData will handle the actual fetching)
-        if (config.guildId !== previousGuildId) {
-          console.log(`🔄 Guild changed from ${previousGuildId} to ${config.guildId}, dependent fields will be fetched`)
-          previousDependentValues.current["guildId"] = config.guildId
-        }
-      }
-    }
-
-    console.log(`🔍 fetchDependentFields called with config:`, config)
-    console.log(`🔍 About to call fetchDependentFields function`)
-    fetchDependentFields()
-    console.log(`🔍 fetchDependentFields function call completed`)
   }, [isOpen, nodeInfo, botStatus])
 
   // Auto-fetch table fields when table is selected (for Airtable)
@@ -4919,6 +4813,83 @@ export default function ConfigurationModal({
                 placeholder={field.placeholder}
                 disabled={loadingDynamic}
               />
+              {hasError && (
+                <p className="text-xs text-red-500">{errors[field.name]}</p>
+              )}
+            </div>
+          )
+        }
+
+        // Add variable picker for Discord edit message channel and message fields
+        if (nodeInfo && nodeInfo.type === "discord_action_edit_message" && (field.name === "channelId" || field.name === "messageId")) {
+          // Get options for the select field
+          let options: any[] = []
+          if (field.dynamic) {
+            options = dynamicOptions[field.name] || 
+                     (typeof field.dynamic === 'string' ? dynamicOptions[field.dynamic] : []) || 
+                     []
+          } else if (field.options) {
+            options = field.options
+          }
+          
+          // Find the selected option to display the label properly
+          const selectedOption = options.find((option: any) => {
+            const optionValue = typeof option === 'string' ? option : option.value
+            return optionValue === value
+          })
+          const selectedLabel = selectedOption ? (typeof selectedOption === 'string' ? selectedOption : selectedOption.label) : value
+          
+          return (
+            <div className="space-y-2">
+              {renderLabel()}
+              <div className="flex gap-2 w-full">
+                <div className="flex-1">
+                  <Select
+                    value={value}
+                    onValueChange={handleSelectChange}
+                    disabled={loadingDynamic}
+                  >
+                    <SelectTrigger className={cn("w-full", hasError && "border-red-500")}>
+                      <SelectValue placeholder={
+                        loadingDynamic 
+                          ? "Loading..." 
+                          : field.placeholder
+                      }>
+                        {selectedLabel}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent 
+                      className="max-h-[min(384px,calc(100vh-64px))] overflow-y-auto" 
+                      side="bottom" 
+                      sideOffset={0} 
+                      align="start"
+                    >
+                      {options.map((option: any, optionIndex: number) => {
+                        const optionValue = typeof option === 'string' ? option : option.value
+                        const optionLabel = typeof option === 'string' ? option : option.label
+                        return (
+                          <SelectItem key={`select-option-${optionIndex}-${optionValue || 'undefined'}`} value={optionValue} className="whitespace-nowrap">
+                            {optionLabel}
+                          </SelectItem>
+                        )
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <VariablePicker
+                  workflowData={workflowData}
+                  currentNodeId={currentNodeId}
+                  onVariableSelect={(variable) => {
+                    setConfig(prev => ({ ...prev, [field.name]: variable }))
+                  }}
+                  fieldType="text"
+                  trigger={
+                    <Button variant="outline" size="sm" className="flex-shrink-0 px-3 min-h-[2.5rem]" title="Select from previous node">
+                      <Database className="w-4 h-4" />
+                    </Button>
+                  }
+                />
+              </div>
               {hasError && (
                 <p className="text-xs text-red-500">{errors[field.name]}</p>
               )}
