@@ -514,11 +514,9 @@ export const useIntegrationStore = create<IntegrationStore>()(
 
     getConnectedProviders: () => {
       const { integrations } = get()
-      console.log('🔍 getConnectedProviders called with integrations:', integrations.map(i => ({ provider: i.provider, status: i.status })))
       // Return all integrations that exist (not just "connected" ones)
       // This includes expired, needs_reauthorization, etc. since they can be reconnected
       const connectedProviders = integrations.filter((i) => i.status !== "disconnected").map((i) => i.provider)
-      console.log('🔍 getConnectedProviders returning:', connectedProviders)
       return connectedProviders
     },
 
