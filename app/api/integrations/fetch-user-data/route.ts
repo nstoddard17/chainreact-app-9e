@@ -360,6 +360,58 @@ async function fetchWithRetry<T>(fetchFn: () => Promise<T>, maxRetries: number, 
   throw lastError
 }
 
+// Discord-specific rate limiting helper
+async function fetchDiscordWithRateLimit<T>(
+  fetchFn: () => Promise<Response>,
+  maxRetries: number = 2
+): Promise<T> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetchFn()
+      
+      if (response.ok) {
+        return await response.json()
+      }
+      
+      // Handle Discord rate limiting
+      if (response.status === 429) {
+        const retryAfter = response.headers.get('Retry-After')
+        const resetAfter = response.headers.get('X-RateLimit-Reset')
+        
+        console.log(`Discord rate limit hit (attempt ${attempt}). Retry-After: ${retryAfter}, Reset-After: ${resetAfter}`)
+        
+        if (attempt < maxRetries) {
+          // Calculate wait time
+          let waitTime = 5000 // Default 5 seconds
+          if (retryAfter) {
+            waitTime = parseInt(retryAfter) * 1000
+          } else if (resetAfter) {
+            const resetTime = parseInt(resetAfter) * 1000
+            const now = Date.now()
+            waitTime = Math.max(resetTime - now, 1000)
+          }
+          
+          console.log(`Waiting ${waitTime}ms before retry ${attempt + 1}...`)
+          await new Promise(resolve => setTimeout(resolve, waitTime))
+          continue
+        }
+      }
+      
+      // For other errors, throw immediately
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(`Discord API error: ${response.status} - ${errorData.message || response.statusText}`)
+      
+    } catch (error: any) {
+      if (attempt === maxRetries) {
+        throw error
+      }
+      console.warn(`Discord API attempt ${attempt} failed:`, error.message)
+    }
+  }
+  
+  throw new Error('Discord API request failed after all retries')
+}
+
 // Fix data fetchers with better error handling
 const dataFetchers: DataFetcher = {
   notion_pages: async (integration: any) => {
@@ -3304,22 +3356,15 @@ const dataFetchers: DataFetcher = {
 
   "discord_guilds": async (integration: any) => {
     try {
-      const response = await fetch("https://discord.com/api/v10/users/@me/guilds", {
-        headers: {
-          Authorization: `Bearer ${integration.access_token}`,
-          "Content-Type": "application/json",
-        },
-      })
+      const data = await fetchDiscordWithRateLimit<any[]>(() => 
+        fetch("https://discord.com/api/v10/users/@me/guilds", {
+          headers: {
+            Authorization: `Bearer ${integration.access_token}`,
+            "Content-Type": "application/json",
+          },
+        })
+      )
 
-      if (!response.ok) {
-        if (response.status === 401) {
-          throw new Error("Discord authentication expired. Please reconnect your account.")
-        }
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(`Discord API error: ${response.status} - ${errorData.message || response.statusText}`)
-      }
-
-      const data = await response.json()
       return (data || []).map((guild: any) => ({
         id: guild.id,
         name: guild.name,
@@ -3330,6 +3375,9 @@ const dataFetchers: DataFetcher = {
       }))
     } catch (error: any) {
       console.error("Error fetching Discord guilds:", error)
+      if (error.message.includes("401")) {
+        throw new Error("Discord authentication expired. Please reconnect your account.")
+      }
       throw error
     }
   },
@@ -3349,40 +3397,41 @@ const dataFetchers: DataFetcher = {
         return []
       }
 
-      const response = await fetch(`https://discord.com/api/v10/guilds/${guildId}/channels`, {
-        headers: {
-          Authorization: `Bot ${botToken}`,
-          "Content-Type": "application/json",
-        },
-      })
+      try {
+        const data = await fetchDiscordWithRateLimit<any[]>(() => 
+          fetch(`https://discord.com/api/v10/guilds/${guildId}/channels`, {
+            headers: {
+              Authorization: `Bot ${botToken}`,
+              "Content-Type": "application/json",
+            },
+          })
+        )
 
-      if (!response.ok) {
-        if (response.status === 401) {
+        return (data || [])
+          .filter((channel: any) => channel.type === 0) // Only text channels (type 0)
+          .map((channel: any) => ({
+            id: channel.id,
+            name: `#${channel.name}`,
+            value: channel.id,
+            type: channel.type,
+            position: channel.position,
+            parent_id: channel.parent_id,
+          }))
+      } catch (error: any) {
+        // Handle specific Discord API errors
+        if (error.message.includes("401")) {
           throw new Error("Discord bot authentication failed. Please check bot configuration.")
         }
-        if (response.status === 403) {
+        if (error.message.includes("403")) {
           throw new Error("Bot does not have permission to view channels in this server. Please ensure the bot has the 'View Channels' permission and try again.")
         }
-        if (response.status === 404) {
+        if (error.message.includes("404")) {
           // Bot is not in the server - return empty array instead of throwing error
           console.log(`Bot is not a member of server ${guildId} - returning empty channels list`)
           return []
         }
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(`Discord API error: ${response.status} - ${errorData.message || response.statusText}`)
+        throw error
       }
-
-      const data = await response.json()
-      return (data || [])
-        .filter((channel: any) => channel.type === 0) // Only text channels (type 0)
-        .map((channel: any) => ({
-          id: channel.id,
-          name: `#${channel.name}`,
-          value: channel.id,
-          type: channel.type,
-          position: channel.position,
-          parent_id: channel.parent_id,
-        }))
     } catch (error: any) {
       console.error("Error fetching Discord channels:", error)
       throw error

@@ -47,7 +47,7 @@ import { INTEGRATION_CONFIGS } from "@/lib/integrations/availableIntegrations"
 import { useToast } from "@/hooks/use-toast"
 import { useWorkflowEmailTracking } from "@/hooks/use-email-cache"
 import { Card } from "@/components/ui/card"
-import { IntegrationLoadingScreen, WorkflowLoadingScreen } from "@/components/ui/loading-screen"
+import { WorkflowLoadingScreen } from "@/components/ui/loading-screen"
 
 type IntegrationInfo = {
   id: string
@@ -123,7 +123,7 @@ const useWorkflowBuilderState = () => {
   const searchParams = useSearchParams()
   const workflowId = searchParams.get("id")
 
-  const { currentWorkflow, setCurrentWorkflow, fetchWorkflows, workflows, updateWorkflow } = useWorkflowStore()
+  const { currentWorkflow, setCurrentWorkflow, fetchWorkflows, workflows, updateWorkflow, loading: workflowLoading } = useWorkflowStore()
   const { joinCollaboration, leaveCollaboration, collaborators } = useCollaborationStore()
   const { integrations, getConnectedProviders, fetchIntegrations, loading: integrationsLoading } = useIntegrationStore()
 
@@ -148,6 +148,7 @@ const useWorkflowBuilderState = () => {
   const [pendingNode, setPendingNode] = useState<{ type: 'trigger' | 'action'; integration: IntegrationInfo; nodeComponent: NodeComponent; sourceNodeInfo?: { id: string; parentId: string } } | null>(null)
   const [deletingNode, setDeletingNode] = useState<{ id: string; name: string } | null>(null)
   const [testMode, setTestMode] = useState(false)
+  const [hasShownLoading, setHasShownLoading] = useState(false)
 
   const { toast } = useToast()
   const { trackWorkflowEmails } = useWorkflowEmailTracking()
@@ -1288,12 +1289,17 @@ const useWorkflowBuilderState = () => {
     confirmDeleteNode,
     isIntegrationConnected,
     integrationsLoading,
+    workflowLoading,
     testMode,
     setTestMode,
     handleResetLoadingStates,
     sourceAddNode,
     handleActionDialogClose,
-    nodeNeedsConfiguration
+    nodeNeedsConfiguration,
+    workflows,
+    workflowId,
+    hasShownLoading,
+    setHasShownLoading
   }
 }
 
@@ -1314,8 +1320,8 @@ function WorkflowBuilderContent() {
     availableIntegrations, renderLogo, getWorkflowStatus, currentWorkflow, isExecuting, executionEvents,
     configuringNode, setConfiguringNode, handleSaveConfiguration, collaborators, pendingNode, setPendingNode,
     selectedTrigger, setSelectedTrigger, selectedAction, setSelectedAction, searchQuery, setSearchQuery, filterCategory, setFilterCategory, showConnectedOnly, setShowConnectedOnly,
-    filteredIntegrations, displayedTriggers, deletingNode, setDeletingNode, confirmDeleteNode, isIntegrationConnected, integrationsLoading, testMode, setTestMode, handleResetLoadingStates,
-    sourceAddNode, handleActionDialogClose, nodeNeedsConfiguration
+    filteredIntegrations, displayedTriggers, deletingNode, setDeletingNode, confirmDeleteNode, isIntegrationConnected, integrationsLoading, workflowLoading, testMode, setTestMode, handleResetLoadingStates,
+    sourceAddNode, handleActionDialogClose, nodeNeedsConfiguration, workflows, workflowId, hasShownLoading, setHasShownLoading
   } = useWorkflowBuilderState()
 
   const categories = useMemo(() => {
@@ -1331,12 +1337,59 @@ function WorkflowBuilderContent() {
     setShowTriggerDialog(true);
   }
 
-  if (!currentWorkflow) {
-    return <WorkflowLoadingScreen />
+  // Debug loading states
+  console.log('🔍 Loading states:', {
+    currentWorkflow: !!currentWorkflow,
+    integrationsLoading,
+    workflowLoading,
+    workflowsLength: workflows.length,
+    workflowId
+  })
+
+  // Use a more robust loading condition that prevents double loading
+  // Only show loading if we're actually in a loading state AND we don't have the required data
+  const shouldShowLoading = () => {
+    // If we have a workflowId but no currentWorkflow, we're loading
+    if (workflowId && !currentWorkflow) {
+      return true
+    }
+    
+    // If integrations are loading and we don't have any workflows yet, show loading
+    if (integrationsLoading && workflows.length === 0) {
+      return true
+    }
+    
+    // If workflow is loading and we don't have the current workflow, show loading
+    if (workflowLoading && !currentWorkflow) {
+      return true
+    }
+    
+    return false
   }
 
-  if (integrationsLoading) {
-    return <IntegrationLoadingScreen />
+  // Track if we should show loading and prevent double loading
+  const isLoading = shouldShowLoading()
+  
+  // Set hasShownLoading to true when we start loading
+  if (isLoading && !hasShownLoading) {
+    setHasShownLoading(true)
+  }
+  
+  // Reset hasShownLoading when we're no longer loading
+  if (!isLoading && hasShownLoading) {
+    setHasShownLoading(false)
+  }
+
+  if (isLoading) {
+    console.log('🔄 Showing loading screen due to:', {
+      workflowId,
+      hasCurrentWorkflow: !!currentWorkflow,
+      integrationsLoading,
+      workflowLoading,
+      workflowsLength: workflows.length,
+      hasShownLoading
+    })
+    return <WorkflowLoadingScreen />
   }
   return (
     <div style={{ height: "calc(100vh - 65px)", position: "relative" }}>
