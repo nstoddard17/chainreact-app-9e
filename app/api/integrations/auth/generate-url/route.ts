@@ -203,16 +203,15 @@ function generateSlackAuthUrl(state: string): string {
 }
 
 function generateDiscordAuthUrl(state: string): string {
-  const clientId = process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID
-  if (!clientId) throw new Error("Discord client ID not configured")
+  const clientId = "1378595955212812308"
   const baseUrl = getBaseUrl()
 
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: `${baseUrl}/api/integrations/discord/callback`,
     response_type: "code",
-    integration_type: "0",
-    scope: "identify guilds email connections guilds.members.read messages.read presences.read dm_channels.messages.read dm_channels.messages.write dm_channels.read applications.commands relationships.read",
+    integration_type: "1",
+    scope: "identify guilds email connections relationships.read applications.commands",
     state,
     prompt: "consent",
   })

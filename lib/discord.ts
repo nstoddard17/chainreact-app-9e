@@ -5,11 +5,11 @@ export const discord = {
 
   getAuthUrl(state: string) {
     const params = new URLSearchParams({
-      client_id: this.clientId!,
+      client_id: "1378595955212812308",
       redirect_uri: this.redirectUri,
       response_type: "code",
-      integration_type: "0",
-      scope: "identify guilds email connections guilds.members.read messages.read presences.read dm_channels.messages.read dm_channels.messages.write dm_channels.read applications.commands relationships.read",
+      integration_type: "1",
+      scope: "identify guilds email connections relationships.read applications.commands",
       state,
     })
 
