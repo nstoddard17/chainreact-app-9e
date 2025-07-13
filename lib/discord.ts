@@ -8,8 +8,7 @@ export const discord = {
       client_id: "1378595955212812308",
       redirect_uri: this.redirectUri,
       response_type: "code",
-      integration_type: "1",
-      scope: "identify guilds email connections relationships.read applications.commands",
+      scope: "identify guilds email connections",
       state,
     })
 

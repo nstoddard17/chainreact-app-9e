@@ -105,9 +105,7 @@ export function generateReconnectionUrl(provider: string, state?: string): strin
       "identify",
       "guilds",
       "email",
-      "connections",
-      "relationships.read",
-      "applications.commands"
+      "connections"
     ]
     const redirectUri = getOAuthRedirectUri("discord")
 
@@ -116,7 +114,6 @@ export function generateReconnectionUrl(provider: string, state?: string): strin
       scope: requiredScopes.join(" "),
       redirect_uri: redirectUri,
       response_type: "code",
-      integration_type: "1",
       prompt: "consent", // Force re-authorization
       ...(state && { state }),
     })
