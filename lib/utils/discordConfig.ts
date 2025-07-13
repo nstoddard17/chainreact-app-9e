@@ -86,23 +86,10 @@ export function validateDiscordBotToken(token: string): boolean {
  * Get Discord bot invite URL
  */
 export function getDiscordBotInviteUrl(): string {
-  const botToken = process.env.DISCORD_BOT_TOKEN
-  const clientId = process.env.DISCORD_CLIENT_ID
-  
-  if (!clientId) {
-    return 'https://discord.com/developers/applications'
-  }
-  
-  const scopes = ['bot', 'applications.commands']
-  const permissions = [
-    'SendMessages',
-    'ReadMessageHistory',
-    'UseSlashCommands',
-    'ManageChannels',
-    'ManageRoles'
-  ].join('%20')
-  
-  return `https://discord.com/api/oauth2/authorize?client_id=${clientId}&permissions=${permissions}&scope=${scopes.join('%20')}`
+  const clientId = process.env.DISCORD_CLIENT_ID || "1378595955212812308"
+  const scopes = ["bot", "applications.commands"]
+  const permissions = "8" // Administrator
+  return `https://discord.com/oauth2/authorize?client_id=${clientId}&scope=${scopes.join("%20")}&permissions=${permissions}`
 }
 
  

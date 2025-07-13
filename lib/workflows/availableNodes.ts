@@ -2397,34 +2397,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
       }
     ]
   },
-  {
-    type: "discord_action_send_direct_message",
-    title: "Send Direct Message",
-    description: "Sends a direct message to a Discord user with enhanced user selection.",
-    icon: MessageSquare,
-    providerId: "discord",
-    requiredScopes: ["bot"],
-    category: "Communication",
-    isTrigger: false,
-    configSchema: [
-      {
-        name: "userId",
-        label: "User",
-        type: "select",
-        dynamic: "discord_users",
-        required: true,
-        placeholder: "Select a user to message",
-        description: "Choose from recent users or search across all servers"
-      },
-      {
-        name: "message",
-        label: "Message",
-        type: "textarea",
-        required: true,
-        placeholder: "Enter your message"
-      }
-    ]
-  },
+
 
   // Microsoft Teams
   {

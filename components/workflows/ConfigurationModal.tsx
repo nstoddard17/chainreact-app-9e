@@ -1877,6 +1877,14 @@ export default function ConfigurationModal({
           { guildId: dependentValue }
         )
         console.log('🔄 Discord channels: Fetch completed, data:', data)
+      } else if (field.dynamic === "discord_messages" && field.dependsOn === "channelId") {
+        console.log('🔄 Discord messages: Starting fetch for channelId:', dependentValue)
+        data = await loadIntegrationData(
+          field.dynamic as string,
+          integration.id,
+          { channelId: dependentValue }
+        )
+        console.log('🔄 Discord messages: Fetch completed, data:', data)
       } else {
         data = await loadIntegrationData(
           field.dynamic as string,

@@ -1,0 +1,1 @@
+// Update the bot invite link in the Discord send channel message config modal to use permissions=584247556172919. 

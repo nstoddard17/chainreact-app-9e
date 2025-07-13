@@ -103,11 +103,12 @@ export function generateReconnectionUrl(provider: string, state?: string): strin
     // Updated Discord scopes
     const requiredScopes = [
       "identify",
-      "guilds",
       "email",
-      "connections"
+      "connections",
+      "guilds",
+      "guilds.members.read"
     ]
-    const redirectUri = getOAuthRedirectUri("discord")
+    const redirectUri = "https://chainreact.app/api/integrations/discord/callback"
 
     const discordParams = new URLSearchParams({
       client_id: "1378595955212812308",
