@@ -3442,6 +3442,310 @@ const dataFetchers: DataFetcher = {
     }
   },
 
+  "discord_members": async (integration: any, options: any) => {
+    try {
+      const { guildId } = options || {}
+      
+      if (!guildId) {
+        throw new Error("Guild ID is required to fetch Discord members")
+      }
+
+      // Use user's OAuth token, not bot token
+      const userToken = integration.access_token
+      if (!userToken) {
+        console.warn("User Discord token not available - returning empty members list")
+        return []
+      }
+
+      try {
+        const data = await fetchDiscordWithRateLimit<any[]>(() => 
+          fetch(`https://discord.com/api/v10/guilds/${guildId}/members?limit=1000`, {
+            headers: {
+              Authorization: `Bearer ${userToken}`,
+              "Content-Type": "application/json",
+            },
+          })
+        )
+
+        return (data || [])
+          .filter((member: any) => !member.user?.bot) // Filter out bot users
+          .map((member: any) => ({
+            id: member.user.id,
+            name: member.nick || member.user.username,
+            value: member.user.id,
+            username: member.user.username,
+            discriminator: member.user.discriminator,
+            avatar: member.user.avatar,
+            roles: member.roles,
+            joined_at: member.joined_at,
+          }))
+      } catch (error: any) {
+        // Handle specific Discord API errors
+        if (error.message.includes("401")) {
+          throw new Error("Discord authentication failed. Please reconnect your Discord account.")
+        }
+        if (error.message.includes("403")) {
+          throw new Error("You do not have permission to view members in this server. Please ensure you have the 'View Members' permission and try again.")
+        }
+        if (error.message.includes("404")) {
+          // User is not in the server - return empty array instead of throwing error
+          console.log(`User is not a member of server ${guildId} - returning empty members list`)
+          return []
+        }
+        throw error
+      }
+    } catch (error: any) {
+      console.error("Error fetching Discord members:", error)
+      throw error
+    }
+  },
+
+  "discord_roles": async (integration: any, options: any) => {
+    try {
+      const { guildId } = options || {}
+      
+      if (!guildId) {
+        throw new Error("Guild ID is required to fetch Discord roles")
+      }
+
+      // Use user's OAuth token, not bot token
+      const userToken = integration.access_token
+      if (!userToken) {
+        console.warn("User Discord token not available - returning empty roles list")
+        return []
+      }
+
+      try {
+        const data = await fetchDiscordWithRateLimit<any[]>(() => 
+          fetch(`https://discord.com/api/v10/guilds/${guildId}/roles`, {
+            headers: {
+              Authorization: `Bearer ${userToken}`,
+              "Content-Type": "application/json",
+            },
+          })
+        )
+
+        return (data || [])
+          .filter((role: any) => role.name !== "@everyone") // Filter out @everyone role
+          .map((role: any) => ({
+            id: role.id,
+            name: role.name,
+            value: role.id,
+            color: role.color,
+            hoist: role.hoist,
+            position: role.position,
+            permissions: role.permissions,
+            mentionable: role.mentionable,
+          }))
+      } catch (error: any) {
+        // Handle specific Discord API errors
+        if (error.message.includes("401")) {
+          throw new Error("Discord authentication failed. Please reconnect your Discord account.")
+        }
+        if (error.message.includes("403")) {
+          throw new Error("You do not have permission to view roles in this server. Please ensure you have the 'View Roles' permission and try again.")
+        }
+        if (error.message.includes("404")) {
+          // User is not in the server - return empty array instead of throwing error
+          console.log(`User is not a member of server ${guildId} - returning empty roles list`)
+          return []
+        }
+        throw error
+      }
+    } catch (error: any) {
+      console.error("Error fetching Discord roles:", error)
+      throw error
+    }
+  },
+
+  "discord_messages": async (integration: any, options: any) => {
+    try {
+      const { channelId } = options || {}
+      
+      if (!channelId) {
+        throw new Error("Channel ID is required to fetch Discord messages")
+      }
+
+      // Use user's OAuth token, not bot token
+      const userToken = integration.access_token
+      if (!userToken) {
+        console.warn("User Discord token not available - returning empty messages list")
+        return []
+      }
+
+      try {
+        const data = await fetchDiscordWithRateLimit<any[]>(() => 
+          fetch(`https://discord.com/api/v10/channels/${channelId}/messages?limit=50`, {
+            headers: {
+              Authorization: `Bearer ${userToken}`,
+              "Content-Type": "application/json",
+            },
+          })
+        )
+
+        return (data || [])
+          .map((message: any) => ({
+            id: message.id,
+            name: message.content.substring(0, 50) + (message.content.length > 50 ? "..." : ""),
+            value: message.id,
+            content: message.content,
+            author: message.author,
+            timestamp: message.timestamp,
+            edited_timestamp: message.edited_timestamp,
+            attachments: message.attachments,
+            embeds: message.embeds,
+          }))
+      } catch (error: any) {
+        // Handle specific Discord API errors
+        if (error.message.includes("401")) {
+          throw new Error("Discord authentication failed. Please reconnect your Discord account.")
+        }
+        if (error.message.includes("403")) {
+          throw new Error("You do not have permission to view messages in this channel. Please ensure you have the 'Read Message History' permission and try again.")
+        }
+        if (error.message.includes("404")) {
+          // Channel not found - return empty array instead of throwing error
+          console.log(`Channel ${channelId} not found - returning empty messages list`)
+          return []
+        }
+        throw error
+      }
+    } catch (error: any) {
+      console.error("Error fetching Discord messages:", error)
+      throw error
+    }
+  },
+
+  "discord_banned_users": async (integration: any, options: any) => {
+    try {
+      const { guildId } = options || {}
+      
+      if (!guildId) {
+        throw new Error("Guild ID is required to fetch Discord banned users")
+      }
+
+      // Use user's OAuth token, not bot token
+      const userToken = integration.access_token
+      if (!userToken) {
+        console.warn("User Discord token not available - returning empty banned users list")
+        return []
+      }
+
+      try {
+        const data = await fetchDiscordWithRateLimit<any[]>(() => 
+          fetch(`https://discord.com/api/v10/guilds/${guildId}/bans`, {
+            headers: {
+              Authorization: `Bearer ${userToken}`,
+              "Content-Type": "application/json",
+            },
+          })
+        )
+
+        return (data || [])
+          .map((ban: any) => ({
+            id: ban.user.id,
+            name: ban.user.username,
+            value: ban.user.id,
+            username: ban.user.username,
+            discriminator: ban.user.discriminator,
+            avatar: ban.user.avatar,
+            reason: ban.reason,
+          }))
+      } catch (error: any) {
+        // Handle specific Discord API errors
+        if (error.message.includes("401")) {
+          throw new Error("Discord authentication failed. Please reconnect your Discord account.")
+        }
+        if (error.message.includes("403")) {
+          throw new Error("You do not have permission to view bans in this server. Please ensure you have the 'Ban Members' permission and try again.")
+        }
+        if (error.message.includes("404")) {
+          // User is not in the server - return empty array instead of throwing error
+          console.log(`User is not a member of server ${guildId} - returning empty banned users list`)
+          return []
+        }
+        throw error
+      }
+    } catch (error: any) {
+      console.error("Error fetching Discord banned users:", error)
+      throw error
+    }
+  },
+
+  "discord_users": async (integration: any, options: any) => {
+    // Discord API limitation: Cannot fetch all server members with a user OAuth token.
+    // Only the user's own account and their connections (friends/linked accounts) are available.
+    try {
+      const userToken = integration.access_token
+      if (!userToken) {
+        console.warn("User Discord token not available - returning empty users list")
+        return []
+      }
+
+      let users: any[] = []
+
+      // Always include the user's own account
+      try {
+        const userResponse = await fetchDiscordWithRateLimit<any>(() => 
+          fetch("https://discord.com/api/v10/users/@me", {
+            headers: {
+              Authorization: `Bearer ${userToken}`,
+              "Content-Type": "application/json",
+            },
+          })
+        )
+        if (userResponse) {
+          users.push({
+            id: userResponse.id,
+            name: `${userResponse.username}#${userResponse.discriminator} (You)` ,
+            value: userResponse.id,
+            username: userResponse.username,
+            discriminator: userResponse.discriminator,
+            avatarUrl: userResponse.avatar 
+              ? `https://cdn.discordapp.com/avatars/${userResponse.id}/${userResponse.avatar}.png`
+              : `https://cdn.discordapp.com/embed/avatars/${parseInt(userResponse.discriminator) % 5}.png`,
+            source: "self",
+            section: "Your Account"
+          })
+        }
+      } catch (error) {
+        console.warn("Failed to fetch user info:", error)
+      }
+
+      // Try to fetch user's connections (friends/linked accounts)
+      try {
+        const connectionsResponse = await fetchDiscordWithRateLimit<any[]>(() => 
+          fetch("https://discord.com/api/v10/users/@me/connections", {
+            headers: {
+              Authorization: `Bearer ${userToken}`,
+              "Content-Type": "application/json",
+            },
+          })
+        )
+        if (connectionsResponse && connectionsResponse.length > 0) {
+          // Add each connection as a selectable user
+          users.push(...connectionsResponse.map((conn: any) => ({
+            id: conn.id,
+            name: `${conn.name} (${conn.type})`,
+            value: conn.id,
+            username: conn.name,
+            discriminator: conn.type,
+            avatarUrl: conn.verified ? `https://cdn.discordapp.com/embed/avatars/0.png` : undefined,
+            source: "connection",
+            section: "Connections"
+          })))
+        }
+      } catch (error) {
+        console.warn("Failed to fetch user connections:", error)
+      }
+
+      return users
+    } catch (error: any) {
+      console.error("Error fetching Discord users:", error)
+      return []
+    }
+  },
+
   "facebook_pages": async (integration: any) => {
     try {
       console.log("🔍 Facebook pages fetcher called with integration:", {
@@ -4230,4 +4534,19 @@ function extractEmailAddresses(headerValue: string): { email: string; name?: str
 function isValidEmail(email: string): boolean {
   const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
   return emailRegex.test(email)
+}
+
+// Helper function to get Discord status color
+function getStatusColor(status: string): string {
+  switch (status) {
+    case "online":
+      return "#43b581"
+    case "idle":
+      return "#faa61a"
+    case "dnd":
+      return "#f04747"
+    case "offline":
+    default:
+      return "#747f8d"
+  }
 }

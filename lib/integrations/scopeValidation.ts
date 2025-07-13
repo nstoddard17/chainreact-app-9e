@@ -101,7 +101,7 @@ export async function validateAllUserIntegrations(userId: string): Promise<Scope
 export function generateReconnectionUrl(provider: string, state?: string): string {
   if (provider === "discord") {
     // Updated Discord scopes
-    const requiredScopes = ["identify", "guilds", "guilds.join", "messages.read"]
+    const requiredScopes = ["identify", "guilds", "email", "connections", "guilds.members.read", "messages.read"]
     const redirectUri = getOAuthRedirectUri("discord")
 
     const discordParams = new URLSearchParams({

@@ -883,6 +883,10 @@ export const useIntegrationStore = create<IntegrationStore>()(
               return null
             }
             break
+          case "discord_users":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "discord_users"
+            break
           default:
             throw new Error(`Loading data for ${providerId} is not supported.`)
         }
@@ -918,6 +922,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
                        providerId === 'slack_users' ? 'slack' :
                        providerId === 'discord_channels' ? 'discord' :
                        providerId === 'discord_guilds' ? 'discord' :
+                       providerId === 'discord_users' ? 'discord' :
                        providerId.includes('_') ? providerId.split('_')[0] : 
                        providerId.includes('-') ? providerId.split('-')[0] : 
                        providerId // Extract base provider name
