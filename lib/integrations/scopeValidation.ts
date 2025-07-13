@@ -106,23 +106,17 @@ export function generateReconnectionUrl(provider: string, state?: string): strin
       "guilds",
       "email",
       "connections",
-      "guilds.members.read",
-      "messages.read",
-      "presences.read",
-      "dm_channels.messages.read",
-      "dm_channels.messages.write",
-      "dm_channels.read",
-      "applications.commands",
-      "relationships.read"
+      "relationships.read",
+      "applications.commands"
     ]
     const redirectUri = getOAuthRedirectUri("discord")
 
     const discordParams = new URLSearchParams({
-      client_id: process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID!,
+      client_id: "1378595955212812308",
       scope: requiredScopes.join(" "),
       redirect_uri: redirectUri,
       response_type: "code",
-      integration_type: "0",
+      integration_type: "1",
       prompt: "consent", // Force re-authorization
       ...(state && { state }),
     })
