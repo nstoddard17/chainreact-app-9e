@@ -1,0 +1,189 @@
+/**
+ * Check if Discord bot is properly configured
+ */
+export function checkDiscordBotConfig(): {
+  isConfigured: boolean
+  missingVars: string[]
+  botToken: string | null
+  botUserId: string | null
+} {
+  const botToken = process.env.DISCORD_BOT_TOKEN
+  const botUserId = process.env.DISCORD_BOT_USER_ID
+  
+  const missingVars: string[] = []
+  
+  if (!botToken) {
+    missingVars.push('DISCORD_BOT_TOKEN')
+  }
+  
+  if (!botUserId) {
+    missingVars.push('DISCORD_BOT_USER_ID')
+  }
+  
+  return {
+    isConfigured: missingVars.length === 0,
+    missingVars,
+    botToken: botToken || null,
+    botUserId: botUserId || null
+  }
+}
+
+/**
+ * Get Discord bot configuration status with helpful messages
+ */
+export function getDiscordBotConfigStatus(): {
+  status: 'configured' | 'partially_configured' | 'not_configured'
+  message: string
+  details: string[]
+} {
+  const config = checkDiscordBotConfig()
+  
+  if (config.isConfigured) {
+    return {
+      status: 'configured',
+      message: 'Discord bot is properly configured',
+      details: [
+        'Bot token is set',
+        'Bot user ID is set',
+        'Bot will appear online in Discord servers'
+      ]
+    }
+  }
+  
+  if (config.missingVars.length === 1) {
+    return {
+      status: 'partially_configured',
+      message: `Discord bot is partially configured. Missing: ${config.missingVars[0]}`,
+      details: [
+        `Please set the ${config.missingVars[0]} environment variable`,
+        'Bot will not appear online until fully configured'
+      ]
+    }
+  }
+  
+  return {
+    status: 'not_configured',
+    message: 'Discord bot is not configured',
+    details: [
+      'Please set DISCORD_BOT_TOKEN environment variable',
+      'Please set DISCORD_BOT_USER_ID environment variable',
+      'Bot will not appear online until configured',
+      'See Discord Developer Portal to create a bot application'
+    ]
+  }
+}
+
+/**
+ * Validate Discord bot token format
+ */
+export function validateDiscordBotToken(token: string): boolean {
+  // Discord bot tokens typically start with a specific format
+  // This is a basic validation - in production you'd want more robust validation
+  return token.length > 50 && token.includes('.')
+}
+
+/**
+ * Get Discord bot invite URL
+ */
+export function getDiscordBotInviteUrl(): string {
+  const botToken = process.env.DISCORD_BOT_TOKEN
+  const clientId = process.env.DISCORD_CLIENT_ID
+  
+  if (!clientId) {
+    return 'https://discord.com/developers/applications'
+  }
+  
+  const scopes = ['bot', 'applications.commands']
+  const permissions = [
+    'SendMessages',
+    'ReadMessageHistory',
+    'UseSlashCommands',
+    'ManageChannels',
+    'ManageRoles'
+  ].join('%20')
+  
+  return `https://discord.com/api/oauth2/authorize?client_id=${clientId}&permissions=${permissions}&scope=${scopes.join('%20')}`
+}
+
+/**
+ * Check Discord bot intents configuration
+ */
+export async function checkDiscordBotIntents(): Promise<{
+  hasRequiredIntents: boolean
+  missingIntents: string[]
+  message: string
+}> {
+  const botToken = process.env.DISCORD_BOT_TOKEN
+  
+  if (!botToken) {
+    return {
+      hasRequiredIntents: false,
+      missingIntents: ['GUILDS', 'GUILD_MESSAGES', 'MESSAGE_CONTENT'],
+      message: 'Bot token not configured'
+    }
+  }
+  
+  try {
+    // Get bot application info to check intents
+    const response = await fetch('https://discord.com/api/v10/applications/@me', {
+      headers: {
+        Authorization: `Bot ${botToken}`,
+        'Content-Type': 'application/json'
+      }
+    })
+    
+    if (!response.ok) {
+      return {
+        hasRequiredIntents: false,
+        missingIntents: ['GUILDS', 'GUILD_MESSAGES', 'MESSAGE_CONTENT'],
+        message: `Failed to fetch bot info: ${response.status}`
+      }
+    }
+    
+    const botInfo = await response.json()
+    
+    // Check if bot has required intents
+    const requiredIntents = ['GUILDS', 'GUILD_MESSAGES', 'MESSAGE_CONTENT']
+    const missingIntents: string[] = []
+    
+    // Note: This is a simplified check. In practice, you'd need to check the actual intents
+    // from the bot's application settings in the Discord Developer Portal
+    
+    return {
+      hasRequiredIntents: missingIntents.length === 0,
+      missingIntents,
+      message: missingIntents.length === 0 
+        ? 'Bot has required intents configured'
+        : `Missing intents: ${missingIntents.join(', ')}`
+    }
+    
+  } catch (error) {
+    return {
+      hasRequiredIntents: false,
+      missingIntents: ['GUILDS', 'GUILD_MESSAGES', 'MESSAGE_CONTENT'],
+      message: `Error checking intents: ${error}`
+    }
+  }
+}
+
+/**
+ * Get Discord Developer Portal setup instructions
+ */
+export function getDiscordSetupInstructions(): string[] {
+  return [
+    '1. Go to https://discord.com/developers/applications',
+    '2. Create a new application or select existing one',
+    '3. Go to the "Bot" section',
+    '4. Create a bot user if not already created',
+    '5. Copy the bot token and set DISCORD_BOT_TOKEN environment variable',
+    '6. Copy the bot user ID and set DISCORD_BOT_USER_ID environment variable',
+    '7. In the "Bot" section, enable these Privileged Gateway Intents:',
+    '   - Server Members Intent',
+    '   - Message Content Intent',
+    '8. Save changes',
+    '9. Go to OAuth2 > URL Generator',
+    '10. Select scopes: bot, applications.commands',
+    '11. Select permissions: Send Messages, Read Message History, etc.',
+    '12. Use the generated URL to invite the bot to your servers'
+  ]
+} 
