@@ -955,7 +955,7 @@ const EnhancedFileInput = ({ fieldDef, fieldValue, onValueChange, workflowData, 
 
 interface ConfigurationModalProps {
   isOpen: boolean
-  onClose: () => void
+  onClose: (wasSaved?: boolean) => void
   onSave: (config: Record<string, any>) => void
   nodeInfo: NodeComponent | null
   integrationName: string
@@ -2497,53 +2497,74 @@ export default function ConfigurationModal({
   useEffect(() => {
     if (!isOpen || !nodeInfo) return
 
-    // Load dependent data for Discord edit message action
-    if (nodeInfo && nodeInfo.type === "discord_action_edit_message") {
+    // Load dependent data for Discord edit message and delete message actions
+    if (nodeInfo && (nodeInfo.type === "discord_action_edit_message" || nodeInfo.type === "discord_action_delete_message" || nodeInfo.type === "discord_action_send_message")) {
       const loadDependentData = async () => {
-        console.log('🔄 Loading dependent data for Discord edit message with config:', config)
+        console.log('🔄 Loading dependent data for Discord message action with config:', config)
+        
+        const integration = getIntegrationByProvider("discord")
+        if (!integration) return
+
+        // Always load guilds first when modal opens (even if no guild is selected)
+        if (!dynamicOptions.guildId || dynamicOptions.guildId.length === 0) {
+          console.log('🔄 Loading guilds for initial dropdown population')
+          try {
+            const guildData = await loadIntegrationData("discord_guilds", integration.id)
+            if (guildData && guildData.length > 0) {
+              const mappedGuilds = guildData.map((guild: any) => ({
+                value: guild.value || guild.id,
+                label: guild.label || guild.name
+              }))
+              setDynamicOptions(prev => ({
+                ...prev,
+                "guildId": mappedGuilds
+              }))
+              console.log('✅ Loaded guilds:', mappedGuilds.length)
+            }
+          } catch (error) {
+            console.error('❌ Error loading guilds:', error)
+          }
+        }
         
         // If guildId is set, load channels
         if (config.guildId) {
           console.log('🔄 Loading channels for guildId:', config.guildId)
-          const integration = getIntegrationByProvider("discord")
-          if (integration) {
-            try {
-              const channelData = await loadIntegrationData("discord_channels", integration.id, { guildId: config.guildId })
-              if (channelData && channelData.length > 0) {
-                const mappedChannels = channelData.map((channel: any) => ({
-                  value: channel.value,
-                  label: channel.label
-                }))
-                setDynamicOptions(prev => ({
-                  ...prev,
-                  "channelId": mappedChannels
-                }))
-                console.log('✅ Loaded channels:', mappedChannels.length)
-                
-                // If channelId is also set, load messages after channels are loaded
-                if (config.channelId) {
-                  console.log('🔄 Loading messages for channelId:', config.channelId)
-                  try {
-                    const messageData = await loadIntegrationData("discord_messages", integration.id, { channelId: config.channelId })
-                    if (messageData && messageData.length > 0) {
-                      const mappedMessages = messageData.map((message: any) => ({
-                        value: message.value,
-                        label: message.label
-                      }))
-                      setDynamicOptions(prev => ({
-                        ...prev,
-                        "messageId": mappedMessages
-                      }))
-                      console.log('✅ Loaded messages:', mappedMessages.length)
-                    }
-                  } catch (error) {
-                    console.error('❌ Error loading messages:', error)
-                  }
-                }
-              }
-            } catch (error) {
-              console.error('❌ Error loading channels:', error)
+          try {
+            const channelData = await loadIntegrationData("discord_channels", integration.id, { guildId: config.guildId })
+            if (channelData && channelData.length > 0) {
+              const mappedChannels = channelData.map((channel: any) => ({
+                value: channel.value || channel.id,
+                label: channel.label || channel.name
+              }))
+              setDynamicOptions(prev => ({
+                ...prev,
+                "channelId": mappedChannels
+              }))
+              console.log('✅ Loaded channels:', mappedChannels.length)
             }
+          } catch (error) {
+            console.error('❌ Error loading channels:', error)
+          }
+        }
+
+        // If channelId is set, load messages
+        if (config.channelId) {
+          console.log('🔄 Loading messages for channelId:', config.channelId)
+          try {
+            const messageData = await loadIntegrationData("discord_messages", integration.id, { channelId: config.channelId })
+            if (messageData && messageData.length > 0) {
+              const mappedMessages = messageData.map((message: any) => ({
+                value: message.value || message.id,
+                label: message.label || message.content || message.name
+              }))
+              setDynamicOptions(prev => ({
+                ...prev,
+                "messageId": mappedMessages
+              }))
+              console.log('✅ Loaded messages:', mappedMessages.length)
+            }
+          } catch (error) {
+            console.error('❌ Error loading messages:', error)
           }
         }
       }
@@ -2555,7 +2576,7 @@ export default function ConfigurationModal({
 
       return () => clearTimeout(timer)
     }
-  }, [isOpen, nodeInfo, config.guildId, config.channelId])
+  }, [isOpen, nodeInfo, config.guildId, config.channelId, dynamicOptions.guildId])
 
   // Debug dynamicOptions state changes
   useEffect(() => {
@@ -2925,7 +2946,7 @@ export default function ConfigurationModal({
         attachments
       }
       onSave(configWithAttachments)
-      onClose()
+      onClose(true) // Pass true to indicate the configuration was saved
     }
   }
 
@@ -3956,6 +3977,28 @@ export default function ConfigurationModal({
         isBoardIdField: field.name === "boardId"
       })
       
+      // Discord: Save label for guildId, channelId, messageId
+      if (nodeInfo?.providerId === 'discord' && (field.name === 'guildId' || field.name === 'channelId' || field.name === 'messageId')) {
+        let label = undefined;
+        // Try dynamic options first
+        if (dynamicOptions[field.name]) {
+          const found = dynamicOptions[field.name].find((opt: any) => (opt.value || opt.id) === newValue);
+          if (found) label = (found as any).label || (found as any).name;
+        }
+        // Try configSchema static options
+        if (!label && Array.isArray(field.options)) {
+          const found = field.options.find((opt: any) => (typeof opt === 'string' ? opt : opt.value) === newValue);
+          if (found) label = typeof found === 'string' ? found : (found as any).label;
+        }
+        setConfig(prev => ({
+          ...prev,
+          [field.name]: newValue,
+          [`${field.name}_label`]: label || newValue
+        }))
+        // Continue with the rest of the logic, but return early to avoid duplicate setConfig
+        return;
+      }
+      
       // Handle template changes for Notion database creation
       if (nodeInfo?.type === "notion_action_create_database" && field.name === "template") {
         if (newValue) {
@@ -4024,8 +4067,15 @@ export default function ConfigurationModal({
         configSchemaLength: nodeInfo?.configSchema?.length || 0,
         configSchema: nodeInfo?.configSchema?.map(f => ({ name: f.name, dependsOn: f.dependsOn })),
         isDiscordAction: nodeInfo?.type === "discord_action_send_message",
+        isDiscordEditMessageAction: nodeInfo?.type === "discord_action_edit_message",
         isGuildIdField: field.name === "guildId"
       })
+      
+      // Skip dependent field updates for Discord edit message and delete message actions - handled by separate effect
+      if (nodeInfo?.type === "discord_action_edit_message" || nodeInfo?.type === "discord_action_delete_message") {
+        console.log('🔄 Skipping dependent field updates for Discord message action - handled by separate effect')
+        return
+      }
       
       nodeInfo?.configSchema?.forEach(dependentField => {
         console.log('🔄 Checking field:', {
@@ -4820,8 +4870,8 @@ export default function ConfigurationModal({
           )
         }
 
-        // Add variable picker for Discord edit message channel and message fields
-        if (nodeInfo && nodeInfo.type === "discord_action_edit_message" && (field.name === "channelId" || field.name === "messageId")) {
+        // Add variable picker for Discord edit message and delete message channel and message fields
+        if (nodeInfo && (nodeInfo.type === "discord_action_edit_message" || nodeInfo.type === "discord_action_delete_message") && (field.name === "channelId" || field.name === "messageId")) {
           // Get options for the select field
           let options: any[] = []
           if (field.dynamic) {
@@ -6869,7 +6919,7 @@ export default function ConfigurationModal({
               {/* Dialog Footer */}
               <DialogFooter className="px-6 py-4 border-t border-border flex-shrink-0">
                 <div className="flex items-center justify-between w-full">
-                  <Button variant="outline" onClick={onClose}>
+                  <Button variant="outline" onClick={() => onClose(false)}>
                     Cancel
                   </Button>
                   <Button 

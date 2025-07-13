@@ -23,6 +23,7 @@ interface NodeVariable {
   description?: string
   example?: any
   category: 'config' | 'output' | 'schema'
+  originalKey?: string // Track the original config key for Discord lookups
 }
 
 export default function VariablePicker({
@@ -53,14 +54,20 @@ export default function VariablePicker({
     // 1. Get variables from node's static configuration
     if (node.data?.config) {
       Object.entries(node.data.config).forEach(([key, value]) => {
+        // Exclude internal "_label" fields from being shown as variables
+        if (key.endsWith('_label')) {
+          return
+        }
+
         if (value && typeof value === 'string' && value.trim() !== '') {
           variables.push({
             path: `{{config.${key}}}`,
-            label: key,
+            label: getFriendlyLabel(node, key),
             type: 'string',
             description: `Configuration value: ${key}`,
             example: value,
-            category: 'config'
+            category: 'config',
+            originalKey: key // Store the original config key for Discord lookups
           })
         }
       })
@@ -155,6 +162,77 @@ export default function VariablePicker({
     // This would normally come from your node definitions
     // For now, return null - we'll enhance this later
     return null
+  }
+
+  function getFriendlyLabel(node: any, key: string) {
+    // Discord mapping
+    if (node.data?.providerId === 'discord') {
+      if (key === 'guildId') return 'Server';
+      if (key === 'channelId') return 'Channel';
+      if (key === 'messageId') return 'Message';
+      if (key === 'content') return 'Message Content';
+    }
+    // Try to get label from configSchema
+    const configSchema = node.data?.configSchema || node.data?.nodeComponent?.configSchema;
+    if (Array.isArray(configSchema)) {
+      const field = configSchema.find(f => f.name === key)
+      if (field && field.label) return field.label
+    }
+    // Fallback to key
+    return key;
+  }
+
+  function getFriendlyValue(node: any, key: string, value: any) {
+    // Discord mapping for IDs
+    if (node.data?.providerId === 'discord') {
+      // Try to get dynamic options from node data
+      const dynamicOptions = node.data?.dynamicOptions || {};
+      // Try configSchema for static options
+      const configSchema = node.data?.configSchema || node.data?.nodeComponent?.configSchema;
+      let label = null;
+      if (key === 'guildId' || key === 'channelId' || key === 'messageId') {
+        // First, check if there's a saved label in the config (highest priority)
+        const config = node.data?.config || {};
+        const labelKey = `${key}_label`;
+        
+        console.log('🔍 VariablePicker getFriendlyValue:', {
+          key,
+          value,
+          labelKey,
+          configLabelValue: config[labelKey],
+          hasConfigLabel: !!config[labelKey],
+          fullConfig: config,
+          nodeId: node.id,
+          providerId: node.data?.providerId
+        });
+        
+        if (config[labelKey]) {
+          console.log('✅ Found saved label:', config[labelKey]);
+          return config[labelKey];
+        }
+        
+        // Try dynamic options second
+        if (dynamicOptions[key]) {
+          const found = dynamicOptions[key].find((opt: any) => (opt.value || opt.id) === value);
+          if (found) label = found.label || found.name;
+        }
+        // Try configSchema static options third
+        if (!label && Array.isArray(configSchema)) {
+          const field = configSchema.find(f => f.name === key);
+          if (field && Array.isArray(field.options)) {
+            const found = field.options.find((opt: any) => (typeof opt === 'string' ? opt : opt.value) === value);
+            if (found) label = typeof found === 'string' ? found : found.label;
+          }
+        }
+        if (label) return label;
+        return value;
+      }
+      if (key === 'content') {
+        return value;
+      }
+    }
+    // Fallback for other integrations
+    return value;
   }
 
   const previousNodes = getPreviousNodes()
@@ -350,9 +428,7 @@ export default function VariablePicker({
                               
                               {variable.example !== undefined && (
                                 <div className="text-sm text-foreground font-mono">
-                                  {typeof variable.example === 'object' 
-                                    ? JSON.stringify(variable.example) 
-                                    : String(variable.example)}
+                                  {getFriendlyValue(selectedNode, variable.originalKey || variable.label, variable.example)}
                                 </div>
                               )}
                               

@@ -2127,10 +2127,21 @@ function WorkflowBuilderContent() {
           ) : (
             <ConfigurationModal
               isOpen={!!configuringNode}
-              onClose={() => {
+              onClose={(wasSaved = false) => {
+                // Check if this is a pending node (hasn't been saved before)
+                const isPendingNode = configuringNode?.id === 'pending-action' || configuringNode?.id === 'pending-trigger';
+                
                 setConfiguringNode(null);
                 setPendingNode(null);
-                // Don't reopen the action selection modal - let the user manually add more actions if needed
+                
+                // Only reopen the action selection modal if it was NOT saved and it's a pending node
+                if (!wasSaved && isPendingNode && pendingNode?.type === 'action') {
+                  console.log('🔄 Reopening action selection modal for unsaved pending action');
+                  setShowActionDialog(true);
+                } else if (!wasSaved && isPendingNode && pendingNode?.type === 'trigger') {
+                  console.log('🔄 Reopening trigger selection modal for unsaved pending trigger');
+                  setShowTriggerDialog(true);
+                }
               }}
               onSave={(config) => handleSaveConfiguration(configuringNode, config)}
               nodeInfo={configuringNode.nodeComponent}
