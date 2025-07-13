@@ -1062,17 +1062,45 @@ export default function ConfigurationModal({
   const hasInitializedDefaults = useRef<boolean>(false)
   const abortControllerRef = useRef<AbortController | null>(null)
   
-  // Loading state management to prevent flashing
-  const loadingStartTimeRef = useRef<number | null>(null)
-  const minLoadingTimeRef = useRef<number>(1000) // Minimum 1 second loading time
-  const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  // Add refs to prevent duplicate calls and enable request deduplication
+  const fetchingDynamicData = useRef(false)
+  const fetchingDependentData = useRef<Set<string>>(new Set())
+  const requestCache = useRef<Map<string, Promise<any>>>(new Map())
   
-  // Debounced loading state setter
-  const setLoadingDynamicDebounced = useCallback((loading: boolean) => {
-    if (loading) {
+  // Loading state management to prevent flashing and double loading
+  const loadingStartTimeRef = useRef<number | null>(null)
+  const minLoadingTimeRef = useRef<number>(1000) // Increased to 1000ms to prevent double loading
+  const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const loadingStateRef = useRef<boolean>(false) // Track actual loading state
+  const [hasShownLoading, setHasShownLoading] = useState(false) // Track if we've shown loading to prevent double loading
+  const activeLoadingTasksRef = useRef<Set<string>>(new Set()) // Track active loading tasks
+  
+  // Debounced loading state setter with double loading prevention
+  const setLoadingDynamicDebounced = useCallback((loading: boolean, taskId?: string) => {
+    console.log('🔄 setLoadingDynamicDebounced called:', { loading, taskId, currentTasks: Array.from(activeLoadingTasksRef.current) })
+    
+    if (taskId) {
+      if (loading) {
+        activeLoadingTasksRef.current.add(taskId)
+      } else {
+        activeLoadingTasksRef.current.delete(taskId)
+      }
+    }
+    
+    // Check if we have any active loading tasks
+    const hasActiveTasks = activeLoadingTasksRef.current.size > 0
+    
+    // Prevent rapid state changes that cause flickering
+    if (hasActiveTasks === loadingStateRef.current) {
+      return
+    }
+    
+    if (hasActiveTasks) {
       // Start loading
       loadingStartTimeRef.current = Date.now()
+      loadingStateRef.current = true
       setLoadingDynamic(true)
+      setHasShownLoading(true) // Mark that we've shown loading
     } else {
       // Check if minimum loading time has passed
       const elapsed = Date.now() - (loadingStartTimeRef.current || 0)
@@ -1084,13 +1112,17 @@ export default function ConfigurationModal({
           clearTimeout(loadingTimeoutRef.current)
         }
         loadingTimeoutRef.current = setTimeout(() => {
+          loadingStateRef.current = false
           setLoadingDynamic(false)
+          setHasShownLoading(false) // Reset loading shown state
           loadingStartTimeRef.current = null
           loadingTimeoutRef.current = null
         }, remainingTime)
       } else {
         // Hide loading immediately
+        loadingStateRef.current = false
         setLoadingDynamic(false)
+        setHasShownLoading(false) // Reset loading shown state
         loadingStartTimeRef.current = null
         if (loadingTimeoutRef.current) {
           clearTimeout(loadingTimeoutRef.current)
@@ -1282,12 +1314,23 @@ export default function ConfigurationModal({
         abortControllerRef.current.abort()
         abortControllerRef.current = null
       }
-      setLoadingDynamic(false)
+      setLoadingDynamicDebounced(false)
       setRetryCount(0)
+      // Reset loading tracking state
+      setHasShownLoading(false)
+      // Clear all active loading tasks
+      activeLoadingTasksRef.current.clear()
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current)
+        loadingTimeoutRef.current = null
+      }
+      loadingStateRef.current = false
+      loadingStartTimeRef.current = null
       // Reset previous dependent values when modal closes
       previousDependentValues.current = {}
       hasInitializedTimezone.current = false
       hasInitializedDefaults.current = false
+      hasHandledInitialDiscordGuild.current = false
       // Clear errors when modal closes
       setErrors({})
       // Reset range selection state
@@ -1317,7 +1360,10 @@ export default function ConfigurationModal({
   const checkBotInGuild = async (guildId: string) => {
     if (!guildId || checkingBot) return
     
+    const taskId = `bot-check-${guildId}`
     setCheckingBot(true)
+    setLoadingDynamicDebounced(true, taskId)
+    
     try {
       const response = await fetch('/api/integrations/discord/check-bot-in-guild', {
         method: 'POST',
@@ -1349,6 +1395,7 @@ export default function ConfigurationModal({
       setBotStatus(prev => ({ ...prev, [guildId]: false }))
     } finally {
       setCheckingBot(false)
+      setLoadingDynamicDebounced(false, taskId)
     }
   }
 
@@ -1513,10 +1560,12 @@ export default function ConfigurationModal({
     const integration = getIntegrationByProvider(nodeInfo.providerId)
     if (!integration) return
 
+    const taskId = `table-fields-${tableName}`
+    
     // For now, use the existing table fields from dynamicOptions since the API doesn't support dynamic field fetching
     // In the future, this could be enhanced to make actual API calls when the backend supports it
     try {
-      setLoadingDynamic(true)
+      setLoadingDynamicDebounced(true, taskId)
       
       // Look for table fields in the existing dynamicOptions
       const selectedTable = dynamicOptions["tableName"]?.find((table: any) => table.value === tableName)
@@ -1612,7 +1661,7 @@ export default function ConfigurationModal({
     } catch (error) {
       console.error(`Error setting up fields for table ${tableName}:`, error)
     } finally {
-      setLoadingDynamic(false)
+      setLoadingDynamicDebounced(false, taskId)
     }
   }, [nodeInfo?.providerId, getIntegrationByProvider, dynamicOptions, config.baseId])
 
@@ -1658,6 +1707,12 @@ export default function ConfigurationModal({
     if (nodeInfo?.type === "discord_action_send_message") {
       // Always show guildId (server selection)
       if (field.name === "guildId") {
+        return true
+      }
+      
+      // Show channel field if guild is selected, regardless of bot status
+      // This allows the channel dropdown to be populated even during bot status check
+      if (field.name === "channelId" && config.guildId) {
         return true
       }
       
@@ -1720,12 +1775,38 @@ export default function ConfigurationModal({
     return !!dependentValue
   }
 
-  // Function to fetch dynamic data for dependent fields
+  // Function to fetch dynamic data for dependent fields with deduplication
   const fetchDependentData = useCallback(async (field: ConfigField | NodeField, dependentValue: any) => {
+    const requestKey = `${field.name}-${field.dynamic}-${dependentValue}`
+    
+    // Check if this exact request is already in progress
+    if (fetchingDependentData.current.has(requestKey)) {
+      console.log('🔍 fetchDependentData already in progress, skipping duplicate:', requestKey)
+      return
+    }
+
+    // Check if we have a cached promise for this request
+    if (requestCache.current.has(requestKey)) {
+      console.log('📋 Returning cached promise for:', requestKey)
+      return requestCache.current.get(requestKey)
+    }
+
+    console.log('🔄 fetchDependentData called:', {
+      fieldName: field.name,
+      dynamic: field.dynamic,
+      dependsOn: field.dependsOn,
+      dependentValue,
+      requestKey,
+      isDiscordChannelFetch: field.name === "channelId" && field.dependsOn === "guildId" && nodeInfo?.type === "discord_action_send_message"
+    })
+    
     if (!field.dynamic || !field.dependsOn) return
 
     const integration = getIntegrationByProvider(nodeInfo?.providerId || "")
     if (!integration) return
+
+    // Mark this request as in progress
+    fetchingDependentData.current.add(requestKey)
 
     // Abort any existing request
     if (abortControllerRef.current) {
@@ -1736,8 +1817,12 @@ export default function ConfigurationModal({
     const controller = new AbortController()
     abortControllerRef.current = controller
 
-    try {
-      setLoadingDynamic(true)
+    const taskId = `dependent-data-${field.name}-${dependentValue}`
+    
+    // Create a promise for this request and cache it
+    const requestPromise = (async () => {
+      try {
+        setLoadingDynamicDebounced(true, taskId)
       let data
       // Special handling for Trello lists: pass boardId as param
       if (field.dynamic === "trello_lists" && field.dependsOn === "boardId") {
@@ -1771,11 +1856,13 @@ export default function ConfigurationModal({
           { boardId: dependentValue }
         )
       } else if (field.dynamic === "discord_channels" && field.dependsOn === "guildId") {
+        console.log('🔄 Discord channels: Starting fetch for guildId:', dependentValue)
         data = await loadIntegrationData(
           field.dynamic as string,
           integration.id,
           { guildId: dependentValue }
         )
+        console.log('🔄 Discord channels: Fetch completed, data:', data)
       } else {
         data = await loadIntegrationData(
           field.dynamic as string,
@@ -1823,6 +1910,15 @@ export default function ConfigurationModal({
             label: template.name,
             description: template.description || template.originalCardName,
           }))
+        } else if (field.dynamic === "discord_channels") {
+          // Discord channels specific mapping
+          console.log('🔄 Discord channels: Mapping data:', data)
+          mappedData = data.map((channel: any) => ({
+            value: channel.value || channel.id,
+            label: channel.name || channel.label,
+            description: channel.description,
+          }))
+          console.log('🔄 Discord channels: Mapped data:', mappedData)
         } else {
           // Default mapping for other integrations
           mappedData = data.map((item: any) => ({
@@ -1838,9 +1934,9 @@ export default function ConfigurationModal({
         console.log(`🔍 Field details:`, { name: field.name, dynamic: field.dynamic, dependsOn: field.dependsOn })
         
         setDynamicOptions(prev => {
-          // Enhanced debugging for Trello dependent fields
-          if (nodeInfo?.type === "trello_action_create_card" || nodeInfo?.type === "trello_action_move_card") {
-            console.log(`🎯 TRELLO DEPENDENT DATA MAPPED for "${field.name}":`, {
+          // Enhanced debugging for Discord dependent fields
+          if (nodeInfo?.type === "discord_action_send_message" && field.name === "channelId") {
+            console.log(`🔄 DISCORD DEPENDENT DATA MAPPED for "${field.name}":`, {
               fieldName: field.name,
               fieldDynamic: field.dynamic,
               fieldDependsOn: field.dependsOn,
@@ -1863,9 +1959,9 @@ export default function ConfigurationModal({
           console.log(`🔍 Updated dynamicOptions for ${field.name}:`, newOptions[field.name])
           console.log(`🔍 All dynamicOptions keys:`, Object.keys(newOptions))
           
-          // Enhanced debugging for Trello
-          if (nodeInfo?.type === "trello_action_create_card" || nodeInfo?.type === "trello_action_move_card") {
-            console.log(`🎯 TRELLO dynamicOptions UPDATED:`, {
+          // Enhanced debugging for Discord
+          if (nodeInfo?.type === "discord_action_send_message" && field.name === "channelId") {
+            console.log(`🔄 DISCORD dynamicOptions UPDATED:`, {
               fieldName: field.name,
               fieldDynamic: field.dynamic,
               newOptionsForField: newOptions[field.name],
@@ -1906,15 +2002,30 @@ export default function ConfigurationModal({
           }))
         }
       }
-    } finally {
-      // Only update loading state if the request wasn't aborted
-      if (!controller.signal.aborted) {
-        setLoadingDynamic(false)
+      } finally {
+        // Only update loading state if the request wasn't aborted
+        if (!controller.signal.aborted) {
+          setLoadingDynamicDebounced(false, taskId)
+        }
+        // Clean up tracking
+        fetchingDependentData.current.delete(requestKey)
+        requestCache.current.delete(requestKey)
       }
-    }
+    })()
+
+    // Cache the promise
+    requestCache.current.set(requestKey, requestPromise)
+    
+    return requestPromise
   }, [config, nodeInfo?.providerId, getIntegrationByProvider, loadIntegrationData])
 
   const fetchDynamicData = useCallback(async () => {
+    // Prevent duplicate calls
+    if (fetchingDynamicData.current) {
+      console.log('🔍 fetchDynamicData already in progress, skipping duplicate call')
+      return
+    }
+
     console.log('🔍 fetchDynamicData called with:', { 
       nodeInfo: nodeInfo ? { type: nodeInfo.type, providerId: nodeInfo.providerId } : null,
       hasConfigSchema: !!(nodeInfo?.configSchema),
@@ -1934,7 +2045,12 @@ export default function ConfigurationModal({
       });
     }
     
-    if (!nodeInfo || !nodeInfo.providerId) return
+    if (!nodeInfo || !nodeInfo.providerId) {
+      fetchingDynamicData.current = false
+      return
+    }
+
+    fetchingDynamicData.current = true
 
     const integration = getIntegrationByProvider(nodeInfo.providerId)
     console.log('🔍 Integration found:', integration ? { 
@@ -1945,6 +2061,7 @@ export default function ConfigurationModal({
     
     if (!integration) {
       console.warn('⚠️ No integration found for provider:', nodeInfo.providerId)
+      fetchingDynamicData.current = false
       return
     }
 
@@ -1953,6 +2070,7 @@ export default function ConfigurationModal({
     if (scopeCheck.needsReconnection) {
       console.warn(`Integration needs reconnection: ${scopeCheck.reason}`)
       setErrors({ integrationError: `This integration needs to be reconnected to access the required permissions. Please reconnect your ${nodeInfo.providerId} integration.` })
+      fetchingDynamicData.current = false
       return
     }
 
@@ -1965,7 +2083,8 @@ export default function ConfigurationModal({
     const controller = new AbortController()
     abortControllerRef.current = controller
 
-    setLoadingDynamicDebounced(true)
+    const taskId = `dynamic-data-${nodeInfo?.type || 'unknown'}`
+    setLoadingDynamicDebounced(true, taskId)
     let hasData = false
     const newOptions: Record<string, any[]> = {}
 
@@ -2021,6 +2140,35 @@ export default function ConfigurationModal({
       fieldsToFetch: fieldsToFetch.map(f => ({ name: f.name, dynamic: f.dynamic })),
       signaturesNotCached: signaturesNotCached.map(s => ({ name: s.name, dynamic: s.dynamic }))
     })
+    
+    // Optimize: If we have cached data, show it immediately while fetching new data
+    if (Object.keys(cachedData).length > 0) {
+      console.log('⚡ Fast-loading cached data while fetching fresh data')
+      // Process cached data immediately for faster UX
+      const cachedResults = Object.values(cachedData)
+      for (const result of cachedResults) {
+        const { field, data } = result
+        if (data) {
+          let processedData: any[] = []
+          
+          // Process Discord guilds data
+          if (field.dynamic === "discord_guilds") {
+            processedData = data.map((guild: any) => ({ value: guild.id, label: guild.name }))
+          } else if (field.dynamic === "discord_channels") {
+            processedData = data.map((channel: any) => ({ value: channel.id, label: channel.name }))
+          } else {
+            processedData = data.map((item: any) => ({ value: item.value || item.id || item.name, label: item.name || item.label || item.title }))
+          }
+          
+          // Update options immediately with cached data
+          setDynamicOptions(prev => ({
+            ...prev,
+            [field.name]: processedData,
+            ...(typeof field.dynamic === 'string' && { [field.dynamic]: processedData })
+          }))
+        }
+      }
+    }
     
     const fetchPromises = [
       ...fieldsToFetch.map(field => {
@@ -2256,15 +2404,59 @@ export default function ConfigurationModal({
         
         setDynamicOptions(newOptions)
       }
-      setLoadingDynamicDebounced(false)
+      setLoadingDynamicDebounced(false, taskId)
     }
+    
+    // Reset the flag when function completes
+    fetchingDynamicData.current = false
   }, [nodeInfo, getIntegrationByProvider, checkIntegrationScopes, loadIntegrationData, integrationData, setLoadingDynamicDebounced])
 
   useEffect(() => {
     if (isOpen && nodeInfo?.providerId) {
+      // Start fetching data immediately when modal opens
       fetchDynamicData()
+    } else if (!isOpen) {
+      // Reset all flags and clear cache when modal closes
+      fetchingDynamicData.current = false
+      fetchingDependentData.current.clear()
+      requestCache.current.clear()
+      hasHandledInitialDiscordGuild.current = false
     }
   }, [isOpen, nodeInfo?.providerId, fetchDynamicData])
+
+  // Eager loading optimization: Start fetching Discord data as soon as modal opens
+  useEffect(() => {
+    if (isOpen && nodeInfo?.type === "discord_action_send_message") {
+      const integration = getIntegrationByProvider("discord")
+      if (integration && !integrationData["discord_guilds"] && !fetchingDynamicData.current) {
+        console.log('🚀 Eager loading Discord guilds for faster UX')
+        // Pre-load Discord guilds immediately without waiting for form render
+        loadIntegrationData("discord_guilds", integration.id)
+          .then(data => {
+            if (data) {
+              console.log('✅ Pre-loaded Discord guilds:', data.length, 'guilds')
+            }
+          })
+          .catch(error => {
+            console.warn('⚠️ Pre-loading Discord guilds failed:', error)
+          })
+      }
+    }
+  }, [isOpen, nodeInfo?.type, getIntegrationByProvider, loadIntegrationData, integrationData])
+
+  // Handle Discord actions that already have a guild selected when modal opens
+  // Only run this when the modal first opens, not when the guild changes
+  const hasHandledInitialDiscordGuild = useRef(false)
+  
+  useEffect(() => {
+    if (isOpen && nodeInfo?.type === "discord_action_send_message" && config.guildId && !hasHandledInitialDiscordGuild.current) {
+      console.log('🔄 Discord action with existing guild selected on modal open:', config.guildId)
+      hasHandledInitialDiscordGuild.current = true
+      
+      // Just check bot status - channels will be handled by fetchDependentFields useEffect
+      checkBotInGuild(config.guildId)
+    }
+  }, [isOpen, nodeInfo?.type, config.guildId])
 
   // Debug dynamicOptions state changes
   useEffect(() => {
@@ -2303,6 +2495,8 @@ export default function ConfigurationModal({
     })
 
     const fetchDependentFields = async () => {
+      console.log(`🔍 fetchDependentFields function started`)
+      console.log(`🔍 nodeInfo.configSchema:`, nodeInfo.configSchema)
       for (const field of nodeInfo.configSchema || []) {
         if (field.dependsOn && field.dynamic) {
           const dependentValue = config[field.dependsOn]
@@ -2445,73 +2639,24 @@ export default function ConfigurationModal({
         }
       }
 
-      // Fetch Discord channels when guild is selected
+      // Handle Discord channels through dependent field fetching
       if (nodeInfo?.type === "discord_action_send_message" && config.guildId) {
         const previousGuildId = previousDependentValues.current["guildId"]
+        console.log(`🔍 Discord guild check: current=${config.guildId}, previous=${previousGuildId}`)
+        
+        // Only fetch channels if guild changed (fetchDependentData will handle the actual fetching)
         if (config.guildId !== previousGuildId) {
-          console.log(`🔄 Guild changed to ${config.guildId}, fetching Discord channels`)
+          console.log(`🔄 Guild changed from ${previousGuildId} to ${config.guildId}, dependent fields will be fetched`)
           previousDependentValues.current["guildId"] = config.guildId
-          
-          // Check if bot is connected to this guild before fetching channels
-          const isBotConnected = botStatus[config.guildId]
-          console.log(`🤖 Bot status for guild ${config.guildId}:`, isBotConnected)
-          
-          if (isBotConnected === false) {
-            console.log(`❌ Bot not connected to guild ${config.guildId}, clearing channels`)
-            setDynamicOptions(prev => ({
-              ...prev,
-              "channelId": [],
-            }))
-            return
-          }
-          
-          const integration = getIntegrationByProvider(nodeInfo.providerId || "")
-          if (integration) {
-            try {
-              const channelData = await loadIntegrationData("discord_channels", integration.id, {
-                guildId: config.guildId
-              })
-              console.log(`📺 Raw Discord channel data:`, channelData)
-              if (channelData && channelData.length > 0) {
-                console.log(`📺 Processing Discord channels:`, {
-                  channelCount: channelData.length,
-                  channels: channelData.map((c: any) => ({
-                    value: c.value,
-                    name: c.name,
-                    id: c.id
-                  }))
-                })
-                const mappedChannels = channelData.map((channel: any) => ({
-                  value: channel.value || channel.id,
-                  label: channel.name || channel.label,
-                }))
-                console.log(`📺 Mapped channels for dropdown:`, mappedChannels)
-                setDynamicOptions(prev => ({
-                  ...prev,
-                  "channelId": mappedChannels,
-                }))
-              } else {
-                console.log(`⚠️ No channels returned for guild ${config.guildId}`)
-                setDynamicOptions(prev => ({
-                  ...prev,
-                  "channelId": [],
-                }))
-              }
-            } catch (error) {
-              console.error(`❌ Error fetching Discord channels:`, error)
-              // Set an error state to show to the user
-              setErrors(prev => ({
-                ...prev,
-                channelId: "Failed to load channels. The bot may not have permission to view channels in this server. Please ensure the bot has the 'View Channels' permission."
-              }))
-            }
-          }
         }
       }
     }
 
+    console.log(`🔍 fetchDependentFields called with config:`, config)
+    console.log(`🔍 About to call fetchDependentFields function`)
     fetchDependentFields()
-  }, [isOpen, nodeInfo, config, fetchDependentData, botStatus])
+    console.log(`🔍 fetchDependentFields function call completed`)
+  }, [isOpen, nodeInfo, config, botStatus])
 
   // Auto-fetch table fields when table is selected (for Airtable)
   useEffect(() => {
@@ -2613,8 +2758,11 @@ export default function ConfigurationModal({
       }
       const controller = new AbortController()
       abortControllerRef.current = controller
+      
+      const taskId = `sheet-data-${config.spreadsheetId}-${config.sheetName}`
+      
       try {
-        setLoadingDynamicDebounced(true)
+        setLoadingDynamicDebounced(true, taskId)
         const integration = getIntegrationByProvider(nodeInfo?.providerId || "")
         if (!integration) return
         const data = await loadIntegrationData(
@@ -2635,7 +2783,7 @@ export default function ConfigurationModal({
         }
       } finally {
         if (!controller.signal.aborted) {
-          setLoadingDynamicDebounced(false)
+          setLoadingDynamicDebounced(false, taskId)
         }
       }
     }
@@ -2660,8 +2808,10 @@ export default function ConfigurationModal({
         const controller = new AbortController()
         abortControllerRef.current = controller
 
+        const taskId = `sheet-data-${config.spreadsheetId}-${config.sheetName}`
+        
         try {
-          setLoadingDynamicDebounced(true)
+          setLoadingDynamicDebounced(true, taskId)
           const previewData = await loadIntegrationData(
             "google-sheets_sheet-preview",
             integration.id,
@@ -2692,7 +2842,7 @@ export default function ConfigurationModal({
         } finally {
           // Only update loading state if the request wasn't aborted
           if (!controller.signal.aborted) {
-            setLoadingDynamicDebounced(false)
+            setLoadingDynamicDebounced(false, taskId)
           }
         }
       } else {
@@ -3902,8 +4052,9 @@ export default function ConfigurationModal({
         setConfig({ ...config, [field.name]: newValue })
       }
       
-      // Check Discord bot status when guild is selected
+      // Check Discord bot status when guild is selected (channels are handled by fetchDependentData)
       if (nodeInfo?.type === "discord_action_send_message" && field.name === "guildId" && newValue) {
+        console.log(`🔄 Guild selected: ${newValue}, checking bot status`)
         checkBotInGuild(newValue)
       }
       
@@ -3921,8 +4072,8 @@ export default function ConfigurationModal({
         fieldName: field.name,
         configSchemaLength: nodeInfo?.configSchema?.length || 0,
         configSchema: nodeInfo?.configSchema?.map(f => ({ name: f.name, dependsOn: f.dependsOn })),
-        isTrelloAction: nodeInfo?.type === "trello_action_create_card" || nodeInfo?.type === "trello_action_move_card",
-        isBoardIdField: field.name === "boardId"
+        isDiscordAction: nodeInfo?.type === "discord_action_send_message",
+        isGuildIdField: field.name === "guildId"
       })
       
       nodeInfo?.configSchema?.forEach(dependentField => {
@@ -3931,7 +4082,8 @@ export default function ConfigurationModal({
           dependsOn: dependentField.dependsOn,
           currentFieldName: field.name,
           isMatch: dependentField.dependsOn === field.name,
-          isTrelloAction: nodeInfo?.type === "trello_action_create_card" || nodeInfo?.type === "trello_action_move_card"
+          isDiscordAction: nodeInfo?.type === "discord_action_send_message",
+          isDiscordChannelField: dependentField.name === "channelId" && dependentField.dependsOn === "guildId"
         })
         
         if (dependentField.dependsOn === field.name) {
@@ -3939,8 +4091,20 @@ export default function ConfigurationModal({
             field: dependentField.name,
             dependsOn: field.name,
             newValue,
-            isTrelloAction: nodeInfo?.type === "trello_action_create_card" || nodeInfo?.type === "trello_action_move_card"
+            isDiscordAction: nodeInfo?.type === "discord_action_send_message",
+            isDiscordChannelFetch: dependentField.name === "channelId" && field.name === "guildId"
           })
+          
+          // Special logging for Discord channels
+          if (nodeInfo?.type === "discord_action_send_message" && dependentField.name === "channelId" && field.name === "guildId") {
+            console.log('🔄 Discord channel fetch triggered:', {
+              guildId: newValue,
+              channelField: dependentField,
+              willCallFetchDependentData: true
+            })
+          }
+          
+          // Always call fetchDependentData - it now has deduplication built-in
           fetchDependentData(dependentField, newValue)
         }
       })
@@ -4756,6 +4920,23 @@ export default function ConfigurationModal({
           dynamicOptionsKeys: Object.keys(dynamicOptions),
           dynamicOptionsForField: dynamicOptions[field.name]
         })
+        
+        // Special debugging for Discord channels
+        if (field.dynamic === "discord_channels") {
+          console.log(`🎯 DISCORD CHANNELS DEBUG for "${field.name}":`, {
+            fieldName: field.name,
+            fieldDynamic: field.dynamic,
+            optionsCount: options.length,
+            options: options,
+            dynamicOptionsKeys: Object.keys(dynamicOptions),
+            dynamicOptionsForField: dynamicOptions[field.name],
+            allDynamicOptions: dynamicOptions,
+            currentConfig: config,
+            dependsOnValue: field.dependsOn ? config[field.dependsOn] : null,
+            currentValue: value,
+            nodeType: nodeInfo?.type
+          })
+        }
         
         // Use MultiCombobox for multiple select with creatable option
         if (field.multiple && field.creatable) {
@@ -6635,19 +6816,81 @@ export default function ConfigurationModal({
             )}
           </div>
           
-          {/* Loading Overlay */}
-          {loadingDynamic && (
-            <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex flex-col items-center justify-center z-50">
-              <ConfigurationLoadingScreen 
-                integrationName={nodeInfo.title || nodeInfo.type || integrationName}
-              />
-              {retryCount > 0 && (
-                <div className="mt-4 text-sm text-muted-foreground animate-pulse">
-                  Retrying... (attempt {retryCount + 1})
+          {/* Loading Overlay with double loading prevention */}
+          {(() => {
+            // Debug loading states
+            console.log('🔍 ConfigurationModal Loading states:', {
+              loadingDynamic,
+              hasShownLoading,
+              retryCount,
+              nodeInfoType: nodeInfo?.type,
+              integrationName
+            })
+
+            // Use a more robust loading condition that prevents double loading
+            const shouldShowLoading = () => {
+              // Debug current loading state
+              console.log('🔍 shouldShowLoading check:', {
+                loadingDynamic,
+                hasShownLoading,
+                activeTasks: Array.from(activeLoadingTasksRef.current),
+                nodeInfoType: nodeInfo?.type,
+                isDiscordAction: nodeInfo?.type === "discord_action_send_message",
+                checkingBot,
+                hasGuildId: !!config.guildId,
+                hasChannels: !!dynamicOptions.discord_channels
+              })
+              
+              // If we're not in a loading state, don't show loading
+              if (!loadingDynamic) {
+                return false
+              }
+              
+              // If we've already shown loading and we're still loading, continue showing it
+              if (hasShownLoading && loadingDynamic) {
+                return true
+              }
+              
+              // For Discord actions, be more specific about when to show loading
+              if (nodeInfo?.type === "discord_action_send_message") {
+                // Show loading if we have any active loading tasks
+                const hasActiveTasks = activeLoadingTasksRef.current.size > 0
+                return hasActiveTasks
+              }
+              
+              // For other integrations, show loading if we're in a loading state
+              return loadingDynamic
+            }
+
+            const isLoading = shouldShowLoading()
+            
+            if (isLoading) {
+              console.log('🔄 ConfigurationModal Showing loading screen due to:', {
+                loadingDynamic,
+                hasShownLoading,
+                nodeInfoType: nodeInfo?.type,
+                isDiscordAction: nodeInfo?.type === "discord_action_send_message",
+                hasGuildId: !!config.guildId,
+                hasChannels: !!dynamicOptions.discord_channels,
+                checkingBot
+              })
+              
+              return (
+                <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex flex-col items-center justify-center z-50">
+                  <ConfigurationLoadingScreen 
+                    integrationName={nodeInfo.title || nodeInfo.type || integrationName}
+                  />
+                  {retryCount > 0 && (
+                    <div className="mt-4 text-sm text-muted-foreground animate-pulse">
+                      Retrying... (attempt {retryCount + 1})
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          )}
+              )
+            }
+            
+            return null
+          })()}
         </DialogContent>
       </Dialog>
       {/* Preview Modal */}
