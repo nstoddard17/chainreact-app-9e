@@ -211,7 +211,8 @@ function generateDiscordAuthUrl(state: string): string {
     client_id: clientId,
     redirect_uri: `${baseUrl}/api/integrations/discord/callback`,
     response_type: "code",
-    scope: "identify guilds email connections guilds.members.read messages.read",
+    integration_type: "0",
+    scope: "identify guilds email connections guilds.members.read messages.read presences.read dm_channels.messages.read dm_channels.messages.write dm_channels.read applications.commands relationships.read",
     state,
     prompt: "consent",
   })

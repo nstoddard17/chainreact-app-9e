@@ -68,6 +68,16 @@ class DiscordGateway extends EventEmitter {
         }
       })
 
+      if (gatewayResponse.status === 429) {
+        // Rate limited by Discord
+        const retryAfter = gatewayResponse.headers.get('Retry-After')
+        const waitTime = retryAfter ? parseInt(retryAfter, 10) * 1000 : 30000 // default 30s
+        console.warn(`Rate limited by Discord Gateway. Waiting ${waitTime / 1000}s before retrying.`)
+        await new Promise(res => setTimeout(res, waitTime))
+        this.scheduleReconnect(true) // pass true to indicate rate limit
+        return
+      }
+
       if (!gatewayResponse.ok) {
         throw new Error(`Failed to get gateway URL: ${gatewayResponse.status}`)
       }
@@ -80,7 +90,7 @@ class DiscordGateway extends EventEmitter {
 
       this.ws.onopen = () => {
         this.isConnected = true
-        this.reconnectAttempts = 0
+        this.reconnectAttempts = 0 // Reset attempts on success
       }
 
       this.ws.onmessage = (event) => {
@@ -90,7 +100,6 @@ class DiscordGateway extends EventEmitter {
       this.ws.onclose = (event) => {
         this.isConnected = false
         this.cleanup()
-        
         // Only reconnect for non-normal closures
         if (event.code !== 1000) {
           this.scheduleReconnect()
@@ -305,13 +314,14 @@ class DiscordGateway extends EventEmitter {
   /**
    * Schedule reconnection
    */
-  private scheduleReconnect(): void {
+  private scheduleReconnect(rateLimited = false): void {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
       return
     }
 
     this.reconnectAttempts++
-    const delay = this.reconnectDelay * this.reconnectAttempts
+    // If rate limited, always wait at least 30s
+    const delay = rateLimited ? 30000 : this.reconnectDelay * this.reconnectAttempts
 
     setTimeout(() => {
       this.reconnect()
