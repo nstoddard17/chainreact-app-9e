@@ -141,7 +141,6 @@ export async function sendDiscordMessage(
     }
 
   } catch (error: any) {
-    console.error("Discord send message error:", error)
     return {
       success: false,
       output: {},
@@ -244,7 +243,6 @@ export async function createDiscordChannel(
     }
 
   } catch (error: any) {
-    console.error("Discord create channel error:", error)
     return {
       success: false,
       output: {},
@@ -323,7 +321,6 @@ export async function addDiscordRole(
     }
 
   } catch (error: any) {
-    console.error("Discord add role error:", error)
     return {
       success: false,
       output: {},

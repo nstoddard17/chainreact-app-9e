@@ -1079,8 +1079,6 @@ export default function ConfigurationModal({
   
   // Debounced loading state setter with double loading prevention
   const setLoadingDynamicDebounced = useCallback((loading: boolean, taskId?: string) => {
-    console.log('🔄 setLoadingDynamicDebounced called:', { loading, taskId, currentTasks: Array.from(activeLoadingTasksRef.current) })
-    
     if (taskId) {
       if (loading) {
         activeLoadingTasksRef.current.add(taskId)
@@ -1104,31 +1102,44 @@ export default function ConfigurationModal({
       setLoadingDynamic(true)
       setHasShownLoading(true) // Mark that we've shown loading
     } else {
-      // Check if minimum loading time has passed
-      const elapsed = Date.now() - (loadingStartTimeRef.current || 0)
-      const remainingTime = Math.max(0, minLoadingTimeRef.current - elapsed)
-      
-      if (remainingTime > 0) {
-        // Set a timeout to hide loading after minimum time
-        if (loadingTimeoutRef.current) {
-          clearTimeout(loadingTimeoutRef.current)
-        }
-        loadingTimeoutRef.current = setTimeout(() => {
-          loadingStateRef.current = false
-          setLoadingDynamic(false)
-          setHasShownLoading(false) // Reset loading shown state
-          loadingStartTimeRef.current = null
-          loadingTimeoutRef.current = null
-        }, remainingTime)
-      } else {
-        // Hide loading immediately
+      // For Discord actions, clear loading immediately to prevent stuck state
+      if (nodeInfo && nodeInfo.type === "discord_action_send_message") {
+        console.log('🔄 Discord action: Clearing loading state immediately')
         loadingStateRef.current = false
         setLoadingDynamic(false)
-        setHasShownLoading(false) // Reset loading shown state
+        setHasShownLoading(false)
         loadingStartTimeRef.current = null
         if (loadingTimeoutRef.current) {
           clearTimeout(loadingTimeoutRef.current)
           loadingTimeoutRef.current = null
+        }
+      } else {
+        // Check if minimum loading time has passed for other integrations
+        const elapsed = Date.now() - (loadingStartTimeRef.current || 0)
+        const remainingTime = Math.max(0, minLoadingTimeRef.current - elapsed)
+        
+        if (remainingTime > 0) {
+          // Set a timeout to hide loading after minimum time
+          if (loadingTimeoutRef.current) {
+            clearTimeout(loadingTimeoutRef.current)
+          }
+          loadingTimeoutRef.current = setTimeout(() => {
+            loadingStateRef.current = false
+            setLoadingDynamic(false)
+            setHasShownLoading(false) // Reset loading shown state
+            loadingStartTimeRef.current = null
+            loadingTimeoutRef.current = null
+          }, remainingTime)
+        } else {
+          // Hide loading immediately
+          loadingStateRef.current = false
+          setLoadingDynamic(false)
+          setHasShownLoading(false) // Reset loading shown state
+          loadingStartTimeRef.current = null
+          if (loadingTimeoutRef.current) {
+            clearTimeout(loadingTimeoutRef.current)
+            loadingTimeoutRef.current = null
+          }
         }
       }
     }
@@ -2748,6 +2759,28 @@ export default function ConfigurationModal({
     return () => clearTimeout(retryTimeout)
   }, [loadingDynamic, isOpen, nodeInfo?.providerId, fetchDynamicData, retryCount])
 
+  // Emergency fallback to clear stuck loading state for Discord actions
+  useEffect(() => {
+    if (nodeInfo?.type === "discord_action_send_message" && loadingDynamic) {
+      const emergencyTimeout = setTimeout(() => {
+        if (loadingDynamic) {
+          console.log('🚨 Emergency clearing stuck loading state for Discord action')
+          setLoadingDynamic(false)
+          setHasShownLoading(false)
+          activeLoadingTasksRef.current.clear()
+          if (loadingTimeoutRef.current) {
+            clearTimeout(loadingTimeoutRef.current)
+            loadingTimeoutRef.current = null
+          }
+          loadingStateRef.current = false
+          loadingStartTimeRef.current = null
+        }
+      }, 15000) // 15 seconds emergency timeout
+      
+      return () => clearTimeout(emergencyTimeout)
+    }
+  }, [nodeInfo?.type, loadingDynamic])
+
   // Auto-load sheet data when spreadsheet and sheet are selected
   useEffect(() => {
     if (!isOpen || !nodeInfo) return
@@ -3645,11 +3678,10 @@ export default function ConfigurationModal({
                           <SelectValue placeholder={`Select ${fieldDef.name.toLowerCase()}`} />
                         </SelectTrigger>
                         <SelectContent 
-                          className="max-h-[min(384px,calc(100vh-64px))] overflow-y-auto m-2"
+                          className="max-h-[min(384px,calc(100vh-64px))] overflow-y-auto" 
                           side="bottom" 
-                          sideOffset={4} 
-                          align="start" 
-                          position="popper"
+                          sideOffset={0} 
+                          align="start"
                         >
                           {fieldDef.options.choices.map((choice: any, choiceIndex: number) => (
                             <SelectItem key={`choice-${choiceIndex}-${choice.name}`} value={choice.name} className="whitespace-nowrap">
@@ -5100,11 +5132,10 @@ export default function ConfigurationModal({
                       } />
                     </SelectTrigger>
                     <SelectContent 
-                      className="max-h-[min(384px,calc(100vh-64px))] overflow-y-auto m-2"
+                      className="max-h-[min(384px,calc(100vh-64px))] overflow-y-auto" 
                       side="bottom" 
-                      sideOffset={4} 
-                      align="start" 
-                      position="popper"
+                      sideOffset={0} 
+                      align="start"
                     >
                       {options.map((option, optionIndex) => {
                         const optionValue = typeof option === 'string' ? option : option.value
@@ -5175,11 +5206,10 @@ export default function ConfigurationModal({
                 } />
               </SelectTrigger>
               <SelectContent 
-                className="max-h-[min(384px,calc(100vh-64px))] overflow-y-auto m-2"
+                className="max-h-[min(384px,calc(100vh-64px))] overflow-y-auto" 
                 side="bottom" 
-                sideOffset={4} 
-                align="start" 
-                position="popper"
+                sideOffset={0} 
+                align="start"
               >
                 {options.map((option, optionIndex) => {
                   const optionValue = typeof option === 'string' ? option : option.value
@@ -6489,7 +6519,6 @@ export default function ConfigurationModal({
                     </div>
                   )}
                   
-                  {/* Tips for File Upload Actions */}
                   {nodeInfo?.type === "onedrive_action_upload_file" && (
                     <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
                       <p className="text-sm text-blue-800">

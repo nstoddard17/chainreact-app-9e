@@ -36,21 +36,14 @@ class DiscordBotPresenceManager {
       this.botToken = process.env.DISCORD_BOT_TOKEN || null
       this.botUserId = process.env.DISCORD_BOT_USER_ID || null
 
-      if (!this.botToken) {
-        console.warn("Discord bot token not configured, presence management disabled")
+      if (!this.botToken || !this.botUserId) {
         return
       }
 
-      if (!this.botUserId) {
-        console.warn("Discord bot user ID not configured, presence management disabled")
-        return
-      }
-
-      console.log("Initializing Discord bot presence manager...")
       await this.connectToGateway()
       
     } catch (error) {
-      console.error("Failed to initialize Discord bot presence manager:", error)
+      // Silent error handling
     }
   }
 
@@ -79,7 +72,6 @@ class DiscordBotPresenceManager {
       await this.startPresenceHeartbeat()
       
     } catch (error) {
-      console.error("Failed to connect to Discord Gateway:", error)
       this.scheduleReconnect()
     }
   }
@@ -102,7 +94,6 @@ class DiscordBotPresenceManager {
     
     this.isConnected = true
     this.reconnectAttempts = 0
-    console.log("Discord bot presence heartbeat started")
   }
 
   /**
@@ -116,7 +107,6 @@ class DiscordBotPresenceManager {
       const guilds = await this.getBotGuilds()
       
       if (guilds.length === 0) {
-        console.log("Bot is not in any guilds, skipping presence update")
         return
       }
 
@@ -126,7 +116,7 @@ class DiscordBotPresenceManager {
       }
 
     } catch (error) {
-      console.error("Failed to update Discord bot presence:", error)
+      // Silent error handling
     }
   }
 
@@ -153,7 +143,6 @@ class DiscordBotPresenceManager {
       }))
 
     } catch (error) {
-      console.error("Failed to get bot guilds:", error)
       return []
     }
   }
@@ -177,10 +166,10 @@ class DiscordBotPresenceManager {
       // The presence is global across all guilds. This is a limitation of Discord's API.
       // The bot will appear online in all guilds it's a member of.
       
-      console.log(`Updated presence for guild ${guildId}: ${presence.status}`)
+      // Presence updated silently
 
     } catch (error) {
-      console.error(`Failed to update presence for guild ${guildId}:`, error)
+      // Silent error handling
     }
   }
 
@@ -194,10 +183,10 @@ class DiscordBotPresenceManager {
       // Update the presence across all guilds
       await this.updatePresence()
       
-      console.log("Custom presence set:", presence)
+      // Custom presence set silently
 
     } catch (error) {
-      console.error("Failed to set custom presence:", error)
+      // Silent error handling
     }
   }
 
@@ -206,17 +195,13 @@ class DiscordBotPresenceManager {
    */
   private scheduleReconnect(): void {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      console.error("Max reconnection attempts reached, giving up")
       return
     }
 
     this.reconnectAttempts++
     const delay = this.reconnectDelay * this.reconnectAttempts
 
-    console.log(`Scheduling reconnection attempt ${this.reconnectAttempts} in ${delay}ms`)
-
     setTimeout(async () => {
-      console.log(`Attempting reconnection ${this.reconnectAttempts}`)
       await this.connectToGateway()
     }, delay)
   }
@@ -231,7 +216,6 @@ class DiscordBotPresenceManager {
     }
     
     this.isConnected = false
-    console.log("Discord bot presence manager stopped")
   }
 
   /**
@@ -250,7 +234,6 @@ class DiscordBotPresenceManager {
   async ensureBotOnline(guildId: string): Promise<boolean> {
     try {
       if (!this.botToken || !this.botUserId) {
-        console.warn("Bot credentials not configured")
         return false
       }
 
@@ -263,12 +246,10 @@ class DiscordBotPresenceManager {
       })
 
       if (response.status === 404) {
-        console.log(`Bot is not a member of guild ${guildId}`)
         return false
       }
 
       if (!response.ok) {
-        console.error(`Failed to check bot membership in guild ${guildId}: ${response.status}`)
         return false
       }
 
@@ -277,7 +258,6 @@ class DiscordBotPresenceManager {
       return true
 
     } catch (error) {
-      console.error(`Failed to ensure bot online in guild ${guildId}:`, error)
       return false
     }
   }
@@ -293,7 +273,7 @@ export async function initializeDiscordBotPresence(): Promise<void> {
   try {
     await discordBotPresence.initialize()
   } catch (error) {
-    console.error("Failed to initialize Discord bot presence:", error)
+    // Silent error handling
   }
 }
 
@@ -317,6 +297,6 @@ export async function updateDiscordBotPresenceForAction(guildId: string): Promis
     })
     
   } catch (error) {
-    console.error("Failed to update Discord bot presence for action:", error)
+    // Silent error handling
   }
 } 
