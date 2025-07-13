@@ -145,10 +145,21 @@ export default function AIAssistantContent() {
       try {
         // Get the current session token
         const supabase = createClient()
-        const { data: { session } } = await supabase.auth.getSession()
         
-        if (!session) {
-          throw new Error("No active session")
+        // First validate user authentication
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser()
+        
+        if (userError || !user) {
+          throw new Error("Not authenticated")
+        }
+
+        // Then get session for access token
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session?.access_token) {
+          throw new Error("Session expired. Please log in again.")
         }
 
         // Create a new AbortController and store the reference
@@ -217,7 +228,7 @@ export default function AIAssistantContent() {
               errorMessage = "Request timed out. Please try again."
             } else if (error.message.includes('API error:')) {
               errorMessage = error.message.replace('API error: ', '')
-            } else if (error.message.includes('No active session')) {
+            } else if (error.message.includes('Not authenticated')) {
               errorMessage = "Session expired. Please refresh the page and try again."
             } else if (error.message.includes('Failed to fetch')) {
               errorMessage = "Network error. Please check your connection and try again."
@@ -268,18 +279,27 @@ export default function AIAssistantContent() {
     try {
       // Get the current session token
       const supabase = createClient()
-      const { data: { session } } = await supabase.auth.getSession()
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser()
       
-      if (!session) {
-        throw new Error("No active session")
+      if (userError || !user) {
+        throw new Error("Not authenticated")
+      }
+
+      // Then get session for access token
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) {
+        throw new Error("Session expired. Please log in again.")
       }
 
       const response = await fetch("/api/ai/confirm-action", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${session.access_token}`,
-        },
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${session.access_token}`,
+          },
         body: JSON.stringify({
           action: pendingConfirmation.action,
           confirmed,

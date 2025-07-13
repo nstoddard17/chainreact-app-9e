@@ -66,18 +66,20 @@ export async function getServerSideProps() {
     
     const supabase = createServerComponentClient({ cookies })
     
-    // Fetch the session
-    const { data: { session } } = await supabase.auth.getSession()
-    
-    if (!session?.user?.id) {
-      return { props: {} }
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
+
+    if (userError || !user) {
+      throw new Error("Not authenticated")
     }
     
     // Fetch user profile
     const { data, error } = await supabase
       .from('user_profiles')
       .select('id, username, full_name, first_name, last_name, avatar_url, company, job_title, role, updated_at')
-      .eq('id', session.user.id)
+      .eq('id', user.id)
       .single()
       
     if (error || !data) {

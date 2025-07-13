@@ -20,9 +20,18 @@ export function getSupabaseClient() {
 export async function getSession() {
   const supabase = getSupabaseClient()
   try {
+    // First validate user authentication
     const {
-      data: { session },
-    } = await supabase.auth.getSession()
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
+
+    if (userError || !user) {
+      return null
+    }
+
+    // Then get session for backward compatibility
+    const { data: { session } } = await supabase.auth.getSession()
     return session
   } catch (error) {
     console.error("Error getting session:", error)

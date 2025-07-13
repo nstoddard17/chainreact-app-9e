@@ -1,360 +1,510 @@
 "use client"
 
-import { useEffect, useState, useCallback, useMemo } from "react"
-import { useSearchParams, useRouter } from "next/navigation"
-import AppLayout from "@/components/layout/AppLayout"
-import { useWorkflowStore } from "@/stores/workflowStore"
-import { useIntegrationStore } from "@/stores/integrationStore"
-import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Textarea } from "@/components/ui/textarea"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Card, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Alert, AlertDescription } from "@/components/ui/alert"
+import type React from "react"
+import { useEffect, useCallback, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import {
-  Save,
-  Play,
-  Loader2,
-  Sparkles,
-  ArrowLeft,
-  Edit,
-  X,
-  Database,
-  CheckCircle,
-  ExternalLink,
-  ArrowRight,
-  Wifi,
-  WifiOff,
-  Workflow,
-  AlertCircle,
-  Info,
-} from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
-import { ALL_NODE_COMPONENTS, NodeComponent } from "@/lib/workflows/availableNodes"
-import { INTEGRATION_CONFIGS } from "@/lib/integrations/availableIntegrations"
+  ReactFlow,
+  Background,
+  Controls,
+  MiniMap,
+  useNodesState,
+  useEdgesState,
+  addEdge,
+  type Connection,
+  type Edge,
+  type Node,
+  type NodeTypes,
+  Panel,
+} from "@xyflow/react"
+import "@xyflow/react/dist/style.css"
 
-// Group nodes by provider to build integration list
-const getIntegrationsFromNodes = () => {
-  const integrations: Record<
-    string,
-    {
-      id: string
-      name: string
-      logo: string
-      description: string
-      category: string
-      color: string
-      triggers: NodeComponent[]
-      actions: NodeComponent[]
-    }
-  > = {}
+import AppLayout from "@/components/layout/AppLayout"
+import { useWorkflowStore, type WorkflowNode, type WorkflowConnection } from "@/stores/workflowStore"
+import { useUXStore } from "@/stores/uxStore"
+import WorkflowToolbar from "./WorkflowToolbar"
+import NodePalette from "./NodePalette"
+// ConfigurationPanel import removed - component doesn't exist
+import CustomNode from "./CustomNode"
+import { WorkflowComments } from "./WorkflowComments"
+import { WorkflowVersionControl } from "./WorkflowVersionControl"
+import { WorkflowDebugger } from "./WorkflowDebugger"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Save, Play, Loader2, MessageSquare, GitBranch } from "lucide-react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
-  ALL_NODE_COMPONENTS.forEach((node) => {
-    if (node.providerId) {
-      if (!integrations[node.providerId]) {
-        const config = INTEGRATION_CONFIGS[node.providerId]
-        integrations[node.providerId] = {
-          id: node.providerId,
-          name: config?.name || node.providerId,
-          logo: `/integrations/${node.providerId}.svg`,
-          description: config?.description || `Integration for ${node.providerId}`,
-          category: config?.category || "Uncategorized",
-          color: config?.color || "#FFFFFF",
-          triggers: [],
-          actions: [],
-        }
-      }
-
-      if (node.isTrigger) {
-        integrations[node.providerId].triggers.push(node)
-      } else {
-        integrations[node.providerId].actions.push(node)
-      }
-    }
-  })
-
-  return Object.values(integrations)
-}
-
-const AVAILABLE_INTEGRATIONS = getIntegrationsFromNodes()
-
-// TODO: Refactor TRIGGER_CONFIGS to be more dynamic
-const TRIGGER_CONFIGS: Record<string, any> = {}
-const ACTION_CONFIGS: Record<string, any> = {}
-
-interface WorkflowStep {
-  id: string
-  type: "trigger" | "action" | "condition"
-  appId: string
-  appName: string
-  actionName: string
-  actionId: string
-  config: Record<string, any>
-  isConfigured: boolean
+const nodeTypes: NodeTypes = {
+  custom: CustomNode,
 }
 
 export default function WorkflowBuilder() {
   const searchParams = useSearchParams()
-  const router = useRouter()
   const workflowId = searchParams.get("id")
 
-  const { currentWorkflow, setCurrentWorkflow, saveWorkflow, fetchWorkflows, workflows, generateWorkflowWithAI } =
-    useWorkflowStore()
   const {
-    integrations,
-    fetchIntegrations,
-    connectIntegration,
-    getIntegrationStatus,
-    clearError,
-    error: integrationError,
-  } = useIntegrationStore()
+    currentWorkflow,
+    selectedNode,
+    setCurrentWorkflow,
+    setSelectedNode,
+    saveWorkflow,
+    fetchWorkflows,
+    workflows,
+    addNode,
+  } = useWorkflowStore()
 
-  const [workflowSteps, setWorkflowSteps] = useState<WorkflowStep[]>([])
+  const {
+    builderPreferences,
+    comments,
+    versions,
+    debugSession,
+    fetchBuilderPreferences,
+    fetchComments,
+    fetchVersions,
+    updateBuilderPreferences,
+  } = useUXStore()
+
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
   const [saving, setSaving] = useState(false)
   const [testing, setTesting] = useState(false)
+  const [activePanel, setActivePanel] = useState<string>("nodes")
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
 
-  // Modal states
-  const [showTriggerModal, setShowTriggerModal] = useState(false)
-  const [showActionModal, setShowActionModal] = useState(false)
-  const [selectedIntegration, setSelectedIntegration] = useState<any>(null)
-  const [selectedTrigger, setSelectedTrigger] = useState<any>(null)
-  const [selectedAction, setSelectedAction] = useState<any>(null)
-  const [configStep, setConfigStep] = useState<any>(null)
-  const [dynamicData, setDynamicData] = useState<Record<string, any[]>>({})
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState<number | null>(null)
-  const [showExitConfirm, setShowExitConfirm] = useState(false)
-  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false)
-  const [showGenerateAIModal, setShowGenerateAIModal] = useState(false)
-  const [aiPrompt, setAiPrompt] = useState("")
-  const [isGenerating, setIsGenerating] = useState(false)
+  // Track unsaved changes
+  const checkForUnsavedChanges = useCallback(() => {
+    console.log('🔍 checkForUnsavedChanges called')
+    if (!currentWorkflow) {
+      console.log('🔍 No currentWorkflow, returning false')
+      return false
+    }
+    
+    const currentNodes = nodes.filter((n: Node) => n.type === 'custom')
+    const currentEdges = edges
+    
+    // Compare nodes
+    const savedNodes = currentWorkflow.nodes || []
+    const nodesChanged = currentNodes.length !== savedNodes.length ||
+      currentNodes.some((node, index) => {
+        const savedNode = savedNodes[index]
+        if (!savedNode) return true
+        return node.id !== savedNode.id ||
+               node.data.type !== savedNode.data.type ||
+               JSON.stringify(node.data.config) !== JSON.stringify(savedNode.data.config) ||
+               node.position.x !== savedNode.position.x ||
+               node.position.y !== savedNode.position.y
+      })
+    
+    // Compare edges
+    const savedEdges = currentWorkflow.connections || []
+    const edgesChanged = currentEdges.length !== savedEdges.length ||
+      currentEdges.some((edge, index) => {
+        const savedEdge = savedEdges[index]
+        if (!savedEdge) return true
+        return edge.id !== savedEdge.id ||
+               edge.source !== savedEdge.source ||
+               edge.target !== savedEdge.target
+      })
+    
+    const hasChanges = nodesChanged || edgesChanged
+    console.log('🔍 Unsaved changes check:', { 
+      nodesChanged, 
+      edgesChanged, 
+      hasChanges, 
+      currentNodesLength: currentNodes.length, 
+      savedNodesLength: savedNodes.length,
+      currentEdgesLength: currentEdges.length,
+      savedEdgesLength: savedEdges.length
+    })
+    setHasUnsavedChanges(hasChanges)
+    return hasChanges
+  }, [currentWorkflow, nodes, edges])
 
-  const { toast } = useToast()
-
+  // Check for unsaved changes whenever nodes or edges change
   useEffect(() => {
-    // Initialization logic...
-    if (workflowId && workflows.length > 0) {
-      const wf = workflows.find((w) => w.id === workflowId)
-      if (wf) {
-        setCurrentWorkflow(wf)
-        // Assuming wf.steps is the structure
-        // setWorkflowSteps(wf.steps)
+    console.log('🔄 useEffect triggered for unsaved changes check')
+    if (currentWorkflow) {
+      console.log('🔄 Calling checkForUnsavedChanges')
+      checkForUnsavedChanges()
+    } else {
+      console.log('🔄 No currentWorkflow, skipping check')
+    }
+  }, [currentWorkflow, nodes, edges, checkForUnsavedChanges])
+
+  // Warn user before leaving with unsaved changes
+  useEffect(() => {
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        event.preventDefault()
+        event.returnValue = 'You have unsaved changes. Are you sure you want to leave?'
+        return 'You have unsaved changes. Are you sure you want to leave?'
       }
     }
-    fetchIntegrations()
-  }, [workflowId, workflows, fetchWorkflows, setCurrentWorkflow, fetchIntegrations])
 
-  const handleAddTrigger = () => {
-    resetModalStates()
-    setShowTriggerModal(true)
-  }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [hasUnsavedChanges])
 
-  const handleIntegrationSelected = (integration: any) => {
-    setSelectedIntegration(integration)
-  }
+  // Load workflow and preferences
+  useEffect(() => {
+    if (workflowId && workflows.length > 0) {
+      const workflow = workflows.find((w) => w.id === workflowId)
+      if (workflow) {
+        setCurrentWorkflow(workflow)
+        fetchComments(workflow.id)
+        fetchVersions(workflow.id)
+      }
+    }
+    fetchBuilderPreferences()
+  }, [workflowId, workflows, setCurrentWorkflow, fetchComments, fetchVersions, fetchBuilderPreferences])
 
-  const handleTriggerSelected = async (trigger: any) => {
-    setSelectedTrigger(trigger)
-    const configFields = TRIGGER_CONFIGS[trigger.type] || []
+  // Fetch workflows on mount
+  useEffect(() => {
+    fetchWorkflows()
+  }, [fetchWorkflows])
 
-    if (configFields.length > 0) {
-      setConfigStep({ ...trigger, config: {} })
-    } else {
-      addTriggerStep(trigger, {})
-      resetModalStates()
+  // Update nodes and edges when current workflow changes
+  useEffect(() => {
+    if (currentWorkflow) {
+      setNodes(currentWorkflow.nodes || [])
+      setEdges(currentWorkflow.connections || [])
+    }
+  }, [currentWorkflow, setNodes, setEdges])
+
+  // Auto-save functionality
+  useEffect(() => {
+    if (builderPreferences?.auto_save && currentWorkflow) {
+      const autoSaveInterval = setInterval(() => {
+        handleSave(true) // Silent save
+      }, 30000) // Auto-save every 30 seconds
+
+      return () => clearInterval(autoSaveInterval)
+    }
+  }, [builderPreferences?.auto_save, currentWorkflow])
+
+  const onConnect = useCallback(
+    (params: Connection) => {
+      const newEdge: Edge = {
+        id: `edge-${Date.now()}`,
+        source: params.source!,
+        target: params.target!,
+        sourceHandle: params.sourceHandle,
+        targetHandle: params.targetHandle,
+      }
+      setEdges((eds) => addEdge(newEdge, eds))
+    },
+    [setEdges],
+  )
+
+  const onNodeClick = useCallback(
+    (event: React.MouseEvent, node: Node) => {
+      setSelectedNode(node as any)
+    },
+    [setSelectedNode],
+  )
+
+  const onPaneClick = useCallback(() => {
+    setSelectedNode(null)
+  }, [setSelectedNode])
+
+  const onDragOver = useCallback((event: React.DragEvent) => {
+    event.preventDefault()
+    event.dataTransfer.dropEffect = "move"
+  }, [])
+
+  const onDrop = useCallback(
+    (event: React.DragEvent) => {
+      event.preventDefault()
+
+      const nodeType = event.dataTransfer.getData("application/reactflow")
+      const nodeData = JSON.parse(event.dataTransfer.getData("application/nodedata"))
+
+      if (!nodeType || !currentWorkflow) return
+
+      const position = {
+        x: event.clientX - 200,
+        y: event.clientY - 100,
+      }
+
+      const newNode = {
+        id: `${nodeType}-${Date.now()}`,
+        type: "custom",
+        position,
+        data: {
+          ...nodeData,
+          config: {},
+        },
+      }
+
+      addNode(newNode)
+      setNodes((nds) => [...nds, newNode])
+    },
+    [currentWorkflow, addNode, setNodes],
+  )
+
+  const handleSave = async (silent = false) => {
+    if (!currentWorkflow) return
+
+    console.log('💾 handleSave called, hasUnsavedChanges before save:', hasUnsavedChanges)
+    setSaving(true)
+    try {
+      const oldStatus = currentWorkflow.status
+      
+      // Create the updated workflow with current nodes and edges
+      const updatedWorkflow = {
+        ...currentWorkflow,
+        nodes: nodes as any,
+        connections: edges as any,
+      }
+      
+      console.log('💾 Updating currentWorkflow with new nodes/edges')
+      // Update the current workflow in the store
+      setCurrentWorkflow(updatedWorkflow)
+      
+      console.log('💾 Calling saveWorkflow()')
+      // Save to database
+      await saveWorkflow()
+      
+      console.log('💾 Save completed, clearing hasUnsavedChanges')
+      // Clear unsaved changes after successful save
+      setHasUnsavedChanges(false)
+      
+      // Small delay to prevent the effect from immediately re-checking
+      setTimeout(() => {
+        console.log('✅ Save completed, unsaved changes cleared')
+      }, 100)
+      
+      // Check if status changed and show notification
+      if (!silent && currentWorkflow.status !== oldStatus) {
+        const { toast } = await import('@/hooks/use-toast')
+        toast({
+          title: "Workflow Status Updated",
+          description: `Workflow is now ${currentWorkflow.status === 'active' ? 'active and ready to run' : 'marked as draft'}`,
+          variant: currentWorkflow.status === 'active' ? 'default' : 'destructive',
+        })
+      }
+    } catch (error) {
+      console.error("Failed to save workflow:", error)
+    } finally {
+      setSaving(false)
     }
   }
 
-  const addTriggerStep = (trigger: any, config: Record<string, any>) => {
-    const newStep: WorkflowStep = {
-      id: `trigger_${Date.now()}`,
-      type: "trigger",
-      appId: selectedIntegration.id,
-      appName: selectedIntegration.name,
-      actionId: trigger.type,
-      actionName: trigger.title,
-      config,
-      isConfigured: (TRIGGER_CONFIGS[trigger.type] || []).length === 0,
-    }
-    setWorkflowSteps([newStep])
-    setHasUnsavedChanges(true)
-  }
+  const handleTest = async () => {
+    if (!currentWorkflow) return
 
-  const addActionStep = (action: any, config: Record<string, any>) => {
-    const newStep: WorkflowStep = {
-      id: `action_${Date.now()}`,
-      type: "action",
-      appId: selectedIntegration.id,
-      appName: selectedIntegration.name,
-      actionId: action.type,
-      actionName: action.title,
-      config,
-      isConfigured: (ACTION_CONFIGS[action.type] || []).length === 0,
-    }
-    setWorkflowSteps([...workflowSteps, newStep])
-    setHasUnsavedChanges(true)
-  }
+    setTesting(true)
+    try {
+      const response = await fetch("/api/workflows/execute", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          workflowId: currentWorkflow.id,
+          testMode: true,
+        }),
+      })
 
-  const handleActionSelected = async (action: any) => {
-    setSelectedAction(action)
-    const configFields = ACTION_CONFIGS[action.type] || []
+      const result = await response.json()
 
-    if (configFields.length > 0) {
-      setConfigStep({ ...action, config: {} })
-    } else {
-      addActionStep(action, {})
-      resetModalStates()
+      if (result.success) {
+        alert("Workflow test completed successfully!")
+      } else {
+        alert(`Workflow test failed: ${result.error}`)
+      }
+    } catch (error) {
+      console.error("Failed to test workflow:", error)
+      alert("Failed to test workflow")
+    } finally {
+      setTesting(false)
     }
   }
 
-  const resetModalStates = () => {
-    setShowTriggerModal(false)
-    setShowActionModal(false)
-    setSelectedIntegration(null)
-    setSelectedTrigger(null)
-    setSelectedAction(null)
-    setConfigStep(null)
-    setDynamicData({})
+  const workflowComments = currentWorkflow ? comments[currentWorkflow.id] || [] : []
+  const workflowVersions = currentWorkflow ? versions[currentWorkflow.id] || [] : []
+
+  if (!currentWorkflow) {
+    return (
+      <AppLayout title="Workflow Builder">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="text-lg font-medium text-slate-900 mb-2">No workflow selected</div>
+            <div className="text-sm text-slate-500">
+              Create a new workflow or select an existing one to start building
+            </div>
+          </div>
+        </div>
+      </AppLayout>
+    )
   }
-
-  // ... other functions ...
-
-  const workflowName = currentWorkflow?.name || "Untitled Workflow"
 
   return (
-    <AppLayout title={workflowName}>
-      <div className="flex-1 flex flex-col p-6 space-y-6">
-        {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold">{workflowName}</h1>
-          {/* ... other header elements */}
-        </div>
-        
-        {/* Workflow Steps */}
-        <div className="flex-1">
-          {workflowSteps.length === 0 ? (
-            <div className="flex items-center justify-center h-full border-2 border-dashed rounded-lg">
-              <Button onClick={handleAddTrigger}>Add a trigger</Button>
-            </div>
-          ) : (
+    <AppLayout title="Workflow Builder">
+      <div className="h-full flex flex-col">
+        {/* Enhanced Toolbar */}
+        <div className="flex items-center justify-between p-4 bg-card border-b border-border">
+          <div className="flex items-center space-x-4">
             <div>
-              {/* Render workflow steps here */}
+              <h1 className="text-xl font-semibold text-slate-900 flex items-center gap-2">
+                {currentWorkflow.name}
+                {hasUnsavedChanges && (
+                  <Badge variant="outline" className="text-xs bg-yellow-50 text-yellow-700 border-yellow-200">
+                    Unsaved Changes
+                  </Badge>
+                )}
+              </h1>
+              <p className="text-sm text-slate-500">{currentWorkflow.description}</p>
             </div>
-          )}
+            <div className="flex items-center gap-2">
+              <Badge 
+                variant={
+                  currentWorkflow.status === "active" 
+                    ? "default" 
+                    : currentWorkflow.status === "paused" 
+                    ? "secondary" 
+                    : "outline"
+                }
+                className={`flex items-center gap-1 ${
+                  currentWorkflow.status === "active" 
+                    ? "bg-green-100 text-green-800 border-green-200" 
+                    : currentWorkflow.status === "paused" 
+                    ? "bg-yellow-100 text-yellow-800 border-yellow-200" 
+                    : "bg-gray-100 text-gray-800 border-gray-200"
+                }`}
+              >
+                {currentWorkflow.status === "active" && <div className="w-1.5 h-1.5 rounded-full bg-green-500" />}
+                {currentWorkflow.status === "paused" && <div className="w-1.5 h-1.5 rounded-full bg-yellow-500" />}
+                {currentWorkflow.status === "draft" && <div className="w-1.5 h-1.5 rounded-full bg-gray-500" />}
+                <span className="capitalize">{currentWorkflow.status}</span>
+              </Badge>
+              {workflowVersions.length > 0 && (
+                <Badge variant="outline" className="flex items-center gap-1">
+                  <GitBranch className="w-3 h-3" />v{workflowVersions[0]?.version_number || 1}
+                </Badge>
+              )}
+              {workflowComments.length > 0 && (
+                <Badge variant="secondary" className="flex items-center gap-1">
+                  <MessageSquare className="w-3 h-3" />
+                  {workflowComments.length}
+                </Badge>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center space-x-2">
+            <WorkflowToolbar />
+            <Button variant="outline" size="sm" onClick={handleTest} disabled={testing}>
+              {testing ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Testing...
+                </>
+              ) : (
+                <>
+                  <Play className="w-4 h-4 mr-2" />
+                  Test
+                </>
+              )}
+            </Button>
+            <Button 
+              size="sm" 
+              onClick={() => handleSave()} 
+              disabled={saving}
+              variant={hasUnsavedChanges ? "default" : "outline"}
+              className={hasUnsavedChanges ? "bg-blue-600 hover:bg-blue-700" : ""}
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4 mr-2" />
+                  {hasUnsavedChanges ? "Save Changes" : "Save"}
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+
+        <div className="flex-1 flex">
+          {/* Enhanced Side Panel */}
+          <div className="w-80 border-r border-border bg-card">
+            <Tabs value={activePanel} onValueChange={setActivePanel} className="h-full">
+              <TabsList className="grid w-full grid-cols-4 p-1 m-2">
+                <TabsTrigger value="nodes" className="text-xs">
+                  Nodes
+                </TabsTrigger>
+                <TabsTrigger value="comments" className="text-xs">
+                  Comments
+                </TabsTrigger>
+                <TabsTrigger value="versions" className="text-xs">
+                  Versions
+                </TabsTrigger>
+                <TabsTrigger value="debug" className="text-xs">
+                  Debug
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="nodes" className="h-full mt-0">
+                <NodePalette />
+              </TabsContent>
+              <TabsContent value="comments" className="h-full mt-0">
+                <WorkflowComments workflowId={currentWorkflow.id} comments={workflowComments} />
+              </TabsContent>
+              <TabsContent value="versions" className="h-full mt-0">
+                <WorkflowVersionControl workflowId={currentWorkflow.id} versions={workflowVersions} />
+              </TabsContent>
+              <TabsContent value="debug" className="h-full mt-0">
+                <WorkflowDebugger workflowId={currentWorkflow.id} debugSession={debugSession} />
+              </TabsContent>
+            </Tabs>
+          </div>
+
+          {/* Enhanced Canvas */}
+          <div className="flex-1 relative">
+            <ReactFlow
+              nodes={nodes}
+              edges={edges}
+              onNodesChange={onNodesChange}
+              onEdgesChange={onEdgesChange}
+              onConnect={onConnect}
+              onNodeClick={onNodeClick}
+              onPaneClick={onPaneClick}
+              onDragOver={onDragOver}
+              onDrop={onDrop}
+              nodeTypes={nodeTypes}
+              fitView
+              snapToGrid={builderPreferences?.snap_to_grid}
+              snapGrid={[15, 15]}
+              className="bg-slate-50"
+            >
+              <Background gap={builderPreferences?.grid_enabled ? 15 : 0} />
+              <Controls />
+              {builderPreferences?.minimap_enabled && (
+                <MiniMap
+                  nodeStrokeColor="#374151"
+                  nodeColor="#f3f4f6"
+                  nodeBorderRadius={2}
+                  pannable
+                  zoomable
+                  position="bottom-right"
+                />
+              )}
+
+              {/* Zoom Level Indicator */}
+              <Panel position="bottom-left">
+                <div className="bg-card px-2 py-1 rounded shadow text-xs text-muted-foreground">
+                  Zoom: {Math.round((builderPreferences?.zoom_level || 1) * 100)}%
+                </div>
+              </Panel>
+            </ReactFlow>
+          </div>
+
+          {/* Configuration Panel */}
+          {/* ConfigurationPanel removed - component doesn't exist */}
         </div>
       </div>
-      
-      <Dialog open={showTriggerModal} onOpenChange={setShowTriggerModal}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>
-              {selectedIntegration ? `Choose a trigger for ${selectedIntegration.name}` : "Choose an integration"}
-            </DialogTitle>
-            <DialogDescription>
-              {selectedIntegration
-                ? "Select a trigger to start your workflow."
-                : "Select an integration to see its available triggers."}
-            </DialogDescription>
-          </DialogHeader>
-
-          {selectedIntegration && (
-            <Button variant="ghost" onClick={() => setSelectedIntegration(null)} className="mb-4">
-              <ArrowLeft className="mr-2 h-4 w-4" /> Back to integrations
-            </Button>
-          )}
-
-          <ScrollArea className="h-[70vh] -mx-4">
-            <div className="flex flex-col gap-2 px-4">
-              {!selectedIntegration
-                ? AVAILABLE_INTEGRATIONS.filter(int => int.triggers.length > 0).map((integration) => (
-                    <Card
-                      key={integration.id}
-                      className="cursor-pointer hover:shadow-lg transition-shadow"
-                      onClick={() => handleIntegrationSelected(integration)}
-                    >
-                      <CardContent className="flex items-center gap-4 p-4">
-                        <img src={integration.logo} alt={`${integration.name} logo`} className="w-8 h-8 object-contain" />
-                        <div>
-                          <h3 className="font-semibold">{integration.name}</h3>
-                          <p className="text-sm text-muted-foreground">{integration.triggers.length} {integration.triggers.length > 1 ? 'triggers' : 'trigger'}</p>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))
-                : selectedIntegration.triggers.map((trigger: any) => (
-                    <Card
-                      key={trigger.type}
-                      className="cursor-pointer hover:shadow-lg transition-shadow"
-                      onClick={() => handleTriggerSelected(trigger)}
-                    >
-                      <CardContent className="p-4">
-                        <h3 className="font-semibold">{trigger.title}</h3>
-                        <p className="text-sm text-muted-foreground">{trigger.description || 'No description available'}</p>
-                      </CardContent>
-                    </Card>
-                  ))}
-            </div>
-          </ScrollArea>
-        </DialogContent>
-      </Dialog>
-      
-      <Dialog open={showActionModal} onOpenChange={setShowActionModal}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>
-              {selectedIntegration ? `Choose an action for ${selectedIntegration.name}` : "Choose an integration"}
-            </DialogTitle>
-            <DialogDescription>
-              {selectedIntegration
-                ? "Select an action to add to your workflow."
-                : "Select an integration to see its available actions."}
-            </DialogDescription>
-          </DialogHeader>
-
-          {selectedIntegration && (
-            <Button variant="ghost" onClick={() => setSelectedIntegration(null)} className="mb-4">
-              <ArrowLeft className="mr-2 h-4 w-4" /> Back to integrations
-            </Button>
-          )}
-
-          <ScrollArea className="h-[70vh] -mx-4">
-            <div className="flex flex-col gap-2 px-4">
-              {!selectedIntegration
-                ? AVAILABLE_INTEGRATIONS.filter(int => int.actions.length > 0).map((integration) => (
-                    <Card
-                      key={integration.id}
-                      className="cursor-pointer hover:shadow-lg transition-shadow"
-                      onClick={() => handleIntegrationSelected(integration)}
-                    >
-                      <CardContent className="flex items-center gap-4 p-4">
-                        <img src={integration.logo} alt={`${integration.name} logo`} className="w-8 h-8 object-contain" />
-                        <div>
-                          <h3 className="font-semibold">{integration.name}</h3>
-                          <p className="text-sm text-muted-foreground">{integration.actions.length} {integration.actions.length > 1 ? 'actions' : 'action'}</p>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))
-                : selectedIntegration.actions.map((action: any) => (
-                  <Card
-                    key={action.type}
-                    className="cursor-pointer hover:shadow-lg transition-shadow"
-                    onClick={() => handleActionSelected(action)}
-                  >
-                    <CardContent className="p-4">
-                      <h3 className="font-semibold">{action.title}</h3>
-                      <p className="text-sm text-muted-foreground">{action.description || 'No description available'}</p>
-                    </CardContent>
-                  </Card>
-                ))}
-            </div>
-          </ScrollArea>
-        </DialogContent>
-      </Dialog>
     </AppLayout>
   )
 }

@@ -68,6 +68,8 @@ interface WorkflowActions {
       is_public: boolean
     },
   ) => Promise<void>
+  isWorkflowComplete: (workflow: Workflow) => boolean
+  updateWorkflowStatus: (id: string) => Promise<void>
   clearAllData: () => void
 }
 
@@ -161,6 +163,11 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
     }
 
     try {
+      // Get the current workflow to compare status changes
+      const currentWorkflow = get().workflows.find(w => w.id === id)
+      const oldStatus = currentWorkflow?.status
+      const newStatus = updates.status
+
       const { data, error } = await supabase.from("workflows").update(updates).eq("id", id).select().single()
 
       if (error) throw error
@@ -175,17 +182,27 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
       try {
         const { data: { user } } = await supabase.auth.getUser()
         if (user) {
+          const logDetails: any = {
+            workflow_id: id,
+            workflow_name: data.name,
+            workflow_description: data.description,
+            updated_fields: Object.keys(updates)
+          }
+
+          // Add status change details if status was updated
+          if (oldStatus && newStatus && oldStatus !== newStatus) {
+            logDetails.status_change = {
+              old_status: oldStatus,
+              new_status: newStatus
+            }
+          }
+
           await supabase.from("audit_logs").insert({
             user_id: user.id,
-            action: "workflow_updated",
+            action: oldStatus !== newStatus ? "workflow_status_changed" : "workflow_updated",
             resource_type: "workflow",
             resource_id: id,
-            details: {
-              workflow_id: id,
-              workflow_name: data.name,
-              workflow_description: data.description,
-              updated_fields: Object.keys(updates)
-            },
+            details: logDetails,
             created_at: new Date().toISOString()
           })
         }
@@ -293,11 +310,20 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
     if (!currentWorkflow || !supabase) return
 
     try {
+      // Determine the appropriate status based on workflow completeness
+      const hasTrigger = currentWorkflow.nodes.some(node => node.data?.isTrigger)
+      const hasActions = currentWorkflow.nodes.some(node => !node.data?.isTrigger)
+      const isComplete = hasTrigger && hasActions && currentWorkflow.connections.length > 0
+      
+      // Update status: 'active' if complete, 'draft' if incomplete
+      const newStatus = isComplete ? 'active' : 'draft'
+      
       const { error } = await supabase
         .from("workflows")
         .update({
           nodes: currentWorkflow.nodes,
           connections: currentWorkflow.connections,
+          status: newStatus,
           updated_at: new Date().toISOString(),
         })
         .eq("id", currentWorkflow.id)
@@ -308,10 +334,42 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
       set((state) => ({
         workflows: state.workflows.map((w) =>
           w.id === currentWorkflow.id
-            ? { ...w, nodes: currentWorkflow.nodes, connections: currentWorkflow.connections }
+            ? { 
+                ...w, 
+                nodes: currentWorkflow.nodes, 
+                connections: currentWorkflow.connections,
+                status: newStatus
+              }
             : w,
         ),
+        currentWorkflow: {
+          ...currentWorkflow,
+          status: newStatus
+        }
       }))
+
+      // Log workflow status change
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          await supabase.from("audit_logs").insert({
+            user_id: user.id,
+            action: "workflow_status_changed",
+            resource_type: "workflow",
+            resource_id: currentWorkflow.id,
+            details: {
+              workflow_id: currentWorkflow.id,
+              workflow_name: currentWorkflow.name,
+              old_status: currentWorkflow.status,
+              new_status: newStatus,
+              reason: isComplete ? "workflow_completed" : "workflow_incomplete"
+            },
+            created_at: new Date().toISOString()
+          })
+        }
+      } catch (auditError) {
+        console.warn("Failed to log workflow status change:", auditError)
+      }
     } catch (error: any) {
       console.error("Error saving workflow:", error)
       throw error
@@ -373,6 +431,29 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
     } catch (error: any) {
       console.error("Error creating template:", error)
       throw error
+    }
+  },
+
+  // Helper function to check if a workflow is complete
+  isWorkflowComplete: (workflow: Workflow): boolean => {
+    const hasTrigger = workflow.nodes.some(node => node.data?.isTrigger)
+    const hasActions = workflow.nodes.some(node => !node.data?.isTrigger)
+    const hasConnections = workflow.connections.length > 0
+    return hasTrigger && hasActions && hasConnections
+  },
+
+  // Function to update workflow status based on completeness
+  updateWorkflowStatus: async (id: string) => {
+    const { workflows, updateWorkflow } = get()
+    const workflow = workflows.find(w => w.id === id)
+    
+    if (!workflow) return
+
+    const isComplete = get().isWorkflowComplete(workflow)
+    const newStatus = isComplete ? 'active' : 'draft'
+    
+    if (workflow.status !== newStatus) {
+      await updateWorkflow(id, { status: newStatus })
     }
   },
 

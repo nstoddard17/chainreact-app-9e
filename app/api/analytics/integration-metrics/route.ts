@@ -32,6 +32,19 @@ export async function GET() {
     const availableIntegrations = detectAvailableIntegrations()
     const configuredProviders = new Set(integrations.map((i: Integration) => i.provider))
 
+    // Filter out internal integrations that shouldn't be counted as "disconnected"
+    const internalIntegrationIds = ['logic', 'ai']
+    const externalIntegrations = availableIntegrations.filter(integration => 
+      !internalIntegrationIds.includes(integration.id)
+    )
+
+    console.log(`🔍 Integration Metrics Debug:
+      - Total available integrations: ${availableIntegrations.length}
+      - External integrations (excluding internal): ${externalIntegrations.length}
+      - Internal integrations filtered out: ${internalIntegrationIds.join(', ')}
+      - User's configured integrations: ${integrations.length}
+    `)
+
     // Calculate metrics and update expired integrations
     const now = new Date()
     const tenMinutesMs = 10 * 60 * 1000
@@ -41,7 +54,7 @@ export async function GET() {
       expiring: 0, // expiring within the next 10 minutes
       expired: 0,
       disconnected: 0,
-      total: availableIntegrations.length || 0,
+      total: externalIntegrations.length || 0,
     }
 
     const integrationsToUpdate: {
@@ -94,8 +107,23 @@ export async function GET() {
       }
     }
     
+    // Calculate disconnected count: available integrations that are not configured
     const configuredCount = metrics.connected + metrics.expiring + metrics.expired
-    metrics.disconnected = availableIntegrations.length - configuredCount
+    const availableProviderIds = externalIntegrations.map(integration => integration.id)
+    const configuredProviderIds = integrations.map((i: Integration) => i.provider)
+    
+    // Count only available integrations that are not configured
+    const disconnectedCount = availableProviderIds.filter(providerId => 
+      !configuredProviderIds.includes(providerId)
+    ).length
+    
+    console.log(`🔍 Disconnected Count Debug:
+      - Available external provider IDs: ${availableProviderIds.join(', ')}
+      - Configured provider IDs: ${configuredProviderIds.join(', ')}
+      - Disconnected count: ${disconnectedCount}
+    `)
+    
+    metrics.disconnected = disconnectedCount
     
     // Log expiring integrations for debugging (can be removed in production)
     const expiringForDebug = integrations.filter((i: Integration) => {

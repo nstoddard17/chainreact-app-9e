@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation"
 import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 import ProfileContent from "@/components/profile/ProfileContent"
@@ -10,15 +11,21 @@ export default async function ProfilePage() {
   try {
     const supabase = createServerComponentClient({ cookies })
     
-    // Check for authenticated session
-    const { data: { session } } = await supabase.auth.getSession()
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
+
+    if (userError || !user) {
+      redirect("/auth/login")
+    }
     
-    if (session?.user?.id) {
+    if (user?.id) {
       // Fetch user profile data
       const { data, error } = await supabase
         .from('user_profiles')
         .select('id, username, full_name, first_name, last_name, avatar_url, company, job_title, role, updated_at')
-        .eq('id', session.user.id)
+        .eq('id', user.id)
         .single()
         
       if (!error && data) {

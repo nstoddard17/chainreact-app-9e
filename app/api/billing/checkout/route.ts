@@ -17,11 +17,12 @@ export async function POST(request: Request) {
 
   try {
     const {
-      data: { session },
-    } = await supabase.auth.getSession()
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
 
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (userError || !user) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
     }
 
     const { planId, billingCycle } = await request.json()
@@ -53,16 +54,16 @@ export async function POST(request: Request) {
     const { data: existingSubscription } = await supabase
       .from("subscriptions")
       .select("stripe_customer_id")
-      .eq("user_id", session.user.id)
+      .eq("user_id", user.id)
       .single()
 
     if (existingSubscription?.stripe_customer_id) {
       customerId = existingSubscription.stripe_customer_id
     } else {
       const customer = await stripe.customers.create({
-        email: session.user.email,
+        email: user.email,
         metadata: {
-          user_id: session.user.id,
+          user_id: user.id,
         },
       })
       customerId = customer.id
@@ -89,7 +90,7 @@ export async function POST(request: Request) {
       success_url: `${baseUrl}/settings/billing?success=true`,
       cancel_url: `${baseUrl}/settings/billing?canceled=true`,
       metadata: {
-        user_id: session.user.id,
+        user_id: user.id,
         plan_id: planId,
         billing_cycle: billingCycle,
       },

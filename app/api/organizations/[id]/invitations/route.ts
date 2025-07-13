@@ -16,11 +16,12 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     cookies()
     const supabase = await createSupabaseRouteHandlerClient()
     const {
-      data: { session },
-    } = await supabase.auth.getSession()
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
 
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (userError || !user) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
     }
 
     const body = await request.json()
@@ -31,7 +32,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       .from("organization_members")
       .select("role")
       .eq("organization_id", params.id)
-      .eq("user_id", session.user.id)
+      .eq("user_id", user.id)
       .single()
 
     if (!membership || membership.role !== "admin") {
@@ -50,7 +51,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
         email,
         role,
         permissions: permissions || {},
-        invited_by: session.user.id,
+        invited_by: user.id,
         token,
         expires_at: expiresAt.toISOString(),
       })
@@ -72,14 +73,14 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     const { data: inviter } = await supabase
       .from("auth.users")
       .select("email")
-      .eq("id", session.user.id)
+      .eq("id", user.id)
       .single()
 
     // Send invitation email
     const emailSent = await emailService.sendInvitationEmail(
       email,
       organization?.name || "Organization",
-      inviter?.email || session.user.email || "Unknown",
+      inviter?.email || user.email || "Unknown",
       token,
       role
     )
@@ -103,11 +104,12 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     cookies()
     const supabase = await createSupabaseRouteHandlerClient()
     const {
-      data: { session },
-    } = await supabase.auth.getSession()
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
 
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (userError || !user) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
     }
 
     // Check if user has permission to view invitations
@@ -115,7 +117,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       .from("organization_members")
       .select("role")
       .eq("organization_id", params.id)
-      .eq("user_id", session.user.id)
+      .eq("user_id", user.id)
       .single()
 
     if (!membership || !["admin", "editor"].includes(membership.role)) {

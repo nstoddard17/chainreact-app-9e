@@ -8,15 +8,12 @@ export async function initiateOAuth(provider: string, reconnect = false, integra
     // Verify user session first
     const supabase = createServerActionClient({ cookies })
     const {
-      data: { session },
-      error: sessionError,
-    } = await supabase.auth.getSession()
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
 
-    if (sessionError || !session) {
-      return {
-        success: false,
-        error: "Authentication required. Please log in first.",
-      }
+    if (userError || !user) {
+      throw new Error("Not authenticated")
     }
 
     // Call the auth API route

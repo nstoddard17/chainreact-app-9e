@@ -368,18 +368,75 @@ export async function editDiscordMessage(config: any, userId: string, input: Rec
   try {
     const resolvedConfig = resolveValue(config, { input })
     const { channelId, messageId, content } = resolvedConfig
+
+    if (!channelId || !messageId || !content) {
+      throw new Error("Channel ID, Message ID, and content are required")
+    }
+
+    // Get Discord integration to verify connection
+    const { createSupabaseServerClient } = await import("@/utils/supabase/server")
+    const supabase = await createSupabaseServerClient()
+    
+    const { data: integration } = await supabase
+      .from("integrations")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("provider", "discord")
+      .eq("status", "connected")
+      .single()
+
+    if (!integration) {
+      throw new Error("Discord integration not connected")
+    }
+
+    // Get bot token
     const botToken = process.env.DISCORD_BOT_TOKEN
-    if (!botToken) throw new Error("Discord bot token not configured")
+    if (!botToken) {
+      throw new Error("Discord bot token not configured")
+    }
+
+    // Ensure bot is online
+    updateDiscordPresenceForAction()
+
+    // Edit the message
     const response = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages/${messageId}`, {
       method: "PATCH",
-      headers: { Authorization: `Bot ${botToken}`, "Content-Type": "application/json" },
+      headers: { 
+        Authorization: `Bot ${botToken}`, 
+        "Content-Type": "application/json" 
+      },
       body: JSON.stringify({ content })
     })
-    if (!response.ok) throw new Error(`Failed to edit message: ${response.status}`)
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(`Discord API error: ${response.status} - ${errorData.message || response.statusText}`)
+    }
+
     const data = await response.json()
-    return { success: true, output: data, message: "Message edited successfully" }
+
+    return { 
+      success: true, 
+      output: {
+        messageId: data.id,
+        channelId: channelId,
+        content: content,
+        editedTimestamp: data.edited_timestamp,
+        author: {
+          id: data.author?.id,
+          username: data.author?.username,
+          bot: data.author?.bot
+        },
+        discordResponse: data
+      }, 
+      message: "Message edited successfully" 
+    }
   } catch (error: any) {
-    return { success: false, output: {}, message: error.message || "Failed to edit message" }
+    return { 
+      success: false, 
+      output: {}, 
+      message: error.message || "Failed to edit message" 
+    }
   }
 }
 

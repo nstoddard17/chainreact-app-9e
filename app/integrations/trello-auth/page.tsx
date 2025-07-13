@@ -6,6 +6,7 @@ import { Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { createBrowserClient } from "@supabase/ssr"
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
+import { redirect } from "next/navigation"
 
 export default function TrelloAuthPage() {
   const [processing, setProcessing] = useState(true)
@@ -22,21 +23,23 @@ export default function TrelloAuthPage() {
       try {
         // Get current user from Supabase with proper session handling
         const {
-          data: { session },
-          error: sessionError,
-        } = await supabase.auth.getSession()
+          data: { user: authUser },
+          error: userError,
+        } = await supabase.auth.getUser()
 
-        if (sessionError) {
-          console.error("Session error:", sessionError)
-        }
-
-        if (!session?.user) {
+        if (userError || !authUser) {
           console.error("No authenticated user found")
           notifyParentAndClose("error", "Please log in to connect integrations")
           return
         }
 
-        const user = session.user
+        // Get session for access token
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session?.access_token) {
+          console.error("No valid session found")
+          notifyParentAndClose("error", "Session expired. Please log in again")
+          return
+        }
 
         // Get the state from URL params
         const state = searchParams.get("state")
@@ -71,7 +74,7 @@ export default function TrelloAuthPage() {
           },
           body: JSON.stringify({
             token: token,
-            userId: user.id,
+            userId: authUser.id,
           }),
         })
 

@@ -9,11 +9,12 @@ export async function POST(request: Request) {
 
   try {
     const {
-      data: { session },
-    } = await supabase.auth.getSession()
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
 
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (userError || !user) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
     }
 
     const { workflowId } = await request.json()
@@ -34,14 +35,14 @@ export async function POST(request: Request) {
     }
 
     // Check if user has access to this workflow
-    const hasAccess = workflow.user_id === session.user.id || workflow.is_public
+    const hasAccess = workflow.user_id === user.id || workflow.is_public
 
     if (!hasAccess) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 })
     }
 
     const collaboration = new RealTimeCollaboration()
-    const collaborationSession = await collaboration.joinCollaborationSession(workflowId, session.user.id)
+    const collaborationSession = await collaboration.joinCollaborationSession(workflowId, user.id)
 
     return NextResponse.json({
       success: true,

@@ -9,11 +9,12 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
   try {
     const {
-      data: { session },
-    } = await supabase.auth.getSession()
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
 
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (userError || !user) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
     }
 
     // Check if user is a member of this organization
@@ -21,7 +22,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
       .from("organization_members")
       .select("role")
       .eq("organization_id", params.id)
-      .eq("user_id", session.user.id)
+      .eq("user_id", user.id)
       .single()
 
     if (!membership) {
@@ -53,11 +54,12 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
   try {
     const {
-      data: { session },
-    } = await supabase.auth.getSession()
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
 
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (userError || !user) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
     }
 
     // Check if user is an admin of this organization
@@ -65,7 +67,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
       .from("organization_members")
       .select("role")
       .eq("organization_id", params.id)
-      .eq("user_id", session.user.id)
+      .eq("user_id", user.id)
       .single()
 
     if (!membership || membership.role !== "admin") {
@@ -88,7 +90,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
         role,
         token,
         expires_at: expiresAt.toISOString(),
-        invited_by: session.user.id,
+        invited_by: user.id,
       })
       .select()
       .single()
@@ -100,7 +102,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
     // Log the action
     await supabase.from("audit_logs").insert({
       organization_id: params.id,
-      user_id: session.user.id,
+      user_id: user.id,
       action: "member.invited",
       resource_type: "organization_member",
       details: { email, role },

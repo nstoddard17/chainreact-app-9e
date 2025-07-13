@@ -50,12 +50,12 @@ export async function POST(request: NextRequest) {
     cookies()
     const supabase = await createSupabaseServerClient()
     const {
-      data: { session },
-      error: sessionError,
-    } = await supabase.auth.getSession()
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
 
-    if (sessionError || !session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (userError || !user) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
     }
 
     const { name, description, workflow_json, category, tags, is_public } = await request.json()
@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
         category,
         tags,
         is_public: is_public || false,
-        created_by: session.user.id,
+        created_by: user.id,
       })
       .select()
       .single()

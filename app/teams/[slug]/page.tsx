@@ -11,10 +11,11 @@ export default async function OrganizationPage({ params }: Props) {
   const supabase = await createSupabaseServerClient()
 
   const {
-    data: { session },
-  } = await supabase.auth.getSession()
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser()
 
-  if (!session) {
+  if (userError || !user) {
     redirect("/auth/login")
   }
 
@@ -26,7 +27,7 @@ export default async function OrganizationPage({ params }: Props) {
       members:organization_members!inner(role)
     `)
     .eq("slug", params.slug)
-    .eq("organization_members.user_id", session.user.id)
+    .eq("organization_members.user_id", user.id)
     .single()
 
   if (!organization) {

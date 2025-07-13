@@ -8,10 +8,11 @@ export default async function IntegrationsPage() {
   const supabase = await createSupabaseServerClient()
 
   const {
-    data: { session },
-  } = await supabase.auth.getSession()
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser()
 
-  if (!session) {
+  if (userError || !user) {
     redirect("/auth/login")
   }
 

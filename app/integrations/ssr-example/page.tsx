@@ -1,6 +1,7 @@
 import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 import { SSRIntegrationsExample } from "./SSRIntegrationsExample"
+import { redirect } from "next/navigation"
 
 /**
  * Server component that demonstrates server-side rendering
@@ -10,20 +11,26 @@ export default async function SSRIntegrationsPage() {
   // Create a Supabase server client
   const supabase = createServerComponentClient({ cookies })
   
-  // Get the current user's session
-  const { data: { session } } = await supabase.auth.getSession()
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser()
+
+  if (userError || !user) {
+    redirect("/auth/login")
+  }
   
   // Initialize with empty array as default
   let serverIntegrations = []
   
   // If user is authenticated, fetch their integrations
-  if (session?.user?.id) {
+  if (user?.id) {
     try {
       // Fetch integrations from Supabase
       const { data, error } = await supabase
         .from("integrations")
         .select("*")
-        .eq("user_id", session.user.id)
+        .eq("user_id", user.id)
         .order("updated_at", { ascending: false })
       
       if (!error && data) {

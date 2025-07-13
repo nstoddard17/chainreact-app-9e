@@ -8,11 +8,12 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
   try {
     const {
-      data: { session },
-    } = await supabase.auth.getSession()
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
 
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (userError || !user) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
     }
 
     // Check if user is a member of this organization
@@ -20,7 +21,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
       .from("organization_members")
       .select("role")
       .eq("organization_id", params.id)
-      .eq("user_id", session.user.id)
+      .eq("user_id", user.id)
       .single()
 
     if (!membership) {
@@ -45,11 +46,12 @@ export async function PUT(request: Request, { params }: { params: { id: string }
 
   try {
     const {
-      data: { session },
-    } = await supabase.auth.getSession()
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
 
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (userError || !user) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
     }
 
     // Check if user is an admin of this organization
@@ -57,7 +59,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       .from("organization_members")
       .select("role")
       .eq("organization_id", params.id)
-      .eq("user_id", session.user.id)
+      .eq("user_id", user.id)
       .single()
 
     if (!membership || membership.role !== "admin") {
@@ -75,7 +77,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     // Log the action
     await supabase.from("audit_logs").insert({
       organization_id: params.id,
-      user_id: session.user.id,
+      user_id: user.id,
       action: "organization.updated",
       resource_type: "organization",
       resource_id: params.id,
@@ -94,17 +96,18 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
 
   try {
     const {
-      data: { session },
-    } = await supabase.auth.getSession()
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
 
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (userError || !user) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
     }
 
     // Check if user is the owner of this organization
     const { data: org } = await supabase.from("organizations").select("owner_id").eq("id", params.id).single()
 
-    if (!org || org.owner_id !== session.user.id) {
+    if (!org || org.owner_id !== user.id) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 

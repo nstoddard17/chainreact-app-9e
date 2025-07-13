@@ -183,6 +183,23 @@ export async function POST(request: NextRequest) {
       fetcherKey = "trello_cards"
     }
     
+    // Special cases for Discord
+    if (provider === "discord" && dataType === "discord_guilds") {
+      fetcherKey = "discord_guilds"
+    }
+    
+    if (provider === "discord" && dataType === "discord_channels") {
+      fetcherKey = "discord_channels"
+    }
+    
+    if (provider === "discord" && dataType === "discord_messages") {
+      fetcherKey = "discord_messages"
+    }
+    
+    if (provider === "discord" && dataType === "discord_users") {
+      fetcherKey = "discord_users"
+    }
+    
     console.log(`🔍 API: provider=${provider}, dataType=${dataType}, fetcherKey=${fetcherKey}`)
     console.log(`🔍 Available fetchers:`, Object.keys(dataFetchers))
     console.log(`🔍 Integration details:`, { id: integration.id, provider: integration.provider, status: integration.status })
@@ -237,8 +254,8 @@ export async function POST(request: NextRequest) {
         },
       )
     } catch (fetcherError: any) {
-      // console.error(`💥 Fetcher error for ${fetcherKey}:`, fetcherError)
-      // console.error(`💥 Fetcher error stack:`, fetcherError.stack)
+      console.error(`💥 Fetcher error for ${fetcherKey}:`, fetcherError)
+      console.error(`💥 Fetcher error stack:`, fetcherError.stack)
       throw fetcherError
     }
   } catch (error: any) {
@@ -3560,42 +3577,73 @@ const dataFetchers: DataFetcher = {
 
   "discord_messages": async (integration: any, options: any) => {
     try {
+      console.log("🔍 Discord messages fetcher called with options:", options)
       const { channelId } = options || {}
       
       if (!channelId) {
+        console.error("❌ Channel ID is missing from options")
         throw new Error("Channel ID is required to fetch Discord messages")
       }
 
-      // Use user's OAuth token, not bot token
-      const userToken = integration.access_token
-      if (!userToken) {
-        console.warn("User Discord token not available - returning empty messages list")
+      console.log("🔍 Fetching messages for channel:", channelId)
+
+      // Use bot token for server operations
+      const botToken = process.env.DISCORD_BOT_TOKEN
+      if (!botToken) {
+        console.warn("Discord bot token not available - returning empty messages list")
         return []
       }
+
+      console.log("🔍 Bot token available, making Discord API call...")
 
       try {
         const data = await fetchDiscordWithRateLimit<any[]>(() => 
           fetch(`https://discord.com/api/v10/channels/${channelId}/messages?limit=50`, {
             headers: {
-              Authorization: `Bearer ${userToken}`,
+              Authorization: `Bot ${botToken}`,
               "Content-Type": "application/json",
             },
           })
         )
 
         return (data || [])
-          .map((message: any) => ({
-            id: message.id,
-            name: message.content.substring(0, 50) + (message.content.length > 50 ? "..." : ""),
-            value: message.id,
-            content: message.content,
-            author: message.author,
-            timestamp: message.timestamp,
-            edited_timestamp: message.edited_timestamp,
-            attachments: message.attachments,
-            embeds: message.embeds,
-          }))
+          .filter((message: any) => message.type === 0 || message.type === undefined)
+          .map((message: any) => {
+            let messageName = ""
+            if (message.content && message.content.trim()) {
+              messageName = message.content.substring(0, 50) + (message.content.length > 50 ? "..." : "")
+            } else if (message.embeds && message.embeds.length > 0) {
+              const embed = message.embeds[0]
+              if (embed.title) {
+                messageName = `[Embed] ${embed.title}`
+              } else if (embed.description) {
+                messageName = `[Embed] ${embed.description.substring(0, 40)}...`
+              } else {
+                messageName = `[Embed] (no title)`
+              }
+            } else if (message.attachments && message.attachments.length > 0) {
+              const attachment = message.attachments[0]
+              messageName = `[File] ${attachment.filename}`
+            }
+            if (!messageName) {
+              const author = message.author?.username || "Unknown"
+              const time = message.timestamp ? new Date(message.timestamp).toLocaleString() : message.id
+              messageName = `Message by ${author} (${time})`
+            }
+            return {
+              id: message.id,
+              name: messageName,
+              value: message.id,
+              content: message.content,
+              author: message.author,
+              timestamp: message.timestamp,
+              edited_timestamp: message.edited_timestamp,
+              attachments: message.attachments,
+              embeds: message.embeds,
+            }
+          })
       } catch (error: any) {
+        console.error("🔍 Discord API error:", error.message)
         // Handle specific Discord API errors
         if (error.message.includes("401")) {
           throw new Error("Discord authentication failed. Please reconnect your Discord account.")

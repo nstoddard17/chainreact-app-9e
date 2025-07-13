@@ -13,11 +13,12 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     cookies()
     const supabase = await createSupabaseRouteHandlerClient()
     const {
-      data: { session },
-    } = await supabase.auth.getSession()
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
 
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (userError || !user) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
     }
 
     const body = await request.json()
@@ -27,7 +28,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       .from("template_reviews")
       .upsert({
         template_id: params.id,
-        user_id: session.user.id,
+        user_id: user.id,
         rating,
         review_text,
       })
