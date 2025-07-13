@@ -267,7 +267,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     accessTokenExpiryBuffer: 15,
     sendRedirectUriWithRefresh: true,
     redirectUriPath: "/api/integrations/discord/callback",
-    scope: "identify guilds email connections guilds.members.read messages.read",
+    scope: "identify guilds email connections guilds.members.read messages.read presences.read dm_channels.messages.read dm_channels.messages.write dm_channels.read applications.commands relationships.read",
   },
   spotify: {
     id: "spotify",
