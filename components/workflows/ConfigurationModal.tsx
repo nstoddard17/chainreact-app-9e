@@ -1,7 +1,6 @@
 "use client"
 
-import React from "react";
-import { useState, useEffect, useRef, useCallback, useMemo } from "react"
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -776,6 +775,8 @@ const getTemplateConfiguration = (template: string): any => {
   
   return templates[template] || null
 }
+
+
 
 // Enhanced File Input Component for Icon/Cover Images
 interface EnhancedFileInputProps {
@@ -2456,7 +2457,7 @@ export default function ConfigurationModal({
           })
       }
     }
-  }, [isOpen, nodeInfo?.type, getIntegrationByProvider, loadIntegrationData, integrationData])
+  }, [isOpen, nodeInfo?.type])
 
   // Handle Discord actions that already have a guild selected when modal opens
   // Only run this when the modal first opens, not when the guild changes
@@ -2500,6 +2501,7 @@ export default function ConfigurationModal({
 
   // Handle dependent field updates when their dependencies change
   useEffect(() => {
+    return // DISABLED to fix infinite loop - dependent fields now handled in handleSelectChange
     if (!isOpen || !nodeInfo) return
 
     console.log('🔄 Checking dependent fields:', {
@@ -2670,7 +2672,7 @@ export default function ConfigurationModal({
     console.log(`🔍 About to call fetchDependentFields function`)
     fetchDependentFields()
     console.log(`🔍 fetchDependentFields function call completed`)
-  }, [isOpen, nodeInfo, config, botStatus])
+  }, [isOpen, nodeInfo, botStatus])
 
   // Auto-fetch table fields when table is selected (for Airtable)
   useEffect(() => {

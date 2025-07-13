@@ -202,9 +202,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Fetch the data with timeout and retry logic
-    console.log(`🌐 Fetching ${dataType} for ${provider}${preload ? " (preload)" : ""}`)
-    console.log(`🔍 About to call fetcher function for key: ${fetcherKey}`)
-    console.log(`🔍 Integration token length: ${validToken ? validToken.length : 0}`)
+    // console.log(`🌐 Fetching ${dataType} for ${provider}${preload ? " (preload)" : ""}`)
+    // console.log(`🔍 About to call fetcher function for key: ${fetcherKey}`)
+    // console.log(`🔍 Integration token length: ${validToken ? validToken.length : 0}`)
     const startTime = Date.now()
 
     try {
@@ -214,10 +214,10 @@ export async function POST(request: NextRequest) {
         2000, // initial delay
       )
       
-      console.log(`✅ Fetcher completed successfully, data length: ${data.length}`)
+      // console.log(`✅ Fetcher completed successfully, data length: ${data.length}`)
       
       const endTime = Date.now()
-      console.log(`✅ Fetched ${data.length} ${dataType} for ${provider} in ${endTime - startTime}ms`)
+      // console.log(`✅ Fetched ${data.length} ${dataType} for ${provider} in ${endTime - startTime}ms`)
 
       return NextResponse.json(
         {
@@ -237,8 +237,8 @@ export async function POST(request: NextRequest) {
         },
       )
     } catch (fetcherError: any) {
-      console.error(`💥 Fetcher error for ${fetcherKey}:`, fetcherError)
-      console.error(`💥 Fetcher error stack:`, fetcherError.stack)
+      // console.error(`💥 Fetcher error for ${fetcherKey}:`, fetcherError)
+      // console.error(`💥 Fetcher error stack:`, fetcherError.stack)
       throw fetcherError
     }
   } catch (error: any) {
@@ -363,7 +363,8 @@ async function fetchWithRetry<T>(fetchFn: () => Promise<T>, maxRetries: number, 
 // Discord-specific rate limiting helper
 async function fetchDiscordWithRateLimit<T>(
   fetchFn: () => Promise<Response>,
-  maxRetries: number = 2
+  maxRetries: number = 2,
+  defaultWaitTime: number = 2000 // Reduced from 5000ms to 2000ms (2 seconds)
 ): Promise<T> {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
@@ -378,11 +379,11 @@ async function fetchDiscordWithRateLimit<T>(
         const retryAfter = response.headers.get('Retry-After')
         const resetAfter = response.headers.get('X-RateLimit-Reset')
         
-        console.log(`Discord rate limit hit (attempt ${attempt}). Retry-After: ${retryAfter}, Reset-After: ${resetAfter}`)
+        // console.log(`Discord rate limit hit (attempt ${attempt}). Retry-After: ${retryAfter}, Reset-After: ${resetAfter}`)
         
         if (attempt < maxRetries) {
           // Calculate wait time
-          let waitTime = 5000 // Default 5 seconds
+          let waitTime = defaultWaitTime // Use configurable default
           if (retryAfter) {
             waitTime = parseInt(retryAfter) * 1000
           } else if (resetAfter) {
@@ -391,7 +392,10 @@ async function fetchDiscordWithRateLimit<T>(
             waitTime = Math.max(resetTime - now, 1000)
           }
           
-          console.log(`Waiting ${waitTime}ms before retry ${attempt + 1}...`)
+          // Cap wait time to prevent excessive delays
+          waitTime = Math.min(waitTime, 10000) // Max 10 seconds
+          
+          // console.log(`Waiting ${waitTime}ms before retry ${attempt + 1}...`)
           await new Promise(resolve => setTimeout(resolve, waitTime))
           continue
         }
