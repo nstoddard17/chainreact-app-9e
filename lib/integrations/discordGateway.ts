@@ -75,13 +75,10 @@ class DiscordGateway extends EventEmitter {
       const gatewayData = await gatewayResponse.json()
       const wsUrl = `${gatewayData.url}?v=10&encoding=json`
 
-      console.log("Connecting to Discord Gateway...")
-      
       // Create WebSocket connection
       this.ws = new WebSocket(wsUrl)
 
       this.ws.onopen = () => {
-        console.log("Connected to Discord Gateway")
         this.isConnected = true
         this.reconnectAttempts = 0
       }
@@ -91,61 +88,17 @@ class DiscordGateway extends EventEmitter {
       }
 
       this.ws.onclose = (event) => {
-        console.log("Discord Gateway connection closed:", event.code, event.reason)
         this.isConnected = false
         this.cleanup()
         
-        // Handle specific error codes
-        switch (event.code) {
-          case 4001: // Unknown opcode
-            console.error("Discord Gateway: Unknown opcode sent")
-            break
-          case 4002: // Decode error
-            console.error("Discord Gateway: Invalid payload sent")
-            break
-          case 4003: // Not authenticated
-            console.error("Discord Gateway: Not authenticated - check bot token")
-            break
-          case 4004: // Authentication failed
-            console.error("Discord Gateway: Authentication failed - invalid bot token")
-            break
-          case 4005: // Already authenticated
-            console.error("Discord Gateway: Already authenticated")
-            break
-          case 4007: // Invalid sequence
-            console.error("Discord Gateway: Invalid sequence")
-            break
-          case 4008: // Rate limited
-            console.error("Discord Gateway: Rate limited")
-            break
-          case 4009: // Session timed out
-            console.error("Discord Gateway: Session timed out")
-            break
-          case 4010: // Invalid shard
-            console.error("Discord Gateway: Invalid shard")
-            break
-          case 4011: // Sharding required
-            console.error("Discord Gateway: Sharding required")
-            break
-          case 4012: // Invalid API version
-            console.error("Discord Gateway: Invalid API version")
-            break
-          case 4013: // Invalid intent(s)
-            console.error("Discord Gateway: Invalid intent(s) - check bot intents in Discord Developer Portal")
-            console.error("Required intents: GUILDS, GUILD_MESSAGES, MESSAGE_CONTENT")
-            break
-          case 4014: // Disallowed intent(s)
-            console.error("Discord Gateway: Disallowed intent(s) - bot doesn't have required intents")
-            break
-          default:
-            if (event.code !== 1000) { // Not a normal closure
-              this.scheduleReconnect()
-            }
+        // Only reconnect for non-normal closures
+        if (event.code !== 1000) {
+          this.scheduleReconnect()
         }
       }
 
       this.ws.onerror = (error) => {
-        console.error("Discord Gateway WebSocket error:", error)
+        // Silent error handling
       }
 
     } catch (error) {
@@ -160,8 +113,6 @@ class DiscordGateway extends EventEmitter {
   private handleMessage(data: string): void {
     try {
       const payload: DiscordGatewayPayload = JSON.parse(data)
-      
-      console.log("Received Discord Gateway payload:", payload.op, payload.t)
 
       switch (payload.op) {
         case 10: // Hello
@@ -174,19 +125,18 @@ class DiscordGateway extends EventEmitter {
           this.handleDispatch(payload)
           break
         case 7: // Reconnect
-          console.log("Discord requested reconnect")
           this.reconnect()
           break
         case 9: // Invalid Session
-          console.log("Invalid session, reconnecting...")
           this.reconnect()
           break
         default:
-          console.log("Unhandled Discord Gateway opcode:", payload.op)
+          // Silent handling of unhandled opcodes
+          break
       }
 
     } catch (error) {
-      console.error("Failed to parse Discord Gateway message:", error)
+      // Silent error handling
     }
   }
 
@@ -195,8 +145,6 @@ class DiscordGateway extends EventEmitter {
    */
   private handleHello(data: any): void {
     const heartbeatInterval = data.heartbeat_interval
-    
-    console.log(`Starting heartbeat with interval: ${heartbeatInterval}ms`)
     
     this.heartbeatInterval = setInterval(() => {
       this.sendHeartbeat()
@@ -230,9 +178,6 @@ class DiscordGateway extends EventEmitter {
    */
   private handleReady(data: any): void {
     this.sessionId = data.session_id
-    console.log(`Discord bot ready! Logged in as ${data.user.username}#${data.user.discriminator}`)
-    console.log(`Connected to ${data.guilds.length} guilds`)
-    
     this.emit('ready', data)
   }
 
@@ -240,7 +185,6 @@ class DiscordGateway extends EventEmitter {
    * Handle Resumed event
    */
   private handleResumed(data: any): void {
-    console.log("Discord session resumed")
     this.emit('resumed', data)
   }
 
@@ -311,7 +255,6 @@ class DiscordGateway extends EventEmitter {
    */
   private sendHeartbeat(): void {
     if (!this.heartbeatAck) {
-      console.warn("Previous heartbeat not acknowledged, closing connection")
       this.ws?.close(1000, "Heartbeat timeout")
       return
     }
@@ -330,8 +273,6 @@ class DiscordGateway extends EventEmitter {
   private send(payload: DiscordGatewayPayload): void {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(payload))
-    } else {
-      console.warn("WebSocket not open, cannot send payload")
     }
   }
 
@@ -359,7 +300,6 @@ class DiscordGateway extends EventEmitter {
     }
 
     this.send(payload)
-    console.log("Updated Discord bot presence:", presence)
   }
 
   /**
@@ -367,17 +307,13 @@ class DiscordGateway extends EventEmitter {
    */
   private scheduleReconnect(): void {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      console.error("Max reconnection attempts reached, giving up")
       return
     }
 
     this.reconnectAttempts++
     const delay = this.reconnectDelay * this.reconnectAttempts
 
-    console.log(`Scheduling reconnection attempt ${this.reconnectAttempts} in ${delay}ms`)
-
     setTimeout(() => {
-      console.log(`Attempting reconnection ${this.reconnectAttempts}`)
       this.reconnect()
     }, delay)
   }
@@ -411,7 +347,6 @@ class DiscordGateway extends EventEmitter {
    * Disconnect from Discord Gateway
    */
   disconnect(): void {
-    console.log("Disconnecting from Discord Gateway...")
     this.cleanup()
   }
 
@@ -437,7 +372,7 @@ export async function initializeDiscordGateway(): Promise<void> {
   try {
     await discordGateway.connect()
   } catch (error) {
-    console.error("Failed to initialize Discord Gateway:", error)
+    // Silent error handling
   }
 }
 

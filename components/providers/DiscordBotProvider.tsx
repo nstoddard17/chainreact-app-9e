@@ -18,8 +18,6 @@ export default function DiscordBotProvider() {
 
     const initializeDiscordBot = async () => {
       try {
-        console.log("Initializing Discord bot on client...")
-        
         // Call the API to initialize Discord Gateway
         const response = await fetch('/api/discord/initialize-presence', {
           method: 'POST',
@@ -32,12 +30,9 @@ export default function DiscordBotProvider() {
           const data = await response.json()
           setStatus(data.status)
           setIsInitialized(true)
-          console.log("Discord bot initialized successfully:", data.status)
-        } else {
-          console.warn("Failed to initialize Discord bot:", response.status)
         }
       } catch (error) {
-        console.error("Error initializing Discord bot:", error)
+        // Silent error handling
       }
     }
 
@@ -53,7 +48,7 @@ export default function DiscordBotProvider() {
           setStatus(data.status)
         }
       } catch (error) {
-        console.error("Error checking Discord bot status:", error)
+        // Silent error handling
       }
     }, 30000) // Check every 30 seconds
 

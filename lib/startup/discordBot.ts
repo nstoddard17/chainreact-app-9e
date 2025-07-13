@@ -5,14 +5,11 @@ import { initializeDiscordGateway, discordGateway } from '@/lib/integrations/dis
  */
 export async function initializeDiscordBot(): Promise<void> {
   try {
-    console.log("Starting Discord bot initialization...")
-    
     // Check if Discord bot credentials are configured
     const botToken = process.env.DISCORD_BOT_TOKEN
     const botUserId = process.env.DISCORD_BOT_USER_ID
     
     if (!botToken || !botUserId) {
-      console.warn("Discord bot credentials not configured, skipping initialization")
       return
     }
     
@@ -21,18 +18,15 @@ export async function initializeDiscordBot(): Promise<void> {
     
     // Set up event listeners
     discordGateway.on('ready', (data) => {
-      console.log("Discord bot is ready and online!")
-      console.log(`Connected to ${data.guilds.length} guilds`)
+      // Bot is ready and online
     })
     
     discordGateway.on('resumed', () => {
-      console.log("Discord bot session resumed")
+      // Session resumed
     })
     
-    console.log("Discord bot initialization completed")
-    
   } catch (error) {
-    console.error("Failed to initialize Discord bot:", error)
+    // Silent error handling
   }
 }
 

@@ -3,8 +3,6 @@ import { initializeDiscordGateway, discordGateway } from "@/lib/integrations/dis
 
 export async function POST() {
   try {
-    console.log("Initializing Discord Gateway...")
-    
     await initializeDiscordGateway()
     
     const status = discordGateway.getStatus()
@@ -16,8 +14,6 @@ export async function POST() {
     })
     
   } catch (error: any) {
-    console.error("Failed to initialize Discord bot presence:", error)
-    
     return NextResponse.json({
       success: false,
       error: error.message || "Failed to initialize Discord bot presence"
@@ -35,8 +31,6 @@ export async function GET() {
     })
     
   } catch (error: any) {
-    console.error("Failed to get Discord bot presence status:", error)
-    
     return NextResponse.json({
       success: false,
       error: error.message || "Failed to get Discord bot presence status"
