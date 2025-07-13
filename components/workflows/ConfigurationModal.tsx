@@ -15,6 +15,7 @@ import { useWorkflowTestStore } from "@/stores/workflowTestStore"
 import { Combobox, MultiCombobox, HierarchicalCombobox } from "@/components/ui/combobox"
 import { EmailAutocomplete } from "@/components/ui/email-autocomplete"
 import { LocationAutocomplete } from "@/components/ui/location-autocomplete"
+import { GmailLabelsInput } from "@/components/ui/gmail-labels-input"
 import { ConfigurationLoadingScreen } from "@/components/ui/loading-screen"
 import { FileUpload } from "@/components/ui/file-upload"
 import { DatePicker } from "@/components/ui/date-picker"
@@ -1249,7 +1250,7 @@ export default function ConfigurationModal({
         abortControllerRef.current = null
       }
     }
-  }, [isOpen, nodeInfo?.providerId])
+  }, [isOpen, currentNodeId])
 
   // Global mouse up handler for range selection
   useEffect(() => {
@@ -2260,11 +2261,27 @@ export default function ConfigurationModal({
     }
   }, [nodeInfo, getIntegrationByProvider, checkIntegrationScopes, loadIntegrationData, integrationData, setLoadingDynamicDebounced])
 
+  const lastFetchedRef = useRef<{ nodeId?: string; providerId?: string }>({})
+
   useEffect(() => {
+    // Only fetch if modal is open and nodeInfo is present
     if (isOpen && nodeInfo?.providerId) {
-      fetchDynamicData()
+      // Only fetch if nodeId or providerId changed
+      if (
+        lastFetchedRef.current.nodeId !== currentNodeId ||
+        lastFetchedRef.current.providerId !== nodeInfo.providerId
+      ) {
+        fetchDynamicData()
+        lastFetchedRef.current = {
+          nodeId: currentNodeId,
+          providerId: nodeInfo.providerId,
+        }
+      }
+    } else if (!isOpen) {
+      // Reset lastFetchedRef when modal closes
+      lastFetchedRef.current = {}
     }
-  }, [isOpen, nodeInfo?.providerId, fetchDynamicData])
+  }, [isOpen, currentNodeId, nodeInfo?.providerId, fetchDynamicData])
 
   // Debug dynamicOptions state changes
   useEffect(() => {
@@ -3427,7 +3444,7 @@ export default function ConfigurationModal({
               const isLinkedField = fieldDef.type === "linkedRecord" || 
                                    fieldDef.type === "link" || 
                                    fieldDef.type === "multipleRecordLinks" ||
-                                   fieldDef.type === "recordLink" ||
+                                   fieldDef.type === "recordLink" || 
                                    fieldDef.type === "lookup" ||
                                    fieldDef.linkedTableName ||
                                    fieldDef.foreignTable
@@ -4759,29 +4776,29 @@ export default function ConfigurationModal({
         
         // Use MultiCombobox for multiple select with creatable option
         if (field.multiple && field.creatable) {
-          return (
-            <div className="space-y-2">
-              {renderLabel()}
-              <MultiCombobox
-                options={options.map((option) => {
-                  if (typeof option === 'string') {
-                    return {
-                      value: option,
-                      label: option,
-                      isExisting: false
+          // Special handling for Gmail labels to make it more like Gmail's interface
+          if (field.name === 'labelIds' && field.dynamic === 'gmail-labels') {
+            return (
+              <div className="space-y-2">
+                {renderLabel()}
+                <GmailLabelsInput
+                  options={options.map((option) => {
+                    if (typeof option === 'string') {
+                      return {
+                        value: option,
+                        label: option,
+                        isExisting: false
+                      }
+                    } else {
+                      return {
+                        value: option.value,
+                        label: option.label,
+                        isExisting: (option as any).isExisting || false
+                      }
                     }
-                  } else {
-                    return {
-                      value: option.value,
-                      label: option.label,
-                      isExisting: (option as any).isExisting || false
-                    }
-                  }
-                })}
-                value={Array.isArray(value) ? value : []}
-                onChange={(newValues) => {
-                  // For Gmail labels, we need to handle both existing labels and new label names
-                  if (field.name === 'labelIds') {
+                  })}
+                  value={Array.isArray(value) ? value : []}
+                  onChange={(newValues) => {
                     // Separate existing label IDs from new label names
                     const existingLabelIds: string[] = []
                     const newLabelNames: string[] = []
@@ -4803,14 +4820,42 @@ export default function ConfigurationModal({
                       labelIds: existingLabelIds,
                       labelNames: newLabelNames
                     }))
+                  }}
+                  placeholder={loadingDynamic ? "Loading..." : "Type to add labels..."}
+                  disabled={loadingDynamic}
+                />
+                {hasError && (
+                  <p className="text-xs text-red-500">{errors[field.name]}</p>
+                )}
+              </div>
+            )
+          }
+          
+          // For all other multiple/creatable fields, use MultiCombobox
+          return (
+            <div className="space-y-2">
+              {renderLabel()}
+              <MultiCombobox
+                options={options.map((option) => {
+                  if (typeof option === 'string') {
+                    return {
+                      value: option,
+                      label: option,
+                      isExisting: false
+                    }
                   } else {
-                    // For other fields, use the standard behavior
-                    handleMultiSelectChange(newValues)
+                    return {
+                      value: option.value,
+                      label: option.label,
+                      isExisting: (option as any).isExisting || false
+                    }
                   }
-                }}
+                })}
+                value={Array.isArray(value) ? value : []}
+                onChange={handleMultiSelectChange}
                 placeholder={loadingDynamic ? "Loading..." : field.placeholder}
-                searchPlaceholder="Search labels or type to create new ones..."
-                emptyPlaceholder={loadingDynamic ? "Loading..." : "No labels found."}
+                searchPlaceholder="Search or type to create new ones..."
+                emptyPlaceholder={loadingDynamic ? "Loading..." : "No results found."}
                 disabled={loadingDynamic}
                 creatable={true}
               />
