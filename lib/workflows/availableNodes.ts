@@ -81,7 +81,7 @@ export interface ConfigField {
   placeholder?: string
   description?: string
   options?: { value: string; label: string }[] | string[]
-  dynamic?: "slack-channels" | "slack_workspaces" | "slack_users" | "google-calendars" | "google-drive-folders" | "google-drive-files" | "onedrive-folders" | "dropbox-folders" | "box-folders" | "gmail-recent-recipients" | "gmail-enhanced-recipients" | "gmail-contact-groups" | "gmail_messages" | "gmail_labels" | "gmail_recent_senders" | "google-sheets_spreadsheets" | "google-sheets_sheets" | "google-docs_documents" | "google-docs_templates" | "google-docs_recent_documents" | "google-docs_shared_documents" | "google-docs_folders" | "youtube_channels" | "youtube_videos" | "youtube_playlists" | "teams_chats" | "teams_teams" | "teams_channels" | "github_repositories" | "gitlab_projects" | "notion_databases" | "notion_pages" | "notion_workspaces" | "notion_users" | "trello_boards" | "trello_lists" | "hubspot_companies" | "hubspot_contacts" | "hubspot_deals" | "hubspot_lists" | "hubspot_pipelines" | "hubspot_deal_stages" | "airtable_workspaces" | "airtable_bases" | "airtable_tables" | "airtable_records" | "airtable_feedback_records" | "airtable_task_records" | "airtable_project_records" | "gumroad_products" | "blackbaud_constituents" | "facebook_pages" | "onenote_notebooks" | "onenote_sections" | "onenote_pages" | "outlook_folders" | "outlook_messages" | "outlook_contacts" | "outlook_calendars" | "outlook_events" | "outlook-enhanced-recipients"
+  dynamic?: "slack-channels" | "slack_workspaces" | "slack_users" | "google-calendars" | "google-drive-folders" | "google-drive-files" | "onedrive-folders" | "dropbox-folders" | "box-folders" | "gmail-recent-recipients" | "gmail-enhanced-recipients" | "gmail-contact-groups" | "gmail_messages" | "gmail_labels" | "gmail_recent_senders" | "google-sheets_spreadsheets" | "google-sheets_sheets" | "google-docs_documents" | "google-docs_templates" | "google-docs_recent_documents" | "google-docs_shared_documents" | "google-docs_folders" | "youtube_channels" | "youtube_videos" | "youtube_playlists" | "teams_chats" | "teams_teams" | "teams_channels" | "github_repositories" | "gitlab_projects" | "notion_databases" | "notion_pages" | "notion_workspaces" | "notion_users" | "trello_boards" | "trello_lists" | "hubspot_companies" | "hubspot_contacts" | "hubspot_deals" | "hubspot_lists" | "hubspot_pipelines" | "hubspot_deal_stages" | "airtable_workspaces" | "airtable_bases" | "airtable_tables" | "airtable_records" | "airtable_feedback_records" | "airtable_task_records" | "airtable_project_records" | "gumroad_products" | "blackbaud_constituents" | "facebook_pages" | "onenote_notebooks" | "onenote_sections" | "onenote_pages" | "outlook_folders" | "outlook_messages" | "outlook_contacts" | "outlook_calendars" | "outlook_events" | "outlook-enhanced-recipients" | "discord_guilds" | "discord_channels" | "discord_members" | "discord_roles" | "discord_messages" | "discord_users" | "discord_banned_users"
   accept?: string // For file inputs, specify accepted file types
   maxSize?: number // For file inputs, specify max file size in bytes
   defaultValue?: string | number | boolean // Default value for the field
@@ -2387,6 +2387,34 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         required: true,
         placeholder: "Select a channel",
         dependsOn: "guildId"
+      },
+      {
+        name: "message",
+        label: "Message",
+        type: "textarea",
+        required: true,
+        placeholder: "Enter your message"
+      }
+    ]
+  },
+  {
+    type: "discord_action_send_direct_message",
+    title: "Send Direct Message",
+    description: "Sends a direct message to a Discord user with enhanced user selection.",
+    icon: MessageSquare,
+    providerId: "discord",
+    requiredScopes: ["bot"],
+    category: "Communication",
+    isTrigger: false,
+    configSchema: [
+      {
+        name: "userId",
+        label: "User",
+        type: "select",
+        dynamic: "discord_users",
+        required: true,
+        placeholder: "Select a user to message",
+        description: "Choose from recent users or search across all servers"
       },
       {
         name: "message",
@@ -6209,6 +6237,321 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
       { name: "startDate", label: "Start Date", type: "date", required: true },
       { name: "endDate", label: "End Date", type: "date", required: true },
       { name: "productId", label: "Product ID", type: "text", required: false, placeholder: "Specific product ID (optional)" }
+    ]
+  },
+
+  // Discord Advanced Actions
+  {
+    type: "discord_action_edit_message",
+    title: "Edit Message",
+    description: "Edit a message in a Discord channel.",
+    icon: MessageSquare,
+    providerId: "discord",
+    requiredScopes: ["bot"],
+    category: "Communication",
+    isTrigger: false,
+    configSchema: [
+      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true, placeholder: "Select a Discord server" },
+      { name: "channelId", label: "Channel", type: "select", dynamic: "discord_channels", required: true, dependsOn: "guildId", placeholder: "Select a channel" },
+      { name: "messageId", label: "Message", type: "select", dynamic: "discord_messages", required: true, dependsOn: "channelId", placeholder: "Select a message" },
+      { name: "content", label: "New Content", type: "textarea", required: true, placeholder: "Enter new message content" }
+    ]
+  },
+  {
+    type: "discord_action_delete_message",
+    title: "Delete Message",
+    description: "Delete a message in a Discord channel.",
+    icon: MessageSquare,
+    providerId: "discord",
+    requiredScopes: ["bot"],
+    category: "Communication",
+    isTrigger: false,
+    configSchema: [
+      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true, placeholder: "Select a Discord server" },
+      { name: "channelId", label: "Channel", type: "select", dynamic: "discord_channels", required: true, dependsOn: "guildId", placeholder: "Select a channel" },
+      { name: "messageId", label: "Message", type: "select", dynamic: "discord_messages", required: true, dependsOn: "channelId", placeholder: "Select a message" }
+    ]
+  },
+  {
+    type: "discord_action_fetch_messages",
+    title: "Fetch Messages",
+    description: "List recent messages from a Discord channel.",
+    icon: MessageSquare,
+    providerId: "discord",
+    requiredScopes: ["bot"],
+    category: "Communication",
+    isTrigger: false,
+    configSchema: [
+      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true },
+      { name: "channelId", label: "Channel", type: "select", dynamic: "discord_channels", required: true, dependsOn: "guildId" },
+      { name: "limit", label: "Limit", type: "number", required: false, placeholder: "Number of messages (max 100)", defaultValue: 20 }
+    ]
+  },
+  {
+    type: "discord_action_add_reaction",
+    title: "Add Reaction",
+    description: "Add an emoji reaction to a message.",
+    icon: MessageSquare,
+    providerId: "discord",
+    requiredScopes: ["bot"],
+    category: "Communication",
+    isTrigger: false,
+    configSchema: [
+      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true, placeholder: "Select a Discord server" },
+      { name: "channelId", label: "Channel", type: "select", dynamic: "discord_channels", required: true, dependsOn: "guildId", placeholder: "Select a channel" },
+      { name: "messageId", label: "Message", type: "select", dynamic: "discord_messages", required: true, dependsOn: "channelId", placeholder: "Select a message" },
+      { name: "emoji", label: "Emoji", type: "text", required: true, placeholder: "e.g. 😀 or custom: name:id" }
+    ]
+  },
+  {
+    type: "discord_action_remove_reaction",
+    title: "Remove Reaction",
+    description: "Remove an emoji reaction from a message.",
+    icon: MessageSquare,
+    providerId: "discord",
+    requiredScopes: ["bot"],
+    category: "Communication",
+    isTrigger: false,
+    configSchema: [
+      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true, placeholder: "Select a Discord server" },
+      { name: "channelId", label: "Channel", type: "select", dynamic: "discord_channels", required: true, dependsOn: "guildId", placeholder: "Select a channel" },
+      { name: "messageId", label: "Message", type: "select", dynamic: "discord_messages", required: true, dependsOn: "channelId", placeholder: "Select a message" },
+      { name: "emoji", label: "Emoji", type: "text", required: true, placeholder: "e.g. 😀 or custom: name:id" },
+      { name: "userId", label: "User (optional)", type: "select", dynamic: "discord_members", required: false, dependsOn: "guildId", placeholder: "Remove for specific user (blank = self)" }
+    ]
+  },
+  {
+    type: "discord_action_fetch_reactions",
+    title: "Fetch Reactions",
+    description: "List users who reacted to a message.",
+    icon: MessageSquare,
+    providerId: "discord",
+    requiredScopes: ["bot"],
+    category: "Communication",
+    isTrigger: false,
+    configSchema: [
+      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true, placeholder: "Select a Discord server" },
+      { name: "channelId", label: "Channel", type: "select", dynamic: "discord_channels", required: true, dependsOn: "guildId", placeholder: "Select a channel" },
+      { name: "messageId", label: "Message", type: "select", dynamic: "discord_messages", required: true, dependsOn: "channelId", placeholder: "Select a message" },
+      { name: "emoji", label: "Emoji", type: "text", required: true, placeholder: "e.g. 😀 or custom: name:id" }
+    ]
+  },
+  {
+    type: "discord_action_create_channel",
+    title: "Create Channel",
+    description: "Create a new text or voice channel.",
+    icon: MessageSquare,
+    providerId: "discord",
+    requiredScopes: ["bot"],
+    category: "Communication",
+    isTrigger: false,
+    configSchema: [
+      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true },
+      { name: "name", label: "Channel Name", type: "text", required: true },
+      { name: "type", label: "Channel Type", type: "select", options: [ { value: "0", label: "Text" }, { value: "2", label: "Voice" } ], required: true, defaultValue: "0" },
+      { name: "topic", label: "Topic", type: "text", required: false },
+      { name: "parentId", label: "Parent Category ID", type: "text", required: false },
+      { name: "nsfw", label: "NSFW", type: "boolean", required: false },
+      { name: "position", label: "Position", type: "number", required: false }
+    ]
+  },
+  {
+    type: "discord_action_update_channel",
+    title: "Update Channel",
+    description: "Update a channel's name, topic, or permissions.",
+    icon: MessageSquare,
+    providerId: "discord",
+    requiredScopes: ["bot"],
+    category: "Communication",
+    isTrigger: false,
+    configSchema: [
+      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true },
+      { name: "channelId", label: "Channel", type: "select", dynamic: "discord_channels", required: true, dependsOn: "guildId" },
+      { name: "name", label: "New Name", type: "text", required: false },
+      { name: "topic", label: "New Topic", type: "text", required: false },
+      { name: "position", label: "Position", type: "number", required: false },
+      { name: "permissionOverwrites", label: "Permission Overwrites (JSON)", type: "textarea", required: false }
+    ]
+  },
+  {
+    type: "discord_action_delete_channel",
+    title: "Delete Channel",
+    description: "Delete a channel in a Discord server.",
+    icon: MessageSquare,
+    providerId: "discord",
+    requiredScopes: ["bot"],
+    category: "Communication",
+    isTrigger: false,
+    configSchema: [
+      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true },
+      { name: "channelId", label: "Channel", type: "select", dynamic: "discord_channels", required: true, dependsOn: "guildId" }
+    ]
+  },
+  {
+    type: "discord_action_list_channels",
+    title: "List Channels",
+    description: "List all channels in a Discord server.",
+    icon: MessageSquare,
+    providerId: "discord",
+    requiredScopes: ["bot"],
+    category: "Communication",
+    isTrigger: false,
+    configSchema: [
+      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true }
+    ]
+  },
+  {
+    type: "discord_action_fetch_guild_members",
+    title: "Fetch Guild Members",
+    description: "List members in a Discord server.",
+    icon: MessageSquare,
+    providerId: "discord",
+    requiredScopes: ["bot"],
+    category: "Communication",
+    isTrigger: false,
+    configSchema: [
+      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true },
+      { name: "limit", label: "Limit", type: "number", required: false, defaultValue: 50, placeholder: "Number of members (max 1000)" },
+      { name: "after", label: "After (User ID)", type: "text", required: false, placeholder: "Fetch after this user ID" }
+    ]
+  },
+  {
+    type: "discord_action_fetch_roles",
+    title: "Fetch Roles",
+    description: "List all roles in a Discord server.",
+    icon: MessageSquare,
+    providerId: "discord",
+    requiredScopes: ["bot"],
+    category: "Communication",
+    isTrigger: false,
+    configSchema: [
+      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true }
+    ]
+  },
+  {
+    type: "discord_action_create_role",
+    title: "Create Role",
+    description: "Create a new role in a Discord server.",
+    icon: MessageSquare,
+    providerId: "discord",
+    requiredScopes: ["bot"],
+    category: "Communication",
+    isTrigger: false,
+    configSchema: [
+      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true },
+      { name: "name", label: "Role Name", type: "text", required: true },
+      { name: "color", label: "Color (hex)", type: "text", required: false },
+      { name: "permissions", label: "Permissions (bitwise)", type: "text", required: false },
+      { name: "hoist", label: "Display Separately", type: "boolean", required: false },
+      { name: "mentionable", label: "Mentionable", type: "boolean", required: false }
+    ]
+  },
+  {
+    type: "discord_action_update_role",
+    title: "Update Role",
+    description: "Update a role's name, color, or permissions.",
+    icon: MessageSquare,
+    providerId: "discord",
+    requiredScopes: ["bot"],
+    category: "Communication",
+    isTrigger: false,
+    configSchema: [
+      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true },
+      { name: "roleId", label: "Role", type: "select", dynamic: "discord_roles", required: true, dependsOn: "guildId" },
+      { name: "name", label: "New Name", type: "text", required: false },
+      { name: "color", label: "New Color (hex)", type: "text", required: false },
+      { name: "permissions", label: "Permissions (bitwise)", type: "text", required: false },
+      { name: "hoist", label: "Display Separately", type: "boolean", required: false },
+      { name: "mentionable", label: "Mentionable", type: "boolean", required: false }
+    ]
+  },
+  {
+    type: "discord_action_delete_role",
+    title: "Delete Role",
+    description: "Delete a role in a Discord server.",
+    icon: MessageSquare,
+    providerId: "discord",
+    requiredScopes: ["bot"],
+    category: "Communication",
+    isTrigger: false,
+    configSchema: [
+      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true },
+      { name: "roleId", label: "Role", type: "select", dynamic: "discord_roles", required: true, dependsOn: "guildId" }
+    ]
+  },
+  {
+    type: "discord_action_assign_role",
+    title: "Assign Role to Member",
+    description: "Assign a role to a member in a Discord server.",
+    icon: MessageSquare,
+    providerId: "discord",
+    requiredScopes: ["bot"],
+    category: "Communication",
+    isTrigger: false,
+    configSchema: [
+      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true, placeholder: "Select a Discord server" },
+      { name: "userId", label: "Member", type: "select", dynamic: "discord_members", required: true, dependsOn: "guildId", placeholder: "Select a member" },
+      { name: "roleId", label: "Role", type: "select", dynamic: "discord_roles", required: true, dependsOn: "guildId", placeholder: "Select a role" }
+    ]
+  },
+  {
+    type: "discord_action_remove_role",
+    title: "Remove Role from Member",
+    description: "Remove a role from a member in a Discord server.",
+    icon: MessageSquare,
+    providerId: "discord",
+    requiredScopes: ["bot"],
+    category: "Communication",
+    isTrigger: false,
+    configSchema: [
+      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true, placeholder: "Select a Discord server" },
+      { name: "userId", label: "Member", type: "select", dynamic: "discord_members", required: true, dependsOn: "guildId", placeholder: "Select a member" },
+      { name: "roleId", label: "Role", type: "select", dynamic: "discord_roles", required: true, dependsOn: "guildId", placeholder: "Select a role" }
+    ]
+  },
+  {
+    type: "discord_action_kick_member",
+    title: "Kick Member",
+    description: "Kick a member from a Discord server.",
+    icon: MessageSquare,
+    providerId: "discord",
+    requiredScopes: ["bot"],
+    category: "Communication",
+    isTrigger: false,
+    configSchema: [
+      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true, placeholder: "Select a Discord server" },
+      { name: "userId", label: "Member", type: "select", dynamic: "discord_members", required: true, dependsOn: "guildId", placeholder: "Select a member" },
+      { name: "reason", label: "Reason", type: "text", required: false, placeholder: "Reason for kicking (optional)" }
+    ]
+  },
+  {
+    type: "discord_action_ban_member",
+    title: "Ban Member",
+    description: "Ban a member from a Discord server.",
+    icon: MessageSquare,
+    providerId: "discord",
+    requiredScopes: ["bot"],
+    category: "Communication",
+    isTrigger: false,
+    configSchema: [
+      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true, placeholder: "Select a Discord server" },
+      { name: "userId", label: "Member", type: "select", dynamic: "discord_members", required: true, dependsOn: "guildId", placeholder: "Select a member" },
+      { name: "reason", label: "Reason", type: "text", required: false, placeholder: "Reason for banning (optional)" },
+      { name: "deleteMessageSeconds", label: "Delete Message Seconds", type: "number", required: false, placeholder: "Delete messages from last N seconds" }
+    ]
+  },
+  {
+    type: "discord_action_unban_member",
+    title: "Unban Member",
+    description: "Unban a member from a Discord server.",
+    icon: MessageSquare,
+    providerId: "discord",
+    requiredScopes: ["bot"],
+    category: "Communication",
+    isTrigger: false,
+    configSchema: [
+      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true, placeholder: "Select a Discord server" },
+      { name: "userId", label: "Banned User", type: "select", dynamic: "discord_banned_users", required: true, dependsOn: "guildId", placeholder: "Select a banned user" }
     ]
   },
 ]

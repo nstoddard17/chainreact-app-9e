@@ -8,7 +8,7 @@ export const discord = {
       client_id: this.clientId!,
       redirect_uri: this.redirectUri,
       response_type: "code",
-      scope: "identify email",
+      scope: "identify guilds email connections guilds.members.read messages.read",
       state,
     })
 

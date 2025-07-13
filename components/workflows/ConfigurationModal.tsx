@@ -30,6 +30,7 @@ import VariablePicker from "./VariablePicker"
 import { NotionDatabaseConfig } from "./NotionDatabaseConfig"
 import SlackTemplatePreview from "../ui/slack-template-preview"
 import { SlackEmailInviteMultiCombobox } from "@/components/ui/SlackEmailInviteMultiCombobox"
+import { DiscordUserSelector } from "./DiscordUserSelector"
 import { getUser } from "@/lib/supabase-client";
 
 // Import template configuration function
@@ -4271,6 +4272,7 @@ export default function ConfigurationModal({
 
     switch (String(field.type)) {
       case "text":
+        // Fall through to default text handling
       case "email":
       case "password":
         return (
@@ -4899,6 +4901,23 @@ export default function ConfigurationModal({
         )
 
       case "select":
+        // Custom Discord user selector for enhanced user selection
+        if (nodeInfo?.type === "discord_action_send_direct_message" && field.name === "userId") {
+          return (
+            <div className="space-y-2">
+              <DiscordUserSelector
+                value={value || ""}
+                onChange={handleSelectChange}
+                placeholder={field.placeholder}
+                disabled={loadingDynamic}
+              />
+              {hasError && (
+                <p className="text-xs text-red-500">{errors[field.name]}</p>
+              )}
+            </div>
+          )
+        }
+
         // Try multiple keys for dynamic options to ensure compatibility
         let options = []
         if (field.dynamic) {
