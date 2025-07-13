@@ -888,7 +888,13 @@ export const useIntegrationStore = create<IntegrationStore>()(
             dataType = "discord_users"
             break
           default:
-            throw new Error(`Loading data for ${providerId} is not supported.`)
+            // For discord_messages and other dynamic data types, let the provider mapping handle it
+            if (providerId === "discord_messages") {
+              url = "/api/integrations/fetch-user-data"
+              dataType = "discord_messages"
+            } else {
+              throw new Error(`Loading data for ${providerId} is not supported.`)
+            }
         }
 
         const provider = providerId === 'onenote_notebooks' ? 'microsoft-onenote' :
@@ -923,6 +929,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
                        providerId === 'discord_channels' ? 'discord' :
                        providerId === 'discord_guilds' ? 'discord' :
                        providerId === 'discord_users' ? 'discord' :
+                       providerId === 'discord_messages' ? 'discord' :
                        providerId.includes('_') ? providerId.split('_')[0] : 
                        providerId.includes('-') ? providerId.split('-')[0] : 
                        providerId // Extract base provider name

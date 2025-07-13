@@ -6,13 +6,23 @@ export const discord = {
   getAuthUrl(state: string) {
     const params = new URLSearchParams({
       client_id: "1378595955212812308",
-      redirect_uri: this.redirectUri,
+      redirect_uri: "https://chainreact.app/api/integrations/discord/callback",
       response_type: "code",
-      scope: "identify guilds email connections",
+      scope: "identify email connections guilds guilds.members.read",
       state,
     })
 
     return `https://discord.com/api/oauth2/authorize?${params.toString()}`
+  },
+
+  // If you have a bot invite function, update it to use permissions=8
+  getBotInviteUrl() {
+    const params = new URLSearchParams({
+      client_id: "1378595955212812308",
+      scope: "bot applications.commands",
+      permissions: "8"
+    })
+    return `https://discord.com/oauth2/authorize?${params.toString()}`
   },
 
   async exchangeCodeForToken(code: string) {
