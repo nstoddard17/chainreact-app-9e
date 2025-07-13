@@ -14,4 +14,19 @@ export * from './airtable'
 export * from './slack'
 
 // Trello actions
-export * from './trello' 
+export * from './trello'
+
+// Discord actions
+export * from './discord'
+
+// Notion actions
+export * from './notion'
+
+// GitHub actions
+export * from './github'
+
+// HubSpot actions
+export * from './hubspot'
+
+// Generic actions
+export * from './generic' 

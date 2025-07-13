@@ -9,6 +9,7 @@ import { PresenceProvider } from "@/components/providers/PresenceProvider"
 import { Toaster } from "@/components/ui/toaster"
 import { ReAuthNotification } from "@/components/integrations/ReAuthNotification"
 import { GlobalErrorHandler } from "@/components/GlobalErrorHandler"
+import DiscordBotProvider from "@/components/providers/DiscordBotProvider"
 
 // Optimize font loading with display: swap for better LCP
 const inter = Inter({ 
@@ -57,6 +58,7 @@ export default function RootLayout({
             <GlobalErrorHandler />
             <AuthInitializer />
             <PresenceProvider>
+              <DiscordBotProvider />
               <ReAuthNotification />
               <Toaster />
               {children}

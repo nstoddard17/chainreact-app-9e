@@ -31,9 +31,34 @@ import {
   createTrelloCard,
   moveTrelloCard,
   
+  // Discord actions
+  sendDiscordMessage,
+  createDiscordChannel,
+  addDiscordRole,
+  
+  // Notion actions
+  createNotionDatabase,
+  createNotionPage,
+  updateNotionPage,
+  
+  // GitHub actions
+  createGitHubIssue,
+  createGitHubRepository,
+  createGitHubPullRequest,
+  
+  // HubSpot actions
+  createHubSpotContact,
+  createHubSpotCompany,
+  createHubSpotDeal,
+  
   // Workflow control actions
   executeIfThenCondition,
-  executeWaitForTime
+  executeWaitForTime,
+  
+  // Generic actions
+  executeGenericAction,
+  executeFilterAction,
+  executeDelayAction
 } from './actions'
 
 /**
@@ -1641,6 +1666,26 @@ export async function executeAction({ node, input, userId, workflowId }: Execute
     "trello_action_create_card": createTrelloCard,
     "trello_action_move_card": moveTrelloCard,
     
+    // Discord actions
+    "discord_action_send_message": sendDiscordMessage,
+    "discord_action_create_channel": createDiscordChannel,
+    "discord_action_add_role": addDiscordRole,
+    
+    // Notion actions
+    "notion_action_create_database": createNotionDatabase,
+    "notion_action_create_page": createNotionPage,
+    "notion_action_update_page": updateNotionPage,
+    
+    // GitHub actions
+    "github_action_create_issue": createGitHubIssue,
+    "github_action_create_repository": createGitHubRepository,
+    "github_action_create_pull_request": createGitHubPullRequest,
+    
+    // HubSpot actions
+    "hubspot_action_create_contact": createHubSpotContact,
+    "hubspot_action_create_company": createHubSpotCompany,
+    "hubspot_action_create_deal": createHubSpotDeal,
+    
     // YouTube actions
     "youtube_action_upload_video": uploadYouTubeVideo,
     "youtube_action_list_videos": listYouTubeVideos,
@@ -1663,20 +1708,24 @@ export async function executeAction({ node, input, userId, workflowId }: Execute
     // Workflow control actions
     "if_then_condition": executeIfThenCondition,
     "wait_for_time": (cfg: any, uid: string, inp: any) => 
-      executeWaitForTime(cfg, uid, inp, { workflowId, nodeId: node.id })
+      executeWaitForTime(cfg, uid, inp, { workflowId, nodeId: node.id }),
+    
+    // Generic actions
+    "filter": executeFilterAction,
+    "delay": executeDelayAction
   }
 
   // Get the appropriate handler for this node type
   const handler = handlerMap[type]
 
-  // If there's no handler for this node type, return a default response
+  // If there's no handler for this node type, try the generic handler
   if (!handler) {
-    console.warn(`No execution logic for node type: ${type}`)
-    return { 
-      success: true, 
-      output: input, 
-      message: `No action found for ${type}` 
-    }
+    console.log(`Using generic handler for node type: ${type}`)
+    return executeGenericAction(
+      { ...config, actionType: type },
+      userId,
+      input
+    )
   }
 
   // For encryption-dependent handlers, check if encryption key is available
