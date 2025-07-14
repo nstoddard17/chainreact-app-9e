@@ -379,3 +379,99 @@ export async function updateNotionPage(
     }
   }
 } 
+
+/**
+ * Search for pages or databases in Notion
+ */
+export async function searchNotionPages(
+  config: any,
+  userId: string,
+  input: Record<string, any>
+): Promise<ActionResult> {
+  try {
+    const accessToken = await getDecryptedAccessToken(userId, "notion")
+    const query = resolveValue(config.query, input) || ""
+    const filter = config.filter || "page"
+    const maxResults = Number(config.maxResults) || 10
+
+    if (!accessToken) {
+      return { success: false, message: "Notion access token not found" }
+    }
+
+    // Build Notion search payload
+    const payload: any = {
+      query,
+      page_size: Math.max(1, Math.min(maxResults, 100)),
+    }
+    if (filter === "page" || filter === "database") {
+      payload.filter = { property: "object", value: filter }
+    }
+
+    const response = await fetch("https://api.notion.com/v1/search", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Notion-Version": "2022-06-28",
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(`Notion API error: ${response.status} - ${errorData.message || response.statusText}`)
+    }
+
+    const result = await response.json()
+    const results = result.results || []
+
+    // Map results to a simple structure for preview/UI
+    const pages = results.map((item: any) => {
+      let title = ""
+      if (item.object === "page") {
+        // Try to extract title from properties
+        const prop = item.properties || {}
+        const titleProp = Object.values(prop).find((p: any) => p.type === "title") as any
+        if (titleProp && Array.isArray(titleProp.title) && titleProp.title.length > 0) {
+          title = titleProp.title[0].plain_text || ""
+        }
+      } else if (item.object === "database") {
+        // Try to extract title from title property
+        if (Array.isArray(item.title) && item.title.length > 0) {
+          title = item.title[0].plain_text || ""
+        }
+      }
+      return {
+        id: item.id,
+        object: item.object,
+        title,
+        url: item.url,
+        last_edited_time: item.last_edited_time,
+        created_time: item.created_time,
+        icon: item.icon,
+        cover: item.cover,
+        raw: item
+      }
+    })
+
+    return {
+      success: true,
+      output: {
+        pages,
+        count: pages.length,
+        query,
+        filter,
+        maxResults,
+        raw: result
+      },
+      message: `Found ${pages.length} Notion ${filter === "database" ? "databases" : "pages"} matching the search criteria`
+    }
+  } catch (error: any) {
+    console.error("Notion search pages error:", error)
+    return {
+      success: false,
+      message: error.message || "Failed to search Notion pages",
+      error: error.message
+    }
+  }
+} 

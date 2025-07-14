@@ -6248,7 +6248,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   {
     type: "discord_action_fetch_messages",
     title: "Fetch Messages",
-    description: "List recent messages from a Discord channel.",
+    description: "List recent messages from a Discord channel with optional filters.",
     icon: MessageSquare,
     providerId: "discord",
     requiredScopes: ["bot"],
@@ -6257,7 +6257,21 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     configSchema: [
       { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true },
       { name: "channelId", label: "Channel", type: "select", dynamic: "discord_channels", required: true, dependsOn: "guildId" },
-      { name: "limit", label: "Limit", type: "number", required: false, placeholder: "Number of messages (max 100)", defaultValue: 20 }
+      { name: "limit", label: "Limit", type: "number", required: false, placeholder: "Number of messages (max 100)", defaultValue: 20 },
+      { name: "filterType", label: "Filter Type", type: "select", required: false, options: [
+        { value: "none", label: "No Filter" },
+        { value: "author", label: "Filter by Author" },
+        { value: "content", label: "Filter by Content" },
+        { value: "has_attachments", label: "Has Attachments" },
+        { value: "has_embeds", label: "Has Embeds" },
+        { value: "is_pinned", label: "Pinned Messages" },
+        { value: "from_bots", label: "From Bots" },
+        { value: "from_humans", label: "From Humans" },
+        { value: "has_reactions", label: "Has Reactions" }
+      ], defaultValue: "none" },
+      { name: "filterAuthor", label: "Author", type: "select", dynamic: "discord_members", required: false, dependsOn: "guildId", placeholder: "Select an author to filter by", description: "Only show messages from this user" },
+      { name: "filterContent", label: "Content Contains", type: "text", required: false, placeholder: "Text to search for in messages", description: "Only show messages containing this text" },
+      { name: "caseSensitive", label: "Case Sensitive Search", type: "boolean", required: false, defaultValue: false, description: "Whether content search should be case sensitive" }
     ]
   },
   {
