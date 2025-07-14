@@ -19,7 +19,8 @@ import { ConfigurationLoadingScreen } from "@/components/ui/loading-screen"
 import { FileUpload } from "@/components/ui/file-upload"
 import { DatePicker } from "@/components/ui/date-picker"
 import { TimePicker } from "@/components/ui/time-picker"
-import { Play, X, Loader2, TestTube, Clock, HelpCircle, AlertCircle, Video, ChevronLeft, ChevronRight, Database, Calendar, Upload, Eye, RefreshCw } from "lucide-react"
+import { Play, X, Loader2, TestTube, Clock, HelpCircle, AlertCircle, Video, ChevronLeft, ChevronRight, Database, Calendar, Upload, Eye, RefreshCw, Sparkles } from "lucide-react"
+import { Switch } from "@/components/ui/switch"
 import { Checkbox } from "@/components/ui/checkbox"
 import { cn } from "@/lib/utils"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -31,6 +32,10 @@ import { NotionDatabaseConfig } from "./NotionDatabaseConfig"
 import SlackTemplatePreview from "../ui/slack-template-preview"
 import { SlackEmailInviteMultiCombobox } from "@/components/ui/SlackEmailInviteMultiCombobox"
 import { DiscordUserSelector } from "./DiscordUserSelector"
+import { DiscordMessagesPreview } from "./DiscordMessagesPreview"
+import { GmailEmailsPreview } from "./GmailEmailsPreview"
+import { NotionRecordsPreview } from "./NotionRecordsPreview"
+import { SmartComposeField } from "@/components/ai/SmartComposeField"
 import { getUser } from "@/lib/supabase-client";
 
 // Import template configuration function
@@ -1191,6 +1196,158 @@ export default function ConfigurationModal({
   const [slackPlanError, setSlackPlanError] = useState<string | null>(null)
   const [slackPlanLoading, setSlackPlanLoading] = useState(false)
 
+  // Preview functionality state
+  const [previewData, setPreviewData] = useState<any>(null)
+  
+  // AI Smart Compose state
+  const [aiAssistEnabled, setAiAssistEnabled] = useState<Record<string, boolean>>({})
+  const [aiTone, setAiTone] = useState<Record<string, string>>({})
+  const [hasActiveAiField, setHasActiveAiField] = useState(false)
+  
+  // Effect to track when AI fields are active
+  useEffect(() => {
+    const hasActive = Object.values(aiAssistEnabled).some(enabled => enabled)
+    setHasActiveAiField(hasActive)
+  }, [aiAssistEnabled])
+
+  // Helper function to determine if a field should have AI functionality
+  const shouldHaveAiCompose = (field: ConfigField | NodeField, nodeInfo: NodeComponent | null): boolean => {
+    if (!nodeInfo) return false
+    
+    // Check if field is a message content field
+    const isMessageField = field.name === 'message' || field.name === 'content' || field.name === 'body' || field.name === 'text'
+    const isTextArea = field.type === 'textarea' || field.type === 'rich-text'
+    
+    // Check if integration supports AI compose
+    const supportedIntegrations = ['gmail', 'slack', 'discord', 'teams', 'notion', 'github', 'linkedin', 'microsoft-outlook']
+    const isSupportedIntegration = supportedIntegrations.includes(nodeInfo.providerId || '')
+    
+    return isMessageField && isTextArea && isSupportedIntegration
+  }
+  
+  // Helper function to get AI context for a field
+  const getAiContext = (field: ConfigField | NodeField, nodeInfo: NodeComponent | null): Record<string, any> => {
+    const context: Record<string, any> = {}
+    
+    if (!nodeInfo) return context
+    
+    // Add integration-specific context
+    switch (nodeInfo.providerId) {
+      case 'gmail':
+        context.recipient = config.to || config.cc || ''
+        context.subject = config.subject || ''
+        break
+      case 'slack':
+        context.channel = config.channel || ''
+        break
+      case 'discord':
+        // Try to get channel name from dynamic options or stored label
+        let channelName = config.channelId || ''
+        if (config.channelId) {
+          // First try to get from stored label
+          if (config.channelId_label) {
+            channelName = config.channelId_label
+          } else {
+            // Try to get from dynamic options
+            const channelOptions = dynamicOptions.channelId || dynamicOptions.discord_channels || []
+            const selectedChannel = channelOptions.find((option: any) => option.value === config.channelId)
+            if (selectedChannel) {
+              channelName = selectedChannel.label
+            }
+          }
+        }
+        context.channel = channelName
+        
+        // Try to get server name as well
+        let serverName = config.guildId || ''
+        if (config.guildId) {
+          if (config.guildId_label) {
+            serverName = config.guildId_label
+          } else {
+            const serverOptions = dynamicOptions.guildId || dynamicOptions.discord_guilds || []
+            const selectedServer = serverOptions.find((option: any) => option.value === config.guildId)
+            if (selectedServer) {
+              serverName = selectedServer.label
+            }
+          }
+        }
+        context.server = serverName
+        break
+      case 'teams':
+        context.channel = config.channelId || ''
+        break
+      case 'notion':
+        context.page = config.pageId || ''
+        context.database = config.databaseId || ''
+        break
+      case 'github':
+        context.repository = `${config.owner || ''}/${config.repo || ''}`
+        context.title = config.title || ''
+        break
+      case 'linkedin':
+        context.platform = 'LinkedIn'
+        break
+      case 'microsoft-outlook':
+        context.recipient = config.to || config.cc || ''
+        context.subject = config.subject || ''
+        break
+    }
+    
+    return context
+  }
+  const [previewLoading, setPreviewLoading] = useState(false)
+  const [previewError, setPreviewError] = useState<string | null>(null)
+
+  // Preview functionality
+  const handlePreview = async () => {
+    if (!nodeInfo || !config) return
+
+    setPreviewLoading(true)
+    setPreviewError(null)
+    setPreviewData(null)
+
+    try {
+      // Get user ID from integration store instead of calling getUser directly
+      const currentUserId = useIntegrationStore.getState().currentUserId
+      if (!currentUserId) {
+        throw new Error("User not authenticated. Please log in again.")
+      }
+
+      let endpoint = ""
+      let requestBody: any = { userId: currentUserId, config }
+
+      // Determine the correct preview endpoint based on node type
+      if (nodeInfo.type === "discord_action_fetch_messages") {
+        endpoint = "/api/workflows/discord/fetch-messages-preview"
+      } else if (nodeInfo.type === "gmail_action_search_emails") {
+        endpoint = "/api/workflows/gmail/search-emails-preview"
+      } else if (nodeInfo.type === "notion_action_search_pages") {
+        endpoint = "/api/workflows/notion/search-pages-preview"
+      } else {
+        throw new Error("Preview not available for this action type")
+      }
+
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestBody)
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to load preview")
+      }
+
+      setPreviewData(data.data)
+    } catch (error: any) {
+      console.error("Preview error:", error)
+      setPreviewError(error.message || "Failed to load preview")
+    } finally {
+      setPreviewLoading(false)
+    }
+  }
+
   // Helper functions for range selection
   const getCellCoordinate = (rowIndex: number, colIndex: number): string => {
     const colLetter = String.fromCharCode(65 + colIndex) // A, B, C, etc.
@@ -1321,6 +1478,14 @@ export default function ConfigurationModal({
     }
   }, [config.readMode, nodeInfo?.type])
 
+  // Clear preview data when config changes
+  useEffect(() => {
+    if (previewData) {
+      setPreviewData(null)
+      setPreviewError(null)
+    }
+  }, [config])
+
   // Reset loading state when modal closes
   useEffect(() => {
     if (!isOpen) {
@@ -1347,6 +1512,10 @@ export default function ConfigurationModal({
       hasHandledInitialDiscordGuild.current = false
       // Clear errors when modal closes
       setErrors({})
+      // Clear preview data when modal closes
+      setPreviewData(null)
+      setPreviewError(null)
+      setPreviewLoading(false)
       // Reset range selection state
       setIsDragging(false)
       setDragStart(null)
@@ -1737,6 +1906,31 @@ export default function ConfigurationModal({
       
       // Hide all other fields until bot is connected
       return false
+    }
+
+    // Special logic for Discord fetch messages action
+    if (nodeInfo?.type === "discord_action_fetch_messages") {
+      // Always show basic fields
+      if (field.name === "guildId" || field.name === "channelId" || field.name === "limit" || field.name === "filterType") {
+        return true
+      }
+      
+      // Show filter-specific fields based on filterType
+      const filterType = config.filterType || "none"
+      
+      if (field.name === "filterAuthor") {
+        return filterType === "author"
+      }
+      
+      if (field.name === "filterContent") {
+        return filterType === "content"
+      }
+      
+      if (field.name === "caseSensitive") {
+        return filterType === "content"
+      }
+      
+      return true
     }
     
     // Special logic for read data action (applies to all fields, including those with dependencies)
@@ -2497,8 +2691,8 @@ export default function ConfigurationModal({
   useEffect(() => {
     if (!isOpen || !nodeInfo) return
 
-    // Load dependent data for Discord edit message and delete message actions
-    if (nodeInfo && (nodeInfo.type === "discord_action_edit_message" || nodeInfo.type === "discord_action_delete_message" || nodeInfo.type === "discord_action_send_message")) {
+    // Load dependent data for Discord message actions
+    if (nodeInfo && (nodeInfo.type === "discord_action_edit_message" || nodeInfo.type === "discord_action_delete_message" || nodeInfo.type === "discord_action_send_message" || nodeInfo.type === "discord_action_fetch_messages")) {
       const loadDependentData = async () => {
         console.log('🔄 Loading dependent data for Discord message action with config:', config)
         
@@ -2569,14 +2763,14 @@ export default function ConfigurationModal({
         }
       }
 
-      // Add a small delay to ensure the modal is fully opened before loading data
+      // Add a small delay to ensure the modal is fully opened and config is set before loading data
       const timer = setTimeout(() => {
         loadDependentData()
-      }, 100)
+      }, 200) // Increased delay to ensure config is properly set
 
       return () => clearTimeout(timer)
     }
-  }, [isOpen, nodeInfo, config.guildId, config.channelId, dynamicOptions.guildId])
+  }, [isOpen, nodeInfo, config.guildId, config.channelId, dynamicOptions.guildId, config]) // Added config to dependencies
 
   // Debug dynamicOptions state changes
   useEffect(() => {
@@ -4301,6 +4495,130 @@ export default function ConfigurationModal({
         )
 
       case "textarea":
+        // Check if this field should have AI functionality
+        const hasAiCompose = shouldHaveAiCompose(field, nodeInfo)
+        const fieldId = `${nodeInfo?.type || 'unknown'}-${field.name}`
+        const isAiEnabled = aiAssistEnabled[fieldId] || false
+        const currentAiTone = aiTone[fieldId] || 'professional'
+        
+        if (hasAiCompose) {
+          return (
+            <div className="space-y-2">
+              {renderLabel()}
+              <div className="w-full space-y-2">
+                {/* AI Toggle */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={isAiEnabled}
+                      onCheckedChange={(checked) => {
+                        setAiAssistEnabled(prev => ({ ...prev, [fieldId]: checked }))
+                      }}
+                    />
+                    <span className="text-sm font-medium">AI Smart Compose</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {isAiEnabled && (
+                      <Select
+                        value={currentAiTone}
+                        onValueChange={(tone) => {
+                          setAiTone(prev => ({ ...prev, [fieldId]: tone }))
+                        }}
+                      >
+                        <SelectTrigger className="w-32 h-8">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="professional">Professional</SelectItem>
+                          <SelectItem value="casual">Casual</SelectItem>
+                          <SelectItem value="brief">Brief</SelectItem>
+                          <SelectItem value="enthusiastic">Enthusiastic</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
+                    {isAiEnabled && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          // Trigger AI compose for this field
+                          const event = new CustomEvent('ai-compose', { 
+                            detail: { fieldId, regenerate: false } 
+                          })
+                          window.dispatchEvent(event)
+                        }}
+                        className="gap-2"
+                      >
+                        <Sparkles className="w-4 h-4" />
+                        AI Compose
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                
+                {/* AI Smart Compose Field */}
+                {isAiEnabled ? (
+                  <SmartComposeField
+                    value={value}
+                    onChange={(val: string) => setConfig(prev => ({ ...prev, [field.name]: val }))}
+                    fieldId={fieldId}
+                    placeholder={field.placeholder}
+                    context={getAiContext(field, nodeInfo)}
+                    integration={nodeInfo?.providerId || ''}
+                    fieldName={field.name}
+                    aiAssistEnabled={isAiEnabled}
+                    aiTone={currentAiTone}
+                    onAiAssistToggle={(enabled) => {
+                      setAiAssistEnabled(prev => ({ ...prev, [fieldId]: enabled }))
+                    }}
+                    onToneChange={(tone) => {
+                      setAiTone(prev => ({ ...prev, [fieldId]: tone }))
+                    }}
+                  />
+                ) : (
+                  <Textarea
+                    value={value}
+                    onChange={handleChange}
+                    placeholder={field.placeholder}
+                    className={cn("w-full min-h-[100px] resize-y", hasError && "border-red-500")}
+                    autoComplete="new-password"
+                    autoCorrect="off"
+                    autoCapitalize="off"
+                    spellCheck="false"
+                    data-form-type="other"
+                    data-lpignore="true"
+                    data-1p-ignore="true"
+                    data-bwignore="true"
+                    data-dashlane-ignore="true"
+                    name={`custom-textarea-${Math.random().toString(36).substr(2, 9)}`}
+                  />
+                )}
+                
+                {/* Variable Picker */}
+                <div className="flex justify-end">
+                  <VariablePicker
+                    workflowData={workflowData}
+                    currentNodeId={currentNodeId}
+                    onVariableSelect={handleVariableSelect}
+                    fieldType={field.type}
+                    trigger={
+                      <Button variant="outline" size="sm" className="gap-2">
+                        <Database className="w-4 h-4" />
+                        Insert Variable
+                      </Button>
+                    }
+                  />
+                </div>
+              </div>
+              {hasError && (
+                <p className="text-xs text-red-500">{errors[field.name]}</p>
+              )}
+            </div>
+          )
+        }
+        
+        // Regular textarea without AI
         return (
           <div className="space-y-2">
             {renderLabel()}
@@ -4343,9 +4661,69 @@ export default function ConfigurationModal({
         )
 
       case "rich-text":
+        // Check if this field should have AI functionality
+        const hasAiComposeRich = shouldHaveAiCompose(field, nodeInfo)
+        const fieldIdRich = `${nodeInfo?.type || 'unknown'}-${field.name}`
+        const isAiEnabledRich = aiAssistEnabled[fieldIdRich] || false
+        const currentAiToneRich = aiTone[fieldIdRich] || 'professional'
+        
         return (
           <div className="space-y-2">
             {renderLabel()}
+            
+            {/* AI Toggle for rich-text */}
+            {hasAiComposeRich && (
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={isAiEnabledRich}
+                    onCheckedChange={(checked) => {
+                      setAiAssistEnabled(prev => ({ ...prev, [fieldIdRich]: checked }))
+                    }}
+                  />
+                  <span className="text-sm font-medium">AI Smart Compose</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {isAiEnabledRich && (
+                    <Select
+                      value={currentAiToneRich}
+                      onValueChange={(tone) => {
+                        setAiTone(prev => ({ ...prev, [fieldIdRich]: tone }))
+                      }}
+                    >
+                      <SelectTrigger className="w-32 h-8">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="professional">Professional</SelectItem>
+                        <SelectItem value="casual">Casual</SelectItem>
+                        <SelectItem value="brief">Brief</SelectItem>
+                        <SelectItem value="enthusiastic">Enthusiastic</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                  {isAiEnabledRich && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        // Trigger AI compose for this field
+                        const event = new CustomEvent('ai-compose', { 
+                          detail: { fieldId: fieldIdRich, regenerate: false } 
+                        })
+                        window.dispatchEvent(event)
+                      }}
+                      className="gap-2"
+                    >
+                      <Sparkles className="w-4 h-4" />
+                      AI Compose
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
+            
             <div className="w-full space-y-2">
               <div className="border rounded-md">
                 {/* Email Compose Toolbar */}
@@ -4828,6 +5206,30 @@ export default function ConfigurationModal({
                   </div>
                 )}
               </div>
+              
+              {/* AI Smart Compose for rich-text */}
+              {hasAiComposeRich && isAiEnabledRich && (
+                <div className="mt-4">
+                  <SmartComposeField
+                    value={value}
+                    onChange={(val: string) => setConfig(prev => ({ ...prev, [field.name]: val }))}
+                    fieldId={fieldIdRich}
+                    placeholder={field.placeholder}
+                    context={getAiContext(field, nodeInfo)}
+                    integration={nodeInfo?.providerId || ''}
+                    fieldName={field.name}
+                    aiAssistEnabled={isAiEnabledRich}
+                    aiTone={currentAiToneRich}
+                    onAiAssistToggle={(enabled) => {
+                      setAiAssistEnabled(prev => ({ ...prev, [fieldIdRich]: enabled }))
+                    }}
+                    onToneChange={(tone) => {
+                      setAiTone(prev => ({ ...prev, [fieldIdRich]: tone }))
+                    }}
+                  />
+                </div>
+              )}
+              
               <div className="flex justify-between items-center">
                 <p className="text-xs text-muted-foreground">
                   Format your text visually. The formatted content will be sent as HTML.
@@ -4870,8 +5272,8 @@ export default function ConfigurationModal({
           )
         }
 
-        // Add variable picker for Discord edit message and delete message channel and message fields
-        if (nodeInfo && (nodeInfo.type === "discord_action_edit_message" || nodeInfo.type === "discord_action_delete_message") && (field.name === "channelId" || field.name === "messageId")) {
+        // Add variable picker for Discord message action channel and message fields
+        if (nodeInfo && (nodeInfo.type === "discord_action_edit_message" || nodeInfo.type === "discord_action_delete_message" || nodeInfo.type === "discord_action_send_message" || nodeInfo.type === "discord_action_fetch_messages") && (field.name === "channelId" || field.name === "messageId")) {
           // Get options for the select field
           let options: any[] = []
           if (field.dynamic) {
@@ -4887,7 +5289,15 @@ export default function ConfigurationModal({
             const optionValue = typeof option === 'string' ? option : option.value
             return optionValue === value
           })
-          const selectedLabel = selectedOption ? (typeof selectedOption === 'string' ? selectedOption : selectedOption.label) : value
+          
+          // Use selected option label, fallback to stored label, then fallback to value
+          let selectedLabel = value
+          if (selectedOption) {
+            selectedLabel = typeof selectedOption === 'string' ? selectedOption : selectedOption.label
+          } else if (config[`${field.name}_label`]) {
+            // Fallback to stored label if option not found (e.g., when data is still loading)
+            selectedLabel = config[`${field.name}_label`]
+          }
           
           return (
             <div className="space-y-2">
@@ -6397,8 +6807,9 @@ export default function ConfigurationModal({
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent 
           className={cn(
-            "max-w-7xl w-full max-h-[95vh] p-0 gap-0 overflow-hidden",
-            showDataFlowPanels && "max-w-[98vw]"
+            "max-w-7xl w-full p-0 gap-0 overflow-hidden",
+            showDataFlowPanels && "max-w-[98vw]",
+            hasActiveAiField ? "max-h-[98vh]" : "max-h-[95vh]"
           )}
         >
           <div className="flex h-full">
@@ -6516,7 +6927,10 @@ export default function ConfigurationModal({
               </DialogHeader>
 
               {/* Configuration Form */}
-              <ScrollArea className="flex-1 max-h-[70vh]">
+              <ScrollArea className={cn(
+                "flex-1",
+                hasActiveAiField ? "max-h-[75vh]" : "max-h-[70vh]"
+              )}>
                 <div className="px-6 py-4 space-y-6">
                   {/* Integration Error */}
                   {errors.integrationError && (
@@ -6911,6 +7325,58 @@ export default function ConfigurationModal({
                           </p>
                         </div>
                       </div>
+                    </div>
+                  )}
+
+                  {/* Preview Functionality */}
+                  {(nodeInfo?.type === "discord_action_fetch_messages" || 
+                    nodeInfo?.type === "gmail_action_search_emails" || 
+                    nodeInfo?.type === "notion_action_search_pages") && (
+                    <div className="space-y-3 border-t pt-4">
+                      <div className="flex items-center justify-between">
+                        <div className="text-sm font-medium">Preview Results</div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handlePreview}
+                          disabled={previewLoading}
+                        >
+                          {previewLoading ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              Loading...
+                            </>
+                          ) : (
+                            <>
+                              <Eye className="w-4 h-4 mr-2" />
+                              Load Preview
+                            </>
+                          )}
+                        </Button>
+                      </div>
+
+                      {previewError && (
+                        <div className="text-sm text-red-600 bg-red-50 p-3 rounded border">
+                          {previewError}
+                        </div>
+                      )}
+
+                      {previewData && (
+                        <div className="space-y-2">
+                          {nodeInfo?.type === "discord_action_fetch_messages" && (
+                            <DiscordMessagesPreview messages={previewData.messages || []} />
+                          )}
+                          {nodeInfo?.type === "gmail_action_search_emails" && (
+                            <GmailEmailsPreview emails={previewData.emails || []} />
+                          )}
+                          {nodeInfo?.type === "notion_action_search_pages" && (
+                            <NotionRecordsPreview 
+                              records={previewData.pages || []} 
+                              columns={["title", "url", "object", "last_edited_time"]} 
+                            />
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

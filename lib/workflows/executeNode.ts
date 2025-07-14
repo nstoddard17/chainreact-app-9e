@@ -37,26 +37,28 @@ import {
   createDiscordChannel,
   addDiscordRole,
   editDiscordMessage,
+  fetchDiscordMessages,
   
   // Notion actions
   createNotionDatabase,
   createNotionPage,
   updateNotionPage,
-  
+  searchNotionPages,
+
   // GitHub actions
   createGitHubIssue,
   createGitHubRepository,
   createGitHubPullRequest,
-  
+
   // HubSpot actions
   createHubSpotContact,
   createHubSpotCompany,
   createHubSpotDeal,
-  
+
   // Workflow control actions
   executeIfThenCondition,
   executeWaitForTime,
-  
+
   // Generic actions
   executeGenericAction,
   executeFilterAction,
@@ -1674,11 +1676,13 @@ export async function executeAction({ node, input, userId, workflowId }: Execute
     "discord_action_create_channel": createDiscordChannel,
     "discord_action_add_role": addDiscordRole,
     "discord_action_edit_message": editDiscordMessage,
+    "discord_action_fetch_messages": fetchDiscordMessages,
     
     // Notion actions
     "notion_action_create_database": createNotionDatabase,
     "notion_action_create_page": createNotionPage,
     "notion_action_update_page": updateNotionPage,
+    "notion_action_search_pages": searchNotionPages,
     
     // GitHub actions
     "github_action_create_issue": createGitHubIssue,

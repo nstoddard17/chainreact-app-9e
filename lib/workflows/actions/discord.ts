@@ -63,22 +63,6 @@ export async function sendDiscordMessage(
     }
 
     // Verify bot is in the guild and ensure it's online
-    const guildCheckResponse = await fetch(`https://discord.com/api/v10/guilds/${guildId}/members/${botUserId}`, {
-      headers: { 
-        Authorization: `Bot ${botToken}`,
-        "Content-Type": "application/json"
-      }
-    })
-
-    if (guildCheckResponse.status === 404) {
-      throw new Error("Bot is not a member of this Discord server. Please add the bot to the server first.")
-    }
-
-    if (!guildCheckResponse.ok) {
-      throw new Error(`Failed to verify bot membership: ${guildCheckResponse.status}`)
-    }
-
-    // Ensure bot is online in this guild
     updateDiscordPresenceForAction()
 
     // Prepare message payload
@@ -461,22 +445,181 @@ export async function deleteDiscordMessage(config: any, userId: string, input: R
 }
 
 /**
- * Fetch recent messages from a channel
+ * Fetch messages from a Discord channel with optional filters
  */
 export async function fetchDiscordMessages(config: any, userId: string, input: Record<string, any>) {
   try {
     const resolvedConfig = resolveValue(config, { input })
-    const { channelId, limit = 20 } = resolvedConfig
+    const { 
+      channelId, 
+      limit = 20, 
+      filterType = "none", 
+      filterAuthor, 
+      filterContent, 
+      caseSensitive = false 
+    } = resolvedConfig
+
+    if (!channelId) {
+      throw new Error("Channel ID is required")
+    }
+
+    // Get Discord integration to verify user has access
+    const { createSupabaseServerClient } = await import("@/utils/supabase/server")
+    const supabase = await createSupabaseServerClient()
+    
+    const { data: integration } = await supabase
+      .from("integrations")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("provider", "discord")
+      .eq("status", "connected")
+      .single()
+
+    if (!integration) {
+      throw new Error("Discord integration not connected")
+    }
+
     const botToken = process.env.DISCORD_BOT_TOKEN
-    if (!botToken) throw new Error("Discord bot token not configured")
-    const response = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages?limit=${limit}`, {
-      headers: { Authorization: `Bot ${botToken}` }
+    if (!botToken) {
+      throw new Error("Discord bot token not configured")
+    }
+
+    // Validate limit - fetch more than needed if filtering to account for filtered out messages
+    const baseLimitMultiplier = filterType === "none" ? 1 : 3
+    const validatedLimit = Math.min(Math.max(1, limit || 20), 100)
+    const fetchLimit = Math.min(validatedLimit * baseLimitMultiplier, 100)
+
+    // Fetch messages from Discord API
+    const response = await fetch(
+      `https://discord.com/api/v10/channels/${channelId}/messages?limit=${fetchLimit}`,
+      {
+        headers: { 
+          Authorization: `Bot ${botToken}`,
+          "Content-Type": "application/json"
+        }
+      }
+    )
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(`Discord API error: ${response.status} - ${errorData.message || response.statusText}`)
+    }
+
+    const messages = await response.json()
+
+    // Apply filters
+    const filteredMessages = messages.filter((msg: any) => {
+      switch (filterType) {
+        case "author":
+          return filterAuthor ? msg.author?.id === filterAuthor : true
+          
+        case "content":
+          if (!filterContent) return true
+          const messageContent = msg.content || ""
+          return caseSensitive 
+            ? messageContent.includes(filterContent)
+            : messageContent.toLowerCase().includes(filterContent.toLowerCase())
+            
+        case "has_attachments":
+          return msg.attachments && msg.attachments.length > 0
+          
+        case "has_embeds":
+          return msg.embeds && msg.embeds.length > 0
+          
+        case "is_pinned":
+          return msg.pinned === true
+          
+        case "from_bots":
+          return msg.author?.bot === true
+          
+        case "from_humans":
+          return msg.author?.bot !== true
+          
+        case "has_reactions":
+          return msg.reactions && msg.reactions.length > 0
+          
+        case "none":
+        default:
+          return true
+      }
     })
-    if (!response.ok) throw new Error(`Failed to fetch messages: ${response.status}`)
-    const data = await response.json()
-    return { success: true, output: data, message: `Fetched ${data.length} messages` }
+
+    // Limit the results to the requested amount
+    const limitedMessages = filteredMessages.slice(0, validatedLimit)
+
+    // Process and structure the messages for better output
+    const processedMessages = limitedMessages
+      // Filter out system messages: only type 0 (default) and not blank unless attachments/embeds
+      .filter((msg: any) => {
+        // type 0 = default/user message, others are system
+        if (msg.type !== 0) return false
+        // Show if content is not blank, or if there are attachments or embeds
+        const hasContent = (msg.content && msg.content.trim().length > 0)
+        const hasAttachments = Array.isArray(msg.attachments) && msg.attachments.length > 0
+        const hasEmbeds = Array.isArray(msg.embeds) && msg.embeds.length > 0
+        return hasContent || hasAttachments || hasEmbeds
+      })
+      .map((msg: any) => ({
+        id: msg.id,
+        content: msg.content,
+        timestamp: msg.timestamp,
+        edited_timestamp: msg.edited_timestamp,
+        author: {
+          id: msg.author?.id,
+          username: msg.author?.username,
+          discriminator: msg.author?.discriminator,
+          avatar: msg.author?.avatar,
+          bot: msg.author?.bot,
+          display_name: msg.member?.nick || msg.author?.username
+        },
+        channel_id: msg.channel_id,
+        guild_id: msg.guild_id,
+        mentions: msg.mentions,
+        mention_roles: msg.mention_roles,
+        mention_everyone: msg.mention_everyone,
+        attachments: msg.attachments,
+        embeds: msg.embeds,
+        reactions: msg.reactions,
+        pinned: msg.pinned,
+        type: msg.type,
+        flags: msg.flags,
+        webhook_id: msg.webhook_id,
+        tts: msg.tts,
+        nonce: msg.nonce,
+        referenced_message: msg.referenced_message
+      }))
+
+    // Build result message
+    let resultMessage = `Successfully fetched ${processedMessages.length} messages from Discord channel`
+    if (filterType !== "none") {
+      resultMessage += ` (filtered by ${filterType})`
+      if (filteredMessages.length !== messages.length) {
+        resultMessage += ` - ${filteredMessages.length} matched out of ${messages.length} total`
+      }
+    }
+
+    return { 
+      success: true, 
+      output: {
+        messages: processedMessages,
+        count: processedMessages.length,
+        channel_id: channelId,
+        limit: validatedLimit,
+        filter_type: filterType,
+        filter_applied: filterType !== "none",
+        total_fetched: messages.length,
+        total_after_filter: filteredMessages.length,
+        raw_messages: messages // Keep raw data for advanced use cases
+      }, 
+      message: resultMessage
+    }
   } catch (error: any) {
-    return { success: false, output: {}, message: error.message || "Failed to fetch messages" }
+    console.error("Discord fetch messages error:", error)
+    return { 
+      success: false, 
+      output: {}, 
+      message: error.message || "Failed to fetch Discord messages" 
+    }
   }
 }
 
@@ -803,4 +946,4 @@ export async function unbanDiscordMember(config: any, userId: string, input: Rec
   } catch (error: any) {
     return { success: false, output: {}, message: error.message || "Failed to unban member" }
   }
-} 
+}
