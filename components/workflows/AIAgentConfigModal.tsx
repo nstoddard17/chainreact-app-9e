@@ -8,15 +8,21 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ScrollArea } from "@/components/ui/scroll-area"
+
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { EnhancedTooltip } from "@/components/ui/enhanced-tooltip"
-import { HelpCircle, Bot, Zap, Brain, Settings, Target, MessageSquare, Clock } from "lucide-react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Slider } from "@/components/ui/slider"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { HelpCircle, Bot, Zap, Brain, Settings, Target, MessageSquare, Clock, Sparkles, Database, Play, Save, AlertCircle } from "lucide-react"
 import { INTEGRATION_CONFIGS } from "@/lib/integrations/availableIntegrations"
 import { integrationIcons } from "@/lib/integrations/integration-icons"
 import { cn } from "@/lib/utils"
+import { SmartComposeField } from "@/components/ai/SmartComposeField"
+import { useWorkflowTestStore } from "@/stores/workflowTestStore"
 
 interface AIAgentConfigModalProps {
   isOpen: boolean
@@ -27,10 +33,6 @@ interface AIAgentConfigModalProps {
   workflowData?: { nodes: any[], edges: any[] }
   currentNodeId?: string
 }
-
-
-
-
 
 export default function AIAgentConfigModal({
   isOpen,
@@ -47,9 +49,111 @@ export default function AIAgentConfigModal({
     memoryIntegration: "",
     customMemoryIntegrations: [],
     systemPrompt: "",
+    tone: "neutral",
+    responseLength: 50,
+    model: "gpt-4",
+    temperature: 0.7,
+    maxTokens: 1000,
+    outputFormat: "text",
     ...initialData,
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [activeTab, setActiveTab] = useState("basic")
+  
+  // Variable selection state
+  const [selectedVariables, setSelectedVariables] = useState<Record<string, boolean>>({})
+  const [hasTriggeredData, setHasTriggeredData] = useState(false)
+  const [generatedResponse, setGeneratedResponse] = useState("")
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [variableValues, setVariableValues] = useState<Record<string, string>>({})
+  const [useStaticValues, setUseStaticValues] = useState<Record<string, boolean>>({})
+  
+  // Input node output configuration
+  const [outputConfig, setOutputConfig] = useState<Record<string, any>>({})
+  const [inputNodeData, setInputNodeData] = useState<any>(null)
+
+  // Add workflow test store for node output data
+  const { getNodeInputOutput } = useWorkflowTestStore()
+
+  // Get realistic trigger outputs based on trigger type
+  const getTriggerOutputsByType = (nodeType: string, providerId?: string) => {
+    const outputs: Array<{
+      name: string
+      label: string
+      type: string
+      description?: string
+      example?: any
+    }> = []
+
+    // Gmail triggers
+    if (nodeType === 'gmail_trigger_new_email') {
+      outputs.push(
+        { name: 'from', label: 'From', type: 'string', description: 'Sender email address', example: 'sender@example.com' },
+        { name: 'body', label: 'Body', type: 'string', description: 'Email content', example: 'Hi, let\'s meet tomorrow at 2 PM.' },
+        { name: 'receivedAt', label: 'Received At', type: 'string', description: 'When the email was received', example: '2024-01-15T10:30:00Z' }
+      )
+    } else if (nodeType === 'gmail_trigger_new_attachment') {
+      outputs.push(
+        { name: 'id', label: 'Message ID', type: 'string', description: 'Unique identifier for the email', example: '17c123456789abcd' },
+        { name: 'from', label: 'From', type: 'string', description: 'Sender email address', example: 'sender@example.com' },
+        { name: 'subject', label: 'Subject', type: 'string', description: 'Email subject line', example: 'Document attached' },
+        { name: 'body', label: 'Body', type: 'string', description: 'Email content', example: 'Please find the attached document.' },
+        { name: 'receivedAt', label: 'Received At', type: 'string', description: 'When the email was received', example: '2024-01-15T10:30:00Z' },
+        { name: 'attachments', label: 'Attachments', type: 'array', description: 'Email attachments', example: [{ filename: 'document.pdf', size: 1024000 }] }
+      )
+    }
+    // Discord triggers
+    else if (nodeType === 'discord_trigger_new_message') {
+      outputs.push(
+        { name: 'messageId', label: 'Message ID', type: 'string', description: 'Unique identifier for the message', example: '1234567890123456789' },
+        { name: 'content', label: 'Content', type: 'string', description: 'Message content', example: 'Hello everyone!' },
+        { name: 'authorId', label: 'Author ID', type: 'string', description: 'ID of the message author', example: '123456789012345678' },
+        { name: 'authorName', label: 'Author Name', type: 'string', description: 'Name of the message author', example: 'John Doe' },
+        { name: 'authorUsername', label: 'Author Username', type: 'string', description: 'Username of the message author', example: 'johndoe' },
+        { name: 'channelId', label: 'Channel ID', type: 'string', description: 'ID of the channel', example: '1234567890123456789' },
+        { name: 'channelName', label: 'Channel Name', type: 'string', description: 'Name of the channel', example: 'general' },
+        { name: 'guildId', label: 'Server ID', type: 'string', description: 'ID of the Discord server', example: '1234567890123456789' },
+        { name: 'guildName', label: 'Server Name', type: 'string', description: 'Name of the Discord server', example: 'My Server' },
+        { name: 'timestamp', label: 'Timestamp', type: 'string', description: 'When the message was sent', example: '2024-01-15T10:30:00Z' },
+        { name: 'attachments', label: 'Attachments', type: 'array', description: 'Message attachments', example: [] },
+        { name: 'embeds', label: 'Embeds', type: 'array', description: 'Message embeds', example: [] }
+      )
+    }
+    // Generic fallback for any trigger
+    else {
+      // Add provider-specific common outputs as fallback
+      if (providerId === 'gmail') {
+        outputs.push(
+          { name: 'id', label: 'Message ID', type: 'string', description: 'Unique identifier for the email', example: '17c123456789abcd' },
+          { name: 'from', label: 'From', type: 'string', description: 'Sender email address', example: 'sender@example.com' },
+          { name: 'to', label: 'To', type: 'string', description: 'Recipient email address', example: 'recipient@example.com' },
+          { name: 'subject', label: 'Subject', type: 'string', description: 'Email subject line', example: 'Meeting tomorrow' },
+          { name: 'body', label: 'Body', type: 'string', description: 'Email content', example: 'Hi, let\'s meet tomorrow at 2 PM.' },
+          { name: 'timestamp', label: 'Timestamp', type: 'string', description: 'When the email was received', example: '2024-01-15T10:30:00Z' }
+        )
+      } else if (providerId === 'slack' || providerId === 'discord') {
+        outputs.push(
+          { name: 'messageId', label: 'Message ID', type: 'string', description: 'Unique identifier for the message', example: '1234567890.123456' },
+          { name: 'content', label: 'Content', type: 'string', description: 'Message content', example: 'Hello everyone!' },
+          { name: 'senderId', label: 'Sender ID', type: 'string', description: 'ID of the message sender', example: 'U1234567890' },
+          { name: 'senderName', label: 'Sender Name', type: 'string', description: 'Name of the message sender', example: 'John Doe' },
+          { name: 'channelId', label: 'Channel ID', type: 'string', description: 'ID of the channel', example: 'C1234567890' },
+          { name: 'channelName', label: 'Channel Name', type: 'string', description: 'Name of the channel', example: 'general' },
+          { name: 'timestamp', label: 'Timestamp', type: 'string', description: 'When the message was sent', example: '2024-01-15T10:30:00Z' }
+        )
+      } else {
+        // Generic outputs for any trigger
+        outputs.push(
+          { name: 'id', label: 'ID', type: 'string', description: 'Unique identifier', example: '1234567890' },
+          { name: 'type', label: 'Type', type: 'string', description: 'Type of the event', example: nodeType },
+          { name: 'timestamp', label: 'Timestamp', type: 'string', description: 'When the event occurred', example: '2024-01-15T10:30:00Z' },
+          { name: 'data', label: 'Data', type: 'object', description: 'Event data', example: { 'key': 'value' } }
+        )
+      }
+    }
+
+    return outputs
+  }
 
   // Reset config when modal opens
   useEffect(() => {
@@ -60,78 +164,181 @@ export default function AIAgentConfigModal({
         memoryIntegration: "",
         customMemoryIntegrations: [],
         systemPrompt: "",
+        tone: "neutral",
+        responseLength: 50,
+        model: "gpt-4",
+        temperature: 0.7,
+        maxTokens: 1000,
+        outputFormat: "text",
         ...initialData,
       })
       setErrors({})
+      setOutputConfig({})
+      setInputNodeData(null)
+      setSelectedVariables(initialData.selectedVariables || {})
+      setVariableValues({})
+      setUseStaticValues({})
+      setHasTriggeredData(false)
+      setGeneratedResponse("")
     }
   }, [isOpen, initialData])
+  
+  // Fetch input node data when selected
+  useEffect(() => {
+    if (config.inputNodeId && workflowData?.nodes) {
+      const selectedNode = workflowData.nodes.find(node => node.id === config.inputNodeId)
+      if (selectedNode) {
+        setInputNodeData(selectedNode)
+        // Initialize output config with default values
+        const defaultOutputConfig: Record<string, any> = {}
+        if (selectedNode.data?.config) {
+          // Extract available fields from the node's config
+          Object.keys(selectedNode.data.config).forEach(key => {
+            if (selectedNode.data.config[key] && typeof selectedNode.data.config[key] !== 'object') {
+              defaultOutputConfig[key] = {
+                include: true,
+                alias: key,
+                transform: 'none'
+              }
+            }
+          })
+        }
+        setOutputConfig(defaultOutputConfig)
+      }
+    } else {
+      setInputNodeData(null)
+      setOutputConfig({})
+    }
+  }, [config.inputNodeId, workflowData?.nodes])
 
   const handleSave = () => {
     const newErrors: Record<string, string> = {}
-
-    // Validate required fields
+    
     if (!config.inputNodeId) {
-      newErrors.inputNodeId = "Input node is required"
-    } else {
-      // Validate that the selected input node produces output
-      const selectedNode = workflowData?.nodes.find(node => node.id === config.inputNodeId)
-      if (selectedNode) {
-        // Import ALL_NODE_COMPONENTS to check if the node produces output
-        const { ALL_NODE_COMPONENTS } = require("@/lib/workflows/availableNodes")
-        const nodeComponent = ALL_NODE_COMPONENTS.find((c: any) => c.type === selectedNode.data?.type)
-        
-        if (!nodeComponent?.producesOutput) {
-          newErrors.inputNodeId = "The selected node does not produce output data. Please select a node that produces data (like triggers, data retrieval actions, etc.)"
-        }
-      }
+      newErrors.inputNodeId = "Please select an input node"
     }
-
+    
+    if (!config.systemPrompt.trim()) {
+      newErrors.systemPrompt = "Please enter a system prompt"
+    }
+    
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors)
       return
     }
-
-    onSave(config)
+    
+    const selectedVars = Object.keys(selectedVariables).filter(key => selectedVariables[key])
+    
+    const configToSave = {
+      ...config,
+      selectedVariables,
+      variableValues,
+      useStaticValues,
+      hasTriggeredData,
+      inputVariables: selectedVars.map(varName => ({
+        name: varName,
+        useStatic: useStaticValues[varName] || false,
+        staticValue: useStaticValues[varName] ? variableValues[varName] : undefined
+      }))
+    }
+    
+    onSave(configToSave)
+    onClose()
   }
 
   const handleInputNodeChange = (nodeId: string) => {
     setConfig(prev => ({ ...prev, inputNodeId: nodeId }))
+    setSelectedVariables({})
+    setVariableValues({})
+    setUseStaticValues({})
+    setHasTriggeredData(false)
+    setGeneratedResponse("")
     
-    // Update workflow connections if callback is provided
-    if (onUpdateConnections && currentNodeId && nodeId) {
+    if (onUpdateConnections && currentNodeId) {
       onUpdateConnections(nodeId, currentNodeId)
     }
-    
-    // Clear error when user selects an input node
-    if (errors.inputNodeId) {
-      setErrors(prev => ({ ...prev, inputNodeId: "" }))
+  }
+
+  const handleGenerate = async () => {
+    setIsGenerating(true)
+    try {
+      // Simulate AI generation with sample data
+      const mockResponse = `Based on the input data, here's a ${config.tone} response with approximately ${config.responseLength} words...`
+      setGeneratedResponse(mockResponse)
+    } catch (error) {
+      console.error('Error generating response:', error)
+    } finally {
+      setIsGenerating(false)
     }
+  }
+
+  const canGenerate = () => {
+    const selected = Object.keys(selectedVariables).filter(key => selectedVariables[key])
+    if (selected.length === 0) return false
+
+    // Get real node output data if available
+    let realNodeOutput: Record<string, any> | null = null
+    if (config.inputNodeId) {
+      const nodeIO = getNodeInputOutput(config.inputNodeId)
+      realNodeOutput = nodeIO?.output || null
+    }
+
+    // For each selected variable:
+    // - If static: must have a value
+    // - If auto: must be present in realNodeOutput and not empty/null/undefined
+    return selected.every(key => {
+      if (useStaticValues[key]) {
+        return variableValues[key] && variableValues[key].trim() !== ""
+      } else {
+        return realNodeOutput && realNodeOutput[key] !== undefined && realNodeOutput[key] !== null && String(realNodeOutput[key]).trim() !== ""
+      }
+    })
+  }
+
+  const getInputVariables = () => {
+    if (!inputNodeData) return []
+    
+    const outputs = getTriggerOutputsByType(inputNodeData.data?.type, inputNodeData.data?.providerId)
+    return outputs.map(output => ({
+      ...output,
+      selected: selectedVariables[output.name] || false
+    }))
   }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-4xl w-full max-h-[95vh] p-0 gap-0 overflow-hidden">
-          <div className="flex h-full">
-            {/* Main Configuration Content */}
-            <div className="flex-1 flex flex-col">
-              <DialogHeader className="px-6 py-4 border-b border-border flex-shrink-0">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-primary/10 rounded-lg">
-                    <Bot className="w-6 h-6 text-primary" />
-                  </div>
-                  <div>
-                    <DialogTitle className="text-lg font-semibold">
-                      Configure AI Agent
-                    </DialogTitle>
-                    <DialogDescription>
-                      Set up your AI agent's behavior, goals, and available tools
-                    </DialogDescription>
-                  </div>
-                </div>
-              </DialogHeader>
+      <DialogContent className="max-w-4xl w-full max-h-[95vh] p-0 gap-0 overflow-hidden">
+        <div className="flex flex-col h-full">
+          {/* Main Configuration Content */}
+          <DialogHeader className="px-6 py-4 border-b border-border flex-shrink-0">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-primary/10 rounded-lg">
+                <Bot className="w-6 h-6 text-primary" />
+              </div>
+              <div>
+                <DialogTitle className="text-lg font-semibold">
+                  Configure AI Agent
+                </DialogTitle>
+                <DialogDescription>
+                  Set up your AI agent's behavior, goals, and available tools
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
 
-              <ScrollArea className="flex-1 max-h-[70vh]">
-                <div className="px-6 py-4 space-y-6">
+          {/* Configuration Form */}
+          <ScrollArea className="flex-1 max-h-[70vh]">
+            <div className="px-6 py-4 space-y-6">
+              {/* Tabs */}
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                <div className="mb-4">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="basic">Basic</TabsTrigger>
+                    <TabsTrigger value="advanced">Advanced</TabsTrigger>
+                  </TabsList>
+                </div>
+                
+                <TabsContent value="basic" className="space-y-6">
                   {/* Input Node Configuration */}
                   <div className="space-y-3">
                     <div className="flex items-center gap-2">
@@ -173,21 +380,18 @@ export default function AIAgentConfigModal({
                                 const producesOutput = nodeComponent?.producesOutput
                                 
                                 return (
-                                  <SelectItem key={node.id} value={node.id} className="pl-2">
-                                    <div className="flex items-center gap-2 -ml-1">
-                                      <div className="w-5 h-5 rounded flex items-center justify-center bg-muted/50">
+                                  <SelectItem key={node.id} value={node.id}>
+                                    <div className="flex items-center gap-3 w-full">
+                                      <div className="flex-shrink-0">
                                         {iconPath ? (
-                                          <img 
-                                            src={iconPath} 
-                                            alt={integration?.name || node.data?.type} 
-                                            className="w-4 h-4"
-                                          />
+                                          <img src={iconPath} alt={integration?.name || node.data?.type} className="w-5 h-5" />
                                         ) : (
-                                          <span className="text-xs font-medium text-muted-foreground">
-                                            {node.data?.type?.charAt(0).toUpperCase() || 'N'}
-                                          </span>
+                                          <div className="w-5 h-5 bg-muted rounded flex items-center justify-center">
+                                            <Settings className="w-3 h-3" />
+                                          </div>
                                         )}
                                       </div>
+                                      
                                       <div className="flex-1 min-w-0">
                                         <div className="font-medium truncate flex items-center gap-2">
                                           {node.data?.title || integration?.name || node.data?.type}
@@ -208,35 +412,8 @@ export default function AIAgentConfigModal({
                           </SelectContent>
                         </Select>
                         
-                        {config.inputNodeId && (
-                          <div className="p-3 bg-muted/30 rounded-lg">
-                            {(() => {
-                              const selectedNode = workflowData?.nodes.find(node => node.id === config.inputNodeId)
-                              const { ALL_NODE_COMPONENTS } = require("@/lib/workflows/availableNodes")
-                              const nodeComponent = ALL_NODE_COMPONENTS.find((c: any) => c.type === selectedNode?.data?.type)
-                              const producesOutput = nodeComponent?.producesOutput
-                              
-                              return (
-                                <>
-                                  <div className="flex items-center gap-2 mb-2">
-                                    <div className={cn(
-                                      "w-2 h-2 rounded-full",
-                                      producesOutput ? "bg-green-500" : "bg-yellow-500"
-                                    )}></div>
-                                    <span className="text-sm font-medium">
-                                      {producesOutput ? "Connected" : "Warning"}
-                                    </span>
-                                  </div>
-                                  <p className="text-xs text-muted-foreground">
-                                    {producesOutput 
-                                      ? "The AI Agent will receive data from the selected node and process it using the configured tools and memory."
-                                      : "The selected node does not produce output data. The AI Agent may not receive useful input."
-                                    }
-                                  </p>
-                                </>
-                              )
-                            })()}
-                          </div>
+                        {errors.inputNodeId && (
+                          <p className="text-sm text-red-600">{errors.inputNodeId}</p>
                         )}
                       </div>
                     ) : (
@@ -246,13 +423,336 @@ export default function AIAgentConfigModal({
                         </p>
                       </div>
                     )}
-                    
-                    {errors.inputNodeId && (
-                      <p className="text-sm text-red-600">{errors.inputNodeId}</p>
-                    )}
                   </div>
 
+                  {/* Prompt Template */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <MessageSquare className="w-5 h-5 text-primary" />
+                      <Label className="text-base font-medium">Prompt Template</Label>
+                    </div>
+                    <Textarea
+                      value={config.systemPrompt}
+                      onChange={(e) => setConfig(prev => ({ ...prev, systemPrompt: e.target.value }))}
+                      placeholder="e.g., You are a helpful AI assistant. Respond to the user's message in a helpful and professional manner."
+                      className="min-h-[120px]"
+                    />
+                  </div>
 
+                  {/* Tone */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="w-5 h-5 text-primary" />
+                      <Label className="text-base font-medium">Tone</Label>
+                    </div>
+                    <Select
+                      value={config.tone}
+                      onValueChange={(value) => setConfig(prev => ({ ...prev, tone: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="neutral">Neutral</SelectItem>
+                        <SelectItem value="professional">Professional</SelectItem>
+                        <SelectItem value="casual">Casual</SelectItem>
+                        <SelectItem value="enthusiastic">Enthusiastic</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Response Length */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-5 h-5 text-primary" />
+                      <Label className="text-base font-medium">Response Length</Label>
+                      <span className="text-sm text-muted-foreground">({config.responseLength} words)</span>
+                    </div>
+                    <Slider
+                      value={[config.responseLength]}
+                      onValueChange={([value]) => setConfig(prev => ({ ...prev, responseLength: value }))}
+                      max={200}
+                      min={10}
+                      step={10}
+                      className="w-full"
+                    />
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>Short</span>
+                      <span>Long</span>
+                    </div>
+                  </div>
+
+                  {/* Input Variables Selection */}
+                  {config.inputNodeId && (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Database className="w-5 h-5 text-primary" />
+                          <Label className="text-base font-medium">Input Variables</Label>
+                        </div>
+                        {!hasTriggeredData && getInputVariables().length > 0 && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              const allVariables = getInputVariables()
+                              const allSelected = allVariables.every(v => selectedVariables[v.name])
+                              if (allSelected) {
+                                setSelectedVariables({})
+                                setVariableValues({})
+                                setUseStaticValues({})
+                              } else {
+                                const newSelection: Record<string, boolean> = {}
+                                const newValues: Record<string, string> = { ...variableValues }
+                                const newStaticValues: Record<string, boolean> = { ...useStaticValues }
+                                allVariables.forEach(v => {
+                                  newSelection[v.name] = true
+                                  // Default to automatic values (not static)
+                                  newStaticValues[v.name] = false
+                                  if (!(v.name in newValues)) newValues[v.name] = ""
+                                })
+                                setSelectedVariables(newSelection)
+                                setVariableValues(newValues)
+                                setUseStaticValues(newStaticValues)
+                              }
+                            }}
+                          >
+                            {getInputVariables().every(v => selectedVariables[v.name]) ? "Deselect All" : "Select All"}
+                          </Button>
+                        )}
+                      </div>
+                      
+                      <div className="space-y-2">
+                        {getInputVariables().map((variable) => (
+                          <div key={variable.name} className="flex items-center gap-3 p-3 border rounded-lg bg-muted/30">
+                            <Checkbox
+                              id={`variable-${variable.name}`}
+                              checked={selectedVariables[variable.name] || false}
+                              onCheckedChange={(checked) => {
+                                setSelectedVariables(prev => ({
+                                  ...prev,
+                                  [variable.name]: checked as boolean
+                                }))
+                                if (!checked) {
+                                  setVariableValues(prev => {
+                                    const copy = { ...prev }
+                                    delete copy[variable.name]
+                                    return copy
+                                  })
+                                  setUseStaticValues(prev => {
+                                    const copy = { ...prev }
+                                    delete copy[variable.name]
+                                    return copy
+                                  })
+                                } else {
+                                  setVariableValues(prev => ({ ...prev, [variable.name]: prev[variable.name] || "" }))
+                                  // Default to automatic values (not static)
+                                  setUseStaticValues(prev => ({ ...prev, [variable.name]: false }))
+                                }
+                              }}
+                            />
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <Label htmlFor={`variable-${variable.name}`} className="text-sm font-medium cursor-pointer">
+                                  {variable.label}
+                                </Label>
+                                <Badge variant="outline" className="text-xs">
+                                  {variable.type}
+                                </Badge>
+                              </div>
+                              <div className="text-xs text-muted-foreground mt-1">
+                                {variable.description || 'No description available'}
+                              </div>
+                              
+                              {/* Show toggle and input for selected variables */}
+                              {selectedVariables[variable.name] && (
+                                <div className="mt-3 space-y-2">
+                                  <div className="flex items-center gap-2">
+                                    <Switch
+                                      id={`static-${variable.name}`}
+                                      checked={useStaticValues[variable.name] || false}
+                                      onCheckedChange={(checked) => {
+                                        setUseStaticValues(prev => ({
+                                          ...prev,
+                                          [variable.name]: checked
+                                        }))
+                                        if (checked) {
+                                          setVariableValues(prev => ({
+                                            ...prev,
+                                            [variable.name]: ""
+                                          }))
+                                        }
+                                      }}
+                                    />
+                                    <Label htmlFor={`static-${variable.name}`} className="text-xs">
+                                      Use static value
+                                    </Label>
+                                  </div>
+                                  
+                                  {useStaticValues[variable.name] && (
+                                    <Input
+                                      className="text-xs"
+                                      placeholder={variable.example?.toString() || 'Enter value'}
+                                      value={variableValues[variable.name] || ''}
+                                      onChange={e => setVariableValues(prev => ({ ...prev, [variable.name]: e.target.value }))}
+                                    />
+                                  )}
+                                  
+                                  {!useStaticValues[variable.name] && (
+                                    <div className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded">
+                                      Will use automatic value from {inputNodeData?.data?.title || 'trigger'}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {!canGenerate() && (
+                        <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                          <div className="flex items-start gap-2">
+                            <AlertCircle className="w-4 h-4 text-yellow-600 mt-0.5 flex-shrink-0" />
+                            <div className="text-sm">
+                              <p className="font-medium text-yellow-900">No variables selected or missing static values</p>
+                              <p className="text-yellow-700">
+                                Select at least one input variable to enable generation. Variables using static values must have a value entered.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Generate and Save Buttons */}
+                  <div className="flex gap-3 pt-4">
+                    <Button
+                      onClick={handleGenerate}
+                      disabled={!canGenerate() || isGenerating}
+                      className="flex-1"
+                    >
+                      {isGenerating ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          <Play className="w-4 h-4 mr-2" />
+                          Generate
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      onClick={handleSave}
+                      className="flex-1"
+                    >
+                      <Save className="w-4 h-4 mr-2" />
+                      Save
+                    </Button>
+                  </div>
+
+                  {/* Generated Response Preview */}
+                  {generatedResponse && (
+                    <div className="space-y-3">
+                      <Label className="text-base font-medium">Generated Response</Label>
+                      <div className="p-4 border rounded-lg bg-muted/30">
+                        <p className="text-sm whitespace-pre-wrap">{generatedResponse}</p>
+                      </div>
+                    </div>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="advanced" className="p-6 space-y-6 pb-6">
+                  {/* Model Configuration */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Brain className="w-5 h-5 text-primary" />
+                      <Label className="text-base font-medium">Model</Label>
+                    </div>
+                    <Select
+                      value={config.model}
+                      onValueChange={(value) => setConfig(prev => ({ ...prev, model: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="gpt-4">GPT-4</SelectItem>
+                        <SelectItem value="gpt-3.5-turbo">GPT-3.5 Turbo</SelectItem>
+                        <SelectItem value="claude-3-opus">Claude 3 Opus</SelectItem>
+                        <SelectItem value="claude-3-sonnet">Claude 3 Sonnet</SelectItem>
+                        <SelectItem value="claude-3-haiku">Claude 3 Haiku</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Temperature */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Zap className="w-5 h-5 text-primary" />
+                      <Label className="text-base font-medium">Temperature</Label>
+                      <span className="text-sm text-muted-foreground">({config.temperature})</span>
+                    </div>
+                    <Slider
+                      value={[config.temperature]}
+                      onValueChange={([value]) => setConfig(prev => ({ ...prev, temperature: value }))}
+                      max={2}
+                      min={0}
+                      step={0.1}
+                      className="w-full"
+                    />
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>Focused</span>
+                      <span>Creative</span>
+                    </div>
+                  </div>
+
+                  {/* Max Tokens */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-5 h-5 text-primary" />
+                      <Label className="text-base font-medium">Max Tokens</Label>
+                      <span className="text-sm text-muted-foreground">({config.maxTokens})</span>
+                    </div>
+                    <Slider
+                      value={[config.maxTokens]}
+                      onValueChange={([value]) => setConfig(prev => ({ ...prev, maxTokens: value }))}
+                      max={4000}
+                      min={100}
+                      step={100}
+                      className="w-full"
+                    />
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>Short</span>
+                      <span>Long</span>
+                    </div>
+                  </div>
+
+                  {/* Output Format */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Settings className="w-5 h-5 text-primary" />
+                      <Label className="text-base font-medium">Output Format</Label>
+                    </div>
+                    <Select
+                      value={config.outputFormat}
+                      onValueChange={(value) => setConfig(prev => ({ ...prev, outputFormat: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="text">Plain Text</SelectItem>
+                        <SelectItem value="json">JSON</SelectItem>
+                        <SelectItem value="markdown">Markdown</SelectItem>
+                        <SelectItem value="html">HTML</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
 
                   {/* Memory Configuration */}
                   <div className="space-y-3">
@@ -350,64 +850,44 @@ export default function AIAgentConfigModal({
                       </div>
                     )}
                   </div>
-
-                  {/* System Prompt */}
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <MessageSquare className="w-5 h-5 text-primary" />
-                      <Label className="text-base font-medium">System Prompt (Optional)</Label>
-                      <EnhancedTooltip 
-                        description="Custom instructions to guide the AI agent's behavior"
-                        title="System Prompt Information"
-                        showExpandButton={false}
-                      />
-                    </div>
-                    <Textarea
-                      value={config.systemPrompt}
-                      onChange={(e) => setConfig(prev => ({ ...prev, systemPrompt: e.target.value }))}
-                      placeholder="e.g., You are a helpful AI assistant focused on customer service. Always be polite and professional."
-                      className="min-h-[100px]"
-                    />
-                  </div>
-
-
-                </div>
-              </ScrollArea>
-
-              {/* Dialog Footer */}
-              <DialogFooter className="px-6 py-4 border-t border-border flex-shrink-0">
-                <div className="flex items-center justify-between w-full">
-                  <div className="text-sm text-muted-foreground">
-                    {config.inputNodeId && (
-                      (() => {
-                        const selectedNode = workflowData?.nodes.find(node => node.id === config.inputNodeId)
-                        const { ALL_NODE_COMPONENTS } = require("@/lib/workflows/availableNodes")
-                        const nodeComponent = ALL_NODE_COMPONENTS.find((c: any) => c.type === selectedNode?.data?.type)
-                        const producesOutput = nodeComponent?.producesOutput
-                        
-                        return (
-                          <span className={cn(
-                            producesOutput ? "text-muted-foreground" : "text-yellow-600"
-                          )}>
-                            {producesOutput ? "Connected to input node" : "Warning: Selected node may not produce output"}
-                          </span>
-                        )
-                      })()
-                    )}
-                  </div>
-                  <div className="flex gap-2">
-                    <Button variant="outline" onClick={onClose}>
-                      Cancel
-                    </Button>
-                    <Button onClick={handleSave}>
-                      Save Configuration
-                    </Button>
-                  </div>
-                </div>
-              </DialogFooter>
+                </TabsContent>
+              </Tabs>
             </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+          </ScrollArea>
+
+          {/* Dialog Footer */}
+          <DialogFooter className="px-6 py-4 border-t border-border flex-shrink-0 bg-background relative z-10">
+            <div className="flex items-center justify-between w-full">
+              <div className="text-sm text-muted-foreground">
+                {config.inputNodeId && (
+                  (() => {
+                    const selectedNode = workflowData?.nodes.find(node => node.id === config.inputNodeId)
+                    const { ALL_NODE_COMPONENTS } = require("@/lib/workflows/availableNodes")
+                    const nodeComponent = ALL_NODE_COMPONENTS.find((c: any) => c.type === selectedNode?.data?.type)
+                    const producesOutput = nodeComponent?.producesOutput
+                    
+                    return (
+                      <span className={cn(
+                        producesOutput ? "text-muted-foreground" : "text-yellow-600"
+                      )}>
+                        {producesOutput ? "Connected to input node" : "Warning: Selected node may not produce output"}
+                      </span>
+                    )
+                  })()
+                )}
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={onClose}>
+                  Cancel
+                </Button>
+                <Button onClick={handleSave}>
+                  Save Configuration
+                </Button>
+              </div>
+            </div>
+          </DialogFooter>
+        </div>
+      </DialogContent>
+    </Dialog>
   )
 } 
