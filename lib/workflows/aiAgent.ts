@@ -5,7 +5,7 @@
  */
 
 import { getIntegrationCredentials } from "@/lib/integrations/getDecryptedAccessToken"
-import { resolveValue } from "@/lib/integrations/resolveValue"
+import { resolveValue } from "@/lib/workflows/actions/core/resolveValue"
 
 /**
  * AI Agent metadata
@@ -309,8 +309,8 @@ export async function executeAIAgent(params: AIAgentParams): Promise<AIAgentResu
   try {
     const { userId, config, input, workflowContext } = params
     
-    // 1. Resolve templated values
-    const resolvedConfig = resolveValue(config, { input })
+    // 1. Resolve templated values, passing triggerOutputs as mockTriggerOutputs
+    const resolvedConfig = resolveValue(config, { input }, config.triggerOutputs)
     
     // 2. Extract parameters
     const {
@@ -328,26 +328,53 @@ export async function executeAIAgent(params: AIAgentParams): Promise<AIAgentResu
       }
     }
 
-    // 3. Gather context from single input (previous node)
+    // 3. Filter input data based on selected variables and their value sources
+    const selectedVariables = config.selectedVariables || {}
+    const useStaticValues = config.useStaticValues || {}
+    const variableValues = config.variableValues || {}
+    let filteredInput = input || {}
+    
+    // If selectedVariables is configured, filter the input data
+    if (Object.keys(selectedVariables).length > 0) {
+      filteredInput = {}
+      Object.entries(selectedVariables).forEach(([variableName, isSelected]) => {
+        if (isSelected) {
+          // Check if this variable uses static values
+          if (useStaticValues[variableName]) {
+            // Use the static value from config
+            if (variableValues[variableName] !== undefined) {
+              filteredInput[variableName] = variableValues[variableName]
+            }
+          } else {
+            // Use automatic value from input (real trigger/node data)
+            if (input && input[variableName] !== undefined) {
+              filteredInput[variableName] = input[variableName]
+            }
+          }
+        }
+      })
+    }
+    
+    // 4. Gather context from filtered input (previous node)
     const context: any = {
       goal: `Process and analyze the data from node ${inputNodeId}`,
-      input: input || {},
-      availableData: input || {},
-      nodeOutputs: input || {},
+      input: filteredInput,
+      availableData: filteredInput,
+      nodeOutputs: filteredInput,
       workflowState: workflowContext?.previousResults || {},
       availableTools: [] // AI Agent can use any available integrations dynamically
     }
 
-    // 4. Fetch memory based on memory configuration
+    // 5. Fetch memory based on memory configuration
     const memoryContext = await fetchMemory(
       { memory, memoryIntegration, customMemoryIntegrations }, 
       userId
     )
 
-    // 5. Build the AI prompt
+    // 6. Build the AI prompt
     const prompt = buildAIPrompt(context.goal, context, memoryContext, systemPrompt)
 
-    // 6. Execute single step AI processing
+    // 7. Execute single step AI processing
     const steps: AIAgentStep[] = []
     let currentContext = { ...context, memory: memoryContext }
 
@@ -376,7 +403,7 @@ export async function executeAIAgent(params: AIAgentParams): Promise<AIAgentResu
       })
     }
 
-    // 7. Return results
+    // 8. Return results
     return {
       success: true,
       output: {
