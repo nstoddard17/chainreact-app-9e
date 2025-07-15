@@ -6287,7 +6287,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
       { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true, placeholder: "Select a Discord server" },
       { name: "channelId", label: "Channel", type: "select", dynamic: "discord_channels", required: true, dependsOn: "guildId", placeholder: "Select a channel" },
       { name: "messageId", label: "Message", type: "select", dynamic: "discord_messages", required: true, dependsOn: "channelId", placeholder: "Select a message" },
-      { name: "emoji", label: "Emoji", type: "text", required: true, placeholder: "e.g. 😀 or custom: name:id" }
+      { name: "emoji", label: "Reaction", type: "select", dynamic: "discord_reactions", required: true, dependsOn: "messageId", placeholder: "Select a reaction from the message" }
     ]
   },
   {
@@ -6303,7 +6303,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
       { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true, placeholder: "Select a Discord server" },
       { name: "channelId", label: "Channel", type: "select", dynamic: "discord_channels", required: true, dependsOn: "guildId", placeholder: "Select a channel" },
       { name: "messageId", label: "Message", type: "select", dynamic: "discord_messages", required: true, dependsOn: "channelId", placeholder: "Select a message" },
-      { name: "emoji", label: "Emoji", type: "text", required: true, placeholder: "e.g. 😀 or custom: name:id" },
+      { name: "emoji", label: "Reaction", type: "select", dynamic: "discord_reactions", required: true, dependsOn: "messageId", placeholder: "Select a reaction from the message" },
       { name: "userId", label: "User (optional)", type: "select", dynamic: "discord_members", required: false, dependsOn: "guildId", placeholder: "Remove for specific user (blank = self)" }
     ]
   },
@@ -6320,7 +6320,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
       { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true, placeholder: "Select a Discord server" },
       { name: "channelId", label: "Channel", type: "select", dynamic: "discord_channels", required: true, dependsOn: "guildId", placeholder: "Select a channel" },
       { name: "messageId", label: "Message", type: "select", dynamic: "discord_messages", required: true, dependsOn: "channelId", placeholder: "Select a message" },
-      { name: "emoji", label: "Emoji", type: "text", required: true, placeholder: "e.g. 😀 or custom: name:id" }
+      { name: "emoji", label: "Reaction", type: "select", dynamic: "discord_reactions", required: true, dependsOn: "messageId", placeholder: "Select a reaction from the message" }
     ]
   },
   {

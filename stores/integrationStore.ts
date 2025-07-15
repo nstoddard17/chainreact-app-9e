@@ -861,10 +861,10 @@ export const useIntegrationStore = create<IntegrationStore>()(
             dataType = "discord_users"
             break
           default:
-            // For discord_messages and other dynamic data types, let the provider mapping handle it
-            if (providerId === "discord_messages") {
+            // For discord_messages, discord_reactions and other dynamic data types, let the provider mapping handle it
+            if (providerId === "discord_messages" || providerId === "discord_reactions") {
               url = "/api/integrations/fetch-user-data"
-              dataType = "discord_messages"
+              dataType = providerId
             } else {
               throw new Error(`Loading data for ${providerId} is not supported.`)
             }
@@ -903,6 +903,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
                        providerId === 'discord_guilds' ? 'discord' :
                        providerId === 'discord_users' ? 'discord' :
                        providerId === 'discord_messages' ? 'discord' :
+                       providerId === 'discord_reactions' ? 'discord' :
                        providerId.includes('_') ? providerId.split('_')[0] : 
                        providerId.includes('-') ? providerId.split('-')[0] : 
                        providerId // Extract base provider name

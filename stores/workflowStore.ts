@@ -338,13 +338,15 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
                 ...w, 
                 nodes: currentWorkflow.nodes, 
                 connections: currentWorkflow.connections,
-                status: newStatus
+                status: newStatus,
+                updated_at: new Date().toISOString()
               }
             : w,
         ),
         currentWorkflow: {
           ...currentWorkflow,
-          status: newStatus
+          status: newStatus,
+          updated_at: new Date().toISOString()
         }
       }))
 
