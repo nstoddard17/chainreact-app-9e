@@ -38,6 +38,7 @@ import {
   addDiscordRole,
   editDiscordMessage,
   fetchDiscordMessages,
+  deleteDiscordMessage,
   
   // Notion actions
   createNotionDatabase,
@@ -1677,6 +1678,7 @@ export async function executeAction({ node, input, userId, workflowId }: Execute
     "discord_action_add_role": addDiscordRole,
     "discord_action_edit_message": editDiscordMessage,
     "discord_action_fetch_messages": fetchDiscordMessages,
+    "discord_action_delete_message": deleteDiscordMessage,
     
     // Notion actions
     "notion_action_create_database": createNotionDatabase,

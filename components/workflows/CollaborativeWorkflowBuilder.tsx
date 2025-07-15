@@ -515,6 +515,12 @@ const useWorkflowBuilderState = () => {
 
   const onConnect = useCallback((params: Edge | Connection) => setEdges((eds: Edge[]) => addEdge(params, eds)), [setEdges])
 
+  // Debug onNodesChange to see if it's being called
+  const debugOnNodesChange = useCallback((changes: any) => {
+    console.log('🔄 onNodesChange called with:', changes)
+    onNodesChange(changes)
+  }, [onNodesChange])
+
   useEffect(() => {
     if (workflowId) joinCollaboration(workflowId)
     return () => { 
@@ -580,7 +586,26 @@ const useWorkflowBuilderState = () => {
       const workflowNodeIds = (currentWorkflow.nodes || []).map(n => n.id).sort()
       const nodesChanged = JSON.stringify(currentNodeIds) !== JSON.stringify(workflowNodeIds)
       
-              if (getNodes().length === 0 || nodesChanged) {
+      console.log('🔍 Load check - nodesChanged:', nodesChanged)
+      console.log('🔍 Load check - currentNodeIds:', currentNodeIds)
+      console.log('🔍 Load check - workflowNodeIds:', workflowNodeIds)
+      
+      // Only check positions if we have nodes to compare
+      let positionsChanged = false
+      if (getNodes().length > 0 && !nodesChanged) {
+        const allNodes = getNodes()
+        console.log('🔍 Load check - allNodes from getNodes():', JSON.stringify(allNodes.map(n => ({ id: n.id, type: n.type, position: n.position })), null, 2))
+        
+        const currentPositions = allNodes.filter(n => n.type === 'custom').map(n => ({ id: n.id, position: n.position })).sort((a, b) => a.id.localeCompare(b.id))
+        const savedPositions = (currentWorkflow.nodes || []).map(n => ({ id: n.id, position: n.position })).sort((a, b) => a.id.localeCompare(b.id))
+        positionsChanged = JSON.stringify(currentPositions) !== JSON.stringify(savedPositions)
+        
+        console.log('🔍 Load check - positionsChanged:', positionsChanged)
+        console.log('🔍 Load check - currentPositions:', JSON.stringify(currentPositions, null, 2))
+        console.log('🔍 Load check - savedPositions:', JSON.stringify(savedPositions, null, 2))
+      }
+      
+      if (getNodes().length === 0 || nodesChanged || positionsChanged) {
           const customNodes: Node[] = (currentWorkflow.nodes || []).map((node: WorkflowNode) => {
             // Get the component definition to ensure we have the correct title
             const nodeComponent = ALL_NODE_COMPONENTS.find(c => c.type === node.data.type);
@@ -948,6 +973,7 @@ const useWorkflowBuilderState = () => {
 
       console.log("React Flow nodes:", reactFlowNodes)
       console.log("React Flow edges:", reactFlowEdges)
+      console.log("🔍 Save - Node positions:", reactFlowNodes.map(n => ({ id: n.id, position: n.position })))
 
       // Map to database format without losing React Flow properties
       const mappedNodes: WorkflowNode[] = reactFlowNodes.map((n: Node) => ({
@@ -975,6 +1001,7 @@ const useWorkflowBuilderState = () => {
 
       console.log("Mapped nodes:", mappedNodes)
       console.log("Mapped connections:", mappedConnections)
+      console.log("🔍 Save - Mapped node positions:", mappedNodes.map(n => ({ id: n.id, position: n.position })))
 
       const updates: Partial<Workflow> = {
         name: workflowName, 
@@ -1004,7 +1031,8 @@ const useWorkflowBuilderState = () => {
       };
       setCurrentWorkflow(newWorkflow);
       
-      console.log("Save completed successfully")
+      console.log("✅ Save completed successfully")
+      console.log("✅ Saved workflow with nodes:", JSON.stringify(mappedNodes.map(n => ({ id: n.id, position: n.position })), null, 2))
       toast({ title: "Workflow Saved", description: "Your workflow has been successfully saved." })
       
       // Clear unsaved changes flag after a small delay to ensure the effect has processed
@@ -1367,6 +1395,41 @@ const useWorkflowBuilderState = () => {
     }
   }, [currentWorkflow, nodes, edges, workflowName, checkForUnsavedChanges, isSaving])
 
+  // Debug effect to monitor position changes
+  useEffect(() => {
+    if (currentWorkflow && nodes.length > 0) {
+      const currentPositions = nodes
+        .filter(n => n.type === 'custom')
+        .map(n => ({ id: n.id, position: n.position }))
+        .sort((a, b) => a.id.localeCompare(b.id))
+      
+      const savedPositions = (currentWorkflow.nodes || [])
+        .map(n => ({ id: n.id, position: n.position }))
+        .sort((a, b) => a.id.localeCompare(b.id))
+      
+      const positionsChanged = JSON.stringify(currentPositions) !== JSON.stringify(savedPositions)
+      
+      if (positionsChanged) {
+        console.log('🔍 Position comparison:', {
+          current: currentPositions,
+          saved: savedPositions,
+          changed: positionsChanged
+        })
+      }
+    }
+  }, [nodes, currentWorkflow])
+
+  // Debug current workflow and nodes
+  useEffect(() => {
+    console.log('🔍 Current workflow debug:', {
+      hasCurrentWorkflow: !!currentWorkflow,
+      workflowId: currentWorkflow?.id,
+      workflowNodes: currentWorkflow?.nodes?.length || 0,
+      reactFlowNodes: nodes.length,
+      reactFlowCustomNodes: nodes.filter(n => n.type === 'custom').length
+    })
+  }, [currentWorkflow, nodes])
+
   // Handle navigation with unsaved changes warning
   const handleNavigation = useCallback((path: string) => {
     if (hasUnsavedChanges) {
@@ -1406,8 +1469,10 @@ const useWorkflowBuilderState = () => {
   return {
     nodes,
     edges,
+    setNodes,
     setEdges,
     onNodesChange,
+    debugOnNodesChange,
     onEdgesChange,
     onConnect,
     workflowName,
@@ -1487,7 +1552,7 @@ function WorkflowBuilderContent() {
   const router = useRouter()
   
   const {
-    nodes, edges, setEdges, onNodesChange, onEdgesChange, onConnect, workflowName, setWorkflowName, isSaving, handleSave, handleExecute, 
+    nodes, edges, setNodes, setEdges, onNodesChange, debugOnNodesChange, onEdgesChange, onConnect, workflowName, setWorkflowName, isSaving, handleSave, handleExecute, 
     showTriggerDialog, setShowTriggerDialog, showActionDialog, setShowActionDialog, handleTriggerSelect, handleActionSelect, selectedIntegration, setSelectedIntegration,
     availableIntegrations, renderLogo, getWorkflowStatus, currentWorkflow, isExecuting, executionEvents,
     configuringNode, setConfiguringNode, handleSaveConfiguration, collaborators, pendingNode, setPendingNode,
@@ -1609,6 +1674,23 @@ function WorkflowBuilderContent() {
                 <TooltipContent><p>Execute the workflow</p></TooltipContent>
               </Tooltip>
             </TooltipProvider>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    onClick={() => {
+                      console.log('🧪 Test button clicked - current nodes:', nodes.length)
+                      console.log('🧪 Test button clicked - hasUnsavedChanges:', hasUnsavedChanges)
+                    }} 
+                    variant="outline" 
+                    size="sm"
+                  >
+                    Test
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent><p>Test position tracking</p></TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
             {/* Emergency reset button - only show if loading states are stuck */}
             {(isSaving || isExecuting) && (
               <TooltipProvider>
@@ -1659,12 +1741,38 @@ function WorkflowBuilderContent() {
         </div>
       ) : (
         // Regular ReactFlow when there are nodes
-        <ReactFlow 
+        <>
+          {console.log('🎯 Rendering ReactFlow with nodes:', nodes.length)}
+          <ReactFlow 
           nodes={nodes} 
           edges={edges} 
-          onNodesChange={onNodesChange} 
+          onNodesChange={debugOnNodesChange} 
           onEdgesChange={onEdgesChange} 
           onConnect={onConnect} 
+          onNodeDrag={(event, node) => {
+            // Track position changes during drag
+            console.log(`🔄 Node ${node.id} dragging to position:`, node.position)
+            console.log(`🔄 onNodeDrag event:`, event)
+            setHasUnsavedChanges(true)
+          }}
+          onNodeDragStop={(event, node) => {
+            // Update node position in state and mark as unsaved
+            console.log(`✅ Node ${node.id} drag stopped at position:`, node.position)
+            console.log(`✅ onNodeDragStop event:`, event)
+            setNodes((nds: Node[]) => 
+              nds.map((n: Node) => 
+                n.id === node.id 
+                  ? { ...n, position: node.position }
+                  : n
+              )
+            )
+            setHasUnsavedChanges(true)
+            
+            // Force a small delay to ensure position is updated
+            setTimeout(() => {
+              console.log(`💾 Position change detected for node ${node.id}, marking as unsaved`)
+            }, 50)
+          }}
           nodeTypes={nodeTypes} 
           fitView 
           className="bg-background" 
@@ -1681,6 +1789,7 @@ function WorkflowBuilderContent() {
           <CollaboratorCursors collaborators={collaborators || []} />
           {isExecuting && executionEvents.length > 0 && <ExecutionMonitor events={executionEvents} />}
         </ReactFlow>
+        </>
       )}
 
       <Dialog open={showTriggerDialog} onOpenChange={setShowTriggerDialog}>
