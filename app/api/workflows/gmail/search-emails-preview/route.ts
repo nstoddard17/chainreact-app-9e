@@ -30,8 +30,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Use a small maxResults for preview
-    const previewConfig = { ...config, maxResults: 5 };
+    // Use the configured maxResults value, with a fallback to 5 for preview
+    const maxResults = config.maxResults || 5;
+    const previewConfig = { ...config, maxResults };
     const input = {};
 
     // Import the search function dynamically to avoid import issues
