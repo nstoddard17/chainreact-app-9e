@@ -86,6 +86,8 @@ export interface ConfigField {
   maxSize?: number // For file inputs, specify max file size in bytes
   defaultValue?: string | number | boolean // Default value for the field
   tableName?: string // For Airtable record fields, specify which table to fetch records from
+  uiTab?: "basic" | "advanced" // For tabbed interfaces, specify which tab this field should appear in
+  defaultOptions?: { value: string; label: string }[] // Default options for select fields
   [key: string]: any
 }
 
@@ -107,6 +109,12 @@ export interface NodeField {
   creatable?: boolean
   readonly?: boolean
   hidden?: boolean
+  // Value constraints
+  min?: number
+  max?: number
+  // UI organization properties
+  uiTab?: "basic" | "advanced"
+  defaultOptions?: { value: string; label: string }[]
   // New field for output data descriptions
   outputType?: "string" | "number" | "array" | "object" | "boolean"
 }
@@ -4102,6 +4110,143 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     requiredScopes: ["https://www.googleapis.com/auth/gmail.readonly"],
     producesOutput: true,
     configSchema: [
+      // Basic Tab Fields
+      { 
+        name: "labels", 
+        label: "Folder / Label", 
+        type: "select", 
+        dynamic: "gmail_labels",
+        required: false,
+        multiple: true,
+        placeholder: "Select folders or labels",
+        description: "Choose which Gmail folders/labels to search in",
+        defaultOptions: [
+          { value: "INBOX", label: "Inbox" },
+          { value: "SENT", label: "Sent" },
+          { value: "DRAFT", label: "Drafts" },
+          { value: "SPAM", label: "Spam" },
+          { value: "TRASH", label: "Trash" }
+        ],
+        uiTab: "basic"
+      },
+      { 
+        name: "query", 
+        label: "Search Query", 
+        type: "text",
+        required: false,
+        placeholder: "e.g., from:bob@example.com has:attachment",
+        description: "Use Gmail search operators like 'from:', 'to:', 'subject:', 'has:attachment', etc.",
+        uiTab: "basic"
+      },
+      { 
+        name: "maxResults", 
+        label: "Max Messages to Fetch", 
+        type: "number",
+        required: false,
+        placeholder: "10",
+        description: "Maximum number of messages to retrieve (between 1-15)",
+        defaultValue: 10,
+        min: 1,
+        max: 15,
+        uiTab: "basic"
+      },
+      {
+        name: "startDate",
+        label: "Start Date",
+        type: "date",
+        required: false,
+        description: "Only fetch emails after this date",
+        uiTab: "basic"
+      },
+      {
+        name: "endDate",
+        label: "End Date",
+        type: "date",
+        required: false,
+        description: "Only fetch emails before this date",
+        uiTab: "basic"
+      },
+      
+      // Advanced Tab Fields
+      {
+        name: "pageToken",
+        label: "Page Token",
+        type: "text",
+        required: false,
+        description: "Token for continuing from a previous response",
+        uiTab: "advanced"
+      },
+      {
+        name: "format",
+        label: "Format",
+        type: "select",
+        required: false,
+        description: "Controls the amount of detail returned per message",
+        options: [
+          { value: "full", label: "Full (all message details)" },
+          { value: "metadata", label: "Metadata (headers only)" },
+          { value: "minimal", label: "Minimal (basic info only)" },
+          { value: "raw", label: "Raw (RFC 2822 format)" }
+        ],
+        defaultValue: "full",
+        uiTab: "advanced"
+      },
+      {
+        name: "includeSpamTrash",
+        label: "Include Spam and Trash",
+        type: "boolean",
+        required: false,
+        description: "Include messages from spam and trash folders",
+        defaultValue: false,
+        uiTab: "advanced"
+      },
+      { 
+        name: "labelFilters", 
+        label: "Label Filters", 
+        type: "select", 
+        dynamic: "gmail_labels",
+        required: false,
+        multiple: true,
+        placeholder: "Filter by specific labels",
+        description: "Only fetch emails with these specific labels",
+        uiTab: "advanced"
+      },
+      {
+        name: "threadId",
+        label: "Thread ID",
+        type: "text",
+        required: false,
+        description: "Fetch all messages from a specific conversation thread",
+        placeholder: "Enter thread ID",
+        uiTab: "advanced"
+      },
+      {
+        name: "fieldsMask",
+        label: "Fields Mask",
+        type: "select",
+        required: false,
+        description: "Specify which fields to include in the response",
+        options: [
+          { value: "messages(id,snippet)", label: "ID + Snippet" },
+          { value: "messages(id,payload(headers))", label: "Metadata Only" },
+          { value: "messages", label: "Full Message" },
+          { value: "custom", label: "Custom Fields Mask" }
+        ],
+        defaultValue: "messages",
+        uiTab: "advanced"
+      },
+      {
+        name: "customFieldsMask",
+        label: "Custom Fields Mask",
+        type: "text",
+        required: false,
+        description: "Enter custom fields mask (only used when Fields Mask is set to 'Custom')",
+        placeholder: "e.g., messages(id,threadId,snippet,payload)",
+        dependsOn: "fieldsMask",
+        uiTab: "advanced"
+      },
+      
+      // Legacy fields - keeping for backward compatibility but hidden from UI
       { 
         name: "emailAddress", 
         label: "Search by Email Address", 
@@ -4110,7 +4255,8 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         required: false,
         multiple: true,
         placeholder: "Enter email addresses...",
-        description: "Choose from recent recipients or type custom email addresses"
+        description: "Choose from recent recipients or type custom email addresses",
+        hidden: true
       },
       { 
         name: "quantity", 
@@ -4128,15 +4274,37 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
           { value: "100", label: "Last 100 emails" },
           { value: "all", label: "All emails" }
         ],
-        defaultValue: "1"
+        defaultValue: "1",
+        hidden: true
+      },
+      {
+        name: "includeBody",
+        label: "Include Email Body",
+        type: "boolean",
+        required: false,
+        description: "Include full email body content in results",
+        defaultValue: false,
+        hidden: true
+      },
+      {
+        name: "includeAttachments",
+        label: "Include Attachments Info",
+        type: "boolean",
+        required: false,
+        description: "Include attachment information in results",
+        defaultValue: false,
+        hidden: true
       },
       { 
-        name: "query", 
-        label: "Search Query", 
-        type: "text",
+        name: "labelIds", 
+        label: "Filter by Labels", 
+        type: "select", 
+        dynamic: "gmail_labels",
         required: false,
-        placeholder: "Enter Gmail search query (optional)",
-        description: "Use Gmail search operators like 'from:', 'to:', 'subject:', 'has:attachment', etc."
+        multiple: true,
+        placeholder: "Select labels to filter by",
+        description: "Only fetch emails with these labels",
+        hidden: true
       },
     ],
   },

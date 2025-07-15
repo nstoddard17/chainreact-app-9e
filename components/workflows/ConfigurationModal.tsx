@@ -19,7 +19,7 @@ import { ConfigurationLoadingScreen } from "@/components/ui/loading-screen"
 import { FileUpload } from "@/components/ui/file-upload"
 import { DatePicker } from "@/components/ui/date-picker"
 import { TimePicker } from "@/components/ui/time-picker"
-import { Play, X, Loader2, TestTube, Clock, HelpCircle, AlertCircle, Video, ChevronLeft, ChevronRight, Database, Calendar, Upload, Eye, RefreshCw } from "lucide-react"
+import { Play, X, Loader2, TestTube, Clock, HelpCircle, AlertCircle, Video, ChevronLeft, ChevronRight, Database, Calendar, Upload, Eye, RefreshCw, Package, FileText, Filter, Mail } from "lucide-react"
 
 import { Checkbox } from "@/components/ui/checkbox"
 import { cn } from "@/lib/utils"
@@ -1071,6 +1071,9 @@ export default function ConfigurationModal({
   const hasInitializedDefaults = useRef<boolean>(false)
   const abortControllerRef = useRef<AbortController | null>(null)
   
+  // State for Basic/Advanced tabs
+  const [activeTab, setActiveTab] = useState("basic")
+  
   // Add refs to prevent duplicate calls and enable request deduplication
   const fetchingDynamicData = useRef(false)
   const fetchingDependentData = useRef<Set<string>>(new Set())
@@ -1227,7 +1230,7 @@ export default function ConfigurationModal({
       // Determine the correct preview endpoint based on node type
       if (nodeInfo.type === "discord_action_fetch_messages") {
         endpoint = "/api/workflows/discord/fetch-messages-preview"
-      } else if (nodeInfo.type === "gmail_action_search_emails") {
+      } else if (nodeInfo.type === "gmail_action_search_emails" || nodeInfo.type === "gmail_action_search_email") {
         endpoint = "/api/workflows/gmail/search-emails-preview"
       } else if (nodeInfo.type === "notion_action_search_pages") {
         endpoint = "/api/workflows/notion/search-pages-preview"
@@ -1792,7 +1795,28 @@ export default function ConfigurationModal({
       return false
     }
     
-
+    // Handle fields with uiTab property
+    if ('uiTab' in field) {
+      // Show field only if it's in the current active tab
+      if (field.uiTab && field.uiTab !== activeTab) {
+        return false
+      }
+    }
+    
+    // Special logic for Gmail search emails action for backward compatibility
+    if (nodeInfo?.type === "gmail_action_search_email" && !('uiTab' in field)) {
+      // Basic tab only shows emailAddress and quantity fields
+      if (activeTab === "basic") {
+        return field.name === "emailAddress" || field.name === "quantity";
+      } 
+      // Advanced tab shows query field and additional fields
+      else if (activeTab === "advanced") {
+        return field.name === "query" || 
+               field.name === "includeBody" || 
+               field.name === "includeAttachments" || 
+               field.name === "labelIds";
+      }
+    }
     
     // Special logic for Discord actions that use channels
     if (nodeInfo?.type && nodeInfo.type.startsWith("discord_action_")) {
@@ -4417,7 +4441,28 @@ export default function ConfigurationModal({
             <Input
               type="number"
               value={value}
-              onChange={handleChange}
+              onChange={(e) => {
+                // Apply min/max constraints if defined
+                const parsedValue = e.target.value === "" ? "" : parseFloat(e.target.value);
+                let finalValue = parsedValue;
+                
+                if (typeof parsedValue === 'number') {
+                  if ('min' in field && !isNaN(field.min as number) && parsedValue < field.min!) {
+                    finalValue = field.min as number;
+                  } else if ('max' in field && !isNaN(field.max as number) && parsedValue > field.max!) {
+                    finalValue = field.max as number;
+                  }
+                  
+                  // If value was adjusted, update the input directly
+                  if (finalValue !== parsedValue) {
+                    e.target.value = finalValue.toString();
+                  }
+                }
+                
+                handleChange(e);
+              }}
+              min={field.min}
+              max={field.max}
               placeholder={field.placeholder}
               className={cn("w-full", hasError && "border-red-500")}
               autoComplete="new-password"
@@ -6812,7 +6857,7 @@ export default function ConfigurationModal({
             )}
 
             {/* Main Configuration Content */}
-            <div className="flex-1 flex flex-col">
+            <div className="flex-1 flex flex-col min-w-0 max-w-full">
               <DialogHeader className="px-6 py-4 border-b border-border flex-shrink-0">
                 <div className="flex items-center justify-between">
                   <DialogTitle className="text-lg font-semibold">
@@ -6904,8 +6949,8 @@ export default function ConfigurationModal({
               </DialogHeader>
 
               {/* Configuration Form */}
-              <ScrollArea className="flex-1 max-h-[70vh]">
-                <div className="px-6 py-4 space-y-6">
+              <ScrollArea className="flex-1 max-h-[70vh] overflow-x-hidden">
+                <div className="px-6 py-4 space-y-6 w-full max-w-full">
                   {/* Integration Error */}
                   {errors.integrationError && (
                     <div className="bg-red-50 border border-red-200 rounded-lg p-4">
@@ -7015,6 +7060,94 @@ export default function ConfigurationModal({
                         <li>If no filename can be extracted, it will default to "downloaded-file"</li>
                       </ul>
                     </div>
+                  )}
+
+                  {/* Gmail Fetch Message Basic/Advanced Tabs */}
+                  {nodeInfo?.type === "gmail_action_search_email" && (
+                    <>
+                      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mb-6">
+                        <TabsList className="grid w-full grid-cols-2">
+                          <TabsTrigger value="basic">Basic</TabsTrigger>
+                          <TabsTrigger value="advanced">Advanced</TabsTrigger>
+                        </TabsList>
+                      </Tabs>
+                      
+                      {activeTab === "basic" && (
+                        <div className="mb-3 text-sm text-muted-foreground">
+                          Configure basic settings for fetching Gmail messages. Use the Advanced tab for more specialized options.
+                        </div>
+                      )}
+                      
+                      {activeTab === "advanced" && (
+                        <div className="mb-3 text-sm text-muted-foreground">
+                          Configure advanced settings for the Gmail API request. These options provide more control over message retrieval.
+                        </div>
+                      )}
+                      
+                      {activeTab === "basic" && (
+                        <div className="flex justify-end mb-6">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="gap-2"
+                            onClick={handlePreview}
+                            disabled={previewLoading}
+                          >
+                            {previewLoading ? (
+                              <>
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                Loading...
+                              </>
+                            ) : (
+                              <>
+                                <Eye className="h-4 w-4" />
+                                Load Sample
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      )}
+                      
+                      {activeTab === "advanced" && (
+                        <>
+                          <div className="mb-6 space-y-1">
+                            <h3 className="text-sm font-medium flex items-center">
+                              <span className="mr-2 p-1 bg-primary/10 rounded-md">
+                                <Package className="h-4 w-4 text-primary" />
+                              </span>
+                              Pagination
+                            </h3>
+                            <p className="text-xs text-muted-foreground">
+                              Control how results are paginated when fetching large numbers of messages
+                            </p>
+                          </div>
+                          
+                          <div className="mb-6 space-y-1">
+                            <h3 className="text-sm font-medium flex items-center">
+                              <span className="mr-2 p-1 bg-primary/10 rounded-md">
+                                <FileText className="h-4 w-4 text-primary" />
+                              </span>
+                              Format
+                            </h3>
+                            <p className="text-xs text-muted-foreground">
+                              Configure the format and detail level of returned message data
+                            </p>
+                          </div>
+                          
+                          <div className="mb-6 space-y-1">
+                            <h3 className="text-sm font-medium flex items-center">
+                              <span className="mr-2 p-1 bg-primary/10 rounded-md">
+                                <Filter className="h-4 w-4 text-primary" />
+                              </span>
+                              Filters
+                            </h3>
+                            <p className="text-xs text-muted-foreground">
+                              Additional filtering options for message retrieval
+                            </p>
+                          </div>
+                        </>
+                      )}
+                    </>
                   )}
 
                   {/* Configuration Fields */}
@@ -7304,7 +7437,6 @@ export default function ConfigurationModal({
 
                   {/* Preview Functionality */}
                   {(nodeInfo?.type === "discord_action_fetch_messages" || 
-                    nodeInfo?.type === "gmail_action_search_emails" || 
                     nodeInfo?.type === "notion_action_search_pages") && (
                     <div className="space-y-3 border-t pt-4">
                       <div className="flex items-center justify-between">
@@ -7340,15 +7472,64 @@ export default function ConfigurationModal({
                           {nodeInfo?.type === "discord_action_fetch_messages" && (
                             <DiscordMessagesPreview messages={previewData.messages || []} />
                           )}
-                          {nodeInfo?.type === "gmail_action_search_emails" && (
-                            <GmailEmailsPreview emails={previewData.emails || []} />
-                          )}
                           {nodeInfo?.type === "notion_action_search_pages" && (
                             <NotionRecordsPreview 
                               records={previewData.pages || []} 
                               columns={["title", "url", "object", "last_edited_time"]} 
                             />
                           )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  
+                  {/* Gmail Message Preview */}
+                  {nodeInfo?.type === "gmail_action_search_email" && (
+                    <div className="space-y-3 border-t pt-4 mt-6 w-full max-w-full">
+                      <div className="flex items-center justify-between">
+                        <div className="text-sm font-medium">Sample Messages</div>
+                        {activeTab === "basic" && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handlePreview}
+                            disabled={previewLoading}
+                          >
+                            {previewLoading ? (
+                              <>
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                Loading...
+                              </>
+                            ) : (
+                              <>
+                                <Eye className="w-4 h-4 mr-2" />
+                                Load Sample
+                              </>
+                            )}
+                          </Button>
+                        )}
+                      </div>
+
+                      {previewError && (
+                        <div className="text-sm text-red-600 bg-red-50 p-3 rounded border">
+                          {previewError}
+                        </div>
+                      )}
+
+                      {!previewData && !previewError && (
+                        <div className="text-sm text-muted-foreground bg-muted/30 p-4 rounded border flex flex-col items-center justify-center">
+                          <div className="mb-2">
+                            <Mail className="w-8 h-8 text-muted-foreground/50" />
+                          </div>
+                          <p>No data yet. Run your workflow or use "Load Sample" to preview results.</p>
+                        </div>
+                      )}
+
+                      {previewData && (
+                        <div className="w-full max-w-full overflow-hidden border rounded-lg">
+                          <div className="max-h-[300px] overflow-y-auto">
+                            <GmailEmailsPreview emails={previewData.emails || []} />
+                          </div>
                         </div>
                       )}
                     </div>
