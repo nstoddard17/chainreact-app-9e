@@ -12,7 +12,7 @@ import { resolveValue } from "@/lib/integrations/resolveValue"
  */
 export const ACTION_METADATA = {
   key: "gmail_action_search_email",
-  name: "Search Gmail Messages",
+  name: "Fetch Gmail Message",
   description: "Find emails in Gmail matching specific search criteria",
   icon: "search"
 };
