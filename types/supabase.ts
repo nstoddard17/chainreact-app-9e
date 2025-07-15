@@ -59,6 +59,9 @@ export interface Database {
           name: string
           description: string | null
           user_id: string
+          nodes: Json
+          connections: Json
+          status: string
           created_at: string
           updated_at: string
         }
@@ -67,6 +70,9 @@ export interface Database {
           name: string
           description?: string | null
           user_id: string
+          nodes?: Json
+          connections?: Json
+          status?: string
           created_at?: string
           updated_at?: string
         }
@@ -75,6 +81,9 @@ export interface Database {
           name?: string
           description?: string | null
           user_id?: string
+          nodes?: Json
+          connections?: Json
+          status?: string
           created_at?: string
           updated_at?: string
         }
