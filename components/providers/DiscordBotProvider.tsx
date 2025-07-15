@@ -12,51 +12,7 @@ export default function DiscordBotProvider() {
   const [status, setStatus] = useState<DiscordBotStatus | null>(null)
   const [isInitialized, setIsInitialized] = useState(false)
 
-  useEffect(() => {
-    // Only initialize on the client side
-    if (typeof window === 'undefined') return
-
-    const initializeDiscordBot = async () => {
-      try {
-        // Call the API to initialize Discord Gateway
-        const response = await fetch('/api/discord/initialize-presence', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        })
-
-        if (response.ok) {
-          const data = await response.json()
-          setStatus(data.status)
-          setIsInitialized(true)
-        }
-      } catch (error) {
-        // Silent error handling
-      }
-    }
-
-    // Initialize Discord bot
-    initializeDiscordBot()
-
-    // Set up periodic status checks
-    const statusInterval = setInterval(async () => {
-      try {
-        const response = await fetch('/api/discord/initialize-presence')
-        if (response.ok) {
-          const data = await response.json()
-          setStatus(data.status)
-        }
-      } catch (error) {
-        // Silent error handling
-      }
-    }, 30000) // Check every 30 seconds
-
-    return () => {
-      clearInterval(statusInterval)
-    }
-  }, [])
-
-  // Don't render anything, this is just for initialization
+  // Don't render anything, this is just a placeholder for future Discord functionality
+  // Discord will be initialized on-demand when Discord nodes are actually used
   return null
 } 

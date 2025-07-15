@@ -4169,14 +4169,6 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
       
       // Advanced Tab Fields
       {
-        name: "pageToken",
-        label: "Page Token",
-        type: "text",
-        required: false,
-        description: "Token for continuing from a previous response",
-        uiTab: "advanced"
-      },
-      {
         name: "format",
         label: "Format",
         type: "select",
@@ -4229,6 +4221,9 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         options: [
           { value: "messages(id,snippet)", label: "ID + Snippet" },
           { value: "messages(id,payload(headers))", label: "Metadata Only" },
+          { value: "messages(id,payload(body))", label: "Body" },
+          { value: "messages(id,payload(body),payload(parts))", label: "Body + Attachments" },
+          { value: "messages(id,payload(parts))", label: "Attachments" },
           { value: "messages", label: "Full Message" },
           { value: "custom", label: "Custom Fields Mask" }
         ],

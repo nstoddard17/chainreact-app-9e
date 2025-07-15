@@ -18,16 +18,29 @@ export async function searchGmailEmails(
     let query = resolveValue(config.query, input) || ""
     const maxResults = Number(config.maxResults) || 10
     
-    // Add date range filters if provided
-    const after = resolveValue(config.after, input)
-    const before = resolveValue(config.before, input)
+    // Add date range filters if provided (using correct field names)
+    const startDate = resolveValue(config.startDate, input)
+    const endDate = resolveValue(config.endDate, input)
     
-    if (after) {
-      query += ` after:${after}`
+    if (startDate) {
+      query += ` after:${startDate}`
     }
     
-    if (before) {
-      query += ` before:${before}`
+    if (endDate) {
+      query += ` before:${endDate}`
+    }
+    
+    // Add thread ID filter if provided
+    const threadId = resolveValue(config.threadId, input)
+    if (threadId) {
+      query += ` threadId:${threadId}`
+    }
+    
+    // Add label filters if provided
+    const labelFilters = resolveValue(config.labelFilters, input)
+    if (labelFilters && Array.isArray(labelFilters) && labelFilters.length > 0) {
+      const labelQuery = labelFilters.map((label: string) => `label:${label}`).join(' ')
+      query += ` ${labelQuery}`
     }
     
     if (!query.trim()) {
@@ -44,6 +57,12 @@ export async function searchGmailEmails(
       q: query,
       maxResults: maxResults.toString()
     })
+    
+    // Add includeSpamTrash parameter if configured
+    const includeSpamTrash = resolveValue(config.includeSpamTrash, input)
+    if (includeSpamTrash) {
+      searchParams.append('includeSpamTrash', 'true')
+    }
     
     const searchResponse = await fetch(
       `https://www.googleapis.com/gmail/v1/users/me/messages?${searchParams}`, 
@@ -75,19 +94,53 @@ export async function searchGmailEmails(
       }
     }
     
+    // Determine format and fields based on config
+    const format = resolveValue(config.format, input) || "full"
+    const fieldsMask = resolveValue(config.fieldsMask, input) || "messages"
+    
     // Fetch details for each message
     const emails = []
     
     for (const messageId of messageIds) {
       try {
-        const messageResponse = await fetch(
-          `https://www.googleapis.com/gmail/v1/users/me/messages/${messageId}?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Subject&metadataHeaders=Date`, 
-          {
-            headers: {
-              Authorization: `Bearer ${accessToken}`
-            }
+        // Build message URL with appropriate parameters
+        const messageUrl = new URL(`https://www.googleapis.com/gmail/v1/users/me/messages/${messageId}`)
+        
+        // Handle different format and fields mask combinations
+        if (format && format !== "full") {
+          // Use specific format (metadata, minimal, raw)
+          messageUrl.searchParams.append('format', format)
+          
+          // Add metadata headers for metadata format
+          if (format === "metadata") {
+            messageUrl.searchParams.append('metadataHeaders', 'From')
+            messageUrl.searchParams.append('metadataHeaders', 'To')
+            messageUrl.searchParams.append('metadataHeaders', 'Subject')
+            messageUrl.searchParams.append('metadataHeaders', 'Date')
+            messageUrl.searchParams.append('metadataHeaders', 'Cc')
+            messageUrl.searchParams.append('metadataHeaders', 'Bcc')
           }
-        )
+        } else if (fieldsMask && fieldsMask !== "messages") {
+          // For fields masks that include body content, we need to use format=full
+          // and then filter the response manually since the fields parameter
+          // doesn't work well with body content
+          if (fieldsMask.includes('payload(body)') || fieldsMask.includes('payload(parts)')) {
+            messageUrl.searchParams.append('format', 'full')
+          } else {
+            // For metadata-only fields masks, we can use the fields parameter
+            messageUrl.searchParams.append('format', 'full')
+            messageUrl.searchParams.append('fields', fieldsMask)
+          }
+        } else {
+          // Default: use full format
+          messageUrl.searchParams.append('format', 'full')
+        }
+        
+        const messageResponse = await fetch(messageUrl.toString(), {
+          headers: {
+            Authorization: `Bearer ${accessToken}`
+          }
+        })
         
         if (!messageResponse.ok) {
           console.error(`Failed to fetch message ${messageId}: ${messageResponse.status}`)
@@ -97,15 +150,86 @@ export async function searchGmailEmails(
         const message = await messageResponse.json()
         const headers = message.payload?.headers || []
         
-        const email = {
+        // Extract email data based on format/fields
+        const email: any = {
           id: message.id,
           threadId: message.threadId,
-          snippet: message.snippet,
-          from: headers.find((h: any) => h.name === "From")?.value || "",
-          to: headers.find((h: any) => h.name === "To")?.value || "",
-          subject: headers.find((h: any) => h.name === "Subject")?.value || "",
-          date: headers.find((h: any) => h.name === "Date")?.value || "",
           labelIds: message.labelIds || []
+        }
+        
+        // Only include snippet if headers are being extracted
+        const shouldExtractHeaders = !fieldsMask || 
+          fieldsMask === "messages" || 
+          fieldsMask.includes('payload(headers)')
+        
+        if (shouldExtractHeaders) {
+          email.snippet = message.snippet
+        }
+        
+        const shouldExtractBody = !fieldsMask || 
+          fieldsMask === "messages" || 
+          fieldsMask.includes('payload(body)')
+        
+        const shouldExtractAttachments = !fieldsMask || 
+          fieldsMask === "messages" || 
+          fieldsMask.includes('payload(parts)')
+        
+        // Extract headers if available and needed
+        if (shouldExtractHeaders && headers.length > 0) {
+          email.from = headers.find((h: any) => h.name === "From")?.value || ""
+          email.to = headers.find((h: any) => h.name === "To")?.value || ""
+          email.subject = headers.find((h: any) => h.name === "Subject")?.value || ""
+          email.date = headers.find((h: any) => h.name === "Date")?.value || ""
+          email.cc = headers.find((h: any) => h.name === "Cc")?.value || ""
+          email.bcc = headers.find((h: any) => h.name === "Bcc")?.value || ""
+        }
+        
+        // Extract body content if available and needed
+        if (shouldExtractBody) {
+          if (message.payload?.body?.data) {
+            email.body = Buffer.from(message.payload.body.data, 'base64').toString('utf-8')
+          } else if (message.payload?.parts) {
+            // Try to extract body from parts
+            const extractBody = (parts: any[]): string => {
+              for (const part of parts) {
+                if (part.mimeType === 'text/plain' && part.body?.data) {
+                  return Buffer.from(part.body.data, 'base64').toString('utf-8')
+                }
+                if (part.mimeType === 'text/html' && part.body?.data) {
+                  return Buffer.from(part.body.data, 'base64').toString('utf-8')
+                }
+                if (part.parts) {
+                  const body = extractBody(part.parts)
+                  if (body) return body
+                }
+              }
+              return ""
+            }
+            email.body = extractBody(message.payload.parts)
+          }
+        }
+        
+        // Extract attachments if available and needed
+        if (shouldExtractAttachments && message.payload?.parts) {
+          const extractAttachments = (parts: any[]): any[] => {
+            const attachments: any[] = []
+            for (const part of parts) {
+              if (part.filename && part.body?.attachmentId && 
+                  part.mimeType !== 'text/plain' && part.mimeType !== 'text/html') {
+                attachments.push({
+                  filename: part.filename,
+                  mimeType: part.mimeType,
+                  size: parseInt(part.body.size || '0', 10),
+                  attachmentId: part.body.attachmentId
+                })
+              }
+              if (part.parts) {
+                attachments.push(...extractAttachments(part.parts))
+              }
+            }
+            return attachments
+          }
+          email.attachments = extractAttachments(message.payload.parts)
         }
         
         emails.push(email)
