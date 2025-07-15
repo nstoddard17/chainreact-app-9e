@@ -76,9 +76,15 @@ export const GmailEmailsPreview: React.FC<GmailEmailsPreviewProps> = ({ emails, 
     return "(No Subject)";
   };
 
+  const decodeHtmlEntities = (text: string) => {
+    const textarea = document.createElement('textarea');
+    textarea.innerHTML = text;
+    return textarea.value;
+  };
+
   const getSnippetDisplay = (email: GmailEmail) => {
     if (email.snippet) {
-      return email.snippet;
+      return decodeHtmlEntities(email.snippet);
     }
     if (email.body) {
       // Use body content as snippet, but skip the first line if it's already used as subject
@@ -94,6 +100,45 @@ export const GmailEmailsPreview: React.FC<GmailEmailsPreviewProps> = ({ emails, 
     return "";
   };
 
+  // Format body text to be more readable
+  const formatBodyText = (text: string) => {
+    if (!text) return "";
+    
+    // Split by lines
+    let lines = text.split('\n');
+    
+    // Process each line
+    lines = lines.map(line => {
+      // Format long URLs to make them more readable
+      if (line.includes('http')) {
+        const urlRegex = /(https?:\/\/[^\s]+)/g;
+        return line.replace(urlRegex, url => {
+          // If URL is longer than 50 chars, truncate it
+          if (url.length > 50) {
+            return url.substring(0, 47) + '...';
+          }
+          return url;
+        });
+      }
+      
+      // Break very long lines
+      if (line.length > 80 && !line.includes(' ')) {
+        let result = '';
+        for (let i = 0; i < line.length; i += 80) {
+          result += line.substring(i, Math.min(i + 80, line.length));
+          if (i + 80 < line.length) {
+            result += '\n';
+          }
+        }
+        return result;
+      }
+      
+      return line;
+    });
+    
+    return lines.join('\n');
+  };
+
   const renderExpandedContent = (email: GmailEmail) => {
     const isExpanded = expandedEmails.has(email.id);
     
@@ -103,24 +148,24 @@ export const GmailEmailsPreview: React.FC<GmailEmailsPreviewProps> = ({ emails, 
     if (fieldsMask?.includes('payload(body)') && !fieldsMask?.includes('payload(parts)')) {
       // Body only
       return (
-        <div className="px-4 py-3 bg-gray-50 border-t border-gray-100 w-full max-w-full overflow-hidden">
+        <div className="px-4 py-3 bg-gray-50 border-t border-gray-100 w-full overflow-hidden">
           <div className="text-sm text-gray-600 mb-2">Body Content:</div>
-          <div className="text-sm text-gray-900 whitespace-pre-wrap max-h-64 overflow-y-auto break-words overflow-x-hidden w-full max-w-full">
-            {email.body || "No body content available"}
+          <div className="text-sm text-gray-900 whitespace-pre-wrap max-h-64 overflow-y-auto break-words overflow-x-hidden w-full">
+            {formatBodyText(email.body || "No body content available")}
           </div>
         </div>
       );
     } else if (fieldsMask?.includes('payload(parts)') && !fieldsMask?.includes('payload(body)')) {
       // Attachments only
       return (
-        <div className="px-4 py-3 bg-gray-50 border-t border-gray-100 w-full max-w-full overflow-hidden">
+        <div className="px-4 py-3 bg-gray-50 border-t border-gray-100 w-full overflow-hidden">
           <div className="text-sm text-gray-600 mb-2">Attachments:</div>
           {email.attachments && email.attachments.length > 0 ? (
-            <div className="space-y-2 w-full max-w-full">
+            <div className="space-y-2 w-full">
               {email.attachments.map((attachment, index) => (
-                <div key={index} className="flex items-center gap-2 text-sm w-full max-w-full min-w-0">
+                <div key={index} className="flex items-center gap-2 text-sm w-full min-w-0">
                   <Paperclip className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                  <span className="text-gray-900 truncate min-w-0 flex-1 max-w-full">{attachment.filename}</span>
+                  <span className="text-gray-900 truncate min-w-0 flex-1">{attachment.filename}</span>
                   <span className="text-gray-500 text-xs flex-shrink-0">({attachment.mimeType}, {attachment.size} bytes)</span>
                 </div>
               ))}
@@ -133,23 +178,23 @@ export const GmailEmailsPreview: React.FC<GmailEmailsPreviewProps> = ({ emails, 
     } else if (fieldsMask?.includes('payload(body)') && fieldsMask?.includes('payload(parts)')) {
       // Body + Attachments
       return (
-        <div className="px-4 py-3 bg-gray-50 border-t border-gray-100 w-full max-w-full overflow-hidden">
+        <div className="px-4 py-3 bg-gray-50 border-t border-gray-100 w-full overflow-hidden">
           {email.body && (
-            <div className="mb-4 w-full max-w-full">
+            <div className="mb-4 w-full">
               <div className="text-sm text-gray-600 mb-2">Body Content:</div>
-              <div className="text-sm text-gray-900 whitespace-pre-wrap max-h-48 overflow-y-auto break-words overflow-x-hidden w-full max-w-full">
-                {email.body}
+              <div className="text-sm text-gray-900 whitespace-pre-wrap max-h-48 overflow-y-auto break-words overflow-x-hidden w-full">
+                {formatBodyText(email.body)}
               </div>
             </div>
           )}
           {email.attachments && email.attachments.length > 0 && (
-            <div className="w-full max-w-full">
+            <div className="w-full">
               <div className="text-sm text-gray-600 mb-2">Attachments:</div>
-              <div className="space-y-2 w-full max-w-full">
+              <div className="space-y-2 w-full">
                 {email.attachments.map((attachment, index) => (
-                  <div key={index} className="flex items-center gap-2 text-sm w-full max-w-full min-w-0">
+                  <div key={index} className="flex items-center gap-2 text-sm w-full min-w-0">
                     <Paperclip className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                    <span className="text-gray-900 truncate min-w-0 flex-1 max-w-full">{attachment.filename}</span>
+                    <span className="text-gray-900 truncate min-w-0 flex-1">{attachment.filename}</span>
                     <span className="text-gray-500 text-xs flex-shrink-0">({attachment.mimeType}, {attachment.size} bytes)</span>
                   </div>
                 ))}
@@ -161,37 +206,37 @@ export const GmailEmailsPreview: React.FC<GmailEmailsPreviewProps> = ({ emails, 
     } else if (fieldsMask?.includes('payload(headers)')) {
       // Metadata only
       return (
-        <div className="px-4 py-3 bg-gray-50 border-t border-gray-100 w-full max-w-full overflow-hidden">
+        <div className="px-4 py-3 bg-gray-50 border-t border-gray-100 w-full overflow-hidden">
           <div className="text-sm text-gray-600 mb-2">Email Metadata:</div>
-          <div className="space-y-1 text-sm w-full max-w-full">
-            {email.from && <div className="break-words overflow-x-hidden w-full max-w-full"><span className="text-gray-500">From:</span> <span className="text-gray-900">{email.from}</span></div>}
-            {email.to && <div className="break-words overflow-x-hidden w-full max-w-full"><span className="text-gray-500">To:</span> <span className="text-gray-900">{email.to}</span></div>}
-            {email.subject && <div className="break-words overflow-x-hidden w-full max-w-full"><span className="text-gray-500">Subject:</span> <span className="text-gray-900">{email.subject}</span></div>}
-            {email.date && <div className="break-words overflow-x-hidden w-full max-w-full"><span className="text-gray-500">Date:</span> <span className="text-gray-900">{email.date}</span></div>}
+          <div className="space-y-1 text-sm w-full">
+            {email.from && <div className="break-words overflow-x-hidden w-full"><span className="text-gray-500">From:</span> <span className="text-gray-900">{email.from}</span></div>}
+            {email.to && <div className="break-words overflow-x-hidden w-full"><span className="text-gray-500">To:</span> <span className="text-gray-900">{email.to}</span></div>}
+            {email.subject && <div className="break-words overflow-x-hidden w-full"><span className="text-gray-500">Subject:</span> <span className="text-gray-900">{email.subject}</span></div>}
+            {email.date && <div className="break-words overflow-x-hidden w-full"><span className="text-gray-500">Date:</span> <span className="text-gray-900">{email.date}</span></div>}
           </div>
         </div>
       );
     } else {
       // Full message or default
       return (
-        <div className="px-4 py-3 bg-gray-50 border-t border-gray-100 w-full max-w-full overflow-hidden">
+        <div className="px-4 py-3 bg-gray-50 border-t border-gray-100 w-full overflow-hidden">
           <div className="text-sm text-gray-600 mb-2">Full Email Content:</div>
           {email.body && (
-            <div className="mb-4 w-full max-w-full">
+            <div className="mb-4 w-full">
               <div className="text-sm text-gray-600 mb-2">Body:</div>
-              <div className="text-sm text-gray-900 whitespace-pre-wrap max-h-48 overflow-y-auto break-words overflow-x-hidden w-full max-w-full">
-                {email.body}
+              <div className="text-sm text-gray-900 whitespace-pre-wrap max-h-48 overflow-y-auto break-words overflow-x-hidden w-full">
+                {formatBodyText(email.body)}
               </div>
             </div>
           )}
           {email.attachments && email.attachments.length > 0 && (
-            <div className="w-full max-w-full">
+            <div className="w-full">
               <div className="text-sm text-gray-600 mb-2">Attachments:</div>
-              <div className="space-y-2 w-full max-w-full">
+              <div className="space-y-2 w-full">
                 {email.attachments.map((attachment, index) => (
-                  <div key={index} className="flex items-center gap-2 text-sm w-full max-w-full min-w-0">
+                  <div key={index} className="flex items-center gap-2 text-sm w-full min-w-0">
                     <Paperclip className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                    <span className="text-gray-900 truncate min-w-0 flex-1 max-w-full">{attachment.filename}</span>
+                    <span className="text-gray-900 truncate min-w-0 flex-1">{attachment.filename}</span>
                     <span className="text-gray-500 text-xs flex-shrink-0">({attachment.mimeType}, {attachment.size} bytes)</span>
                   </div>
                 ))}
@@ -204,7 +249,7 @@ export const GmailEmailsPreview: React.FC<GmailEmailsPreviewProps> = ({ emails, 
   };
 
   return (
-    <div className="w-full max-w-full bg-white border border-gray-200 rounded-lg overflow-hidden">
+    <div className="w-full bg-white border border-gray-200 rounded-lg overflow-hidden">
       {emails.length === 0 && (
         <div className="p-8 text-center text-gray-500">
           <Mail className="w-12 h-12 mx-auto mb-3 text-gray-300" />
@@ -213,11 +258,11 @@ export const GmailEmailsPreview: React.FC<GmailEmailsPreviewProps> = ({ emails, 
       )}
 
       {emails.map((email, index) => (
-        <div key={email.id} className="w-full max-w-full min-w-0">
+        <div key={email.id} className="w-full min-w-0">
           <div 
             className={`
               flex items-start gap-3 px-4 py-3 border-b border-gray-100 last:border-b-0
-              hover:bg-gray-50 transition-colors cursor-pointer w-full max-w-full min-w-0
+              hover:bg-gray-50 transition-colors cursor-pointer w-full min-w-0
               ${!email.isRead ? 'bg-blue-50' : ''}
             `}
             onClick={() => toggleEmail(email.id)}
@@ -235,17 +280,17 @@ export const GmailEmailsPreview: React.FC<GmailEmailsPreviewProps> = ({ emails, 
             </div>
 
             {/* Email Content - Single Line Layout */}
-            <div className="flex-1 min-w-0 flex items-start gap-3 max-w-full">
+            <div className="flex-1 min-w-0 flex items-start gap-3">
               <span className={`text-sm ${!email.isRead ? 'font-semibold' : 'font-medium'} text-gray-900 flex-shrink-0 max-w-[100px] truncate`}>
                 {getSenderDisplay(email)}
               </span>
               
-              <div className="flex-1 min-w-0 flex flex-col gap-1 max-w-full">
-                <span className={`text-sm ${!email.isRead ? 'font-semibold' : ''} text-gray-900 break-words max-w-full`}>
+              <div className="flex-1 min-w-0 flex flex-col gap-1">
+                <span className={`text-sm ${!email.isRead ? 'font-semibold' : ''} text-gray-900 break-words`}>
                   {getSubjectDisplay(email)}
                 </span>
                 {getSnippetDisplay(email) && (
-                  <span className="text-sm text-gray-500 break-words max-w-full">
+                  <span className="text-sm text-gray-500 break-words">
                     {getSnippetDisplay(email)}
                   </span>
                 )}
