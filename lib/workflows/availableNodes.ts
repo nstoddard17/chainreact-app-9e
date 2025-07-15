@@ -4104,7 +4104,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     configSchema: [
       { 
         name: "emailAddress", 
-        label: "Email Addresses", 
+        label: "Search by Email Address", 
         type: "email-autocomplete", 
         dynamic: "gmail-recent-recipients",
         required: false,
