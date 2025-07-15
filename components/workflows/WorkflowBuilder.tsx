@@ -82,17 +82,41 @@ export default function WorkflowBuilder() {
     const currentNodes = nodes.filter((n: Node) => n.type === 'custom')
     const currentEdges = edges
     
+    console.log('🔍 Current nodes:', currentNodes.map(n => ({ id: n.id, position: n.position })))
+    console.log('🔍 Saved nodes:', (currentWorkflow.nodes || []).map(n => ({ id: n.id, position: n.position })))
+    
     // Compare nodes
     const savedNodes = currentWorkflow.nodes || []
     const nodesChanged = currentNodes.length !== savedNodes.length ||
       currentNodes.some((node, index) => {
         const savedNode = savedNodes[index]
-        if (!savedNode) return true
-        return node.id !== savedNode.id ||
-               node.data.type !== savedNode.data.type ||
-               JSON.stringify(node.data.config) !== JSON.stringify(savedNode.data.config) ||
-               node.position.x !== savedNode.position.x ||
-               node.position.y !== savedNode.position.y
+        if (!savedNode) {
+          console.log('🔍 No saved node found for index:', index, 'node:', node.id)
+          return true
+        }
+        
+        const positionChanged = node.position.x !== savedNode.position.x || node.position.y !== savedNode.position.y
+        const configChanged = JSON.stringify(node.data.config) !== JSON.stringify(savedNode.data.config)
+        const typeChanged = node.data.type !== savedNode.data.type
+        const idChanged = node.id !== savedNode.id
+        
+        if (positionChanged) {
+          console.log('🔍 Position changed for node:', node.id, {
+            old: savedNode.position,
+            new: node.position,
+            oldX: savedNode.position.x,
+            oldY: savedNode.position.y,
+            newX: node.position.x,
+            newY: node.position.y
+          })
+        }
+        
+        const hasChange = idChanged || typeChanged || configChanged || positionChanged
+        if (hasChange) {
+          console.log('🔍 Node has changes:', node.id, { idChanged, typeChanged, configChanged, positionChanged })
+        }
+        
+        return hasChange
       })
     
     // Compare edges
@@ -150,13 +174,16 @@ export default function WorkflowBuilder() {
     if (workflowId && workflows.length > 0) {
       const workflow = workflows.find((w) => w.id === workflowId)
       if (workflow) {
-        setCurrentWorkflow(workflow)
-        fetchComments(workflow.id)
-        fetchVersions(workflow.id)
+        // Only set current workflow if it's not already set or if it's a different workflow
+        if (!currentWorkflow || currentWorkflow.id !== workflowId) {
+          setCurrentWorkflow(workflow)
+          fetchComments(workflow.id)
+          fetchVersions(workflow.id)
+        }
       }
     }
     fetchBuilderPreferences()
-  }, [workflowId, workflows, setCurrentWorkflow, fetchComments, fetchVersions, fetchBuilderPreferences])
+  }, [workflowId, workflows, setCurrentWorkflow, fetchComments, fetchVersions, fetchBuilderPreferences, currentWorkflow])
 
   // Fetch workflows on mount
   useEffect(() => {
@@ -242,20 +269,42 @@ export default function WorkflowBuilder() {
     [currentWorkflow, addNode, setNodes],
   )
 
-  const handleSave = async (silent = false) => {
+    const handleSave = async (silent = false) => {
     if (!currentWorkflow) return
 
     console.log('💾 handleSave called, hasUnsavedChanges before save:', hasUnsavedChanges)
+    console.log('💾 Current nodes positions:', nodes.map(n => ({ 
+      id: n.id, 
+      position: n.position,
+      x: n.position.x,
+      y: n.position.y
+    })))
     setSaving(true)
     try {
       const oldStatus = currentWorkflow.status
       
       // Create the updated workflow with current nodes and edges
+      // Ensure nodes are in the correct format for storage and positions are preserved
+      const nodesForStorage = nodes.map(node => {
+        console.log(`💾 Saving node ${node.id} at position:`, node.position);
+        return {
+          id: node.id,
+          type: node.type,
+          position: {
+            x: node.position.x,
+            y: node.position.y
+          },
+          data: node.data
+        };
+      })
+      
       const updatedWorkflow = {
         ...currentWorkflow,
-        nodes: nodes as any,
+        nodes: nodesForStorage as any,
         connections: edges as any,
       }
+      
+      console.log('💾 Updated workflow nodes:', updatedWorkflow.nodes.map((n: any) => ({ id: n.id, position: n.position })))
       
       console.log('💾 Updating currentWorkflow with new nodes/edges')
       // Update the current workflow in the store
@@ -473,8 +522,36 @@ export default function WorkflowBuilder() {
               onPaneClick={onPaneClick}
               onDragOver={onDragOver}
               onDrop={onDrop}
+              onNodeDrag={(event, node) => {
+                // Update position in real-time during drag
+                setNodes((nds) => 
+                  nds.map((n) => 
+                    n.id === node.id 
+                      ? { ...n, position: { x: node.position.x, y: node.position.y } } 
+                      : n
+                  )
+                );
+              }}
+              onNodeDragStop={(event, node) => {
+                console.log('🔄 Node drag stopped:', node.id, node.position);
+                // Final position update with force refresh
+                setNodes((nds) => {
+                  const updatedNodes = nds.map((n) => 
+                    n.id === node.id 
+                      ? { ...n, position: { x: node.position.x, y: node.position.y } } 
+                      : n
+                  );
+                  console.log('🔄 Updated nodes after drag:', updatedNodes.map(n => ({ id: n.id, position: n.position })));
+                  return updatedNodes;
+                });
+                // Trigger unsaved changes check with longer delay
+                setTimeout(() => {
+                  console.log('🔄 Triggering unsaved changes check after drag');
+                  checkForUnsavedChanges();
+                }, 50);
+              }}
               nodeTypes={nodeTypes}
-              fitView
+              fitView={false}
               snapToGrid={builderPreferences?.snap_to_grid}
               snapGrid={[15, 15]}
               className="bg-slate-50"

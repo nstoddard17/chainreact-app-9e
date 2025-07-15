@@ -36,6 +36,7 @@ import { DiscordMessagesPreview } from "./DiscordMessagesPreview"
 import { GmailEmailsPreview } from "./GmailEmailsPreview"
 import { NotionRecordsPreview } from "./NotionRecordsPreview"
 
+
 import { getUser } from "@/lib/supabase-client";
 
 // Import template configuration function
@@ -2676,6 +2677,34 @@ export default function ConfigurationModal({
             console.error('❌ Error loading messages:', error)
           }
         }
+
+        // If messageId is set, load reactions
+        if (config.messageId) {
+          console.log('🔄 Loading reactions for messageId:', config.messageId, 'channelId:', config.channelId)
+          try {
+            const reactionData = await loadIntegrationData("discord_reactions", integration.id, { 
+              channelId: config.channelId, 
+              messageId: config.messageId 
+            })
+            console.log('🔍 Raw reaction data received:', reactionData)
+            if (reactionData && reactionData.length > 0) {
+              const mappedReactions = reactionData.map((reaction: any) => ({
+                value: reaction.value || reaction.id,
+                label: reaction.label || reaction.name
+              }))
+              console.log('🔍 Mapped reactions:', mappedReactions)
+              setDynamicOptions(prev => ({
+                ...prev,
+                "emoji": mappedReactions
+              }))
+              console.log('✅ Loaded reactions:', mappedReactions.length)
+            } else {
+              console.log('⚠️ No reaction data received or empty array')
+            }
+          } catch (error) {
+            console.error('❌ Error loading reactions:', error)
+          }
+        }
       }
 
       // Add a small delay to ensure the modal is fully opened and config is set before loading data
@@ -5232,6 +5261,165 @@ export default function ConfigurationModal({
             currentValue: value,
             nodeType: nodeInfo?.type
           })
+        }
+
+        // Special debugging for Discord reactions
+        if (field.dynamic === "discord_reactions") {
+          console.log(`🎯 DISCORD REACTIONS DEBUG for "${field.name}":`, {
+            fieldName: field.name,
+            fieldDynamic: field.dynamic,
+            optionsCount: options.length,
+            options: options,
+            dynamicOptionsKeys: Object.keys(dynamicOptions),
+            dynamicOptionsForField: dynamicOptions[field.name],
+            dynamicOptionsForEmoji: dynamicOptions["emoji"],
+            allDynamicOptions: dynamicOptions,
+            currentConfig: config,
+            dependsOnValue: field.dependsOn ? config[field.dependsOn] : null,
+            currentValue: value,
+            nodeType: nodeInfo?.type
+          })
+        }
+        
+        // Special handling for Discord reactions - add custom option when no reactions found
+        if (field.dynamic === "discord_reactions") {
+          const hasReactions = options.length > 0
+          const displayOptions = [...options]
+          
+          // Only add custom option for add reaction actions, not remove/fetch actions
+          const isRemoveOrFetchAction = nodeInfo?.type === "discord_action_remove_reaction" || 
+                                       nodeInfo?.type === "discord_action_fetch_reactions"
+          
+          // Add custom reaction option if no reactions found and it's not a remove/fetch action
+          if (!hasReactions && !isRemoveOrFetchAction) {
+            displayOptions.push({
+              id: "custom",
+              name: "Custom reaction (type emoji name)",
+              value: "custom",
+              isCustom: true
+            })
+          }
+          
+          return (
+            <div className="space-y-2">
+              {renderLabel()}
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <Select
+                    value={value}
+                    onValueChange={(newValue) => {
+                      console.log('🎯 DISCORD REACTIONS SELECT onValueChange called:', {
+                        fieldName: field.name,
+                        newValue,
+                        oldValue: value,
+                        nodeType: nodeInfo?.type
+                      })
+                      handleSelectChange(newValue)
+                    }}
+                    disabled={loadingDynamic}
+                  >
+                    <SelectTrigger className={cn("w-full", hasError && "border-red-500")}>
+                      <SelectValue placeholder={
+                        loadingDynamic 
+                          ? "Loading reactions..." 
+                          : hasReactions
+                          ? isRemoveOrFetchAction 
+                            ? "Select a reaction to remove from the message"
+                            : "Select a reaction from the message"
+                          : isRemoveOrFetchAction
+                          ? "No reactions found on this message"
+                          : "No reactions found - select custom"
+                      } />
+                    </SelectTrigger>
+                    <SelectContent 
+                      className="max-h-[min(384px,calc(100vh-64px))] overflow-y-auto" 
+                      side="bottom" 
+                      sideOffset={0} 
+                      align="start"
+                    >
+                      {displayOptions.map((option, optionIndex) => {
+                        const optionValue = typeof option === 'string' ? option : option.value
+                        const optionLabel = typeof option === 'string' ? option : option.name || option.label
+                        const isCustom = typeof option === 'object' && (option as any).isCustom
+                        
+                        return (
+                          <SelectItem 
+                            key={`select-option-${optionIndex}-${optionValue || 'undefined'}`} 
+                            value={optionValue} 
+                            className={cn("whitespace-nowrap", isCustom && "font-medium text-blue-600")}
+                          >
+                            {optionLabel}
+                          </SelectItem>
+                        )
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <VariablePicker
+                  workflowData={workflowData}
+                  currentNodeId={currentNodeId}
+                  onVariableSelect={(variable) => {
+                    setConfig(prev => ({ ...prev, [field.name]: variable }))
+                  }}
+                  fieldType="text"
+                  trigger={
+                    <Button variant="outline" size="sm" className="flex-shrink-0 px-3 min-h-[2.5rem]" title="Select from previous node">
+                      <Database className="w-4 h-4" />
+                    </Button>
+                  }
+                />
+              </div>
+              
+              {/* Show custom input when "custom" is selected */}
+              {value === "custom" && !isRemoveOrFetchAction && (
+                <div className="mt-2 space-y-2">
+                  <div className="border rounded-lg p-3 bg-muted/50">
+                    <p className="text-sm font-medium mb-2">Select a reaction:</p>
+                    <div className="grid grid-cols-8 gap-2 max-h-48 overflow-y-auto">
+                      {[
+                        '👍', '👎', '❤️', '🔥', '😄', '😢', '😡', '🎉',
+                        '👏', '🙏', '🤔', '😱', '😴', '🤮', '💯', '💪',
+                        '👀', '👻', '🤖', '👾', '🎮', '🎯', '🎪', '🎨',
+                        '⚡', '💥', '🌟', '✨', '💎', '🏆', '🥇', '🥈',
+                        '🚀', '💸', '💰', '💳', '🎁', '🎊', '🎈', '🎂',
+                        '🍕', '🍔', '🍦', '🍺', '☕', '🍷', '🍸', '🍹',
+                        '🌮', '🍣', '🍜', '🍱', '🥘', '🍲', '🥗', '🥙',
+                        '🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼'
+                      ].map((emoji, index) => (
+                        <button
+                          key={index}
+                          type="button"
+                          onClick={() => {
+                            setConfig(prev => ({ ...prev, customEmoji: emoji }))
+                          }}
+                          className="w-8 h-8 flex items-center justify-center text-lg hover:bg-muted rounded transition-colors"
+                          title={`Select ${emoji}`}
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <Input
+                    placeholder="Or enter custom Discord emoji (emoji_name:emoji_id)"
+                    value={config.customEmojiManual || ""}
+                    onChange={(e) => {
+                      setConfig(prev => ({ ...prev, customEmojiManual: e.target.value }))
+                    }}
+                    className="w-full"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Click an emoji above, or enter a custom Discord emoji code below.<br />
+                    For custom emojis, use format: emoji_name:emoji_id
+                  </p>
+                </div>
+              )}
+              
+              {hasError && (
+                <p className="text-xs text-red-500">{errors[field.name]}</p>
+              )}
+            </div>
+          )
         }
         
         // Use MultiCombobox for multiple select with creatable option
