@@ -380,9 +380,19 @@ export const discordGateway = new DiscordGateway()
  */
 export async function initializeDiscordGateway(): Promise<void> {
   try {
+    // Check if Discord bot is configured before attempting to connect
+    const config = checkDiscordBotConfig()
+    
+    if (!config.isConfigured) {
+      // Discord bot not configured, don't attempt to connect
+      console.log('Discord bot not configured, skipping Gateway connection')
+      return
+    }
+    
     await discordGateway.connect()
   } catch (error) {
     // Silent error handling
+    console.log('Discord Gateway connection failed:', error)
   }
 }
 

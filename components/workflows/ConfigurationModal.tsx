@@ -2593,6 +2593,34 @@ export default function ConfigurationModal({
     }
   }, [isOpen, currentNodeId, nodeInfo?.providerId, fetchDynamicData])
 
+  // Initialize Discord bot when Discord nodes are opened
+  useEffect(() => {
+    if (isOpen && nodeInfo?.type && nodeInfo.type.startsWith("discord_")) {
+      const initializeDiscordBot = async () => {
+        try {
+          console.log('🤖 Initializing Discord bot for Discord node:', nodeInfo.type)
+          const response = await fetch('/api/discord/initialize-presence', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          })
+          
+          if (response.ok) {
+            const data = await response.json()
+            console.log('✅ Discord bot initialized successfully:', data.status)
+          } else {
+            console.log('⚠️ Discord bot not configured or initialization failed')
+          }
+        } catch (error) {
+          console.log('⚠️ Discord bot initialization error:', error)
+        }
+      }
+      
+      initializeDiscordBot()
+    }
+  }, [isOpen, nodeInfo?.type])
+
   // Eager loading optimization: Start fetching Discord data as soon as modal opens
   useEffect(() => {
     if (isOpen && nodeInfo?.type === "discord_action_send_message") {
@@ -7108,45 +7136,7 @@ export default function ConfigurationModal({
                         </div>
                       )}
                       
-                      {activeTab === "advanced" && (
-                        <>
-                          <div className="mb-6 space-y-1">
-                            <h3 className="text-sm font-medium flex items-center">
-                              <span className="mr-2 p-1 bg-primary/10 rounded-md">
-                                <Package className="h-4 w-4 text-primary" />
-                              </span>
-                              Pagination
-                            </h3>
-                            <p className="text-xs text-muted-foreground">
-                              Control how results are paginated when fetching large numbers of messages
-                            </p>
-                          </div>
-                          
-                          <div className="mb-6 space-y-1">
-                            <h3 className="text-sm font-medium flex items-center">
-                              <span className="mr-2 p-1 bg-primary/10 rounded-md">
-                                <FileText className="h-4 w-4 text-primary" />
-                              </span>
-                              Format
-                            </h3>
-                            <p className="text-xs text-muted-foreground">
-                              Configure the format and detail level of returned message data
-                            </p>
-                          </div>
-                          
-                          <div className="mb-6 space-y-1">
-                            <h3 className="text-sm font-medium flex items-center">
-                              <span className="mr-2 p-1 bg-primary/10 rounded-md">
-                                <Filter className="h-4 w-4 text-primary" />
-                              </span>
-                              Filters
-                            </h3>
-                            <p className="text-xs text-muted-foreground">
-                              Additional filtering options for message retrieval
-                            </p>
-                          </div>
-                        </>
-                      )}
+
                     </>
                   )}
 
@@ -7488,26 +7478,24 @@ export default function ConfigurationModal({
                     <div className="space-y-3 border-t pt-4 mt-6 w-full max-w-full">
                       <div className="flex items-center justify-between">
                         <div className="text-sm font-medium">Sample Messages</div>
-                        {activeTab === "basic" && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={handlePreview}
-                            disabled={previewLoading}
-                          >
-                            {previewLoading ? (
-                              <>
-                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                Loading...
-                              </>
-                            ) : (
-                              <>
-                                <Eye className="w-4 h-4 mr-2" />
-                                Load Sample
-                              </>
-                            )}
-                          </Button>
-                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handlePreview}
+                          disabled={previewLoading}
+                        >
+                          {previewLoading ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              Loading...
+                            </>
+                          ) : (
+                            <>
+                              <Eye className="w-4 h-4 mr-2" />
+                              Load Sample
+                            </>
+                          )}
+                        </Button>
                       </div>
 
                       {previewError && (
@@ -7526,9 +7514,12 @@ export default function ConfigurationModal({
                       )}
 
                       {previewData && (
-                        <div className="w-full max-w-full overflow-hidden border rounded-lg">
-                          <div className="max-h-[300px] overflow-y-auto">
-                            <GmailEmailsPreview emails={previewData.emails || []} />
+                        <div className="w-full border rounded-lg overflow-hidden">
+                          <div className="max-h-[400px] overflow-y-auto overflow-x-hidden">
+                            <GmailEmailsPreview 
+                              emails={previewData.emails || []} 
+                              fieldsMask={config.fieldsMask}
+                            />
                           </div>
                         </div>
                       )}
