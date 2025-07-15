@@ -67,9 +67,10 @@ async function fetchWorkflow(id: string): Promise<Workflow> {
     throw new Error("Supabase client not available")
   }
 
+  // Explicitly select all fields including nodes and connections
   const { data, error } = await supabase
     .from("workflows")
-    .select("*")
+    .select("id, name, description, nodes, connections, created_at, updated_at, user_id, status")
     .eq("id", id)
     .single()
 
@@ -80,6 +81,18 @@ async function fetchWorkflow(id: string): Promise<Workflow> {
   if (!data) {
     throw new Error("Workflow not found")
   }
+  
+  // Log the loaded workflow data to verify positions
+  console.log("🔍 Workflow loaded from database:", {
+    id: data.id,
+    name: data.name,
+    nodesCount: data.nodes?.length || 0,
+    connectionsCount: data.connections?.length || 0,
+    nodePositions: data.nodes?.map((n: WorkflowNode) => ({ 
+      id: n.id, 
+      position: n.position 
+    }))
+  });
 
   return data
 }
@@ -186,26 +199,51 @@ export async function updateWorkflow(id: string, updates: Partial<Workflow>): Pr
     updated_at: new Date().toISOString()
   } as Workflow
 
-  const { error } = await supabase
+  const { data: savedData, error } = await supabase
     .from("workflows")
     .update(updatedWorkflow)
     .eq("id", id)
+    .select()
+    .single()
 
   if (error) {
     throw error
   }
-
-  // Update the current workflow store
-  useCurrentWorkflowStore.getState().setData(updatedWorkflow)
   
-  // Update the workflows list store
+  // Log the saved data to verify positions were saved correctly
+  console.log("✅ Database update saved with positions:", 
+    savedData?.nodes?.map((n: WorkflowNode) => ({ 
+      id: n.id, 
+      position: n.position 
+    }))
+  );
+
+  // Update the current workflow store with the actual saved data from database
+  useCurrentWorkflowStore.getState().setData(savedData)
+  
+  // Update the workflows list store with the actual saved data
   const workflows = useWorkflowsListStore.getState().data || []
   const updatedWorkflows = workflows.map(w => 
-    w.id === id ? updatedWorkflow : w
+    w.id === id ? savedData : w
   )
   useWorkflowsListStore.getState().setData(updatedWorkflows)
 
-  return updatedWorkflow
+  return savedData
+}
+
+/**
+ * Force clear cache for a specific workflow
+ */
+export function clearWorkflowCache(id: string): void {
+  const currentWorkflow = useCurrentWorkflowStore.getState().data
+  if (currentWorkflow?.id === id) {
+    useCurrentWorkflowStore.getState().clearData()
+  }
+  
+  // Also clear from workflows list cache
+  const workflows = useWorkflowsListStore.getState().data || []
+  const updatedWorkflows = workflows.filter(w => w.id !== id)
+  useWorkflowsListStore.getState().setData(updatedWorkflows)
 }
 
 /**
