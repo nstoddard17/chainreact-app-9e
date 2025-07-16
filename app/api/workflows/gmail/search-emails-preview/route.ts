@@ -30,9 +30,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Use the configured maxResults value, with a fallback to 5 for preview
-    const maxResults = config.maxResults || 5;
-    const previewConfig = { ...config, maxResults };
+    // For preview/sample, always use 1 message regardless of configured maxResults
+    const previewConfig = { ...config, maxResults: 1 };
     const input = {};
 
     // Import the search function dynamically to avoid import issues

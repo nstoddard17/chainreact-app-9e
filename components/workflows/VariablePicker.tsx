@@ -672,10 +672,25 @@ export default function VariablePicker({
     const provider = node.data?.providerId || 'Unknown'
     const title = node.data?.title || node.data?.type || node.type || 'Unknown'
     
-    // Capitalize provider names for better display
-    const displayProvider = provider.charAt(0).toUpperCase() + provider.slice(1).replace('-', ' ')
+    // Create shorter, more readable names
+    let displayProvider = provider.charAt(0).toUpperCase() + provider.slice(1).replace('-', ' ')
     
-    return `${nodeType}: ${displayProvider}: ${title}`
+    // Shorten common provider names
+    if (provider === 'gmail') displayProvider = 'Gmail'
+    if (provider === 'google-sheets') displayProvider = 'Sheets'
+    if (provider === 'google-docs') displayProvider = 'Docs'
+    if (provider === 'microsoft-outlook') displayProvider = 'Outlook'
+    if (provider === 'slack') displayProvider = 'Slack'
+    if (provider === 'discord') displayProvider = 'Discord'
+    
+    // Shorten common action names
+    let shortTitle = title
+    if (title.includes('Fetch Gmail Message')) shortTitle = 'Fetch Emails'
+    if (title.includes('Send Email')) shortTitle = 'Send Email'
+    if (title.includes('Create Record')) shortTitle = 'Create Record'
+    if (title.includes('Read Data')) shortTitle = 'Read Data'
+    
+    return `${nodeType}: ${displayProvider}: ${shortTitle}`
   }
 
   const getNodeIcon = (node: any) => {
@@ -714,7 +729,7 @@ export default function VariablePicker({
         
         <div className="flex flex-1 h-0 min-h-0">
           {/* Left Panel - Node List */}
-          <div className="w-1/3 border-r flex flex-col min-h-0">
+          <div className="w-2/5 border-r flex flex-col min-h-0">
             <div className="p-4 border-b flex-shrink-0">
               <div className="flex items-center justify-between mb-2">
                 <h3 className="font-medium text-sm text-muted-foreground">Previous Nodes</h3>
@@ -759,16 +774,16 @@ export default function VariablePicker({
                           onClick={() => setSelectedNodeId(node.id)}
                         >
                           <div className="flex items-center gap-2">
-                            <span className="text-lg">{getNodeIcon(node)}</span>
+                            <span className="text-lg flex-shrink-0">{getNodeIcon(node)}</span>
                             <div className="flex-1 min-w-0">
-                              <div className="text-sm font-medium truncate">
+                              <div className="text-sm font-medium truncate pr-2">
                                 {getNodeDisplayName(node)}
                               </div>
                               <div className="text-xs text-muted-foreground">
                                 {variables.length} variables available
                               </div>
                             </div>
-                            <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                            <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                           </div>
                         </div>
                       ))}
@@ -791,16 +806,16 @@ export default function VariablePicker({
                           onClick={() => setSelectedNodeId('trigger-outputs')}
                         >
                           <div className="flex items-center gap-2">
-                            <Zap className="w-4 h-4 text-orange-500" />
+                            <Zap className="w-4 h-4 text-orange-500 flex-shrink-0" />
                             <div className="flex-1 min-w-0">
-                              <div className="text-sm font-medium truncate">
+                              <div className="text-sm font-medium truncate pr-2">
                                 Trigger Variables
                               </div>
                               <div className="text-xs text-muted-foreground">
                                 {triggerVariables.length} trigger outputs available
                               </div>
                             </div>
-                            <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                            <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                           </div>
                         </div>
                       </div>
