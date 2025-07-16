@@ -546,11 +546,27 @@ export const useIntegrationStore = create<IntegrationStore>()(
     loadIntegrationData: async (providerId, integrationId, params) => {
       const { setLoading, setError, integrationData } = get()
       
-      // Check if data is already cached (unless force refresh is requested)
-      if (!params?.forceRefresh && integrationData[providerId]) {
-        console.log(`📋 Using cached data for ${providerId}`)
-        return integrationData[providerId]
-      }
+              // Generate cache key - include channelId for Discord messages and reactions
+        let cacheKey: string = providerId
+        if (providerId === "discord_messages" && params?.channelId) {
+          cacheKey = `${providerId}_${params.channelId}`
+        } else if (providerId === "discord_reactions" && params?.channelId && params?.messageId) {
+          cacheKey = `${providerId}_${params.channelId}_${params.messageId}`
+        }
+        
+        // For Discord data, always fetch fresh data to avoid showing deleted messages
+        const isDiscordData = providerId.includes('discord')
+        
+        // Check if data is already cached (unless force refresh is requested or it's Discord data)
+        if (!params?.forceRefresh && !isDiscordData && integrationData[cacheKey]) {
+          console.log(`📋 Using cached data for ${cacheKey}`)
+          return integrationData[cacheKey]
+        }
+        
+        // For Discord data, log that we're fetching fresh data
+        if (isDiscordData) {
+          console.log(`🔄 Fetching fresh Discord data for ${cacheKey} (avoiding cache to prevent deleted messages)`)
+        }
       
       setLoading(`data-${providerId}`, true)
 
@@ -844,7 +860,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
               set((state) => ({
                 integrationData: {
                   ...state.integrationData,
-                  [providerId]: cachedGuilds,
+                  [cacheKey]: cachedGuilds,
                 },
               }))
               setLoading(`data-${providerId}`, false)
@@ -939,7 +955,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
         set((state) => ({
           integrationData: {
             ...state.integrationData,
-            [providerId]: data,
+            [cacheKey]: data,
           },
         }))
         setLoading(`data-${providerId}`, false)
@@ -976,6 +992,22 @@ export const useIntegrationStore = create<IntegrationStore>()(
         apiKeyIntegrations: [],
         lastRefreshTime: null,
       })
+    },
+
+    clearDiscordCache: () => {
+      const { integrationData } = get()
+      const newIntegrationData = { ...integrationData }
+      
+      // Remove all Discord-related cached data
+      Object.keys(newIntegrationData).forEach(key => {
+        if (key.includes('discord')) {
+          console.log(`🗑️ Clearing Discord cache for: ${key}`)
+          delete newIntegrationData[key]
+        }
+      })
+      
+      set({ integrationData: newIntegrationData })
+      console.log('✅ Discord cache cleared')
     },
 
     reconnectIntegration: async (integrationId: string) => {

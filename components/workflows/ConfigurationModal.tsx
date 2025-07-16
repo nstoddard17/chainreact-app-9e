@@ -35,6 +35,8 @@ import { DiscordUserSelector } from "./DiscordUserSelector"
 import { DiscordMessagesPreview } from "./DiscordMessagesPreview"
 import { GmailEmailsPreview } from "./GmailEmailsPreview"
 import { NotionRecordsPreview } from "./NotionRecordsPreview"
+import { DiscordEmojiPicker } from "@/components/discord/DiscordEmojiPicker"
+import { Smile } from "lucide-react"
 
 
 import { getUser } from "@/lib/supabase-client";
@@ -1199,6 +1201,16 @@ export default function ConfigurationModal({
   // Slack plan fetching state
   const [slackPlanError, setSlackPlanError] = useState<string | null>(null)
   const [slackPlanLoading, setSlackPlanLoading] = useState(false)
+  
+  // Discord reaction state (moved from renderField to top level)
+  const [discordReactions, setDiscordReactions] = useState([
+    { emoji: "👍", count: 12, reacted: false },
+    { emoji: "😂", count: 4, reacted: false },
+    { emoji: "🪱", count: 3, reacted: false },
+  ]);
+  const [discordPickerOpen, setDiscordPickerOpen] = useState(false);
+  
+
 
   // Preview functionality state
   const [previewData, setPreviewData] = useState<any>(null)
@@ -2730,33 +2742,7 @@ export default function ConfigurationModal({
           }
         }
 
-        // If messageId is set, load reactions
-        if (config.messageId) {
-          console.log('🔄 Loading reactions for messageId:', config.messageId, 'channelId:', config.channelId)
-          try {
-            const reactionData = await loadIntegrationData("discord_reactions", integration.id, { 
-              channelId: config.channelId, 
-              messageId: config.messageId 
-            })
-            console.log('🔍 Raw reaction data received:', reactionData)
-            if (reactionData && reactionData.length > 0) {
-              const mappedReactions = reactionData.map((reaction: any) => ({
-                value: reaction.value || reaction.id,
-                label: reaction.label || reaction.name
-              }))
-              console.log('🔍 Mapped reactions:', mappedReactions)
-              setDynamicOptions(prev => ({
-                ...prev,
-                "emoji": mappedReactions
-              }))
-              console.log('✅ Loaded reactions:', mappedReactions.length)
-            } else {
-              console.log('⚠️ No reaction data received or empty array')
-            }
-          } catch (error) {
-            console.error('❌ Error loading reactions:', error)
-          }
-        }
+
       }
 
       // Add a small delay to ensure the modal is fully opened and config is set before loading data
@@ -3453,6 +3439,94 @@ export default function ConfigurationModal({
         )}
       </div>
     )
+
+    // Special case: Discord Add Reaction emoji field (Discord-style UI)
+    if (
+      nodeInfo?.type === "discord_action_add_reaction" &&
+      field.name === "emoji"
+    ) {
+      // Simulate message and reactions for config modal preview
+      const messageText = config.messageText || "This is an example message";
+      const guildId = config.guildId;
+
+      const handleAddReaction = (emoji: any) => {
+        setDiscordReactions(prev => {
+          const idx = prev.findIndex(r => r.emoji === emoji);
+          if (idx !== -1) {
+            // Already exists, increment count and mark as reacted
+            return prev.map((r, i) =>
+              i === idx ? { ...r, count: r.count + 1, reacted: true } : r
+            );
+          } else {
+            // New reaction
+            return [...prev, { emoji, count: 1, reacted: true }];
+          }
+        });
+        setConfig({ ...config, [field.name]: emoji });
+        setDiscordPickerOpen(false);
+      };
+      const handleRemoveReaction = (emoji: any) => {
+        setDiscordReactions(prev =>
+          prev.map(r =>
+            r.emoji === emoji
+              ? { ...r, count: Math.max(0, r.count - 1), reacted: false }
+              : r
+          ).filter(r => r.count > 0)
+        );
+        setConfig({ ...config, [field.name]: "" });
+      };
+
+      return (
+        <div className="p-4 bg-[#232428] rounded-lg w-full max-w-lg">
+          {/* Message bubble */}
+          <div className="mb-3 px-4 py-2 bg-[#313338] rounded-2xl text-white w-fit max-w-full">
+            {messageText}
+          </div>
+
+          {/* Reaction bar */}
+          <div className="flex items-center gap-2 mb-2">
+            {discordReactions.map((r: any) => (
+              <button
+                key={r.emoji}
+                className={`flex items-center px-2 py-1 rounded-full bg-[#232428] border border-[#404249] text-lg transition ${
+                  r.reacted ? "ring-2 ring-[#5865f2]" : ""
+                }`}
+                onClick={() =>
+                  r.reacted ? handleRemoveReaction(r.emoji) : handleAddReaction(r.emoji)
+                }
+                type="button"
+              >
+                <span className="mr-1">{r.emoji}</span>
+                <span className="text-sm">{r.count}</span>
+              </button>
+            ))}
+            {/* Plus button */}
+            <button
+              className="flex items-center justify-center w-8 h-8 rounded-full bg-[#232428] border border-[#404249] hover:bg-[#404249] text-xl"
+              onClick={() => setDiscordPickerOpen((v: boolean) => !v)}
+              type="button"
+            >
+              +
+            </button>
+          </div>
+
+          {/* Emoji picker popover */}
+          {discordPickerOpen && (
+            <div className="relative z-50">
+              <div className="absolute">
+                <DiscordEmojiPicker
+                  guildId={guildId}
+                  onSelect={emoji => {
+                    handleAddReaction(emoji.custom ? emoji.id : emoji.native);
+                  }}
+                  trigger={null}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
 
     // Handle Google Sheets create spreadsheet sheets configuration
     if (nodeInfo?.type === "google_sheets_action_create_spreadsheet" && field.name === "sheets") {
@@ -4420,29 +4494,40 @@ export default function ConfigurationModal({
           <div className="space-y-2">
             {renderLabel()}
             <div className="flex gap-2 w-full">
-              <Input
-                type={field.type}
-                value={value}
-                onChange={handleChange}
-                placeholder={field.placeholder}
-                readOnly={field.readonly}
-                className={cn(
-                  "flex-1", 
-                  hasError && "border-red-500",
-                  field.readonly && "bg-muted/50 cursor-not-allowed"
+              <div className="flex-1 relative">
+                <Input
+                  type={field.type}
+                  value={value}
+                  onChange={handleChange}
+                  placeholder={loadingDynamic ? "Loading..." : field.placeholder}
+                  readOnly={field.readonly || loadingDynamic}
+                  disabled={loadingDynamic}
+                  className={cn(
+                    "flex-1", 
+                    hasError && "border-red-500",
+                    (field.readonly || loadingDynamic) && "bg-muted/50 cursor-not-allowed"
+                  )}
+                  autoComplete="new-password"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck="false"
+                  data-form-type="other"
+                  data-lpignore="true"
+                  data-1p-ignore="true"
+                  data-bwignore="true"
+                  data-dashlane-ignore="true"
+                  name={`custom-${field.type}-${Math.random().toString(36).substr(2, 9)}`}
+                />
+                {loadingDynamic && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-background/80 rounded-md">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Loading...
+                    </div>
+                  </div>
                 )}
-                autoComplete="new-password"
-                autoCorrect="off"
-                autoCapitalize="off"
-                spellCheck="false"
-                data-form-type="other"
-                data-lpignore="true"
-                data-1p-ignore="true"
-                data-bwignore="true"
-                data-dashlane-ignore="true"
-                name={`custom-${field.type}-${Math.random().toString(36).substr(2, 9)}`}
-              />
-              {!field.readonly && (
+              </div>
+              {!field.readonly && !loadingDynamic && (
                 <VariablePicker
                   workflowData={workflowData}
                   currentNodeId={currentNodeId}
@@ -4466,44 +4551,55 @@ export default function ConfigurationModal({
         return (
           <div className="space-y-2">
             {renderLabel()}
-            <Input
-              type="number"
-              value={value}
-              onChange={(e) => {
-                // Apply min/max constraints if defined
-                const parsedValue = e.target.value === "" ? "" : parseFloat(e.target.value);
-                let finalValue = parsedValue;
-                
-                if (typeof parsedValue === 'number') {
-                  if ('min' in field && !isNaN(field.min as number) && parsedValue < field.min!) {
-                    finalValue = field.min as number;
-                  } else if ('max' in field && !isNaN(field.max as number) && parsedValue > field.max!) {
-                    finalValue = field.max as number;
+            <div className="relative">
+              <Input
+                type="number"
+                value={value}
+                onChange={(e) => {
+                  // Apply min/max constraints if defined
+                  const parsedValue = e.target.value === "" ? "" : parseFloat(e.target.value);
+                  let finalValue = parsedValue;
+                  
+                  if (typeof parsedValue === 'number') {
+                    if ('min' in field && !isNaN(field.min as number) && parsedValue < field.min!) {
+                      finalValue = field.min as number;
+                    } else if ('max' in field && !isNaN(field.max as number) && parsedValue > field.max!) {
+                      finalValue = field.max as number;
+                    }
+                    
+                    // If value was adjusted, update the input directly
+                    if (finalValue !== parsedValue) {
+                      e.target.value = finalValue.toString();
+                    }
                   }
                   
-                  // If value was adjusted, update the input directly
-                  if (finalValue !== parsedValue) {
-                    e.target.value = finalValue.toString();
-                  }
-                }
-                
-                handleChange(e);
-              }}
-              min={field.min}
-              max={field.max}
-              placeholder={field.placeholder}
-              className={cn("w-full", hasError && "border-red-500")}
-              autoComplete="new-password"
-              autoCorrect="off"
-              autoCapitalize="off"
-              spellCheck="false"
-              data-form-type="other"
-              data-lpignore="true"
-              data-1p-ignore="true"
-              data-bwignore="true"
-              data-dashlane-ignore="true"
-              name={`custom-number-${Math.random().toString(36).substr(2, 9)}`}
-            />
+                  handleChange(e);
+                }}
+                min={field.min}
+                max={field.max}
+                placeholder={loadingDynamic ? "Loading..." : field.placeholder}
+                disabled={loadingDynamic}
+                className={cn("w-full", hasError && "border-red-500", loadingDynamic && "bg-muted/50 cursor-not-allowed")}
+                autoComplete="new-password"
+                autoCorrect="off"
+                autoCapitalize="off"
+                spellCheck="false"
+                data-form-type="other"
+                data-lpignore="true"
+                data-1p-ignore="true"
+                data-bwignore="true"
+                data-dashlane-ignore="true"
+                name={`custom-number-${Math.random().toString(36).substr(2, 9)}`}
+              />
+              {loadingDynamic && (
+                <div className="absolute inset-0 flex items-center justify-center bg-background/80 rounded-md">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Loading...
+                  </div>
+                </div>
+              )}
+            </div>
             {hasError && (
               <p className="text-xs text-red-500">{errors[field.name]}</p>
             )}
@@ -4515,36 +4611,49 @@ export default function ConfigurationModal({
           <div className="space-y-2">
             {renderLabel()}
             <div className="w-full space-y-2">
-              <Textarea
-                value={value}
-                onChange={handleChange}
-                placeholder={field.placeholder}
-                className={cn("w-full min-h-[100px] resize-y", hasError && "border-red-500")}
-                autoComplete="new-password"
-                autoCorrect="off"
-                autoCapitalize="off"
-                spellCheck="false"
-                data-form-type="other"
-                data-lpignore="true"
-                data-1p-ignore="true"
-                data-bwignore="true"
-                data-dashlane-ignore="true"
-                name={`custom-textarea-${Math.random().toString(36).substr(2, 9)}`}
-              />
-              <div className="flex justify-end">
-                <VariablePicker
-                  workflowData={workflowData}
-                  currentNodeId={currentNodeId}
-                  onVariableSelect={handleVariableSelect}
-                  fieldType={field.type}
-                  trigger={
-                    <Button variant="outline" size="sm" className="gap-2">
-                      <Database className="w-4 h-4" />
-                      Insert Variable
-                    </Button>
-                  }
+              <div className="relative">
+                <Textarea
+                  value={value}
+                  onChange={handleChange}
+                  placeholder={loadingDynamic ? "Loading..." : field.placeholder}
+                  disabled={loadingDynamic}
+                  className={cn("w-full min-h-[100px] resize-y", hasError && "border-red-500", loadingDynamic && "bg-muted/50 cursor-not-allowed")}
+                  autoComplete="new-password"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck="false"
+                  data-form-type="other"
+                  data-lpignore="true"
+                  data-1p-ignore="true"
+                  data-bwignore="true"
+                  data-dashlane-ignore="true"
+                  name={`custom-textarea-${Math.random().toString(36).substr(2, 9)}`}
                 />
+                {loadingDynamic && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-background/80 rounded-md">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Loading...
+                    </div>
+                  </div>
+                )}
               </div>
+              {!loadingDynamic && (
+                <div className="flex justify-end">
+                  <VariablePicker
+                    workflowData={workflowData}
+                    currentNodeId={currentNodeId}
+                    onVariableSelect={handleVariableSelect}
+                    fieldType={field.type}
+                    trigger={
+                      <Button variant="outline" size="sm" className="gap-2">
+                        <Database className="w-4 h-4" />
+                        Insert Variable
+                      </Button>
+                    }
+                  />
+                </div>
+              )}
             </div>
             {hasError && (
               <p className="text-xs text-red-500">{errors[field.name]}</p>
@@ -5216,15 +5325,28 @@ export default function ConfigurationModal({
                       sideOffset={0} 
                       align="start"
                     >
-                      {options.map((option: any, optionIndex: number) => {
-                        const optionValue = typeof option === 'string' ? option : option.value
-                        const optionLabel = typeof option === 'string' ? option : option.label
-                        return (
-                          <SelectItem key={`select-option-${optionIndex}-${optionValue || 'undefined'}`} value={optionValue} className="whitespace-nowrap">
-                            {optionLabel}
-                          </SelectItem>
-                        )
-                      })}
+                      {loadingDynamic ? (
+                        <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
+                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                          Loading {field.name === 'channelId' ? 'channels' : field.name === 'messageId' ? 'messages' : 'options'}...
+                        </div>
+                      ) : options.length === 0 ? (
+                        <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
+                          {field.name === 'channelId' ? 'No channels available' : 
+                           field.name === 'messageId' ? 'No messages available' : 
+                           'No options available'}
+                        </div>
+                      ) : (
+                        options.map((option: any, optionIndex: number) => {
+                          const optionValue = typeof option === 'string' ? option : option.value
+                          const optionLabel = typeof option === 'string' ? option : option.label
+                          return (
+                            <SelectItem key={`select-option-${optionIndex}-${optionValue || 'undefined'}`} value={optionValue} className="whitespace-nowrap">
+                              {optionLabel}
+                            </SelectItem>
+                          )
+                        })
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
@@ -5336,164 +5458,9 @@ export default function ConfigurationModal({
           })
         }
 
-        // Special debugging for Discord reactions
-        if (field.dynamic === "discord_reactions") {
-          console.log(`🎯 DISCORD REACTIONS DEBUG for "${field.name}":`, {
-            fieldName: field.name,
-            fieldDynamic: field.dynamic,
-            optionsCount: options.length,
-            options: options,
-            dynamicOptionsKeys: Object.keys(dynamicOptions),
-            dynamicOptionsForField: dynamicOptions[field.name],
-            dynamicOptionsForEmoji: dynamicOptions["emoji"],
-            allDynamicOptions: dynamicOptions,
-            currentConfig: config,
-            dependsOnValue: field.dependsOn ? config[field.dependsOn] : null,
-            currentValue: value,
-            nodeType: nodeInfo?.type
-          })
-        }
+
         
-        // Special handling for Discord reactions - add custom option when no reactions found
-        if (field.dynamic === "discord_reactions") {
-          const hasReactions = options.length > 0
-          const displayOptions = [...options]
-          
-          // Only add custom option for add reaction actions, not remove/fetch actions
-          const isRemoveOrFetchAction = nodeInfo?.type === "discord_action_remove_reaction" || 
-                                       nodeInfo?.type === "discord_action_fetch_reactions"
-          
-          // Add custom reaction option if no reactions found and it's not a remove/fetch action
-          if (!hasReactions && !isRemoveOrFetchAction) {
-            displayOptions.push({
-              id: "custom",
-              name: "Custom reaction (type emoji name)",
-              value: "custom",
-              isCustom: true
-            })
-          }
-          
-          return (
-            <div className="space-y-2">
-              {renderLabel()}
-              <div className="flex gap-2">
-                <div className="flex-1">
-                  <Select
-                    value={value}
-                    onValueChange={(newValue) => {
-                      console.log('🎯 DISCORD REACTIONS SELECT onValueChange called:', {
-                        fieldName: field.name,
-                        newValue,
-                        oldValue: value,
-                        nodeType: nodeInfo?.type
-                      })
-                      handleSelectChange(newValue)
-                    }}
-                    disabled={loadingDynamic}
-                  >
-                    <SelectTrigger className={cn("w-full", hasError && "border-red-500")}>
-                      <SelectValue placeholder={
-                        loadingDynamic 
-                          ? "Loading reactions..." 
-                          : hasReactions
-                          ? isRemoveOrFetchAction 
-                            ? "Select a reaction to remove from the message"
-                            : "Select a reaction from the message"
-                          : isRemoveOrFetchAction
-                          ? "No reactions found on this message"
-                          : "No reactions found - select custom"
-                      } />
-                    </SelectTrigger>
-                    <SelectContent 
-                      className="max-h-[min(384px,calc(100vh-64px))] overflow-y-auto" 
-                      side="bottom" 
-                      sideOffset={0} 
-                      align="start"
-                    >
-                      {displayOptions.map((option, optionIndex) => {
-                        const optionValue = typeof option === 'string' ? option : option.value
-                        const optionLabel = typeof option === 'string' ? option : option.name || option.label
-                        const isCustom = typeof option === 'object' && (option as any).isCustom
-                        
-                        return (
-                          <SelectItem 
-                            key={`select-option-${optionIndex}-${optionValue || 'undefined'}`} 
-                            value={optionValue} 
-                            className={cn("whitespace-nowrap", isCustom && "font-medium text-blue-600")}
-                          >
-                            {optionLabel}
-                          </SelectItem>
-                        )
-                      })}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <VariablePicker
-                  workflowData={workflowData}
-                  currentNodeId={currentNodeId}
-                  onVariableSelect={(variable) => {
-                    setConfig(prev => ({ ...prev, [field.name]: variable }))
-                  }}
-                  fieldType="text"
-                  trigger={
-                    <Button variant="outline" size="sm" className="flex-shrink-0 px-3 min-h-[2.5rem]" title="Select from previous node">
-                      <Database className="w-4 h-4" />
-                    </Button>
-                  }
-                />
-              </div>
-              
-              {/* Show custom input when "custom" is selected */}
-              {value === "custom" && !isRemoveOrFetchAction && (
-                <div className="mt-2 space-y-2">
-                  <div className="border rounded-lg p-3 bg-muted/50">
-                    <p className="text-sm font-medium mb-2">Select a reaction:</p>
-                    <div className="grid grid-cols-8 gap-2 max-h-48 overflow-y-auto">
-                      {[
-                        '👍', '👎', '❤️', '🔥', '😄', '😢', '😡', '🎉',
-                        '👏', '🙏', '🤔', '😱', '😴', '🤮', '💯', '💪',
-                        '👀', '👻', '🤖', '👾', '🎮', '🎯', '🎪', '🎨',
-                        '⚡', '💥', '🌟', '✨', '💎', '🏆', '🥇', '🥈',
-                        '🚀', '💸', '💰', '💳', '🎁', '🎊', '🎈', '🎂',
-                        '🍕', '🍔', '🍦', '🍺', '☕', '🍷', '🍸', '🍹',
-                        '🌮', '🍣', '🍜', '🍱', '🥘', '🍲', '🥗', '🥙',
-                        '🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼'
-                      ].map((emoji, index) => (
-                        <button
-                          key={index}
-                          type="button"
-                          onClick={() => {
-                            setConfig(prev => ({ ...prev, customEmoji: emoji }))
-                          }}
-                          className="w-8 h-8 flex items-center justify-center text-lg hover:bg-muted rounded transition-colors"
-                          title={`Select ${emoji}`}
-                        >
-                          {emoji}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <Input
-                    placeholder="Or enter custom Discord emoji (emoji_name:emoji_id)"
-                    value={config.customEmojiManual || ""}
-                    onChange={(e) => {
-                      setConfig(prev => ({ ...prev, customEmojiManual: e.target.value }))
-                    }}
-                    className="w-full"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Click an emoji above, or enter a custom Discord emoji code below.<br />
-                    For custom emojis, use format: emoji_name:emoji_id
-                  </p>
-                </div>
-              )}
-              
-              {hasError && (
-                <p className="text-xs text-red-500">{errors[field.name]}</p>
-              )}
-            </div>
-          )
-        }
+
         
         // Use MultiCombobox for multiple select with creatable option
         if (field.multiple && field.creatable) {
@@ -5646,15 +5613,26 @@ export default function ConfigurationModal({
                       sideOffset={0} 
                       align="start"
                     >
-                      {options.map((option, optionIndex) => {
-                        const optionValue = typeof option === 'string' ? option : option.value
-                        const optionLabel = typeof option === 'string' ? option : option.label
-                        return (
-                          <SelectItem key={`select-option-${optionIndex}-${optionValue || 'undefined'}`} value={optionValue} className="whitespace-nowrap">
-                            {optionLabel}
-                          </SelectItem>
-                        )
-                      })}
+                      {loadingDynamic ? (
+                        <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
+                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                          Loading videos...
+                        </div>
+                      ) : options.length === 0 ? (
+                        <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
+                          No videos available
+                        </div>
+                      ) : (
+                        options.map((option, optionIndex) => {
+                          const optionValue = typeof option === 'string' ? option : option.value
+                          const optionLabel = typeof option === 'string' ? option : option.label
+                          return (
+                            <SelectItem key={`select-option-${optionIndex}-${optionValue || 'undefined'}`} value={optionValue} className="whitespace-nowrap">
+                              {optionLabel}
+                            </SelectItem>
+                          )
+                        })
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
@@ -5720,15 +5698,26 @@ export default function ConfigurationModal({
                 sideOffset={0} 
                 align="start"
               >
-                {options.map((option, optionIndex) => {
-                  const optionValue = typeof option === 'string' ? option : option.value
-                  const optionLabel = typeof option === 'string' ? option : option.label
-                  return (
-                    <SelectItem key={`select-option-${optionIndex}-${optionValue || 'undefined'}`} value={optionValue} className="whitespace-nowrap">
-                      {optionLabel}
-                    </SelectItem>
-                  )
-                })}
+                {loadingDynamic ? (
+                  <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    Loading options...
+                  </div>
+                ) : options.length === 0 ? (
+                  <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
+                    No options available
+                  </div>
+                ) : (
+                  options.map((option, optionIndex) => {
+                    const optionValue = typeof option === 'string' ? option : option.value
+                    const optionLabel = typeof option === 'string' ? option : option.label
+                    return (
+                      <SelectItem key={`select-option-${optionIndex}-${optionValue || 'undefined'}`} value={optionValue} className="whitespace-nowrap">
+                        {optionLabel}
+                      </SelectItem>
+                    )
+                  })
+                )}
               </SelectContent>
             </Select>
             
@@ -6091,15 +6080,27 @@ export default function ConfigurationModal({
         return (
           <div className="space-y-2">
             {renderLabel()}
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-3 relative">
               <Checkbox
                 checked={!!value}
                 onCheckedChange={handleCheckboxChange}
-                className={cn(hasError && "border-red-500")}
+                disabled={loadingDynamic}
+                className={cn(hasError && "border-red-500", loadingDynamic && "opacity-50 cursor-not-allowed")}
               />
-              <Label className="text-sm font-medium cursor-pointer" onClick={() => handleCheckboxChange(!value)}>
-                Enable
+              <Label 
+                className={cn("text-sm font-medium cursor-pointer", loadingDynamic && "cursor-not-allowed opacity-50")} 
+                onClick={() => !loadingDynamic && handleCheckboxChange(!value)}
+              >
+                {loadingDynamic ? "Loading..." : "Enable"}
               </Label>
+              {loadingDynamic && (
+                <div className="absolute inset-0 flex items-center justify-center bg-background/80 rounded-md">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Loading...
+                  </div>
+                </div>
+              )}
             </div>
             {hasError && (
               <p className="text-xs text-red-500">{errors[field.name]}</p>
@@ -6112,32 +6113,43 @@ export default function ConfigurationModal({
           <div className="space-y-2">
             {renderLabel()}
             <div className="flex gap-2">
-              <div className="flex-1">
+              <div className="flex-1 relative">
                 <FileUpload
                   value={value}
                   onChange={handleFileChange}
                   accept={field.accept}
                   maxFiles={field.multiple ? 10 : 1}
                   maxSize={typeof field.maxSize === 'number' ? field.maxSize : undefined}
-                  placeholder={field.placeholder}
-                  className={cn(hasError && "border-red-500")}
+                  placeholder={loadingDynamic ? "Loading..." : field.placeholder}
+                  disabled={loadingDynamic}
+                  className={cn(hasError && "border-red-500", loadingDynamic && "opacity-50 pointer-events-none")}
                 />
+                {loadingDynamic && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-background/80 rounded-md">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Loading...
+                    </div>
+                  </div>
+                )}
               </div>
-              <VariablePicker
-                workflowData={workflowData}
-                currentNodeId={currentNodeId}
-                onVariableSelect={(variable) => {
-                  // For file fields, we can set the variable path as a string
-                  // The actual file handling will be done during execution
-                  setConfig(prev => ({ ...prev, [field.name]: variable }))
-                }}
-                fieldType="file"
-                trigger={
-                  <Button variant="outline" size="sm" className="flex-shrink-0 px-3 h-auto">
-                    <Database className="w-4 h-4" />
-                  </Button>
-                }
-              />
+              {!loadingDynamic && (
+                <VariablePicker
+                  workflowData={workflowData}
+                  currentNodeId={currentNodeId}
+                  onVariableSelect={(variable) => {
+                    // For file fields, we can set the variable path as a string
+                    // The actual file handling will be done during execution
+                    setConfig(prev => ({ ...prev, [field.name]: variable }))
+                  }}
+                  fieldType="file"
+                  trigger={
+                    <Button variant="outline" size="sm" className="flex-shrink-0 px-3 h-auto">
+                      <Database className="w-4 h-4" />
+                    </Button>
+                  }
+                />
+              )}
             </div>
             {field.description && (
               <p className="text-xs text-muted-foreground">{field.description}</p>
@@ -6162,12 +6174,22 @@ export default function ConfigurationModal({
                 onChange={e => {
                   setConfig(prev => ({ ...prev, [field.name]: e.target.value }))
                 }}
+                disabled={loadingDynamic}
                 className={cn(
                   "pl-10 pr-3 py-2 w-full rounded border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary",
-                  hasError ? "border-red-500" : "border-border"
+                  hasError ? "border-red-500" : "border-border",
+                  loadingDynamic && "opacity-50 cursor-not-allowed"
                 )}
-                placeholder="Select date"
+                placeholder={loadingDynamic ? "Loading..." : "Select date"}
               />
+              {loadingDynamic && (
+                <div className="absolute inset-0 flex items-center justify-center bg-background/80 rounded-md">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Loading...
+                  </div>
+                </div>
+              )}
             </div>
             {hasError && (
               <p className="text-xs text-red-500">{errors[field.name]}</p>
@@ -6179,12 +6201,23 @@ export default function ConfigurationModal({
         return (
           <div className="space-y-2">
             {renderLabel()}
-            <TimePicker
-              value={value}
-              onChange={handleTimeChange}
-              placeholder={field.placeholder}
-              className={cn(hasError && "border-red-500")}
-            />
+            <div className="relative">
+              <TimePicker
+                value={value}
+                onChange={handleTimeChange}
+                placeholder={loadingDynamic ? "Loading..." : field.placeholder}
+                disabled={loadingDynamic}
+                className={cn(hasError && "border-red-500", loadingDynamic && "opacity-50 pointer-events-none")}
+              />
+              {loadingDynamic && (
+                <div className="absolute inset-0 flex items-center justify-center bg-background/80 rounded-md">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Loading...
+                  </div>
+                </div>
+              )}
+            </div>
             {hasError && (
               <p className="text-xs text-red-500">{errors[field.name]}</p>
             )}
@@ -6213,12 +6246,22 @@ export default function ConfigurationModal({
                         setConfig(prev => ({ ...prev, [field.name]: e.target.value }))
                       }}
                       min={now.toISOString().slice(0, 16)}
+                      disabled={loadingDynamic}
                       className={cn(
                         "pl-10 pr-3 py-2 w-full rounded border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary",
-                        hasError || isPast ? "border-red-500" : "border-border"
+                        hasError || isPast ? "border-red-500" : "border-border",
+                        loadingDynamic && "opacity-50 cursor-not-allowed"
                       )}
-                      placeholder="Select date & time"
+                      placeholder={loadingDynamic ? "Loading..." : "Select date & time"}
                     />
+                    {loadingDynamic && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-background/80 rounded-md">
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Loading...
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </TooltipTrigger>
                 <TooltipContent side="top">
@@ -6291,12 +6334,23 @@ export default function ConfigurationModal({
         return (
           <div className="space-y-2">
             {renderLabel()}
-            <LocationAutocomplete
-              value={value}
-              onChange={(newValue) => setConfig(prev => ({ ...prev, [field.name]: newValue }))}
-              placeholder={field.placeholder}
-              className={cn(hasError && "border-red-500")}
-            />
+            <div className="relative">
+              <LocationAutocomplete
+                value={value}
+                onChange={(newValue) => setConfig(prev => ({ ...prev, [field.name]: newValue }))}
+                placeholder={loadingDynamic ? "Loading..." : field.placeholder}
+                disabled={loadingDynamic}
+                className={cn(hasError && "border-red-500", loadingDynamic && "opacity-50 pointer-events-none")}
+              />
+              {loadingDynamic && (
+                <div className="absolute inset-0 flex items-center justify-center bg-background/80 rounded-md">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Loading...
+                  </div>
+                </div>
+              )}
+            </div>
             {hasError && (
               <p className="text-xs text-red-500">{errors[field.name]}</p>
             )}
