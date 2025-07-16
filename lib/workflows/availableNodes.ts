@@ -4109,6 +4109,40 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     isTrigger: false,
     requiredScopes: ["https://www.googleapis.com/auth/gmail.readonly"],
     producesOutput: true,
+    testable: true,
+    testFunction: (config: any) => {
+      // Always return 1 sample email regardless of maxResults setting
+      return {
+        success: true,
+        output: {
+          emails: [
+            {
+              id: "sample_email_" + Date.now(),
+              threadId: "sample_thread_123",
+              subject: "Sample Email Subject",
+              from: "sample@example.com",
+              to: "user@example.com",
+              date: new Date().toISOString(),
+              snippet: "This is a sample email snippet for testing purposes...",
+              body: config.format === "metadata" ? undefined : "This is the body content of the sample email for testing purposes.",
+              attachments: config.fieldsMask?.includes('payload(parts)') ? [
+                {
+                  filename: "sample-attachment.pdf",
+                  mimeType: "application/pdf",
+                  size: 1024000,
+                  attachmentId: "sample_attachment_123"
+                }
+              ] : undefined,
+              labelIds: ["INBOX"]
+            }
+          ],
+          count: 1,
+          query: config.query || "sample query",
+          totalResults: 1
+        },
+        message: "Sample email data generated for testing"
+      }
+    },
     configSchema: [
       // Basic Tab Fields
       { 
