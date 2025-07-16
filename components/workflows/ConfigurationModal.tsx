@@ -1185,6 +1185,51 @@ export default function ConfigurationModal({
   const [botStatus, setBotStatus] = useState<Record<string, boolean>>({})
   const [checkingBot, setCheckingBot] = useState(false)
   
+  // Discord specific loading states
+  const [loadingDiscordChannels, setLoadingDiscordChannels] = useState(false)
+  const [loadingDiscordMessages, setLoadingDiscordMessages] = useState(false)
+  
+  // Function to fetch message data and reactions for Discord add reaction
+  const fetchMessageDataAndReactions = useCallback(async (messageId: string, channelId: string) => {
+    if (!messageId || !channelId) {
+      setSelectedMessageData(null);
+      setMessageReactions([]);
+      return;
+    }
+    
+    const integration = getIntegrationByProvider("discord");
+    if (!integration) return;
+    
+    try {
+      setLoadingMessageReactions(true);
+      
+      // Get the selected message from the dynamic options
+      const messageOptions = dynamicOptions.messageId || [];
+      const selectedMessage = messageOptions.find((msg: any) => msg.value === messageId);
+      
+      if (selectedMessage) {
+        setSelectedMessageData(selectedMessage);
+      }
+      
+      // Fetch reactions for the message
+      const reactionsData = await loadIntegrationData("discord_reactions", integration.id, { 
+        channelId, 
+        messageId 
+      });
+      
+      if (reactionsData && Array.isArray(reactionsData)) {
+        setMessageReactions(reactionsData);
+      } else {
+        setMessageReactions([]);
+      }
+    } catch (error) {
+      console.error('Error fetching message reactions:', error);
+      setMessageReactions([]);
+    } finally {
+      setLoadingMessageReactions(false);
+    }
+  }, [dynamicOptions.messageId, getIntegrationByProvider, loadIntegrationData]);
+  
   // Global test store
   const { 
     setTestResults, 
@@ -1209,6 +1254,11 @@ export default function ConfigurationModal({
     { emoji: "🪱", count: 3, reacted: false },
   ]);
   const [discordPickerOpen, setDiscordPickerOpen] = useState(false);
+  
+  // Discord message and reactions state
+  const [selectedMessageData, setSelectedMessageData] = useState<any>(null);
+  const [messageReactions, setMessageReactions] = useState<any[]>([]);
+  const [loadingMessageReactions, setLoadingMessageReactions] = useState(false);
   
 
 
@@ -2017,20 +2067,30 @@ export default function ConfigurationModal({
         )
       } else if (field.dynamic === "discord_channels" && field.dependsOn === "guildId") {
         console.log('🔄 Discord channels: Starting fetch for guildId:', dependentValue)
-        data = await loadIntegrationData(
-          field.dynamic as string,
-          integration.id,
-          { guildId: dependentValue }
-        )
-        console.log('🔄 Discord channels: Fetch completed, data:', data)
+        setLoadingDiscordChannels(true)
+        try {
+          data = await loadIntegrationData(
+            field.dynamic as string,
+            integration.id,
+            { guildId: dependentValue }
+          )
+          console.log('🔄 Discord channels: Fetch completed, data:', data)
+        } finally {
+          setLoadingDiscordChannels(false)
+        }
       } else if (field.dynamic === "discord_messages" && field.dependsOn === "channelId") {
         console.log('🔄 Discord messages: Starting fetch for channelId:', dependentValue)
-        data = await loadIntegrationData(
-          field.dynamic as string,
-          integration.id,
-          { channelId: dependentValue }
-        )
-        console.log('🔄 Discord messages: Fetch completed, data:', data)
+        setLoadingDiscordMessages(true)
+        try {
+          data = await loadIntegrationData(
+            field.dynamic as string,
+            integration.id,
+            { channelId: dependentValue }
+          )
+          console.log('🔄 Discord messages: Fetch completed, data:', data)
+        } finally {
+          setLoadingDiscordMessages(false)
+        }
       } else {
         data = await loadIntegrationData(
           field.dynamic as string,
@@ -2703,6 +2763,7 @@ export default function ConfigurationModal({
         // If guildId is set, load channels
         if (config.guildId) {
           console.log('🔄 Loading channels for guildId:', config.guildId)
+          setLoadingDiscordChannels(true)
           try {
             const channelData = await loadIntegrationData("discord_channels", integration.id, { guildId: config.guildId })
             if (channelData && channelData.length > 0) {
@@ -2718,12 +2779,15 @@ export default function ConfigurationModal({
             }
           } catch (error) {
             console.error('❌ Error loading channels:', error)
+          } finally {
+            setLoadingDiscordChannels(false)
           }
         }
 
         // If channelId is set, load messages
         if (config.channelId) {
           console.log('🔄 Loading messages for channelId:', config.channelId)
+          setLoadingDiscordMessages(true)
           try {
             const messageData = await loadIntegrationData("discord_messages", integration.id, { channelId: config.channelId })
             if (messageData && messageData.length > 0) {
@@ -2739,6 +2803,8 @@ export default function ConfigurationModal({
             }
           } catch (error) {
             console.error('❌ Error loading messages:', error)
+          } finally {
+            setLoadingDiscordMessages(false)
           }
         }
 
@@ -2766,6 +2832,13 @@ export default function ConfigurationModal({
       })
     }
   }, [dynamicOptions, nodeInfo?.type])
+  
+  // Fetch message data and reactions when messageId changes for Discord add reaction
+  useEffect(() => {
+    if (nodeInfo?.type === "discord_action_add_reaction" && config.messageId && config.channelId) {
+      fetchMessageDataAndReactions(config.messageId, config.channelId);
+    }
+  }, [nodeInfo?.type, config.messageId, config.channelId, fetchMessageDataAndReactions]);
 
   // Debug config state changes for Trello
   useEffect(() => {
@@ -3445,69 +3518,75 @@ export default function ConfigurationModal({
       nodeInfo?.type === "discord_action_add_reaction" &&
       field.name === "emoji"
     ) {
-      // Simulate message and reactions for config modal preview
-      const messageText = config.messageText || "This is an example message";
       const guildId = config.guildId;
+      const messageId = config.messageId;
+      const channelId = config.channelId;
+
+      // Get message content to display
+      const getMessageContent = () => {
+        if (!selectedMessageData) {
+          return "Select a message to see its content";
+        }
+        
+        if (selectedMessageData.content) {
+          return selectedMessageData.content;
+        }
+        
+        if (selectedMessageData.name) {
+          return selectedMessageData.name;
+        }
+        
+        return "Message content not available";
+      };
 
       const handleAddReaction = (emoji: any) => {
-        setDiscordReactions(prev => {
-          const idx = prev.findIndex(r => r.emoji === emoji);
-          if (idx !== -1) {
-            // Already exists, increment count and mark as reacted
-            return prev.map((r, i) =>
-              i === idx ? { ...r, count: r.count + 1, reacted: true } : r
-            );
-          } else {
-            // New reaction
-            return [...prev, { emoji, count: 1, reacted: true }];
-          }
-        });
         setConfig({ ...config, [field.name]: emoji });
         setDiscordPickerOpen(false);
-      };
-      const handleRemoveReaction = (emoji: any) => {
-        setDiscordReactions(prev =>
-          prev.map(r =>
-            r.emoji === emoji
-              ? { ...r, count: Math.max(0, r.count - 1), reacted: false }
-              : r
-          ).filter(r => r.count > 0)
-        );
-        setConfig({ ...config, [field.name]: "" });
       };
 
       return (
         <div className="p-4 bg-[#232428] rounded-lg w-full max-w-lg">
           {/* Message bubble */}
           <div className="mb-3 px-4 py-2 bg-[#313338] rounded-2xl text-white w-fit max-w-full">
-            {messageText}
+            {loadingMessageReactions ? (
+              <div className="flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Loading message...</span>
+              </div>
+            ) : (
+              getMessageContent()
+            )}
           </div>
 
           {/* Reaction bar */}
           <div className="flex items-center gap-2 mb-2">
-            {discordReactions.map((r: any) => (
+            {loadingMessageReactions ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Loading reactions...
+              </div>
+            ) : messageReactions.length > 0 ? (
+              messageReactions.map((reaction: any) => (
+                <div
+                  key={reaction.id}
+                  className="flex items-center px-2 py-1 rounded-full bg-[#232428] border border-[#404249] text-lg"
+                >
+                  <span className="mr-1">{reaction.emoji}</span>
+                  <span className="text-sm">{reaction.count}</span>
+                </div>
+              ))
+            ) : null}
+            
+            {/* Plus button - always show if message is selected */}
+            {messageId && (
               <button
-                key={r.emoji}
-                className={`flex items-center px-2 py-1 rounded-full bg-[#232428] border border-[#404249] text-lg transition ${
-                  r.reacted ? "ring-2 ring-[#5865f2]" : ""
-                }`}
-                onClick={() =>
-                  r.reacted ? handleRemoveReaction(r.emoji) : handleAddReaction(r.emoji)
-                }
+                className="flex items-center justify-center w-8 h-8 rounded-full bg-[#232428] border border-[#404249] hover:bg-[#404249] text-xl"
+                onClick={() => setDiscordPickerOpen((v: boolean) => !v)}
                 type="button"
               >
-                <span className="mr-1">{r.emoji}</span>
-                <span className="text-sm">{r.count}</span>
+                +
               </button>
-            ))}
-            {/* Plus button */}
-            <button
-              className="flex items-center justify-center w-8 h-8 rounded-full bg-[#232428] border border-[#404249] hover:bg-[#404249] text-xl"
-              onClick={() => setDiscordPickerOpen((v: boolean) => !v)}
-              type="button"
-            >
-              +
-            </button>
+            )}
           </div>
 
           {/* Emoji picker popover */}
@@ -5285,6 +5364,11 @@ export default function ConfigurationModal({
             options = field.options
           }
           
+          // Determine loading state for this specific field
+          const isFieldLoading = field.name === 'channelId' ? loadingDiscordChannels : 
+                                field.name === 'messageId' ? loadingDiscordMessages : 
+                                loadingDynamic
+          
           // Find the selected option to display the label properly
           const selectedOption = options.find((option: any) => {
             const optionValue = typeof option === 'string' ? option : option.value
@@ -5308,12 +5392,12 @@ export default function ConfigurationModal({
                   <Select
                     value={value}
                     onValueChange={handleSelectChange}
-                    disabled={loadingDynamic}
+                    disabled={isFieldLoading}
                   >
                     <SelectTrigger className={cn("w-full", hasError && "border-red-500")}>
                       <SelectValue placeholder={
-                        loadingDynamic 
-                          ? "Loading..." 
+                        isFieldLoading 
+                          ? `Loading ${field.name === 'channelId' ? 'channels' : field.name === 'messageId' ? 'messages' : 'options'}...` 
                           : field.placeholder
                       }>
                         {selectedLabel}
@@ -5325,7 +5409,7 @@ export default function ConfigurationModal({
                       sideOffset={0} 
                       align="start"
                     >
-                      {loadingDynamic ? (
+                      {isFieldLoading ? (
                         <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
                           <Loader2 className="w-4 h-4 animate-spin mr-2" />
                           Loading {field.name === 'channelId' ? 'channels' : field.name === 'messageId' ? 'messages' : 'options'}...
@@ -5667,6 +5751,12 @@ export default function ConfigurationModal({
           })
         }
         
+        // Determine loading state for Discord fields
+        const isDiscordField = nodeInfo?.providerId === 'discord' && (field.name === 'channelId' || field.name === 'messageId')
+        const isFieldLoading = isDiscordField ? 
+          (field.name === 'channelId' ? loadingDiscordChannels : loadingDiscordMessages) : 
+          loadingDynamic
+        
         return (
           <div className="space-y-2">
             {renderLabel()}
@@ -5681,12 +5771,12 @@ export default function ConfigurationModal({
                 })
                 handleSelectChange(newValue)
               }}
-              disabled={loadingDynamic || Boolean((nodeInfo?.type === "trello_action_create_card" || nodeInfo?.type === "trello_action_move_card") && field.dynamic && options.length === 0 && !field.dependsOn)}
+              disabled={isFieldLoading || Boolean((nodeInfo?.type === "trello_action_create_card" || nodeInfo?.type === "trello_action_move_card") && field.dynamic && options.length === 0 && !field.dependsOn)}
             >
               <SelectTrigger className={cn("w-full", hasError && "border-red-500")}>
                 <SelectValue placeholder={
-                  loadingDynamic 
-                    ? "Loading..." 
+                  isFieldLoading 
+                    ? (isDiscordField ? `Loading ${field.name === 'channelId' ? 'channels' : 'messages'}...` : "Loading...")
                     : ((nodeInfo?.type === "trello_action_create_card" || nodeInfo?.type === "trello_action_move_card") && field.dynamic && options.length === 0 && field.dependsOn)
                     ? `Select ${field.dependsOn} first`
                     : field.placeholder
@@ -5698,14 +5788,18 @@ export default function ConfigurationModal({
                 sideOffset={0} 
                 align="start"
               >
-                {loadingDynamic ? (
+                {isFieldLoading ? (
                   <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
                     <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                    Loading options...
+                    {isDiscordField ? 
+                      `Loading ${field.name === 'channelId' ? 'channels' : 'messages'}...` : 
+                      'Loading options...'}
                   </div>
                 ) : options.length === 0 ? (
                   <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
-                    No options available
+                    {isDiscordField ? 
+                      (field.name === 'channelId' ? 'No channels available' : 'No messages available') : 
+                      'No options available'}
                   </div>
                 ) : (
                   options.map((option, optionIndex) => {
