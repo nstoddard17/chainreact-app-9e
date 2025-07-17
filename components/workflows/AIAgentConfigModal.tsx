@@ -213,7 +213,7 @@ export default function AIAgentConfigModal({
 
   const handleSave = () => {
     const newErrors: Record<string, string> = {}
-    
+
     if (!config.inputNodeId) {
       newErrors.inputNodeId = "Please select an input node"
     }
@@ -221,12 +221,12 @@ export default function AIAgentConfigModal({
     if (!config.systemPrompt.trim()) {
       newErrors.systemPrompt = "Please enter a system prompt"
     }
-    
+
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors)
       return
     }
-    
+
     const selectedVars = Object.keys(selectedVariables).filter(key => selectedVariables[key])
     
     const configToSave = {
@@ -307,28 +307,28 @@ export default function AIAgentConfigModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl w-full max-h-[95vh] p-0 gap-0 overflow-hidden">
+        <DialogContent className="max-w-4xl w-full max-h-[95vh] p-0 gap-0 overflow-hidden">
         <div className="flex flex-col h-full">
-          {/* Main Configuration Content */}
-          <DialogHeader className="px-6 py-4 border-b border-border flex-shrink-0">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-primary/10 rounded-lg">
-                <Bot className="w-6 h-6 text-primary" />
-              </div>
-              <div>
-                <DialogTitle className="text-lg font-semibold">
-                  Configure AI Agent
-                </DialogTitle>
-                <DialogDescription>
-                  Set up your AI agent's behavior, goals, and available tools
-                </DialogDescription>
-              </div>
-            </div>
-          </DialogHeader>
+            {/* Main Configuration Content */}
+              <DialogHeader className="px-6 py-4 border-b border-border flex-shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-primary/10 rounded-lg">
+                    <Bot className="w-6 h-6 text-primary" />
+                  </div>
+                  <div>
+                    <DialogTitle className="text-lg font-semibold">
+                      Configure AI Agent
+                    </DialogTitle>
+                    <DialogDescription>
+                      Set up your AI agent's behavior, goals, and available tools
+                    </DialogDescription>
+                  </div>
+                </div>
+              </DialogHeader>
 
           {/* Configuration Form */}
-          <ScrollArea className="flex-1 max-h-[70vh]">
-            <div className="px-6 py-4 space-y-6">
+              <ScrollArea className="flex-1 max-h-[70vh]">
+                <div className="px-6 py-4 space-y-6">
               {/* Tabs */}
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                 <div className="mb-4">
@@ -852,42 +852,42 @@ export default function AIAgentConfigModal({
                   </div>
                 </TabsContent>
               </Tabs>
-            </div>
-          </ScrollArea>
+                </div>
+              </ScrollArea>
 
-          {/* Dialog Footer */}
+              {/* Dialog Footer */}
           <DialogFooter className="px-6 py-4 border-t border-border flex-shrink-0 bg-background relative z-10">
-            <div className="flex items-center justify-between w-full">
-              <div className="text-sm text-muted-foreground">
-                {config.inputNodeId && (
-                  (() => {
-                    const selectedNode = workflowData?.nodes.find(node => node.id === config.inputNodeId)
-                    const { ALL_NODE_COMPONENTS } = require("@/lib/workflows/availableNodes")
-                    const nodeComponent = ALL_NODE_COMPONENTS.find((c: any) => c.type === selectedNode?.data?.type)
-                    const producesOutput = nodeComponent?.producesOutput
-                    
-                    return (
-                      <span className={cn(
-                        producesOutput ? "text-muted-foreground" : "text-yellow-600"
-                      )}>
-                        {producesOutput ? "Connected to input node" : "Warning: Selected node may not produce output"}
-                      </span>
-                    )
-                  })()
-                )}
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={onClose}>
-                  Cancel
-                </Button>
-                <Button onClick={handleSave}>
-                  Save Configuration
-                </Button>
-              </div>
-            </div>
-          </DialogFooter>
-        </div>
-      </DialogContent>
-    </Dialog>
+                <div className="flex items-center justify-between w-full">
+                  <div className="text-sm text-muted-foreground">
+                    {config.inputNodeId && (
+                      (() => {
+                        const selectedNode = workflowData?.nodes.find(node => node.id === config.inputNodeId)
+                        const { ALL_NODE_COMPONENTS } = require("@/lib/workflows/availableNodes")
+                        const nodeComponent = ALL_NODE_COMPONENTS.find((c: any) => c.type === selectedNode?.data?.type)
+                        const producesOutput = nodeComponent?.producesOutput
+                        
+                        return (
+                          <span className={cn(
+                            producesOutput ? "text-muted-foreground" : "text-yellow-600"
+                          )}>
+                            {producesOutput ? "Connected to input node" : "Warning: Selected node may not produce output"}
+                          </span>
+                        )
+                      })()
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" onClick={onClose}>
+                      Cancel
+                    </Button>
+                    <Button onClick={handleSave}>
+                      Save Configuration
+                    </Button>
+                  </div>
+                </div>
+              </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
   )
 } 

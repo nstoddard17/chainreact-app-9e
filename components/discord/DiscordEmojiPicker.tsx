@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { fetchGuildEmojis } from "@/lib/discord/fetchGuildEmojis";
 import { UNICODE_EMOJI_CATEGORIES, getEmojiByCategory } from "@/lib/discord/emojiData";
 import { Search, X } from "lucide-react";
@@ -15,6 +15,7 @@ export function DiscordEmojiPicker({ guildId, onSelect, trigger }: DiscordEmojiP
   const [customEmojis, setCustomEmojis] = useState<any[]>([]);
   const [category, setCategory] = useState("Smileys & Emotion");
   const [search, setSearch] = useState("");
+  const pickerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!guildId) return;
@@ -47,6 +48,27 @@ export function DiscordEmojiPicker({ guildId, onSelect, trigger }: DiscordEmojiP
     }
   }, [open, trigger]);
 
+  // Click outside handler
+  useEffect(() => {
+    if (!open) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (pickerRef.current && !pickerRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+
+    // Add event listener with a small delay to avoid immediate closure
+    const timer = setTimeout(() => {
+      document.addEventListener('mousedown', handleClickOutside);
+    }, 100);
+
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [open]);
+
   const categories = [
     ...UNICODE_EMOJI_CATEGORIES,
     ...(customEmojis.length ? [{ key: "custom", label: "Custom" }] : []),
@@ -58,7 +80,10 @@ export function DiscordEmojiPicker({ guildId, onSelect, trigger }: DiscordEmojiP
       : getEmojiByCategory(category, search);
 
   const renderEmojiPicker = () => (
-    <div className="bg-background border border-border rounded-lg shadow-lg w-[800px] max-h-[500px] flex flex-col overflow-hidden">
+    <div 
+      ref={pickerRef}
+      className="bg-background border border-border rounded-lg shadow-lg w-[800px] max-h-[500px] flex flex-col overflow-hidden"
+    >
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-border bg-muted/30">
         <h3 className="text-sm font-semibold text-foreground">Choose an emoji</h3>
@@ -169,6 +194,7 @@ export function DiscordEmojiPicker({ guildId, onSelect, trigger }: DiscordEmojiP
   if (trigger === null) {
     return (
       <div
+        ref={pickerRef}
         className="fixed z-[9999]"
         style={{ 
           top: "50%", 

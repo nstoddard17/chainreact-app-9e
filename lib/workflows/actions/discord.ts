@@ -632,13 +632,52 @@ export async function addDiscordReaction(config: any, userId: string, input: Rec
     const { channelId, messageId, emoji } = resolvedConfig
     const botToken = process.env.DISCORD_BOT_TOKEN
     if (!botToken) throw new Error("Discord bot token not configured")
-    const emojiEncoded = encodeURIComponent(emoji)
-    const response = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages/${messageId}/reactions/${emojiEncoded}/@me`, {
-      method: "PUT",
-      headers: { Authorization: `Bot ${botToken}` }
-    })
-    if (!response.ok) throw new Error(`Failed to add reaction: ${response.status}`)
-    return { success: true, output: {}, message: "Reaction added successfully" }
+    
+    // Support multiple emojis
+    let emojiList = [];
+    if (Array.isArray(emoji)) {
+      emojiList = emoji;
+    } else if (emoji) {
+      emojiList = [emoji];
+    }
+    if (emojiList.length === 0) throw new Error("Emoji is required");
+    
+    const results = [];
+    for (const em of emojiList) {
+      let emojiValue: string;
+      if (typeof em === 'string') {
+        emojiValue = em;
+      } else if (em && typeof em === 'object') {
+        if (em.custom && em.id) {
+          emojiValue = `${em.name}:${em.id}`;
+        } else if (em.native) {
+          emojiValue = em.native;
+        } else if (em.value) {
+          emojiValue = em.value;
+        } else {
+          throw new Error("Invalid emoji format");
+        }
+      } else {
+        throw new Error("Invalid emoji format");
+      }
+      const emojiEncoded = encodeURIComponent(emojiValue);
+      const response = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages/${messageId}/reactions/${emojiEncoded}/@me`, {
+        method: "PUT",
+        headers: { Authorization: `Bot ${botToken}` }
+      });
+      if (!response.ok) {
+        results.push({ emoji: emojiValue, success: false, status: response.status });
+      } else {
+        results.push({ emoji: emojiValue, success: true });
+      }
+    }
+    return {
+      success: results.every(r => r.success),
+      output: { channelId, messageId, emojis: results },
+      message: results.every(r => r.success)
+        ? "All reactions added successfully"
+        : `Some reactions failed: ${results.filter(r => !r.success).map(r => r.emoji).join(", ")}`
+    }
   } catch (error: any) {
     return { success: false, output: {}, message: error.message || "Failed to add reaction" }
   }
@@ -650,19 +689,118 @@ export async function addDiscordReaction(config: any, userId: string, input: Rec
 export async function removeDiscordReaction(config: any, userId: string, input: Record<string, any>) {
   try {
     const resolvedConfig = resolveValue(config, { input })
-    const { channelId, messageId, emoji, userId: targetUserId } = resolvedConfig
-    const botToken = process.env.DISCORD_BOT_TOKEN
-    if (!botToken) throw new Error("Discord bot token not configured")
-    const emojiEncoded = encodeURIComponent(emoji)
-    const userPart = targetUserId ? targetUserId : "@me"
-    const response = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages/${messageId}/reactions/${emojiEncoded}/${userPart}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bot ${botToken}` }
-    })
-    if (!response.ok) throw new Error(`Failed to remove reaction: ${response.status}`)
-    return { success: true, output: {}, message: "Reaction removed successfully" }
+    const { channelId, messageId, emoji } = resolvedConfig;
+
+    if (!channelId || !messageId || !emoji) {
+      throw new Error("Channel ID, Message ID, and emoji are required");
+    }
+
+    const botToken = process.env.DISCORD_BOT_TOKEN;
+    if (!botToken) throw new Error("Discord bot token not configured");
+
+    // Support multiple emojis
+    let emojiList = [];
+    if (Array.isArray(emoji)) {
+      emojiList = emoji;
+    } else if (emoji) {
+      emojiList = [emoji];
+    }
+    if (emojiList.length === 0) throw new Error("Emoji is required");
+
+    const allResults = [];
+    for (const em of emojiList) {
+      // Handle different emoji formats from the UI
+      let emojiIdentifier: string;
+      if (typeof em === "string") {
+        emojiIdentifier = em;
+      } else if (em && typeof em === "object") {
+        if (em.custom && em.id) {
+          emojiIdentifier = `${em.name}:${em.id}`;
+        } else if (em.native) {
+          emojiIdentifier = em.native;
+        } else if (em.emoji) {
+          emojiIdentifier = em.emoji;
+        } else if (em.value) {
+          emojiIdentifier = em.value;
+        } else {
+          throw new Error("Invalid emoji format");
+        }
+      } else {
+        throw new Error("Invalid emoji format");
+      }
+
+      const emojiEncoded = encodeURIComponent(emojiIdentifier);
+
+      // 1. Fetch all users who reacted with this emoji
+      const usersRes = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages/${messageId}/reactions/${emojiEncoded}`, {
+        headers: { Authorization: `Bot ${botToken}` }
+      });
+      if (!usersRes.ok) {
+        const errorData = await usersRes.json().catch(() => ({}));
+        allResults.push({
+          emoji: emojiIdentifier,
+          success: false,
+          error: `Failed to fetch users for reaction: ${usersRes.status} - ${errorData.message || usersRes.statusText}`
+        });
+        continue;
+      }
+      
+      const users = await usersRes.json();
+      if (!Array.isArray(users) || users.length === 0) {
+        allResults.push({
+          emoji: emojiIdentifier,
+          success: true,
+          users: [],
+          message: `No users found for reaction ${emojiIdentifier}`
+        });
+        continue;
+      }
+
+      // 2. Remove all reactions of this emoji from the message
+      const delRes = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages/${messageId}/reactions/${emojiEncoded}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bot ${botToken}` }
+      });
+      
+      if (delRes.ok) {
+        allResults.push({ 
+          emoji: emojiIdentifier, 
+          success: true, 
+          usersRemoved: users.length,
+          message: `Removed all ${users.length} reactions of ${emojiIdentifier}` 
+        });
+      } else {
+        const errorData = await delRes.json().catch(() => ({}));
+        allResults.push({ 
+          emoji: emojiIdentifier, 
+          success: false, 
+          error: `Failed to remove reactions: ${delRes.status} - ${errorData.message || delRes.statusText}` 
+        });
+      }
+    }
+
+    const successfulResults = allResults.filter(r => r.success);
+    const failedResults = allResults.filter(r => !r.success);
+
+    return {
+      success: failedResults.length === 0,
+      output: {
+        channelId,
+        messageId,
+        emojis: allResults,
+        removedAt: new Date().toISOString()
+      },
+      message: failedResults.length === 0
+        ? `All reactions removed successfully (${successfulResults.length} emoji(s))`
+        : `Some reactions failed: ${failedResults.map(r => r.emoji).join(", ")}. ${successfulResults.length} emoji(s) removed successfully.`
+    };
   } catch (error: any) {
-    return { success: false, output: {}, message: error.message || "Failed to remove reaction" }
+    console.error("Discord remove reaction error:", error);
+    return {
+      success: false,
+      output: {},
+      message: error.message || "Failed to remove reaction"
+    };
   }
 }
 
