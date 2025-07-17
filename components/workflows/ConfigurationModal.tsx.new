@@ -1002,7 +1002,7 @@ const FreeLabel = () => (
   }}>✅ Free</span>
 );
 
-function ConfigurationModal({
+export default function ConfigurationModal({
   isOpen,
   onClose,
   onSave,
@@ -1901,11 +1901,6 @@ function ConfigurationModal({
         return true
       }
       
-      // If bot is missing from the server, don't show any other fields
-      if (config.guildId && typeof botStatus[config.guildId] === "boolean" && !botStatus[config.guildId]) {
-        return false
-      }
-      
       // Show channel field if guild is selected
       if (field.name === "channelId" && config.guildId) {
         return true
@@ -2279,111 +2274,6 @@ function ConfigurationModal({
     // Only run when guildId changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [config.guildId])
-
-  // Automatically load Discord channels and messages when bot becomes available
-  useEffect(() => {
-    if (
-      nodeInfo?.type?.startsWith("discord_action_") &&
-      config.guildId &&
-      botStatus[config.guildId] === true
-    ) {
-      const loadDiscordData = async () => {
-        try {
-          console.log('🤖 Bot is now available, loading Discord data for guildId:', config.guildId)
-          
-          const integration = getIntegrationByProvider("discord")
-          if (!integration) return
-
-          // Load channels for the guild
-          if (!dynamicOptions.channelId || dynamicOptions.channelId.length === 0) {
-            console.log('🔄 Loading channels for guildId:', config.guildId)
-            setLoadingDiscordChannels(true)
-            try {
-              const channelData = await loadIntegrationData("discord_channels", integration.id, { guildId: config.guildId })
-              if (channelData && channelData.length > 0) {
-                const mappedChannels = channelData.map((channel: any) => ({
-                  value: channel.value || channel.id,
-                  label: channel.label || channel.name
-                }))
-                setDynamicOptions(prev => ({
-                  ...prev,
-                  channelId: mappedChannels
-                }))
-                console.log('✅ Loaded channels:', mappedChannels.length)
-              }
-            } catch (error: any) {
-              // Suppress errors if the bot is not present or API returns a known error
-              if (
-                error?.message?.includes("bot not in guild") ||
-                error?.response?.status === 403 ||
-                error?.response?.status === 404
-              ) {
-                console.log('🤖 Suppressing expected error for bot not in guild')
-                return
-              }
-              // For other errors, log but don't let them bubble up
-              console.error('❌ Error loading channels:', error)
-            } finally {
-              setLoadingDiscordChannels(false)
-            }
-          }
-
-          // If channelId is already set, load messages for that channel
-          if (config.channelId && (!dynamicOptions.messageId || dynamicOptions.messageId.length === 0)) {
-            console.log('🔄 Loading messages for channelId:', config.channelId)
-            setLoadingDiscordMessages(true)
-            try {
-              const messageData = await loadIntegrationData("discord_messages", integration.id, { channelId: config.channelId })
-              if (messageData && messageData.length > 0) {
-                const mappedMessages = messageData.map((message: any) => ({
-                  value: message.value || message.id,
-                  label: message.label || message.content || message.name
-                }))
-                setDynamicOptions(prev => ({
-                  ...prev,
-                  messageId: mappedMessages
-                }))
-                console.log('✅ Loaded messages:', mappedMessages.length)
-              }
-            } catch (error: any) {
-              // Suppress errors if the bot is not present or API returns a known error
-              if (
-                error?.message?.includes("bot not in guild") ||
-                error?.response?.status === 403 ||
-                error?.response?.status === 404
-              ) {
-                console.log('🤖 Suppressing expected error for bot not in guild')
-                return
-              }
-              // For other errors, log but don't let them bubble up
-              console.error('❌ Error loading messages:', error)
-            } finally {
-              setLoadingDiscordMessages(false)
-            }
-          }
-        } catch (error: any) {
-          // Suppress errors if the bot is not present or API returns a known error
-          if (
-            error?.message?.includes("bot not in guild") ||
-            error?.response?.status === 403 ||
-            error?.response?.status === 404
-          ) {
-            console.log('🤖 Suppressing expected error for bot not in guild')
-            return
-          }
-          // For other errors, log but don't let them bubble up
-          console.error('❌ Error in loadDiscordData:', error)
-        }
-      }
-
-      // Add a small delay to ensure the bot status change is fully processed
-      const timer = setTimeout(() => {
-        loadDiscordData()
-      }, 100)
-
-      return () => clearTimeout(timer)
-    }
-  }, [nodeInfo?.type, config.guildId, config.channelId, botStatus, dynamicOptions.channelId, dynamicOptions.messageId])
 
   const fetchDynamicData = useCallback(async () => {
     // Prevent duplicate calls
@@ -2917,7 +2807,7 @@ function ConfigurationModal({
             }
           } catch (error) {
             console.error('❌ Error loading channels:', error)
-            } finally {
+          } finally {
             setLoadingDiscordChannels(false)
           }
         }
@@ -2941,9 +2831,9 @@ function ConfigurationModal({
             }
           } catch (error) {
             console.error('❌ Error loading messages:', error)
-            } finally {
-              setLoadingDiscordMessages(false)
-            }
+          } finally {
+            setLoadingDiscordMessages(false)
+          }
         }
 
 
@@ -3297,8 +3187,8 @@ function ConfigurationModal({
           error: result.error || "Test failed"
         })
         setShowDataFlowPanels(true)
-          }
-        } catch (error: any) {
+      }
+    } catch (error: any) {
       console.error('Test request failed:', error)
       setSegmentTestResult({
         success: false,
@@ -3504,8 +3394,8 @@ function ConfigurationModal({
             const integration = getIntegrationByProvider("youtube");
             if (!integration) {
               console.error("YouTube integration not found");
-            return;
-          }
+              return;
+            }
             
             // Fetch video details from YouTube API
             const response = await fetch("/api/integrations/youtube/get-video-details", {
@@ -3698,7 +3588,7 @@ function ConfigurationModal({
           }
         } catch (err) {
           alert("Failed to create Google Meet link. Please try again.")
-          } finally {
+        } finally {
           setMeetLoading(false)
         }
       }
@@ -3768,7 +3658,7 @@ function ConfigurationModal({
     }
 
     // Add label rendering
-    const renderDynamicLabel = () => (
+    const renderLabel = () => (
       <div className="flex items-center gap-2 mb-2">
         <Label className="text-sm font-medium">
           {dynamicLabel || field.label || field.name}
@@ -3855,7 +3745,7 @@ function ConfigurationModal({
 
       return (
         <div className="space-y-4">
-          {renderDynamicLabel()}
+          {renderLabel()}
           
           <div className="p-4 bg-[#232428] rounded-lg w-full max-w-lg">
             {/* Reaction bar with selected emojis and plus button */}
@@ -3967,7 +3857,7 @@ function ConfigurationModal({
 
       return (
         <div className="space-y-4">
-          {renderDynamicLabel()}
+          {renderLabel()}
           <div className="p-4 bg-[#232428] rounded-lg w-full max-w-lg">
             {/* Instructions */}
             <div className="mb-3 text-sm text-muted-foreground">
@@ -4088,7 +3978,7 @@ function ConfigurationModal({
 
       return (
         <div className="space-y-4">
-          {renderDynamicLabel()}
+          {renderLabel()}
           <div className="space-y-3">
             {sheets.map((sheet, index) => (
               <div key={`sheet-${index}-${sheet.name || index}`} className="border rounded-lg p-4 space-y-3">
@@ -4231,7 +4121,7 @@ function ConfigurationModal({
       
       return (
         <div className="space-y-4">
-          {renderDynamicLabel()}
+          {renderLabel()}
           <div className="text-sm text-muted-foreground">
             Map your data to table columns from "{config.tableName}":
           </div>
@@ -4833,8 +4723,8 @@ function ConfigurationModal({
       // Skip dependent field updates for Discord message actions - handled by separate effect
       if (nodeInfo?.type === "discord_action_edit_message" || nodeInfo?.type === "discord_action_delete_message" || nodeInfo?.type === "discord_action_send_message" || nodeInfo?.type === "discord_action_fetch_messages" || nodeInfo?.type === "discord_action_add_reaction" || nodeInfo?.type === "discord_action_remove_reaction" || nodeInfo?.type === "discord_action_fetch_reactions" || nodeInfo?.type === "discord_action_update_channel" || nodeInfo?.type === "discord_action_delete_channel") {
         console.log('🔄 Skipping dependent field updates for Discord message action - handled by separate effect')
-            return
-          }
+        return
+      }
       
       nodeInfo?.configSchema?.forEach(dependentField => {
         console.log('🔄 Checking field:', {
@@ -4964,7 +4854,7 @@ function ConfigurationModal({
       console.log(`🎯 EnhancedFileInput triggered for:`, { fieldName: field.name, nodeType: nodeInfo?.type, fieldType: field.type })
       return (
         <div className="space-y-2">
-          {renderDynamicLabel()}
+          {renderLabel()}
           <EnhancedFileInput
             fieldDef={field as NodeField}
             fieldValue={value}
@@ -4988,7 +4878,7 @@ function ConfigurationModal({
       case "password":
         return (
           <div className="space-y-2">
-            {renderDynamicLabel()}
+            {renderLabel()}
             <div className="flex gap-2 w-full">
               <div className="flex-1 relative">
                 <Input
@@ -5046,7 +4936,7 @@ function ConfigurationModal({
       case "number":
         return (
           <div className="space-y-2">
-            {renderDynamicLabel()}
+            {renderLabel()}
             <div className="relative">
               <Input
                 type="number"
@@ -5105,7 +4995,7 @@ function ConfigurationModal({
       case "textarea":
         return (
           <div className="space-y-2">
-            {renderDynamicLabel()}
+            {renderLabel()}
             <div className="w-full space-y-2">
               <div className="relative">
                 <Textarea
@@ -5160,7 +5050,7 @@ function ConfigurationModal({
       case "rich-text":
         return (
           <div className="space-y-2">
-            {renderDynamicLabel()}
+            {renderLabel()}
             
             <div className="w-full space-y-2">
               <div className="border rounded-md">
@@ -5721,7 +5611,7 @@ function ConfigurationModal({
           
           return (
             <div className="space-y-2">
-              {renderDynamicLabel()}
+              {renderLabel()}
               <div className="flex gap-2 w-full">
                 <div className="flex-1">
                   <Select
@@ -5887,7 +5777,7 @@ function ConfigurationModal({
           if (field.name === 'labelIds' && field.dynamic === 'gmail-labels') {
             return (
               <div className="space-y-2">
-                {renderDynamicLabel()}
+                {renderLabel()}
                 <GmailLabelsInput
                   options={options.map((option) => {
                     if (typeof option === 'string') {
@@ -5941,7 +5831,7 @@ function ConfigurationModal({
           // For all other multiple/creatable fields, use MultiCombobox
           return (
             <div className="space-y-2">
-              {renderDynamicLabel()}
+              {renderLabel()}
               <MultiCombobox
                 options={options.map((option) => {
                   if (typeof option === 'string') {
@@ -5977,7 +5867,7 @@ function ConfigurationModal({
         if (field.creatable) {
           return (
             <div className="space-y-2">
-              {renderDynamicLabel()}
+              {renderLabel()}
               <Combobox
                 options={options.map((option) => ({
                   value: typeof option === 'string' ? option : option.value,
@@ -6003,7 +5893,7 @@ function ConfigurationModal({
         if (field.dynamic === "youtube_videos") {
           return (
             <div className="space-y-2">
-              {renderDynamicLabel()}
+              {renderLabel()}
               <div className="flex gap-2">
                 <div className="flex-1">
                   <Select
@@ -6094,7 +5984,7 @@ function ConfigurationModal({
         
         return (
           <div className="space-y-2">
-            {renderDynamicLabel()}
+            {renderLabel()}
             <Select
               value={value}
               onValueChange={(newValue) => {
@@ -6179,7 +6069,7 @@ function ConfigurationModal({
                         size="sm"
                         onClick={() => {
                           const popup = window.open(
-                            "https://discord.com/oauth2/authorize?client_id=1378595955212812308&permissions=274877918208&scope=bot&response_type=code",
+                            "https://discord.com/oauth2/authorize?client_id=1378595955212812308&permissions=274877918208&scope=bot",
                             "discord_bot_invite",
                             "width=500,height=600,scrollbars=yes,resizable=yes"
                           )
@@ -6235,7 +6125,7 @@ function ConfigurationModal({
                         size="sm"
                         onClick={() => {
                           const popup = window.open(
-                            "https://discord.com/oauth2/authorize?client_id=1378595955212812308&permissions=274877918208&scope=bot&response_type=code",
+                            "https://discord.com/oauth2/authorize?client_id=1378595955212812308&permissions=274877918208&scope=bot",
                             "discord_bot_invite",
                             "width=500,height=600,scrollbars=yes,resizable=yes"
                           )
@@ -6290,7 +6180,7 @@ function ConfigurationModal({
             : (typeof value === "string" && value ? value.split(",").map(e => e.trim()).filter(Boolean) : []);
           return (
             <div className="space-y-2">
-              {renderDynamicLabel()}
+              {renderLabel()}
               {slackUserFetchError && (
                 <div className="text-red-500 text-xs flex items-center gap-2">
                   {slackUserFetchError}
@@ -6323,7 +6213,7 @@ function ConfigurationModal({
       default:
         return (
           <div className="space-y-2">
-            {renderDynamicLabel()}
+            {renderLabel()}
             <Input
               value={value}
               onChange={handleChange}
@@ -6622,7 +6512,7 @@ function ConfigurationModal({
                     true
                   )
                 ) : null}
-    </div>
+              </div>
             )}
 
             {/* Main Configuration Content */}
@@ -6908,22 +6798,6 @@ function ConfigurationModal({
                     // Default: render all fields as before
                     nodeInfo?.configSchema?.map((field, configFieldIndex) => {
                       if (!shouldShowField(field)) return null
-
-                      // For Discord actions with guildId, check if bot is missing and only server field is visible
-                      const isDiscordActionWithGuildId = nodeInfo?.providerId === "discord" && field.name === "guildId"
-                      const isBotMissing = isDiscordActionWithGuildId && typeof botStatus[config.guildId] === "boolean" && !botStatus[config.guildId]
-                      const visibleFields = nodeInfo?.configSchema?.filter(f => shouldShowField(f)) || [];
-                      const hasOnlyServerField = isDiscordActionWithGuildId && visibleFields.length === 1
-
-                      // If bot is missing and only server field is visible, render without wrapper div
-                      if (isBotMissing && hasOnlyServerField) {
-                        return (
-                          <React.Fragment key={`config-field-${configFieldIndex}-${field.name}`}>
-                            {renderField(field)}
-                          </React.Fragment>
-                        )
-                      }
-
                       return (
                         <div key={`config-field-${configFieldIndex}-${field.name}`} className="flex flex-col space-y-3 pb-4 border-b border-border/50 last:border-b-0 last:pb-0">
                           {renderField(field)}
@@ -7230,7 +7104,6 @@ function ConfigurationModal({
                     </div>
                   )}
                   
-                  
                   {/* Gmail Message Preview */}
                   {nodeInfo?.type === "gmail_action_search_email" && (
                     <div className="space-y-3 border-t pt-4 mt-6 w-full max-w-full">
@@ -7382,8 +7255,8 @@ function ConfigurationModal({
                 hasChannels: !!dynamicOptions.discord_channels,
                 checkingBot
               })
-
-  return (
+              
+              return (
                 <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex flex-col items-center justify-center z-50">
                   <ConfigurationLoadingScreen 
                     integrationName={nodeInfo.title || nodeInfo.type || integrationName}
@@ -7393,10 +7266,10 @@ function ConfigurationModal({
                       Retrying... (attempt {retryCount + 1})
                     </div>
                   )}
-    </div>
-  )
-}
-
+                </div>
+              )
+            }
+            
             return null
           })()}
         </DialogContent>
@@ -7431,5 +7304,3 @@ function ConfigurationModal({
     </TooltipProvider>
   )
 }
-
-export default ConfigurationModal
