@@ -6126,15 +6126,7 @@ function ConfigurationModal({
           return (
             <div className="space-y-2">
               {renderDynamicLabel()}
-              <div className="flex gap-2 w-full relative">
-                {isFieldLoading && (
-                  <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-10 flex items-center justify-center rounded-md border">
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Loading {field.label?.toLowerCase() || 'options'}...
-                    </div>
-                  </div>
-                )}
+              <div className="flex gap-2 w-full">
                 <div className="flex-1">
                   <Select
                     value={value}
@@ -6142,7 +6134,11 @@ function ConfigurationModal({
                     disabled={isFieldLoading}
                   >
                     <SelectTrigger className={cn("w-full", hasError && "border-red-500")}>
-                      <SelectValue placeholder={field.placeholder}>
+                      <SelectValue placeholder={
+                        isFieldLoading 
+                          ? `Loading ${field.name === 'channelId' ? 'channels' : field.name === 'messageId' ? 'messages' : 'options'}...` 
+                          : field.placeholder
+                      }>
                         {selectedLabel}
                       </SelectValue>
                     </SelectTrigger>
@@ -6155,11 +6151,13 @@ function ConfigurationModal({
                       {isFieldLoading ? (
                         <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
                           <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                          Loading {field.label?.toLowerCase() || 'options'}...
+                          Loading {field.name === 'channelId' ? 'channels' : field.name === 'messageId' ? 'messages' : 'options'}...
                         </div>
                       ) : options.length === 0 ? (
                         <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
-                          No {field.label?.toLowerCase() || 'options'} available
+                          {field.name === 'channelId' ? 'No channels available' : 
+                           field.name === 'messageId' ? 'No messages available' : 
+                           'No options available'}
                         </div>
                       ) : (
                         options.map((option: any, optionIndex: number) => {
@@ -6229,7 +6227,10 @@ function ConfigurationModal({
               hasOptions: options.length > 0,
               optionsCount: options.length,
               hasGuildId: !!config.guildId,
-              guildId: config.guildId
+              guildId: config.guildId,
+              value,
+              placeholder: field.placeholder,
+              displayText: isFieldLoading ? `Loading ${field.label?.toLowerCase() || 'members'}...` : field.placeholder
             })
           }
           
@@ -6251,54 +6252,49 @@ function ConfigurationModal({
           return (
             <div className="space-y-2">
               {renderDynamicLabel()}
-              <div className="flex gap-2 w-full relative">
-                {isFieldLoading && (
-                  <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-10 flex items-center justify-center rounded-md border">
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Loading {field.label?.toLowerCase() || 'members'}...
-                    </div>
-                  </div>
-                )}
+              <div className="flex gap-2 w-full">
                 <div className="flex-1">
-                  <Select
-                    value={value}
-                    onValueChange={handleSelectChange}
-                    disabled={isFieldLoading}
-                  >
-                    <SelectTrigger className={cn("w-full", hasError && "border-red-500")}>
-                      <SelectValue placeholder={field.placeholder}>
-                        {selectedLabel}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent 
-                      className="max-h-[min(384px,calc(100vh-64px))] overflow-y-auto" 
-                      side="bottom" 
-                      sideOffset={0} 
-                      align="start"
+                  {isFieldLoading ? (
+                    <div className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+                      <span className="flex items-center">
+                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                        Loading {field.label?.toLowerCase() || 'members'}...
+                      </span>
+                    </div>
+                  ) : (
+                    <Select
+                      value={value}
+                      onValueChange={handleSelectChange}
                     >
-                      {isFieldLoading ? (
-                        <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
-                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                          Loading {field.label?.toLowerCase() || 'members'}...
-                        </div>
-                      ) : options.length === 0 ? (
-                        <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
-                          No members available
-                        </div>
-                      ) : (
-                        options.map((option: any, optionIndex: number) => {
-                          const optionValue = typeof option === 'string' ? option : option.value
-                          const optionLabel = typeof option === 'string' ? option : option.label
-                          return (
-                            <SelectItem key={`select-option-${optionIndex}-${optionValue || 'undefined'}`} value={optionValue} className="whitespace-nowrap">
-                              {optionLabel}
-                            </SelectItem>
-                          )
-                        })
-                      )}
-                    </SelectContent>
-                  </Select>
+                      <SelectTrigger className={cn("w-full", hasError && "border-red-500")}>
+                        <SelectValue placeholder={field.placeholder}>
+                          {selectedLabel}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent 
+                        className="max-h-[min(384px,calc(100vh-64px))] overflow-y-auto" 
+                        side="bottom" 
+                        sideOffset={0} 
+                        align="start"
+                      >
+                        {options.length === 0 ? (
+                          <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
+                            No members available
+                          </div>
+                        ) : (
+                          options.map((option: any, optionIndex: number) => {
+                            const optionValue = typeof option === 'string' ? option : option.value
+                            const optionLabel = typeof option === 'string' ? option : option.label
+                            return (
+                              <SelectItem key={`select-option-${optionIndex}-${optionValue || 'undefined'}`} value={optionValue} className="whitespace-nowrap">
+                                {optionLabel}
+                              </SelectItem>
+                            )
+                          })
+                        )}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
                 <VariablePicker
                   workflowData={workflowData}
