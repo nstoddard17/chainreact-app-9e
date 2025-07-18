@@ -3405,7 +3405,14 @@ const dataFetchers: DataFetcher = {
 
   "discord_channels": async (integration: any, options: any) => {
     try {
-      const { guildId } = options || {}
+      const { 
+        guildId, 
+        channelTypes, 
+        nameFilter, 
+        sortBy = "position", 
+        includeArchived = false,
+        parentCategory 
+      } = options || {}
       
       if (!guildId) {
         throw new Error("Guild ID is required to fetch Discord channels")
@@ -3428,16 +3435,67 @@ const dataFetchers: DataFetcher = {
           })
         )
 
-        return (data || [])
-          .filter((channel: any) => channel.type === 0) // Only text channels (type 0)
-          .map((channel: any) => ({
-            id: channel.id,
-            name: `#${channel.name}`,
-            value: channel.id,
-            type: channel.type,
-            position: channel.position,
-            parent_id: channel.parent_id,
-          }))
+        let filteredData = (data || [])
+          .filter((channel: any) => {
+            // For parentId selection, include categories (type 4) and text channels (type 0)
+            // For regular channel selection, only include text channels (type 0)
+            const isParentIdRequest = options?.context === 'parentId'
+            if (isParentIdRequest) {
+              return channel.type === 0 || channel.type === 4 // Text channels and categories
+            }
+            return channel.type === 0 // Only text channels
+          })
+
+        // Apply additional filters
+        if (channelTypes && Array.isArray(channelTypes) && channelTypes.length > 0) {
+          filteredData = filteredData.filter((channel: any) => 
+            channelTypes.includes(channel.type.toString())
+          )
+        }
+        
+        if (nameFilter && nameFilter.trim()) {
+          const filterLower = nameFilter.toLowerCase()
+          filteredData = filteredData.filter((channel: any) => 
+            channel.name && channel.name.toLowerCase().includes(filterLower)
+          )
+        }
+        
+        if (parentCategory) {
+          filteredData = filteredData.filter((channel: any) => channel.parent_id === parentCategory)
+        }
+        
+        if (!includeArchived) {
+          filteredData = filteredData.filter((channel: any) => !channel.archived)
+        }
+
+        // Apply sorting
+        switch (sortBy) {
+          case "name":
+            filteredData.sort((a: any, b: any) => a.name.localeCompare(b.name))
+            break
+          case "name_desc":
+            filteredData.sort((a: any, b: any) => b.name.localeCompare(a.name))
+            break
+          case "created":
+            filteredData.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+            break
+          case "created_old":
+            filteredData.sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+            break
+          case "position":
+          default:
+            filteredData.sort((a: any, b: any) => a.position - b.position)
+            break
+        }
+
+        return filteredData.map((channel: any) => ({
+          id: channel.id,
+          name: channel.type === 4 ? channel.name : `#${channel.name}`,
+          value: channel.id,
+          type: channel.type,
+          position: channel.position,
+          parent_id: channel.parent_id,
+        }))
       } catch (error: any) {
         // Handle specific Discord API errors
         if (error.message.includes("401")) {
@@ -3459,6 +3517,94 @@ const dataFetchers: DataFetcher = {
     }
   },
 
+  "discord_categories": async (integration: any, options: any) => {
+    try {
+      const { 
+        guildId, 
+        nameFilter, 
+        sortBy = "position" 
+      } = options || {}
+      
+      if (!guildId) {
+        throw new Error("Guild ID is required to fetch Discord categories")
+      }
+
+      // Use bot token for category listing (bot must be in the guild)
+      const botToken = process.env.DISCORD_BOT_TOKEN
+      if (!botToken) {
+        console.warn("Discord bot token not configured - returning empty categories list")
+        return []
+      }
+
+      try {
+        const data = await fetchDiscordWithRateLimit<any[]>(() => 
+          fetch(`https://discord.com/api/v10/guilds/${guildId}/channels`, {
+            headers: {
+              Authorization: `Bot ${botToken}`,
+              "Content-Type": "application/json",
+            },
+          })
+        )
+
+        let filteredData = (data || [])
+          .filter((channel: any) => channel.type === 4) // Only categories (type 4)
+
+        // Apply name filter
+        if (nameFilter && nameFilter.trim()) {
+          const filterLower = nameFilter.toLowerCase()
+          filteredData = filteredData.filter((category: any) => 
+            category.name && category.name.toLowerCase().includes(filterLower)
+          )
+        }
+
+        // Apply sorting
+        switch (sortBy) {
+          case "name":
+            filteredData.sort((a: any, b: any) => a.name.localeCompare(b.name))
+            break
+          case "name_desc":
+            filteredData.sort((a: any, b: any) => b.name.localeCompare(a.name))
+            break
+          case "created":
+            filteredData.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+            break
+          case "created_old":
+            filteredData.sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+            break
+          case "position":
+          default:
+            filteredData.sort((a: any, b: any) => a.position - b.position)
+            break
+        }
+
+        return filteredData.map((category: any) => ({
+          id: category.id,
+          name: category.name,
+          value: category.id,
+          type: category.type,
+          position: category.position,
+        }))
+      } catch (error: any) {
+        // Handle specific Discord API errors
+        if (error.message.includes("401")) {
+          throw new Error("Discord bot authentication failed. Please check bot configuration.")
+        }
+        if (error.message.includes("403")) {
+          throw new Error("Bot does not have permission to view channels in this server. Please ensure the bot has the 'View Channels' permission and try again.")
+        }
+        if (error.message.includes("404")) {
+          // Bot is not in the server - return empty array instead of throwing error
+          console.log(`Bot is not a member of server ${guildId} - returning empty categories list`)
+          return []
+        }
+        throw error
+      }
+    } catch (error: any) {
+      console.error("Error fetching Discord categories:", error)
+      throw error
+    }
+  },
+
   "discord_members": async (integration: any, options: any) => {
     try {
       const { guildId } = options || {}
@@ -3467,10 +3613,10 @@ const dataFetchers: DataFetcher = {
         throw new Error("Guild ID is required to fetch Discord members")
       }
 
-      // Use user's OAuth token, not bot token
-      const userToken = integration.access_token
-      if (!userToken) {
-        console.warn("User Discord token not available - returning empty members list")
+      // Use bot token for member listing (bot must be in the guild)
+      const botToken = process.env.DISCORD_BOT_TOKEN
+      if (!botToken) {
+        console.warn("Discord bot token not configured - returning empty members list")
         return []
       }
 
@@ -3478,14 +3624,14 @@ const dataFetchers: DataFetcher = {
         const data = await fetchDiscordWithRateLimit<any[]>(() => 
           fetch(`https://discord.com/api/v10/guilds/${guildId}/members?limit=1000`, {
             headers: {
-              Authorization: `Bearer ${userToken}`,
+              Authorization: `Bot ${botToken}`,
               "Content-Type": "application/json",
             },
           })
         )
 
         return (data || [])
-          .filter((member: any) => !member.user?.bot) // Filter out bot users
+          // .filter((member: any) => !member.user?.bot) // Show all users, including bots
           .map((member: any) => ({
             id: member.user.id,
             name: member.nick || member.user.username,
@@ -3495,18 +3641,19 @@ const dataFetchers: DataFetcher = {
             avatar: member.user.avatar,
             roles: member.roles,
             joined_at: member.joined_at,
+            isBot: member.user?.bot || false,
           }))
       } catch (error: any) {
         // Handle specific Discord API errors
         if (error.message.includes("401")) {
-          throw new Error("Discord authentication failed. Please reconnect your Discord account.")
+          throw new Error("Discord bot authentication failed. Please check bot configuration.")
         }
         if (error.message.includes("403")) {
-          throw new Error("You do not have permission to view members in this server. Please ensure you have the 'View Members' permission and try again.")
+          throw new Error("Bot does not have permission to view members in this server. Please ensure the bot has the 'View Members' permission and try again.")
         }
         if (error.message.includes("404")) {
-          // User is not in the server - return empty array instead of throwing error
-          console.log(`User is not a member of server ${guildId} - returning empty members list`)
+          // Bot is not in the server - return empty array instead of throwing error
+          console.log(`Bot is not a member of server ${guildId} - returning empty members list`)
           return []
         }
         throw error
@@ -3525,10 +3672,10 @@ const dataFetchers: DataFetcher = {
         throw new Error("Guild ID is required to fetch Discord roles")
       }
 
-      // Use user's OAuth token, not bot token
-      const userToken = integration.access_token
-      if (!userToken) {
-        console.warn("User Discord token not available - returning empty roles list")
+      // Use bot token for role listing (bot must be in the guild)
+      const botToken = process.env.DISCORD_BOT_TOKEN
+      if (!botToken) {
+        console.warn("Discord bot token not configured - returning empty roles list")
         return []
       }
 
@@ -3536,7 +3683,7 @@ const dataFetchers: DataFetcher = {
         const data = await fetchDiscordWithRateLimit<any[]>(() => 
           fetch(`https://discord.com/api/v10/guilds/${guildId}/roles`, {
             headers: {
-              Authorization: `Bearer ${userToken}`,
+              Authorization: `Bot ${botToken}`,
               "Content-Type": "application/json",
             },
           })
@@ -3557,14 +3704,14 @@ const dataFetchers: DataFetcher = {
       } catch (error: any) {
         // Handle specific Discord API errors
         if (error.message.includes("401")) {
-          throw new Error("Discord authentication failed. Please reconnect your Discord account.")
+          throw new Error("Discord bot authentication failed. Please check bot configuration.")
         }
         if (error.message.includes("403")) {
-          throw new Error("You do not have permission to view roles in this server. Please ensure you have the 'View Roles' permission and try again.")
+          throw new Error("Bot does not have permission to view roles in this server. Please ensure the bot has the 'View Roles' permission and try again.")
         }
         if (error.message.includes("404")) {
-          // User is not in the server - return empty array instead of throwing error
-          console.log(`User is not a member of server ${guildId} - returning empty roles list`)
+          // Bot is not in the server - return empty array instead of throwing error
+          console.log(`Bot is not a member of server ${guildId} - returning empty roles list`)
           return []
         }
         throw error

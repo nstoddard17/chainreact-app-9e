@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { NodeComponent, NodeField, ConfigField } from "@/lib/workflows/availableNodes"
 import { useIntegrationStore } from "@/stores/integrationStore"
 import { useWorkflowTestStore } from "@/stores/workflowTestStore"
+import { useConfigPreferences } from "@/hooks/use-config-preferences"
 import { Combobox, MultiCombobox, HierarchicalCombobox } from "@/components/ui/combobox"
 import { EmailAutocomplete } from "@/components/ui/email-autocomplete"
 import { LocationAutocomplete } from "@/components/ui/location-autocomplete"
@@ -22,6 +23,7 @@ import { TimePicker } from "@/components/ui/time-picker"
 import { Play, X, Loader2, TestTube, Clock, HelpCircle, AlertCircle, Video, ChevronLeft, ChevronRight, Database, Calendar, Upload, Eye, RefreshCw, Package, FileText, Filter, Mail } from "lucide-react"
 
 import { Checkbox } from "@/components/ui/checkbox"
+import { Switch } from "@/components/ui/switch"
 import { cn } from "@/lib/utils"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { EnhancedTooltip } from "@/components/ui/enhanced-tooltip"
@@ -33,10 +35,13 @@ import SlackTemplatePreview from "../ui/slack-template-preview"
 import { SlackEmailInviteMultiCombobox } from "@/components/ui/SlackEmailInviteMultiCombobox"
 import { DiscordUserSelector } from "./DiscordUserSelector"
 import { DiscordMessagesPreview } from "./DiscordMessagesPreview"
+import { DiscordChannelsPreview } from "./DiscordChannelsPreview"
+import { DiscordMembersPreview } from "./DiscordMembersPreview"
 import { GmailEmailsPreview } from "./GmailEmailsPreview"
 import { NotionRecordsPreview } from "./NotionRecordsPreview"
 import { DiscordEmojiPicker } from "@/components/discord/DiscordEmojiPicker"
 import { Smile } from "lucide-react"
+import { getDiscordBotInviteUrl } from "@/lib/utils/discordConfig"
 
 
 import { getUser } from "@/lib/supabase-client";
@@ -1034,6 +1039,15 @@ function ConfigurationModal({
   const [tooltipsEnabled, setTooltipsEnabled] = useState(false)
   const [config, setConfig] = useState<Record<string, any>>(initialData)
   
+  // Config preferences hook for persistent storage
+  const configPreferences = useConfigPreferences({
+    nodeType: nodeInfo?.type || "",
+    providerId: nodeInfo?.providerId || "",
+    autoSave: true,
+    autoLoad: true,
+    debounceMs: 1000
+  })
+  
   // Enable tooltips after modal opens
   useEffect(() => {
     if (isOpen) {
@@ -1188,6 +1202,9 @@ function ConfigurationModal({
   // Discord specific loading states
   const [loadingDiscordChannels, setLoadingDiscordChannels] = useState(false)
   const [loadingDiscordMessages, setLoadingDiscordMessages] = useState(false)
+  const [loadingDiscordCategories, setLoadingDiscordCategories] = useState(false)
+  const [loadingDiscordMembers, setLoadingDiscordMembers] = useState(false)
+  const [loadingDiscordRoles, setLoadingDiscordRoles] = useState(false)
   
   // Function to fetch message data and reactions for Discord add reaction
   const fetchMessageDataAndReactions = useCallback(async (messageId: string, channelId: string) => {
@@ -1302,6 +1319,10 @@ function ConfigurationModal({
       // Determine the correct preview endpoint based on node type
       if (nodeInfo.type === "discord_action_fetch_messages") {
         endpoint = "/api/workflows/discord/fetch-messages-preview"
+      } else if (nodeInfo.type === "discord_action_list_channels") {
+        endpoint = "/api/workflows/discord/fetch-channels-preview"
+      } else if (nodeInfo.type === "discord_action_fetch_guild_members") {
+        endpoint = "/api/discord/fetch-guild-members-preview"
       } else if (nodeInfo.type === "gmail_action_search_emails" || nodeInfo.type === "gmail_action_search_email") {
         endpoint = "/api/workflows/gmail/search-emails-preview"
       } else if (nodeInfo.type === "notion_action_search_pages") {
@@ -1953,6 +1974,82 @@ function ConfigurationModal({
       
       return true
     }
+
+    // Special logic for Discord create channel action
+    if (nodeInfo?.type === "discord_action_create_channel") {
+      const channelType = parseInt(config.type || "0")
+      
+      // Always show basic fields
+      if (field.name === "guildId" || field.name === "name" || field.name === "type" || 
+          field.name === "parentId" || field.name === "nsfw" || field.name === "position") {
+        return true
+      }
+      
+      // Show topic only for text-based channels (0, 5, 15, 16)
+      if (field.name === "topic") {
+        return [0, 5, 15, 16].includes(channelType)
+      }
+      
+      // Text channel specific fields (0, 5, 15, 16)
+      if (field.name === "rateLimitPerUser" || field.name === "defaultAutoArchiveDuration") {
+        return [0, 5, 15, 16].includes(channelType)
+      }
+      
+      // Voice channel specific fields (2, 13)
+      if (field.name === "bitrate" || field.name === "userLimit" || field.name === "rtcRegion") {
+        return [2, 13].includes(channelType)
+      }
+      
+      // Forum channel specific fields (15)
+      if (field.name === "defaultReactionEmoji" || field.name === "defaultThreadRateLimitPerUser" || 
+          field.name === "defaultSortOrder" || field.name === "defaultForumLayout") {
+        return channelType === 15
+      }
+      
+      // Advanced fields - show based on channel type
+      if (field.name === "permissionOverwrites") {
+        return true // Available for all channel types
+      }
+      
+      if (field.name === "availableTags") {
+        return channelType === 15 // Only for forum channels
+      }
+      
+      if (field.name === "defaultAutoArchiveDurationAdvanced") {
+        return [0, 5, 15, 16].includes(channelType)
+      }
+      
+      if (field.name === "defaultThreadRateLimitPerUserAdvanced") {
+        return [0, 5, 15, 16].includes(channelType)
+      }
+      
+      if (field.name === "bitrateAdvanced") {
+        return [2, 13].includes(channelType)
+      }
+      
+      if (field.name === "userLimitAdvanced") {
+        return [2, 13].includes(channelType)
+      }
+      
+      return true
+    }
+    
+    // Special logic for Discord update channel action
+    if (nodeInfo?.type === "discord_action_update_channel") {
+      // Always show basic fields
+      if (field.name === "guildId" || field.name === "channelId" || field.name === "name") {
+        return true
+      }
+      
+      // For update channel, we need to determine channel type from the selected channel
+      // Since we don't have the channel type in config, we'll show all advanced fields
+      // The backend will handle which fields are applicable based on the actual channel type
+      if (field.uiTab === "advanced") {
+        return true
+      }
+      
+      return false
+    }
     
     // Special logic for read data action (applies to all fields, including those with dependencies)
     if (nodeInfo?.type === "google_sheets_action_read_data") {
@@ -2097,6 +2194,19 @@ function ConfigurationModal({
         } finally {
           setLoadingDiscordChannels(false)
         }
+      } else if (field.dynamic === "discord_categories" && field.dependsOn === "guildId") {
+        console.log('🔄 Discord categories: Starting fetch for guildId:', dependentValue)
+        setLoadingDiscordCategories(true)
+        try {
+          data = await loadIntegrationData(
+            field.dynamic as string,
+            integration.id,
+            { guildId: dependentValue }
+          )
+          console.log('🔄 Discord categories: Fetch completed, data:', data)
+        } finally {
+          setLoadingDiscordCategories(false)
+        }
       } else if (field.dynamic === "discord_messages" && field.dependsOn === "channelId") {
         console.log('🔄 Discord messages: Starting fetch for channelId:', dependentValue)
         setLoadingDiscordMessages(true)
@@ -2109,6 +2219,32 @@ function ConfigurationModal({
           console.log('🔄 Discord messages: Fetch completed, data:', data)
         } finally {
           setLoadingDiscordMessages(false)
+        }
+      } else if (field.dynamic === "discord_members" && field.dependsOn === "guildId") {
+        console.log('🔄 Discord members: Starting fetch for guildId:', dependentValue)
+        setLoadingDiscordMembers(true)
+        try {
+          data = await loadIntegrationData(
+            field.dynamic as string,
+            integration.id,
+            { guildId: dependentValue }
+          )
+          console.log('🔄 Discord members: Fetch completed, data:', data)
+        } finally {
+          setLoadingDiscordMembers(false)
+        }
+      } else if (field.dynamic === "discord_roles" && field.dependsOn === "guildId") {
+        console.log('🔄 Discord roles: Starting fetch for guildId:', dependentValue)
+        setLoadingDiscordRoles(true)
+        try {
+          data = await loadIntegrationData(
+            field.dynamic as string,
+            integration.id,
+            { guildId: dependentValue }
+          )
+          console.log('🔄 Discord roles: Fetch completed, data:', data)
+        } finally {
+          setLoadingDiscordRoles(false)
         }
       } else {
         data = await loadIntegrationData(
@@ -2166,6 +2302,33 @@ function ConfigurationModal({
             description: channel.description,
           }))
           console.log('🔄 Discord channels: Mapped data:', mappedData)
+        } else if (field.dynamic === "discord_categories") {
+          // Discord categories specific mapping
+          console.log('🔄 Discord categories: Mapping data:', data)
+          mappedData = data.map((category: any) => ({
+            value: category.value || category.id,
+            label: category.name || category.label,
+            description: category.description,
+          }))
+          console.log('🔄 Discord categories: Mapped data:', mappedData)
+        } else if (field.dynamic === "discord_members") {
+          // Discord members specific mapping
+          console.log('🔄 Discord members: Mapping data:', data)
+          mappedData = data.map((member: any) => ({
+            value: member.value || member.id,
+            label: member.name || member.label,
+            description: member.description,
+          }))
+          console.log('🔄 Discord members: Mapped data:', mappedData)
+        } else if (field.dynamic === "discord_roles") {
+          // Discord roles specific mapping
+          console.log('🔄 Discord roles: Mapping data:', data)
+          mappedData = data.map((role: any) => ({
+            value: role.value || role.id,
+            label: role.name || role.label,
+            description: role.description,
+          }))
+          console.log('🔄 Discord roles: Mapped data:', mappedData)
         } else {
           // Default mapping for other integrations
           mappedData = data.map((item: any) => ({
@@ -2280,13 +2443,24 @@ function ConfigurationModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [config.guildId])
 
-  // Automatically load Discord channels and messages when bot becomes available
+  // Automatically load Discord data when guild is selected
   useEffect(() => {
     if (
       nodeInfo?.type?.startsWith("discord_action_") &&
-      config.guildId &&
-      botStatus[config.guildId] === true
+      config.guildId
     ) {
+      // For assign/remove role actions, we can load members and roles even without bot
+      // since they use user's OAuth token, not bot token
+      const canLoadWithoutBot = nodeInfo?.type === "discord_action_assign_role" || 
+                                nodeInfo?.type === "discord_action_remove_role"
+      
+      // For other actions, require bot to be present
+      const botRequired = !canLoadWithoutBot
+      const botPresent = botStatus[config.guildId] === true
+      
+      if (botRequired && !botPresent) {
+        return
+      }
       const loadDiscordData = async () => {
         try {
           console.log('🤖 Bot is now available, loading Discord data for guildId:', config.guildId)
@@ -2294,12 +2468,25 @@ function ConfigurationModal({
           const integration = getIntegrationByProvider("discord")
           if (!integration) return
 
-          // Load channels for the guild
-          if (!dynamicOptions.channelId || dynamicOptions.channelId.length === 0) {
+          // Only load channels, categories, and messages if bot is present
+          const botPresent = botStatus[config.guildId] === true
+
+          // Load channels for the guild (only if bot is present)
+          if (botPresent && (!dynamicOptions.channelId || dynamicOptions.channelId.length === 0)) {
             console.log('🔄 Loading channels for guildId:', config.guildId)
             setLoadingDiscordChannels(true)
             try {
-              const channelData = await loadIntegrationData("discord_channels", integration.id, { guildId: config.guildId })
+              // Prepare filter options
+              const filterOptions: any = { guildId: config.guildId }
+              
+              // Add filters if they exist in config
+              if (config.channelTypes) filterOptions.channelTypes = config.channelTypes
+              if (config.nameFilter) filterOptions.nameFilter = config.nameFilter
+              if (config.sortBy) filterOptions.sortBy = config.sortBy
+              if (config.includeArchived !== undefined) filterOptions.includeArchived = config.includeArchived
+              if (config.parentCategory) filterOptions.parentCategory = config.parentCategory
+              
+              const channelData = await loadIntegrationData("discord_channels", integration.id, filterOptions)
               if (channelData && channelData.length > 0) {
                 const mappedChannels = channelData.map((channel: any) => ({
                   value: channel.value || channel.id,
@@ -2328,8 +2515,49 @@ function ConfigurationModal({
             }
           }
 
-          // If channelId is already set, load messages for that channel
-          if (config.channelId && (!dynamicOptions.messageId || dynamicOptions.messageId.length === 0)) {
+          // Load categories for the guild (only if bot is present)
+          if (botPresent && (!dynamicOptions.categoryId || dynamicOptions.categoryId.length === 0)) {
+            console.log('🔄 Loading categories for guildId:', config.guildId)
+            setLoadingDiscordCategories(true)
+            try {
+              // Prepare filter options
+              const filterOptions: any = { guildId: config.guildId }
+              
+              // Add filters if they exist in config
+              if (config.nameFilter) filterOptions.nameFilter = config.nameFilter
+              if (config.sortBy) filterOptions.sortBy = config.sortBy
+              
+              const categoryData = await loadIntegrationData("discord_categories", integration.id, filterOptions)
+              if (categoryData && categoryData.length > 0) {
+                const mappedCategories = categoryData.map((category: any) => ({
+                  value: category.value || category.id,
+                  label: category.label || category.name
+                }))
+                setDynamicOptions(prev => ({
+                  ...prev,
+                  categoryId: mappedCategories
+                }))
+                console.log('✅ Loaded categories:', mappedCategories.length)
+              }
+            } catch (error: any) {
+              // Suppress errors if the bot is not present or API returns a known error
+              if (
+                error?.message?.includes("bot not in guild") ||
+                error?.response?.status === 403 ||
+                error?.response?.status === 404
+              ) {
+                console.log('🤖 Suppressing expected error for bot not in guild')
+                return
+              }
+              // For other errors, log but don't let them bubble up
+              console.error('❌ Error loading categories:', error)
+            } finally {
+              setLoadingDiscordCategories(false)
+            }
+          }
+
+          // If channelId is already set, load messages for that channel (only if bot is present)
+          if (botPresent && config.channelId && (!dynamicOptions.messageId || dynamicOptions.messageId.length === 0)) {
             console.log('🔄 Loading messages for channelId:', config.channelId)
             setLoadingDiscordMessages(true)
             try {
@@ -2361,6 +2589,74 @@ function ConfigurationModal({
               setLoadingDiscordMessages(false)
             }
           }
+
+          // Load members for the guild (for assign/remove role actions)
+          if (!dynamicOptions.userId || dynamicOptions.userId.length === 0) {
+            console.log('🔄 Loading members for guildId:', config.guildId)
+            setLoadingDiscordMembers(true)
+            try {
+              const memberData = await loadIntegrationData("discord_members", integration.id, { guildId: config.guildId })
+              if (memberData && memberData.length > 0) {
+                const mappedMembers = memberData.map((member: any) => ({
+                  value: member.value || member.id,
+                  label: member.label || member.name
+                }))
+                setDynamicOptions(prev => ({
+                  ...prev,
+                  userId: mappedMembers
+                }))
+                console.log('✅ Loaded members:', mappedMembers.length)
+              }
+            } catch (error: any) {
+              // Suppress errors if the bot is not present or API returns a known error
+              if (
+                error?.message?.includes("bot not in guild") ||
+                error?.response?.status === 403 ||
+                error?.response?.status === 404
+              ) {
+                console.log('🤖 Suppressing expected error for bot not in guild')
+                return
+              }
+              // For other errors, log but don't let them bubble up
+              console.error('❌ Error loading members:', error)
+            } finally {
+              setLoadingDiscordMembers(false)
+            }
+          }
+
+          // Load roles for the guild (for assign/remove role actions)
+          if (!dynamicOptions.roleId || dynamicOptions.roleId.length === 0) {
+            console.log('🔄 Loading roles for guildId:', config.guildId)
+            setLoadingDiscordRoles(true)
+            try {
+              const roleData = await loadIntegrationData("discord_roles", integration.id, { guildId: config.guildId })
+              if (roleData && roleData.length > 0) {
+                const mappedRoles = roleData.map((role: any) => ({
+                  value: role.value || role.id,
+                  label: role.label || role.name
+                }))
+                setDynamicOptions(prev => ({
+                  ...prev,
+                  roleId: mappedRoles
+                }))
+                console.log('✅ Loaded roles:', mappedRoles.length)
+              }
+            } catch (error: any) {
+              // Suppress errors if the bot is not present or API returns a known error
+              if (
+                error?.message?.includes("bot not in guild") ||
+                error?.response?.status === 403 ||
+                error?.response?.status === 404
+              ) {
+                console.log('🤖 Suppressing expected error for bot not in guild')
+                return
+              }
+              // For other errors, log but don't let them bubble up
+              console.error('❌ Error loading roles:', error)
+            } finally {
+              setLoadingDiscordRoles(false)
+            }
+          }
         } catch (error: any) {
           // Suppress errors if the bot is not present or API returns a known error
           if (
@@ -2383,7 +2679,24 @@ function ConfigurationModal({
 
       return () => clearTimeout(timer)
     }
-  }, [nodeInfo?.type, config.guildId, config.channelId, botStatus, dynamicOptions.channelId, dynamicOptions.messageId])
+  }, [
+    nodeInfo?.type, 
+    config.guildId, 
+    config.channelId, 
+    config.channelTypes, 
+    config.nameFilter, 
+    config.sortBy, 
+    config.includeArchived, 
+    config.parentCategory,
+    config.roleFilter,
+    config.includeBots,
+    botStatus, 
+    dynamicOptions.channelId, 
+    dynamicOptions.categoryId, 
+    dynamicOptions.messageId,
+    dynamicOptions.userId,
+    dynamicOptions.roleId
+  ])
 
   const fetchDynamicData = useCallback(async () => {
     // Prevent duplicate calls
@@ -2870,7 +3183,7 @@ function ConfigurationModal({
     if (!isOpen || !nodeInfo) return
 
     // Load dependent data for Discord message actions
-    if (nodeInfo && (nodeInfo.type === "discord_action_edit_message" || nodeInfo.type === "discord_action_delete_message" || nodeInfo.type === "discord_action_send_message" || nodeInfo.type === "discord_action_fetch_messages" || nodeInfo.type === "discord_action_add_reaction" || nodeInfo.type === "discord_action_remove_reaction" || nodeInfo.type === "discord_action_fetch_reactions" || nodeInfo.type === "discord_action_update_channel" || nodeInfo.type === "discord_action_delete_channel")) {
+    if (nodeInfo && (nodeInfo.type === "discord_action_edit_message" || nodeInfo.type === "discord_action_delete_message" || nodeInfo.type === "discord_action_send_message" || nodeInfo.type === "discord_action_fetch_messages" || nodeInfo.type === "discord_action_add_reaction" || nodeInfo.type === "discord_action_remove_reaction" || nodeInfo.type === "discord_action_update_channel" || nodeInfo.type === "discord_action_delete_channel" || nodeInfo.type === "discord_action_create_channel")) {
       const loadDependentData = async () => {
         console.log('🔄 Loading dependent data for Discord message action with config:', config)
         
@@ -2898,27 +3211,68 @@ function ConfigurationModal({
           }
         }
         
-        // If guildId is set, load channels
+        // If guildId is set, load channels and categories (only if bot is connected)
         if (config.guildId) {
-          console.log('🔄 Loading channels for guildId:', config.guildId)
-          setLoadingDiscordChannels(true)
-          try {
-            const channelData = await loadIntegrationData("discord_channels", integration.id, { guildId: config.guildId })
-            if (channelData && channelData.length > 0) {
-              const mappedChannels = channelData.map((channel: any) => ({
-                value: channel.value || channel.id,
-                label: channel.label || channel.name
-              }))
-              setDynamicOptions(prev => ({
-                ...prev,
-                "channelId": mappedChannels
-              }))
-              console.log('✅ Loaded channels:', mappedChannels.length)
-            }
-          } catch (error) {
-            console.error('❌ Error loading channels:', error)
+          // Check if bot is connected to this guild before loading data
+          const isBotConnected = botStatus[config.guildId]
+          console.log('🔄 Bot connection status for guild:', config.guildId, 'is:', isBotConnected)
+          
+          if (isBotConnected === true) {
+            console.log('🔄 Loading channels for guildId:', config.guildId)
+            setLoadingDiscordChannels(true)
+            try {
+              const channelData = await loadIntegrationData("discord_channels", integration.id, { guildId: config.guildId })
+              if (channelData && channelData.length > 0) {
+                const mappedChannels = channelData.map((channel: any) => ({
+                  value: channel.value || channel.id,
+                  label: channel.label || channel.name
+                }))
+                setDynamicOptions(prev => ({
+                  ...prev,
+                  "channelId": mappedChannels
+                }))
+                console.log('✅ Loaded channels:', mappedChannels.length)
+              }
+            } catch (error) {
+              console.error('❌ Error loading channels:', error)
             } finally {
-            setLoadingDiscordChannels(false)
+              setLoadingDiscordChannels(false)
+            }
+
+            // Also load categories for Discord create channel action
+            if (nodeInfo.type === "discord_action_create_channel") {
+              console.log('🔄 Loading categories for guildId:', config.guildId)
+              setLoadingDiscordCategories(true)
+              try {
+                const categoryData = await loadIntegrationData("discord_categories", integration.id, { guildId: config.guildId })
+                if (categoryData && categoryData.length > 0) {
+                  const mappedCategories = categoryData.map((category: any) => ({
+                    value: category.value || category.id,
+                    label: category.label || category.name
+                  }))
+                  setDynamicOptions(prev => ({
+                    ...prev,
+                    "parentId": mappedCategories
+                  }))
+                  console.log('✅ Loaded categories:', mappedCategories.length)
+                  console.log('✅ Mapped categories data:', mappedCategories)
+                }
+              } catch (error) {
+                console.error('❌ Error loading categories:', error)
+              } finally {
+                setLoadingDiscordCategories(false)
+              }
+            }
+          } else if (isBotConnected === false) {
+            console.log('❌ Bot is not connected to guild:', config.guildId, '- skipping data load')
+            // Clear any existing channels and categories when bot is not connected
+            setDynamicOptions(prev => ({
+              ...prev,
+              "channelId": [],
+              "parentId": []
+            }))
+          } else {
+            console.log('⏳ Bot connection status unknown for guild:', config.guildId, '- waiting for bot check to complete')
           }
         }
 
@@ -2956,7 +3310,7 @@ function ConfigurationModal({
 
       return () => clearTimeout(timer)
     }
-  }, [isOpen, nodeInfo, config.guildId, config.channelId, dynamicOptions.guildId, config]) // Added config to dependencies
+  }, [isOpen, nodeInfo, config.guildId, config.channelId, dynamicOptions.guildId, config, botStatus]) // Added botStatus to dependencies
 
   // Debug dynamicOptions state changes
   useEffect(() => {
@@ -2990,6 +3344,8 @@ function ConfigurationModal({
 
     }
   }, [config, nodeInfo?.type, dynamicOptions])
+
+
 
   // Handle dependent field updates when their dependencies change
   useEffect(() => {
@@ -3353,6 +3709,8 @@ function ConfigurationModal({
     const hasError = !!errors[field.name];
     const handleSelectChange = (newValue: string) => {
       setConfig(prev => ({ ...prev, [field.name]: newValue }));
+      // Save preference
+      configPreferences.updateField(field.name, newValue);
       if (hasError) {
         setErrors(prev => {
           const newErrors = { ...prev };
@@ -3434,7 +3792,7 @@ function ConfigurationModal({
                     size="sm"
                     onClick={() => {
                       const popup = window.open(
-                        "https://discord.com/oauth2/authorize?client_id=1378595955212812308&permissions=274877918208&scope=bot",
+                        getDiscordBotInviteUrl(),
                         "discord_bot_invite",
                         "width=500,height=600,scrollbars=yes,resizable=yes"
                       )
@@ -3481,12 +3839,12 @@ function ConfigurationModal({
       const value = config[field.name] || "";
       const hasError = !!errors[field.name];
       
-      // Get options from dynamic data
-      const options = dynamicOptions[field.name] || 
-                     (typeof field.dynamic === 'string' ? dynamicOptions[field.dynamic] : []) || 
-                     [];
-      
-      const handleVideoSelect = async (newValue: string) => {
+                      // Get options from dynamic data
+        const options = dynamicOptions[field.name] || 
+                       (typeof field.dynamic === 'string' ? dynamicOptions[field.dynamic] : []) || 
+                       []
+        
+        const handleVideoSelect = async (newValue: string) => {
         setConfig({ ...config, [field.name]: newValue });
         
         // Clear error when user selects a video
@@ -4713,6 +5071,8 @@ function ConfigurationModal({
         handleUrlFieldChange(newValue)
       } else {
         setConfig({ ...config, [field.name]: newValue })
+        // Save preference
+        configPreferences.updateField(field.name, newValue)
       }
       
       // Clear error when user starts typing
@@ -4755,6 +5115,8 @@ function ConfigurationModal({
           [field.name]: newValue,
           [`${field.name}_label`]: label || newValue
         }))
+        // Save preference
+        configPreferences.updateField(field.name, newValue)
         // Continue with the rest of the logic, but return early to avoid duplicate setConfig
         return;
       }
@@ -4770,8 +5132,12 @@ function ConfigurationModal({
               properties: templateConfig.properties,
               views: templateConfig.views
             }))
+            // Save preference
+            configPreferences.updateField(field.name, newValue)
           } else {
             setConfig({ ...config, [field.name]: newValue })
+            // Save preference
+            configPreferences.updateField(field.name, newValue)
           }
         } else {
           // Clear template - reset to empty properties and views
@@ -4781,6 +5147,8 @@ function ConfigurationModal({
             properties: [],
             views: []
           }))
+          // Save preference
+          configPreferences.updateField(field.name, newValue)
         }
       }
       // Clear dependent fields when base changes for Airtable
@@ -4796,6 +5164,8 @@ function ConfigurationModal({
           tableName: undefined,
           fields: undefined
         }))
+        // Save preference
+        configPreferences.updateField(field.name, newValue)
       } else {
         console.log('🔄 Updating config state:', {
           fieldName: field.name,
@@ -4804,6 +5174,8 @@ function ConfigurationModal({
           isTrelloAction: nodeInfo?.type === "trello_action_create_card" || nodeInfo?.type === "trello_action_move_card"
         })
         setConfig({ ...config, [field.name]: newValue })
+        // Save preference
+        configPreferences.updateField(field.name, newValue)
       }
       
       // For Discord actions, channels will be loaded automatically by fetchDependentData
@@ -4872,6 +5244,8 @@ function ConfigurationModal({
 
     const handleMultiSelectChange = (newValue: string[]) => {
       setConfig({ ...config, [field.name]: newValue })
+      // Save preference
+      configPreferences.updateField(field.name, newValue)
       
       // Clear error when user selects values
       if (hasError) {
@@ -4885,6 +5259,8 @@ function ConfigurationModal({
 
     const handleCheckboxChange = (checked: boolean) => {
       setConfig(prev => ({ ...prev, [field.name]: checked }))
+      // Save preference
+      configPreferences.updateField(field.name, checked)
     }
 
     const handleFileChange = async (files: FileList | File[]) => {
@@ -5150,6 +5526,27 @@ function ConfigurationModal({
                   />
                 </div>
               )}
+            </div>
+            {hasError && (
+              <p className="text-xs text-red-500">{errors[field.name]}</p>
+            )}
+          </div>
+        )
+
+      case "boolean":
+        return (
+          <div className="space-y-2">
+            {renderDynamicLabel()}
+            <div className="flex items-center space-x-2">
+              <Switch
+                id={field.name}
+                checked={Boolean(value)}
+                onCheckedChange={handleCheckboxChange}
+                disabled={loadingDynamic}
+              />
+              <Label htmlFor={field.name} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                {field.description || "Enable this option"}
+              </Label>
             </div>
             {hasError && (
               <p className="text-xs text-red-500">{errors[field.name]}</p>
@@ -5790,6 +6187,105 @@ function ConfigurationModal({
           )
         }
 
+        // Add variable picker for Discord assign role action member field
+        if (nodeInfo && (nodeInfo.type === "discord_action_assign_role" || nodeInfo.type === "discord_action_remove_role") && field.name === "userId" && field.hasVariablePicker) {
+          // Get options for the select field
+          let options: any[] = []
+          if (field.dynamic) {
+            options = dynamicOptions[field.name] || 
+                     (typeof field.dynamic === 'string' ? dynamicOptions[field.dynamic] : []) || 
+                     []
+          } else if (field.options) {
+            options = field.options
+          }
+          
+          // Determine loading state for this specific field
+          const isFieldLoading = field.name === 'userId' ? loadingDiscordMembers : loadingDynamic
+          
+          // Find the selected option to display the label properly
+          const selectedOption = options.find((option: any) => {
+            const optionValue = typeof option === 'string' ? option : option.value
+            return optionValue === value
+          })
+          
+          // Use selected option label, fallback to stored label, then fallback to value
+          let selectedLabel = value
+          if (selectedOption) {
+            selectedLabel = typeof selectedOption === 'string' ? selectedOption : selectedOption.label
+          } else if (config[`${field.name}_label`]) {
+            // Fallback to stored label if option not found (e.g., when data is still loading)
+            selectedLabel = config[`${field.name}_label`]
+          }
+          
+          return (
+            <div className="space-y-2">
+              {renderDynamicLabel()}
+              <div className="flex gap-2 w-full">
+                <div className="flex-1">
+                  <Select
+                    value={value}
+                    onValueChange={handleSelectChange}
+                    disabled={isFieldLoading}
+                  >
+                    <SelectTrigger className={cn("w-full", hasError && "border-red-500")}>
+                      <SelectValue placeholder={
+                        isFieldLoading 
+                          ? `Loading members...` 
+                          : field.placeholder
+                      }>
+                        {selectedLabel}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent 
+                      className="max-h-[min(384px,calc(100vh-64px))] overflow-y-auto" 
+                      side="bottom" 
+                      sideOffset={0} 
+                      align="start"
+                    >
+                      {isFieldLoading ? (
+                        <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
+                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                          Loading members...
+                        </div>
+                      ) : options.length === 0 ? (
+                        <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
+                          No members available
+                        </div>
+                      ) : (
+                        options.map((option: any, optionIndex: number) => {
+                          const optionValue = typeof option === 'string' ? option : option.value
+                          const optionLabel = typeof option === 'string' ? option : option.label
+                          return (
+                            <SelectItem key={`select-option-${optionIndex}-${optionValue || 'undefined'}`} value={optionValue} className="whitespace-nowrap">
+                              {optionLabel}
+                            </SelectItem>
+                          )
+                        })
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <VariablePicker
+                  workflowData={workflowData}
+                  currentNodeId={currentNodeId}
+                  onVariableSelect={(variable) => {
+                    setConfig(prev => ({ ...prev, [field.name]: variable }))
+                  }}
+                  fieldType="text"
+                  trigger={
+                    <Button variant="outline" size="sm" className="flex-shrink-0 px-3 min-h-[2.5rem]" title="Select from previous node">
+                      <Database className="w-4 h-4" />
+                    </Button>
+                  }
+                />
+              </div>
+              {hasError && (
+                <p className="text-xs text-red-500">{errors[field.name]}</p>
+              )}
+            </div>
+          )
+        }
+
         // Try multiple keys for dynamic options to ensure compatibility
         let options = []
         if (field.dynamic) {
@@ -5860,27 +6356,25 @@ function ConfigurationModal({
           dynamicOptionsForField: dynamicOptions[field.name]
         })
         
-        // Special debugging for Discord channels
+                // Special debugging for Discord channels
         if (field.dynamic === "discord_channels") {
           console.log(`🎯 DISCORD CHANNELS DEBUG for "${field.name}":`, {
             fieldName: field.name,
-            fieldDynamic: field.dynamic,
-            optionsCount: options.length,
-            options: options,
-            dynamicOptionsKeys: Object.keys(dynamicOptions),
-            dynamicOptionsForField: dynamicOptions[field.name],
-            allDynamicOptions: dynamicOptions,
-            currentConfig: config,
-            dependsOnValue: field.dependsOn ? config[field.dependsOn] : null,
-            currentValue: value,
-            nodeType: nodeInfo?.type
           })
         }
-
-
         
-
-        
+        // Special debugging for Discord categories
+        if (field.dynamic === "discord_categories") {
+          console.log(`🎯 DISCORD CATEGORIES DEBUG for "${field.name}":`, {
+            fieldName: field.name,
+            fieldDynamic: field.dynamic,
+            optionsFromFieldName: dynamicOptions[field.name],
+            optionsFromDynamic: typeof field.dynamic === 'string' ? dynamicOptions[field.dynamic] : [],
+            finalOptions: options,
+            allDynamicOptionsKeys: Object.keys(dynamicOptions),
+            nodeInfoType: nodeInfo?.type
+          })
+        }
         // Use MultiCombobox for multiple select with creatable option
         if (field.multiple && field.creatable) {
           // Special handling for Gmail labels to make it more like Gmail's interface
@@ -6179,7 +6673,7 @@ function ConfigurationModal({
                         size="sm"
                         onClick={() => {
                           const popup = window.open(
-                            "https://discord.com/oauth2/authorize?client_id=1378595955212812308&permissions=274877918208&scope=bot&response_type=code",
+                            getDiscordBotInviteUrl(),
                             "discord_bot_invite",
                             "width=500,height=600,scrollbars=yes,resizable=yes"
                           )
@@ -6235,7 +6729,7 @@ function ConfigurationModal({
                         size="sm"
                         onClick={() => {
                           const popup = window.open(
-                            "https://discord.com/oauth2/authorize?client_id=1378595955212812308&permissions=274877918208&scope=bot&response_type=code",
+                            getDiscordBotInviteUrl(),
                             "discord_bot_invite",
                             "width=500,height=600,scrollbars=yes,resizable=yes"
                           )
@@ -6881,6 +7375,174 @@ function ConfigurationModal({
                     </>
                   )}
 
+                  {/* Discord Create Channel Basic/Advanced Tabs */}
+                  {nodeInfo?.type === "discord_action_create_channel" && (
+                    <>
+                      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mb-6">
+                        <TabsList className="grid w-full grid-cols-2">
+                          <TabsTrigger value="basic">Basic</TabsTrigger>
+                          <TabsTrigger value="advanced">Advanced</TabsTrigger>
+                        </TabsList>
+                      </Tabs>
+                      
+                      {activeTab === "basic" && (
+                        <div className="mb-3 text-sm text-muted-foreground">
+                          Configure basic channel settings. Fields shown depend on the selected channel type. Use the Advanced tab for permission overwrites and custom configurations.
+                        </div>
+                      )}
+                      
+                      {activeTab === "advanced" && (
+                        <div className="mb-3 text-sm text-muted-foreground">
+                          Configure advanced settings including permission overwrites and custom values. These settings override basic tab values if both are provided.
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* Discord Update Channel Basic/Advanced Tabs */}
+                  {nodeInfo?.type === "discord_action_update_channel" && (
+                    <>
+                      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mb-6">
+                        <TabsList className="grid w-full grid-cols-2">
+                          <TabsTrigger value="basic">Basic</TabsTrigger>
+                          <TabsTrigger value="advanced">Advanced</TabsTrigger>
+                        </TabsList>
+                      </Tabs>
+                      
+                      {activeTab === "basic" && (
+                        <div className="mb-3 text-sm text-muted-foreground">
+                          Configure basic channel update settings. Select a server and channel, then specify the new name. Use the Advanced tab for topic, position, and permission overwrites.
+                        </div>
+                      )}
+                      
+                      {activeTab === "advanced" && (
+                        <div className="mb-3 text-sm text-muted-foreground">
+                          Configure advanced settings including topic, position, and permission overwrites. These settings provide fine-grained control over channel updates.
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* Discord Fetch Channels Basic/Advanced Tabs */}
+                  {nodeInfo?.type === "discord_action_list_channels" && (
+                    <>
+                      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mb-6">
+                        <TabsList className="grid w-full grid-cols-2">
+                          <TabsTrigger value="basic">Basic</TabsTrigger>
+                          <TabsTrigger value="advanced">Advanced</TabsTrigger>
+                        </TabsList>
+                      </Tabs>
+                      
+                      {activeTab === "basic" && (
+                        <div className="mb-3 text-sm text-muted-foreground">
+                          Configure basic settings for fetching Discord channels. Select a server and set the number of channels to fetch. Use the Advanced tab for filtering and sorting options.
+                        </div>
+                      )}
+                      
+                      {activeTab === "advanced" && (
+                        <div className="mb-3 text-sm text-muted-foreground">
+                          Configure advanced filtering and sorting options. Filter by channel types, name, parent category, and sort results as needed.
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* Discord Delete Channel Basic/Advanced Tabs */}
+                  {nodeInfo?.type === "discord_action_delete_channel" && (
+                    <>
+                      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mb-6">
+                        <TabsList className="grid w-full grid-cols-2">
+                          <TabsTrigger value="basic">Basic</TabsTrigger>
+                          <TabsTrigger value="advanced">Advanced</TabsTrigger>
+                        </TabsList>
+                      </Tabs>
+                      
+                      {activeTab === "basic" && (
+                        <div className="mb-3 text-sm text-muted-foreground">
+                          Configure basic settings for deleting a Discord channel. Select a server and channel to delete. Use the Advanced tab for filtering options.
+                        </div>
+                      )}
+                      
+                      {activeTab === "advanced" && (
+                        <div className="mb-3 text-sm text-muted-foreground">
+                          Configure advanced filtering options to help find the specific channel you want to delete. Filter by channel types, name, and parent category.
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* Discord Create Category Basic/Advanced Tabs */}
+                  {nodeInfo?.type === "discord_action_create_category" && (
+                    <>
+                      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mb-6">
+                        <TabsList className="grid w-full grid-cols-2">
+                          <TabsTrigger value="basic">Basic</TabsTrigger>
+                          <TabsTrigger value="advanced">Advanced</TabsTrigger>
+                        </TabsList>
+                      </Tabs>
+                      
+                      {activeTab === "basic" && (
+                        <div className="mb-3 text-sm text-muted-foreground">
+                          Configure basic settings for creating a Discord category. Select a server, specify the category name, and choose if it should be private. Use the Advanced tab for position and permission overwrites.
+                        </div>
+                      )}
+                      
+                      {activeTab === "advanced" && (
+                        <div className="mb-3 text-sm text-muted-foreground">
+                          Configure advanced settings including position and permission overwrites. These settings provide fine-grained control over category creation.
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* Discord Delete Category Basic/Advanced Tabs */}
+                  {nodeInfo?.type === "discord_action_delete_category" && (
+                    <>
+                      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mb-6">
+                        <TabsList className="grid w-full grid-cols-2">
+                          <TabsTrigger value="basic">Basic</TabsTrigger>
+                          <TabsTrigger value="advanced">Advanced</TabsTrigger>
+                        </TabsList>
+                      </Tabs>
+                      
+                      {activeTab === "basic" && (
+                        <div className="mb-3 text-sm text-muted-foreground">
+                          Configure basic settings for deleting a Discord category. Select a server and category to delete, and choose whether to move channels to general. Use the Advanced tab for filtering options.
+                        </div>
+                      )}
+                      
+                      {activeTab === "advanced" && (
+                        <div className="mb-3 text-sm text-muted-foreground">
+                          Configure advanced filtering options to help find the specific category you want to delete. Filter by name and sort categories as needed.
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* Discord Fetch Guild Members Basic/Advanced Tabs */}
+                  {nodeInfo?.type === "discord_action_fetch_guild_members" && (
+                    <>
+                      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mb-6">
+                        <TabsList className="grid w-full grid-cols-2">
+                          <TabsTrigger value="basic">Basic</TabsTrigger>
+                          <TabsTrigger value="advanced">Advanced</TabsTrigger>
+                        </TabsList>
+                      </Tabs>
+                      
+                      {activeTab === "basic" && (
+                        <div className="mb-3 text-sm text-muted-foreground">
+                          Configure basic settings for fetching Discord guild members. Select a server and set the number of members to fetch. Use the Advanced tab for filtering and sorting options.
+                        </div>
+                      )}
+                      
+                      {activeTab === "advanced" && (
+                        <div className="mb-3 text-sm text-muted-foreground">
+                          Configure advanced filtering and sorting options. Filter by name, role, and sort results as needed. You can also choose to include or exclude bot users.
+                        </div>
+                      )}
+                    </>
+                  )}
+
                   {/* Configuration Fields */}
                   {isNotionDatabaseNode ? (
                     <>
@@ -6922,6 +7584,21 @@ function ConfigurationModal({
                             {renderField(field)}
                           </React.Fragment>
                         )
+                      }
+
+                      // Handle tabbed interface for Discord actions
+                      const isDiscordTabbedAction = nodeInfo?.type === "discord_action_create_channel" || 
+                                                   nodeInfo?.type === "discord_action_update_channel" ||
+                                                   nodeInfo?.type === "discord_action_list_channels" ||
+                                                   nodeInfo?.type === "discord_action_delete_channel" ||
+                                                   nodeInfo?.type === "discord_action_create_category" ||
+                                                   nodeInfo?.type === "discord_action_delete_category" ||
+                                                   nodeInfo?.type === "discord_action_fetch_guild_members"
+                      if (isDiscordTabbedAction && field.uiTab) {
+                        // Only render fields that match the current active tab
+                        if (field.uiTab !== activeTab) {
+                          return null
+                        }
                       }
 
                       return (
@@ -7184,6 +7861,8 @@ function ConfigurationModal({
 
                   {/* Preview Functionality */}
                   {(nodeInfo?.type === "discord_action_fetch_messages" || 
+                    nodeInfo?.type === "discord_action_list_channels" ||
+                    nodeInfo?.type === "discord_action_fetch_guild_members" ||
                     nodeInfo?.type === "notion_action_search_pages") && (
                     <div className="space-y-3 border-t pt-4">
                       <div className="flex items-center justify-between">
@@ -7218,6 +7897,12 @@ function ConfigurationModal({
                         <div className="space-y-2">
                           {nodeInfo?.type === "discord_action_fetch_messages" && (
                             <DiscordMessagesPreview messages={previewData.messages || []} />
+                          )}
+                          {nodeInfo?.type === "discord_action_list_channels" && (
+                            <DiscordChannelsPreview channels={previewData.channels || []} />
+                          )}
+                          {nodeInfo?.type === "discord_action_fetch_guild_members" && (
+                            <DiscordMembersPreview config={config} onClose={() => setPreviewData(null)} />
                           )}
                           {nodeInfo?.type === "notion_action_search_pages" && (
                             <NotionRecordsPreview 
