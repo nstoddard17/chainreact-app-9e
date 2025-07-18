@@ -83,12 +83,28 @@ export function validateDiscordBotToken(token: string): boolean {
 }
 
 /**
- * Get Discord bot invite URL
+ * Get Discord bot invite URL with proper permissions
  */
 export function getDiscordBotInviteUrl(): string {
-  const clientId = process.env.DISCORD_CLIENT_ID || "1378595955212812308"
+  // Use the bot's client ID (should be the same as the bot user ID for most cases)
+  // The bot user ID is the client ID for the bot application
+  const clientId = process.env.DISCORD_BOT_USER_ID || "1378595955212812308"
   const scopes = ["bot", "applications.commands"]
-  const permissions = "8" // Administrator
+  
+  // Combined permissions integer for all requested Discord bot capabilities
+  // This includes: View Audit Log, Manage Server, Manage Roles, Manage Channels, 
+  // Kick Members, Ban Members, Create Instant Invite, Change Nickname, 
+  // Manage Nicknames, Manage Expressions, Create Expressions, Manage Webhooks, 
+  // View Channels, Manage Events, Create Events, Moderate Members, 
+  // View Server Insights, View Server Subscription Insights, Send Messages, 
+  // Create Public Threads, Create Private Threads, Send Messages in Threads, 
+  // Send TTS Messages, Manage Messages, Manage Threads, Embed Links, 
+  // Attach Files, Read Message History, Mention Everyone, Use External Emojis, 
+  // Use External Stickers, Add Reactions, Use Slash Commands, 
+  // Use Embedded Activities, Use External Apps, Create Polls, 
+  // Mute Members, Deafen Members, Move Members
+  const permissions = "1719631854173431"
+  
   return `https://discord.com/oauth2/authorize?client_id=${clientId}&scope=${scopes.join("%20")}&permissions=${permissions}`
 }
 

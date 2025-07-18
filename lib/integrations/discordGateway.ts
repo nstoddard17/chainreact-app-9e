@@ -39,8 +39,9 @@ class DiscordGateway extends EventEmitter {
   private sequence: number | null = null
   private sessionId: string | null = null
   private reconnectAttempts: number = 0
-  private maxReconnectAttempts: number = 5
+  private maxReconnectAttempts: number = 10
   private reconnectDelay: number = 5000
+  private persistentReconnect: boolean = true
   private isConnected: boolean = false
 
   constructor() {
@@ -315,7 +316,7 @@ class DiscordGateway extends EventEmitter {
    * Schedule reconnection
    */
   private scheduleReconnect(rateLimited = false): void {
-    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+    if (this.reconnectAttempts >= this.maxReconnectAttempts && !this.persistentReconnect) {
       return
     }
 
@@ -370,6 +371,20 @@ class DiscordGateway extends EventEmitter {
       sessionId: this.sessionId
     }
   }
+
+  /**
+   * Enable persistent reconnection (bot will always try to stay connected)
+   */
+  enablePersistentReconnect(): void {
+    this.persistentReconnect = true
+  }
+
+  /**
+   * Disable persistent reconnection
+   */
+  disablePersistentReconnect(): void {
+    this.persistentReconnect = false
+  }
 }
 
 // Export singleton instance
@@ -388,6 +403,9 @@ export async function initializeDiscordGateway(): Promise<void> {
       console.log('Discord bot not configured, skipping Gateway connection')
       return
     }
+    
+    // Enable persistent reconnection to keep bot always online
+    discordGateway.enablePersistentReconnect()
     
     await discordGateway.connect()
   } catch (error) {

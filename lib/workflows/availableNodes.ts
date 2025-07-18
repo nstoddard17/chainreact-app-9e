@@ -81,7 +81,7 @@ export interface ConfigField {
   placeholder?: string
   description?: string
   options?: { value: string; label: string }[] | string[]
-  dynamic?: "slack-channels" | "slack_workspaces" | "slack_users" | "google-calendars" | "google-drive-folders" | "google-drive-files" | "onedrive-folders" | "dropbox-folders" | "box-folders" | "gmail-recent-recipients" | "gmail-enhanced-recipients" | "gmail-contact-groups" | "gmail_messages" | "gmail_labels" | "gmail_recent_senders" | "google-sheets_spreadsheets" | "google-sheets_sheets" | "google-docs_documents" | "google-docs_templates" | "google-docs_recent_documents" | "google-docs_shared_documents" | "google-docs_folders" | "youtube_channels" | "youtube_videos" | "youtube_playlists" | "teams_chats" | "teams_teams" | "teams_channels" | "github_repositories" | "gitlab_projects" | "notion_databases" | "notion_pages" | "notion_workspaces" | "notion_users" | "trello_boards" | "trello_lists" | "hubspot_companies" | "hubspot_contacts" | "hubspot_deals" | "hubspot_lists" | "hubspot_pipelines" | "hubspot_deal_stages" | "airtable_workspaces" | "airtable_bases" | "airtable_tables" | "airtable_records" | "airtable_feedback_records" | "airtable_task_records" | "airtable_project_records" | "gumroad_products" | "blackbaud_constituents" | "facebook_pages" | "onenote_notebooks" | "onenote_sections" | "onenote_pages" | "outlook_folders" | "outlook_messages" | "outlook_contacts" | "outlook_calendars" | "outlook_events" | "outlook-enhanced-recipients" | "discord_guilds" | "discord_channels" | "discord_members" | "discord_roles" | "discord_messages" | "discord_users" | "discord_banned_users"
+  dynamic?: "slack-channels" | "slack_workspaces" | "slack_users" | "google-calendars" | "google-drive-folders" | "google-drive-files" | "onedrive-folders" | "dropbox-folders" | "box-folders" | "gmail-recent-recipients" | "gmail-enhanced-recipients" | "gmail-contact-groups" | "gmail_messages" | "gmail_labels" | "gmail_recent_senders" | "google-sheets_spreadsheets" | "google-sheets_sheets" | "google-docs_documents" | "google-docs_templates" | "google-docs_recent_documents" | "google-docs_shared_documents" | "google-docs_folders" | "youtube_channels" | "youtube_videos" | "youtube_playlists" | "teams_chats" | "teams_teams" | "teams_channels" | "github_repositories" | "gitlab_projects" | "notion_databases" | "notion_pages" | "notion_workspaces" | "notion_users" | "trello_boards" | "trello_lists" | "hubspot_companies" | "hubspot_contacts" | "hubspot_deals" | "hubspot_lists" | "hubspot_pipelines" | "hubspot_deal_stages" | "airtable_workspaces" | "airtable_bases" | "airtable_tables" | "airtable_records" | "airtable_feedback_records" | "airtable_task_records" | "airtable_project_records" | "gumroad_products" | "blackbaud_constituents" | "facebook_pages" | "onenote_notebooks" | "onenote_sections" | "onenote_pages" | "outlook_folders" | "outlook_messages" | "outlook_contacts" | "outlook_calendars" | "outlook_events" | "outlook-enhanced-recipients" | "discord_guilds" | "discord_channels" | "discord_categories" | "discord_members" | "discord_roles" | "discord_messages" | "discord_users" | "discord_banned_users"
   accept?: string // For file inputs, specify accepted file types
   maxSize?: number // For file inputs, specify max file size in bytes
   defaultValue?: string | number | boolean // Default value for the field
@@ -117,6 +117,8 @@ export interface NodeField {
   defaultOptions?: { value: string; label: string }[]
   // New field for output data descriptions
   outputType?: "string" | "number" | "array" | "object" | "boolean"
+  // Variable picker support
+  hasVariablePicker?: boolean
 }
 
 export interface NodeOutputField {
@@ -6575,41 +6577,66 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
       { name: "emoji", label: "Reaction", type: "select", dynamic: "discord_reactions", required: true, dependsOn: "messageId", placeholder: "Select a reaction from the message" }
     ]
   },
-  {
-    type: "discord_action_fetch_reactions",
-    title: "Fetch Reactions",
-    description: "List users who reacted to a message.",
-    icon: MessageSquare,
-    providerId: "discord",
-    requiredScopes: ["bot"],
-    category: "Communication",
-    isTrigger: false,
-    configSchema: [
-      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true, placeholder: "Select a Discord server" },
-      { name: "channelId", label: "Channel", type: "select", dynamic: "discord_channels", required: true, dependsOn: "guildId", placeholder: "Select a channel" },
-      { name: "messageId", label: "Message", type: "select", dynamic: "discord_messages", required: true, dependsOn: "channelId", placeholder: "Select a message" },
-      { name: "emoji", label: "Reaction", type: "select", dynamic: "discord_reactions", required: true, dependsOn: "messageId", placeholder: "Select a reaction from the message" }
-    ]
-  },
+
   {
     type: "discord_action_create_channel",
     title: "Create Channel",
-    description: "Create a new text or voice channel.",
+    description: "Create a new Discord channel with advanced configuration options.",
     icon: MessageSquare,
     providerId: "discord",
     requiredScopes: ["bot"],
     category: "Communication",
     isTrigger: false,
     configSchema: [
-      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true },
-      { name: "name", label: "Channel Name", type: "text", required: true },
-      { name: "type", label: "Channel Type", type: "select", options: [ { value: "0", label: "Text" }, { value: "2", label: "Voice" } ], required: true, defaultValue: "0" },
-      { name: "topic", label: "Topic", type: "text", required: false },
-      { name: "parentId", label: "Parent Category ID", type: "text", required: false },
-      { name: "nsfw", label: "NSFW", type: "boolean", required: false },
-      { name: "position", label: "Position", type: "number", required: false }
-    ]
-  },
+      // Basic Settings Tab
+      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true, uiTab: "basic" },
+      { name: "name", label: "Channel Name", type: "text", required: true, uiTab: "basic" },
+      { name: "type", label: "Channel Type", type: "select", options: [
+        { value: "0", label: "Text Channel" },
+        { value: "2", label: "Voice Channel" },
+        { value: "5", label: "Announcement Channel" },
+        { value: "13", label: "Stage Channel" },
+        { value: "15", label: "Forum Channel" },
+        { value: "16", label: "Media Channel" }
+      ], required: true, defaultValue: "0", uiTab: "basic" },
+      { name: "parentId", label: "Category", type: "select", dynamic: "discord_categories", required: false, uiTab: "basic", description: "Category to place this channel in", dependsOn: "guildId" },
+      
+      // Advanced Settings Tab
+      { name: "topic", label: "Topic", type: "text", required: false, uiTab: "advanced", description: "Channel description (text channels only)" },
+      { name: "nsfw", label: "Age-Restricted Channel", type: "boolean", required: false, uiTab: "advanced", description: "Mark channel as age-restricted (NSFW)", defaultValue: false },
+      
+      // Text Channel Specific Fields (uiTab: "advanced")
+      { name: "rateLimitPerUser", label: "Rate Limit Per User", type: "number", required: false, uiTab: "advanced", description: "Slowmode in seconds (0-21600)", min: 0, max: 21600 },
+      { name: "defaultAutoArchiveDuration", label: "Default Auto-Archive Duration", type: "select", required: false, uiTab: "advanced", options: [
+        { value: "60", label: "1 Hour" },
+        { value: "1440", label: "24 Hours" },
+        { value: "4320", label: "3 Days" },
+        { value: "10080", label: "1 Week" }
+      ], description: "Default auto-archive duration for threads" },
+      
+      // Voice Channel Specific Fields (uiTab: "advanced")
+      { name: "bitrate", label: "Bitrate", type: "number", required: false, uiTab: "advanced", description: "Voice channel bitrate (8000-128000)", min: 8000, max: 128000, defaultValue: 64000 },
+      { name: "userLimit", label: "User Limit", type: "number", required: false, uiTab: "advanced", description: "Maximum number of users (0-99, 0 = no limit)", min: 0, max: 99 },
+      { name: "rtcRegion", label: "Voice Region", type: "text", required: false, uiTab: "advanced", description: "Voice region ID (auto, us-east, us-west, etc.)" },
+      
+      // Forum Channel Specific Fields (uiTab: "advanced")
+      { name: "defaultReactionEmoji", label: "Default Reaction Emoji", type: "text", required: false, uiTab: "advanced", description: "Default reaction emoji for forum posts" },
+      { name: "defaultThreadRateLimitPerUser", label: "Default Thread Rate Limit", type: "number", required: false, uiTab: "advanced", description: "Default rate limit per user for threads", min: 0, max: 21600 },
+      { name: "defaultSortOrder", label: "Default Sort Order", type: "select", required: false, uiTab: "advanced", options: [
+        { value: "0", label: "Latest Activity" },
+        { value: "1", label: "Creation Date" }
+      ], description: "Default sort order for forum posts" },
+      { name: "defaultForumLayout", label: "Default Forum Layout", type: "select", required: false, uiTab: "advanced", options: [
+        { value: "0", label: "Not Set" },
+        { value: "1", label: "List View" },
+        { value: "2", label: "Gallery View" }
+      ], description: "Default layout for forum posts" },
+      
+      // Advanced Settings Tab
+      { name: "permissionOverwrites", label: "Permission Overwrites", type: "textarea", required: false, uiTab: "advanced", description: "JSON array of permission overwrites" },
+      { name: "availableTags", label: "Available Tags", type: "textarea", required: false, uiTab: "advanced", description: "JSON array of available tags for forum channels" }
+          ]
+    },
   {
     type: "discord_action_update_channel",
     title: "Update Channel",
@@ -6620,120 +6647,184 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Communication",
     isTrigger: false,
     configSchema: [
-      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true },
-      { name: "channelId", label: "Channel", type: "select", dynamic: "discord_channels", required: true, dependsOn: "guildId" },
-      { name: "name", label: "New Name", type: "text", required: false },
-      { name: "topic", label: "New Topic", type: "text", required: false },
-      { name: "position", label: "Position", type: "number", required: false },
-      { name: "permissionOverwrites", label: "Permission Overwrites (JSON)", type: "textarea", required: false }
+      // Basic Settings Tab
+      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true, uiTab: "basic" },
+      { name: "channelId", label: "Channel", type: "select", dynamic: "discord_channels", required: true, dependsOn: "guildId", uiTab: "basic" },
+      { name: "name", label: "New Name", type: "text", required: false, uiTab: "basic" },
+      
+      // Advanced Settings Tab
+      { name: "topic", label: "Topic", type: "text", required: false, uiTab: "advanced", description: "Channel description (text channels only)" },
+      { name: "nsfw", label: "Age-Restricted Channel", type: "boolean", required: false, uiTab: "advanced", description: "Mark channel as age-restricted (NSFW)", defaultValue: false },
+      
+      // Text Channel Specific Fields (uiTab: "advanced")
+      { name: "rateLimitPerUser", label: "Rate Limit Per User", type: "number", required: false, uiTab: "advanced", description: "Slowmode in seconds (0-21600)", min: 0, max: 21600 },
+      { name: "defaultAutoArchiveDuration", label: "Default Auto-Archive Duration", type: "select", required: false, uiTab: "advanced", options: [
+        { value: "60", label: "1 Hour" },
+        { value: "1440", label: "24 Hours" },
+        { value: "4320", label: "3 Days" },
+        { value: "10080", label: "1 Week" }
+      ], description: "Default auto-archive duration for threads" },
+      
+      // Voice Channel Specific Fields (uiTab: "advanced")
+      { name: "bitrate", label: "Bitrate", type: "number", required: false, uiTab: "advanced", description: "Voice channel bitrate (8000-128000)", min: 8000, max: 128000, defaultValue: 64000 },
+      { name: "userLimit", label: "User Limit", type: "number", required: false, uiTab: "advanced", description: "Maximum number of users (0-99, 0 = no limit)", min: 0, max: 99 },
+      { name: "rtcRegion", label: "Voice Region", type: "text", required: false, uiTab: "advanced", description: "Voice region ID (auto, us-east, us-west, etc.)" },
+      
+      // Forum Channel Specific Fields (uiTab: "advanced")
+      { name: "defaultReactionEmoji", label: "Default Reaction Emoji", type: "text", required: false, uiTab: "advanced", description: "Default reaction emoji for forum posts" },
+      { name: "defaultThreadRateLimitPerUser", label: "Default Thread Rate Limit", type: "number", required: false, uiTab: "advanced", description: "Default rate limit per user for threads", min: 0, max: 21600 },
+      { name: "defaultSortOrder", label: "Default Sort Order", type: "select", required: false, uiTab: "advanced", options: [
+        { value: "0", label: "Latest Activity" },
+        { value: "1", label: "Creation Date" }
+      ], description: "Default sort order for forum posts" },
+      { name: "defaultForumLayout", label: "Default Forum Layout", type: "select", required: false, uiTab: "advanced", options: [
+        { value: "0", label: "Not Set" },
+        { value: "1", label: "List View" },
+        { value: "2", label: "Gallery View" }
+      ], description: "Default layout for forum posts" },
+      
+      // Advanced Settings Tab
+      { name: "position", label: "Position", type: "number", required: false, uiTab: "advanced", description: "Channel position in the list" },
+      { name: "permissionOverwrites", label: "Permission Overwrites", type: "textarea", required: false, uiTab: "advanced", description: "JSON array of permission overwrites" },
+      { name: "availableTags", label: "Available Tags", type: "textarea", required: false, uiTab: "advanced", description: "JSON array of available tags for forum channels" }
     ]
   },
   {
     type: "discord_action_delete_channel",
     title: "Delete Channel",
-    description: "Delete a channel in a Discord server.",
+    description: "Delete a channel in a Discord server with optional filtering.",
     icon: MessageSquare,
     providerId: "discord",
     requiredScopes: ["bot"],
     category: "Communication",
     isTrigger: false,
     configSchema: [
-      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true },
-      { name: "channelId", label: "Channel", type: "select", dynamic: "discord_channels", required: true, dependsOn: "guildId" }
+      // Basic Settings Tab
+      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true, uiTab: "basic" },
+      { name: "channelId", label: "Channel", type: "select", dynamic: "discord_channels", required: true, dependsOn: "guildId", uiTab: "basic" },
+      
+      // Advanced Settings Tab
+      { name: "channelTypes", label: "Channel Types", type: "multi-select", required: false, uiTab: "advanced", description: "Filter by channel types", options: [
+        { value: "0", label: "Text Channels" },
+        { value: "2", label: "Voice Channels" },
+        { value: "4", label: "Categories" },
+        { value: "5", label: "Announcement Channels" },
+        { value: "13", label: "Stage Channels" },
+        { value: "15", label: "Forum Channels" }
+      ]},
+      { name: "nameFilter", label: "Name Filter", type: "text", required: false, uiTab: "advanced", description: "Filter channels by name (case-insensitive)", placeholder: "e.g., general, admin, support" },
+      { name: "parentCategory", label: "Parent Category", type: "select", dynamic: "discord_categories", required: false, uiTab: "advanced", description: "Only show channels in this category", dependsOn: "guildId" }
     ]
   },
   {
     type: "discord_action_list_channels",
-    title: "List Channels",
-    description: "List all channels in a Discord server.",
+    title: "Fetch Channels",
+    description: "List channels in a Discord server with optional filtering.",
     icon: MessageSquare,
     providerId: "discord",
     requiredScopes: ["bot"],
     category: "Communication",
     isTrigger: false,
     configSchema: [
-      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true }
+      // Basic Settings Tab
+      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true, uiTab: "basic" },
+      { name: "limit", label: "Limit", type: "number", required: false, defaultValue: 50, placeholder: "Number of channels to fetch (max 100)", uiTab: "basic" },
+      
+      // Advanced Settings Tab
+      { name: "channelTypes", label: "Channel Types", type: "multi-select", required: false, uiTab: "advanced", description: "Filter by channel types", options: [
+        { value: "0", label: "Text Channels" },
+        { value: "2", label: "Voice Channels" },
+        { value: "4", label: "Categories" },
+        { value: "5", label: "Announcement Channels" },
+        { value: "13", label: "Stage Channels" },
+        { value: "15", label: "Forum Channels" }
+      ]},
+      { name: "nameFilter", label: "Name Filter", type: "text", required: false, uiTab: "advanced", description: "Filter channels by name (case-insensitive)", placeholder: "e.g., general, admin, support" },
+      { name: "sortBy", label: "Sort By", type: "select", required: false, uiTab: "advanced", description: "How to sort the channels", options: [
+        { value: "position", label: "Position (default)" },
+        { value: "name", label: "Name (A-Z)" },
+        { value: "name_desc", label: "Name (Z-A)" },
+        { value: "created", label: "Newest First" },
+        { value: "created_old", label: "Oldest First" }
+      ], defaultValue: "position" },
+      { name: "includeArchived", label: "Include Archived", type: "boolean", required: false, uiTab: "advanced", description: "Include archived channels in results", defaultValue: false },
+      { name: "parentCategory", label: "Parent Category", type: "select", dynamic: "discord_categories", required: false, uiTab: "advanced", description: "Only show channels in this category", dependsOn: "guildId" }
+    ]
+  },
+  {
+    type: "discord_action_create_category",
+    title: "Create Category",
+    description: "Create a new Discord category to organize channels.",
+    icon: MessageSquare,
+    providerId: "discord",
+    requiredScopes: ["bot"],
+    category: "Communication",
+    isTrigger: false,
+    configSchema: [
+      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true, uiTab: "basic" },
+      { name: "name", label: "Category Name", type: "text", required: true, uiTab: "basic" },
+      { name: "private", label: "Private Category", type: "boolean", required: false, uiTab: "basic", description: "Make this category private (only visible to specific roles)", defaultValue: false },
+      
+      // Advanced Settings Tab
+      { name: "position", label: "Position", type: "number", required: false, uiTab: "advanced", description: "Category position in the list" },
+      { name: "permissionOverwrites", label: "Permission Overwrites", type: "textarea", required: false, uiTab: "advanced", description: "JSON array of permission overwrites" }
+    ]
+  },
+  {
+    type: "discord_action_delete_category",
+    title: "Delete Category",
+    description: "Delete a Discord category and optionally move its channels with optional filtering.",
+    icon: MessageSquare,
+    providerId: "discord",
+    requiredScopes: ["bot"],
+    category: "Communication",
+    isTrigger: false,
+    configSchema: [
+      // Basic Settings Tab
+      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true, uiTab: "basic" },
+      { name: "categoryId", label: "Category", type: "select", dynamic: "discord_categories", required: true, dependsOn: "guildId", uiTab: "basic" },
+      { name: "moveChannels", label: "Move Channels to General", type: "boolean", required: false, uiTab: "basic", description: "Move channels from this category to the general area before deleting", defaultValue: true },
+      
+      // Advanced Settings Tab
+      { name: "nameFilter", label: "Name Filter", type: "text", required: false, uiTab: "advanced", description: "Filter categories by name (case-insensitive)", placeholder: "e.g., admin, public, private" },
+      { name: "sortBy", label: "Sort By", type: "select", required: false, uiTab: "advanced", description: "How to sort the categories", options: [
+        { value: "position", label: "Position (default)" },
+        { value: "name", label: "Name (A-Z)" },
+        { value: "name_desc", label: "Name (Z-A)" },
+        { value: "created", label: "Newest First" },
+        { value: "created_old", label: "Oldest First" }
+      ], defaultValue: "position" }
     ]
   },
   {
     type: "discord_action_fetch_guild_members",
     title: "Fetch Guild Members",
-    description: "List members in a Discord server.",
+    description: "List members in a Discord server with optional filtering.",
     icon: MessageSquare,
     providerId: "discord",
     requiredScopes: ["bot"],
     category: "Communication",
     isTrigger: false,
     configSchema: [
-      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true },
-      { name: "limit", label: "Limit", type: "number", required: false, defaultValue: 50, placeholder: "Number of members (max 1000)" },
-      { name: "after", label: "After (User ID)", type: "text", required: false, placeholder: "Fetch after this user ID" }
+      // Basic Settings Tab
+      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true, uiTab: "basic" },
+      { name: "limit", label: "Limit", type: "number", required: false, defaultValue: 50, placeholder: "Number of members (max 1000)", uiTab: "basic" },
+      
+      // Advanced Settings Tab
+      { name: "nameFilter", label: "Name Filter", type: "text", required: false, uiTab: "advanced", description: "Filter members by username or nickname (case-insensitive)", placeholder: "e.g., admin, moderator, john" },
+      { name: "roleFilter", label: "Role Filter", type: "select", dynamic: "discord_roles", required: false, uiTab: "advanced", description: "Only show members with this role", dependsOn: "guildId" },
+      { name: "sortBy", label: "Sort By", type: "select", required: false, uiTab: "advanced", description: "How to sort the members", options: [
+        { value: "joined", label: "Join Date (newest first)" },
+        { value: "joined_old", label: "Join Date (oldest first)" },
+        { value: "name", label: "Name (A-Z)" },
+        { value: "name_desc", label: "Name (Z-A)" },
+        { value: "username", label: "Username (A-Z)" },
+        { value: "username_desc", label: "Username (Z-A)" }
+      ], defaultValue: "joined" },
+      { name: "includeBots", label: "Include Bots", type: "boolean", required: false, uiTab: "advanced", description: "Include bot users in results", defaultValue: false }
     ]
   },
-  {
-    type: "discord_action_fetch_roles",
-    title: "Fetch Roles",
-    description: "List all roles in a Discord server.",
-    icon: MessageSquare,
-    providerId: "discord",
-    requiredScopes: ["bot"],
-    category: "Communication",
-    isTrigger: false,
-    configSchema: [
-      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true }
-    ]
-  },
-  {
-    type: "discord_action_create_role",
-    title: "Create Role",
-    description: "Create a new role in a Discord server.",
-    icon: MessageSquare,
-    providerId: "discord",
-    requiredScopes: ["bot"],
-    category: "Communication",
-    isTrigger: false,
-    configSchema: [
-      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true },
-      { name: "name", label: "Role Name", type: "text", required: true },
-      { name: "color", label: "Color (hex)", type: "text", required: false },
-      { name: "permissions", label: "Permissions (bitwise)", type: "text", required: false },
-      { name: "hoist", label: "Display Separately", type: "boolean", required: false },
-      { name: "mentionable", label: "Mentionable", type: "boolean", required: false }
-    ]
-  },
-  {
-    type: "discord_action_update_role",
-    title: "Update Role",
-    description: "Update a role's name, color, or permissions.",
-    icon: MessageSquare,
-    providerId: "discord",
-    requiredScopes: ["bot"],
-    category: "Communication",
-    isTrigger: false,
-    configSchema: [
-      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true },
-      { name: "roleId", label: "Role", type: "select", dynamic: "discord_roles", required: true, dependsOn: "guildId" },
-      { name: "name", label: "New Name", type: "text", required: false },
-      { name: "color", label: "New Color (hex)", type: "text", required: false },
-      { name: "permissions", label: "Permissions (bitwise)", type: "text", required: false },
-      { name: "hoist", label: "Display Separately", type: "boolean", required: false },
-      { name: "mentionable", label: "Mentionable", type: "boolean", required: false }
-    ]
-  },
-  {
-    type: "discord_action_delete_role",
-    title: "Delete Role",
-    description: "Delete a role in a Discord server.",
-    icon: MessageSquare,
-    providerId: "discord",
-    requiredScopes: ["bot"],
-    category: "Communication",
-    isTrigger: false,
-    configSchema: [
-      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true },
-      { name: "roleId", label: "Role", type: "select", dynamic: "discord_roles", required: true, dependsOn: "guildId" }
-    ]
-  },
+
   {
     type: "discord_action_assign_role",
     title: "Assign Role to Member",
@@ -6745,7 +6836,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     isTrigger: false,
     configSchema: [
       { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true, placeholder: "Select a Discord server" },
-      { name: "userId", label: "Member", type: "select", dynamic: "discord_members", required: true, dependsOn: "guildId", placeholder: "Select a member" },
+      { name: "userId", label: "Member", type: "select", dynamic: "discord_members", required: true, dependsOn: "guildId", placeholder: "Select a member", hasVariablePicker: true },
       { name: "roleId", label: "Role", type: "select", dynamic: "discord_roles", required: true, dependsOn: "guildId", placeholder: "Select a role" }
     ]
   },
@@ -6760,7 +6851,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     isTrigger: false,
     configSchema: [
       { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true, placeholder: "Select a Discord server" },
-      { name: "userId", label: "Member", type: "select", dynamic: "discord_members", required: true, dependsOn: "guildId", placeholder: "Select a member" },
+      { name: "userId", label: "Member", type: "select", dynamic: "discord_members", required: true, dependsOn: "guildId", placeholder: "Select a member", hasVariablePicker: true },
       { name: "roleId", label: "Role", type: "select", dynamic: "discord_roles", required: true, dependsOn: "guildId", placeholder: "Select a role" }
     ]
   },

@@ -4,6 +4,71 @@ import { resolveValue } from './core/resolveValue'
 import { updateDiscordPresenceForAction } from '@/lib/integrations/discordGateway'
 
 /**
+ * Verify that the Discord bot is actually a member of the specified guild
+ */
+async function verifyBotInGuild(guildId: string): Promise<boolean> {
+  try {
+    const botToken = process.env.DISCORD_BOT_TOKEN
+    const botUserId = process.env.DISCORD_BOT_USER_ID
+
+    if (!botToken || !botUserId) {
+      console.error("Missing Discord bot credentials")
+      return false
+    }
+
+    // Method 1: Check guild members list
+    try {
+      const guildMembersUrl = `https://discord.com/api/v10/guilds/${guildId}/members?limit=1000`
+      const guildResponse = await fetch(guildMembersUrl, {
+        headers: { 
+          Authorization: `Bot ${botToken}`,
+          "Content-Type": "application/json"
+        }
+      })
+
+      if (guildResponse.status === 200) {
+        const members = await guildResponse.json()
+        const botMember = members.find((member: any) => member.user?.id === botUserId)
+        
+        if (botMember) {
+          console.log(`✅ Bot verified as member of guild ${guildId}`)
+          return true
+        }
+      }
+    } catch (error) {
+      console.error("Error checking guild members:", error)
+    }
+
+    // Method 2: Direct member check as fallback
+    try {
+      const memberUrl = `https://discord.com/api/v10/guilds/${guildId}/members/${botUserId}`
+      const memberResponse = await fetch(memberUrl, {
+        headers: { 
+          Authorization: `Bot ${botToken}`,
+          "Content-Type": "application/json"
+        }
+      })
+
+      if (memberResponse.status === 200) {
+        const memberData = await memberResponse.json()
+        if (memberData.user?.id === botUserId) {
+          console.log(`✅ Bot verified in guild ${guildId} via direct check`)
+          return true
+        }
+      }
+    } catch (error) {
+      console.error("Error in direct member check:", error)
+    }
+
+    console.log(`❌ Bot is not a member of guild ${guildId}`)
+    return false
+  } catch (error) {
+    console.error("Error verifying bot in guild:", error)
+    return false
+  }
+}
+
+/**
  * Send a message to a Discord channel
  */
 export async function sendDiscordMessage(
@@ -54,6 +119,12 @@ export async function sendDiscordMessage(
     const botToken = process.env.DISCORD_BOT_TOKEN
     if (!botToken) {
       throw new Error("Discord bot token not configured")
+    }
+
+    // Verify bot is actually in the guild
+    const botInGuild = await verifyBotInGuild(guildId)
+    if (!botInGuild) {
+      throw new Error(`Discord bot is not a member of the specified server. Please add the bot to the server first.`)
     }
 
     // Check if bot is in the guild
@@ -134,6 +205,263 @@ export async function sendDiscordMessage(
 }
 
 /**
+ * Create a Discord category
+ */
+export async function createDiscordCategory(
+  config: any,
+  userId: string,
+  input: Record<string, any>
+): Promise<ActionResult> {
+  try {
+    const resolvedConfig = resolveValue(config, { input })
+    
+    const {
+      guildId,
+      name,
+      private: isPrivate = false,
+      position,
+      permissionOverwrites = []
+    } = resolvedConfig
+
+    if (!guildId || !name) {
+      throw new Error("Guild ID and category name are required")
+    }
+
+    // Get Discord integration
+    const { createSupabaseServerClient } = await import("@/utils/supabase/server")
+    const supabase = await createSupabaseServerClient()
+    
+    const { data: integration } = await supabase
+      .from("integrations")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("provider", "discord")
+      .eq("status", "connected")
+      .single()
+
+    if (!integration) {
+      throw new Error("Discord integration not connected")
+    }
+
+    // Get bot token
+    const botToken = process.env.DISCORD_BOT_TOKEN
+    if (!botToken) {
+      throw new Error("Discord bot token not configured")
+    }
+
+    // Verify bot is actually in the guild
+    const botInGuild = await verifyBotInGuild(guildId)
+    if (!botInGuild) {
+      throw new Error(`Discord bot is not a member of the specified server. Please add the bot to the server first.`)
+    }
+
+    // Check if bot is in the guild
+    const botUserId = process.env.DISCORD_BOT_USER_ID
+    if (!botUserId) {
+      throw new Error("Discord bot user ID not configured")
+    }
+
+    // Verify bot is in the guild and ensure it's online
+    updateDiscordPresenceForAction()
+
+    // Prepare category payload
+    const payload: any = {
+      name,
+      type: 4 // Category type
+    }
+
+    if (position !== undefined) {
+      payload.position = position
+    }
+
+    // Handle private category by setting up permission overwrites
+    let finalPermissionOverwrites = [...permissionOverwrites]
+    
+    if (isPrivate) {
+      // For private categories, deny view permissions to @everyone role
+      // This makes the category only visible to roles that have explicit allow permissions
+      const everyoneDenyOverwrite = {
+        id: guildId, // @everyone role ID is the same as guild ID
+        type: 0, // 0 for role, 1 for member
+        allow: "0",
+        deny: "1024" // VIEW_CHANNEL permission bit
+      }
+      
+      // Add the @everyone deny overwrite if it's not already present
+      const hasEveryoneOverwrite = finalPermissionOverwrites.some((overwrite: any) => 
+        overwrite.id === guildId && overwrite.type === 0
+      )
+      
+      if (!hasEveryoneOverwrite) {
+        finalPermissionOverwrites.push(everyoneDenyOverwrite)
+      }
+    }
+
+    if (finalPermissionOverwrites.length > 0) {
+      payload.permission_overwrites = finalPermissionOverwrites
+    }
+
+    // Create category
+    const response = await fetch(`https://discord.com/api/v10/guilds/${guildId}/channels`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bot ${botToken}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(`Discord API error: ${response.status} - ${errorData.message || response.statusText}`)
+    }
+
+    const result = await response.json()
+
+    return {
+      success: true,
+      output: {
+        categoryId: result.id,
+        guildId: guildId,
+        name: result.name,
+        type: result.type,
+        position: result.position,
+        permissionOverwrites: result.permission_overwrites,
+        discordResponse: result
+      },
+      message: `Category "${name}" created successfully in Discord server`
+    }
+
+  } catch (error: any) {
+    return {
+      success: false,
+      output: {},
+      message: error.message || "Failed to create Discord category"
+    }
+  }
+}
+
+/**
+ * Delete a Discord category
+ */
+export async function deleteDiscordCategory(
+  config: any,
+  userId: string,
+  input: Record<string, any>
+): Promise<ActionResult> {
+  try {
+    const resolvedConfig = resolveValue(config, { input })
+    
+    const {
+      guildId,
+      categoryId,
+      moveChannels = true
+    } = resolvedConfig
+
+    if (!guildId || !categoryId) {
+      throw new Error("Guild ID and category ID are required")
+    }
+
+    // Get Discord integration
+    const { createSupabaseServerClient } = await import("@/utils/supabase/server")
+    const supabase = await createSupabaseServerClient()
+    
+    const { data: integration } = await supabase
+      .from("integrations")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("provider", "discord")
+      .eq("status", "connected")
+      .single()
+
+    if (!integration) {
+      throw new Error("Discord integration not connected")
+    }
+
+    // Get bot token
+    const botToken = process.env.DISCORD_BOT_TOKEN
+    if (!botToken) {
+      throw new Error("Discord bot token not configured")
+    }
+
+    // Verify bot is actually in the guild
+    const botInGuild = await verifyBotInGuild(guildId)
+    if (!botInGuild) {
+      throw new Error(`Discord bot is not a member of the specified server. Please add the bot to the server first.`)
+    }
+
+    // Verify bot is in the guild and ensure it's online
+    updateDiscordPresenceForAction()
+
+    // If moveChannels is true, first move all channels out of the category
+    if (moveChannels) {
+      try {
+        // Get all channels in the category
+        const channelsResponse = await fetch(`https://discord.com/api/v10/guilds/${guildId}/channels`, {
+          headers: { Authorization: `Bot ${botToken}` }
+        })
+
+        if (channelsResponse.ok) {
+          const channels = await channelsResponse.json()
+          const categoryChannels = channels.filter((channel: any) => channel.parent_id === categoryId)
+
+          // Move each channel to the general area (no parent_id)
+          for (const channel of categoryChannels) {
+            await fetch(`https://discord.com/api/v10/channels/${channel.id}`, {
+              method: "PATCH",
+              headers: {
+                Authorization: `Bot ${botToken}`,
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({
+                parent_id: null
+              })
+            })
+          }
+
+          console.log(`Moved ${categoryChannels.length} channels out of category ${categoryId}`)
+        }
+      } catch (error) {
+        console.warn("Failed to move channels out of category:", error)
+        // Continue with deletion even if moving channels fails
+      }
+    }
+
+    // Delete the category
+    const response = await fetch(`https://discord.com/api/v10/channels/${categoryId}`, {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bot ${botToken}`,
+        "Content-Type": "application/json"
+      }
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(`Discord API error: ${response.status} - ${errorData.message || response.statusText}`)
+    }
+
+    return {
+      success: true,
+      output: {
+        categoryId: categoryId,
+        guildId: guildId,
+        movedChannels: moveChannels,
+        discordResponse: { deleted: true }
+      },
+      message: `Category deleted successfully${moveChannels ? " (channels moved to general area)" : ""}`
+    }
+
+  } catch (error: any) {
+    return {
+      success: false,
+      output: {},
+      message: error.message || "Failed to delete Discord category"
+    }
+  }
+}
+
+/**
  * Create a Discord channel
  */
 export async function createDiscordChannel(
@@ -147,12 +475,30 @@ export async function createDiscordChannel(
     const {
       guildId,
       name,
-      type = 0, // 0 = text channel, 2 = voice channel
+      type = 0,
       topic,
       nsfw = false,
       parentId,
       position,
-      permissionOverwrites = []
+      // Text channel specific fields
+      rateLimitPerUser,
+      defaultAutoArchiveDuration,
+      // Voice channel specific fields
+      bitrate,
+      userLimit,
+      rtcRegion,
+      // Forum channel specific fields
+      defaultReactionEmoji,
+      defaultThreadRateLimitPerUser,
+      defaultSortOrder,
+      defaultForumLayout,
+      // Advanced fields
+      permissionOverwrites = [],
+      availableTags,
+      defaultAutoArchiveDurationAdvanced,
+      defaultThreadRateLimitPerUserAdvanced,
+      bitrateAdvanced,
+      userLimitAdvanced
     } = resolvedConfig
 
     if (!guildId || !name) {
@@ -181,17 +527,70 @@ export async function createDiscordChannel(
       throw new Error("Discord bot token not configured")
     }
 
+    // Verify bot is actually in the guild
+    const botInGuild = await verifyBotInGuild(guildId)
+    if (!botInGuild) {
+      throw new Error(`Discord bot is not a member of the specified server. Please add the bot to the server first.`)
+    }
+
     // Create channel payload
     const payload: any = {
       name: name,
-      type: type,
-      topic: topic,
+      type: parseInt(type),
       nsfw: nsfw
     }
 
+    // Add topic only for text-based channels (0, 5, 15, 16)
+    if (topic && [0, 5, 15, 16].includes(parseInt(type))) {
+      payload.topic = topic
+    }
+
+    // Add parent category if specified
     if (parentId) payload.parent_id = parentId
+    
+    // Add position if specified
     if (position !== undefined) payload.position = position
-    if (permissionOverwrites.length > 0) payload.permission_overwrites = permissionOverwrites
+
+    // Add text channel specific fields
+    if (rateLimitPerUser !== undefined) payload.rate_limit_per_user = rateLimitPerUser
+    if (defaultAutoArchiveDuration !== undefined) payload.default_auto_archive_duration = parseInt(defaultAutoArchiveDuration)
+    
+    // Add voice channel specific fields
+    if (bitrate !== undefined) payload.bitrate = bitrate
+    if (userLimit !== undefined) payload.user_limit = userLimit
+    if (rtcRegion) payload.rtc_region = rtcRegion
+    
+    // Add forum channel specific fields
+    if (defaultReactionEmoji) payload.default_reaction_emoji = defaultReactionEmoji
+    if (defaultThreadRateLimitPerUser !== undefined) payload.default_thread_rate_limit_per_user = defaultThreadRateLimitPerUser
+    if (defaultSortOrder !== undefined) payload.default_sort_order = parseInt(defaultSortOrder)
+    if (defaultForumLayout !== undefined) payload.default_forum_layout = parseInt(defaultForumLayout)
+    
+    // Add advanced fields (these override basic fields if both are provided)
+    if (defaultAutoArchiveDurationAdvanced !== undefined) payload.default_auto_archive_duration = defaultAutoArchiveDurationAdvanced
+    if (defaultThreadRateLimitPerUserAdvanced !== undefined) payload.default_thread_rate_limit_per_user = defaultThreadRateLimitPerUserAdvanced
+    if (bitrateAdvanced !== undefined) payload.bitrate = bitrateAdvanced
+    if (userLimitAdvanced !== undefined) payload.user_limit = userLimitAdvanced
+    
+    // Add permission overwrites if specified
+    if (permissionOverwrites && permissionOverwrites.length > 0) {
+      try {
+        const parsedOverwrites = typeof permissionOverwrites === 'string' ? JSON.parse(permissionOverwrites) : permissionOverwrites
+        payload.permission_overwrites = parsedOverwrites
+      } catch (error) {
+        console.warn('Invalid permission overwrites format:', error)
+      }
+    }
+    
+    // Add available tags for forum channels
+    if (availableTags && parseInt(type) === 15) {
+      try {
+        const parsedTags = typeof availableTags === 'string' ? JSON.parse(availableTags) : availableTags
+        payload.available_tags = parsedTags
+      } catch (error) {
+        console.warn('Invalid available tags format:', error)
+      }
+    }
 
     // Create channel
     const response = await fetch(`https://discord.com/api/v10/guilds/${guildId}/channels`, {
@@ -221,6 +620,10 @@ export async function createDiscordChannel(
         nsfw: result.nsfw,
         parentId: result.parent_id,
         position: result.position,
+        bitrate: result.bitrate,
+        userLimit: result.user_limit,
+        rateLimitPerUser: result.rate_limit_per_user,
+        defaultAutoArchiveDuration: result.default_auto_archive_duration,
         discordResponse: result
       },
       message: `Discord channel #${result.name} created successfully`
@@ -804,26 +1207,7 @@ export async function removeDiscordReaction(config: any, userId: string, input: 
   }
 }
 
-/**
- * Fetch users who reacted to a message
- */
-export async function fetchDiscordReactions(config: any, userId: string, input: Record<string, any>) {
-  try {
-    const resolvedConfig = resolveValue(config, { input })
-    const { channelId, messageId, emoji } = resolvedConfig
-    const botToken = process.env.DISCORD_BOT_TOKEN
-    if (!botToken) throw new Error("Discord bot token not configured")
-    const emojiEncoded = encodeURIComponent(emoji)
-    const response = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages/${messageId}/reactions/${emojiEncoded}`, {
-      headers: { Authorization: `Bot ${botToken}` }
-    })
-    if (!response.ok) throw new Error(`Failed to fetch reactions: ${response.status}`)
-    const data = await response.json()
-    return { success: true, output: data, message: `Fetched ${data.length} users who reacted` }
-  } catch (error: any) {
-    return { success: false, output: {}, message: error.message || "Failed to fetch reactions" }
-  }
-} 
+ 
 
 /**
  * Edit a Discord channel
@@ -870,42 +1254,183 @@ export async function deleteDiscordChannel(config: any, userId: string, input: R
 }
 
 /**
- * List channels in a guild
+ * List channels in a guild with filtering
  */
 export async function listDiscordChannels(config: any, userId: string, input: Record<string, any>) {
   try {
     const resolvedConfig = resolveValue(config, { input })
-    const { guildId } = resolvedConfig
+    const { 
+      guildId, 
+      limit = 50, 
+      channelTypes, 
+      nameFilter, 
+      sortBy = "position", 
+      includeArchived = false,
+      parentCategory 
+    } = resolvedConfig
+    
     if (!guildId) throw new Error("Guild ID is required")
     const botToken = process.env.DISCORD_BOT_TOKEN
     if (!botToken) throw new Error("Discord bot token not configured")
+    
     const response = await fetch(`https://discord.com/api/v10/guilds/${guildId}/channels`, {
       headers: { Authorization: `Bot ${botToken}` }
     })
+    
     if (!response.ok) throw new Error(`Failed to list channels: ${response.status}`)
-    const data = await response.json()
-    return { success: true, output: data, message: `Fetched ${data.length} channels` }
+    let data = await response.json()
+    
+    // Apply filters
+    if (channelTypes && Array.isArray(channelTypes) && channelTypes.length > 0) {
+      data = data.filter((channel: any) => channelTypes.includes(channel.type.toString()))
+    }
+    
+    if (nameFilter && nameFilter.trim()) {
+      const filterLower = nameFilter.toLowerCase()
+      data = data.filter((channel: any) => 
+        channel.name && channel.name.toLowerCase().includes(filterLower)
+      )
+    }
+    
+    if (parentCategory) {
+      data = data.filter((channel: any) => channel.parent_id === parentCategory)
+    }
+    
+    if (!includeArchived) {
+      data = data.filter((channel: any) => !channel.archived)
+    }
+    
+    // Apply sorting
+    switch (sortBy) {
+      case "name":
+        data.sort((a: any, b: any) => a.name.localeCompare(b.name))
+        break
+      case "name_desc":
+        data.sort((a: any, b: any) => b.name.localeCompare(a.name))
+        break
+      case "created":
+        data.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        break
+      case "created_old":
+        data.sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+        break
+      case "position":
+      default:
+        data.sort((a: any, b: any) => a.position - b.position)
+        break
+    }
+    
+    // Apply limit
+    if (limit && limit > 0) {
+      data = data.slice(0, limit)
+    }
+    
+    return { 
+      success: true, 
+      output: data, 
+      message: `Fetched ${data.length} channels with applied filters` 
+    }
   } catch (error: any) {
     return { success: false, output: {}, message: error.message || "Failed to list channels" }
   }
 }
 
 /**
- * Fetch guild members
+ * Fetch guild members with filtering
  */
 export async function fetchDiscordGuildMembers(config: any, userId: string, input: Record<string, any>) {
   try {
     const resolvedConfig = resolveValue(config, { input })
-    const { guildId, limit = 50, after } = resolvedConfig
+    const { 
+      guildId, 
+      limit = 50, 
+      nameFilter, 
+      roleFilter, 
+      sortBy = "joined", 
+      includeBots = false 
+    } = resolvedConfig
+    
     if (!guildId) throw new Error("Guild ID is required")
     const botToken = process.env.DISCORD_BOT_TOKEN
     if (!botToken) throw new Error("Discord bot token not configured")
-    let url = `https://discord.com/api/v10/guilds/${guildId}/members?limit=${limit}`
-    if (after) url += `&after=${after}`
-    const response = await fetch(url, { headers: { Authorization: `Bot ${botToken}` } })
+    
+    // Fetch members (Discord API doesn't support filtering, so we fetch all and filter client-side)
+    const response = await fetch(`https://discord.com/api/v10/guilds/${guildId}/members?limit=1000`, { 
+      headers: { Authorization: `Bot ${botToken}` } 
+    })
+    
     if (!response.ok) throw new Error(`Failed to fetch members: ${response.status}`)
-    const data = await response.json()
-    return { success: true, output: data, message: `Fetched ${data.length} members` }
+    let data = await response.json()
+    
+    // Apply filters
+    if (!includeBots) {
+      data = data.filter((member: any) => !member.user?.bot)
+    }
+    
+    if (nameFilter && nameFilter.trim()) {
+      const filterLower = nameFilter.toLowerCase()
+      data = data.filter((member: any) => {
+        const username = member.user?.username || ""
+        const nickname = member.nick || ""
+        return username.toLowerCase().includes(filterLower) || 
+               nickname.toLowerCase().includes(filterLower)
+      })
+    }
+    
+    if (roleFilter) {
+      data = data.filter((member: any) => 
+        member.roles && member.roles.includes(roleFilter)
+      )
+    }
+    
+    // Apply sorting
+    switch (sortBy) {
+      case "joined":
+        data.sort((a: any, b: any) => new Date(b.joined_at).getTime() - new Date(a.joined_at).getTime())
+        break
+      case "joined_old":
+        data.sort((a: any, b: any) => new Date(a.joined_at).getTime() - new Date(b.joined_at).getTime())
+        break
+      case "name":
+        data.sort((a: any, b: any) => {
+          const nameA = (a.nick || a.user?.username || "").toLowerCase()
+          const nameB = (b.nick || b.user?.username || "").toLowerCase()
+          return nameA.localeCompare(nameB)
+        })
+        break
+      case "name_desc":
+        data.sort((a: any, b: any) => {
+          const nameA = (a.nick || a.user?.username || "").toLowerCase()
+          const nameB = (b.nick || b.user?.username || "").toLowerCase()
+          return nameB.localeCompare(nameA)
+        })
+        break
+      case "username":
+        data.sort((a: any, b: any) => {
+          const usernameA = (a.user?.username || "").toLowerCase()
+          const usernameB = (b.user?.username || "").toLowerCase()
+          return usernameA.localeCompare(usernameB)
+        })
+        break
+      case "username_desc":
+        data.sort((a: any, b: any) => {
+          const usernameA = (a.user?.username || "").toLowerCase()
+          const usernameB = (b.user?.username || "").toLowerCase()
+          return usernameB.localeCompare(usernameA)
+        })
+        break
+    }
+    
+    // Apply limit
+    if (limit && limit > 0) {
+      data = data.slice(0, limit)
+    }
+    
+    return { 
+      success: true, 
+      output: data, 
+      message: `Fetched ${data.length} members with applied filters` 
+    }
   } catch (error: any) {
     return { success: false, output: {}, message: error.message || "Failed to fetch members" }
   }
