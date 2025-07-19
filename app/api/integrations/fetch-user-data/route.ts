@@ -1779,6 +1779,254 @@ const dataFetchers: DataFetcher = {
       throw error
     }
   },
+
+  "hubspot_job_titles": async (integration: any) => {
+    try {
+      // Fetch contacts to get unique job titles
+      const response = await fetch(
+        "https://api.hubapi.com/crm/v3/objects/contacts?limit=100&properties=jobtitle",
+        {
+          headers: {
+            Authorization: `Bearer ${integration.access_token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      )
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("HubSpot authentication expired. Please reconnect your account.")
+        }
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(`HubSpot API error: ${response.status} - ${errorData.message || "Unknown error"}`)
+      }
+      const data = await response.json()
+      
+      // Extract unique job titles
+      const jobTitles = new Set<string>()
+      data.results?.forEach((contact: any) => {
+        if (contact.properties.jobtitle) {
+          jobTitles.add(contact.properties.jobtitle)
+        }
+      })
+
+      return Array.from(jobTitles).map((jobTitle) => ({
+        value: jobTitle,
+        label: jobTitle,
+      }))
+    } catch (error: any) {
+      console.error("Error fetching HubSpot job titles:", error)
+      throw error
+    }
+  },
+
+  "hubspot_departments": async (integration: any) => {
+    try {
+      // Fetch contacts to get unique departments
+      const response = await fetch(
+        "https://api.hubapi.com/crm/v3/objects/contacts?limit=100&properties=department",
+        {
+          headers: {
+            Authorization: `Bearer ${integration.access_token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      )
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("HubSpot authentication expired. Please reconnect your account.")
+        }
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(`HubSpot API error: ${response.status} - ${errorData.message || "Unknown error"}`)
+      }
+      const data = await response.json()
+      
+      // Extract unique departments
+      const departments = new Set<string>()
+      data.results?.forEach((contact: any) => {
+        if (contact.properties.department) {
+          departments.add(contact.properties.department)
+        }
+      })
+
+      return Array.from(departments).map((department) => ({
+        value: department,
+        label: department,
+      }))
+    } catch (error: any) {
+      console.error("Error fetching HubSpot departments:", error)
+      throw error
+    }
+  },
+
+  "hubspot_industries": async (integration: any) => {
+    try {
+      // Fetch companies to get unique industries
+      const response = await fetch(
+        "https://api.hubapi.com/crm/v3/objects/companies?limit=100&properties=industry",
+        {
+          headers: {
+            Authorization: `Bearer ${integration.access_token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      )
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("HubSpot authentication expired. Please reconnect your account.")
+        }
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(`HubSpot API error: ${response.status} - ${errorData.message || "Unknown error"}`)
+      }
+      const data = await response.json()
+      
+      // Extract unique industries
+      const industries = new Set<string>()
+      data.results?.forEach((company: any) => {
+        if (company.properties.industry) {
+          industries.add(company.properties.industry)
+        }
+      })
+
+      return Array.from(industries).map((industry) => ({
+        value: industry,
+        label: industry,
+      }))
+    } catch (error: any) {
+      console.error("Error fetching HubSpot industries:", error)
+      throw error
+    }
+  },
+
+  "hubspot_contact_properties": async (integration: any) => {
+    try {
+      // Fetch all contact properties from HubSpot
+      const response = await fetch(
+        "https://api.hubapi.com/crm/v3/properties/contacts",
+        {
+          headers: {
+            Authorization: `Bearer ${integration.access_token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      )
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("HubSpot authentication expired. Please reconnect your account.")
+        }
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(`HubSpot API error: ${response.status} - ${errorData.message || "Unknown error"}`)
+      }
+      const data = await response.json()
+      
+      // Filter and format properties
+      const properties = data.results
+        ?.filter((prop: any) => {
+          // Exclude system properties and internal properties
+          return !prop.name.startsWith('hs_') && 
+                 !prop.name.startsWith('_') && 
+                 prop.name !== 'email' && // We handle email separately
+                 prop.modificationMetadata?.archivable !== false // Only include user-created properties
+        })
+        ?.map((prop: any) => ({
+          name: prop.name,
+          label: prop.label || prop.name,
+          type: prop.fieldType || 'text',
+          groupName: prop.groupName || 'Custom Properties',
+          description: prop.description || '',
+          options: prop.options?.map((opt: any) => ({
+            value: opt.value,
+            label: opt.label || opt.value
+          })) || []
+        }))
+        ?.sort((a: any, b: any) => a.label.localeCompare(b.label)) || []
+
+      return properties
+    } catch (error: any) {
+      console.error("Error fetching HubSpot contact properties:", error)
+      throw error
+    }
+  },
+
+  "hubspot_contact_schema": async (integration: any) => {
+    try {
+      // Fetch all contact properties from HubSpot with full metadata
+      const response = await fetch(
+        "https://api.hubapi.com/crm/v3/properties/contacts",
+        {
+          headers: {
+            Authorization: `Bearer ${integration.access_token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      )
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("HubSpot authentication expired. Please reconnect your account.")
+        }
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(`HubSpot API error: ${response.status} - ${errorData.message || "Unknown error"}`)
+      }
+      const data = await response.json()
+      
+      // Filter for contact table fields only
+      // HubSpot contact properties are organized by groups
+      // The "contactinformation" group contains the standard contact fields
+      const contactGroups = ["contactinformation", "contact information", "core contact information"];
+      
+      // Define common contact fields that should always be included
+      const commonContactFields = [
+        "email", "firstname", "lastname", "phone", "address", "city", 
+        "state", "zip", "country", "company", "jobtitle", "website"
+      ];
+      
+      // Filter properties that belong to contact table
+      const properties = data.results?.filter((prop: any) => {
+        // Include properties from contact information groups
+        const isContactGroup = contactGroups.includes(prop.groupName?.toLowerCase());
+        
+        // Also include common contact properties regardless of group
+        const isCommonField = commonContactFields.includes(prop.name);
+        
+        // Include properties that are marked as form fields
+        const isFormField = prop.formField === true;
+        
+        return isContactGroup || isCommonField || isFormField;
+      })
+        ?.map((prop: any) => ({
+          name: prop.name,
+          label: prop.label || prop.name,
+          type: prop.fieldType || 'text',
+          fieldType: prop.fieldType,
+          groupName: prop.groupName || 'Contact Properties',
+          description: prop.description || '',
+          required: prop.required || false,
+          formField: prop.formField || false,
+          options: prop.options?.map((opt: any) => ({
+            value: opt.value,
+            label: opt.label || opt.value
+          })) || [],
+          min: prop.min,
+          max: prop.max,
+          placeholder: prop.placeholder || '',
+          defaultValue: prop.defaultValue,
+          modificationMetadata: prop.modificationMetadata,
+          createdAt: prop.createdAt,
+          updatedAt: prop.updatedAt
+        }))
+        ?.sort((a: any, b: any) => {
+          // Sort by required first, then by group, then by label
+          if (a.required && !b.required) return -1;
+          if (!a.required && b.required) return 1;
+          if (a.groupName !== b.groupName) return a.groupName.localeCompare(b.groupName);
+          return a.label.localeCompare(b.label);
+        }) || []
+
+      return properties
+    } catch (error: any) {
+      console.error("Error fetching HubSpot contact schema:", error)
+      throw error
+    }
+  },
   "airtable_bases": async (integration: any) => {
     try {
       const response = await fetchAirtableWithRetry(
