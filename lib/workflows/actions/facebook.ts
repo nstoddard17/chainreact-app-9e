@@ -558,8 +558,26 @@ export async function getFacebookPageInsights(
       .update(pageAccessToken)
       .digest('hex')
 
-    // Build the insights URL
-    const insightsUrl = `https://graph.facebook.com/v19.0/${pageId}/insights?metric=${metric}&period=${period}&since=${periodCount}&appsecret_proof=${appsecretProof}`
+    // Build the insights URL - calculate the since date based on periodCount
+    const now = new Date();
+    let sinceDate: Date;
+    
+    switch (period) {
+      case 'day':
+        sinceDate = new Date(now.getTime() - (periodCount * 24 * 60 * 60 * 1000));
+        break;
+      case 'week':
+        sinceDate = new Date(now.getTime() - (periodCount * 7 * 24 * 60 * 60 * 1000));
+        break;
+      case 'month':
+        sinceDate = new Date(now.getTime() - (periodCount * 30 * 24 * 60 * 60 * 1000));
+        break;
+      default:
+        sinceDate = new Date(now.getTime() - (periodCount * 24 * 60 * 60 * 1000));
+    }
+    
+    const sinceTimestamp = Math.floor(sinceDate.getTime() / 1000);
+    const insightsUrl = `https://graph.facebook.com/v19.0/${pageId}/insights?metric=${metric}&period=${period}&since=${sinceTimestamp}&appsecret_proof=${appsecretProof}`
 
     const response = await fetch(insightsUrl, {
       headers: {

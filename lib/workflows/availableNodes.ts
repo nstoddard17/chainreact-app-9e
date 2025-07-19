@@ -4849,8 +4849,8 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "facebook_action_get_page_insights",
-    title: "Get Page Insights (Facebook)",
-    description: "Get analytics data for a Facebook page",
+    title: "Fetch Page Insights (Facebook)",
+    description: "Fetch analytics data for a Facebook page",
     icon: BarChart,
     providerId: "facebook",
     requiredScopes: ["pages_read_engagement"],
