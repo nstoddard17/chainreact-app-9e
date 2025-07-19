@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
-import { X, Upload, File, AlertCircle } from 'lucide-react'
+import { X, Upload, File, AlertCircle, Image as ImageIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface FileUploadProps {
@@ -20,6 +20,8 @@ interface UploadedFile {
   id: string
   progress: number
   error?: string
+  isFileId?: boolean
+  previewUrl?: string
 }
 
 export function FileUpload({
@@ -40,16 +42,52 @@ export function FileUpload({
   // Initialize uploaded files from value prop
   useEffect(() => {
     if (value && value.length > 0) {
-      const initialFiles: UploadedFile[] = Array.from(value).map((file, index) => ({
-        file,
-        id: (file as any)._fileId || `${file.name}-${file.size}-${index}`, // Use fileId for restored files, fallback to file properties
-        progress: 100,
-      }))
-      setUploadedFiles(initialFiles)
+      const initialFiles: UploadedFile[] = Array.from(value).map((file, index) => {
+        // Check if it's a file ID string (from storage API)
+        if (typeof file === 'string') {
+          return {
+            file: new Blob([], { type: 'application/octet-stream' }) as File,
+            id: file,
+            progress: 100,
+            isFileId: true // Flag to indicate this is a file ID
+          }
+        }
+        // It's a File object
+        const uploadedFile: UploadedFile = {
+          file,
+          id: (file as any)._fileId || `${file.name}-${file.size}-${index}`,
+          progress: 100,
+        }
+        
+        // Generate preview URL for image files
+        if (file.type.startsWith('image/')) {
+          uploadedFile.previewUrl = URL.createObjectURL(file)
+        }
+        
+        return uploadedFile
+      })
+      
+      // Remove duplicates based on ID
+      const uniqueFiles = initialFiles.filter((file, index, self) => 
+        index === self.findIndex(f => f.id === file.id)
+      )
+      
+      setUploadedFiles(uniqueFiles)
     } else {
       setUploadedFiles([])
     }
   }, [value])
+
+  // Cleanup preview URLs when component unmounts
+  useEffect(() => {
+    return () => {
+      uploadedFiles.forEach(file => {
+        if (file.previewUrl) {
+          URL.revokeObjectURL(file.previewUrl)
+        }
+      })
+    }
+  }, [])
 
   const handleFiles = (fileList: FileList) => {
     const newErrors: string[] = []
@@ -80,11 +118,19 @@ export function FileUpload({
       }
 
       validFiles.push(file)
-      newUploadedFiles.push({
+      
+      const uploadedFile: UploadedFile = {
         file,
         id: `${file.name}-${file.size}-${Date.now()}-${index}`, // More unique ID
         progress: 100, // For now, we'll set to 100% immediately
-      })
+      }
+      
+      // Generate preview URL for image files
+      if (file.type.startsWith('image/')) {
+        uploadedFile.previewUrl = URL.createObjectURL(file)
+      }
+      
+      newUploadedFiles.push(uploadedFile)
     })
 
     setErrors(newErrors)
@@ -131,6 +177,11 @@ export function FileUpload({
   }
 
   const removeFile = (fileId: string) => {
+    const fileToRemove = uploadedFiles.find(f => f.id === fileId)
+    if (fileToRemove?.previewUrl) {
+      URL.revokeObjectURL(fileToRemove.previewUrl)
+    }
+    
     const updatedFiles = uploadedFiles.filter(f => f.id !== fileId)
     setUploadedFiles(updatedFiles)
     
@@ -148,7 +199,9 @@ export function FileUpload({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
   }
 
-
+  const isImageFile = (file: File): boolean => {
+    return file.type.startsWith('image/')
+  }
 
   return (
     <div className={cn("space-y-4", className)}>
@@ -211,13 +264,29 @@ export function FileUpload({
               className="flex items-center justify-between p-3 border rounded-lg bg-card"
             >
               <div className="flex items-center space-x-3 flex-1">
-                <File className="h-4 w-4 text-muted-foreground" />
+                {/* File Icon or Image Preview */}
+                {uploadedFile.isFileId ? (
+                  <div className="w-10 h-10 bg-muted rounded flex items-center justify-center">
+                    <ImageIcon className="w-5 h-5 text-muted-foreground" />
+                  </div>
+                ) : isImageFile(uploadedFile.file) && uploadedFile.previewUrl ? (
+                  <div className="w-10 h-10 rounded overflow-hidden flex-shrink-0">
+                    <img
+                      src={uploadedFile.previewUrl}
+                      alt={uploadedFile.file.name}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                ) : (
+                  <File className="h-4 w-4 text-muted-foreground" />
+                )}
+                
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">
-                    {uploadedFile.file.name}
+                    {uploadedFile.isFileId ? 'File uploaded successfully' : uploadedFile.file.name}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {formatFileSize(uploadedFile.file.size)}
+                    {uploadedFile.isFileId ? `File ID: ${uploadedFile.id}` : formatFileSize(uploadedFile.file.size)}
                   </p>
                 </div>
               </div>

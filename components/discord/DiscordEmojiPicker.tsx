@@ -74,10 +74,28 @@ export function DiscordEmojiPicker({ guildId, onSelect, trigger }: DiscordEmojiP
     ...(customEmojis.length ? [{ key: "custom", label: "Custom" }] : []),
   ];
 
-  const emojis =
-    category === "custom"
-      ? customEmojis
-      : getEmojiByCategory(category, search);
+  const emojis = React.useMemo(() => {
+    if (category === "custom") {
+      return customEmojis.filter(emoji => 
+        !search || emoji.name.toLowerCase().includes(search.toLowerCase())
+      );
+    }
+    
+    // If there's a search term, search across all categories
+    if (search) {
+      const allEmojis = UNICODE_EMOJI_CATEGORIES.flatMap(cat => 
+        getEmojiByCategory(cat.key, "")
+      );
+      return allEmojis.filter(emoji =>
+        emoji.name.toLowerCase().includes(search.toLowerCase()) ||
+        emoji.native.includes(search) ||
+        emoji.slug.toLowerCase().includes(search.toLowerCase())
+      );
+    }
+    
+    // Otherwise, show emojis from the selected category
+    return getEmojiByCategory(category, search);
+  }, [category, search, customEmojis]);
 
   const renderEmojiPicker = () => (
     <div 
@@ -184,7 +202,8 @@ export function DiscordEmojiPicker({ guildId, onSelect, trigger }: DiscordEmojiP
       {/* Footer */}
       <div className="p-3 border-t border-border bg-muted/20">
         <p className="text-xs text-muted-foreground text-center">
-          {emojis.length} emoji{emojis.length !== 1 ? 's' : ''} in {category}
+          {emojis.length} emoji{emojis.length !== 1 ? 's' : ''} 
+          {search ? ' found' : ` in ${category}`}
         </p>
       </div>
     </div>

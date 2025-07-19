@@ -28,5 +28,8 @@ export * from './github'
 // HubSpot actions
 export * from './hubspot'
 
+// Facebook actions
+export * from './facebook'
+
 // Generic actions
 export * from './generic' 
