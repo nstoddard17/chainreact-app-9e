@@ -42,6 +42,7 @@ import { DiscordChannelsPreview } from "./DiscordChannelsPreview"
 import { DiscordMembersPreview } from "./DiscordMembersPreview"
 import { GmailEmailsPreview } from "./GmailEmailsPreview"
 import { NotionRecordsPreview } from "./NotionRecordsPreview"
+import { FacebookInsightsPreview } from "./FacebookInsightsPreview"
 import { DiscordEmojiPicker } from "@/components/discord/DiscordEmojiPicker"
 import { Smile } from "lucide-react"
 import { getDiscordBotInviteUrl } from "@/lib/utils/discordConfig"
@@ -1339,6 +1340,8 @@ function ConfigurationModal({
         endpoint = "/api/workflows/gmail/search-emails-preview"
       } else if (nodeInfo.type === "notion_action_search_pages") {
         endpoint = "/api/workflows/notion/search-pages-preview"
+      } else if (nodeInfo.type === "facebook_action_get_page_insights") {
+        endpoint = "/api/workflows/facebook/fetch-page-insights-preview"
       } else {
         throw new Error("Preview not available for this action type")
       }
@@ -8363,7 +8366,8 @@ function ConfigurationModal({
                   {(nodeInfo?.type === "discord_action_fetch_messages" || 
                     nodeInfo?.type === "discord_action_list_channels" ||
                     nodeInfo?.type === "discord_action_fetch_guild_members" ||
-                    nodeInfo?.type === "notion_action_search_pages") && (
+                    nodeInfo?.type === "notion_action_search_pages" ||
+                    nodeInfo?.type === "facebook_action_get_page_insights") && (
                     <div className="space-y-3 border-t pt-4">
                       <div className="flex items-center justify-between">
                         <div className="text-sm font-medium">Preview Results</div>
@@ -8409,6 +8413,9 @@ function ConfigurationModal({
                               records={previewData.pages || []} 
                               columns={["title", "url", "object", "last_edited_time"]} 
                             />
+                          )}
+                          {nodeInfo?.type === "facebook_action_get_page_insights" && (
+                            <FacebookInsightsPreview insights={previewData.insights || []} />
                           )}
                         </div>
                       )}
@@ -8474,9 +8481,31 @@ function ConfigurationModal({
               {/* Dialog Footer */}
               <DialogFooter className="px-6 py-4 border-t border-border flex-shrink-0">
                 <div className="flex items-center justify-between w-full">
-                  <Button variant="outline" onClick={() => onClose(false)}>
-                    Cancel
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" onClick={() => onClose(false)}>
+                      Cancel
+                    </Button>
+                    {nodeInfo?.type === "facebook_action_get_page_insights" && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handlePreview}
+                        disabled={previewLoading}
+                      >
+                        {previewLoading ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Loading...
+                          </>
+                        ) : (
+                          <>
+                            <Eye className="w-4 h-4 mr-2" />
+                            Load Preview
+                          </>
+                        )}
+                      </Button>
+                    )}
+                  </div>
                   <Button 
                     onClick={handleSave}
                     disabled={loadingDynamic}
