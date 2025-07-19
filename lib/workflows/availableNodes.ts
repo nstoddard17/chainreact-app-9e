@@ -86,7 +86,7 @@ export interface ConfigField {
   maxSize?: number // For file inputs, specify max file size in bytes
   defaultValue?: string | number | boolean // Default value for the field
   tableName?: string // For Airtable record fields, specify which table to fetch records from
-  uiTab?: "basic" | "advanced" // For tabbed interfaces, specify which tab this field should appear in
+  uiTab?: "basic" | "advanced" | "monetization" // For tabbed interfaces, specify which tab this field should appear in
   defaultOptions?: { value: string; label: string }[] // Default options for select fields
   [key: string]: any
 }
@@ -113,7 +113,7 @@ export interface NodeField {
   min?: number
   max?: number
   // UI organization properties
-  uiTab?: "basic" | "advanced"
+  uiTab?: "basic" | "advanced" | "monetization"
   defaultOptions?: { value: string; label: string }[]
   // New field for output data descriptions
   outputType?: "string" | "number" | "array" | "object" | "boolean"
@@ -4836,11 +4836,15 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Social",
     isTrigger: false,
     configSchema: [
-      { name: "pageId", label: "Page", type: "select", dynamic: "facebook_pages", required: true, placeholder: "Select a Facebook page" },
-      { name: "title", label: "Title", type: "text", required: true, placeholder: "Enter post title" },
-      { name: "message", label: "Message", type: "textarea", required: true, placeholder: "Enter your post message" },
-      { name: "link", label: "Link", type: "text", required: false, placeholder: "https://example.com" },
-      { name: "scheduledPublishTime", label: "Schedule Publish Time", type: "datetime", required: false }
+      { name: "pageId", label: "Page", type: "select", dynamic: "facebook_pages", required: true, placeholder: "Select a Facebook page", uiTab: "basic" },
+      { name: "message", label: "Message", type: "textarea", required: true, placeholder: "Enter your post message", uiTab: "basic" },
+      { name: "mediaFile", label: "Photo/Video", type: "file", required: false, accept: "image/*,video/*", maxSize: 10485760, uiTab: "basic" },
+      { name: "scheduledPublishTime", label: "Schedule Publish Time", type: "datetime", required: false, uiTab: "basic", placeholder: "Select date and time for publishing" },
+      // Monetization section
+      { name: "productLinkUrl", label: "URL", type: "text", required: false, placeholder: "URL", uiTab: "monetization" },
+      { name: "productLinkName", label: "Link name (optional)", type: "text", required: false, placeholder: "Link name (optional)", uiTab: "monetization" },
+      { name: "productPromoCode", label: "Existing promo code (optional)", type: "text", required: false, placeholder: "Existing promo code (optional)", uiTab: "monetization" },
+      { name: "paidPartnershipLabel", label: "Add paid partnership label", type: "boolean", required: false, defaultValue: false, uiTab: "monetization" }
     ]
   },
   {

@@ -21,7 +21,9 @@ import { ConfigurationLoadingScreen } from "@/components/ui/loading-screen"
 import { FileUpload } from "@/components/ui/file-upload"
 import { DatePicker } from "@/components/ui/date-picker"
 import { TimePicker } from "@/components/ui/time-picker"
-import { Play, X, Loader2, TestTube, Clock, HelpCircle, AlertCircle, Video, ChevronLeft, ChevronRight, Database, Calendar, Upload, Eye, RefreshCw, Package, FileText, Filter, Mail } from "lucide-react"
+import { DateTimePicker } from "@/components/ui/date-time-picker"
+import { Calendar } from "@/components/ui/calendar"
+import { Play, X, Loader2, TestTube, Clock, HelpCircle, AlertCircle, Video, ChevronLeft, ChevronRight, Database, Calendar as CalendarIcon, Upload, Eye, RefreshCw, Package, FileText, Filter, Mail, Image as ImageIcon } from "lucide-react"
 
 import { Checkbox } from "@/components/ui/checkbox"
 import { Switch } from "@/components/ui/switch"
@@ -1290,6 +1292,12 @@ function ConfigurationModal({
   
   // Cache for Discord reactions to persist data between modal opens
   const [discordReactionsCache, setDiscordReactionsCache] = useState<Record<string, any[]>>({});
+  
+  // Facebook emoji picker state
+  const [facebookEmojiPickerOpen, setFacebookEmojiPickerOpen] = useState(false);
+  
+  // DateTime picker state
+  const [dateTimePickerOpen, setDateTimePickerOpen] = useState<Record<string, boolean>>({});
   
 
 
@@ -4095,6 +4103,210 @@ function ConfigurationModal({
         fieldDef: field
       })
     }
+    // Custom Facebook create post rendering
+    if (nodeInfo?.type === "facebook_action_create_post") {
+      // Custom message field with emoji picker
+      if (field.name === "message" && activeTab === "basic") {
+        return (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Label className="text-sm font-medium">
+                {field.label || field.name}
+                {field.required && <span className="text-red-500 ml-1">*</span>}
+              </Label>
+              {field.description && (
+                <EnhancedTooltip 
+                  description={field.description}
+                  title={`${field.label || field.name} Information`}
+                  showExpandButton={field.description.length > 150}
+                  disabled={!tooltipsEnabled}
+                />
+              )}
+            </div>
+            <div className="relative">
+              <Textarea
+                value={value || ""}
+                onChange={(e) => setConfig(prev => ({ ...prev, [field.name]: e.target.value }))}
+                placeholder={field.placeholder}
+                className="min-h-[120px] resize-none"
+              />
+              {/* Emoji picker button */}
+              <button
+                type="button"
+                onClick={() => setFacebookEmojiPickerOpen(!facebookEmojiPickerOpen)}
+                className="absolute top-2 right-2 p-1 rounded-md hover:bg-muted transition-colors"
+              >
+                <span className="text-lg">😊</span>
+              </button>
+              
+              {/* Emoji picker popover */}
+              {facebookEmojiPickerOpen && (
+                <div className="absolute top-full right-0 z-50 mt-1">
+                  <DiscordEmojiPicker
+                    guildId={undefined} // No guild ID for Facebook, so no custom emojis
+                    onSelect={(emoji) => {
+                      const currentMessage = value || "";
+                      const cursorPosition = (document.activeElement as HTMLTextAreaElement)?.selectionStart || currentMessage.length;
+                      const emojiText = emoji.custom ? emoji.name : emoji.native;
+                      const newMessage = currentMessage.slice(0, cursorPosition) + emojiText + currentMessage.slice(cursorPosition);
+                      setConfig(prev => ({ ...prev, [field.name]: newMessage }));
+                      setFacebookEmojiPickerOpen(false);
+                    }}
+                    trigger={null}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        )
+      }
+      
+      // Custom file upload field
+      if (field.name === "mediaFile" && activeTab === "basic") {
+        return (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Label className="text-sm font-medium">
+                {field.label || field.name}
+                {field.required && <span className="text-red-500 ml-1">*</span>}
+              </Label>
+              {field.description && (
+                <EnhancedTooltip 
+                  description={field.description}
+                  title={`${field.label || field.name} Information`}
+                  showExpandButton={field.description.length > 150}
+                  disabled={!tooltipsEnabled}
+                />
+              )}
+            </div>
+            <div className="space-y-3">
+              <FileUpload
+                value={value ? [value] : []}
+                onChange={async (files) => {
+                  if (files && files.length > 0) {
+                    const file = files[0];
+                    // Check file size
+                    const maxSize = typeof field.maxSize === 'number' ? field.maxSize : 10485760;
+                    if (file.size > maxSize) {
+                      alert(`File size must be less than ${Math.round(maxSize / 1024 / 1024)}MB`);
+                      return;
+                    }
+                    
+                    try {
+                      // Upload file to storage API
+                      const formData = new FormData();
+                      formData.append('files', file);
+                      if (workflowData?.nodes) {
+                        formData.append('workflowId', workflowData.nodes[0]?.workflowId || '');
+                      }
+                      
+                      const response = await fetch('/api/workflows/files/store', {
+                        method: 'POST',
+                        body: formData
+                      });
+                      
+                      if (!response.ok) {
+                        throw new Error('Failed to upload file');
+                      }
+                      
+                      const result = await response.json();
+                      if (result.fileIds && result.fileIds.length > 0) {
+                        // Store the file ID instead of the file object
+                        setConfig(prev => ({ ...prev, [field.name]: result.fileIds[0] }));
+                      } else {
+                        throw new Error('No file ID returned');
+                      }
+                    } catch (error) {
+                      console.error('File upload error:', error);
+                      alert('Failed to upload file. Please try again.');
+                    }
+                  } else {
+                    setConfig(prev => ({ ...prev, [field.name]: null }));
+                  }
+                }}
+                accept={field.accept || "image/*,video/*"}
+                maxSize={typeof field.maxSize === 'number' ? field.maxSize : 10485760}
+                maxFiles={1}
+                placeholder="Upload photo or video for Facebook post"
+                className="w-full"
+              />
+            </div>
+          </div>
+        )
+
+      
+      // Custom monetization section rendering
+      if (activeTab === "monetization") {
+        if (field.name === "productLinkUrl") {
+          return (
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-lg font-semibold text-white mb-2">Add a product link</h3>
+                <p className="text-white mb-2">Share an affiliate product with your audience and earn commissions on qualifying purchases.</p>
+                <a href="#" className="text-blue-400 hover:text-blue-300 text-sm">Learn more about earning affiliate income</a>
+              </div>
+              <div className="space-y-3">
+                <div>
+                  <Label className="text-sm font-medium text-white">URL</Label>
+                  <Input
+                    type="text"
+                    value={value}
+                    onChange={(e) => handleSelectChange(e.target.value)}
+                    placeholder="URL"
+                    className="bg-gray-700 border-gray-600 text-white placeholder-gray-400"
+                  />
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-white">Link name (optional)</Label>
+                  <Input
+                    type="text"
+                    value={config.productLinkName || ""}
+                    onChange={(e) => setConfig(prev => ({ ...prev, productLinkName: e.target.value }))}
+                    placeholder="Link name (optional)"
+                    className="bg-gray-700 border-gray-600 text-white placeholder-gray-400"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">This is what your audience will read.</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-white">Existing promo code (optional)</Label>
+                  <Input
+                    type="text"
+                    value={config.productPromoCode || ""}
+                    onChange={(e) => setConfig(prev => ({ ...prev, productPromoCode: e.target.value }))}
+                    placeholder="Existing promo code (optional)"
+                    className="bg-gray-700 border-gray-600 text-white placeholder-gray-400"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">This is what your audience will read.</p>
+                </div>
+              </div>
+            </div>
+          )
+        }
+        
+        if (field.name === "paidPartnershipLabel") {
+          return (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-white mb-2">Add paid partnership label</h3>
+                  <p className="text-white">Let your audience know that you can earn commissions by posting this link.</p>
+                </div>
+                <Switch
+                  checked={value || false}
+                  onCheckedChange={(checked) => setConfig(prev => ({ ...prev, [field.name]: checked }))}
+                  className="data-[state=checked]:bg-blue-600"
+                />
+              </div>
+            </div>
+          )
+        }
+        
+        // Don't render other monetization fields individually since they're handled above
+        return null
+      }
+    }
+  }
+
     // Custom Google Meet button/card rendering for Google Calendar create event
     if (nodeInfo?.type === "google_calendar_action_create_event" && field.name === "createMeetLink") {
       const handleAddMeet = async () => {
@@ -6913,6 +7125,170 @@ function ConfigurationModal({
           );
         }
 
+      case "datetime":
+        // Use the new DateTimePicker for Facebook create post scheduledPublishTime
+        if (nodeInfo?.type === "facebook_action_create_post" && field.name === "scheduledPublishTime") {
+          return (
+            <div className="space-y-2">
+              {renderDynamicLabel()}
+              <div className="flex items-center gap-2">
+                <DateTimePicker
+                  value={value ? new Date(value) : undefined}
+                  onChange={(date) => {
+                    setConfig(prev => ({ 
+                      ...prev, 
+                      [field.name]: date ? date.toISOString() : null 
+                    }))
+                  }}
+                  placeholder={field.placeholder || "Select date and time for publishing"}
+                  className="flex-1"
+                />
+                {value && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setConfig(prev => ({ ...prev, [field.name]: null }))}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+              {hasError && (
+                <p className="text-xs text-red-500">{errors[field.name]}</p>
+              )}
+            </div>
+          )
+        }
+        
+        // Use the original datetime picker for other fields
+        return (
+          <div className="space-y-2">
+            {renderDynamicLabel()}
+            <div className="relative">
+              <div className="flex items-center">
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-full justify-start text-left font-normal",
+                    !value && "text-muted-foreground"
+                  )}
+                  onClick={() => setDateTimePickerOpen(prev => ({
+                    ...prev,
+                    [field.name]: !prev[field.name]
+                  }))}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {value ? new Date(value).toLocaleString() : <span>Select date and time</span>}
+                </Button>
+                {value && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="ml-1"
+                    onClick={() => setConfig(prev => ({ ...prev, [field.name]: null }))}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+              
+              {dateTimePickerOpen[field.name] && (
+                <div className="absolute z-50 mt-1 bg-background border rounded-md shadow-md p-4 w-[350px]">
+                  <div className="space-y-4">
+                    <div>
+                      <Calendar
+                        mode="single"
+                        selected={value ? new Date(value) : undefined}
+                        onSelect={(date: Date | undefined) => {
+                          if (date) {
+                            // Preserve time if exists, otherwise use current time
+                            const currentValue = value ? new Date(value) : new Date();
+                            const hours = currentValue.getHours();
+                            const minutes = currentValue.getMinutes();
+                            
+                            date.setHours(hours, minutes, 0, 0);
+                            setConfig(prev => ({ ...prev, [field.name]: date.toISOString() }));
+                          } else {
+                            setConfig(prev => ({ ...prev, [field.name]: null }));
+                          }
+                        }}
+                        initialFocus
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium mb-2 block">Time</Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Select
+                          value={value ? String(new Date(value).getHours()).padStart(2, '0') : "12"}
+                          onValueChange={(hour) => {
+                            const newDate = value ? new Date(value) : new Date();
+                            newDate.setHours(parseInt(hour));
+                            setConfig(prev => ({ ...prev, [field.name]: newDate.toISOString() }));
+                          }}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Hour" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Array.from({ length: 24 }, (_, i) => (
+                              <SelectItem key={i} value={String(i).padStart(2, '0')}>
+                                {String(i).padStart(2, '0')}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Select
+                          value={value ? String(new Date(value).getMinutes()).padStart(2, '0') : "00"}
+                          onValueChange={(minute) => {
+                            const newDate = value ? new Date(value) : new Date();
+                            newDate.setMinutes(parseInt(minute));
+                            setConfig(prev => ({ ...prev, [field.name]: newDate.toISOString() }));
+                          }}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Minute" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Array.from({ length: 12 }, (_, i) => i * 5).map((minute) => (
+                              <SelectItem key={minute} value={String(minute).padStart(2, '0')}>
+                                {String(minute).padStart(2, '0')}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="flex justify-between">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => setDateTimePickerOpen(prev => ({ ...prev, [field.name]: false }))}
+                      >
+                        Cancel
+                      </Button>
+                      <Button 
+                        size="sm"
+                        onClick={() => {
+                          if (!value) {
+                            const now = new Date();
+                            setConfig(prev => ({ ...prev, [field.name]: now.toISOString() }));
+                          }
+                          setDateTimePickerOpen(prev => ({ ...prev, [field.name]: false }));
+                        }}
+                      >
+                        Apply
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+            {hasError && (
+              <p className="text-xs text-red-500">{errors[field.name]}</p>
+            )}
+          </div>
+        )
+
       default:
         return (
           <div className="space-y-2">
@@ -7642,6 +8018,30 @@ function ConfigurationModal({
                     </>
                   )}
 
+                  {/* Facebook Create Post Basic/Monetization Tabs */}
+                  {nodeInfo?.type === "facebook_action_create_post" && (
+                    <>
+                      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mb-6">
+                        <TabsList className="grid w-full grid-cols-2">
+                          <TabsTrigger value="basic">Basic</TabsTrigger>
+                          <TabsTrigger value="monetization">Monetization</TabsTrigger>
+                        </TabsList>
+                      </Tabs>
+                      
+                      {activeTab === "basic" && (
+                        <div className="mb-3 text-sm text-muted-foreground">
+                          Configure basic post settings including page selection, title, message, and scheduling. Use the Monetization tab to add affiliate links and partnership labels.
+                        </div>
+                      )}
+                      
+                      {activeTab === "monetization" && (
+                        <div className="mb-3 text-sm text-muted-foreground">
+                          Add affiliate product links and partnership labels to monetize your Facebook posts. Earn commissions on qualifying purchases.
+                        </div>
+                      )}
+                    </>
+                  )}
+
                   {/* Configuration Fields */}
                   {isNotionDatabaseNode ? (
                     <>
@@ -7685,15 +8085,16 @@ function ConfigurationModal({
                         )
                       }
 
-                      // Handle tabbed interface for Discord actions
-                      const isDiscordTabbedAction = nodeInfo?.type === "discord_action_create_channel" || 
-                                                   nodeInfo?.type === "discord_action_update_channel" ||
-                                                   nodeInfo?.type === "discord_action_list_channels" ||
-                                                   nodeInfo?.type === "discord_action_delete_channel" ||
-                                                   nodeInfo?.type === "discord_action_create_category" ||
-                                                   nodeInfo?.type === "discord_action_delete_category" ||
-                                                   nodeInfo?.type === "discord_action_fetch_guild_members"
-                      if (isDiscordTabbedAction && field.uiTab) {
+                      // Handle tabbed interface for Discord and Facebook actions
+                      const isTabbedAction = nodeInfo?.type === "discord_action_create_channel" || 
+                                           nodeInfo?.type === "discord_action_update_channel" ||
+                                           nodeInfo?.type === "discord_action_list_channels" ||
+                                           nodeInfo?.type === "discord_action_delete_channel" ||
+                                           nodeInfo?.type === "discord_action_create_category" ||
+                                           nodeInfo?.type === "discord_action_delete_category" ||
+                                           nodeInfo?.type === "discord_action_fetch_guild_members" ||
+                                           nodeInfo?.type === "facebook_action_create_post"
+                      if (isTabbedAction && field.uiTab) {
                         // Only render fields that match the current active tab
                         if (field.uiTab !== activeTab) {
                           return null

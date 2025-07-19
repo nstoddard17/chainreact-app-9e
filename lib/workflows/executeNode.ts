@@ -68,6 +68,10 @@ import {
   createHubSpotContact,
   createHubSpotCompany,
   createHubSpotDeal,
+  
+  // Facebook actions
+  createFacebookPost,
+  getFacebookPageInsights,
 
   // Workflow control actions
   executeIfThenCondition,
@@ -1719,10 +1723,14 @@ export async function executeAction({ node, input, userId, workflowId }: Execute
     "github_action_create_repository": createGitHubRepository,
     "github_action_create_pull_request": createGitHubPullRequest,
     
-    // HubSpot actions
-    "hubspot_action_create_contact": createHubSpotContact,
-    "hubspot_action_create_company": createHubSpotCompany,
-    "hubspot_action_create_deal": createHubSpotDeal,
+      // HubSpot actions
+  "hubspot_action_create_contact": createHubSpotContact,
+  "hubspot_action_create_company": createHubSpotCompany,
+  "hubspot_action_create_deal": createHubSpotDeal,
+  
+  // Facebook actions
+  "facebook_action_create_post": createFacebookPost,
+  "facebook_action_get_page_insights": getFacebookPageInsights,
     
     // YouTube actions
     "youtube_action_upload_video": uploadYouTubeVideo,
