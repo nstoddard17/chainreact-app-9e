@@ -12,6 +12,7 @@ import { NodeComponent, NodeField, ConfigField } from "@/lib/workflows/available
 import { useIntegrationStore } from "@/stores/integrationStore"
 import { useWorkflowTestStore } from "@/stores/workflowTestStore"
 import { useConfigPreferences } from "@/hooks/use-config-preferences"
+
 import { Combobox, MultiCombobox, HierarchicalCombobox } from "@/components/ui/combobox"
 import { EmailAutocomplete } from "@/components/ui/email-autocomplete"
 import { LocationAutocomplete } from "@/components/ui/location-autocomplete"
@@ -1205,6 +1206,9 @@ function ConfigurationModal({
   const [loadingDiscordCategories, setLoadingDiscordCategories] = useState(false)
   const [loadingDiscordMembers, setLoadingDiscordMembers] = useState(false)
   const [loadingDiscordRoles, setLoadingDiscordRoles] = useState(false)
+  const [loadingDiscordBannedUsers, setLoadingDiscordBannedUsers] = useState(false)
+  
+  // Removed custom hook usage - now using integration store approach only
   
   // Function to fetch message data and reactions for Discord add reaction
   const fetchMessageDataAndReactions = useCallback(async (messageId: string, channelId: string) => {
@@ -2659,6 +2663,47 @@ function ConfigurationModal({
               setLoadingDiscordRoles(false)
             }
           }
+
+          // Load banned users for the guild (for unban member actions)
+          if (nodeInfo?.type === "discord_action_unban_member" && (!dynamicOptions.userId || dynamicOptions.userId.length === 0)) {
+            console.log('🔄 Loading banned users for guildId:', config.guildId)
+            setLoadingDiscordBannedUsers(true)
+            try {
+              const bannedUserData = await loadIntegrationData("discord_banned_users", integration.id, { guildId: config.guildId })
+              if (bannedUserData && bannedUserData.length > 0) {
+                const mappedBannedUsers = bannedUserData.map((user: any) => ({
+                  value: user.value || user.id,
+                  label: user.label || user.name
+                }))
+                setDynamicOptions(prev => ({
+                  ...prev,
+                  userId: mappedBannedUsers
+                }))
+                console.log('✅ Loaded banned users:', mappedBannedUsers.length)
+              } else {
+                // Set empty array to indicate no banned users found
+                setDynamicOptions(prev => ({
+                  ...prev,
+                  userId: []
+                }))
+                console.log('✅ No banned users found in server')
+              }
+            } catch (error: any) {
+              // Suppress errors if the bot is not present or API returns a known error
+              if (
+                error?.message?.includes("bot not in guild") ||
+                error?.response?.status === 403 ||
+                error?.response?.status === 404
+              ) {
+                console.log('🤖 Suppressing expected error for bot not in guild')
+                return
+              }
+              // For other errors, log but don't let them bubble up
+              console.error('❌ Error loading banned users:', error)
+            } finally {
+              setLoadingDiscordBannedUsers(false)
+            }
+          }
         } catch (error: any) {
           // Suppress errors if the bot is not present or API returns a known error
           if (
@@ -2702,7 +2747,8 @@ function ConfigurationModal({
     dynamicOptions.categoryId, 
     dynamicOptions.messageId,
     dynamicOptions.userId,
-    dynamicOptions.roleId
+    dynamicOptions.roleId,
+    loadingDiscordBannedUsers
   ])
 
   const fetchDynamicData = useCallback(async () => {
@@ -6153,12 +6199,12 @@ function ConfigurationModal({
                       align="start"
                     >
                       {isFieldLoading ? (
-                        <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
+                        <div className="flex items-center justify-start py-4 text-sm text-muted-foreground px-3">
                           <Loader2 className="w-4 h-4 animate-spin mr-2" />
                           Loading {field.label?.toLowerCase() || 'options'}...
                         </div>
                       ) : options.length === 0 ? (
-                        <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
+                        <div className="flex items-center justify-start py-4 text-sm text-muted-foreground px-3">
                           No {field.label?.toLowerCase() || 'options'} available
                         </div>
                       ) : (
@@ -6196,8 +6242,8 @@ function ConfigurationModal({
           )
         }
 
-        // Add variable picker for Discord assign role action member field
-        if (nodeInfo && (nodeInfo.type === "discord_action_assign_role" || nodeInfo.type === "discord_action_remove_role") && field.name === "userId" && field.hasVariablePicker) {
+        // Add variable picker for Discord member selection fields (assign role, remove role, kick member, ban member, unban member)
+        if (nodeInfo && (nodeInfo.type === "discord_action_assign_role" || nodeInfo.type === "discord_action_remove_role" || nodeInfo.type === "discord_action_kick_member" || nodeInfo.type === "discord_action_ban_member" || nodeInfo.type === "discord_action_unban_member") && field.name === "userId") {
           // Get options for the select field
           let options: any[] = []
           if (field.dynamic) {
@@ -6212,10 +6258,13 @@ function ConfigurationModal({
           // For Discord member fields, always show loading state when loadingDiscordMembers is true
           // or when there are no options yet but the field depends on guildId
           const isDiscordMembersField = field.dynamic === 'discord_members';
+          const isDiscordBannedUsersField = field.dynamic === 'discord_banned_users';
           const hasNoOptionsYet = options.length === 0;
           const dependsOnGuildId = field.dependsOn === 'guildId';
           const isFieldLoading = isDiscordMembersField ? 
             (loadingDiscordMembers || (hasNoOptionsYet && dependsOnGuildId && config.guildId)) : 
+            isDiscordBannedUsersField ?
+            (loadingDiscordBannedUsers || (hasNoOptionsYet && dependsOnGuildId && config.guildId)) :
             loadingDynamic;
           
           // Debug logging for Discord members loading state
@@ -6224,6 +6273,21 @@ function ConfigurationModal({
               fieldName: field.name,
               fieldDynamic: field.dynamic,
               loadingDiscordMembers,
+              loadingDynamic,
+              isFieldLoading,
+              hasOptions: options.length > 0,
+              optionsCount: options.length,
+              hasGuildId: !!config.guildId,
+              guildId: config.guildId
+            })
+          }
+
+          // Debug logging for Discord banned users loading state
+          if (isDiscordBannedUsersField) {
+            console.log(`🎯 DISCORD BANNED USERS LOADING STATE for "${field.name}":`, {
+              fieldName: field.name,
+              fieldDynamic: field.dynamic,
+              loadingDiscordBannedUsers,
               loadingDynamic,
               isFieldLoading,
               hasOptions: options.length > 0,
@@ -6253,10 +6317,10 @@ function ConfigurationModal({
               {renderDynamicLabel()}
               <div className="flex gap-2 w-full relative">
                 {isFieldLoading && (
-                  <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-10 flex items-center justify-center rounded-md border">
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-10 flex items-center rounded-md border">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground pl-3">
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      Loading {field.label?.toLowerCase() || 'members'}...
+                      Loading {isDiscordBannedUsersField ? 'banned users' : field.label?.toLowerCase() || 'members'}...
                     </div>
                   </div>
                 )}
@@ -6278,13 +6342,13 @@ function ConfigurationModal({
                       align="start"
                     >
                       {isFieldLoading ? (
-                        <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
-                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                          Loading {field.label?.toLowerCase() || 'members'}...
+                        <div className="flex items-center justify-start py-4 text-sm text-muted-foreground px-3">
+                                                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      Loading {isDiscordBannedUsersField ? 'banned users' : field.label?.toLowerCase() || 'members'}...
                         </div>
                       ) : options.length === 0 ? (
-                        <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
-                          No members available
+                        <div className="flex items-center justify-start py-4 text-sm text-muted-foreground px-3">
+                          No {isDiscordBannedUsersField ? 'banned users' : 'members'} available
                         </div>
                       ) : (
                         options.map((option: any, optionIndex: number) => {
@@ -6562,12 +6626,12 @@ function ConfigurationModal({
                       align="start"
                     >
                       {loadingDynamic ? (
-                        <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
+                        <div className="flex items-center justify-start py-4 text-sm text-muted-foreground px-3">
                           <Loader2 className="w-4 h-4 animate-spin mr-2" />
                           Loading videos...
                         </div>
                       ) : options.length === 0 ? (
-                        <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
+                        <div className="flex items-center justify-start py-4 text-sm text-muted-foreground px-3">
                           No videos available
                         </div>
                       ) : (
@@ -6653,14 +6717,14 @@ function ConfigurationModal({
                 align="start"
               >
                 {isFieldLoading ? (
-                  <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
+                  <div className="flex items-center justify-start py-4 text-sm text-muted-foreground px-3">
                     <Loader2 className="w-4 h-4 animate-spin mr-2" />
                     {isDiscordField ? 
                       `Loading ${field.name === 'channelId' ? 'channels' : 'messages'}...` : 
                       'Loading options...'}
                   </div>
                 ) : options.length === 0 ? (
-                  <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
+                  <div className="flex items-center justify-start py-4 text-sm text-muted-foreground px-3">
                     {isDiscordField ? 
                       (field.name === 'channelId' ? 'No channels available' : 'No messages available') : 
                       'No options available'}
@@ -8052,22 +8116,26 @@ function ConfigurationModal({
               hasShownLoading,
               retryCount,
               nodeInfoType: nodeInfo?.type,
+              isDiscordMemberAction: nodeInfo?.type === "discord_action_kick_member" || nodeInfo?.type === "discord_action_ban_member",
+              loadingDiscordMembers,
               integrationName
             })
 
             // Use a more robust loading condition that prevents double loading
             const shouldShowLoading = () => {
-              // Debug current loading state
-              console.log('🔍 shouldShowLoading check:', {
-                loadingDynamic,
-                hasShownLoading,
-                activeTasks: Array.from(activeLoadingTasksRef.current),
-                nodeInfoType: nodeInfo?.type,
-                isDiscordAction: nodeInfo?.type === "discord_action_send_message",
-                checkingBot,
-                hasGuildId: !!config.guildId,
-                hasChannels: !!dynamicOptions.discord_channels
-              })
+                          // Debug current loading state
+            console.log('🔍 shouldShowLoading check:', {
+              loadingDynamic,
+              hasShownLoading,
+              activeTasks: Array.from(activeLoadingTasksRef.current),
+              nodeInfoType: nodeInfo?.type,
+              isDiscordAction: nodeInfo?.type === "discord_action_send_message",
+              isDiscordMemberAction: nodeInfo?.type === "discord_action_kick_member" || nodeInfo?.type === "discord_action_ban_member",
+              checkingBot,
+              hasGuildId: !!config.guildId,
+              hasChannels: !!dynamicOptions.discord_channels,
+              loadingDiscordMembers
+            })
               
               // If we're not in a loading state, don't show loading
               if (!loadingDynamic) {
@@ -8079,12 +8147,20 @@ function ConfigurationModal({
                 return true
               }
               
-              // For Discord actions, be more specific about when to show loading
-              if (nodeInfo?.type === "discord_action_send_message") {
-                // Show loading if we have any active loading tasks
-                const hasActiveTasks = activeLoadingTasksRef.current.size > 0
-                return hasActiveTasks
-              }
+                          // For Discord actions, be more specific about when to show loading
+            if (nodeInfo?.type === "discord_action_send_message") {
+              // Show loading if we have any active loading tasks
+              const hasActiveTasks = activeLoadingTasksRef.current.size > 0
+              return hasActiveTasks
+            }
+            
+            // For Discord kick member and ban member actions, show loading when members are being loaded
+            if (nodeInfo?.type === "discord_action_kick_member" || nodeInfo?.type === "discord_action_ban_member") {
+              // Show loading if we have a guild selected and members are being loaded
+              const hasGuildSelected = !!config.guildId
+              const isMembersLoading = loadingDiscordMembers
+              return hasGuildSelected && isMembersLoading
+            }
               
               // For other integrations, show loading if we're in a loading state
               return loadingDynamic
@@ -8093,21 +8169,29 @@ function ConfigurationModal({
             const isLoading = shouldShowLoading()
             
             if (isLoading) {
-              console.log('🔄 ConfigurationModal Showing loading screen due to:', {
-                loadingDynamic,
-                hasShownLoading,
-                nodeInfoType: nodeInfo?.type,
-                isDiscordAction: nodeInfo?.type === "discord_action_send_message",
-                hasGuildId: !!config.guildId,
-                hasChannels: !!dynamicOptions.discord_channels,
-                checkingBot
-              })
+                          console.log('🔄 ConfigurationModal Showing loading screen due to:', {
+              loadingDynamic,
+              hasShownLoading,
+              nodeInfoType: nodeInfo?.type,
+              isDiscordAction: nodeInfo?.type === "discord_action_send_message",
+              isDiscordMemberAction: nodeInfo?.type === "discord_action_kick_member" || nodeInfo?.type === "discord_action_ban_member",
+              hasGuildId: !!config.guildId,
+              hasChannels: !!dynamicOptions.discord_channels,
+              loadingDiscordMembers,
+              checkingBot
+            })
 
   return (
                 <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex flex-col items-center justify-center z-50">
                   <ConfigurationLoadingScreen 
                     integrationName={nodeInfo.title || nodeInfo.type || integrationName}
                   />
+                  {/* Show specific loading message for Discord member actions */}
+                  {(nodeInfo?.type === "discord_action_kick_member" || nodeInfo?.type === "discord_action_ban_member") && loadingDiscordMembers && (
+                    <div className="mt-4 text-sm text-muted-foreground animate-pulse text-left w-full">
+                      Loading members...
+                    </div>
+                  )}
                   {retryCount > 0 && (
                     <div className="mt-4 text-sm text-muted-foreground animate-pulse">
                       Retrying... (attempt {retryCount + 1})

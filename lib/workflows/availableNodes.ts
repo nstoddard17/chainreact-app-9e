@@ -6883,7 +6883,15 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
       { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true, placeholder: "Select a Discord server" },
       { name: "userId", label: "Member", type: "select", dynamic: "discord_members", required: true, dependsOn: "guildId", placeholder: "Select a member" },
       { name: "reason", label: "Reason", type: "text", required: false, placeholder: "Reason for banning (optional)" },
-      { name: "deleteMessageSeconds", label: "Delete Message Seconds", type: "number", required: false, placeholder: "Delete messages from last N seconds" }
+      { name: "deleteMessageSeconds", label: "Delete Messages", type: "select", required: false, placeholder: "Select message deletion option", options: [
+        { value: "0", label: "Don't delete any messages" },
+        { value: "3600", label: "Delete messages from last hour" },
+        { value: "86400", label: "Delete messages from last day" },
+        { value: "604800", label: "Delete messages from last week" },
+        { value: "2592000", label: "Delete messages from last month" },
+        { value: "7776000", label: "Delete messages from last 3 months" },
+        { value: "31536000", label: "Delete all messages (1 year)" }
+      ], defaultValue: "0" }
     ]
   },
   {

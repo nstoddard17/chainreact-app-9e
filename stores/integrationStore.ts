@@ -889,8 +889,8 @@ export const useIntegrationStore = create<IntegrationStore>()(
             dataType = "discord_roles"
             break
           default:
-            // For discord_messages, discord_reactions, discord_categories and other dynamic data types, let the provider mapping handle it
-            if (providerId === "discord_messages" || providerId === "discord_reactions" || providerId === "discord_categories") {
+            // For discord_messages, discord_reactions, discord_categories, discord_banned_users and other dynamic data types, let the provider mapping handle it
+            if (providerId === "discord_messages" || providerId === "discord_reactions" || providerId === "discord_categories" || providerId === "discord_banned_users") {
               url = "/api/integrations/fetch-user-data"
               dataType = providerId
             } else {
@@ -933,6 +933,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
                        providerId === 'discord_messages' ? 'discord' :
                        providerId === 'discord_reactions' ? 'discord' :
                        providerId === 'discord_categories' ? 'discord' :
+                       providerId === 'discord_banned_users' ? 'discord' :
                        providerId.includes('_') ? providerId.split('_')[0] : 
                        providerId.includes('-') ? providerId.split('-')[0] : 
                        providerId // Extract base provider name

@@ -200,6 +200,26 @@ export async function POST(request: NextRequest) {
       fetcherKey = "discord_users"
     }
     
+    if (provider === "discord" && dataType === "discord_banned_users") {
+      fetcherKey = "discord_banned_users"
+    }
+    
+    if (provider === "discord" && dataType === "discord_categories") {
+      fetcherKey = "discord_categories"
+    }
+    
+    if (provider === "discord" && dataType === "discord_members") {
+      fetcherKey = "discord_members"
+    }
+    
+    if (provider === "discord" && dataType === "discord_roles") {
+      fetcherKey = "discord_roles"
+    }
+    
+    if (provider === "discord" && dataType === "discord_reactions") {
+      fetcherKey = "discord_reactions"
+    }
+    
     console.log(`🔍 API: provider=${provider}, dataType=${dataType}, fetcherKey=${fetcherKey}`)
     console.log(`🔍 Available fetchers:`, Object.keys(dataFetchers))
     console.log(`🔍 Integration details:`, { id: integration.id, provider: integration.provider, status: integration.status })
@@ -3916,18 +3936,18 @@ const dataFetchers: DataFetcher = {
         throw new Error("Guild ID is required to fetch Discord banned users")
       }
 
-      // Use user's OAuth token, not bot token
-      const userToken = integration.access_token
-      if (!userToken) {
-        console.warn("User Discord token not available - returning empty banned users list")
+      // Use bot token instead of user token for banned users
+      const botToken = process.env.DISCORD_BOT_TOKEN
+      if (!botToken) {
+        console.warn("Discord bot token not configured - returning empty banned users list")
         return []
       }
 
       try {
         const data = await fetchDiscordWithRateLimit<any[]>(() => 
-          fetch(`https://discord.com/api/v10/guilds/${guildId}/bans`, {
+          fetch(`https://discord.com/api/v10/guilds/${guildId}/bans?limit=1000`, {
             headers: {
-              Authorization: `Bearer ${userToken}`,
+              Authorization: `Bot ${botToken}`,
               "Content-Type": "application/json",
             },
           })
@@ -3936,24 +3956,25 @@ const dataFetchers: DataFetcher = {
         return (data || [])
           .map((ban: any) => ({
             id: ban.user.id,
-            name: ban.user.username,
+            name: ban.user.username || "Unknown User",
             value: ban.user.id,
-            username: ban.user.username,
-            discriminator: ban.user.discriminator,
+            username: ban.user.username || "Unknown",
+            discriminator: ban.user.discriminator || "0000",
             avatar: ban.user.avatar,
-            reason: ban.reason,
+            reason: ban.reason || "No reason provided",
+            label: ban.user.username || `User ${ban.user.id}`
           }))
       } catch (error: any) {
         // Handle specific Discord API errors
         if (error.message.includes("401")) {
-          throw new Error("Discord authentication failed. Please reconnect your Discord account.")
+          throw new Error("Discord bot token is invalid or expired. Please check your environment variables.")
         }
         if (error.message.includes("403")) {
-          throw new Error("You do not have permission to view bans in this server. Please ensure you have the 'Ban Members' permission and try again.")
+          throw new Error("Bot doesn't have permission to view bans in this server. Please ensure the bot has the 'Ban Members' permission.")
         }
         if (error.message.includes("404")) {
-          // User is not in the server - return empty array instead of throwing error
-          console.log(`User is not a member of server ${guildId} - returning empty banned users list`)
+          // Bot is not in the server - return empty array instead of throwing error
+          console.log(`Bot is not a member of server ${guildId} - returning empty banned users list`)
           return []
         }
         throw error
