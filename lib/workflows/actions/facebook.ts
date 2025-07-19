@@ -616,4 +616,283 @@ export async function getFacebookPageInsights(
       }
     }
   }
+}
+
+/**
+ * Send a message to a person who has a conversation with the Facebook page
+ */
+export async function sendFacebookMessage(
+  config: any,
+  userId: string,
+  input: Record<string, any>
+): Promise<ActionResult> {
+  try {
+    // Resolve templated values
+    const resolvedConfig = resolveValue(config, { input })
+    
+    const {
+      pageId,
+      recipientId,
+      message,
+      quickReplies,
+      typingIndicator = true
+    } = resolvedConfig
+
+    if (!pageId || !recipientId || !message) {
+      throw new Error("Page ID, recipient ID, and message are required")
+    }
+
+    // Extract sender ID from conversation ID (format: conversationId:senderId)
+    let senderId = recipientId
+    if (recipientId.includes(':')) {
+      const parts = recipientId.split(':')
+      senderId = parts[1] || recipientId
+    }
+
+    // Get Facebook integration
+    const { createSupabaseServerClient } = await import("@/utils/supabase/server")
+    const supabase = await createSupabaseServerClient()
+    
+    const { data: integration } = await supabase
+      .from("integrations")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("provider", "facebook")
+      .eq("status", "connected")
+      .single()
+
+    if (!integration) {
+      throw new Error("Facebook integration not connected")
+    }
+
+    // Get decrypted access token
+    const accessToken = await getDecryptedAccessToken(userId, "facebook")
+
+    // Get page access token for the specific page
+    const pageAccessToken = await getPageAccessToken(pageId, accessToken)
+
+    // Generate appsecret_proof for server-side calls
+    const crypto = require('crypto')
+    const appSecret = process.env.FACEBOOK_CLIENT_SECRET
+    
+    if (!appSecret) {
+      throw new Error("Facebook app secret not configured")
+    }
+    
+    const appsecretProof = crypto
+      .createHmac('sha256', appSecret)
+      .update(pageAccessToken)
+      .digest('hex')
+
+    // Show typing indicator if enabled
+    if (typingIndicator) {
+      const typingUrl = `https://graph.facebook.com/v19.0/me/messages?appsecret_proof=${appsecretProof}`
+      const typingPayload = {
+        recipient: { id: senderId },
+        sender_action: "typing_on"
+      }
+
+      await fetch(typingUrl, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${pageAccessToken}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(typingPayload)
+      })
+
+      // Wait a bit to show typing indicator
+      await new Promise(resolve => setTimeout(resolve, 1000))
+    }
+
+    // Prepare message payload
+    const messagePayload: any = {
+      recipient: { id: senderId },
+      message: { text: message }
+    }
+
+    // Add quick replies if provided
+    if (quickReplies && quickReplies.trim()) {
+      const quickReplyOptions = quickReplies.split('\n').filter((line: string) => line.trim()).map((option: string) => ({
+        content_type: "text",
+        title: option.trim(),
+        payload: option.trim().toUpperCase()
+      }))
+
+      if (quickReplyOptions.length > 0) {
+        messagePayload.message.quick_replies = quickReplyOptions.slice(0, 11) // Facebook limit is 11 quick replies
+      }
+    }
+
+    // Send the message
+    const messageUrl = `https://graph.facebook.com/v19.0/me/messages?appsecret_proof=${appsecretProof}`
+    
+    const response = await fetch(messageUrl, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${pageAccessToken}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(messagePayload)
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(`Facebook API error: ${response.status} - ${errorData.error?.message || response.statusText}`)
+    }
+
+    const result = await response.json()
+
+    return {
+      success: true,
+      output: {
+        messageId: result.message_id,
+        pageId: pageId,
+        recipientId: senderId,
+        conversationId: recipientId,
+        message: message,
+        quickReplies: quickReplies ? quickReplies.split('\n').filter((line: string) => line.trim()) : [],
+        typingIndicator: typingIndicator,
+        facebookResponse: result
+      },
+      message: `Message sent successfully to ${senderId}`
+    }
+
+  } catch (error: any) {
+    return {
+      success: false,
+      error: error.message || "Failed to send Facebook message",
+      output: {
+        error: error.message,
+        timestamp: new Date().toISOString()
+      }
+    }
+  }
+}
+
+/**
+ * Add a comment to a Facebook post
+ */
+export async function commentOnFacebookPost(
+  config: any,
+  userId: string,
+  input: Record<string, any>
+): Promise<ActionResult> {
+  try {
+    // Resolve templated values
+    const resolvedConfig = resolveValue(config, { input })
+    
+    const {
+      pageId,
+      postId,
+      comment,
+      attachmentUrl,
+      attachmentType
+    } = resolvedConfig
+
+    if (!pageId || !postId || !comment) {
+      throw new Error("Page ID, post ID, and comment are required")
+    }
+
+    // Get Facebook integration
+    const { createSupabaseServerClient } = await import("@/utils/supabase/server")
+    const supabase = await createSupabaseServerClient()
+    
+    const { data: integration } = await supabase
+      .from("integrations")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("provider", "facebook")
+      .eq("status", "connected")
+      .single()
+
+    if (!integration) {
+      throw new Error("Facebook integration not connected")
+    }
+
+    // Get decrypted access token
+    const accessToken = await getDecryptedAccessToken(userId, "facebook")
+
+    // Get page access token for the specific page
+    const pageAccessToken = await getPageAccessToken(pageId, accessToken)
+
+    // Generate appsecret_proof for server-side calls
+    const crypto = require('crypto')
+    const appSecret = process.env.FACEBOOK_CLIENT_SECRET
+    
+    if (!appSecret) {
+      throw new Error("Facebook app secret not configured")
+    }
+    
+    const appsecretProof = crypto
+      .createHmac('sha256', appSecret)
+      .update(pageAccessToken)
+      .digest('hex')
+
+    // Prepare comment payload
+    const commentPayload: any = {
+      message: comment
+    }
+
+    // Add attachment if provided
+    if (attachmentUrl && attachmentType) {
+      switch (attachmentType) {
+        case 'photo':
+          commentPayload.attachment_url = attachmentUrl
+          break
+        case 'video':
+          commentPayload.attachment_url = attachmentUrl
+          break
+        case 'link':
+          commentPayload.attachment_url = attachmentUrl
+          break
+        default:
+          // If no specific type, just add as URL
+          commentPayload.attachment_url = attachmentUrl
+      }
+    }
+
+    // Send the comment
+    const commentUrl = `https://graph.facebook.com/v19.0/${postId}/comments?appsecret_proof=${appsecretProof}`
+    
+    const response = await fetch(commentUrl, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${pageAccessToken}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(commentPayload)
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(`Facebook API error: ${response.status} - ${errorData.error?.message || response.statusText}`)
+    }
+
+    const result = await response.json()
+
+    return {
+      success: true,
+      output: {
+        commentId: result.id,
+        pageId: pageId,
+        postId: postId,
+        comment: comment,
+        attachmentUrl: attachmentUrl || null,
+        attachmentType: attachmentType || null,
+        facebookResponse: result
+      },
+      message: `Comment added successfully to post ${postId}`
+    }
+
+  } catch (error: any) {
+    return {
+      success: false,
+      error: error.message || "Failed to comment on Facebook post",
+      output: {
+        error: error.message,
+        timestamp: new Date().toISOString()
+      }
+    }
+  }
 } 
