@@ -43,6 +43,8 @@ import { DiscordMembersPreview } from "./DiscordMembersPreview"
 import { GmailEmailsPreview } from "./GmailEmailsPreview"
 import { NotionRecordsPreview } from "./NotionRecordsPreview"
 import { FacebookInsightsPreview } from "./FacebookInsightsPreview"
+import { FacebookMessagePreview } from "./FacebookMessagePreview"
+import { FacebookCommentPreview } from "./FacebookCommentPreview"
 import { DiscordEmojiPicker } from "@/components/discord/DiscordEmojiPicker"
 import { Smile } from "lucide-react"
 import { getDiscordBotInviteUrl } from "@/lib/utils/discordConfig"
@@ -1342,6 +1344,8 @@ function ConfigurationModal({
         endpoint = "/api/workflows/notion/search-pages-preview"
       } else if (nodeInfo.type === "facebook_action_get_page_insights") {
         endpoint = "/api/workflows/facebook/fetch-page-insights-preview"
+      } else if (nodeInfo.type === "facebook_action_comment_on_post") {
+        endpoint = "/api/workflows/facebook/comment-on-post-preview"
       } else {
         throw new Error("Preview not available for this action type")
       }
@@ -3061,6 +3065,18 @@ function ConfigurationModal({
               processedData = data.map((channel: any) => ({ value: channel.id, label: channel.name }))
             } else if (field.dynamic === "facebook_pages") {
               processedData = data.map((page: any) => ({ value: page.id, label: page.name }))
+            } else if (field.dynamic === "facebook_conversations") {
+              processedData = data.map((conversation: any) => ({ 
+                value: `${conversation.conversationId}:${conversation.senderId}`, 
+                label: conversation.senderName,
+                description: conversation.lastMessage
+              }))
+            } else if (field.dynamic === "facebook_posts") {
+              processedData = data.map((post: any) => ({ 
+                value: post.postId, 
+                label: post.displayLabel,
+                description: new Date(post.createdTime).toLocaleDateString()
+              }))
             } else if (field.dynamic === "onenote_notebooks") {
               processedData = data.map((notebook: any) => ({ value: notebook.id, label: notebook.name, description: notebook.is_default ? "Default notebook" : undefined }))
             } else if (field.dynamic === "onenote_sections") {
@@ -3246,6 +3262,67 @@ function ConfigurationModal({
   useEffect(() => {
     if (!isOpen || !nodeInfo) return
 
+    // Load dependent data for Facebook actions
+    if (nodeInfo && (nodeInfo.type === "facebook_action_send_message" || nodeInfo.type === "facebook_action_comment_on_post")) {
+      const loadFacebookDependentData = async () => {
+        console.log('🔄 Loading dependent data for Facebook action with config:', config)
+        
+        const integration = getIntegrationByProvider("facebook")
+        if (!integration) return
+
+        // If pageId is set, load conversations for send message action
+        if (config.pageId && nodeInfo.type === "facebook_action_send_message") {
+          console.log('🔄 Loading conversations for pageId:', config.pageId)
+          try {
+            const conversationData = await loadIntegrationData("facebook_conversations", integration.id, { pageId: config.pageId })
+            if (conversationData && conversationData.length > 0) {
+              const mappedConversations = conversationData.map((conversation: any) => ({
+                value: conversation.value || `${conversation.conversationId}:${conversation.senderId}`,
+                label: conversation.label || conversation.senderName,
+                description: conversation.description || conversation.lastMessage
+              }))
+              setDynamicOptions(prev => ({
+                ...prev,
+                "recipientId": mappedConversations
+              }))
+              console.log('✅ Loaded conversations:', mappedConversations.length)
+            }
+          } catch (error) {
+            console.error('❌ Error loading conversations:', error)
+          }
+        }
+
+        // If pageId is set, load posts for comment on post action
+        if (config.pageId && nodeInfo.type === "facebook_action_comment_on_post") {
+          console.log('🔄 Loading posts for pageId:', config.pageId)
+          try {
+            const postData = await loadIntegrationData("facebook_posts", integration.id, { pageId: config.pageId })
+            if (postData && postData.length > 0) {
+              const mappedPosts = postData.map((post: any) => ({
+                value: post.value || post.postId,
+                label: post.label || post.displayLabel,
+                description: post.description || new Date(post.createdTime).toLocaleDateString()
+              }))
+              setDynamicOptions(prev => ({
+                ...prev,
+                "postId": mappedPosts
+              }))
+              console.log('✅ Loaded posts:', mappedPosts.length)
+            }
+          } catch (error) {
+            console.error('❌ Error loading posts:', error)
+          }
+        }
+      }
+
+      // Add a small delay to ensure the modal is fully opened and config is set before loading data
+      const timer = setTimeout(() => {
+        loadFacebookDependentData()
+      }, 200)
+
+      return () => clearTimeout(timer)
+    }
+
     // Load dependent data for Discord message actions
     if (nodeInfo && (nodeInfo.type === "discord_action_edit_message" || nodeInfo.type === "discord_action_delete_message" || nodeInfo.type === "discord_action_send_message" || nodeInfo.type === "discord_action_fetch_messages" || nodeInfo.type === "discord_action_add_reaction" || nodeInfo.type === "discord_action_remove_reaction" || nodeInfo.type === "discord_action_update_channel" || nodeInfo.type === "discord_action_delete_channel" || nodeInfo.type === "discord_action_create_channel")) {
       const loadDependentData = async () => {
@@ -3374,7 +3451,7 @@ function ConfigurationModal({
 
       return () => clearTimeout(timer)
     }
-  }, [isOpen, nodeInfo, config.guildId, config.channelId, dynamicOptions.guildId, config, botStatus]) // Added botStatus to dependencies
+  }, [isOpen, nodeInfo, config.guildId, config.channelId, config.pageId, dynamicOptions.guildId, config, botStatus]) // Added botStatus to dependencies
 
   // Debug dynamicOptions state changes
   useEffect(() => {
@@ -8367,7 +8444,8 @@ function ConfigurationModal({
                     nodeInfo?.type === "discord_action_list_channels" ||
                     nodeInfo?.type === "discord_action_fetch_guild_members" ||
                     nodeInfo?.type === "notion_action_search_pages" ||
-                    nodeInfo?.type === "facebook_action_get_page_insights") && (
+                    nodeInfo?.type === "facebook_action_get_page_insights" ||
+                    nodeInfo?.type === "facebook_action_comment_on_post") && (
                     <div className="space-y-3 border-t pt-4">
                       <div className="flex items-center justify-between">
                         <div className="text-sm font-medium">Preview Results</div>
@@ -8416,6 +8494,9 @@ function ConfigurationModal({
                           )}
                           {nodeInfo?.type === "facebook_action_get_page_insights" && (
                             <FacebookInsightsPreview insights={previewData.insights || []} />
+                          )}
+                          {nodeInfo?.type === "facebook_action_comment_on_post" && (
+                            <FacebookCommentPreview preview={previewData.preview} />
                           )}
                         </div>
                       )}
@@ -8485,7 +8566,8 @@ function ConfigurationModal({
                     <Button variant="outline" onClick={() => onClose(false)}>
                       Cancel
                     </Button>
-                    {nodeInfo?.type === "facebook_action_get_page_insights" && (
+                    {(nodeInfo?.type === "facebook_action_get_page_insights" || 
+                      nodeInfo?.type === "facebook_action_comment_on_post") && (
                       <Button
                         variant="outline"
                         size="sm"

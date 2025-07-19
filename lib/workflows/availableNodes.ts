@@ -81,7 +81,7 @@ export interface ConfigField {
   placeholder?: string
   description?: string
   options?: { value: string; label: string }[] | string[]
-  dynamic?: "slack-channels" | "slack_workspaces" | "slack_users" | "google-calendars" | "google-drive-folders" | "google-drive-files" | "onedrive-folders" | "dropbox-folders" | "box-folders" | "gmail-recent-recipients" | "gmail-enhanced-recipients" | "gmail-contact-groups" | "gmail_messages" | "gmail_labels" | "gmail_recent_senders" | "google-sheets_spreadsheets" | "google-sheets_sheets" | "google-docs_documents" | "google-docs_templates" | "google-docs_recent_documents" | "google-docs_shared_documents" | "google-docs_folders" | "youtube_channels" | "youtube_videos" | "youtube_playlists" | "teams_chats" | "teams_teams" | "teams_channels" | "github_repositories" | "gitlab_projects" | "notion_databases" | "notion_pages" | "notion_workspaces" | "notion_users" | "trello_boards" | "trello_lists" | "hubspot_companies" | "hubspot_contacts" | "hubspot_deals" | "hubspot_lists" | "hubspot_pipelines" | "hubspot_deal_stages" | "airtable_workspaces" | "airtable_bases" | "airtable_tables" | "airtable_records" | "airtable_feedback_records" | "airtable_task_records" | "airtable_project_records" | "gumroad_products" | "blackbaud_constituents" | "facebook_pages" | "onenote_notebooks" | "onenote_sections" | "onenote_pages" | "outlook_folders" | "outlook_messages" | "outlook_contacts" | "outlook_calendars" | "outlook_events" | "outlook-enhanced-recipients" | "discord_guilds" | "discord_channels" | "discord_categories" | "discord_members" | "discord_roles" | "discord_messages" | "discord_users" | "discord_banned_users"
+  dynamic?: "slack-channels" | "slack_workspaces" | "slack_users" | "google-calendars" | "google-drive-folders" | "google-drive-files" | "onedrive-folders" | "dropbox-folders" | "box-folders" | "gmail-recent-recipients" | "gmail-enhanced-recipients" | "gmail-contact-groups" | "gmail_messages" | "gmail_labels" | "gmail_recent_senders" | "google-sheets_spreadsheets" | "google-sheets_sheets" | "google-docs_documents" | "google-docs_templates" | "google-docs_recent_documents" | "google-docs_shared_documents" | "google-docs_folders" | "youtube_channels" | "youtube_videos" | "youtube_playlists" | "teams_chats" | "teams_teams" | "teams_channels" | "github_repositories" | "gitlab_projects" | "notion_databases" | "notion_pages" | "notion_workspaces" | "notion_users" | "trello_boards" | "trello_lists" | "hubspot_companies" | "hubspot_contacts" | "hubspot_deals" | "hubspot_lists" | "hubspot_pipelines" | "hubspot_deal_stages" | "airtable_workspaces" | "airtable_bases" | "airtable_tables" | "airtable_records" | "airtable_feedback_records" | "airtable_task_records" | "airtable_project_records" | "gumroad_products" | "blackbaud_constituents" | "facebook_pages" | "facebook_conversations" | "facebook_posts" | "onenote_notebooks" | "onenote_sections" | "onenote_pages" | "outlook_folders" | "outlook_messages" | "outlook_contacts" | "outlook_calendars" | "outlook_events" | "outlook-enhanced-recipients" | "discord_guilds" | "discord_channels" | "discord_categories" | "discord_members" | "discord_roles" | "discord_messages" | "discord_users" | "discord_banned_users"
   accept?: string // For file inputs, specify accepted file types
   maxSize?: number // For file inputs, specify max file size in bytes
   defaultValue?: string | number | boolean // Default value for the field
@@ -4828,7 +4828,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   // Facebook Actions
   {
     type: "facebook_action_create_post",
-    title: "Create Post (Facebook)",
+    title: "Create Post",
     description: "Create a new post on a Facebook page",
     icon: Share,
     providerId: "facebook",
@@ -4849,7 +4849,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "facebook_action_get_page_insights",
-    title: "Fetch Page Insights (Facebook)",
+    title: "Fetch Page Insights",
     description: "Fetch analytics data for a Facebook page",
     icon: BarChart,
     providerId: "facebook",
@@ -4870,6 +4870,44 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         { value: "month", label: "Month" }
       ] },
       { name: "periodCount", label: "Number of Days", type: "number", required: true, defaultValue: 7, placeholder: "7", dependsOn: "period" }
+    ]
+  },
+  {
+    type: "facebook_action_send_message",
+    title: "Send Message",
+    description: "Send a message to a person who has a conversation with the page",
+    icon: MessageSquare,
+    providerId: "facebook",
+    requiredScopes: ["pages_messaging"],
+    category: "Social",
+    isTrigger: false,
+    configSchema: [
+      { name: "pageId", label: "Page", type: "select", dynamic: "facebook_pages", required: true, placeholder: "Select a Facebook page", uiTab: "basic" },
+      { name: "recipientId", label: "Message", type: "select", dynamic: "facebook_conversations", required: true, placeholder: "Select a conversation", uiTab: "basic", dependsOn: "pageId" },
+      { name: "message", label: "Message", type: "textarea", required: true, placeholder: "Enter your message", uiTab: "basic" },
+      { name: "quickReplies", label: "Quick Reply Options", type: "textarea", required: false, placeholder: "Enter quick reply options (one per line)", uiTab: "advanced" },
+      { name: "typingIndicator", label: "Show Typing Indicator", type: "boolean", required: false, defaultValue: true, uiTab: "advanced" }
+    ]
+  },
+  {
+    type: "facebook_action_comment_on_post",
+    title: "Comment On Post",
+    description: "Add a comment to a Facebook post",
+    icon: MessageCircle,
+    providerId: "facebook",
+    requiredScopes: ["pages_manage_posts"],
+    category: "Social",
+    isTrigger: false,
+    configSchema: [
+      { name: "pageId", label: "Page", type: "select", dynamic: "facebook_pages", required: true, placeholder: "Select a Facebook page", uiTab: "basic" },
+      { name: "postId", label: "Post", type: "select", dynamic: "facebook_posts", required: true, placeholder: "Select a post", uiTab: "basic", dependsOn: "pageId" },
+      { name: "comment", label: "Comment", type: "textarea", required: true, placeholder: "Enter your comment", uiTab: "basic" },
+      { name: "attachmentUrl", label: "Attachment URL", type: "text", required: false, placeholder: "URL to attach to the comment", uiTab: "advanced" },
+      { name: "attachmentType", label: "Attachment Type", type: "select", required: false, options: [
+        { value: "photo", label: "Photo" },
+        { value: "video", label: "Video" },
+        { value: "link", label: "Link" }
+      ], uiTab: "advanced" }
     ]
   },
 

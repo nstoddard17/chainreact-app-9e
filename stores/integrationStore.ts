@@ -777,6 +777,14 @@ export const useIntegrationStore = create<IntegrationStore>()(
             url = "/api/integrations/fetch-user-data"
             dataType = "facebook_pages"
             break
+          case "facebook_conversations":
+            url = "/api/integrations/facebook/conversations"
+            dataType = "facebook_conversations"
+            break
+          case "facebook_posts":
+            url = "/api/integrations/facebook/posts"
+            dataType = "facebook_posts"
+            break
           case "onenote_notebooks":
             url = "/api/integrations/fetch-user-data"
             dataType = "onenote_notebooks"
@@ -934,6 +942,9 @@ export const useIntegrationStore = create<IntegrationStore>()(
                        providerId === 'discord_reactions' ? 'discord' :
                        providerId === 'discord_categories' ? 'discord' :
                        providerId === 'discord_banned_users' ? 'discord' :
+                       providerId === 'facebook_pages' ? 'facebook' :
+                       providerId === 'facebook_conversations' ? 'facebook' :
+                       providerId === 'facebook_posts' ? 'facebook' :
                        providerId.includes('_') ? providerId.split('_')[0] : 
                        providerId.includes('-') ? providerId.split('-')[0] : 
                        providerId // Extract base provider name

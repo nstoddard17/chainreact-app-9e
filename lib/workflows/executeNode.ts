@@ -72,6 +72,8 @@ import {
   // Facebook actions
   createFacebookPost,
   getFacebookPageInsights,
+  sendFacebookMessage,
+  commentOnFacebookPost,
 
   // Workflow control actions
   executeIfThenCondition,
@@ -1731,6 +1733,8 @@ export async function executeAction({ node, input, userId, workflowId }: Execute
   // Facebook actions
   "facebook_action_create_post": createFacebookPost,
   "facebook_action_get_page_insights": getFacebookPageInsights,
+  "facebook_action_send_message": sendFacebookMessage,
+  "facebook_action_comment_on_post": commentOnFacebookPost,
     
     // YouTube actions
     "youtube_action_upload_video": uploadYouTubeVideo,
