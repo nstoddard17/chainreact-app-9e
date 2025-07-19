@@ -14,24 +14,8 @@ export async function createHubSpotContact(
     const resolvedConfig = resolveValue(config, { input })
     
     const {
-      email,
-      firstname,
-      lastname,
-      phone,
-      company,
-      jobtitle,
-      lifecycle_stage,
-      lead_status,
-      address,
-      city,
-      state,
-      zip,
-      country
+      hubspot_contact_properties = {}
     } = resolvedConfig
-
-    if (!email) {
-      throw new Error("Email is required")
-    }
 
     // Get HubSpot integration
     const { createSupabaseServerClient } = await import("@/utils/supabase/server")
@@ -51,23 +35,28 @@ export async function createHubSpotContact(
 
     const accessToken = await getDecryptedAccessToken(userId, "hubspot")
 
-    // Prepare contact properties
-    const properties: Record<string, string> = {
-      email: email
-    }
+    // Process dynamic form data
+    const properties: Record<string, any> = {}
+    
+    // Convert dynamic form data to HubSpot API format
+    Object.entries(hubspot_contact_properties).forEach(([propertyName, fieldData]: [string, any]) => {
+      if (fieldData && typeof fieldData === 'object') {
+        if (fieldData.type === 'literal' && fieldData.value !== undefined && fieldData.value !== '') {
+          properties[propertyName] = fieldData.value
+        } else if (fieldData.type === 'variable' && fieldData.value) {
+          // For variables, we need to resolve them from the input
+          const resolvedValue = input[fieldData.value] || fieldData.value
+          if (resolvedValue !== undefined && resolvedValue !== '') {
+            properties[propertyName] = resolvedValue
+          }
+        }
+      }
+    })
 
-    if (firstname) properties.firstname = firstname
-    if (lastname) properties.lastname = lastname
-    if (phone) properties.phone = phone
-    if (company) properties.company = company
-    if (jobtitle) properties.jobtitle = jobtitle
-    if (lifecycle_stage) properties.lifecycle_stage = lifecycle_stage
-    if (lead_status) properties.hs_lead_status = lead_status
-    if (address) properties.address = address
-    if (city) properties.city = city
-    if (state) properties.state = state
-    if (zip) properties.zip = zip
-    if (country) properties.country = country
+    // Validate that we have at least an email
+    if (!properties.email) {
+      throw new Error("Email is required for HubSpot contact creation")
+    }
 
     // Create contact payload
     const payload = {
@@ -95,13 +84,8 @@ export async function createHubSpotContact(
       success: true,
       output: {
         contactId: result.id,
-        email: result.properties.email,
-        firstname: result.properties.firstname,
-        lastname: result.properties.lastname,
-        company: result.properties.company,
-        jobtitle: result.properties.jobtitle,
-        lifecycle_stage: result.properties.lifecycle_stage,
-        lead_status: result.properties.hs_lead_status,
+        properties: result.properties,
+        hubspot_contact_properties: hubspot_contact_properties,
         createdAt: result.createdAt,
         updatedAt: result.updatedAt,
         hubspotResponse: result

@@ -76,12 +76,12 @@ import { AI_AGENT_METADATA } from "@/lib/workflows/aiAgent"
 export interface ConfigField {
   name: string
   label: string
-  type: "string" | "number" | "boolean" | "select" | "combobox" | "textarea" | "text" | "email" | "password" | "email-autocomplete" | "location-autocomplete" | "file" | "date" | "time" | "datetime" | "custom" | "rich-text" | "multi-select"
+  type: "string" | "number" | "boolean" | "select" | "combobox" | "textarea" | "text" | "email" | "password" | "email-autocomplete" | "location-autocomplete" | "file" | "date" | "time" | "datetime" | "custom" | "rich-text" | "multi-select" | "dynamic_fields" | "hubspot_dynamic_form"
   required?: boolean
   placeholder?: string
   description?: string
   options?: { value: string; label: string }[] | string[]
-  dynamic?: "slack-channels" | "slack_workspaces" | "slack_users" | "google-calendars" | "google-drive-folders" | "google-drive-files" | "onedrive-folders" | "dropbox-folders" | "box-folders" | "gmail-recent-recipients" | "gmail-enhanced-recipients" | "gmail-contact-groups" | "gmail_messages" | "gmail_labels" | "gmail_recent_senders" | "google-sheets_spreadsheets" | "google-sheets_sheets" | "google-docs_documents" | "google-docs_templates" | "google-docs_recent_documents" | "google-docs_shared_documents" | "google-docs_folders" | "youtube_channels" | "youtube_videos" | "youtube_playlists" | "teams_chats" | "teams_teams" | "teams_channels" | "github_repositories" | "gitlab_projects" | "notion_databases" | "notion_pages" | "notion_workspaces" | "notion_users" | "trello_boards" | "trello_lists" | "hubspot_companies" | "hubspot_contacts" | "hubspot_deals" | "hubspot_lists" | "hubspot_pipelines" | "hubspot_deal_stages" | "airtable_workspaces" | "airtable_bases" | "airtable_tables" | "airtable_records" | "airtable_feedback_records" | "airtable_task_records" | "airtable_project_records" | "gumroad_products" | "blackbaud_constituents" | "facebook_pages" | "facebook_conversations" | "facebook_posts" | "onenote_notebooks" | "onenote_sections" | "onenote_pages" | "outlook_folders" | "outlook_messages" | "outlook_contacts" | "outlook_calendars" | "outlook_events" | "outlook-enhanced-recipients" | "discord_guilds" | "discord_channels" | "discord_categories" | "discord_members" | "discord_roles" | "discord_messages" | "discord_users" | "discord_banned_users"
+  dynamic?: "slack-channels" | "slack_workspaces" | "slack_users" | "google-calendars" | "google-drive-folders" | "google-drive-files" | "onedrive-folders" | "dropbox-folders" | "box-folders" | "gmail-recent-recipients" | "gmail-enhanced-recipients" | "gmail-contact-groups" | "gmail_messages" | "gmail_labels" | "gmail_recent_senders" | "google-sheets_spreadsheets" | "google-sheets_sheets" | "google-docs_documents" | "google-docs_templates" | "google-docs_recent_documents" | "google-docs_shared_documents" | "google-docs_folders" | "youtube_channels" | "youtube_videos" | "youtube_playlists" | "teams_chats" | "teams_teams" | "teams_channels" | "github_repositories" | "gitlab_projects" | "notion_databases" | "notion_pages" | "notion_workspaces" | "notion_users" | "trello_boards" | "trello_lists" | "hubspot_companies" | "hubspot_contacts" | "hubspot_deals" | "hubspot_lists" | "hubspot_pipelines" | "hubspot_deal_stages" | "hubspot_job_titles" | "hubspot_departments" | "hubspot_industries" | "hubspot_contact_properties" | "hubspot_contact_schema" | "airtable_workspaces" | "airtable_bases" | "airtable_tables" | "airtable_records" | "airtable_feedback_records" | "airtable_task_records" | "airtable_project_records" | "gumroad_products" | "blackbaud_constituents" | "facebook_pages" | "facebook_conversations" | "facebook_posts" | "onenote_notebooks" | "onenote_sections" | "onenote_pages" | "outlook_folders" | "outlook_messages" | "outlook_contacts" | "outlook_calendars" | "outlook_events" | "outlook-enhanced-recipients" | "discord_guilds" | "discord_channels" | "discord_categories" | "discord_members" | "discord_roles" | "discord_messages" | "discord_users" | "discord_banned_users"
   accept?: string // For file inputs, specify accepted file types
   maxSize?: number // For file inputs, specify max file size in bytes
   defaultValue?: string | number | boolean // Default value for the field
@@ -94,7 +94,7 @@ export interface ConfigField {
 export interface NodeField {
   name: string
   label: string
-  type: "text" | "textarea" | "number" | "boolean" | "select" | "combobox" | "file" | "custom" | "email" | "time" | "datetime" | "email-autocomplete" | "date" | "location-autocomplete" | "rich-text" | "multi-select"
+  type: "text" | "textarea" | "number" | "boolean" | "select" | "combobox" | "file" | "custom" | "email" | "time" | "datetime" | "email-autocomplete" | "date" | "location-autocomplete" | "rich-text" | "multi-select" | "dynamic_fields" | "hubspot_dynamic_form"
   required?: boolean
   placeholder?: string
   defaultValue?: any
@@ -2033,6 +2033,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     requiredScopes: ["repo"],
     category: "Development",
     isTrigger: false,
+    comingSoon: true,
     configSchema: [
       { name: "owner", label: "Repository Owner", type: "text", required: true, placeholder: "e.g., octocat" },
       { name: "repo", label: "Repository Name", type: "text", required: true, placeholder: "e.g., my-project" },
@@ -2106,7 +2107,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   // HubSpot
   {
     type: "hubspot_trigger_new_contact",
-    title: "New Contact (HubSpot)",
+    title: "New Contact",
     description: "Triggers when a new contact is created",
     icon: Briefcase,
     providerId: "hubspot",
@@ -2115,93 +2116,60 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "hubspot_action_create_contact",
-    title: "Create Contact (HubSpot)",
-    description: "Create a new contact",
+    title: "Create Contact",
+    description: "Create a new contact in HubSpot CRM",
     icon: Plus,
     providerId: "hubspot",
     requiredScopes: ["crm.objects.contacts.write"],
     category: "CRM",
     isTrigger: false,
     configSchema: [
-      { name: "email", label: "Email", type: "email", required: true },
-      { name: "firstname", label: "First Name", type: "text" },
-      { name: "lastname", label: "Last Name", type: "text" },
-      { name: "phone", label: "Phone", type: "text" },
-      { 
-        name: "company", 
-        label: "Company", 
-        type: "combobox",
-        dynamic: "hubspot_companies",
+      // Dynamic HubSpot Contact Properties
+      {
+        name: "hubspot_contact_properties",
+        label: "Contact Properties",
+        type: "hubspot_dynamic_form",
+        dynamic: "hubspot_contact_schema",
         required: false,
-        placeholder: "Select a company or type to create new",
-        creatable: true
-      },
-      { name: "jobtitle", label: "Job Title", type: "text" },
-      { 
-        name: "lifecycle_stage", 
-        label: "Lifecycle Stage", 
-        type: "combobox",
-        options: [
-          { value: "subscriber", label: "Subscriber" },
-          { value: "lead", label: "Lead" },
-          { value: "marketingqualifiedlead", label: "Marketing Qualified Lead" },
-          { value: "salesqualifiedlead", label: "Sales Qualified Lead" },
-          { value: "opportunity", label: "Opportunity" },
-          { value: "customer", label: "Customer" },
-          { value: "evangelist", label: "Evangelist" },
-          { value: "other", label: "Other" }
-        ],
-        placeholder: "Select a lifecycle stage or type to create new",
-        creatable: true
-      },
-      { 
-        name: "lead_status", 
-        label: "Lead Status", 
-        type: "combobox",
-        options: [
-          { value: "NEW", label: "New" },
-          { value: "OPEN", label: "Open" },
-          { value: "IN_PROGRESS", label: "In Progress" },
-          { value: "PRESENTATION_SCHEDULED", label: "Presentation Scheduled" },
-          { value: "CONTRACT_SENT", label: "Contract Sent" },
-          { value: "CLOSED_WON", label: "Closed Won" },
-          { value: "CLOSED_LOST", label: "Closed Lost" }
-        ],
-        placeholder: "Select a lead status or type to create new",
-        creatable: true
-      },
-      { name: "custom_properties", label: "Custom Properties (JSON)", type: "textarea", placeholder: '{"custom_field": "value"}' }
+        description: "Configure contact properties dynamically fetched from your HubSpot account"
+      }
     ],
     outputSchema: [
       {
         name: "contactId",
         label: "Contact ID",
         type: "string",
-        description: "The unique ID of the created contact"
+        description: "The unique identifier of the created contact"
       },
       {
-        name: "email",
-        label: "Email",
-        type: "string",
-        description: "The contact's email address"
+        name: "properties",
+        label: "Contact Properties",
+        type: "object",
+        description: "All properties of the created contact as returned by HubSpot"
       },
       {
-        name: "firstname",
-        label: "First Name",
-        type: "string",
-        description: "The contact's first name"
-      },
-      {
-        name: "lastname",
-        label: "Last Name",
-        type: "string",
-        description: "The contact's last name"
+        name: "hubspot_contact_properties",
+        label: "Form Configuration",
+        type: "object",
+        description: "The dynamic form configuration that was used to create the contact"
       },
       {
         name: "createdAt",
         label: "Created At",
         type: "string",
         description: "When the contact was created"
+      },
+      {
+        name: "updatedAt",
+        label: "Updated At",
+        type: "string",
+        description: "When the contact was last updated"
+      },
+      {
+        name: "hubspotResponse",
+        label: "Full HubSpot Response",
+        type: "object",
+        description: "Complete response from HubSpot API"
       }
     ]
   },
@@ -4708,6 +4676,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     requiredScopes: ["repo"],
     category: "Developer",
     isTrigger: false,
+    comingSoon: true,
     configSchema: [
       { name: "name", label: "Repository Name", type: "text", required: true, placeholder: "Enter repository name" },
       { name: "description", label: "Description", type: "textarea", required: false, placeholder: "Repository description" },
@@ -4730,6 +4699,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     requiredScopes: ["repo"],
     category: "Developer",
     isTrigger: false,
+    comingSoon: true,
     configSchema: [
       { name: "repo", label: "Repository", type: "text", required: true, placeholder: "owner/repo-name" },
       { name: "title", label: "Title", type: "text", required: true, placeholder: "Pull request title" },
@@ -4747,6 +4717,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     requiredScopes: ["gist"],
     category: "Developer",
     isTrigger: false,
+    comingSoon: true,
     configSchema: [
       { name: "description", label: "Description", type: "text", required: false, placeholder: "Gist description" },
       { name: "filename", label: "Filename", type: "text", required: true, placeholder: "example.js" },
@@ -4763,6 +4734,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     requiredScopes: ["repo"],
     category: "Developer",
     isTrigger: false,
+    comingSoon: true,
     configSchema: [
       { name: "repo", label: "Repository", type: "text", required: true, placeholder: "owner/repo-name" },
       { name: "issueNumber", label: "Issue/PR Number", type: "number", required: true, placeholder: "123" },
@@ -4780,6 +4752,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     requiredScopes: ["api"],
     category: "Developer",
     isTrigger: false,
+    comingSoon: true,
     configSchema: [
       { name: "name", label: "Project Name", type: "text", required: true, placeholder: "Enter project name" },
       { name: "description", label: "Description", type: "textarea", required: false, placeholder: "Project description" },
@@ -4800,6 +4773,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     requiredScopes: ["api"],
     category: "Developer",
     isTrigger: false,
+    comingSoon: true,
     configSchema: [
       { name: "projectId", label: "Project ID", type: "number", required: true, placeholder: "123" },
       { name: "title", label: "Title", type: "text", required: true, placeholder: "Merge request title" },
@@ -4817,6 +4791,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     requiredScopes: ["api"],
     category: "Developer",
     isTrigger: false,
+    comingSoon: true,
     configSchema: [
       { name: "projectId", label: "Project ID", type: "number", required: true, placeholder: "123" },
       { name: "title", label: "Title", type: "text", required: true, placeholder: "Issue title" },
@@ -4881,6 +4856,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     requiredScopes: ["pages_messaging"],
     category: "Social",
     isTrigger: false,
+    comingSoon: true,
     configSchema: [
       { name: "pageId", label: "Page", type: "select", dynamic: "facebook_pages", required: true, placeholder: "Select a Facebook page", uiTab: "basic" },
       { name: "recipientId", label: "Message", type: "select", dynamic: "facebook_conversations", required: true, placeholder: "Select a conversation", uiTab: "basic", dependsOn: "pageId" },
@@ -4898,6 +4874,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     requiredScopes: ["pages_manage_posts"],
     category: "Social",
     isTrigger: false,
+    comingSoon: true,
     configSchema: [
       { name: "pageId", label: "Page", type: "select", dynamic: "facebook_pages", required: true, placeholder: "Select a Facebook page", uiTab: "basic" },
       { name: "postId", label: "Post", type: "select", dynamic: "facebook_posts", required: true, placeholder: "Select a post", uiTab: "basic", dependsOn: "pageId" },
@@ -5239,7 +5216,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   // HubSpot Actions
   {
     type: "hubspot_action_create_company",
-    title: "Create Company (HubSpot)",
+    title: "Create Company",
     description: "Create a new company in HubSpot",
     icon: Building,
     providerId: "hubspot",
@@ -5256,7 +5233,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "hubspot_action_create_deal",
-    title: "Create Deal (HubSpot)",
+    title: "Create Deal",
     description: "Create a new deal in HubSpot",
     icon: DollarSign,
     providerId: "hubspot",
@@ -5290,7 +5267,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "hubspot_action_add_contact_to_list",
-    title: "Add Contact to List (HubSpot)",
+    title: "Add Contact to List",
     description: "Add a contact to a HubSpot list",
     icon: Users,
     providerId: "hubspot",
@@ -5320,7 +5297,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "hubspot_action_update_deal",
-    title: "Update Deal (HubSpot)",
+    title: "Update Deal",
     description: "Update an existing deal in HubSpot",
     icon: Edit,
     providerId: "hubspot",

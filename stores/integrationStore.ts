@@ -737,6 +737,26 @@ export const useIntegrationStore = create<IntegrationStore>()(
             url = "/api/integrations/fetch-user-data"
             dataType = "hubspot_deal_stages"
             break
+          case "hubspot_job_titles":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "hubspot_job_titles"
+            break
+          case "hubspot_departments":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "hubspot_departments"
+            break
+          case "hubspot_industries":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "hubspot_industries"
+            break
+          case "hubspot_contact_properties":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "hubspot_contact_properties"
+            break
+          case "hubspot_contact_schema":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "hubspot_contact_schema"
+            break
           case "airtable_bases":
             url = "/api/integrations/fetch-user-data"
             dataType = "airtable_bases"
@@ -896,14 +916,20 @@ export const useIntegrationStore = create<IntegrationStore>()(
             url = "/api/integrations/fetch-user-data"
             dataType = "discord_roles"
             break
+          case "discord_messages":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "discord_messages"
+            break
+          case "discord_reactions":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "discord_reactions"
+            break
+          case "discord_banned_users":
+            url = "/api/integrations/fetch-user-data"
+            dataType = "discord_banned_users"
+            break
           default:
-            // For discord_messages, discord_reactions, discord_categories, discord_banned_users and other dynamic data types, let the provider mapping handle it
-            if (providerId === "discord_messages" || providerId === "discord_reactions" || providerId === "discord_categories" || providerId === "discord_banned_users") {
-              url = "/api/integrations/fetch-user-data"
-              dataType = providerId
-            } else {
-              throw new Error(`Loading data for ${providerId} is not supported.`)
-            }
+            throw new Error(`Loading data for ${providerId} is not supported.`)
         }
 
         const provider = providerId === 'onenote_notebooks' ? 'microsoft-onenote' :

@@ -33,6 +33,7 @@ import { EnhancedTooltip } from "@/components/ui/enhanced-tooltip"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import GoogleMeetCard from "@/components/ui/google-meet-card"
 import VariablePicker from "./VariablePicker"
+import HubSpotDynamicForm from "./HubSpotDynamicForm"
 import { NotionDatabaseConfig } from "./NotionDatabaseConfig"
 import SlackTemplatePreview from "../ui/slack-template-preview"
 import { SlackEmailInviteMultiCombobox } from "@/components/ui/SlackEmailInviteMultiCombobox"
@@ -7205,6 +7206,45 @@ function ConfigurationModal({
           );
         }
 
+        // Default case for combobox fields
+        const comboboxOptions = field.dynamic ? dynamicOptions[field.name] || [] : field.options || [];
+        const isComboboxLoading = field.dynamic && loadingDynamic;
+        
+        return (
+          <div className="space-y-2">
+            {renderDynamicLabel()}
+            <div className="flex gap-2 w-full relative">
+              {isComboboxLoading && (
+                <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-10 flex items-center justify-center rounded-md border">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Loading {field.label?.toLowerCase() || 'options'}...
+                  </div>
+                </div>
+              )}
+              <div className="flex-1">
+                <Combobox
+                  options={comboboxOptions.map((option) => ({
+                    value: typeof option === 'string' ? option : option.value,
+                    label: typeof option === 'string' ? option : option.label,
+                    description: typeof option === 'object' && 'description' in option && typeof option.description === 'string' ? option.description : undefined
+                  }))}
+                  value={value}
+                  onChange={handleSelectChange}
+                  disabled={isComboboxLoading}
+                  placeholder={isComboboxLoading ? "Loading..." : field.placeholder}
+                  searchPlaceholder="Search or type to create new..."
+                  emptyPlaceholder={isComboboxLoading ? "Loading..." : "No results found."}
+                  creatable={field.creatable === true || field.creatable === "true"}
+                />
+              </div>
+            </div>
+            {hasError && (
+              <p className="text-xs text-red-500">{errors[field.name]}</p>
+            )}
+          </div>
+        );
+
       case "datetime":
         // Use the new DateTimePicker for Facebook create post scheduledPublishTime
         if (nodeInfo?.type === "facebook_action_create_post" && field.name === "scheduledPublishTime") {
@@ -7368,6 +7408,113 @@ function ConfigurationModal({
             )}
           </div>
         )
+
+      case "dynamic_fields":
+        // Handle dynamic fields for HubSpot contact properties
+        if (field.dynamic === "hubspot_contact_properties") {
+          const properties = dynamicOptions[field.dynamic] || [];
+          const selectedFields = config[field.name] || [];
+          const isFieldLoading = loadingDynamic;
+          
+          return (
+            <div className="space-y-4">
+              {renderDynamicLabel()}
+              <div className="flex gap-2 w-full relative">
+                {isFieldLoading && (
+                  <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-10 flex items-center justify-center rounded-md border">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Loading HubSpot contact properties...
+                    </div>
+                  </div>
+                )}
+                
+                <div className="w-full space-y-3">
+                  {properties.length === 0 && !isFieldLoading ? (
+                    <div className="p-4 border border-dashed border-muted-foreground/25 rounded-lg">
+                      <p className="text-sm text-muted-foreground text-center">
+                        No custom contact properties found in your HubSpot account.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="grid gap-3">
+                      {properties.map((property: any) => (
+                        <div key={property.name} className="flex items-center space-x-3 p-3 border rounded-lg">
+                          <Checkbox
+                            id={`field-${property.name}`}
+                            checked={selectedFields.includes(property.name)}
+                            onCheckedChange={(checked: boolean) => {
+                              const newSelectedFields = checked
+                                ? [...selectedFields, property.name]
+                                : selectedFields.filter((f: string) => f !== property.name);
+                              setConfig(prev => ({ ...prev, [field.name]: newSelectedFields }));
+                            }}
+                            disabled={isFieldLoading}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <Label htmlFor={`field-${property.name}`} className="text-sm font-medium">
+                              {property.label}
+                            </Label>
+                            <p className="text-xs text-muted-foreground">
+                              {property.description || property.name}
+                            </p>
+                            <p className="text-xs text-muted-foreground capitalize">
+                              Type: {property.type}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+              {hasError && (
+                <p className="text-xs text-red-500">{errors[field.name]}</p>
+              )}
+            </div>
+          );
+        }
+        
+        // Default case for dynamic_fields
+        return (
+          <div className="space-y-2">
+            {renderDynamicLabel()}
+            <div className="p-4 border border-dashed border-muted-foreground/25 rounded-lg">
+              <p className="text-sm text-muted-foreground text-center">
+                Dynamic fields configuration not implemented for this type.
+              </p>
+            </div>
+          </div>
+        );
+
+      case "hubspot_dynamic_form":
+        // Add debug info about the dynamic data being passed
+        console.log(`[DEBUG] HubSpot Dynamic Form - field.dynamic: ${field.dynamic}`)
+        console.log(`[DEBUG] HubSpot Dynamic Form - dynamicOptions keys:`, Object.keys(dynamicOptions))
+        console.log(`[DEBUG] HubSpot Dynamic Form - dynamic data length:`, (dynamicOptions[field.dynamic as string] || []).length)
+        
+        return (
+          <>
+            {/* Debug info about dynamic data */}
+            <details className="mb-4 text-xs border rounded p-2 bg-slate-50">
+              <summary className="font-medium cursor-pointer">ConfigModal Debug Info</summary>
+              <div className="mt-2">
+                <p><strong>Dynamic field key:</strong> {field.dynamic}</p>
+                <p><strong>Available dynamic options:</strong> {Object.keys(dynamicOptions).join(', ')}</p>
+                <p><strong>Data count:</strong> {(dynamicOptions[field.dynamic as string] || []).length} items</p>
+                <p><strong>Error:</strong> {errors[field.name] || 'None'}</p>
+              </div>
+            </details>
+            
+            <HubSpotDynamicForm 
+              value={config[field.name] || {}}
+              onChange={(value) => setConfig({ ...config, [field.name]: value })}
+              dynamicData={(dynamicOptions[field.dynamic as string] || []) as any}
+              isLoading={loadingDynamic}
+              error={errors[field.name]}
+            />
+          </>
+        );
 
       default:
         return (
