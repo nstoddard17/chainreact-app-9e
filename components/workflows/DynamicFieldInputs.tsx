@@ -22,6 +22,7 @@ interface PropertyDetails {
   type: string
   fieldType: string
   options?: { value: string; label: string }[]
+  existingValues?: string[]
 }
 
 export default function DynamicFieldInputs({
@@ -32,6 +33,7 @@ export default function DynamicFieldInputs({
 }: DynamicFieldInputsProps) {
   const [propertyDetails, setPropertyDetails] = useState<Record<string, PropertyDetails>>({})
   const [loading, setLoading] = useState<Record<string, boolean>>({})
+  const [existingValuesLoading, setExistingValuesLoading] = useState<Record<string, boolean>>({})
   const loadingRef = useRef<Set<string>>(new Set())
   const lastRequestRef = useRef<Record<string, number>>({})
 
@@ -74,6 +76,11 @@ export default function DynamicFieldInputs({
           ...prev,
           [propertyName]: data.property
         }))
+        
+        // After loading property details, fetch existing values for text fields
+        if (data.property.fieldType === 'text' || data.property.fieldType === 'string') {
+          loadExistingValues(propertyName)
+        }
       } else if (response.status === 401) {
         console.warn(`Unauthorized access for property ${propertyName}. Please check your HubSpot integration.`)
       } else {
@@ -84,6 +91,35 @@ export default function DynamicFieldInputs({
     } finally {
       loadingRef.current.delete(propertyName)
       setLoading(prev => ({ ...prev, [propertyName]: false }))
+    }
+  }
+
+  const loadExistingValues = async (propertyName: string) => {
+    if (!integrationId) return
+    
+    setExistingValuesLoading(prev => ({ ...prev, [propertyName]: true }))
+    
+    try {
+      const response = await fetch(
+        `/api/integrations/hubspot/property-values?property=${encodeURIComponent(propertyName)}`
+      )
+      
+      if (response.ok) {
+        const data = await response.json()
+        setPropertyDetails(prev => ({
+          ...prev,
+          [propertyName]: {
+            ...prev[propertyName],
+            existingValues: data.data
+          }
+        }))
+      } else {
+        console.error(`Failed to load existing values for ${propertyName}: ${response.status} ${response.statusText}`)
+      }
+    } catch (error) {
+      console.error(`Failed to load existing values for ${propertyName}:`, error)
+    } finally {
+      setExistingValuesLoading(prev => ({ ...prev, [propertyName]: false }))
     }
   }
 
@@ -170,6 +206,27 @@ export default function DynamicFieldInputs({
         )
 
       default:
+        // For text fields, show dropdown with existing values if available
+        if (property.existingValues && property.existingValues.length > 0) {
+          return (
+            <Select value={currentValue} onValueChange={(value) => handleValueChange(propertyName, value)}>
+              <SelectTrigger>
+                <SelectValue placeholder={`Select or type ${property.label}`} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">
+                  <span className="text-muted-foreground">Type a new value...</span>
+                </SelectItem>
+                {property.existingValues.map(value => (
+                  <SelectItem key={value} value={value}>
+                    {value}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )
+        }
+        
         return (
           <Input
             type={inputType}
@@ -194,6 +251,7 @@ export default function DynamicFieldInputs({
         {selectedProperties.map(propertyName => {
           const property = propertyDetails[propertyName]
           const isLoading = loading[propertyName]
+          const isExistingValuesLoading = existingValuesLoading[propertyName]
 
           return (
             <div key={propertyName} className="space-y-2">
@@ -201,16 +259,29 @@ export default function DynamicFieldInputs({
                 <Label className="text-sm font-medium">
                   {property?.label || propertyName}
                 </Label>
-                {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+                {(isLoading || isExistingValuesLoading) && <Loader2 className="w-4 h-4 animate-spin" />}
                 <Badge variant="outline" className="text-xs">
                   {property?.fieldType || 'text'}
                 </Badge>
+                {property?.existingValues && property.existingValues.length > 0 && (
+                  <Badge variant="secondary" className="text-xs">
+                    {property.existingValues.length} existing values
+                  </Badge>
+                )}
               </div>
               
               {isLoading ? (
                 <div className="h-10 bg-muted animate-pulse rounded-md" />
               ) : property ? (
-                renderInput(propertyName, property)
+                <div className="space-y-2">
+                  {renderInput(propertyName, property)}
+                  {isExistingValuesLoading && (
+                    <div className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      Loading existing values...
+                    </div>
+                  )}
+                </div>
               ) : (
                 <Input
                   value={values[propertyName] || ''}

@@ -121,7 +121,7 @@ export async function createHubSpotContact(params: ActionParams): Promise<Action
     
     // Add custom properties
     if (custom_properties && typeof custom_properties === 'object') {
-      Object.assign(properties, custom_properties)
+    Object.assign(properties, custom_properties)
     }
     
     const payload = {

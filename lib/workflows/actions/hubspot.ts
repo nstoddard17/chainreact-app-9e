@@ -22,6 +22,8 @@ export async function createHubSpotContact(
       preferred_channels,
       additional_properties = [],
       additional_values = {},
+      all_available_fields = [],
+      all_field_values = {},
       custom_properties = {}
     } = resolvedConfig
 
@@ -91,6 +93,26 @@ export async function createHubSpotContact(
           if (propValue !== undefined && propValue !== null && propValue !== '') {
             properties[propName] = propValue
             console.log(`Added property ${propName} with value from config:`, propValue)
+          }
+        }
+      })
+    }
+
+    // Add all available fields from the comprehensive field selector
+    if (all_available_fields && Array.isArray(all_available_fields)) {
+      console.log('Processing all available fields:', all_available_fields)
+      console.log('All field values:', all_field_values)
+      
+      all_available_fields.forEach(fieldName => {
+        // Use values from all_field_values if available, otherwise fall back to resolvedConfig
+        if (all_field_values[fieldName] !== undefined && all_field_values[fieldName] !== null && all_field_values[fieldName] !== '') {
+          properties[fieldName] = all_field_values[fieldName]
+          console.log(`Added field ${fieldName} with value:`, all_field_values[fieldName])
+        } else {
+          const fieldValue = resolvedConfig[fieldName]
+          if (fieldValue !== undefined && fieldValue !== null && fieldValue !== '') {
+            properties[fieldName] = fieldValue
+            console.log(`Added field ${fieldName} with value from config:`, fieldValue)
           }
         }
       })

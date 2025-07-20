@@ -2181,21 +2181,13 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         placeholder: "Select preferred channels"
       },
       
-      // Additional Fields Section
+      // Dynamic All Fields Selector
       { 
-        name: "additional_fields_section", 
-        label: "Additional Fields", 
+        name: "all_available_fields", 
+        label: "All Available Fields", 
         type: "custom", 
-        description: "Add additional HubSpot contact properties"
-      },
-      
-      // Dynamic Field Selector
-      { 
-        name: "additional_properties", 
-        label: "Additional Properties", 
-        type: "custom", 
-        description: "Select additional HubSpot contact properties to include",
-        dynamic: "hubspot_contact_properties"
+        description: "Select from all available HubSpot contact properties. Fields with existing data will show dropdown options with current values.",
+        dynamic: "hubspot_all_contact_properties"
       }
     ],
     outputSchema: [
