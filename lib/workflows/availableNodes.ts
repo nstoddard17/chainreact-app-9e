@@ -76,12 +76,12 @@ import { AI_AGENT_METADATA } from "@/lib/workflows/aiAgent"
 export interface ConfigField {
   name: string
   label: string
-  type: "string" | "number" | "boolean" | "select" | "combobox" | "textarea" | "text" | "email" | "password" | "email-autocomplete" | "location-autocomplete" | "file" | "date" | "time" | "datetime" | "custom" | "rich-text" | "multi-select" | "dynamic_fields" | "hubspot_dynamic_form"
+  type: "string" | "number" | "boolean" | "select" | "combobox" | "textarea" | "text" | "email" | "password" | "email-autocomplete" | "location-autocomplete" | "file" | "date" | "time" | "datetime" | "custom" | "rich-text" | "multi-select"
   required?: boolean
   placeholder?: string
   description?: string
   options?: { value: string; label: string }[] | string[]
-  dynamic?: "slack-channels" | "slack_workspaces" | "slack_users" | "google-calendars" | "google-drive-folders" | "google-drive-files" | "onedrive-folders" | "dropbox-folders" | "box-folders" | "gmail-recent-recipients" | "gmail-enhanced-recipients" | "gmail-contact-groups" | "gmail_messages" | "gmail_labels" | "gmail_recent_senders" | "google-sheets_spreadsheets" | "google-sheets_sheets" | "google-docs_documents" | "google-docs_templates" | "google-docs_recent_documents" | "google-docs_shared_documents" | "google-docs_folders" | "youtube_channels" | "youtube_videos" | "youtube_playlists" | "teams_chats" | "teams_teams" | "teams_channels" | "github_repositories" | "gitlab_projects" | "notion_databases" | "notion_pages" | "notion_workspaces" | "notion_users" | "trello_boards" | "trello_lists" | "hubspot_companies" | "hubspot_contacts" | "hubspot_deals" | "hubspot_lists" | "hubspot_pipelines" | "hubspot_deal_stages" | "hubspot_job_titles" | "hubspot_departments" | "hubspot_industries" | "hubspot_contact_properties" | "hubspot_contact_schema" | "airtable_workspaces" | "airtable_bases" | "airtable_tables" | "airtable_records" | "airtable_feedback_records" | "airtable_task_records" | "airtable_project_records" | "gumroad_products" | "blackbaud_constituents" | "facebook_pages" | "facebook_conversations" | "facebook_posts" | "onenote_notebooks" | "onenote_sections" | "onenote_pages" | "outlook_folders" | "outlook_messages" | "outlook_contacts" | "outlook_calendars" | "outlook_events" | "outlook-enhanced-recipients" | "discord_guilds" | "discord_channels" | "discord_categories" | "discord_members" | "discord_roles" | "discord_messages" | "discord_users" | "discord_banned_users"
+  dynamic?: "slack-channels" | "slack_workspaces" | "slack_users" | "google-calendars" | "google-drive-folders" | "google-drive-files" | "onedrive-folders" | "dropbox-folders" | "box-folders" | "gmail-recent-recipients" | "gmail-enhanced-recipients" | "gmail-contact-groups" | "gmail_messages" | "gmail_labels" | "gmail_recent_senders" | "google-sheets_spreadsheets" | "google-sheets_sheets" | "google-docs_documents" | "google-docs_templates" | "google-docs_recent_documents" | "google-docs_shared_documents" | "google-docs_folders" | "youtube_channels" | "youtube_videos" | "youtube_playlists" | "teams_chats" | "teams_teams" | "teams_channels" | "github_repositories" | "gitlab_projects" | "notion_databases" | "notion_pages" | "notion_workspaces" | "notion_users" | "trello_boards" | "trello_lists" | "hubspot_companies" | "hubspot_contacts" | "hubspot_deals" | "hubspot_lists" | "hubspot_pipelines" | "hubspot_deal_stages" | "hubspot_job_titles" | "hubspot_departments" | "hubspot_industries" | "airtable_workspaces" | "airtable_bases" | "airtable_tables" | "airtable_records" | "airtable_feedback_records" | "airtable_task_records" | "airtable_project_records" | "gumroad_products" | "blackbaud_constituents" | "facebook_pages" | "facebook_conversations" | "facebook_posts" | "onenote_notebooks" | "onenote_sections" | "onenote_pages" | "outlook_folders" | "outlook_messages" | "outlook_contacts" | "outlook_calendars" | "outlook_events" | "outlook-enhanced-recipients" | "discord_guilds" | "discord_channels" | "discord_categories" | "discord_members" | "discord_roles" | "discord_messages" | "discord_users" | "discord_banned_users"
   accept?: string // For file inputs, specify accepted file types
   maxSize?: number // For file inputs, specify max file size in bytes
   defaultValue?: string | number | boolean // Default value for the field
@@ -94,7 +94,7 @@ export interface ConfigField {
 export interface NodeField {
   name: string
   label: string
-  type: "text" | "textarea" | "number" | "boolean" | "select" | "combobox" | "file" | "custom" | "email" | "time" | "datetime" | "email-autocomplete" | "date" | "location-autocomplete" | "rich-text" | "multi-select" | "dynamic_fields" | "hubspot_dynamic_form"
+  type: "text" | "textarea" | "number" | "boolean" | "select" | "combobox" | "file" | "custom" | "email" | "time" | "datetime" | "email-autocomplete" | "date" | "location-autocomplete" | "rich-text" | "multi-select"
   required?: boolean
   placeholder?: string
   defaultValue?: any
@@ -2124,14 +2124,78 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "CRM",
     isTrigger: false,
     configSchema: [
-      // Dynamic HubSpot Contact Properties
-      {
-        name: "hubspot_contact_properties",
-        label: "Contact Properties",
-        type: "hubspot_dynamic_form",
-        dynamic: "hubspot_contact_schema",
+      // Basic Information
+      { name: "name", label: "Name", type: "text", required: false, placeholder: "John Doe" },
+      { name: "email", label: "Email Address", type: "email", required: true, placeholder: "john.doe@example.com" },
+      { name: "phone", label: "Phone Number", type: "text", required: false, placeholder: "+1-555-123-4567" },
+      
+      // Lead Management
+      { 
+        name: "hs_lead_status", 
+        label: "Lead Status", 
+        type: "select",
+        options: [
+          { value: "NEW", label: "New" },
+          { value: "OPEN", label: "Open" },
+          { value: "IN_PROGRESS", label: "In Progress" },
+          { value: "OPEN_DEAL", label: "Open deal" },
+          { value: "UNQUALIFIED", label: "Unqualified" },
+          { value: "ATTEMPTED_TO_CONTACT", label: "Attempted to contact" },
+          { value: "CONNECTED", label: "Connected" },
+          { value: "BAD_TIMING", label: "Bad Timing" }
+        ],
         required: false,
-        description: "Configure contact properties dynamically fetched from your HubSpot account"
+        placeholder: "Select lead status"
+      },
+      
+      // Content Preferences
+      { 
+        name: "favorite_content_topics", 
+        label: "Favorite Content Topics", 
+        type: "select",
+        options: [
+          { value: "Strategy", label: "Strategy" },
+          { value: "Operational", label: "Operational" },
+          { value: "Financial", label: "Financial" },
+          { value: "IT", label: "IT" },
+          { value: "HR", label: "HR" }
+        ],
+        required: false,
+        placeholder: "Select favorite content topics"
+      },
+      
+      // Communication Preferences
+      { 
+        name: "preferred_channels", 
+        label: "Preferred Channels", 
+        type: "select",
+        options: [
+          { value: "Email", label: "Email" },
+          { value: "SMS", label: "SMS" },
+          { value: "Blog", label: "Blog" },
+          { value: "Instagram", label: "Instagram" },
+          { value: "Linkedin", label: "Linkedin" },
+          { value: "Podcasts", label: "Podcasts" }
+        ],
+        required: false,
+        placeholder: "Select preferred channels"
+      },
+      
+      // Additional Fields Section
+      { 
+        name: "additional_fields_section", 
+        label: "Additional Fields", 
+        type: "custom", 
+        description: "Add additional HubSpot contact properties"
+      },
+      
+      // Dynamic Field Selector
+      { 
+        name: "additional_properties", 
+        label: "Additional Properties", 
+        type: "custom", 
+        description: "Select additional HubSpot contact properties to include",
+        dynamic: "hubspot_contact_properties"
       }
     ],
     outputSchema: [
@@ -2139,19 +2203,43 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         name: "contactId",
         label: "Contact ID",
         type: "string",
-        description: "The unique identifier of the created contact"
+        description: "The unique ID of the created contact"
       },
       {
-        name: "properties",
-        label: "Contact Properties",
-        type: "object",
-        description: "All properties of the created contact as returned by HubSpot"
+        name: "email",
+        label: "Email",
+        type: "string",
+        description: "The contact's email address"
       },
       {
-        name: "hubspot_contact_properties",
-        label: "Form Configuration",
-        type: "object",
-        description: "The dynamic form configuration that was used to create the contact"
+        name: "name",
+        label: "Name",
+        type: "string",
+        description: "The contact's full name"
+      },
+      {
+        name: "phone",
+        label: "Phone",
+        type: "string",
+        description: "The contact's phone number"
+      },
+      {
+        name: "hs_lead_status",
+        label: "Lead Status",
+        type: "string",
+        description: "The contact's lead status"
+      },
+      {
+        name: "favorite_content_topics",
+        label: "Favorite Content Topics",
+        type: "string",
+        description: "The contact's favorite content topics"
+      },
+      {
+        name: "preferred_channels",
+        label: "Preferred Channels",
+        type: "string",
+        description: "The contact's preferred communication channels"
       },
       {
         name: "createdAt",

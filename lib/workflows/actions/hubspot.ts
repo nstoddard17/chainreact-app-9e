@@ -14,8 +14,20 @@ export async function createHubSpotContact(
     const resolvedConfig = resolveValue(config, { input })
     
     const {
-      hubspot_contact_properties = {}
+      email,
+      name,
+      phone,
+      hs_lead_status,
+      favorite_content_topics,
+      preferred_channels,
+      additional_properties = [],
+      additional_values = {},
+      custom_properties = {}
     } = resolvedConfig
+
+    if (!email) {
+      throw new Error("Email is required")
+    }
 
     // Get HubSpot integration
     const { createSupabaseServerClient } = await import("@/utils/supabase/server")
@@ -35,27 +47,60 @@ export async function createHubSpotContact(
 
     const accessToken = await getDecryptedAccessToken(userId, "hubspot")
 
-    // Process dynamic form data
-    const properties: Record<string, any> = {}
-    
-    // Convert dynamic form data to HubSpot API format
-    Object.entries(hubspot_contact_properties).forEach(([propertyName, fieldData]: [string, any]) => {
-      if (fieldData && typeof fieldData === 'object') {
-        if (fieldData.type === 'literal' && fieldData.value !== undefined && fieldData.value !== '') {
-          properties[propertyName] = fieldData.value
-        } else if (fieldData.type === 'variable' && fieldData.value) {
-          // For variables, we need to resolve them from the input
-          const resolvedValue = input[fieldData.value] || fieldData.value
-          if (resolvedValue !== undefined && resolvedValue !== '') {
-            properties[propertyName] = resolvedValue
-          }
+    // Prepare contact properties
+    const properties: Record<string, any> = {
+      email: email
+    }
+
+    // Basic Information
+    if (name) {
+      // Split the name into first and last name for HubSpot
+      const nameParts = name.trim().split(' ')
+      if (nameParts.length > 0) {
+        properties.firstname = nameParts[0]
+        if (nameParts.length > 1) {
+          properties.lastname = nameParts.slice(1).join(' ')
         }
       }
-    })
-
-    // Validate that we have at least an email
-    if (!properties.email) {
-      throw new Error("Email is required for HubSpot contact creation")
+    }
+    
+    // Contact Information
+    if (phone) properties.phone = phone
+    
+    // Lead Management
+    if (hs_lead_status) properties.hs_lead_status = hs_lead_status
+    
+    // Content Preferences
+    if (favorite_content_topics) properties.favorite_content_topics = favorite_content_topics
+    
+    // Communication Preferences
+    if (preferred_channels) properties.preferred_channels = preferred_channels
+    
+    // Add additional properties from dynamic field selector
+    if (additional_properties && Array.isArray(additional_properties)) {
+      console.log('Processing additional properties:', additional_properties)
+      console.log('Additional values:', additional_values)
+      
+      additional_properties.forEach(propName => {
+        // Use values from additional_values if available, otherwise fall back to resolvedConfig
+        if (additional_values[propName] !== undefined && additional_values[propName] !== null && additional_values[propName] !== '') {
+          properties[propName] = additional_values[propName]
+          console.log(`Added property ${propName} with value:`, additional_values[propName])
+        } else {
+          const propValue = resolvedConfig[propName]
+          if (propValue !== undefined && propValue !== null && propValue !== '') {
+            properties[propName] = propValue
+            console.log(`Added property ${propName} with value from config:`, propValue)
+          }
+        }
+      })
+    }
+    
+    console.log('Final properties being sent to HubSpot:', properties)
+    
+    // Add custom properties
+    if (custom_properties && typeof custom_properties === 'object') {
+      Object.assign(properties, custom_properties)
     }
 
     // Create contact payload
@@ -79,13 +124,22 @@ export async function createHubSpotContact(
     }
 
     const result = await response.json()
+    
+    console.log('HubSpot API response:', result)
+    console.log('Created contact properties:', result.properties)
 
     return {
       success: true,
       output: {
         contactId: result.id,
+        email: result.properties.email,
+        name: `${result.properties.firstname || ''} ${result.properties.lastname || ''}`.trim(),
+        phone: result.properties.phone,
+        hs_lead_status: result.properties.hs_lead_status,
+        favorite_content_topics: result.properties.favorite_content_topics,
+        preferred_channels: result.properties.preferred_channels,
+        // Include all properties from the response
         properties: result.properties,
-        hubspot_contact_properties: hubspot_contact_properties,
         createdAt: result.createdAt,
         updatedAt: result.updatedAt,
         hubspotResponse: result
