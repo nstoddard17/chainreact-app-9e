@@ -757,6 +757,10 @@ export const useIntegrationStore = create<IntegrationStore>()(
             url = "/api/integrations/hubspot/all-contact-properties"
             dataType = "hubspot_all_contact_properties"
             break
+          case "hubspot_all_company_properties":
+            url = "/api/integrations/hubspot/all-company-properties"
+            dataType = "hubspot_all_company_properties"
+            break
           case "airtable_bases":
             url = "/api/integrations/fetch-user-data"
             dataType = "airtable_bases"

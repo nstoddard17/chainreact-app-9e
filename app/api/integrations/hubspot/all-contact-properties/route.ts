@@ -73,12 +73,14 @@ export async function GET(request: NextRequest) {
 
     const propertiesData = await propertiesResponse.json()
 
-    // Filter to only form fields that are writable
+    // Filter to only visible, non-archived form fields that are writable
     const availableProperties = propertiesData.results
       .filter((prop: any) => 
         prop.formField === true && 
         !prop.readOnly && 
         !prop.calculated &&
+        !prop.hidden && // Filter out hidden fields
+        !prop.archived && // Filter out archived fields
         prop.hubspotDefined !== false // Include both HubSpot-defined and custom properties
       )
       .map((prop: any) => ({

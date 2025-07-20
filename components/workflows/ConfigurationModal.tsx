@@ -50,6 +50,7 @@ import { Smile } from "lucide-react"
 import { getDiscordBotInviteUrl } from "@/lib/utils/discordConfig"
 import DynamicFieldInputs from "./DynamicFieldInputs"
 import AllFieldsSelector from "./AllFieldsSelector"
+import CompanyFieldsSelector from "./CompanyFieldsSelector"
 
 
 import { getUser } from "@/lib/supabase-client";
@@ -7491,8 +7492,13 @@ function ConfigurationModal({
           const selectedFields = Array.isArray(config.all_available_fields) ? config.all_available_fields : []
           const fieldValues = config.all_field_values || {}
           
+          // Check if company field is selected
+          const hasCompanyField = selectedFields.includes('company') || selectedFields.includes('hs_analytics_source_data_1')
+          const companyFields = Array.isArray(config.company_fields) ? config.company_fields : []
+          const companyFieldValues = config.company_field_values || {}
+          
           return (
-            <div className="space-y-4">
+            <div className="space-y-6">
               <AllFieldsSelector
                 integrationId={getIntegrationByProvider("hubspot")?.id || ""}
                 selectedFields={selectedFields}
@@ -7519,7 +7525,44 @@ function ConfigurationModal({
                     }
                   }))
                 }}
+                workflowData={workflowData}
+                currentNodeId={currentNodeId}
               />
+              
+              {/* Show Company Fields Selector when company field is selected */}
+              {hasCompanyField && (
+                <div className="border-t pt-6">
+                  <CompanyFieldsSelector
+                    integrationId={getIntegrationByProvider("hubspot")?.id || ""}
+                    selectedFields={companyFields}
+                    onFieldsChange={(newCompanyFields) => {
+                      setConfig(prev => ({ ...prev, company_fields: newCompanyFields }))
+                      // Clear values for removed company fields
+                      setConfig(prev => {
+                        const newValues = { ...prev.company_field_values }
+                        Object.keys(newValues).forEach(key => {
+                          if (!newCompanyFields.includes(key)) {
+                            delete newValues[key]
+                          }
+                        })
+                        return { ...prev, company_field_values: newValues }
+                      })
+                    }}
+                    fieldValues={companyFieldValues}
+                    onFieldValueChange={(fieldName, value) => {
+                      setConfig(prev => ({
+                        ...prev,
+                        company_field_values: {
+                          ...prev.company_field_values,
+                          [fieldName]: value
+                        }
+                      }))
+                    }}
+                    workflowData={workflowData}
+                    currentNodeId={currentNodeId}
+                  />
+                </div>
+              )}
               
               {hasError && (
                 <p className="text-xs text-red-500">{errors[field.name]}</p>

@@ -2125,9 +2125,9 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     isTrigger: false,
     configSchema: [
       // Basic Information
-      { name: "name", label: "Name", type: "text", required: false, placeholder: "John Doe" },
+      { name: "name", label: "Name", type: "text", required: true, placeholder: "John Doe" },
       { name: "email", label: "Email Address", type: "email", required: true, placeholder: "john.doe@example.com" },
-      { name: "phone", label: "Phone Number", type: "text", required: false, placeholder: "+1-555-123-4567" },
+      { name: "phone", label: "Phone Number", type: "text", required: true, placeholder: "+1-555-123-4567" },
       
       // Lead Management
       { 
@@ -2144,7 +2144,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
           { value: "CONNECTED", label: "Connected" },
           { value: "BAD_TIMING", label: "Bad Timing" }
         ],
-        required: false,
+        required: true,
         placeholder: "Select lead status"
       },
       
@@ -2160,7 +2160,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
           { value: "IT", label: "IT" },
           { value: "HR", label: "HR" }
         ],
-        required: false,
+        required: true,
         placeholder: "Select favorite content topics"
       },
       
@@ -2177,7 +2177,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
           { value: "Linkedin", label: "Linkedin" },
           { value: "Podcasts", label: "Podcasts" }
         ],
-        required: false,
+        required: true,
         placeholder: "Select preferred channels"
       },
       

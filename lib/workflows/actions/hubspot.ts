@@ -1,6 +1,6 @@
 import { ActionResult } from './core/executeWait'
 import { getDecryptedAccessToken } from './core/getDecryptedAccessToken'
-import { resolveValue } from './core/resolveValue'
+import { resolveValue } from '@/lib/integrations/resolveValue'
 
 /**
  * Create a new HubSpot contact
@@ -24,6 +24,8 @@ export async function createHubSpotContact(
       additional_values = {},
       all_available_fields = [],
       all_field_values = {},
+      company_fields = [],
+      company_field_values = {},
       custom_properties = {}
     } = resolvedConfig
 
@@ -150,6 +152,81 @@ export async function createHubSpotContact(
     console.log('HubSpot API response:', result)
     console.log('Created contact properties:', result.properties)
 
+    // Check if we should create a company record
+    let companyId = null
+    const companyName = properties.company || properties.hs_analytics_source_data_1
+    
+    if (companyName && companyName.trim()) {
+      try {
+        console.log('Creating company record for:', companyName)
+        
+        // Prepare company properties
+        const companyProperties: Record<string, any> = {
+          name: companyName
+        }
+        
+        // Add company-specific fields if provided
+        if (company_fields && Array.isArray(company_fields)) {
+          console.log('Processing company-specific fields:', company_fields)
+          console.log('Company field values:', company_field_values)
+          
+          company_fields.forEach(fieldName => {
+            if (company_field_values[fieldName] !== undefined && company_field_values[fieldName] !== null && company_field_values[fieldName] !== '') {
+              companyProperties[fieldName] = company_field_values[fieldName]
+              console.log(`Added company field ${fieldName} with value:`, company_field_values[fieldName])
+            }
+          })
+        }
+        
+        // Add additional company properties from contact data if not already set by company fields
+        if (properties.website && !companyProperties.domain) companyProperties.domain = properties.website
+        if (properties.phone && !companyProperties.phone) companyProperties.phone = properties.phone
+        if (properties.address && !companyProperties.address) companyProperties.address = properties.address
+        if (properties.city && !companyProperties.city) companyProperties.city = properties.city
+        if (properties.state && !companyProperties.state) companyProperties.state = properties.state
+        if (properties.zip && !companyProperties.zip) companyProperties.zip = properties.zip
+        if (properties.country && !companyProperties.country) companyProperties.country = properties.country
+        if (properties.industry && !companyProperties.industry) companyProperties.industry = properties.industry
+        
+        // Create company
+        const companyResponse = await fetch("https://api.hubapi.com/crm/v3/objects/companies", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            properties: companyProperties
+          })
+        })
+        
+        if (companyResponse.ok) {
+          const companyResult = await companyResponse.json()
+          companyId = companyResult.id
+          console.log('Created company with ID:', companyId)
+          
+          // Associate contact with company
+          const associationResponse = await fetch(`https://api.hubapi.com/crm/v3/objects/contacts/${result.id}/associations/companies/${companyId}/contact_to_company`, {
+            method: "PUT",
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "Content-Type": "application/json"
+            }
+          })
+          
+          if (associationResponse.ok) {
+            console.log('Successfully associated contact with company')
+          } else {
+            console.warn('Failed to associate contact with company:', associationResponse.status)
+          }
+        } else {
+          console.warn('Failed to create company:', companyResponse.status)
+        }
+      } catch (error) {
+        console.warn('Error creating company:', error)
+      }
+    }
+
     return {
       success: true,
       output: {
@@ -164,9 +241,14 @@ export async function createHubSpotContact(
         properties: result.properties,
         createdAt: result.createdAt,
         updatedAt: result.updatedAt,
-        hubspotResponse: result
+        hubspotResponse: result,
+        // Include company information if created
+        companyId: companyId,
+        companyCreated: !!companyId
       },
-      message: `HubSpot contact created successfully with email ${result.properties.email}`
+      message: companyId 
+        ? `HubSpot contact created successfully with email ${result.properties.email} and associated with company ${companyName}`
+        : `HubSpot contact created successfully with email ${result.properties.email}`
     }
 
   } catch (error: any) {
