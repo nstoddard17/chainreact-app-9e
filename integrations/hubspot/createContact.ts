@@ -57,27 +57,13 @@ export async function createHubSpotContact(params: ActionParams): Promise<Action
     // 3. Extract required parameters
     const { 
       email,
-      firstname,
-      lastname,
+      name,
       phone,
-      mobilephone,
-      website,
-      company,
-      jobtitle,
-      department,
-      address,
-      city,
-      state,
-      zip,
-      country,
-      lifecycle_stage,
-      lead_status,
-      annualrevenue,
-      numberofemployees,
-      industry,
-      hs_email_optout,
-      hs_analytics_first_timestamp,
-      hs_analytics_last_timestamp,
+      hs_lead_status,
+      favorite_content_topics,
+      preferred_channels,
+      additional_properties = [],
+      additional_values = {},
       custom_properties = {}
     } = resolvedConfig
     
@@ -95,39 +81,43 @@ export async function createHubSpotContact(params: ActionParams): Promise<Action
     }
     
     // Basic Information
-    if (firstname) properties.firstname = firstname
-    if (lastname) properties.lastname = lastname
+    if (name) {
+      // Split the name into first and last name for HubSpot
+      const nameParts = name.trim().split(' ')
+      if (nameParts.length > 0) {
+        properties.firstname = nameParts[0]
+        if (nameParts.length > 1) {
+          properties.lastname = nameParts.slice(1).join(' ')
+        }
+      }
+    }
     
     // Contact Information
     if (phone) properties.phone = phone
-    if (mobilephone) properties.mobilephone = mobilephone
-    if (website) properties.website = website
-    
-    // Company Information
-    if (company) properties.company = company
-    if (jobtitle) properties.jobtitle = jobtitle
-    if (department) properties.department = department
-    
-    // Address Information
-    if (address) properties.address = address
-    if (city) properties.city = city
-    if (state) properties.state = state
-    if (zip) properties.zip = zip
-    if (country) properties.country = country
     
     // Lead Management
-    if (lifecycle_stage) properties.lifecycle_stage = lifecycle_stage
-    if (lead_status) properties.hs_lead_status = lead_status
+    if (hs_lead_status) properties.hs_lead_status = hs_lead_status
     
-    // Additional Information
-    if (annualrevenue) properties.annualrevenue = annualrevenue
-    if (numberofemployees) properties.numberofemployees = numberofemployees
-    if (industry) properties.industry = industry
+    // Content Preferences
+    if (favorite_content_topics) properties.favorite_content_topics = favorite_content_topics
     
     // Communication Preferences
-    if (hs_email_optout !== undefined) properties.hs_email_optout = hs_email_optout
-    if (hs_analytics_first_timestamp) properties.hs_analytics_first_timestamp = hs_analytics_first_timestamp
-    if (hs_analytics_last_timestamp) properties.hs_analytics_last_timestamp = hs_analytics_last_timestamp
+    if (preferred_channels) properties.preferred_channels = preferred_channels
+    
+    // Add additional properties from dynamic field selector
+    if (additional_properties && Array.isArray(additional_properties)) {
+      additional_properties.forEach(propName => {
+        // Use values from additional_values if available, otherwise fall back to resolvedConfig
+        if (additional_values[propName] !== undefined && additional_values[propName] !== null && additional_values[propName] !== '') {
+          properties[propName] = additional_values[propName]
+        } else {
+          const propValue = resolvedConfig[propName]
+          if (propValue !== undefined && propValue !== null && propValue !== '') {
+            properties[propName] = propValue
+          }
+        }
+      })
+    }
     
     // Add custom properties
     if (custom_properties && typeof custom_properties === 'object') {
@@ -162,27 +152,13 @@ export async function createHubSpotContact(params: ActionParams): Promise<Action
       output: {
         contactId: data.id,
         email: data.properties.email,
-        firstname: data.properties.firstname,
-        lastname: data.properties.lastname,
+        name: `${data.properties.firstname || ''} ${data.properties.lastname || ''}`.trim(),
         phone: data.properties.phone,
-        mobilephone: data.properties.mobilephone,
-        website: data.properties.website,
-        company: data.properties.company,
-        jobtitle: data.properties.jobtitle,
-        department: data.properties.department,
-        address: data.properties.address,
-        city: data.properties.city,
-        state: data.properties.state,
-        zip: data.properties.zip,
-        country: data.properties.country,
-        lifecycle_stage: data.properties.lifecycle_stage,
-        lead_status: data.properties.hs_lead_status,
-        annualrevenue: data.properties.annualrevenue,
-        numberofemployees: data.properties.numberofemployees,
-        industry: data.properties.industry,
-        hs_email_optout: data.properties.hs_email_optout,
-        hs_analytics_first_timestamp: data.properties.hs_analytics_first_timestamp,
-        hs_analytics_last_timestamp: data.properties.hs_analytics_last_timestamp,
+        hs_lead_status: data.properties.hs_lead_status,
+        favorite_content_topics: data.properties.favorite_content_topics,
+        preferred_channels: data.properties.preferred_channels,
+        // Include all properties from the response
+        properties: data.properties,
         createdAt: data.createdAt,
         updatedAt: data.updatedAt,
         archived: data.archived,
