@@ -544,7 +544,7 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     category: "productivity",
     capabilities: ["Create Notes", "Read Notes", "Organize Notebooks", "Attach Files"],
     scopes: ["User.Read", "Notes.ReadWrite.All"],
-    isAvailable: false,
+    isAvailable: true,
     requiresClientId: "NEXT_PUBLIC_MICROSOFT_CLIENT_ID",
     requiresClientSecret: "MICROSOFT_CLIENT_SECRET",
     color: "#7719AA",

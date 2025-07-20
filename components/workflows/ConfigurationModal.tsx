@@ -2923,7 +2923,16 @@ function ConfigurationModal({
               processedData = []
             }
           } else {
-            processedData = data.map((item: any) => ({ value: item.value || item.id || item.name, label: item.name || item.label || item.title }))
+            // Ensure data is an array before calling map
+            if (Array.isArray(data)) {
+              processedData = data.map((item: any) => ({ 
+                value: item.value || item.id || item.name, 
+                label: item.name || item.label || item.title || item.displayName || 'Untitled' 
+              }))
+            } else {
+              console.warn(`⚠️ Expected array for ${field.dynamic}, got:`, typeof data, data)
+              processedData = []
+            }
           }
           
           // Update options immediately with cached data
@@ -3016,10 +3025,16 @@ function ConfigurationModal({
           }
           continue
         }
-                  if (data) {
-            hasData = true
-            // Process the data based on dynamic type
-            let processedData: any[] = []
+                          if (data) {
+          hasData = true
+          console.log(`🔍 Processing data for ${field.dynamic}:`, { 
+            type: typeof data, 
+            isArray: Array.isArray(data), 
+            length: Array.isArray(data) ? data.length : 'N/A',
+            data: data 
+          })
+          // Process the data based on dynamic type
+          let processedData: any[] = []
             
             if (field.dynamic === "slack-channels") {
               processedData = data.map((channel: any) => ({ value: channel.id, label: channel.name }))
@@ -3097,11 +3112,36 @@ function ConfigurationModal({
                 description: new Date(post.createdTime).toLocaleDateString()
               }))
             } else if (field.dynamic === "onenote_notebooks") {
-              processedData = data.map((notebook: any) => ({ value: notebook.id, label: notebook.name, description: notebook.is_default ? "Default notebook" : undefined }))
+              if (Array.isArray(data)) {
+                processedData = data.map((notebook: any) => ({ 
+                  value: notebook.id, 
+                  label: notebook.displayName || notebook.name, 
+                  description: notebook.isDefault ? "Default notebook" : undefined 
+                }))
+              } else {
+                console.warn(`⚠️ Expected array for onenote_notebooks, got:`, typeof data, data)
+                processedData = []
+              }
             } else if (field.dynamic === "onenote_sections") {
-              processedData = data.map((section: any) => ({ value: section.id, label: section.name }))
+              if (Array.isArray(data)) {
+                processedData = data.map((section: any) => ({ 
+                  value: section.id, 
+                  label: section.displayName || section.name 
+                }))
+              } else {
+                console.warn(`⚠️ Expected array for onenote_sections, got:`, typeof data, data)
+                processedData = []
+              }
             } else if (field.dynamic === "onenote_pages") {
-              processedData = data.map((page: any) => ({ value: page.id, label: page.name }))
+              if (Array.isArray(data)) {
+                processedData = data.map((page: any) => ({ 
+                  value: page.id, 
+                  label: page.title || page.name 
+                }))
+              } else {
+                console.warn(`⚠️ Expected array for onenote_pages, got:`, typeof data, data)
+                processedData = []
+              }
             } else if (field.dynamic === "outlook_folders") {
               processedData = data.map((folder: any) => ({ value: folder.id, label: folder.name, description: folder.unreadItemCount ? `${folder.unreadItemCount} unread` : undefined }))
             } else if (field.dynamic === "outlook_messages") {

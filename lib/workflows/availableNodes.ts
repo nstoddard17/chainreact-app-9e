@@ -5303,6 +5303,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     requiredScopes: ["crm.objects.companies.write"],
     category: "CRM",
     isTrigger: false,
+    comingSoon: true,
     configSchema: [
       { name: "name", label: "Company Name", type: "text", required: true, placeholder: "Enter company name" },
       { name: "domain", label: "Domain", type: "text", required: false, placeholder: "example.com" },
@@ -5320,6 +5321,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     requiredScopes: ["crm.objects.deals.write"],
     category: "CRM",
     isTrigger: false,
+    comingSoon: true,
     configSchema: [
       { name: "dealName", label: "Deal Name", type: "text", required: true, placeholder: "Enter deal name" },
       { name: "amount", label: "Amount", type: "number", required: false, placeholder: "10000" },
@@ -5354,6 +5356,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     requiredScopes: ["lists.read", "lists.write"],
     category: "CRM",
     isTrigger: false,
+    comingSoon: true,
     configSchema: [
       { 
         name: "contactId", 
@@ -5384,6 +5387,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     requiredScopes: ["crm.objects.deals.write"],
     category: "CRM",
     isTrigger: false,
+    comingSoon: true,
     configSchema: [
       { 
         name: "dealId", 
@@ -6144,7 +6148,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   // Microsoft OneNote Actions
   {
     type: "microsoft-onenote_action_create_page",
-    title: "Create Page (OneNote)",
+    title: "Create Page",
     description: "Create a new page in OneNote",
     icon: FileText,
     providerId: "microsoft-onenote",
@@ -6177,7 +6181,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "microsoft-onenote_action_create_section",
-    title: "Create Section (OneNote)",
+    title: "Create Section",
     description: "Create a new section in OneNote",
     icon: FolderPlus,
     providerId: "microsoft-onenote",
@@ -6199,7 +6203,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "microsoft-onenote_action_update_page",
-    title: "Update Page (OneNote)",
+    title: "Update Page",
     description: "Update an existing OneNote page",
     icon: Edit,
     providerId: "microsoft-onenote",
