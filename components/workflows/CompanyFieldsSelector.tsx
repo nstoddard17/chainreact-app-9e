@@ -11,13 +11,13 @@ import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Loader2, Search, Eye, EyeOff, Info, Plus, X, Database } from 'lucide-react'
+import { Loader2, Search, Eye, EyeOff, Info, Plus, X, Building } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useIntegrationStore } from '@/stores/integrationStore'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import VariablePicker from './VariablePicker'
 
-interface FieldProperty {
+interface CompanyFieldProperty {
   name: string
   label: string
   type: string
@@ -29,7 +29,7 @@ interface FieldProperty {
   existingValues: string[]
 }
 
-interface AllFieldsSelectorProps {
+interface CompanyFieldsSelectorProps {
   integrationId: string
   selectedFields: string[]
   onFieldsChange: (fields: string[]) => void
@@ -39,7 +39,7 @@ interface AllFieldsSelectorProps {
   currentNodeId?: string
 }
 
-export default function AllFieldsSelector({
+export default function CompanyFieldsSelector({
   integrationId,
   selectedFields,
   onFieldsChange,
@@ -47,31 +47,26 @@ export default function AllFieldsSelector({
   onFieldValueChange,
   workflowData,
   currentNodeId
-}: AllFieldsSelectorProps) {
-  const [properties, setProperties] = useState<FieldProperty[]>([])
-  const [groupedProperties, setGroupedProperties] = useState<Record<string, FieldProperty[]>>({})
+}: CompanyFieldsSelectorProps) {
+  const [properties, setProperties] = useState<CompanyFieldProperty[]>([])
+  const [groupedProperties, setGroupedProperties] = useState<Record<string, CompanyFieldProperty[]>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
-  const [activeTab, setActiveTab] = useState<string>('contactinformation')
+  const [activeTab, setActiveTab] = useState<string>('companyinformation')
   
   const { loadIntegrationData } = useIntegrationStore()
 
   // Function to get compact group names for tabs
   const getCompactGroupName = (groupName: string): string => {
     const nameMap: Record<string, string> = {
-      'contactinformation': 'Contact Info',
-      'contactactivity': 'Contact Activity',
+      'companyinformation': 'Company Info',
+      'companyactivity': 'Company Activity',
       'salesproperties': 'Sales Properties',
+      'marketingproperties': 'Marketing',
       'socialmedia': 'Social Media',
       'socialmediainformation': 'Social Media',
-      'marketingproperties': 'Marketing',
-      'companyinformation': 'Company',
       'lifecyclestage': 'Lifecycle',
-      'leadmanagement': 'Lead Mgmt',
-      'communicationpreferences': 'Comm Prefs',
-      'contentpreferences': 'Content',
-      'subscriptiontypes': 'Subscriptions',
       'dealinformation': 'Deal Info',
       'facebookadsproperties': 'Facebook Ads',
       'other': 'Other'
@@ -87,44 +82,23 @@ export default function AllFieldsSelector({
   const loadAllProperties = async () => {
     try {
       setLoading(true)
-      const result = await loadIntegrationData('hubspot_all_contact_properties', integrationId)
+      const result = await loadIntegrationData('hubspot_all_company_properties', integrationId)
       
-      console.log('🔍 AllFieldsSelector received result:', result)
-      
-      console.log('🔍 AllFieldsSelector received result:', result)
-      console.log('🔍 Result type:', typeof result)
-      console.log('🔍 Result keys:', result ? Object.keys(result) : 'null')
+      console.log('🔍 CompanyFieldsSelector received result:', result)
       
       if (result && result.properties) {
-        console.log('✅ Found properties:', result.properties.length)
-        console.log('✅ Found grouped properties:', Object.keys(result.groupedProperties))
+        console.log('✅ Found company properties:', result.properties.length)
+        console.log('✅ Found grouped company properties:', Object.keys(result.groupedProperties))
+        
         setProperties(result.properties)
         setGroupedProperties(result.groupedProperties)
-        
-        // Set first group as active tab
-        const firstGroup = Object.keys(result.groupedProperties)[0]
-        if (firstGroup) {
-          setActiveTab(firstGroup)
-        }
-      } else if (result && result.data && result.data.properties) {
-        // Handle case where data is nested
-        console.log('✅ Found nested properties:', result.data.properties.length)
-        console.log('✅ Found nested grouped properties:', Object.keys(result.data.groupedProperties))
-        setProperties(result.data.properties)
-        setGroupedProperties(result.data.groupedProperties)
-        
-        // Set first group as active tab
-        const firstGroup = Object.keys(result.data.groupedProperties)[0]
-        if (firstGroup) {
-          setActiveTab(firstGroup)
-        }
+        setError(null)
       } else {
-        console.error('❌ No valid data structure found:', result)
-        throw new Error('No data received from HubSpot API')
+        setError('No company properties found')
       }
     } catch (err: any) {
-      console.error('❌ AllFieldsSelector error:', err)
-      setError(err.message)
+      console.error('Error loading company properties:', err)
+      setError(err.message || 'Failed to load company properties')
     } finally {
       setLoading(false)
     }
@@ -138,7 +112,7 @@ export default function AllFieldsSelector({
     onFieldsChange(newSelectedFields)
   }
 
-  const renderFieldInput = (field: FieldProperty) => {
+  const renderFieldInput = (field: CompanyFieldProperty) => {
     const currentValue = fieldValues[field.name] || ''
 
     // Helper function to render input with VariablePicker
@@ -154,7 +128,7 @@ export default function AllFieldsSelector({
           fieldType={field.type}
           trigger={
             <Button variant="outline" size="sm" className="flex-shrink-0 px-3">
-              <Database className="w-4 h-4" />
+              <Building className="w-4 h-4" />
             </Button>
           }
         />
@@ -244,20 +218,11 @@ export default function AllFieldsSelector({
               fieldType={field.type}
               trigger={
                 <Button variant="outline" size="sm" className="flex-shrink-0 px-3">
-                  <Database className="w-4 h-4" />
+                  <Building className="w-4 h-4" />
                 </Button>
               }
             />
           </div>
-        )
-
-      case 'date':
-        return renderInputWithVariablePicker(
-          <Input
-            type="date"
-            value={currentValue}
-            onChange={(e) => onFieldValueChange(field.name, e.target.value)}
-          />
         )
 
       default:
@@ -271,21 +236,27 @@ export default function AllFieldsSelector({
     }
   }
 
-  const filteredGroups = Object.entries(groupedProperties).filter(([groupName, fields]) => {
-    if (searchTerm) {
-      return fields.some(field => 
-        field.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        field.name.toLowerCase().includes(searchTerm.toLowerCase())
-      )
+  const filteredProperties = properties.filter(prop =>
+    prop.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    prop.name.toLowerCase().includes(searchTerm.toLowerCase())
+  )
+
+  const filteredGroupedProperties = Object.keys(groupedProperties).reduce((acc, groupName) => {
+    const groupProps = groupedProperties[groupName].filter(prop =>
+      prop.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      prop.name.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+    if (groupProps.length > 0) {
+      acc[groupName] = groupProps
     }
-    return true
-  })
+    return acc
+  }, {} as Record<string, CompanyFieldProperty[]>)
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-32">
-        <Loader2 className="w-6 h-6 animate-spin" />
-        <span className="ml-2">Loading HubSpot fields...</span>
+      <div className="flex items-center justify-center p-8">
+        <Loader2 className="h-6 w-6 animate-spin" />
+        <span className="ml-2">Loading company properties...</span>
       </div>
     )
   }
@@ -293,81 +264,55 @@ export default function AllFieldsSelector({
   if (error) {
     return (
       <Alert variant="destructive">
-        <AlertDescription>Error loading fields: {error}</AlertDescription>
+        <AlertDescription>{error}</AlertDescription>
       </Alert>
     )
   }
 
   return (
     <div className="space-y-4">
-      {/* Section Label */}
-      <div className="space-y-2">
-        <Label className="text-sm font-medium">
-          All Available HubSpot Fields
-        </Label>
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-semibold">Company Fields</h3>
+          <p className="text-sm text-muted-foreground">
+            Select company-specific fields to populate when creating a company record
+          </p>
+        </div>
+        <Badge variant="secondary">
+          {selectedFields.length} selected
+        </Badge>
       </div>
-
-      {/* Note about field visibility */}
-      <Alert>
-        <Info className="h-4 w-4" />
-        <AlertDescription>
-          <strong>Note:</strong> All selected fields will be sent to HubSpot when the workflow runs. 
-          Some fields may not be visible in your contacts table unless you manually add them as columns 
-          in HubSpot (Settings → Edit columns).
-        </AlertDescription>
-      </Alert>
 
       {/* Search */}
       <div className="relative">
-        <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
         <Input
-          placeholder="Search fields..."
+          placeholder="Search company fields..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="pl-10"
         />
       </div>
 
-      {/* Field Groups */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="flex w-full justify-between p-1 bg-gray-800 rounded-lg gap-1">
-          {filteredGroups.map(([groupName]) => (
-            <TooltipProvider key={groupName}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <TabsTrigger 
-                    value={groupName}
-                    className={`flex-1 text-xs px-2 py-2 rounded-md transition-all duration-200 hover:bg-gray-600 ${
-                      activeTab === groupName 
-                        ? 'bg-gray-700 text-white font-medium shadow-none' 
-                        : 'text-gray-300'
-                    }`}
-                  >
-                    {getCompactGroupName(groupName)}
-                  </TabsTrigger>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>{groupName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-auto-fit">
+          {Object.keys(filteredGroupedProperties).map((groupName) => (
+            <TabsTrigger key={groupName} value={groupName} className="text-xs">
+              {getCompactGroupName(groupName)}
+            </TabsTrigger>
           ))}
         </TabsList>
 
-        {filteredGroups.map(([groupName, fields]) => (
-          <TabsContent key={groupName} value={groupName} className="space-y-4">
-            <div className="space-y-4">
-              {fields
-                .filter(field => 
-                  !searchTerm || 
-                  field.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                  field.name.toLowerCase().includes(searchTerm.toLowerCase())
-                )
-                .map((field) => (
-                  <Card key={field.name} className="border-l-4 border-l-blue-500">
+        {Object.keys(filteredGroupedProperties).map((groupName) => (
+          <TabsContent key={groupName} value={groupName} className="mt-4">
+            <ScrollArea className="h-[400px] pr-4">
+              <div className="space-y-4">
+                {filteredGroupedProperties[groupName].map((field) => (
+                  <Card key={field.name} className="border-2">
                     <CardHeader className="pb-3">
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center space-x-2">
                           <Checkbox
                             checked={selectedFields.includes(field.name)}
                             onCheckedChange={() => handleFieldToggle(field.name)}
@@ -375,65 +320,44 @@ export default function AllFieldsSelector({
                           <CardTitle className="text-sm font-medium">
                             {field.label}
                           </CardTitle>
-                          {field.hidden && <EyeOff className="w-4 h-4 text-muted-foreground" />}
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center space-x-2">
                           <Badge variant="outline" className="text-xs">
-                            {field.fieldType}
+                            {field.type}
                           </Badge>
-                          {field.existingValues.length > 0 && (
-                            <Badge variant="secondary" className="text-xs">
-                              {field.existingValues.length} existing values
-                            </Badge>
+                          {field.description && (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Info className="h-4 w-4 text-muted-foreground" />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p className="max-w-xs">{field.description}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
                           )}
                         </div>
                       </div>
-                      {field.description && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {field.description}
-                        </p>
-                      )}
                     </CardHeader>
                     
                     {selectedFields.includes(field.name) && (
                       <CardContent className="pt-0">
                         <div className="space-y-2">
-                          <Label className="text-xs font-medium">
-                            Value for {field.label}
+                          <Label className="text-xs text-muted-foreground">
+                            {field.description || field.label}
                           </Label>
                           {renderFieldInput(field)}
-                          {field.existingValues.length > 0 && (
-                            <p className="text-xs text-muted-foreground">
-                              {field.existingValues.length} existing values available
-                            </p>
-                          )}
                         </div>
                       </CardContent>
                     )}
                   </Card>
                 ))}
-            </div>
+              </div>
+            </ScrollArea>
           </TabsContent>
         ))}
       </Tabs>
-
-      {/* Summary */}
-      <div className="flex items-center justify-between text-sm text-muted-foreground">
-        <span>
-          {selectedFields.length} of {properties.length} fields selected
-        </span>
-        {selectedFields.length > 0 && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onFieldsChange([])}
-            className="text-red-600 hover:text-red-700"
-          >
-            <X className="w-4 h-4 mr-1" />
-            Clear All
-          </Button>
-        )}
-      </div>
     </div>
   )
 } 
