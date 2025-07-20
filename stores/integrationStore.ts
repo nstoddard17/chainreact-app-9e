@@ -753,6 +753,10 @@ export const useIntegrationStore = create<IntegrationStore>()(
             url = "/api/integrations/fetch-user-data"
             dataType = "hubspot_contact_properties"
             break
+          case "hubspot_all_contact_properties":
+            url = "/api/integrations/hubspot/all-contact-properties"
+            dataType = "hubspot_all_contact_properties"
+            break
           case "airtable_bases":
             url = "/api/integrations/fetch-user-data"
             dataType = "airtable_bases"
@@ -984,10 +988,16 @@ export const useIntegrationStore = create<IntegrationStore>()(
         // console.log(`🔍 Provider mapping debug: providerId="${providerId}", includes('_')=${providerId.includes('_')}, includes('-')=${providerId.includes('-')}`)
         // console.log(`🔍 Request body:`, requestBody)
 
-        const response = await apiClient.post(url, { 
-          ...requestBody,
-          ...params 
-        })
+        // Use GET for specific endpoints that don't need POST data
+        let response
+        if (url.includes('/hubspot/all-contact-properties')) {
+          response = await apiClient.get(url)
+        } else {
+          response = await apiClient.post(url, { 
+            ...requestBody,
+            ...params 
+          })
+        }
         
         // console.log(`🔍 Integration Store: API Response for ${providerId}:`, response)
         

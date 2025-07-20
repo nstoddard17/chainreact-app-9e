@@ -49,6 +49,7 @@ import { DiscordEmojiPicker } from "@/components/discord/DiscordEmojiPicker"
 import { Smile } from "lucide-react"
 import { getDiscordBotInviteUrl } from "@/lib/utils/discordConfig"
 import DynamicFieldInputs from "./DynamicFieldInputs"
+import AllFieldsSelector from "./AllFieldsSelector"
 
 
 import { getUser } from "@/lib/supabase-client";
@@ -2904,6 +2905,22 @@ function ConfigurationModal({
             processedData = data.map((guild: any) => ({ value: guild.id, label: guild.name }))
           } else if (field.dynamic === "discord_channels") {
             processedData = data.map((channel: any) => ({ value: channel.id, label: channel.name }))
+          } else if (field.dynamic === "hubspot_all_contact_properties") {
+            // Handle the special structure of our HubSpot all-contact-properties endpoint
+            if (data && data.data && data.data.properties) {
+              processedData = data.data.properties.map((prop: any) => ({ 
+                value: prop.name, 
+                label: prop.label,
+                description: prop.description,
+                type: prop.type,
+                fieldType: prop.fieldType,
+                groupName: prop.groupName,
+                hidden: prop.hidden,
+                existingValues: prop.existingValues || []
+              }))
+            } else {
+              processedData = []
+            }
           } else {
             processedData = data.map((item: any) => ({ value: item.value || item.id || item.name, label: item.name || item.label || item.title }))
           }
@@ -3096,6 +3113,22 @@ function ConfigurationModal({
               processedData = data.map((calendar: any) => ({ value: calendar.id, label: calendar.name, description: calendar.isDefaultCalendar ? "Default calendar" : undefined }))
             } else if (field.dynamic === "outlook_events") {
               processedData = data.map((event: any) => ({ value: event.id, label: event.name, description: event.start ? new Date(event.start).toLocaleString() : undefined, start: event.start, end: event.end, isAllDay: event.isAllDay, location: event.location, attendees: event.attendees }))
+            } else if (field.dynamic === "hubspot_all_contact_properties") {
+              // Handle the special structure of our HubSpot all-contact-properties endpoint
+              if (data && data.data && data.data.properties) {
+                processedData = data.data.properties.map((prop: any) => ({ 
+                  value: prop.name, 
+                  label: prop.label,
+                  description: prop.description,
+                  type: prop.type,
+                  fieldType: prop.fieldType,
+                  groupName: prop.groupName,
+                  hidden: prop.hidden,
+                  existingValues: prop.existingValues || []
+                }))
+              } else {
+                processedData = []
+              }
             } else if (field.dynamic === "teams_channels") {
               processedData = data.map((channel: any) => ({ value: channel.value, label: channel.label }))
             } else if (field.dynamic === "teams_teams") {
@@ -7452,6 +7485,48 @@ function ConfigurationModal({
             </div>
           )
         }
+
+        // For HubSpot all available fields
+        if (field.name === "all_available_fields") {
+          const selectedFields = Array.isArray(config.all_available_fields) ? config.all_available_fields : []
+          const fieldValues = config.all_field_values || {}
+          
+          return (
+            <div className="space-y-4">
+              <AllFieldsSelector
+                integrationId={getIntegrationByProvider("hubspot")?.id || ""}
+                selectedFields={selectedFields}
+                onFieldsChange={(newSelectedFields) => {
+                  setConfig(prev => ({ ...prev, all_available_fields: newSelectedFields }))
+                  // Clear values for removed fields
+                  setConfig(prev => {
+                    const newValues = { ...prev.all_field_values }
+                    Object.keys(newValues).forEach(key => {
+                      if (!newSelectedFields.includes(key)) {
+                        delete newValues[key]
+                      }
+                    })
+                    return { ...prev, all_field_values: newValues }
+                  })
+                }}
+                fieldValues={fieldValues}
+                onFieldValueChange={(fieldName, value) => {
+                  setConfig(prev => ({
+                    ...prev,
+                    all_field_values: {
+                      ...prev.all_field_values,
+                      [fieldName]: value
+                    }
+                  }))
+                }}
+              />
+              
+              {hasError && (
+                <p className="text-xs text-red-500">{errors[field.name]}</p>
+              )}
+            </div>
+          )
+        }
         
         // For other custom fields, render as a section header
         if (field.name === "additional_fields_section") {
@@ -7769,7 +7844,7 @@ function ConfigurationModal({
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent 
           className={cn(
-            "max-w-7xl w-full max-h-[95vh] p-0 gap-0 overflow-hidden",
+            "max-w-7xl w-full max-h-[85vh] p-0 gap-0 overflow-hidden",
             showDataFlowPanels && "max-w-[98vw]"
           )}
         >
@@ -7888,7 +7963,7 @@ function ConfigurationModal({
               </DialogHeader>
 
               {/* Configuration Form */}
-              <ScrollArea className="flex-1 max-h-[70vh] overflow-x-hidden">
+              <ScrollArea className="flex-1 max-h-[65vh] overflow-x-hidden">
                 <div className="px-6 py-4 space-y-6 w-full max-w-full">
                   {/* Integration Error */}
                   {errors.integrationError && (
