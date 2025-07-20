@@ -984,8 +984,9 @@ export const useIntegrationStore = create<IntegrationStore>()(
         const requestBody = url.includes('/gmail/') && !url.includes('/fetch-user-data') 
           ? { integrationId } 
           : { 
-              provider,
+              integrationId,
               dataType: params?.dataType || dataType, // Allow override via params
+              options: params || {}
             }
 
         // console.log(`🌐 Integration Store: Loading data for ${providerId}, URL: ${url}, integrationId: ${integrationId}`)
