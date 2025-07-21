@@ -81,47 +81,34 @@ export async function GET(request: NextRequest) {
       refreshTokenExpiresAt,
     )
 
-    // For OneNote, always create a fresh integration (don't use upsert)
-    // This ensures we get a completely new OAuth flow each time
-    let { error: upsertError } = await supabase.from("integrations").upsert(integrationData, {
-      onConflict: "user_id, provider",
-    })
-
-    // If forceFresh is true or this is OneNote, delete any existing integrations first
-    if (forceFresh || provider === "microsoft-onenote") {
-      console.log("🔄 Force fresh mode - deleting existing OneNote integrations")
-      
-      // Delete existing OneNote integrations for this user
-      const { error: deleteError } = await supabase
-        .from("integrations")
-        .delete()
-        .eq("user_id", userId)
-        .eq("provider", provider)
-      
-      if (deleteError) {
-        console.warn("⚠️ Failed to delete existing OneNote integrations:", deleteError)
-      } else {
-        console.log("✅ Existing OneNote integrations deleted")
-      }
-      
-      // Now insert the new integration
-      const { error: insertError } = await supabase
-        .from("integrations")
-        .insert(integrationData)
-      
-      if (insertError) {
-        console.error("Failed to insert new OneNote integration:", insertError)
-        throw new Error(`Failed to save integration: ${insertError.message}`)
-      }
-      
-      console.log("✅ New OneNote integration created successfully")
+    // For OneNote, ALWAYS delete existing integrations and create fresh ones
+    // This ensures we get a completely new OAuth flow every time
+    console.log("🔄 OneNote detected - always deleting existing integrations for fresh OAuth flow")
+    
+    // Delete existing OneNote integrations for this user
+    const { error: deleteError } = await supabase
+      .from("integrations")
+      .delete()
+      .eq("user_id", userId)
+      .eq("provider", provider)
+    
+    if (deleteError) {
+      console.warn("⚠️ Failed to delete existing OneNote integrations:", deleteError)
+    } else {
+      console.log("✅ Existing OneNote integrations deleted")
     }
-
-    // Only check upsertError if we're not in forceFresh mode
-    if (!forceFresh && upsertError) {
-      console.error("Failed to save OneNote integration:", upsertError)
-      throw new Error(`Failed to save integration: ${upsertError.message}`)
+    
+    // Now insert the new integration
+    const { error: insertError } = await supabase
+      .from("integrations")
+      .insert(integrationData)
+    
+    if (insertError) {
+      console.error("Failed to insert new OneNote integration:", insertError)
+      throw new Error(`Failed to save integration: ${insertError.message}`)
     }
+    
+    console.log("✅ New OneNote integration created successfully")
 
     console.log(`Successfully connected OneNote for user ${userId}`)
     return createPopupResponse("success", provider, "OneNote connected successfully", getBaseUrl())

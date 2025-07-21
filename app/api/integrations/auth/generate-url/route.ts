@@ -34,6 +34,7 @@ export async function POST(request: NextRequest) {
       integrationId?: string
       timestamp: number
       forceFresh?: boolean
+      forceConsent?: boolean
     } = {
       provider,
       userId: user.id,
@@ -159,12 +160,11 @@ export async function POST(request: NextRequest) {
         break
 
       case "microsoft-onenote":
-        // For OneNote, if forceFresh is true, add a unique timestamp to force new consent
-        if (forceFresh) {
-          stateObject.forceFresh = true
-          stateObject.timestamp = Date.now() // Ensure unique state
-          finalState = btoa(JSON.stringify(stateObject))
-        }
+        // For OneNote, always force fresh consent by adding unique parameters
+        stateObject.forceFresh = true
+        stateObject.timestamp = Date.now() // Ensure unique state
+        stateObject.forceConsent = true // Force Microsoft to show consent screen
+        finalState = btoa(JSON.stringify(stateObject))
         authUrl = generateMicrosoftOneNoteAuthUrl(finalState)
         break
 
@@ -919,6 +919,8 @@ function generateMicrosoftOneNoteAuthUrl(state: string): string {
     response_type: "code",
     scope: "offline_access openid profile email User.Read Notes.ReadWrite.All",
     state,
+    prompt: "select_account consent", // Force account selection AND consent screen every time
+    access_type: "offline", // Ensure we get refresh tokens
   })
 
   return `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`
