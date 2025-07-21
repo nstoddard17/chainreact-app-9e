@@ -292,7 +292,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
     },
 
     connectIntegration: async (providerId: string) => {
-      const { setLoading, providers, setError, fetchIntegrations } = get()
+      const { setLoading, providers, setError, fetchIntegrations, integrations } = get()
       const provider = providers.find((p) => p.id === providerId)
 
       if (!provider) {
@@ -309,6 +309,21 @@ export const useIntegrationStore = create<IntegrationStore>()(
       try {
         console.log(`🔗 Connecting to ${providerId}...`)
 
+        // For OneNote, always force a fresh OAuth flow by disconnecting any existing integration first
+        if (providerId === 'microsoft-onenote') {
+          const existingIntegration = integrations.find(i => i.provider === 'microsoft-onenote')
+          if (existingIntegration) {
+            console.log('🔄 OneNote detected - disconnecting existing integration for fresh OAuth flow')
+            try {
+              await get().disconnectIntegration(existingIntegration.id)
+              console.log('✅ Existing OneNote integration disconnected')
+            } catch (disconnectError) {
+              console.warn('⚠️ Failed to disconnect existing OneNote integration:', disconnectError)
+              // Continue anyway - we'll try to create a new one
+            }
+          }
+        }
+
         const { user, session } = await getSecureUserAndSession()
 
         const response = await fetch("/api/integrations/auth/generate-url", {
@@ -319,6 +334,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
           },
           body: JSON.stringify({
             provider: providerId,
+            forceFresh: providerId === 'microsoft-onenote', // Force fresh OAuth for OneNote
           }),
         })
 

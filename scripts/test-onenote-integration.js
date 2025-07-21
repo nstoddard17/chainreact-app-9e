@@ -139,7 +139,7 @@ async function testOneNoteIntegration() {
                   client_secret: process.env.MICROSOFT_CLIENT_SECRET,
                   refresh_token: refreshToken,
                   grant_type: 'refresh_token',
-                  scope: 'offline_access User.Read Notes.ReadWrite.All',
+                  scope: 'offline_access openid profile email User.Read Notes.ReadWrite.All',
                 }),
               })
 
