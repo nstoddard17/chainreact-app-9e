@@ -520,35 +520,49 @@ export const useIntegrationStore = create<IntegrationStore>()(
     getIntegrationStatus: (providerId: string) => {
       const { integrations } = get()
       
-      // For OneNote, always return "disconnected" to force fresh OAuth flow every time
+      const integration = integrations.find((i) => i.provider === providerId)
+      
+      // For OneNote, check if there's a valid integration but still force fresh OAuth for new connections
       if (providerId === "microsoft-onenote") {
-        console.log("🔄 OneNote detected - forcing disconnected status for fresh OAuth flow")
-        return "disconnected"
+        if (integration && integration.status === "connected") {
+          console.log("🔄 OneNote detected - showing as connected but will force fresh OAuth for new connections")
+          return "connected"
+        } else {
+          console.log("🔄 OneNote detected - no valid integration found, showing as disconnected")
+          return "disconnected"
+        }
       }
       
-      const integration = integrations.find((i) => i.provider === providerId)
       return integration?.status || "disconnected"
     },
 
     getIntegrationByProvider: (providerId: string) => {
       const { integrations } = get()
       
-      // For OneNote, always return null to force fresh OAuth flow every time
+      const integration = integrations.find((i) => i.provider === providerId)
+      
+      // For OneNote, return the integration if it exists (for display purposes)
+      // but the connectIntegration function will still force fresh OAuth
       if (providerId === "microsoft-onenote") {
-        console.log("🔄 OneNote detected - returning null to force fresh OAuth flow")
-        return null
+        if (integration) {
+          console.log("🔄 OneNote detected - returning existing integration for display")
+          return integration
+        } else {
+          console.log("🔄 OneNote detected - no integration found, returning null")
+          return null
+        }
       }
       
-      return integrations.find((i) => i.provider === providerId) || null
+      return integration || null
     },
 
     getConnectedProviders: () => {
       const { integrations } = get()
       // Return all integrations that exist (not just "connected" ones)
       // This includes expired, needs_reauthorization, etc. since they can be reconnected
-      // Exclude OneNote since it always requires fresh authentication
+      // Include OneNote if it has a valid connected status
       const connectedProviders = integrations
-        .filter((i) => i.status !== "disconnected" && i.provider !== "microsoft-onenote")
+        .filter((i) => i.status !== "disconnected")
         .map((i) => i.provider)
       return connectedProviders
     },
