@@ -4,6 +4,8 @@ export function createPopupResponse(
   message: string,
   baseUrl: string,
 ) {
+  // Log the popup response creation for debugging
+  console.log(`🔄 Creating popup response: type=${type}, provider=${provider}, message=${message}`)
   const title = type === "success" ? `${provider} Connection Successful` : `${provider} Connection Failed`
   const header = type === "success" ? `${provider} Connected!` : `Error Connecting ${provider}`
   const status = type === "success" ? 200 : 400
@@ -60,11 +62,15 @@ export function createPopupResponse(
           
           const sendMessage = () => {
             try {
-              window.opener.postMessage({
-                  type: 'oauth-${type}',
-                  provider: '${safeProvider}',
-                  message: '${safeMessage}'
-              }, '${baseUrl}');
+              const message = {
+                type: 'oauth-${type}',
+                provider: '${safeProvider}',
+                message: '${safeMessage}'
+              };
+              console.log('Sending message to parent window:', JSON.stringify(message));
+              console.log('Target origin:', '${baseUrl}');
+              
+              window.opener.postMessage(message, '${baseUrl}');
               messageSent = true;
               console.log('Message sent successfully to parent window');
             } catch (e) {

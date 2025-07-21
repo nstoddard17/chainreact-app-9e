@@ -113,7 +113,8 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
       console.log("👤 User found and providers initialized, calling fetchIntegrations and fetchMetrics")
       // Add a small delay to ensure the store is properly initialized
       const timer = setTimeout(() => {
-        fetchIntegrations()
+        console.log("⏱️ Timeout elapsed, calling fetchIntegrations from useEffect")
+        fetchIntegrations(true) // Force refresh
         fetchMetrics()
       }, 100)
       
@@ -156,7 +157,8 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
   }
   
   const handleRefresh = () => {
-    fetchIntegrations()
+    console.log("🔄 Manual refresh requested by user")
+    fetchIntegrations(true) // Force refresh
     fetchMetrics()
   }
 
@@ -198,14 +200,18 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
             }
             
             console.log("📨 Received OAuth message:", event.data)
+            console.log("📨 Message origin:", event.origin)
+            console.log("📨 Current origin:", window.location.origin)
             
             if (event.data.type === "oauth-success") {
+              console.log("✅ OAuth success message received, refreshing integrations")
               toast({
                 title: "Integration Connected",
                 description: `${event.data.provider || "Integration"} has been connected successfully.`,
                 variant: "default",
               })
-              fetchIntegrations()
+              // Force refresh integrations to show the new connection
+              fetchIntegrations(true)
               fetchMetrics()
             } else if (event.data.type === "oauth-error") {
               toast({
