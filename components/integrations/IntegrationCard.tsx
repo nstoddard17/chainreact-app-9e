@@ -228,7 +228,7 @@ export function IntegrationCard({
           {provider.description}
           {provider.id === 'microsoft-onenote' && (
             <span className="block mt-1 text-xs text-blue-600 dark:text-blue-400">
-              ⚡ Always performs fresh authentication for optimal compatibility
+              ⚡ Always requires fresh authentication - no auto-connection
             </span>
           )}
         </p>
