@@ -258,7 +258,7 @@ async function validateAndRefreshToken(integration: any): Promise<{
                 client_secret: process.env.MICROSOFT_CLIENT_SECRET!,
                 refresh_token: refreshToken,
                 grant_type: 'refresh_token',
-                scope: 'offline_access User.Read Notes.ReadWrite.All',
+                scope: 'offline_access openid profile email User.Read Notes.ReadWrite.All',
                 redirect_uri: `${process.env.NEXT_PUBLIC_APP_URL}/api/integrations/microsoft-onenote/callback`,
               }),
             });
@@ -4370,7 +4370,7 @@ const dataFetchers: DataFetcher = {
                     client_secret: process.env.MICROSOFT_CLIENT_SECRET!,
                     refresh_token: refreshToken,
                     grant_type: 'refresh_token',
-                    scope: 'offline_access User.Read Notes.ReadWrite.All',
+                    scope: 'offline_access openid profile email User.Read Notes.ReadWrite.All',
                     redirect_uri: `${process.env.NEXT_PUBLIC_APP_URL}/api/integrations/microsoft-onenote/callback`,
                   }),
                 });
@@ -4489,6 +4489,35 @@ const dataFetchers: DataFetcher = {
       
       // If we get here, all endpoints failed for business accounts
       console.log('All OneNote API endpoints failed for business account');
+      
+      // Try a fallback approach - check if the user has OneDrive access
+      // This can help determine if it's a token issue or a license issue
+      console.log('🔍 Trying fallback to OneDrive API to check access...');
+      try {
+        const oneDriveResponse = await fetch('https://graph.microsoft.com/v1.0/me/drive/root/children', {
+          headers: {
+            'Authorization': `Bearer ${tokenResult.token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (oneDriveResponse.ok) {
+          const oneDriveData = await oneDriveResponse.json();
+          console.log(`✅ OneDrive API works! Found ${oneDriveData.value?.length || 0} items`);
+          console.log('⚠️ This suggests the user has a valid token but may not have OneNote license/permissions');
+          return {
+            data: [],
+            error: {
+              message: "Your Microsoft account is properly connected, but OneNote access is not available. This may be because OneNote is not included in your Microsoft 365 license or needs to be enabled by your administrator."
+            }
+          };
+        } else {
+          console.log(`❌ OneDrive API also failed: ${oneDriveResponse.status}`);
+        }
+      } catch (fallbackError) {
+        console.error('❌ Error during OneDrive fallback check:', fallbackError);
+      }
+      
       return {
         data: [],
         error: {

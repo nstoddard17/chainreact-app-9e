@@ -20,14 +20,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { provider, reconnect = false, integrationId } = await request.json()
+    const { provider, reconnect = false, integrationId, forceFresh = false } = await request.json()
 
     if (!provider) {
       return NextResponse.json({ error: "Provider is required" }, { status: 400 })
     }
 
     // Initial state generation
-    const stateObject = {
+    const stateObject: {
+      provider: string
+      userId: string
+      reconnect: boolean
+      integrationId?: string
+      timestamp: number
+      forceFresh?: boolean
+    } = {
       provider,
       userId: user.id,
       reconnect,
@@ -152,6 +159,12 @@ export async function POST(request: NextRequest) {
         break
 
       case "microsoft-onenote":
+        // For OneNote, if forceFresh is true, add a unique timestamp to force new consent
+        if (forceFresh) {
+          stateObject.forceFresh = true
+          stateObject.timestamp = Date.now() // Ensure unique state
+          finalState = btoa(JSON.stringify(stateObject))
+        }
         authUrl = generateMicrosoftOneNoteAuthUrl(finalState)
         break
 
@@ -904,7 +917,7 @@ function generateMicrosoftOneNoteAuthUrl(state: string): string {
     client_id: clientId,
     redirect_uri: `${baseUrl}/api/integrations/microsoft-onenote/callback`,
     response_type: "code",
-    scope: "offline_access User.Read Notes.ReadWrite.All",
+    scope: "offline_access openid profile email User.Read Notes.ReadWrite.All",
     state,
   })
 
