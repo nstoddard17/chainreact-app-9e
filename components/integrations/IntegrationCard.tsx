@@ -227,9 +227,30 @@ export function IntegrationCard({
         <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
           {provider.description}
           {provider.id === 'microsoft-onenote' && (
-            <span className="block mt-1 text-xs text-blue-600 dark:text-blue-400">
-              ⚡ Forces fresh OAuth consent for each connection
-            </span>
+            <div>
+              <span className="block mt-1 text-xs text-blue-600 dark:text-blue-400">
+                ⚡ Forces fresh OAuth consent for each connection
+              </span>
+              {process.env.NODE_ENV === 'development' && (
+                <button 
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    try {
+                      const res = await fetch('/api/integrations/microsoft-onenote/debug');
+                      const data = await res.json();
+                      console.log('OneNote Debug:', data);
+                      alert(`OneNote status: ${data.exists ? data.integration.status : 'not found'}`);
+                    } catch (err) {
+                      console.error('Debug error:', err);
+                      alert('Error checking OneNote status');
+                    }
+                  }}
+                  className="text-xs text-gray-500 underline mt-1"
+                >
+                  Debug Status
+                </button>
+              )}
+            </div>
           )}
         </p>
       </CardContent>

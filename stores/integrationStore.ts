@@ -257,6 +257,18 @@ export const useIntegrationStore = create<IntegrationStore>()(
         const integrations = Array.isArray(data.data) ? data.data : data.integrations || []
         console.log("✅ fetchIntegrations completed", { count: integrations.length, integrations: integrations.map((i: any) => ({ provider: i.provider, status: i.status })) })
         
+        // Check specifically for OneNote integration
+        const oneNoteIntegration = integrations.find((i: any) => i.provider === "microsoft-onenote")
+        if (oneNoteIntegration) {
+          console.log("🔍 OneNote integration found:", { 
+            id: oneNoteIntegration.id,
+            status: oneNoteIntegration.status,
+            updated_at: oneNoteIntegration.updated_at
+          })
+        } else {
+          console.log("⚠️ No OneNote integration found in response")
+        }
+        
         set({
           integrations,
           loading: false,
@@ -348,15 +360,20 @@ export const useIntegrationStore = create<IntegrationStore>()(
 
             if (event.data && event.data.type === "oauth-success") {
               console.log(`✅ OAuth successful for ${providerId}:`, event.data.message)
+              console.log(`🔄 Provider: ${event.data.provider}, Expected: ${providerId}`)
               closedByMessage = true
               window.removeEventListener("message", messageHandler)
               if (popup && !popup.closed) {
                 popup.close()
               }
               setLoading(`connect-${providerId}`, false)
+              
+              // Force refresh integrations with a small delay to ensure the backend has time to update
+              console.log("⏱️ Setting timeout to refresh integrations after OAuth success")
               setTimeout(() => {
-                fetchIntegrations(true)
-              }, 500)
+                console.log("⏱️ Timeout elapsed, fetching integrations after OAuth success")
+                fetchIntegrations(true) // Force refresh from server
+              }, 1000) // Increased delay to 1 second
             } else if (event.data && event.data.type === "oauth-error") {
               console.error(`❌ OAuth error for ${providerId}:`, event.data.message)
               setError(event.data.message)

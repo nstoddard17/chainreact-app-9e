@@ -38,9 +38,13 @@ export async function GET(request: NextRequest) {
 
     const clientId = process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID
     const clientSecret = process.env.MICROSOFT_CLIENT_SECRET
-    // Extract the base redirect URI without the timestamp parameter
-    const baseRedirectUri = `${getBaseUrl()}/api/integrations/microsoft-onenote/callback`
-    const redirectUri = baseRedirectUri
+    // Extract the timestamp parameter from the current request URL
+    const timestamp = searchParams.get("t")
+    
+    // Construct the redirect URI with the timestamp parameter to match what was used in the authorization request
+    const redirectUri = timestamp 
+      ? `${getBaseUrl()}/api/integrations/microsoft-onenote/callback?t=${timestamp}` 
+      : `${getBaseUrl()}/api/integrations/microsoft-onenote/callback`
 
     if (!clientId || !clientSecret) {
       throw new Error("Microsoft client ID or secret not configured")
@@ -82,9 +86,27 @@ export async function GET(request: NextRequest) {
       tokenData.expires_in,
       refreshTokenExpiresAt,
     )
+    
+    // Explicitly set the status to connected
+    integrationData.status = "connected"
+    // Add a timestamp to ensure the updated_at field changes
+    integrationData.updated_at = new Date().toISOString()
 
+    // First check if the integration already exists
+    const { data: existingIntegration, error: checkError } = await supabase
+      .from("integrations")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("provider", provider)
+      .single();
+      
+    if (checkError && checkError.code !== "PGRST116") { // PGRST116 is "no rows returned" error
+      console.error("Error checking for existing integration:", checkError);
+    }
+    
     // Use upsert like Airtable to ensure the integration is properly saved
-    console.log("🔄 OneNote detected - using upsert for integration storage")
+    console.log("🔄 OneNote detected - using upsert for integration storage");
+    console.log(`${existingIntegration ? "Updating existing" : "Creating new"} OneNote integration for user ${userId}`);
     
     const { error: upsertError } = await supabase
       .from("integrations")
@@ -98,8 +120,34 @@ export async function GET(request: NextRequest) {
     }
     
     console.log("✅ OneNote integration upserted successfully")
-
+    
+    // Verify that the integration was actually saved by querying it back
+    const { data: savedIntegration, error: verifyError } = await supabase
+      .from("integrations")
+      .select("id, status, provider, updated_at")
+      .eq("user_id", userId)
+      .eq("provider", provider)
+      .single();
+      
+    if (verifyError) {
+      console.error("⚠️ Error verifying OneNote integration was saved:", verifyError);
+    } else {
+      console.log("✅ Verified OneNote integration was saved:", {
+        id: savedIntegration.id,
+        status: savedIntegration.status,
+        provider: savedIntegration.provider,
+        updated_at: savedIntegration.updated_at
+      });
+    }
+    
+    // Log the integration data that was saved
     console.log(`Successfully connected OneNote for user ${userId}`)
+    console.log("🔍 Integration data saved:", {
+      provider,
+      status: integrationData.status,
+      user_id: userId,
+      timestamp: new Date().toISOString()
+    })
     return createPopupResponse("success", provider, "OneNote connected successfully", getBaseUrl())
 
   } catch (error: any) {
