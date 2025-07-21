@@ -4228,7 +4228,7 @@ const dataFetchers: DataFetcher = {
     }
   },
 
-  // Microsoft OneNote data fetchers
+  // Microsoft OneNote data fetchers - Using OneDrive API to access OneNote notebooks
   "onenote_notebooks": async (integration: any, options?: any) => {
     console.log(`🔍 OneNote notebooks fetcher called with:`, {
       integrationId: integration.id,
@@ -4258,27 +4258,6 @@ const dataFetchers: DataFetcher = {
         error: tokenResult.error
       });
       
-      // Decode JWT token to check scopes and audience
-      if (tokenResult.token) {
-        try {
-          const tokenParts = tokenResult.token.split('.');
-          if (tokenParts.length === 3) {
-            const payload = JSON.parse(Buffer.from(tokenParts[1], 'base64').toString());
-            console.log(`🔍 Token details:`, {
-              aud: payload.aud,
-              scp: payload.scp,
-              roles: payload.roles,
-              tid: payload.tid,
-              exp: new Date(payload.exp * 1000).toISOString(),
-              iat: new Date(payload.iat * 1000).toISOString(),
-              now: new Date().toISOString()
-            });
-          }
-        } catch (decodeError) {
-          console.log(`⚠️ Could not decode JWT token:`, decodeError);
-        }
-      }
-      
       if (!tokenResult.success) {
         console.log(`❌ OneNote token validation failed: ${tokenResult.error}`);
         return {
@@ -4289,241 +4268,421 @@ const dataFetchers: DataFetcher = {
         };
       }
       
-      // For OneNote, use the proper Microsoft Graph API endpoints
-      // Both personal and business accounts should work with these endpoints
-      // as long as they have the correct scopes (User.Read Notes.ReadWrite.All)
+      // Use OneDrive API to find OneNote notebooks
+      // OneNote notebooks are stored as .onetoc2 files in OneDrive
+      console.log(`🔍 Searching for OneNote notebooks in OneDrive...`);
       
-      const endpoints = [
-        'https://graph.microsoft.com/v1.0/me/onenote/notebooks', // Primary endpoint
-        'https://graph.microsoft.com/beta/me/onenote/notebooks', // Beta endpoint as fallback
-        'https://graph.microsoft.com/v1.0/me/onenote/sections', // Alternative endpoint to test
-        'https://graph.microsoft.com/beta/me/onenote/sections' // Beta alternative endpoint
-      ];
-      
-      let successResponse = null;
-      let lastError = null;
-      
-      // First, test if the token works with the general Microsoft Graph API
-      console.log(`🔍 Testing token with general Microsoft Graph API...`);
-      const generalTestResponse = await fetch('https://graph.microsoft.com/v1.0/me', {
+      // First, try to find OneNote notebooks in the root directory
+      // Look for both files and folders that might be OneNote notebooks
+      const rootResponse = await fetch('https://graph.microsoft.com/v1.0/me/drive/root/children', {
         headers: {
           'Authorization': `Bearer ${tokenResult.token}`,
           'Content-Type': 'application/json'
         }
       });
       
-      if (generalTestResponse.ok) {
-        console.log(`✅ Token works with general Microsoft Graph API`);
-      } else {
-        const generalErrorText = await generalTestResponse.text();
-        console.log(`❌ Token failed with general Microsoft Graph API: ${generalTestResponse.status} ${generalErrorText}`);
-      }
-      
-      // Try each endpoint until one works
-      for (const endpoint of endpoints) {
-        try {
-          console.log(`Trying OneNote endpoint: ${endpoint}`);
-          console.log(`🔍 Using token: ${tokenResult.token ? `${tokenResult.token.substring(0, 20)}...` : 'none'}`);
+      if (rootResponse.ok) {
+        const rootData = await rootResponse.json();
+        console.log(`✅ Found ${rootData.value?.length || 0} OneNote notebooks in root directory`);
+        
+        // Log the actual files found for debugging
+        if (rootData.value && rootData.value.length > 0) {
+          console.log(`🔍 All items found in root:`, rootData.value.map((item: any) => ({
+            name: item.name,
+            id: item.id,
+            size: item.size,
+            lastModified: item.lastModifiedDateTime,
+            // Log all available properties to see what we have
+            allProperties: Object.keys(item),
+            displayName: item.displayName,
+            title: item.title,
+            description: item.description,
+            isFolder: !!item.folder,
+            isFile: !!item.file
+          })));
+        }
+        
+        // Filter for OneNote-related items (files and folders)
+        const oneNoteItems = (rootData.value || []).filter((item: any) => {
+          const name = item.name || '';
+          const isOneNoteFile = name.endsWith('.onetoc2') || name.endsWith('.one') || name.endsWith('.onetmp2') || name.endsWith('.onetmp');
+          const isOneNoteFolder = item.folder && (name.toLowerCase().includes('onenote') || name.toLowerCase().includes('notebook'));
+          const isOneNoteRelated = name.toLowerCase().includes('onenote') || name.toLowerCase().includes('notebook');
           
-          const response = await fetch(endpoint, {
-            headers: {
-              'Authorization': `Bearer ${tokenResult.token}`,
-              'Content-Type': 'application/json'
+          return isOneNoteFile || isOneNoteFolder || isOneNoteRelated;
+        });
+        
+        console.log(`🔍 Filtered ${oneNoteItems.length} OneNote-related items from ${rootData.value?.length || 0} total items`);
+        
+        // Transform OneNote items to notebook format
+        const notebooks = oneNoteItems.map((item: any) => {
+          // Handle different possible file naming patterns
+          let displayName = 'Untitled Notebook';
+          
+          // Try multiple properties that might contain the notebook name
+          const possibleNameSources = [
+            item.displayName,
+            item.title,
+            item.name,
+            item.description
+          ];
+          
+          for (const source of possibleNameSources) {
+            if (source && typeof source === 'string' && source.trim() !== '') {
+              displayName = source.trim();
+              break;
             }
-          });
+          }
           
-          console.log(`🔍 Response status: ${response.status} ${response.statusText}`);
+          // Remove common OneNote file extensions
+          const extensions = ['.onetoc2', '.one', '.onetmp2', '.onetmp'];
+          for (const ext of extensions) {
+            if (displayName.endsWith(ext)) {
+              displayName = displayName.replace(ext, '');
+              break;
+            }
+          }
           
-          if (response.ok) {
-            successResponse = response;
-            console.log(`✅ OneNote API call successful for ${endpoint}`);
-            break;
-          } else if (response.status === 401) {
-            const errorText = await response.text();
-            console.log(`❌ 401 Unauthorized - token might be expired or invalid`);
-            console.log(`🔍 Attempting immediate token refresh...`);
-            
-            // Try immediate token refresh
-            if (integration.refresh_token) {
-              try {
-                const { decrypt } = await import("@/lib/security/encryption");
-                const { getSecret } = await import("@/lib/secrets");
-                const secret = await getSecret("encryption_key");
-                
-                let refreshToken = integration.refresh_token;
-                if (refreshToken.includes(":")) {
-                  try {
-                    refreshToken = decrypt(refreshToken, secret);
-                  } catch (refreshDecryptError) {
-                    console.error('Failed to decrypt refresh token:', refreshDecryptError);
-                  }
-                }
-                
-                console.log(`🔄 Immediate token refresh for OneNote...`);
-                const refreshResponse = await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token', {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                  },
-                  body: new URLSearchParams({
-                    client_id: process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID!,
-                    client_secret: process.env.MICROSOFT_CLIENT_SECRET!,
-                    refresh_token: refreshToken,
-                    grant_type: 'refresh_token',
-                    scope: 'offline_access openid profile email User.Read Notes.ReadWrite.All',
-                    redirect_uri: `${process.env.NEXT_PUBLIC_APP_URL}/api/integrations/microsoft-onenote/callback`,
-                  }),
-                });
-                
-                if (refreshResponse.ok) {
-                  const refreshData = await refreshResponse.json();
-                  console.log(`✅ Immediate token refresh successful`);
-                  console.log(`🔍 Refreshed token details:`, {
-                    tokenLength: refreshData.access_token?.length || 0,
-                    tokenPreview: refreshData.access_token ? `${refreshData.access_token.substring(0, 20)}...` : 'none',
-                    expiresIn: refreshData.expires_in,
-                    scope: refreshData.scope
-                  });
-                  
-                  // Decode the refreshed JWT token
-                  try {
-                    console.log(`🔍 Attempting to decode refreshed token...`);
-                    const tokenParts = refreshData.access_token.split('.');
-                    console.log(`🔍 Token parts count: ${tokenParts.length}`);
-                    if (tokenParts.length === 3) {
-                      const payload = JSON.parse(Buffer.from(tokenParts[1], 'base64').toString());
-                      console.log(`🔍 Refreshed token JWT details:`, {
-                        aud: payload.aud,
-                        scp: payload.scp,
-                        roles: payload.roles,
-                        tid: payload.tid,
-                        exp: new Date(payload.exp * 1000).toISOString(),
-                        iat: new Date(payload.iat * 1000).toISOString(),
-                        now: new Date().toISOString()
-                      });
-                    } else {
-                      console.log(`⚠️ Token is not in JWT format (expected 3 parts, got ${tokenParts.length})`);
-                    }
-                  } catch (decodeError) {
-                    console.log(`⚠️ Could not decode refreshed JWT token:`, decodeError);
-                    console.log(`🔍 Token preview: ${refreshData.access_token.substring(0, 50)}...`);
-                  }
-                  
-                  // Test the refreshed token with a simple Microsoft Graph endpoint first
-                  console.log(`🔍 Testing refreshed token with /me endpoint...`);
-                  const testResponse = await fetch('https://graph.microsoft.com/v1.0/me', {
-                    headers: {
-                      'Authorization': `Bearer ${refreshData.access_token}`,
-                      'Content-Type': 'application/json'
-                    }
-                  });
-                  
-                  if (testResponse.ok) {
-                    console.log(`✅ Token works with /me endpoint`);
-                  } else {
-                    const testErrorText = await testResponse.text();
-                    console.log(`❌ Token test failed with /me endpoint: ${testResponse.status} ${testErrorText}`);
-                  }
-                  
-                  // Try the API call again with the new token
-                  console.log(`🔍 Retrying with refreshed token: ${refreshData.access_token ? `${refreshData.access_token.substring(0, 20)}...` : 'none'}`);
-                  const retryResponse = await fetch(endpoint, {
-                    headers: {
-                      'Authorization': `Bearer ${refreshData.access_token}`,
-                      'Content-Type': 'application/json'
-                    }
-                  });
-                  
-                  if (retryResponse.ok) {
-                    successResponse = retryResponse;
-                    console.log(`✅ OneNote API call successful after token refresh`);
-                    break;
-                  } else {
-                    const retryErrorText = await retryResponse.text();
-                    console.log(`❌ API call still failed after token refresh: ${retryResponse.status} ${retryErrorText}`);
-                    
-                    // Try to decode the refreshed token to see what's wrong
-                    try {
-                      const tokenParts = refreshData.access_token.split('.');
-                      if (tokenParts.length === 3) {
-                        const payload = JSON.parse(Buffer.from(tokenParts[1], 'base64').toString());
-                        console.log(`🔍 Refreshed token JWT details:`, {
-                          aud: payload.aud,
-                          scp: payload.scp,
-                          roles: payload.roles,
-                          tid: payload.tid,
-                          exp: new Date(payload.exp * 1000).toISOString(),
-                          iat: new Date(payload.iat * 1000).toISOString(),
-                          now: new Date().toISOString()
-                        });
-                      }
-                    } catch (decodeError) {
-                      console.log(`⚠️ Could not decode refreshed JWT token:`, decodeError);
-                    }
-                  }
-                } else {
-                  const refreshErrorData = await refreshResponse.json();
-                  console.error(`❌ Immediate token refresh failed:`, refreshErrorData);
-                }
-              } catch (refreshError) {
-                console.error(`❌ Error during immediate token refresh:`, refreshError);
+          // If still empty after removing extension, use a fallback name
+          if (!displayName || displayName.trim() === '') {
+            displayName = 'Untitled Notebook';
+          }
+          
+          console.log(`🔍 Processing OneNote item: "${item.name}" -> displayName: "${displayName}"`);
+          
+          return {
+            id: item.id,
+            displayName: displayName,
+            name: displayName,
+            lastModifiedDateTime: item.lastModifiedDateTime,
+            webUrl: item.webUrl,
+            size: item.size,
+            createdDateTime: item.createdDateTime,
+            // Add OneNote-specific properties
+            isDefault: false,
+            userRole: 'Owner',
+            isShared: false,
+            links: {
+              oneNoteWebUrl: {
+                href: item.webUrl
+              },
+              oneNoteClientUrl: {
+                href: item.webUrl
               }
             }
-            
-            lastError = { status: response.status, text: errorText, endpoint };
-          } else {
-            const errorText = await response.text();
-            console.log(`❌ Endpoint ${endpoint} failed with status ${response.status}: ${errorText}`);
-            lastError = { status: response.status, text: errorText, endpoint };
-          }
-        } catch (endpointError) {
-          console.log(`❌ Error with endpoint ${endpoint}:`, endpointError);
+          };
+        });
+        
+        if (notebooks.length > 0) {
+          return {
+            data: notebooks,
+            error: undefined
+          };
         }
+      } else {
+        console.log(`❌ Failed to search root directory: ${rootResponse.status}`);
       }
       
-      if (successResponse) {
-        const data = await successResponse.json();
-        console.log(`Successfully fetched OneNote notebooks: ${data.value?.length || 0} notebooks found`);
-        return { data: data.value || [] };
-      }
+      // If no notebooks found in root, search in Documents folder
+      console.log(`🔍 Searching for OneNote notebooks in Documents folder...`);
       
-      // If we get here, all endpoints failed for business accounts
-      console.log('All OneNote API endpoints failed for business account');
-      
-      // Try a fallback approach - check if the user has OneDrive access
-      // This can help determine if it's a token issue or a license issue
-      console.log('🔍 Trying fallback to OneDrive API to check access...');
       try {
-        const oneDriveResponse = await fetch('https://graph.microsoft.com/v1.0/me/drive/root/children', {
+        // Get the Documents folder
+        const documentsResponse = await fetch('https://graph.microsoft.com/v1.0/me/drive/special/documents/children?$filter=file ne null and endswith(name,\'.onetoc2\')', {
           headers: {
             'Authorization': `Bearer ${tokenResult.token}`,
             'Content-Type': 'application/json'
           }
         });
         
-        if (oneDriveResponse.ok) {
-          const oneDriveData = await oneDriveResponse.json();
-          console.log(`✅ OneDrive API works! Found ${oneDriveData.value?.length || 0} items`);
-          console.log('⚠️ This suggests the user has a valid token but may not have OneNote license/permissions');
-          return {
-            data: [],
-            error: {
-              message: "Your Microsoft account is properly connected, but OneNote access is not available. This may be because OneNote is not included in your Microsoft 365 license or needs to be enabled by your administrator."
+        if (documentsResponse.ok) {
+          const documentsData = await documentsResponse.json();
+          console.log(`✅ Found ${documentsData.value?.length || 0} OneNote notebooks in Documents folder`);
+          
+          const notebooks = (documentsData.value || []).map((file: any) => {
+            // Handle different possible file naming patterns
+            let displayName = file.name || 'Untitled Notebook';
+            
+            // Remove .onetoc2 extension if present
+            if (displayName.endsWith('.onetoc2')) {
+              displayName = displayName.replace('.onetoc2', '');
             }
-          };
-        } else {
-          console.log(`❌ OneDrive API also failed: ${oneDriveResponse.status}`);
+            
+            // If still empty after removing extension, use a fallback name
+            if (!displayName || displayName.trim() === '') {
+              displayName = 'Untitled Notebook';
+            }
+            
+            console.log(`🔍 Processing OneNote file from Documents: "${file.name}" -> displayName: "${displayName}"`);
+            
+            return {
+              id: file.id,
+              displayName: displayName,
+              name: displayName,
+              lastModifiedDateTime: file.lastModifiedDateTime,
+              webUrl: file.webUrl,
+              size: file.size,
+              createdDateTime: file.createdDateTime,
+              isDefault: false,
+              userRole: 'Owner',
+              isShared: false,
+              links: {
+                oneNoteWebUrl: {
+                  href: file.webUrl
+                },
+                oneNoteClientUrl: {
+                  href: file.webUrl
+                }
+              }
+            };
+          });
+          
+          if (notebooks.length > 0) {
+            return {
+              data: notebooks,
+              error: undefined
+            };
+          }
         }
-      } catch (fallbackError) {
-        console.error('❌ Error during OneDrive fallback check:', fallbackError);
+      } catch (documentsError) {
+        console.log(`⚠️ Error searching Documents folder:`, documentsError);
       }
       
+      // If still no notebooks found, search recursively in all folders
+      console.log(`🔍 Searching for OneNote notebooks recursively...`);
+      
+      try {
+        const searchResponse = await fetch('https://graph.microsoft.com/v1.0/me/drive/root/search(q=\'.onetoc2\')', {
+          headers: {
+            'Authorization': `Bearer ${tokenResult.token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (searchResponse.ok) {
+          const searchData = await searchResponse.json();
+          console.log(`✅ Found ${searchData.value?.length || 0} OneNote notebooks via search`);
+          
+          const notebooks = (searchData.value || []).map((file: any) => {
+            // Handle different possible file naming patterns
+            let displayName = file.name || 'Untitled Notebook';
+            
+            // Remove .onetoc2 extension if present
+            if (displayName.endsWith('.onetoc2')) {
+              displayName = displayName.replace('.onetoc2', '');
+            }
+            
+            // If still empty after removing extension, use a fallback name
+            if (!displayName || displayName.trim() === '') {
+              displayName = 'Untitled Notebook';
+            }
+            
+            console.log(`🔍 Processing OneNote file from search: "${file.name}" -> displayName: "${displayName}"`);
+            
+            return {
+              id: file.id,
+              displayName: displayName,
+              name: displayName,
+              lastModifiedDateTime: file.lastModifiedDateTime,
+              webUrl: file.webUrl,
+              size: file.size,
+              createdDateTime: file.createdDateTime,
+              isDefault: false,
+              userRole: 'Owner',
+              isShared: false,
+              links: {
+                oneNoteWebUrl: {
+                  href: file.webUrl
+                },
+                oneNoteClientUrl: {
+                  href: file.webUrl
+                }
+              }
+            };
+          });
+          
+          if (notebooks.length > 0) {
+            return {
+              data: notebooks,
+              error: undefined
+            };
+          }
+        }
+      } catch (searchError) {
+        console.log(`⚠️ Error searching for OneNote notebooks:`, searchError);
+      }
+      
+      // If no OneNote items found in root, try searching for OneNote notebooks in special folders
+      console.log(`🔍 No OneNote items found in root, trying special OneNote folders...`);
+      
+      try {
+        // Try to find OneNote notebooks in the Documents folder
+        const documentsResponse = await fetch('https://graph.microsoft.com/v1.0/me/drive/special/documents/children', {
+          headers: {
+            'Authorization': `Bearer ${tokenResult.token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (documentsResponse.ok) {
+          const documentsData = await documentsResponse.json();
+          console.log(`🔍 Found ${documentsData.value?.length || 0} items in Documents folder`);
+          
+          // Look for OneNote-related items in Documents
+          const oneNoteInDocuments = (documentsData.value || []).filter((item: any) => {
+            const name = item.name || '';
+            return name.toLowerCase().includes('onenote') || name.toLowerCase().includes('notebook') ||
+                   name.endsWith('.onetoc2') || name.endsWith('.one');
+          });
+          
+          if (oneNoteInDocuments.length > 0) {
+            console.log(`🔍 Found ${oneNoteInDocuments.length} OneNote items in Documents folder`);
+            
+            const notebooks = oneNoteInDocuments.map((item: any) => {
+              let displayName = 'Untitled Notebook';
+              
+              // Try multiple properties that might contain the notebook name
+              const possibleNameSources = [
+                item.displayName,
+                item.title,
+                item.name,
+                item.description
+              ];
+              
+              for (const source of possibleNameSources) {
+                if (source && typeof source === 'string' && source.trim() !== '') {
+                  displayName = source.trim();
+                  break;
+                }
+              }
+              
+              // Remove common OneNote file extensions
+              const extensions = ['.onetoc2', '.one', '.onetmp2', '.onetmp'];
+              for (const ext of extensions) {
+                if (displayName.endsWith(ext)) {
+                  displayName = displayName.replace(ext, '');
+                  break;
+                }
+              }
+              
+              console.log(`🔍 Processing OneNote item from Documents: "${item.name}" -> displayName: "${displayName}"`);
+              
+              return {
+                id: item.id,
+                displayName: displayName,
+                name: displayName,
+                lastModifiedDateTime: item.lastModifiedDateTime,
+                webUrl: item.webUrl,
+                size: item.size,
+                createdDateTime: item.createdDateTime,
+                isDefault: false,
+                userRole: 'Owner',
+                isShared: false,
+                links: {
+                  oneNoteWebUrl: {
+                    href: item.webUrl
+                  },
+                  oneNoteClientUrl: {
+                    href: item.webUrl
+                  }
+                }
+              };
+            });
+            
+            if (notebooks.length > 0) {
+              return {
+                data: notebooks,
+                error: undefined
+              };
+            }
+          }
+        }
+        
+        // If still no notebooks found, try a broader search for OneNote files
+        console.log(`🔍 No OneNote items found in Documents, trying broader OneNote search...`);
+        
+        const broaderSearchResponse = await fetch('https://graph.microsoft.com/v1.0/me/drive/root/search(q=\'OneNote\')', {
+          headers: {
+            'Authorization': `Bearer ${tokenResult.token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (broaderSearchResponse.ok) {
+          const broaderData = await broaderSearchResponse.json();
+          console.log(`✅ Found ${broaderData.value?.length || 0} OneNote-related files via broader search`);
+          
+          if (broaderData.value && broaderData.value.length > 0) {
+            console.log(`🔍 OneNote-related files found:`, broaderData.value.map((file: any) => ({
+              name: file.name,
+              id: file.id,
+              size: file.size,
+              lastModified: file.lastModifiedDateTime
+            })));
+            
+            // Transform any OneNote-related files to notebook format
+            const notebooks = broaderData.value.map((file: any) => {
+              let displayName = file.name || 'Untitled Notebook';
+              
+              // Remove common OneNote file extensions
+              const extensions = ['.onetoc2', '.one', '.onetmp2', '.onetmp'];
+              for (const ext of extensions) {
+                if (displayName.endsWith(ext)) {
+                  displayName = displayName.replace(ext, '');
+                  break;
+                }
+              }
+              
+              // If still empty after removing extension, use a fallback name
+              if (!displayName || displayName.trim() === '') {
+                displayName = 'Untitled Notebook';
+              }
+              
+              console.log(`🔍 Processing OneNote-related file: "${file.name}" -> displayName: "${displayName}"`);
+              
+              return {
+                id: file.id,
+                displayName: displayName,
+                name: displayName,
+                lastModifiedDateTime: file.lastModifiedDateTime,
+                webUrl: file.webUrl,
+                size: file.size,
+                createdDateTime: file.createdDateTime,
+                isDefault: false,
+                userRole: 'Owner',
+                isShared: false,
+                links: {
+                  oneNoteWebUrl: {
+                    href: file.webUrl
+                  },
+                  oneNoteClientUrl: {
+                    href: file.webUrl
+                  }
+                }
+              };
+            });
+            
+            if (notebooks.length > 0) {
+              return {
+                data: notebooks,
+                error: undefined
+              };
+            }
+          }
+        }
+      } catch (broaderError) {
+        console.log(`⚠️ Error during broader OneNote search:`, broaderError);
+      }
+      
+      // If still no OneNote notebooks found, return empty array with helpful message
+      console.log(`ℹ️ No OneNote notebooks found in OneDrive`);
       return {
         data: [],
         error: {
-          message: "Unable to access OneNote API. Please check your permissions and try again."
+          message: "No OneNote notebooks found in your OneDrive. OneNote notebooks are stored as .onetoc2 files in OneDrive."
         }
       };
+      
     } catch (error: any) {
       console.error('Error in onenote_notebooks:', error);
       return {
@@ -4547,45 +4706,53 @@ const dataFetchers: DataFetcher = {
       
       const { notebookId } = options || {};
       
-      // For OneNote sections, use the proper Microsoft Graph API endpoints
-      // Both personal and business accounts should work with these endpoints
+      // Use OneDrive API to find OneNote sections
+      // OneNote sections are stored as .one files in OneDrive
+      console.log(`🔍 Searching for OneNote sections in OneDrive...`);
       
-      const sectionEndpoints = [];
-      
-      if (notebookId) {
-        sectionEndpoints.push(
-          `https://graph.microsoft.com/v1.0/me/onenote/notebooks/${notebookId}/sections`,
-          `https://graph.microsoft.com/beta/me/onenote/notebooks/${notebookId}/sections`
-        );
-      } else {
-        sectionEndpoints.push(
-          'https://graph.microsoft.com/v1.0/me/onenote/sections',
-          'https://graph.microsoft.com/beta/me/onenote/sections'
-        );
-      }
-      
-      for (const endpoint of sectionEndpoints) {
-        try {
-          console.log(`Trying OneNote sections endpoint: ${endpoint}`);
-          const response = await fetch(endpoint, {
-            headers: {
-              'Authorization': `Bearer ${tokenResult.token}`,
-              'Content-Type': 'application/json'
-            }
-          });
-          
-          if (response.ok) {
-            const data = await response.json();
-            console.log(`Successfully fetched OneNote sections: ${data.value?.length || 0} sections found`);
-            return data.value || [];
-          }
-        } catch (endpointError) {
-          console.log(`Error with sections endpoint ${endpoint}:`, endpointError);
+      // Search for .one files (OneNote sections)
+      const searchResponse = await fetch('https://graph.microsoft.com/v1.0/me/drive/root/search(q=\'.one\')', {
+        headers: {
+          'Authorization': `Bearer ${tokenResult.token}`,
+          'Content-Type': 'application/json'
         }
+      });
+      
+      if (searchResponse.ok) {
+        const searchData = await searchResponse.json();
+        console.log(`✅ Found ${searchData.value?.length || 0} OneNote section files via search`);
+        
+        // Transform OneNote section files to section format
+        const sections = (searchData.value || []).map((file: any) => ({
+          id: file.id,
+          displayName: file.name.replace('.one', ''),
+          name: file.name.replace('.one', ''),
+          lastModifiedDateTime: file.lastModifiedDateTime,
+          webUrl: file.webUrl,
+          size: file.size,
+          createdDateTime: file.createdDateTime,
+          // Add OneNote-specific properties
+          isDefault: false,
+          userRole: 'Owner',
+          isShared: false,
+          links: {
+            oneNoteWebUrl: {
+              href: file.webUrl
+            },
+            oneNoteClientUrl: {
+              href: file.webUrl
+            }
+          }
+        }));
+        
+        console.log(`✅ Successfully processed ${sections.length} OneNote sections`);
+        return sections;
+      } else {
+        console.log(`❌ Failed to search for OneNote sections: ${searchResponse.status}`);
       }
       
-      // If all endpoints failed, return empty array to prevent UI breaks
-      console.log('All OneNote sections endpoints failed - returning empty array');
+      // If search failed, return empty array to prevent UI breaks
+      console.log('OneNote sections search failed - returning empty array');
       return [];
     } catch (error) {
       console.error('Error in onenote_sections:', error);
@@ -4605,45 +4772,53 @@ const dataFetchers: DataFetcher = {
       
       const { sectionId } = options || {};
       
-      // For OneNote pages, use the proper Microsoft Graph API endpoints
-      // Both personal and business accounts should work with these endpoints
+      // Use OneDrive API to find OneNote pages
+      // OneNote pages are stored as .one files in OneDrive
+      console.log(`🔍 Searching for OneNote pages in OneDrive...`);
       
-      const pageEndpoints = [];
-      
-      if (sectionId) {
-        pageEndpoints.push(
-          `https://graph.microsoft.com/v1.0/me/onenote/sections/${sectionId}/pages`,
-          `https://graph.microsoft.com/beta/me/onenote/sections/${sectionId}/pages`
-        );
-      } else {
-        pageEndpoints.push(
-          'https://graph.microsoft.com/v1.0/me/onenote/pages',
-          'https://graph.microsoft.com/beta/me/onenote/pages'
-        );
-      }
-      
-      for (const endpoint of pageEndpoints) {
-        try {
-          console.log(`Trying OneNote pages endpoint: ${endpoint}`);
-          const response = await fetch(endpoint, {
-            headers: {
-              'Authorization': `Bearer ${tokenResult.token}`,
-              'Content-Type': 'application/json'
-            }
-          });
-          
-          if (response.ok) {
-            const data = await response.json();
-            console.log(`Successfully fetched OneNote pages: ${data.value?.length || 0} pages found`);
-            return data.value || [];
-          }
-        } catch (endpointError) {
-          console.log(`Error with pages endpoint ${endpoint}:`, endpointError);
+      // Search for .one files (OneNote pages)
+      const searchResponse = await fetch('https://graph.microsoft.com/v1.0/me/drive/root/search(q=\'.one\')', {
+        headers: {
+          'Authorization': `Bearer ${tokenResult.token}`,
+          'Content-Type': 'application/json'
         }
+      });
+      
+      if (searchResponse.ok) {
+        const searchData = await searchResponse.json();
+        console.log(`✅ Found ${searchData.value?.length || 0} OneNote page files via search`);
+        
+        // Transform OneNote page files to page format
+        const pages = (searchData.value || []).map((file: any) => ({
+          id: file.id,
+          title: file.name.replace('.one', ''),
+          name: file.name.replace('.one', ''),
+          lastModifiedDateTime: file.lastModifiedDateTime,
+          webUrl: file.webUrl,
+          size: file.size,
+          createdDateTime: file.createdDateTime,
+          // Add OneNote-specific properties
+          isDefault: false,
+          userRole: 'Owner',
+          isShared: false,
+          links: {
+            oneNoteWebUrl: {
+              href: file.webUrl
+            },
+            oneNoteClientUrl: {
+              href: file.webUrl
+            }
+          }
+        }));
+        
+        console.log(`✅ Successfully processed ${pages.length} OneNote pages`);
+        return pages;
+      } else {
+        console.log(`❌ Failed to search for OneNote pages: ${searchResponse.status}`);
       }
       
-      // If all endpoints failed, return empty array to prevent UI breaks
-      console.log('All OneNote pages endpoints failed - returning empty array');
+      // If search failed, return empty array to prevent UI breaks
+      console.log('OneNote pages search failed - returning empty array');
       return [];
     } catch (error) {
       console.error('Error in onenote_pages:', error);
