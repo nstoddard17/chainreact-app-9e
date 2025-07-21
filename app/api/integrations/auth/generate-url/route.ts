@@ -913,14 +913,17 @@ function generateMicrosoftOneNoteAuthUrl(state: string): string {
   if (!clientId) throw new Error("Microsoft client ID not configured")
   const baseUrl = getBaseUrl()
 
+  // Add timestamp to redirect URI to force fresh authentication
+  const timestamp = Date.now()
+  const redirectUri = `${baseUrl}/api/integrations/microsoft-onenote/callback?t=${timestamp}`
+
   const params = new URLSearchParams({
     client_id: clientId,
-    redirect_uri: `${baseUrl}/api/integrations/microsoft-onenote/callback`,
+    redirect_uri: redirectUri,
     response_type: "code",
     scope: "offline_access openid profile email User.Read Notes.ReadWrite.All",
     state,
-    prompt: "select_account consent", // Force account selection AND consent screen every time
-    access_type: "offline", // Ensure we get refresh tokens
+    prompt: "consent", // Force Microsoft to show consent screen every time
   })
 
   return `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`
