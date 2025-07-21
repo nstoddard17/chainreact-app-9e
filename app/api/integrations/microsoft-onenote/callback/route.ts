@@ -83,34 +83,21 @@ export async function GET(request: NextRequest) {
       refreshTokenExpiresAt,
     )
 
-    // For OneNote, ALWAYS delete existing integrations and create fresh ones
-    // This ensures we get a completely new OAuth flow every time
-    console.log("🔄 OneNote detected - always deleting existing integrations for fresh OAuth flow")
+    // Use upsert like Airtable to ensure the integration is properly saved
+    console.log("🔄 OneNote detected - using upsert for integration storage")
     
-    // Delete existing OneNote integrations for this user
-    const { error: deleteError } = await supabase
+    const { error: upsertError } = await supabase
       .from("integrations")
-      .delete()
-      .eq("user_id", userId)
-      .eq("provider", provider)
+      .upsert(integrationData, {
+        onConflict: "user_id, provider",
+      })
     
-    if (deleteError) {
-      console.warn("⚠️ Failed to delete existing OneNote integrations:", deleteError)
-    } else {
-      console.log("✅ Existing OneNote integrations deleted")
+    if (upsertError) {
+      console.error("Failed to upsert OneNote integration:", upsertError)
+      throw new Error(`Failed to save integration: ${upsertError.message}`)
     }
     
-    // Now insert the new integration
-    const { error: insertError } = await supabase
-      .from("integrations")
-      .insert(integrationData)
-    
-    if (insertError) {
-      console.error("Failed to insert new OneNote integration:", insertError)
-      throw new Error(`Failed to save integration: ${insertError.message}`)
-    }
-    
-    console.log("✅ New OneNote integration created successfully")
+    console.log("✅ OneNote integration upserted successfully")
 
     console.log(`Successfully connected OneNote for user ${userId}`)
     return createPopupResponse("success", provider, "OneNote connected successfully", getBaseUrl())
