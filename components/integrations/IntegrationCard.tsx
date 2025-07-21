@@ -228,7 +228,7 @@ export function IntegrationCard({
           {provider.description}
           {provider.id === 'microsoft-onenote' && (
             <span className="block mt-1 text-xs text-blue-600 dark:text-blue-400">
-              ⚡ Always performs fresh OAuth flow for new connections
+              ⚡ Forces fresh OAuth consent for each connection
             </span>
           )}
         </p>
