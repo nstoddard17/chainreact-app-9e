@@ -190,17 +190,39 @@ async function validateAndRefreshToken(integration: any): Promise<{
     }
 
     // Check if token is already decrypted (doesn't contain ":")
+    console.log(`🔍 Checking if token is encrypted...`);
+    console.log(`🔍 Token contains ":" : ${integration.access_token.includes(":")}`);
+    console.log(`🔍 Token preview: ${integration.access_token.substring(0, 50)}...`);
+    
     if (!integration.access_token.includes(":")) {
       // Token is already decrypted
-      return {
-        success: true,
-        token: integration.access_token,
+      console.log(`🔍 Token appears to be already decrypted`);
+      
+      // But let's try to decrypt it anyway in case the encryption format is different
+      try {
+        console.log(`🔍 Trying decryption anyway to be sure...`);
+        const decryptedToken = decrypt(integration.access_token, secret)
+        console.log(`✅ Token was actually encrypted, decryption successful`);
+        console.log(`🔍 Decrypted token preview: ${decryptedToken.substring(0, 50)}...`);
+        return {
+          success: true,
+          token: decryptedToken,
+        }
+      } catch (fallbackDecryptError) {
+        console.log(`🔍 Fallback decryption failed, using token as-is`);
+        return {
+          success: true,
+          token: integration.access_token,
+        }
       }
     }
 
     // Token is encrypted, decrypt it
+    console.log(`🔍 Token appears to be encrypted, attempting decryption...`);
     try {
       const decryptedToken = decrypt(integration.access_token, secret)
+      console.log(`✅ Token decryption successful`);
+      console.log(`🔍 Decrypted token preview: ${decryptedToken.substring(0, 50)}...`);
       return {
         success: true,
         token: decryptedToken,
@@ -210,7 +232,54 @@ async function validateAndRefreshToken(integration: any): Promise<{
       
       // Special handling for OneNote/Microsoft tokens
       if (integration.provider === 'microsoft-onenote') {
-        // Try to test the token as-is (maybe it's not actually encrypted despite having a colon)
+        console.log('🔍 OneNote token decryption failed, attempting manual refresh...');
+        
+        // For OneNote, try to refresh the token manually using the approach from the test script
+        if (integration.refresh_token) {
+          try {
+            let refreshToken = integration.refresh_token;
+            if (refreshToken.includes(":")) {
+              try {
+                refreshToken = decrypt(refreshToken, secret);
+              } catch (refreshDecryptError) {
+                console.error('Failed to decrypt refresh token:', refreshDecryptError);
+                // Try using the refresh token as-is
+              }
+            }
+            
+            console.log('🔄 Manually refreshing OneNote token...');
+            const refreshResponse = await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+              },
+              body: new URLSearchParams({
+                client_id: process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID!,
+                client_secret: process.env.MICROSOFT_CLIENT_SECRET!,
+                refresh_token: refreshToken,
+                grant_type: 'refresh_token',
+                scope: 'offline_access User.Read Notes.ReadWrite.All',
+                redirect_uri: `${process.env.NEXT_PUBLIC_APP_URL}/api/integrations/microsoft-onenote/callback`,
+              }),
+            });
+            
+            if (refreshResponse.ok) {
+              const refreshData = await refreshResponse.json();
+              console.log('✅ Manual token refresh successful for OneNote');
+              return {
+                success: true,
+                token: refreshData.access_token,
+              }
+            } else {
+              const errorData = await refreshResponse.json();
+              console.error('❌ Manual token refresh failed:', errorData);
+            }
+          } catch (refreshError) {
+            console.error('❌ Error during manual token refresh:', refreshError);
+          }
+        }
+        
+        // If manual refresh fails, try to test the token as-is
         try {
           const testResponse = await fetch('https://graph.microsoft.com/v1.0/me', {
             headers: {
@@ -225,6 +294,8 @@ async function validateAndRefreshToken(integration: any): Promise<{
               success: true,
               token: integration.access_token,
             }
+          } else {
+            console.log('❌ Token test failed with status:', testResponse.status);
           }
         } catch (testError) {
           console.error('❌ Token test failed after decryption failure:', testError);
@@ -4182,8 +4253,31 @@ const dataFetchers: DataFetcher = {
       console.log(`🔍 Token validation result:`, {
         success: tokenResult.success,
         hasToken: !!tokenResult.token,
+        tokenLength: tokenResult.token?.length || 0,
+        tokenPreview: tokenResult.token ? `${tokenResult.token.substring(0, 20)}...` : 'none',
         error: tokenResult.error
       });
+      
+      // Decode JWT token to check scopes and audience
+      if (tokenResult.token) {
+        try {
+          const tokenParts = tokenResult.token.split('.');
+          if (tokenParts.length === 3) {
+            const payload = JSON.parse(Buffer.from(tokenParts[1], 'base64').toString());
+            console.log(`🔍 Token details:`, {
+              aud: payload.aud,
+              scp: payload.scp,
+              roles: payload.roles,
+              tid: payload.tid,
+              exp: new Date(payload.exp * 1000).toISOString(),
+              iat: new Date(payload.iat * 1000).toISOString(),
+              now: new Date().toISOString()
+            });
+          }
+        } catch (decodeError) {
+          console.log(`⚠️ Could not decode JWT token:`, decodeError);
+        }
+      }
       
       if (!tokenResult.success) {
         console.log(`❌ OneNote token validation failed: ${tokenResult.error}`);
@@ -4195,72 +4289,42 @@ const dataFetchers: DataFetcher = {
         };
       }
       
-      // For OneNote, we need to use the correct approach based on account type
-      // Personal accounts typically don't have access to OneNote API through Graph
-      // Business/Education accounts do have access
+      // For OneNote, use the proper Microsoft Graph API endpoints
+      // Both personal and business accounts should work with these endpoints
+      // as long as they have the correct scopes (User.Read Notes.ReadWrite.All)
       
-      // First, try to determine account type by checking user profile
-      let accountType = 'unknown';
-      try {
-        const profileResponse = await fetch('https://graph.microsoft.com/v1.0/me', {
-          headers: {
-            'Authorization': `Bearer ${tokenResult.token}`,
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        if (profileResponse.ok) {
-          const profileData = await profileResponse.json();
-          // Check if this is a personal account (consumer tenant)
-          accountType = profileData.userPrincipalName?.includes('outlook.com') || 
-                       profileData.userPrincipalName?.includes('hotmail.com') ||
-                       profileData.userPrincipalName?.includes('live.com') ? 'personal' : 'business';
-          console.log(`🔍 Detected account type: ${accountType} (UPN: ${profileData.userPrincipalName})`);
-        }
-      } catch (profileError) {
-        console.error('Error checking user profile:', profileError);
-      }
-      
-      // For personal accounts, return mock data immediately
-      if (accountType === 'personal') {
-        console.log('📝 Personal account detected - returning mock OneNote data');
-        return { 
-          data: [
-            { 
-              id: "personal-notebook-1",
-              displayName: "Personal Notebook",
-              createdDateTime: new Date().toISOString(),
-              lastModifiedDateTime: new Date().toISOString(),
-              isDefault: true,
-              userRole: "Owner",
-              isShared: false
-            },
-            {
-              id: "quick-notes",
-              displayName: "Quick Notes",
-              createdDateTime: new Date().toISOString(),
-              lastModifiedDateTime: new Date().toISOString(),
-              isDefault: false,
-              userRole: "Owner",
-              isShared: false
-            }
-          ]
-        };
-      }
-      
-      // For business accounts, try the OneNote API endpoints
       const endpoints = [
-        'https://graph.microsoft.com/v1.0/me/onenote/notebooks', // Standard Microsoft Graph endpoint
-        'https://graph.microsoft.com/beta/me/onenote/notebooks' // Beta endpoint as fallback
+        'https://graph.microsoft.com/v1.0/me/onenote/notebooks', // Primary endpoint
+        'https://graph.microsoft.com/beta/me/onenote/notebooks', // Beta endpoint as fallback
+        'https://graph.microsoft.com/v1.0/me/onenote/sections', // Alternative endpoint to test
+        'https://graph.microsoft.com/beta/me/onenote/sections' // Beta alternative endpoint
       ];
       
       let successResponse = null;
       let lastError = null;
       
+      // First, test if the token works with the general Microsoft Graph API
+      console.log(`🔍 Testing token with general Microsoft Graph API...`);
+      const generalTestResponse = await fetch('https://graph.microsoft.com/v1.0/me', {
+        headers: {
+          'Authorization': `Bearer ${tokenResult.token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (generalTestResponse.ok) {
+        console.log(`✅ Token works with general Microsoft Graph API`);
+      } else {
+        const generalErrorText = await generalTestResponse.text();
+        console.log(`❌ Token failed with general Microsoft Graph API: ${generalTestResponse.status} ${generalErrorText}`);
+      }
+      
       // Try each endpoint until one works
       for (const endpoint of endpoints) {
         try {
           console.log(`Trying OneNote endpoint: ${endpoint}`);
+          console.log(`🔍 Using token: ${tokenResult.token ? `${tokenResult.token.substring(0, 20)}...` : 'none'}`);
+          
           const response = await fetch(endpoint, {
             headers: {
               'Authorization': `Bearer ${tokenResult.token}`,
@@ -4268,16 +4332,152 @@ const dataFetchers: DataFetcher = {
             }
           });
           
+          console.log(`🔍 Response status: ${response.status} ${response.statusText}`);
+          
           if (response.ok) {
             successResponse = response;
+            console.log(`✅ OneNote API call successful for ${endpoint}`);
             break;
+          } else if (response.status === 401) {
+            const errorText = await response.text();
+            console.log(`❌ 401 Unauthorized - token might be expired or invalid`);
+            console.log(`🔍 Attempting immediate token refresh...`);
+            
+            // Try immediate token refresh
+            if (integration.refresh_token) {
+              try {
+                const { decrypt } = await import("@/lib/security/encryption");
+                const { getSecret } = await import("@/lib/secrets");
+                const secret = await getSecret("encryption_key");
+                
+                let refreshToken = integration.refresh_token;
+                if (refreshToken.includes(":")) {
+                  try {
+                    refreshToken = decrypt(refreshToken, secret);
+                  } catch (refreshDecryptError) {
+                    console.error('Failed to decrypt refresh token:', refreshDecryptError);
+                  }
+                }
+                
+                console.log(`🔄 Immediate token refresh for OneNote...`);
+                const refreshResponse = await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                  },
+                  body: new URLSearchParams({
+                    client_id: process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID!,
+                    client_secret: process.env.MICROSOFT_CLIENT_SECRET!,
+                    refresh_token: refreshToken,
+                    grant_type: 'refresh_token',
+                    scope: 'offline_access User.Read Notes.ReadWrite.All',
+                    redirect_uri: `${process.env.NEXT_PUBLIC_APP_URL}/api/integrations/microsoft-onenote/callback`,
+                  }),
+                });
+                
+                if (refreshResponse.ok) {
+                  const refreshData = await refreshResponse.json();
+                  console.log(`✅ Immediate token refresh successful`);
+                  console.log(`🔍 Refreshed token details:`, {
+                    tokenLength: refreshData.access_token?.length || 0,
+                    tokenPreview: refreshData.access_token ? `${refreshData.access_token.substring(0, 20)}...` : 'none',
+                    expiresIn: refreshData.expires_in,
+                    scope: refreshData.scope
+                  });
+                  
+                  // Decode the refreshed JWT token
+                  try {
+                    console.log(`🔍 Attempting to decode refreshed token...`);
+                    const tokenParts = refreshData.access_token.split('.');
+                    console.log(`🔍 Token parts count: ${tokenParts.length}`);
+                    if (tokenParts.length === 3) {
+                      const payload = JSON.parse(Buffer.from(tokenParts[1], 'base64').toString());
+                      console.log(`🔍 Refreshed token JWT details:`, {
+                        aud: payload.aud,
+                        scp: payload.scp,
+                        roles: payload.roles,
+                        tid: payload.tid,
+                        exp: new Date(payload.exp * 1000).toISOString(),
+                        iat: new Date(payload.iat * 1000).toISOString(),
+                        now: new Date().toISOString()
+                      });
+                    } else {
+                      console.log(`⚠️ Token is not in JWT format (expected 3 parts, got ${tokenParts.length})`);
+                    }
+                  } catch (decodeError) {
+                    console.log(`⚠️ Could not decode refreshed JWT token:`, decodeError);
+                    console.log(`🔍 Token preview: ${refreshData.access_token.substring(0, 50)}...`);
+                  }
+                  
+                  // Test the refreshed token with a simple Microsoft Graph endpoint first
+                  console.log(`🔍 Testing refreshed token with /me endpoint...`);
+                  const testResponse = await fetch('https://graph.microsoft.com/v1.0/me', {
+                    headers: {
+                      'Authorization': `Bearer ${refreshData.access_token}`,
+                      'Content-Type': 'application/json'
+                    }
+                  });
+                  
+                  if (testResponse.ok) {
+                    console.log(`✅ Token works with /me endpoint`);
+                  } else {
+                    const testErrorText = await testResponse.text();
+                    console.log(`❌ Token test failed with /me endpoint: ${testResponse.status} ${testErrorText}`);
+                  }
+                  
+                  // Try the API call again with the new token
+                  console.log(`🔍 Retrying with refreshed token: ${refreshData.access_token ? `${refreshData.access_token.substring(0, 20)}...` : 'none'}`);
+                  const retryResponse = await fetch(endpoint, {
+                    headers: {
+                      'Authorization': `Bearer ${refreshData.access_token}`,
+                      'Content-Type': 'application/json'
+                    }
+                  });
+                  
+                  if (retryResponse.ok) {
+                    successResponse = retryResponse;
+                    console.log(`✅ OneNote API call successful after token refresh`);
+                    break;
+                  } else {
+                    const retryErrorText = await retryResponse.text();
+                    console.log(`❌ API call still failed after token refresh: ${retryResponse.status} ${retryErrorText}`);
+                    
+                    // Try to decode the refreshed token to see what's wrong
+                    try {
+                      const tokenParts = refreshData.access_token.split('.');
+                      if (tokenParts.length === 3) {
+                        const payload = JSON.parse(Buffer.from(tokenParts[1], 'base64').toString());
+                        console.log(`🔍 Refreshed token JWT details:`, {
+                          aud: payload.aud,
+                          scp: payload.scp,
+                          roles: payload.roles,
+                          tid: payload.tid,
+                          exp: new Date(payload.exp * 1000).toISOString(),
+                          iat: new Date(payload.iat * 1000).toISOString(),
+                          now: new Date().toISOString()
+                        });
+                      }
+                    } catch (decodeError) {
+                      console.log(`⚠️ Could not decode refreshed JWT token:`, decodeError);
+                    }
+                  }
+                } else {
+                  const refreshErrorData = await refreshResponse.json();
+                  console.error(`❌ Immediate token refresh failed:`, refreshErrorData);
+                }
+              } catch (refreshError) {
+                console.error(`❌ Error during immediate token refresh:`, refreshError);
+              }
+            }
+            
+            lastError = { status: response.status, text: errorText, endpoint };
           } else {
             const errorText = await response.text();
-            console.log(`Endpoint ${endpoint} failed with status ${response.status}: ${errorText}`);
+            console.log(`❌ Endpoint ${endpoint} failed with status ${response.status}: ${errorText}`);
             lastError = { status: response.status, text: errorText, endpoint };
           }
         } catch (endpointError) {
-          console.log(`Error with endpoint ${endpoint}:`, endpointError);
+          console.log(`❌ Error with endpoint ${endpoint}:`, endpointError);
         }
       }
       
@@ -4318,72 +4518,24 @@ const dataFetchers: DataFetcher = {
       
       const { notebookId } = options || {};
       
-      // First, try to determine account type by checking user profile
-      let accountType = 'unknown';
-      try {
-        const profileResponse = await fetch('https://graph.microsoft.com/v1.0/me', {
-          headers: {
-            'Authorization': `Bearer ${tokenResult.token}`,
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        if (profileResponse.ok) {
-          const profileData = await profileResponse.json();
-          // Check if this is a personal account (consumer tenant)
-          accountType = profileData.userPrincipalName?.includes('outlook.com') || 
-                       profileData.userPrincipalName?.includes('hotmail.com') ||
-                       profileData.userPrincipalName?.includes('live.com') ? 'personal' : 'business';
-          console.log(`🔍 Detected account type for sections: ${accountType} (UPN: ${profileData.userPrincipalName})`);
-        }
-      } catch (profileError) {
-        console.error('Error checking user profile for sections:', profileError);
-      }
+      // For OneNote sections, use the proper Microsoft Graph API endpoints
+      // Both personal and business accounts should work with these endpoints
       
-      // For personal accounts, return mock sections for demo notebooks
-      if (accountType === 'personal') {
-        console.log('📝 Personal account detected - returning mock OneNote sections');
-        if (notebookId === "personal-notebook-1" || notebookId === "quick-notes") {
-          return [
-            {
-              id: `${notebookId}-section-1`,
-              displayName: "General Notes",
-              createdDateTime: new Date().toISOString(),
-              lastModifiedDateTime: new Date().toISOString(),
-              notebookId: notebookId,
-              pagesUrl: `https://graph.microsoft.com/v1.0/me/onenote/sections/${notebookId}-section-1/pages`
-            },
-            {
-              id: `${notebookId}-section-2`,
-              displayName: "Important",
-              createdDateTime: new Date().toISOString(),
-              lastModifiedDateTime: new Date().toISOString(),
-              notebookId: notebookId,
-              pagesUrl: `https://graph.microsoft.com/v1.0/me/onenote/sections/${notebookId}-section-2/pages`
-            }
-          ];
-        }
-        return [];
-      }
-      
-      // Try different endpoints to support both personal and business accounts
-      const endpoints = [];
+      const sectionEndpoints = [];
       
       if (notebookId) {
-        endpoints.push(
+        sectionEndpoints.push(
           `https://graph.microsoft.com/v1.0/me/onenote/notebooks/${notebookId}/sections`,
-          `https://www.onenote.com/api/v1.0/me/notes/notebooks/${notebookId}/sections`,
           `https://graph.microsoft.com/beta/me/onenote/notebooks/${notebookId}/sections`
         );
       } else {
-        endpoints.push(
+        sectionEndpoints.push(
           'https://graph.microsoft.com/v1.0/me/onenote/sections',
-          'https://www.onenote.com/api/v1.0/me/notes/sections',
           'https://graph.microsoft.com/beta/me/onenote/sections'
         );
       }
       
-      for (const endpoint of endpoints) {
+      for (const endpoint of sectionEndpoints) {
         try {
           console.log(`Trying OneNote sections endpoint: ${endpoint}`);
           const response = await fetch(endpoint, {
@@ -4424,72 +4576,24 @@ const dataFetchers: DataFetcher = {
       
       const { sectionId } = options || {};
       
-      // First, try to determine account type by checking user profile
-      let accountType = 'unknown';
-      try {
-        const profileResponse = await fetch('https://graph.microsoft.com/v1.0/me', {
-          headers: {
-            'Authorization': `Bearer ${tokenResult.token}`,
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        if (profileResponse.ok) {
-          const profileData = await profileResponse.json();
-          // Check if this is a personal account (consumer tenant)
-          accountType = profileData.userPrincipalName?.includes('outlook.com') || 
-                       profileData.userPrincipalName?.includes('hotmail.com') ||
-                       profileData.userPrincipalName?.includes('live.com') ? 'personal' : 'business';
-          console.log(`🔍 Detected account type for pages: ${accountType} (UPN: ${profileData.userPrincipalName})`);
-        }
-      } catch (profileError) {
-        console.error('Error checking user profile for pages:', profileError);
-      }
+      // For OneNote pages, use the proper Microsoft Graph API endpoints
+      // Both personal and business accounts should work with these endpoints
       
-      // For personal accounts, return mock pages for demo sections
-      if (accountType === 'personal') {
-        console.log('📝 Personal account detected - returning mock OneNote pages');
-        if (sectionId && (sectionId.includes("personal-notebook") || sectionId.includes("quick-notes"))) {
-          return [
-            {
-              id: `${sectionId}-page-1`,
-              title: "Welcome Note",
-              createdDateTime: new Date().toISOString(),
-              lastModifiedDateTime: new Date().toISOString(),
-              contentUrl: `https://graph.microsoft.com/v1.0/me/onenote/pages/${sectionId}-page-1/content`,
-              parentSection: { id: sectionId }
-            },
-            {
-              id: `${sectionId}-page-2`,
-              title: "Meeting Notes",
-              createdDateTime: new Date().toISOString(),
-              lastModifiedDateTime: new Date().toISOString(),
-              contentUrl: `https://graph.microsoft.com/v1.0/me/onenote/pages/${sectionId}-page-2/content`,
-              parentSection: { id: sectionId }
-            }
-          ];
-        }
-        return [];
-      }
-      
-      // Try different endpoints to support both personal and business accounts
-      const endpoints = [];
+      const pageEndpoints = [];
       
       if (sectionId) {
-        endpoints.push(
+        pageEndpoints.push(
           `https://graph.microsoft.com/v1.0/me/onenote/sections/${sectionId}/pages`,
-          `https://www.onenote.com/api/v1.0/me/notes/sections/${sectionId}/pages`,
           `https://graph.microsoft.com/beta/me/onenote/sections/${sectionId}/pages`
         );
       } else {
-        endpoints.push(
+        pageEndpoints.push(
           'https://graph.microsoft.com/v1.0/me/onenote/pages',
-          'https://www.onenote.com/api/v1.0/me/notes/pages',
           'https://graph.microsoft.com/beta/me/onenote/pages'
         );
       }
       
-      for (const endpoint of endpoints) {
+      for (const endpoint of pageEndpoints) {
         try {
           console.log(`Trying OneNote pages endpoint: ${endpoint}`);
           const response = await fetch(endpoint, {

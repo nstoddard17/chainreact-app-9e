@@ -904,7 +904,7 @@ function generateMicrosoftOneNoteAuthUrl(state: string): string {
     client_id: clientId,
     redirect_uri: `${baseUrl}/api/integrations/microsoft-onenote/callback`,
     response_type: "code",
-    scope: "User.Read Notes.ReadWrite.All",
+    scope: "offline_access User.Read Notes.ReadWrite.All",
     state,
   })
 
