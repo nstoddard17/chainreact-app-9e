@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 import { prepareIntegrationData } from "@/lib/integrations/tokenUtils"
+import { createPopupResponse } from "@/lib/utils/createPopupResponse"
 
 const provider = "microsoft-onenote"
 
@@ -13,17 +14,17 @@ export async function GET(request: NextRequest) {
 
   if (error) {
     console.error(`OneNote OAuth error: ${error}`)
-    return NextResponse.redirect(`${getBaseUrl()}/integrations?error=oauth_error&provider=${provider}`)
+    return createPopupResponse("error", provider, `OAuth error: ${error}`, getBaseUrl())
   }
 
   if (!code) {
     console.error("OneNote OAuth callback missing code parameter")
-    return NextResponse.redirect(`${getBaseUrl()}/integrations?error=missing_code&provider=${provider}`)
+    return createPopupResponse("error", provider, "Missing authorization code", getBaseUrl())
   }
 
   if (!state) {
     console.error("OneNote OAuth callback missing state parameter")
-    return NextResponse.redirect(`${getBaseUrl()}/integrations?error=missing_state&provider=${provider}`)
+    return createPopupResponse("error", provider, "Missing state parameter", getBaseUrl())
   }
 
   try {
@@ -123,12 +124,10 @@ export async function GET(request: NextRequest) {
     }
 
     console.log(`Successfully connected OneNote for user ${userId}`)
-    return NextResponse.redirect(`${getBaseUrl()}/integrations?success=connected&provider=${provider}`)
+    return createPopupResponse("success", provider, "OneNote connected successfully", getBaseUrl())
 
   } catch (error: any) {
     console.error("OneNote callback error:", error)
-    return NextResponse.redirect(
-      `${getBaseUrl()}/integrations?error=callback_failed&provider=${provider}&message=${encodeURIComponent(error.message)}`
-    )
+    return createPopupResponse("error", provider, error.message, getBaseUrl())
   }
 }
