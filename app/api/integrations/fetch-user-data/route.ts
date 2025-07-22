@@ -4268,6 +4268,51 @@ const dataFetchers: DataFetcher = {
         };
       }
       
+      // First, try the actual OneNote API to see if it works
+      console.log(`🔍 Trying OneNote API first...`);
+      
+      try {
+        const oneNoteResponse = await fetch('https://graph.microsoft.com/v1.0/me/onenote/notebooks', {
+          headers: {
+            'Authorization': `Bearer ${tokenResult.token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (oneNoteResponse.ok) {
+          const oneNoteData = await oneNoteResponse.json();
+          console.log(`✅ OneNote API works! Found ${oneNoteData.value?.length || 0} notebooks`);
+          
+          if (oneNoteData.value && oneNoteData.value.length > 0) {
+            console.log(`🔍 OneNote notebooks from API:`, oneNoteData.value.map((notebook: any) => ({
+              id: notebook.id,
+              displayName: notebook.displayName,
+              name: notebook.name,
+              lastModifiedDateTime: notebook.lastModifiedDateTime,
+              webUrl: notebook.webUrl,
+              isDefault: notebook.isDefault,
+              userRole: notebook.userRole,
+              isShared: notebook.isShared,
+              links: notebook.links
+            })));
+            
+            // Return the actual OneNote notebooks from the API
+            return {
+              data: oneNoteData.value || [],
+              error: undefined
+            };
+          }
+        } else {
+          const errorText = await oneNoteResponse.text();
+          console.log(`❌ OneNote API failed: ${oneNoteResponse.status} ${errorText}`);
+        }
+      } catch (oneNoteError) {
+        console.log(`❌ OneNote API error:`, oneNoteError);
+      }
+      
+      // If OneNote API doesn't work, fall back to OneDrive API
+      console.log(`🔍 OneNote API failed, falling back to OneDrive API...`);
+      
       // Use OneDrive API to find OneNote notebooks
       // OneNote notebooks are stored as .onetoc2 files in OneDrive
       console.log(`🔍 Searching for OneNote notebooks in OneDrive...`);
@@ -4298,7 +4343,9 @@ const dataFetchers: DataFetcher = {
             title: item.title,
             description: item.description,
             isFolder: !!item.folder,
-            isFile: !!item.file
+            isFile: !!item.file,
+            // Log the entire item object for detailed inspection
+            fullItem: item
           })));
         }
         
@@ -4309,13 +4356,60 @@ const dataFetchers: DataFetcher = {
           const isOneNoteFolder = item.folder && (name.toLowerCase().includes('onenote') || name.toLowerCase().includes('notebook'));
           const isOneNoteRelated = name.toLowerCase().includes('onenote') || name.toLowerCase().includes('notebook');
           
-          return isOneNoteFile || isOneNoteFolder || isOneNoteRelated;
+          // Also check for folders that might contain OneNote notebooks
+          const isPotentialOneNoteContainer = item.folder && (
+            name.toLowerCase().includes('onenote') || 
+            name.toLowerCase().includes('notebook') ||
+            name.toLowerCase().includes('notes') ||
+            name.toLowerCase().includes('personal')
+          );
+          
+          return isOneNoteFile || isOneNoteFolder || isOneNoteRelated || isPotentialOneNoteContainer;
         });
         
         console.log(`🔍 Filtered ${oneNoteItems.length} OneNote-related items from ${rootData.value?.length || 0} total items`);
         
+        // If we found potential OneNote containers (folders), search inside them
+        const potentialContainers = oneNoteItems.filter((item: any) => item.folder);
+        let allOneNoteItems = [...oneNoteItems];
+        
+        if (potentialContainers.length > 0) {
+          console.log(`🔍 Found ${potentialContainers.length} potential OneNote containers, searching inside...`);
+          
+          for (const container of potentialContainers) {
+            try {
+              const containerResponse = await fetch(`https://graph.microsoft.com/v1.0/me/drive/items/${container.id}/children`, {
+                headers: {
+                  'Authorization': `Bearer ${tokenResult.token}`,
+                  'Content-Type': 'application/json'
+                }
+              });
+              
+              if (containerResponse.ok) {
+                const containerData = await containerResponse.json();
+                console.log(`🔍 Found ${containerData.value?.length || 0} items in container "${container.name}"`);
+                
+                // Look for OneNote files inside the container
+                const oneNoteFilesInContainer = (containerData.value || []).filter((item: any) => {
+                  const name = item.name || '';
+                  return name.endsWith('.onetoc2') || name.endsWith('.one') || name.endsWith('.onetmp2') || name.endsWith('.onetmp');
+                });
+                
+                if (oneNoteFilesInContainer.length > 0) {
+                  console.log(`🔍 Found ${oneNoteFilesInContainer.length} OneNote files in container "${container.name}"`);
+                  allOneNoteItems.push(...oneNoteFilesInContainer);
+                }
+              }
+            } catch (containerError) {
+              console.log(`⚠️ Error searching container "${container.name}":`, containerError);
+            }
+          }
+        }
+        
+        console.log(`🔍 Total OneNote items found: ${allOneNoteItems.length}`);
+        
         // Transform OneNote items to notebook format
-        const notebooks = oneNoteItems.map((item: any) => {
+        const notebooks = allOneNoteItems.map((item: any) => {
           // Handle different possible file naming patterns
           let displayName = 'Untitled Notebook';
           
@@ -4331,6 +4425,49 @@ const dataFetchers: DataFetcher = {
             if (source && typeof source === 'string' && source.trim() !== '') {
               displayName = source.trim();
               break;
+            }
+          }
+          
+          // If we still don't have a good name, try to extract it from the file name
+          // OneNote files often have patterns like "Notebook Name.onetoc2" or "Notebook Name.one"
+          if (!displayName || displayName === 'Untitled Notebook' || displayName.includes('.onetoc2') || displayName.includes('.one')) {
+            const fileName = item.name || '';
+            
+            // Try to extract a meaningful name from the file name
+            if (fileName && fileName.trim() !== '') {
+              // Remove common OneNote extensions
+              let extractedName = fileName;
+              const extensions = ['.onetoc2', '.one', '.onetmp2', '.onetmp'];
+              for (const ext of extensions) {
+                if (extractedName.endsWith(ext)) {
+                  extractedName = extractedName.replace(ext, '');
+                  break;
+                }
+              }
+              
+              // Clean up the name
+              extractedName = extractedName.trim();
+              
+              // If the extracted name looks meaningful (not just a hash or random string)
+              if (extractedName && extractedName.length > 0 && !extractedName.match(/^[a-f0-9]{32}$/i)) {
+                displayName = extractedName;
+                console.log(`🔍 Extracted name from filename: "${fileName}" -> "${displayName}"`);
+              }
+            }
+          }
+          
+          // If the file name is just an extension (like ".onetoc2"), try to use a more descriptive name
+          if (displayName === 'Untitled Notebook' && (item.name === '.onetoc2' || item.name === '.one')) {
+            console.log(`🔍 File has no meaningful name, using descriptive fallback...`);
+            displayName = 'OneNote Notebook';
+          }
+          
+          // Special handling for .onetoc2 files - these are definitely OneNote notebooks
+          if (item.name === '.onetoc2') {
+            console.log(`🔍 Found OneNote notebook file: ${item.name}`);
+            // If we still don't have a good name, use a better fallback
+            if (displayName === 'Untitled Notebook' || displayName === 'OneNote Notebook') {
+              displayName = 'My OneNote Notebook';
             }
           }
           
@@ -4452,29 +4589,112 @@ const dataFetchers: DataFetcher = {
       console.log(`🔍 Searching for OneNote notebooks recursively...`);
       
       try {
-        const searchResponse = await fetch('https://graph.microsoft.com/v1.0/me/drive/root/search(q=\'.onetoc2\')', {
-          headers: {
-            'Authorization': `Bearer ${tokenResult.token}`,
-            'Content-Type': 'application/json'
+        // Search for OneNote files by extension
+        const searchQueries = [
+          '.onetoc2',
+          '.one'
+        ];
+        
+        let foundNotebooks = [];
+        
+        for (const query of searchQueries) {
+          console.log(`🔍 Searching for: "${query}"`);
+          const searchResponse = await fetch(`https://graph.microsoft.com/v1.0/me/drive/root/search(q='${query}')`, {
+            headers: {
+              'Authorization': `Bearer ${tokenResult.token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (searchResponse.ok) {
+            const searchData = await searchResponse.json();
+            console.log(`✅ Found ${searchData.value?.length || 0} items for query "${query}"`);
+            
+            if (searchData.value && searchData.value.length > 0) {
+              // Log what we found for this query
+              console.log(`🔍 Items found for "${query}":`, searchData.value.map((item: any) => ({
+                name: item.name,
+                id: item.id,
+                size: item.size,
+                isFolder: !!item.folder,
+                isFile: !!item.file
+              })));
+              
+              foundNotebooks.push(...searchData.value);
+            }
           }
+        }
+        
+        // Remove duplicates based on ID
+        const uniqueNotebooks = foundNotebooks.filter((notebook: any, index: number, self: any[]) => 
+          index === self.findIndex((n: any) => n.id === notebook.id)
+        );
+        
+        // Ensure only actual OneNote files (not folders) are included
+        const oneNoteFiles = uniqueNotebooks.filter((item: any) => {
+          const isOneNoteFile = item.name === '.onetoc2' || 
+                               item.name?.endsWith('.onetoc2') || 
+                               item.name?.endsWith('.one');
+          const isFile = item.isFile === true || item.file !== undefined;
+          const isNotFolder = item.isFolder !== true && item.folder === undefined;
+          
+          return isOneNoteFile && isFile && isNotFolder;
         });
         
-        if (searchResponse.ok) {
-          const searchData = await searchResponse.json();
-          console.log(`✅ Found ${searchData.value?.length || 0} OneNote notebooks via search`);
+        console.log(`🔍 Found ${oneNoteFiles.length} OneNote files:`, oneNoteFiles.map((f: any) => ({ name: f.name, id: f.id })));
+        
+        // Log complete file data for debugging
+        console.log(`🔍 Complete OneNote file data:`, JSON.stringify(oneNoteFiles, null, 2));
+        
+        console.log(`✅ Found ${uniqueNotebooks.length} unique OneNote-related items via search`);
+        
+        if (oneNoteFiles.length > 0) {
+          console.log(`✅ Processing ${oneNoteFiles.length} OneNote files from search`);
           
-          const notebooks = (searchData.value || []).map((file: any) => {
+          const notebooks = oneNoteFiles.map((file: any) => {
+            // Log all available properties for this file
+            console.log(`🔍 Processing file: ${file.name}`);
+            console.log(`🔍 Available properties:`, Object.keys(file));
+            console.log(`🔍 File object:`, JSON.stringify(file, null, 2));
+            
             // Handle different possible file naming patterns
             let displayName = file.name || 'Untitled Notebook';
             
-            // Remove .onetoc2 extension if present
-            if (displayName.endsWith('.onetoc2')) {
-              displayName = displayName.replace('.onetoc2', '');
-            }
+                      // Special handling for .onetoc2 files - these are definitely OneNote notebooks
+          if (file.name === '.onetoc2') {
+            console.log(`🔍 Found OneNote notebook file: ${file.name}`);
             
-            // If still empty after removing extension, use a fallback name
-            if (!displayName || displayName.trim() === '') {
-              displayName = 'Untitled Notebook';
+            // For files that are just ".onetoc2" (no meaningful name), try to use parent folder name
+            if (file.parentReference?.name) {
+              displayName = file.parentReference.name;
+              console.log(`🔍 Using parent folder name for .onetoc2 file: "${displayName}"`);
+            } else {
+              displayName = "OneNote Notebook";
+              console.log(`🔍 Using descriptive name for .onetoc2 file: "${displayName}"`);
+            }
+          } else if (file.name && file.name.endsWith('.onetoc2')) {
+            // For files that have a name ending in .onetoc2, try to use parent folder name first
+            if (file.parentReference?.name) {
+              displayName = file.parentReference.name;
+              console.log(`🔍 Using parent folder name for OneNote file: "${file.name}" -> "${displayName}"`);
+            } else {
+              displayName = file.name.replace('.onetoc2', '');
+              console.log(`🔍 Using OneNote file name: "${file.name}" -> "${displayName}"`);
+            }
+          } else if (file.name && file.name.endsWith('.one')) {
+            // For files that have a name ending in .one, use the name without extension
+            displayName = file.name.replace('.one', '');
+            console.log(`🔍 Using OneNote file name: "${file.name}" -> "${displayName}"`);
+          } else {
+              // Remove .onetoc2 extension if present
+              if (displayName.endsWith('.onetoc2')) {
+                displayName = displayName.replace('.onetoc2', '');
+              }
+              
+              // If still empty after removing extension, use a fallback name
+              if (!displayName || displayName.trim() === '') {
+                displayName = 'Untitled Notebook';
+              }
             }
             
             console.log(`🔍 Processing OneNote file from search: "${file.name}" -> displayName: "${displayName}"`);
@@ -4500,6 +4720,8 @@ const dataFetchers: DataFetcher = {
               }
             };
           });
+          
+          console.log(`✅ Returning ${notebooks.length} OneNote notebooks from search:`, notebooks.map((n: any) => ({ id: n.id, name: n.name, displayName: n.displayName })));
           
           if (notebooks.length > 0) {
             return {
