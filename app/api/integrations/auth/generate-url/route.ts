@@ -921,7 +921,7 @@ function generateMicrosoftOneNoteAuthUrl(state: string): string {
     client_id: clientId,
     redirect_uri: redirectUri,
     response_type: "code",
-    scope: "offline_access openid profile email User.Read Notes.ReadWrite.All",
+    scope: "offline_access openid profile email User.Read Notes.ReadWrite.All Files.Read",
     state,
     prompt: "consent", // Force Microsoft to show consent screen every time
   })

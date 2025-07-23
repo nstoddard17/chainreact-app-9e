@@ -4228,7 +4228,7 @@ const dataFetchers: DataFetcher = {
     }
   },
 
-  // Microsoft OneNote data fetchers - Using OneDrive API to access OneNote notebooks
+  // Microsoft OneNote data fetchers - Using Microsoft Graph API to access OneNote notebooks
   "onenote_notebooks": async (integration: any, options?: any) => {
     console.log(`🔍 OneNote notebooks fetcher called with:`, {
       integrationId: integration.id,
@@ -4268,11 +4268,12 @@ const dataFetchers: DataFetcher = {
         };
       }
       
-      // First, try the actual OneNote API to see if it works
-      console.log(`🔍 Trying OneNote API first...`);
+      // Try the Microsoft Graph API with different parameters to ensure we get all notebooks
+      console.log(`🔍 Trying OneNote API with expanded parameters...`);
       
       try {
-        const oneNoteResponse = await fetch('https://graph.microsoft.com/v1.0/me/onenote/notebooks', {
+        // First try with standard endpoint
+        const oneNoteResponse = await fetch('https://graph.microsoft.com/v1.0/me/onenote/notebooks?$expand=sections&$top=100', {
           headers: {
             'Authorization': `Bearer ${tokenResult.token}`,
             'Content-Type': 'application/json'
@@ -4293,6 +4294,7 @@ const dataFetchers: DataFetcher = {
               isDefault: notebook.isDefault,
               userRole: notebook.userRole,
               isShared: notebook.isShared,
+              sectionCount: notebook.sections?.length || 0,
               links: notebook.links
             })));
             
@@ -4310,8 +4312,37 @@ const dataFetchers: DataFetcher = {
         console.log(`❌ OneNote API error:`, oneNoteError);
       }
       
-      // If OneNote API doesn't work, fall back to OneDrive API
-      console.log(`🔍 OneNote API failed, falling back to OneDrive API...`);
+      // If standard API call doesn't work, try beta API endpoint
+      console.log(`🔍 Standard OneNote API failed, trying beta API endpoint...`);
+      
+      try {
+        const betaResponse = await fetch('https://graph.microsoft.com/beta/me/onenote/notebooks?$expand=sections', {
+          headers: {
+            'Authorization': `Bearer ${tokenResult.token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (betaResponse.ok) {
+          const betaData = await betaResponse.json();
+          console.log(`✅ OneNote Beta API works! Found ${betaData.value?.length || 0} notebooks`);
+          
+          if (betaData.value && betaData.value.length > 0) {
+            return {
+              data: betaData.value || [],
+              error: undefined
+            };
+          }
+        } else {
+          const errorText = await betaResponse.text();
+          console.log(`❌ OneNote Beta API failed: ${betaResponse.status} ${errorText}`);
+        }
+      } catch (betaError) {
+        console.log(`❌ OneNote Beta API error:`, betaError);
+      }
+      
+      // If both API endpoints fail, fall back to OneDrive API
+      console.log(`🔍 Both OneNote API endpoints failed, falling back to OneDrive API...`);
       
       // Use OneDrive API to find OneNote notebooks
       // OneNote notebooks are stored as .onetoc2 files in OneDrive
@@ -4918,15 +4949,89 @@ const dataFetchers: DataFetcher = {
   "onenote_sections": async (integration: any, options?: any) => {
     try {
       if (integration.status !== 'connected') {
-        return [];
+        return {
+          data: [],
+          error: {
+            message: "OneNote integration is not connected"
+          }
+        };
       }
+      
+      console.log(`🔍 OneNote sections fetcher called with:`, {
+        integrationId: integration.id,
+        provider: integration.provider,
+        status: integration.status,
+        options
+      });
       
       const tokenResult = await validateAndRefreshToken(integration);
       if (!tokenResult.success) {
-        return [];
+        console.log(`❌ OneNote token validation failed: ${tokenResult.error}`);
+        return {
+          data: [],
+          error: {
+            message: tokenResult.error || "Authentication failed"
+          }
+        };
       }
       
       const { notebookId } = options || {};
+      
+      // First, try the actual OneNote API to get sections
+      console.log(`🔍 Trying OneNote API to fetch sections...`);
+      
+      try {
+        // If notebookId is provided, get sections for that specific notebook
+        // Otherwise, get all sections across all notebooks
+        const apiUrl = notebookId 
+          ? `https://graph.microsoft.com/v1.0/me/onenote/notebooks/${notebookId}/sections`
+          : 'https://graph.microsoft.com/v1.0/me/onenote/sections';
+        
+        console.log(`🔍 Fetching sections from: ${apiUrl}`);
+        
+        const sectionsResponse = await fetch(apiUrl, {
+          headers: {
+            'Authorization': `Bearer ${tokenResult.token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (sectionsResponse.ok) {
+          const sectionsData = await sectionsResponse.json();
+          console.log(`✅ OneNote Sections API works! Found ${sectionsData.value?.length || 0} sections`);
+          
+          if (sectionsData.value && sectionsData.value.length > 0) {
+            console.log(`🔍 OneNote sections from API:`, sectionsData.value.map((section: any) => ({
+              id: section.id,
+              displayName: section.displayName,
+              name: section.name,
+              parentNotebookId: section.parentNotebook?.id,
+              lastModifiedDateTime: section.lastModifiedDateTime,
+              createdDateTime: section.createdDateTime
+            })));
+            
+            // Return the actual OneNote sections from the API
+            return {
+              data: sectionsData.value || [],
+              error: undefined
+            };
+          } else {
+            console.log(`⚠️ No sections found for ${notebookId ? `notebook ${notebookId}` : 'any notebook'}`);
+            return {
+              data: [],
+              error: undefined
+            };
+          }
+        } else {
+          const errorText = await sectionsResponse.text();
+          console.log(`❌ OneNote Sections API failed: ${sectionsResponse.status} ${errorText}`);
+        }
+      } catch (oneNoteError) {
+        console.log(`❌ OneNote Sections API error:`, oneNoteError);
+      }
+      
+      // If OneNote API doesn't work, fall back to OneDrive API (but this is less reliable)
+      console.log(`🔍 OneNote Sections API failed, falling back to OneDrive API...`);
       
       // Use OneDrive API to find OneNote sections
       // OneNote sections are stored as .one files in OneDrive
@@ -4967,35 +5072,120 @@ const dataFetchers: DataFetcher = {
           }
         }));
         
-        console.log(`✅ Successfully processed ${sections.length} OneNote sections`);
-        return sections;
+        console.log(`✅ Successfully processed ${sections.length} OneNote sections from OneDrive`);
+        return {
+          data: sections,
+          error: undefined
+        };
       } else {
         console.log(`❌ Failed to search for OneNote sections: ${searchResponse.status}`);
       }
       
       // If search failed, return empty array to prevent UI breaks
       console.log('OneNote sections search failed - returning empty array');
-      return [];
+      return {
+        data: [],
+        error: {
+          message: "Could not retrieve OneNote sections"
+        }
+      };
     } catch (error) {
       console.error('Error in onenote_sections:', error);
-      return [];
+      return {
+        data: [],
+        error: {
+          message: "Error retrieving OneNote sections"
+        }
+      };
     }
   },
   "onenote_pages": async (integration: any, options?: any) => {
     try {
       if (integration.status !== 'connected') {
-        return [];
+        return {
+          data: [],
+          error: {
+            message: "OneNote integration is not connected"
+          }
+        };
       }
+      
+      console.log(`🔍 OneNote pages fetcher called with:`, {
+        integrationId: integration.id,
+        provider: integration.provider,
+        status: integration.status,
+        options
+      });
       
       const tokenResult = await validateAndRefreshToken(integration);
       if (!tokenResult.success) {
-        return [];
+        console.log(`❌ OneNote token validation failed: ${tokenResult.error}`);
+        return {
+          data: [],
+          error: {
+            message: tokenResult.error || "Authentication failed"
+          }
+        };
       }
       
       const { sectionId } = options || {};
       
+      // First, try the actual OneNote API to get pages
+      console.log(`🔍 Trying OneNote API to fetch pages...`);
+      
+      try {
+        // If sectionId is provided, get pages for that specific section
+        // Otherwise, get all pages across all sections
+        const apiUrl = sectionId 
+          ? `https://graph.microsoft.com/v1.0/me/onenote/sections/${sectionId}/pages`
+          : 'https://graph.microsoft.com/v1.0/me/onenote/pages';
+        
+        console.log(`🔍 Fetching pages from: ${apiUrl}`);
+        
+        const pagesResponse = await fetch(apiUrl, {
+          headers: {
+            'Authorization': `Bearer ${tokenResult.token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (pagesResponse.ok) {
+          const pagesData = await pagesResponse.json();
+          console.log(`✅ OneNote Pages API works! Found ${pagesData.value?.length || 0} pages`);
+          
+          if (pagesData.value && pagesData.value.length > 0) {
+            console.log(`🔍 OneNote pages from API:`, pagesData.value.map((page: any) => ({
+              id: page.id,
+              title: page.title,
+              parentSectionId: page.parentSection?.id,
+              lastModifiedDateTime: page.lastModifiedDateTime,
+              createdDateTime: page.createdDateTime
+            })));
+            
+            // Return the actual OneNote pages from the API
+            return {
+              data: pagesData.value || [],
+              error: undefined
+            };
+          } else {
+            console.log(`⚠️ No pages found for ${sectionId ? `section ${sectionId}` : 'any section'}`);
+            return {
+              data: [],
+              error: undefined
+            };
+          }
+        } else {
+          const errorText = await pagesResponse.text();
+          console.log(`❌ OneNote Pages API failed: ${pagesResponse.status} ${errorText}`);
+        }
+      } catch (oneNoteError) {
+        console.log(`❌ OneNote Pages API error:`, oneNoteError);
+      }
+      
+      // If OneNote API doesn't work, fall back to OneDrive API (but this is less reliable)
+      console.log(`🔍 OneNote Pages API failed, falling back to OneDrive API...`);
+      
       // Use OneDrive API to find OneNote pages
-      // OneNote pages are stored as .one files in OneDrive
       console.log(`🔍 Searching for OneNote pages in OneDrive...`);
       
       // Search for .one files (OneNote pages)
@@ -5020,7 +5210,6 @@ const dataFetchers: DataFetcher = {
           size: file.size,
           createdDateTime: file.createdDateTime,
           // Add OneNote-specific properties
-          isDefault: false,
           userRole: 'Owner',
           isShared: false,
           links: {
@@ -5033,18 +5222,31 @@ const dataFetchers: DataFetcher = {
           }
         }));
         
-        console.log(`✅ Successfully processed ${pages.length} OneNote pages`);
-        return pages;
+        console.log(`✅ Successfully processed ${pages.length} OneNote pages from OneDrive`);
+        return {
+          data: pages,
+          error: undefined
+        };
       } else {
         console.log(`❌ Failed to search for OneNote pages: ${searchResponse.status}`);
       }
       
       // If search failed, return empty array to prevent UI breaks
       console.log('OneNote pages search failed - returning empty array');
-      return [];
+      return {
+        data: [],
+        error: {
+          message: "Could not retrieve OneNote pages"
+        }
+      };
     } catch (error) {
       console.error('Error in onenote_pages:', error);
-      return [];
+      return {
+        data: [],
+        error: {
+          message: "Error retrieving OneNote pages"
+        }
+      };
     }
   },
 
