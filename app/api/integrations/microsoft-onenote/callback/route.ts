@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
         code,
         redirect_uri: redirectUri,
         grant_type: "authorization_code",
-        scope: "offline_access openid profile email User.Read Notes.ReadWrite.All",
+        scope: "offline_access openid profile email User.Read Notes.ReadWrite.All Files.Read",
       }),
     })
 

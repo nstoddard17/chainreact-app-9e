@@ -311,7 +311,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     sendScopeWithRefresh: true,
     sendRedirectUriWithRefresh: true,
     redirectUriPath: "/api/integrations/microsoft-onenote/callback",
-    scope: "offline_access User.Read Notes.ReadWrite.All",
+    scope: "offline_access User.Read Notes.ReadWrite.All Files.Read",
   },
   "microsoft-outlook": {
     id: "microsoft-outlook",
