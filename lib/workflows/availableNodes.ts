@@ -4389,7 +4389,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "microsoft-outlook_action_add_folder",
-    title: "Add to Folder (Outlook)",
+    title: "Add to Folder",
     description: "Move an email to a specific folder",
     icon: Edit,
     providerId: "microsoft-outlook",
@@ -4403,7 +4403,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "microsoft-outlook_action_archive_email",
-    title: "Archive Email (Outlook)",
+    title: "Archive Email",
     description: "Archive an email",
     icon: Edit,
     providerId: "microsoft-outlook",
@@ -4414,7 +4414,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "microsoft-outlook_action_search_email",
-    title: "Search Email (Outlook)",
+    title: "Search Email",
     description: "Search for a specific email",
     icon: Edit,
     providerId: "microsoft-outlook",
@@ -5836,7 +5836,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   // Microsoft Outlook Actions
   {
     type: "microsoft-outlook_action_send_email",
-    title: "Send Email (Outlook)",
+    title: "Send Email",
     description: "Send an email through Microsoft Outlook",
     icon: Mail,
     providerId: "microsoft-outlook",
@@ -5854,7 +5854,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "microsoft-outlook_action_create_calendar_event",
-    title: "Create Calendar Event (Outlook)",
+    title: "Create Calendar Event",
     description: "Create a new calendar event in Outlook",
     icon: Calendar,
     providerId: "microsoft-outlook",
@@ -5991,7 +5991,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "microsoft-outlook_action_create_contact",
-    title: "Create Contact (Outlook)",
+    title: "Create Contact",
     description: "Create a new contact in Outlook",
     icon: UserPlus,
     providerId: "microsoft-outlook",
@@ -6009,7 +6009,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "microsoft-outlook_action_move_email",
-    title: "Move Email (Outlook)",
+    title: "Move Email",
     description: "Move an email to a different folder",
     icon: Move,
     providerId: "microsoft-outlook",
@@ -6024,7 +6024,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "microsoft-outlook_action_mark_as_read",
-    title: "Mark Email as Read (Outlook)",
+    title: "Mark Email as Read",
     description: "Mark an email as read",
     icon: Check,
     providerId: "microsoft-outlook",
@@ -6037,7 +6037,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "microsoft-outlook_action_mark_as_unread",
-    title: "Mark Email as Unread (Outlook)",
+    title: "Mark Email as Unread",
     description: "Mark an email as unread",
     icon: X,
     providerId: "microsoft-outlook",
@@ -6050,7 +6050,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "microsoft-outlook_action_reply_to_email",
-    title: "Reply to Email (Outlook)",
+    title: "Reply to Email",
     description: "Reply to an existing email",
     icon: Reply,
     providerId: "microsoft-outlook",
@@ -6065,7 +6065,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "microsoft-outlook_action_forward_email",
-    title: "Forward Email (Outlook)",
+    title: "Forward Email",
     description: "Forward an email to other recipients",
     icon: Forward,
     providerId: "microsoft-outlook",
@@ -6082,7 +6082,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "microsoft-outlook_action_get_messages",
-    title: "Get Messages (Outlook)",
+    title: "Get Messages",
     description: "Retrieve emails from a specific folder",
     icon: MailOpen,
     providerId: "microsoft-outlook",
@@ -6104,7 +6104,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "microsoft-outlook_action_get_contacts",
-    title: "Get Contacts (Outlook)",
+    title: "Get Contacts",
     description: "Retrieve contacts from Outlook",
     icon: Users,
     providerId: "microsoft-outlook",
@@ -6124,7 +6124,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "microsoft-outlook_action_get_calendar_events",
-    title: "Get Calendar Events (Outlook)",
+    title: "Get Calendar Events",
     description: "Retrieve calendar events from Outlook",
     icon: Calendar,
     providerId: "microsoft-outlook",

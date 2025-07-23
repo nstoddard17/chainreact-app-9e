@@ -23,7 +23,7 @@ import { DatePicker } from "@/components/ui/date-picker"
 import { TimePicker } from "@/components/ui/time-picker"
 import { DateTimePicker } from "@/components/ui/date-time-picker"
 import { Calendar } from "@/components/ui/calendar"
-import { Play, X, Loader2, TestTube, Clock, HelpCircle, AlertCircle, Video, ChevronLeft, ChevronRight, Database, Calendar as CalendarIcon, Upload, Eye, RefreshCw, Package, FileText, Filter, Mail, Image as ImageIcon } from "lucide-react"
+import { Play, X, Loader2, TestTube, Clock, HelpCircle, AlertCircle, Video, ChevronLeft, ChevronRight, Database, Calendar as CalendarIcon, Upload, Eye, RefreshCw, Package, FileText, Filter, Mail, Image as ImageIcon, Paperclip } from "lucide-react"
 
 import { Checkbox } from "@/components/ui/checkbox"
 import { Switch } from "@/components/ui/switch"
@@ -1343,6 +1343,15 @@ function ConfigurationModal({
         endpoint = "/api/discord/fetch-guild-members-preview"
       } else if (nodeInfo.type === "gmail_action_search_emails" || nodeInfo.type === "gmail_action_search_email") {
         endpoint = "/api/workflows/gmail/search-emails-preview"
+      } else if (nodeInfo.type === "microsoft-outlook_action_search_email") {
+        endpoint = "/api/workflows/outlook/search-emails-preview"
+        // Get the Outlook integration ID
+        const integration = getIntegrationByProvider("microsoft-outlook")
+        if (!integration?.id) {
+          throw new Error("Outlook integration not found. Please connect your Outlook account first.")
+        }
+        requestBody.integrationId = integration.id
+        requestBody.userId = currentUserId
       } else if (nodeInfo.type === "notion_action_search_pages") {
         endpoint = "/api/workflows/notion/search-pages-preview"
       } else if (nodeInfo.type === "facebook_action_get_page_insights") {
@@ -5082,7 +5091,7 @@ function ConfigurationModal({
           {/* Main Fields Grid */}
           <div className="grid gap-4 sm:grid-cols-2">
             {sortedFields.map((fieldDef: any, fieldIndex: number) => {
-              const fieldValue = config.fields?.[fieldDef.name] || ""
+                                  const fieldValue = config[fieldDef.name] || ""
               
               // Check if this field represents a linked table (foreign key relationship)
               const isLinkedField = fieldDef.type === "linkedRecord" || 
@@ -5294,62 +5303,52 @@ function ConfigurationModal({
                       </div>
                     </div>
                   ) : fieldDef.type === "attachment" || fieldDef.type === "file" || fieldDef.type === "image" || fieldDef.name.toLowerCase().includes('image') || fieldDef.name.toLowerCase().includes('photo') || fieldDef.name.toLowerCase().includes('picture') ? (
-                    <div className="flex flex-col gap-1">
+                    <div className="flex flex-col gap-3">
                       {/* DEBUG: Log when generic file input is used for icon/cover */}
-                      {(fieldDef.name === "icon" || fieldDef.name === "cover") && console.log('❌ Generic file input used for icon/cover:', { fieldName: fieldDef.name, nodeType: nodeInfo?.type, fieldType: fieldDef.type })}
+                      {(fieldDef.name === "icon" || fieldDef.name === "cover") && (() => {
+                        console.log('❌ Generic file input used for icon/cover:', { fieldName: fieldDef.name, nodeType: nodeInfo?.type, fieldType: fieldDef.type })
+                        return null
+                      })()}
                       {(fieldDef.name === "icon" || fieldDef.name === "cover") && (
                         <div style={{ color: 'white', background: 'red', padding: 4, fontWeight: 'bold', borderRadius: 4, marginBottom: 8 }}>
                           USING GENERIC FILE INPUT FOR {fieldDef.name.toUpperCase()} (SHOULD USE ENHANCED)
                         </div>
                       )}
-                      <input
-                        type="file"
-                        id={`file-${fieldDef.name}`}
-                        multiple={fieldDef.type === "attachment"}
-                        accept={fieldDef.type === "image" ? "image/*" : undefined}
-                        onChange={(e) => {
-                          const files = Array.from(e.target.files || [])
-                          const newFields = { ...config.fields, [fieldDef.name]: files }
-                          setConfig(prev => ({ ...prev, fields: newFields }))
+                      
+                      {/* Use FileUpload component for better UX */}
+                      <FileUpload
+                        value={fieldValue ? (Array.isArray(fieldValue) ? fieldValue : [fieldValue]) : []}
+                        onChange={(files) => {
+                          if (fieldDef.multiple || fieldDef.type === "attachment") {
+                            setConfig(prev => ({ ...prev, [fieldDef.name]: files }))
+                          } else {
+                            setConfig(prev => ({ ...prev, [fieldDef.name]: files.length > 0 ? files[0] : null }))
+                          }
                         }}
-                        className="hidden"
+                        accept={fieldDef.accept || (fieldDef.type === "image" ? "image/*" : "*/*")}
+                        maxSize={typeof fieldDef.maxSize === 'number' ? fieldDef.maxSize : 25 * 1024 * 1024} // 25MB default
+                        maxFiles={fieldDef.multiple || fieldDef.type === "attachment" ? 5 : 1}
+                        placeholder={fieldDef.type === "image" ? "Upload Image" : (fieldDef.type === "attachment" || fieldDef.multiple === true) ? "Upload Files" : "Upload File"}
+                        className="w-full"
                       />
-                      <div className="flex gap-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => document.getElementById(`file-${fieldDef.name}`)?.click()}
-                          className="min-h-[2.5rem] text-sm flex-1"
-                        >
-                          Upload {fieldDef.type === "image" ? "Image" : fieldDef.type === "attachment" ? "Files" : "File"}
-                        </Button>
+                      
+                      {/* Variable Picker */}
+                      <div className="flex justify-center">
                         <VariablePicker
                           workflowData={workflowData}
                           currentNodeId={currentNodeId}
                           onVariableSelect={(variable) => {
-                            const newFields = { ...config.fields, [fieldDef.name]: variable }
-                            setConfig(prev => ({ ...prev, fields: newFields }))
+                            setConfig(prev => ({ ...prev, [fieldDef.name]: variable }))
                           }}
                           fieldType="file"
                           trigger={
-                            <Button variant="outline" size="sm" className="flex-shrink-0 px-3 min-h-[2.5rem]">
+                            <Button variant="outline" size="sm" className="gap-2">
                               <Database className="w-4 h-4" />
+                              Use File from Previous Node
                             </Button>
                           }
                         />
                       </div>
-                      {fieldValue && (
-                        <div className="text-xs text-muted-foreground">
-                          {Array.isArray(fieldValue) && fieldValue.length > 0 
-                            ? fieldValue.length === 1
-                              ? `Selected: ${fieldValue[0].name}`
-                              : `${fieldValue.length} files: ${fieldValue.map(f => f.name).join(', ')}`
-                            : typeof fieldValue === 'string' && fieldValue.includes('{{')
-                            ? 'Using file from previous node'
-                            : 'File selected'
-                          }
-                        </div>
-                      )}
                     </div>
                   ) : (
                     <div className="flex gap-2">
@@ -5967,6 +5966,47 @@ function ConfigurationModal({
               <Label htmlFor={field.name} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                 {field.description || "Enable this option"}
               </Label>
+            </div>
+            {hasError && (
+              <p className="text-xs text-red-500">{errors[field.name]}</p>
+            )}
+          </div>
+        )
+
+      case "file":
+        return (
+          <div className="space-y-2">
+            {renderDynamicLabel()}
+            <FileUpload
+              value={value ? (Array.isArray(value) ? value : [value]) : []}
+              onChange={(files) => {
+                if (field.multiple) {
+                  setConfig(prev => ({ ...prev, [field.name]: files }))
+                } else {
+                  setConfig(prev => ({ ...prev, [field.name]: files.length > 0 ? files[0] : null }))
+                }
+              }}
+              accept={field.accept || "*/*"}
+              maxSize={typeof field.maxSize === 'number' ? field.maxSize : 25 * 1024 * 1024} // 25MB default
+              maxFiles={field.multiple ? 5 : 1}
+              placeholder={field.placeholder || "Upload Files"}
+              className="w-full"
+            />
+            <div className="flex justify-center">
+              <VariablePicker
+                workflowData={workflowData}
+                currentNodeId={currentNodeId}
+                onVariableSelect={(variable) => {
+                  setConfig(prev => ({ ...prev, [field.name]: variable }))
+                }}
+                fieldType="file"
+                trigger={
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <Database className="w-4 h-4" />
+                    Use File from Previous Node
+                  </Button>
+                }
+              />
             </div>
             {hasError && (
               <p className="text-xs text-red-500">{errors[field.name]}</p>
@@ -7309,7 +7349,7 @@ function ConfigurationModal({
                   placeholder={isComboboxLoading ? "Loading..." : field.placeholder}
                   searchPlaceholder="Search or type to create new..."
                   emptyPlaceholder={isComboboxLoading ? "Loading..." : "No results found."}
-                  creatable={field.creatable === true || field.creatable === "true"}
+                  creatable={Boolean(field.creatable)}
                 />
               </div>
             </div>
@@ -8209,6 +8249,31 @@ function ConfigurationModal({
                     </>
                   )}
 
+                  {/* Outlook Search Email Preview Button */}
+                  {nodeInfo?.type === "microsoft-outlook_action_search_email" && (
+                    <div className="flex justify-end mb-6">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="gap-2"
+                        onClick={handlePreview}
+                        disabled={previewLoading}
+                      >
+                        {previewLoading ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Loading...
+                          </>
+                        ) : (
+                          <>
+                            <Eye className="h-4 w-4" />
+                            Load Preview
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  )}
+
                   {/* Discord Create Channel Basic/Advanced Tabs */}
                   {nodeInfo?.type === "discord_action_create_channel" && (
                     <>
@@ -8830,6 +8895,87 @@ function ConfigurationModal({
                               emails={previewData.emails || []} 
                               fieldsMask={config.fieldsMask}
                             />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Outlook Search Email Preview */}
+                  {nodeInfo?.type === "microsoft-outlook_action_search_email" && (
+                    <div className="space-y-3 border-t pt-4 mt-6 w-full max-w-full">
+                      <div className="flex items-center justify-between">
+                        <div className="text-sm font-medium">Sample Messages</div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handlePreview}
+                          disabled={previewLoading}
+                        >
+                          {previewLoading ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              Loading...
+                            </>
+                          ) : (
+                            <>
+                              <Eye className="w-4 h-4 mr-2" />
+                              Load Preview
+                            </>
+                          )}
+                        </Button>
+                      </div>
+
+                      {previewError && (
+                        <div className="text-sm text-red-600 bg-red-50 p-3 rounded border">
+                          {previewError}
+                        </div>
+                      )}
+
+                      {!previewData && !previewError && (
+                        <div className="text-sm text-muted-foreground bg-muted/30 p-4 rounded border flex flex-col items-center justify-center">
+                          <div className="mb-2">
+                            <Mail className="w-8 h-8 text-muted-foreground/50" />
+                          </div>
+                          <p>No data yet. Configure your search and use "Load Preview" to see sample results.</p>
+                        </div>
+                      )}
+
+                      {previewData && (
+                        <div className="w-full border rounded-lg overflow-hidden">
+                          <div className="max-h-[400px] overflow-y-auto overflow-x-hidden">
+                            <div className="divide-y">
+                              {previewData.map((email: any, index: number) => (
+                                <div key={email.id || index} className="p-4 hover:bg-muted/30">
+                                  <div className="flex items-start justify-between mb-2">
+                                    <div className="font-medium text-sm truncate flex-1">
+                                      {email.subject}
+                                    </div>
+                                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                      {email.hasAttachments && (
+                                        <Paperclip className="w-3 h-3" />
+                                      )}
+                                      {email.isRead ? (
+                                        <span className="text-green-600">Read</span>
+                                      ) : (
+                                        <span className="text-blue-600">Unread</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="text-sm text-muted-foreground mb-1">
+                                    From: {email.from}
+                                  </div>
+                                  <div className="text-sm text-muted-foreground mb-2">
+                                    {new Date(email.receivedDateTime).toLocaleString()}
+                                  </div>
+                                  {email.snippet && (
+                                    <div className="text-sm text-muted-foreground line-clamp-2">
+                                      {email.snippet}
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
                           </div>
                         </div>
                       )}
