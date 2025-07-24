@@ -1377,7 +1377,17 @@ export const useIntegrationStore = create<IntegrationStore>()(
       
       // Check for Teams specific scope requirements
       if (providerId === "teams") {
+        // Define both fully qualified and short-form scopes
         const requiredScopes = [
+          "https://graph.microsoft.com/User.Read",
+          "https://graph.microsoft.com/Team.ReadBasic.All", 
+          "https://graph.microsoft.com/Channel.ReadBasic.All",
+          "https://graph.microsoft.com/Chat.Read",
+          "https://graph.microsoft.com/ChatMessage.Send",
+          "https://graph.microsoft.com/OnlineMeetings.ReadWrite"
+        ]
+        
+        const shortFormScopes = [
           "User.Read",
           "Team.ReadBasic.All", 
           "Channel.ReadBasic.All",
@@ -1386,7 +1396,11 @@ export const useIntegrationStore = create<IntegrationStore>()(
           "OnlineMeetings.ReadWrite"
         ]
         
-        const missingScopes = requiredScopes.filter(scope => !grantedScopes.includes(scope))
+        // Check if each required scope is present in either fully qualified or short form
+        const missingScopes = requiredScopes.filter((scope, index) => {
+          const shortForm = shortFormScopes[index]
+          return !grantedScopes.includes(scope) && !grantedScopes.includes(shortForm)
+        })
         
         if (missingScopes.length > 0) {
           console.warn(`❌ Missing scopes for ${providerId}:`, missingScopes)

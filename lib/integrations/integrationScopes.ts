@@ -84,17 +84,17 @@ export const INTEGRATION_SCOPES = {
   },
   teams: {
     required: [
-      "User.Read",
-      "Team.ReadBasic.All", 
-      "Channel.ReadBasic.All",
-      "Chat.Read",
-      "Chat.ReadWrite",
-      "ChatMessage.Send",
-      "OnlineMeetings.ReadWrite",
-      "TeamMember.Read.All",
-      "TeamMember.ReadWrite.All",
-      "Channel.Create",
-      "Team.Create"
+      "https://graph.microsoft.com/User.Read",
+      "https://graph.microsoft.com/Team.ReadBasic.All", 
+      "https://graph.microsoft.com/Channel.ReadBasic.All",
+      "https://graph.microsoft.com/Chat.Read",
+      "https://graph.microsoft.com/Chat.ReadWrite",
+      "https://graph.microsoft.com/ChatMessage.Send",
+      "https://graph.microsoft.com/OnlineMeetings.ReadWrite",
+      "https://graph.microsoft.com/TeamMember.Read.All",
+      "https://graph.microsoft.com/TeamMember.ReadWrite.All",
+      "https://graph.microsoft.com/Channel.Create",
+      "https://graph.microsoft.com/Team.Create"
     ],
     optional: [],
   },

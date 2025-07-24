@@ -25,7 +25,10 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const { userId } = JSON.parse(atob(state))
+    // Extract the original state from the enhanced state parameter
+    // Get everything before the first &app=teams
+    const originalState = state.split('&app=teams')[0]
+    const { userId } = JSON.parse(atob(originalState))
     if (!userId) {
       throw new Error("Missing userId in Teams state")
     }
@@ -34,26 +37,33 @@ export async function GET(request: NextRequest) {
 
     const clientId = process.env.NEXT_PUBLIC_TEAMS_CLIENT_ID || process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID
     const clientSecret = process.env.TEAMS_CLIENT_SECRET || process.env.MICROSOFT_CLIENT_SECRET
-    const redirectUri = `${baseUrl}/api/integrations/teams/callback`
+    
+    // Extract the unique identifier from the state to use in the redirect URI
+    const uidMatch = state.match(/uid=([^&]+)/)
+    const uid = uidMatch ? uidMatch[1] : Math.random().toString(36).substring(2, 15)
+    
+    // Use the same unique redirect URI format as in the authorization request
+    const redirectUri = `${baseUrl}/api/integrations/teams/callback?app=teams&v=3&uid=${uid}&ts=${Date.now()}`
 
     if (!clientId || !clientSecret) {
       throw new Error("Microsoft client ID or secret not configured")
     }
 
-    const tokenResponse = await fetch("https://login.microsoftonline.com/common/oauth2/v2.0/token", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: new URLSearchParams({
-        client_id: clientId,
-        client_secret: clientSecret,
-        code,
-        redirect_uri: redirectUri,
-        grant_type: "authorization_code",
-        scope: "offline_access User.Read Team.ReadBasic.All Channel.ReadBasic.All Chat.Read Chat.ReadWrite ChatMessage.Send OnlineMeetings.ReadWrite TeamMember.Read.All TeamMember.ReadWrite.All Channel.Create Team.Create",
-      }),
-    })
+          const tokenResponse = await fetch("https://login.microsoftonline.com/common/oauth2/v2.0/token", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({
+          client_id: clientId,
+          client_secret: clientSecret,
+          code,
+          redirect_uri: redirectUri,
+          grant_type: "authorization_code",
+          // Use fully qualified scope names with Microsoft Graph API URL prefix
+          scope: "offline_access https://graph.microsoft.com/User.Read https://graph.microsoft.com/Team.ReadBasic.All https://graph.microsoft.com/Channel.ReadBasic.All https://graph.microsoft.com/Chat.Read https://graph.microsoft.com/Chat.ReadWrite https://graph.microsoft.com/ChatMessage.Send https://graph.microsoft.com/OnlineMeetings.ReadWrite https://graph.microsoft.com/TeamMember.Read.All https://graph.microsoft.com/TeamMember.ReadWrite.All https://graph.microsoft.com/Channel.Create https://graph.microsoft.com/Team.Create",
+        }),
+      })
 
     if (!tokenResponse.ok) {
       const errorData = await tokenResponse.json()
