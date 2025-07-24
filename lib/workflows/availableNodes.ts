@@ -498,132 +498,6 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     ]
   },
   {
-    type: "wait_for_time",
-    title: "Wait for Time",
-    description: "Wait until a specific time or for a duration before continuing",
-    icon: Calendar,
-    category: "Logic",
-    providerId: "logic",
-    isTrigger: false,
-    configSchema: [
-      {
-        name: "waitType",
-        label: "Wait Type",
-        type: "select",
-        required: true,
-        defaultValue: "duration",
-        options: [
-          { value: "duration", label: "Wait for Duration" },
-          { value: "until_time", label: "Wait Until Specific Time" },
-          { value: "until_date", label: "Wait Until Specific Date" },
-          { value: "business_hours", label: "Wait for Business Hours" }
-        ],
-        description: "How long to wait"
-      },
-      {
-        name: "duration",
-        label: "Duration",
-        type: "number",
-        placeholder: "e.g., 30",
-        description: "How long to wait"
-      },
-      {
-        name: "durationUnit",
-        label: "Duration Unit",
-        type: "select",
-        defaultValue: "minutes",
-        options: [
-          { value: "seconds", label: "Seconds" },
-          { value: "minutes", label: "Minutes" },
-          { value: "hours", label: "Hours" },
-          { value: "days", label: "Days" },
-          { value: "weeks", label: "Weeks" }
-        ],
-        description: "Unit of time for the duration"
-      },
-      {
-        name: "specificTime",
-        label: "Specific Time",
-        type: "time",
-        placeholder: "14:30",
-        description: "Time to wait until (24-hour format)"
-      },
-      {
-        name: "specificDate",
-        label: "Specific Date",
-        type: "datetime",
-        description: "Exact date and time to wait until"
-      },
-      {
-        name: "businessHoursStart",
-        label: "Business Hours Start",
-        type: "time",
-        defaultValue: "09:00",
-        description: "When business hours start"
-      },
-      {
-        name: "businessHoursEnd",
-        label: "Business Hours End",
-        type: "time",
-        defaultValue: "17:00",
-        description: "When business hours end"
-      },
-      {
-        name: "businessDays",
-        label: "Business Days",
-        type: "select",
-        defaultValue: "weekdays",
-        options: [
-          { value: "weekdays", label: "Monday - Friday" },
-          { value: "custom", label: "Custom Days" }
-        ],
-        description: "Which days are considered business days"
-      },
-      {
-        name: "customBusinessDays",
-        label: "Custom Business Days",
-        type: "select",
-        options: [
-          { value: "monday", label: "Monday" },
-          { value: "tuesday", label: "Tuesday" },
-          { value: "wednesday", label: "Wednesday" },
-          { value: "thursday", label: "Thursday" },
-          { value: "friday", label: "Friday" },
-          { value: "saturday", label: "Saturday" },
-          { value: "sunday", label: "Sunday" }
-        ],
-        description: "Select which days are business days"
-      },
-      {
-        name: "timezone",
-        label: "Timezone",
-        type: "select",
-        defaultValue: "auto",
-        options: [
-          { value: "auto", label: "Auto-detect (Current Timezone)" },
-          { value: "America/New_York", label: "Eastern Time" },
-          { value: "America/Chicago", label: "Central Time" },
-          { value: "America/Denver", label: "Mountain Time" },
-          { value: "America/Los_Angeles", label: "Pacific Time" },
-          { value: "Europe/London", label: "London" },
-          { value: "Europe/Paris", label: "Paris" },
-          { value: "Asia/Tokyo", label: "Tokyo" },
-          { value: "Asia/Shanghai", label: "Shanghai" },
-          { value: "Australia/Sydney", label: "Sydney" },
-          { value: "UTC", label: "UTC" }
-        ],
-        description: "Timezone for time-based waits"
-      },
-      {
-        name: "maxWaitTime",
-        label: "Maximum Wait Time",
-        type: "number",
-        placeholder: "e.g., 24",
-        description: "Maximum hours to wait (optional safety limit)"
-      }
-    ],
-  },
-  {
     type: "conditional",
     title: "Conditional Logic",
     description: "Branch workflow based on conditions",
@@ -2739,28 +2613,6 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     ],
   },
   {
-    type: "teams_trigger_new_message_in_chat",
-    title: "New Message in Chat",
-    description: "Triggers when a new message is posted in a chat",
-    icon: Users,
-    providerId: "teams",
-    category: "Communication",
-    isTrigger: true,
-    configSchema: [
-      { name: "chatId", label: "Chat", type: "select", dynamic: "teams_chats", required: true, placeholder: "Select a chat to monitor" }
-    ],
-    outputSchema: [
-      { name: "messageId", label: "Message ID", type: "string", description: "The ID of the new message" },
-      { name: "content", label: "Message Content", type: "string", description: "The content of the message" },
-      { name: "senderId", label: "Sender ID", type: "string", description: "The ID of the message sender" },
-      { name: "senderName", label: "Sender Name", type: "string", description: "The name of the message sender" },
-      { name: "chatId", label: "Chat ID", type: "string", description: "The ID of the chat where the message was posted" },
-      { name: "chatName", label: "Chat Name", type: "string", description: "The name of the chat where the message was posted" },
-      { name: "timestamp", label: "Message Time", type: "string", description: "When the message was posted (ISO 8601 format)" },
-      { name: "attachments", label: "Attachments", type: "array", description: "Array of file attachments in the message" }
-    ]
-  },
-  {
     type: "teams_trigger_user_joins_team",
     title: "User Joins Team",
     description: "Triggers when a new user joins a team",
@@ -3232,27 +3084,6 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     ]
   },
   {
-    type: "twitter_action_delete_tweet",
-    title: "Delete Tweet",
-    description: "Delete one of your tweets",
-    icon: Trash2,
-    providerId: "twitter",
-    requiredScopes: ["tweet.write"],
-    category: "Social",
-    isTrigger: false,
-    comingSoon: true,
-    configSchema: [
-      { 
-        name: "tweetId", 
-        label: "Tweet ID to Delete", 
-        type: "text", 
-        required: true, 
-        placeholder: "Enter the ID of the tweet you want to delete",
-        description: "The ID of the tweet you want to delete (must be your own tweet)"
-      }
-    ]
-  },
-  {
     type: "twitter_action_search_tweets",
     title: "Search Tweets",
     description: "Search for tweets based on keywords, hashtags, and filters",
@@ -3546,233 +3377,6 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         required: true,
         placeholder: "Select a video from your YouTube account",
         description: "Choose from your uploaded YouTube videos"
-      }
-    ]
-  },
-  {
-    type: "youtube_action_upload_video",
-    title: "Upload Video (YouTube)",
-    description: "Upload a new video to your channel",
-    icon: Upload,
-    providerId: "youtube",
-    requiredScopes: ["https://www.googleapis.com/auth/youtube.upload"],
-    category: "Social",
-    isTrigger: false,
-    configSchema: [
-      { 
-        name: "videoFile", 
-        label: "Video File", 
-        type: "file", 
-        required: true, 
-        accept: ".mp4,.mov,.avi,.wmv,.flv,.mkv,.webm", 
-        maxSize: 256 * 1024 * 1024 * 1024, 
-        placeholder: "Select a video file to upload",
-        description: "Upload your video file (max 256 GB or 12 hours, whichever comes first)"
-      },
-      { 
-        name: "title", 
-        label: "Title", 
-        type: "text", 
-        required: true, 
-        placeholder: "Enter video title",
-        description: "The title of your video"
-      },
-      { 
-        name: "description", 
-        label: "Description", 
-        type: "textarea", 
-        required: false, 
-        placeholder: "Enter video description",
-        description: "Optional description for your video"
-      },
-      { 
-        name: "tags", 
-        label: "Tags", 
-        type: "multi-select", 
-        required: false, 
-        placeholder: "Add tags to help people find your video",
-        description: "Tags to help with video discovery (optional)"
-      },
-      { 
-        name: "category", 
-        label: "Category", 
-        type: "select", 
-        required: false, 
-        placeholder: "Select a category",
-        description: "YouTube video category",
-        options: [
-          { value: "1", label: "Film & Animation" },
-          { value: "2", label: "Autos & Vehicles" },
-          { value: "10", label: "Music" },
-          { value: "15", label: "Pets & Animals" },
-          { value: "17", label: "Sports" },
-          { value: "19", label: "Travel & Events" },
-          { value: "20", label: "Gaming" },
-          { value: "22", label: "People & Blogs" },
-          { value: "23", label: "Comedy" },
-          { value: "24", label: "Entertainment" },
-          { value: "25", label: "News & Politics" },
-          { value: "26", label: "Howto & Style" },
-          { value: "27", label: "Education" },
-          { value: "28", label: "Science & Technology" },
-          { value: "29", label: "Nonprofits & Activism" }
-        ]
-      },
-      { 
-        name: "privacyStatus", 
-        label: "Privacy Status", 
-        type: "select", 
-        required: true, 
-        defaultValue: "private", 
-        description: "Who can see your video",
-        options: [ 
-          { value: "public", label: "Public" }, 
-          { value: "unlisted", label: "Unlisted" }, 
-          { value: "private", label: "Private" } 
-        ] 
-      },
-      { 
-        name: "publishAt", 
-        label: "Publish Date & Time", 
-        type: "datetime", 
-        required: false, 
-        placeholder: "Schedule video for later publication",
-        description: "Schedule your video to be published at a specific time (optional)"
-      },
-      { 
-        name: "thumbnailMode", 
-        label: "Thumbnail", 
-        type: "select", 
-        required: false, 
-        defaultValue: "upload",
-        description: "Choose how to add a thumbnail",
-        options: [
-          { value: "upload", label: "Upload Image" },
-          { value: "url", label: "Image URL" }
-        ]
-      },
-      { 
-        name: "thumbnailFile", 
-        label: "Upload Thumbnail", 
-        type: "file", 
-        required: false, 
-        accept: "image/jpeg,image/png",
-        maxSize: 2 * 1024 * 1024,
-        placeholder: "Upload thumbnail image",
-        description: "Upload a custom thumbnail image (optional) - max 2 MB; JPEG/PNG only"
-      },
-      { 
-        name: "thumbnailUrl", 
-        label: "Thumbnail URL", 
-        type: "text", 
-        required: false, 
-        placeholder: "https://example.com/thumbnail.jpg",
-        description: "URL to a thumbnail image (optional)"
-      },
-      { 
-        name: "playlists", 
-        label: "Add to Playlists", 
-        type: "multi-select", 
-        dynamic: "youtube_playlists",
-        required: false, 
-        placeholder: "Select playlists to add video to",
-        description: "Add this video to one or more playlists (optional)"
-      },
-      { 
-        name: "license", 
-        label: "License", 
-        type: "select", 
-        required: false, 
-        defaultValue: "youtube",
-        description: "License for your video",
-        options: [
-          { value: "youtube", label: "Standard YouTube License" },
-          { value: "creativeCommon", label: "Creative Commons" }
-        ]
-      },
-      { 
-        name: "madeForKids", 
-        label: "Made for Kids", 
-        type: "boolean", 
-        required: false, 
-        defaultValue: false,
-        description: "Indicate if this video is made for kids"
-      },
-      { 
-        name: "ageRestriction", 
-        label: "Age Restriction", 
-        type: "select", 
-        required: false, 
-        defaultValue: "none",
-        description: "Age restriction for your video",
-        options: [
-          { value: "none", label: "None" },
-          { value: "18+", label: "18+" }
-        ]
-      },
-      { 
-        name: "locationLatitude", 
-        label: "Location Latitude", 
-        type: "number", 
-        required: false, 
-        placeholder: "40.7128",
-        description: "Latitude coordinate for video location (optional)"
-      },
-      { 
-        name: "locationLongitude", 
-        label: "Location Longitude", 
-        type: "number", 
-        required: false, 
-        placeholder: "-74.0060",
-        description: "Longitude coordinate for video location (optional)"
-      },
-      { 
-        name: "locationName", 
-        label: "Location Name", 
-        type: "text", 
-        required: false, 
-        placeholder: "New York, NY",
-        description: "Name of the location where video was recorded (optional)"
-      },
-      { 
-        name: "recordingDate", 
-        label: "Recording Date & Time", 
-        type: "datetime", 
-        required: false, 
-        placeholder: "When was this video recorded?",
-        description: "Date and time when the video was recorded (optional)"
-      },
-      { 
-        name: "notifySubscribers", 
-        label: "Notify Subscribers", 
-        type: "boolean", 
-        required: false, 
-        defaultValue: true,
-        description: "Send notification to subscribers when video is published"
-      },
-      { 
-        name: "allowComments", 
-        label: "Allow Comments", 
-        type: "boolean", 
-        required: false, 
-        defaultValue: true,
-        description: "Allow viewers to comment on this video"
-      },
-      { 
-        name: "allowRatings", 
-        label: "Allow Ratings", 
-        type: "boolean", 
-        required: false, 
-        defaultValue: true,
-        description: "Allow viewers to rate this video"
-      },
-      { 
-        name: "allowEmbedding", 
-        label: "Allow Embedding", 
-        type: "boolean", 
-        required: false, 
-        defaultValue: true,
-        description: "Allow this video to be embedded on other websites"
       }
     ]
   },
@@ -5486,64 +5090,6 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     ]
   },
   {
-    type: "airtable_action_move_record",
-    title: "Move Record (Airtable)",
-    description: "Move a record from one table to another in Airtable",
-    icon: Move,
-    providerId: "airtable",
-    requiredScopes: ["data.records:write"],
-    category: "Productivity",
-    isTrigger: false,
-    configSchema: [
-      {
-        name: "baseId",
-        label: "Base",
-        type: "select",
-        dynamic: "airtable_bases",
-        required: true,
-        placeholder: "Select a base"
-      },
-      {
-        name: "sourceTableName",
-        label: "Source Table",
-        type: "select",
-        dynamic: "airtable_tables",
-        required: true,
-        placeholder: "Select source table",
-        description: "Choose the table to move the record from",
-        dependsOn: "baseId"
-      },
-      {
-        name: "recordId",
-        label: "Record",
-        type: "select",
-        dynamic: "airtable_records",
-        required: true,
-        placeholder: "Select a record to move",
-        description: "Choose the record to move",
-        dependsOn: "sourceTableName"
-      },
-      {
-        name: "destinationTableName",
-        label: "Destination Table",
-        type: "select",
-        dynamic: "airtable_tables",
-        required: true,
-        placeholder: "Select destination table",
-        description: "Choose the table to move the record to",
-        dependsOn: "baseId"
-      },
-      {
-        name: "preserveRecordId",
-        label: "Preserve Record ID",
-        type: "boolean",
-        required: false,
-        defaultValue: false,
-        description: "Keep the same record ID in the destination table"
-      }
-    ]
-  },
-  {
     type: "airtable_action_list_records",
     title: "List Records (Airtable)",
     description: "List records from an Airtable table",
@@ -5848,7 +5394,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
       { name: "cc", label: "CC", type: "email-autocomplete", required: false, placeholder: "Enter CC email addresses...", dynamic: "outlook-enhanced-recipients" },
       { name: "bcc", label: "BCC", type: "email-autocomplete", required: false, placeholder: "Enter BCC email addresses...", dynamic: "outlook-enhanced-recipients" },
       { name: "subject", label: "Subject", type: "text", required: true, placeholder: "Email subject" },
-      { name: "body", label: "Body", type: "rich-text", required: true, placeholder: "Compose your email message..." },
+      { name: "body", label: "Body", type: "rich-text", required: true, placeholder: "Compose your email..." },
       { name: "attachments", label: "Attachments", type: "file", required: false, placeholder: "Select files to attach", multiple: true, description: "Attach files from your computer or select files from previous workflow nodes" }
     ]
   },
@@ -5869,9 +5415,9 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
       { name: "subject", label: "Subject", type: "text", required: true, placeholder: "Event subject" },
       { name: "isAllDay", label: "All Day", type: "boolean", required: false, defaultValue: false },
       { name: "startDate", label: "Start Date", type: "date", required: true, defaultValue: "today" },
-      { name: "startTime", label: "Start Time", type: "time", required: true, defaultValue: "next-hour" },
+      { name: "startTime", label: "Start Time", type: "time", required: true, defaultValue: "current" },
       { name: "endDate", label: "End Date", type: "date", required: true, defaultValue: "same-as-start" },
-      { name: "endTime", label: "End Time", type: "time", required: true, defaultValue: "1-hour-after-start" },
+      { name: "endTime", label: "End Time", type: "time", required: true, defaultValue: "current" },
       { name: "timeZone", label: "Time Zone", type: "combobox", required: false, defaultValue: "user-timezone", creatable: true, placeholder: "Select or type timezone", options: [
         { value: "user-timezone", label: "Your timezone (auto-detected)" },
         { value: "America/New_York", label: "Eastern Time (ET)" },
@@ -5950,43 +5496,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         { value: "personal", label: "Personal" },
         { value: "private", label: "Private" },
         { value: "confidential", label: "Confidential" }
-      ]},
-      
-      // Advanced Section
-      { name: "transactionId", label: "Transaction ID", type: "text", required: false, placeholder: "Custom transaction identifier" },
-      { name: "hideAttendees", label: "Hide attendees", type: "boolean", required: false, defaultValue: false, description: "Hide attendee list from other attendees" },
-      { name: "singleValueExtendedProperties", label: "Single-value extended properties", type: "textarea", required: false, placeholder: "JSON format: [{\"id\":\"property-id\",\"value\":\"property-value\"}]" },
-      { name: "multiValueExtendedProperties", label: "Multi-value extended properties", type: "textarea", required: false, placeholder: "JSON format: [{\"id\":\"property-id\",\"values\":[\"value1\",\"value2\"]}]" },
-      
-      // Legacy/Compatibility Fields (mapped to new fields)
-      { name: "reminderMinutes", label: "Notification (legacy)", type: "select", required: false, defaultValue: "30", options: [
-        { value: "30", label: "30 minutes before" },
-        { value: "0", label: "None" },
-        { value: "5", label: "5 minutes before" },
-        { value: "10", label: "10 minutes before" },
-        { value: "15", label: "15 minutes before" },
-        { value: "60", label: "1 hour before" },
-        { value: "120", label: "2 hours before" },
-        { value: "1440", label: "1 day before" },
-        { value: "2880", label: "2 days before" },
-        { value: "10080", label: "1 week before" }
-      ], hidden: true },
-      { name: "reminderMethod", label: "Notification method (legacy)", type: "select", required: false, defaultValue: "popup", options: [
-        { value: "popup", label: "Notification" },
-        { value: "email", label: "Email" }
-      ], hidden: true },
-      { name: "sendNotifications", label: "Send invitations (legacy)", type: "select", required: false, defaultValue: "all", options: [
-        { value: "all", label: "Send to all attendees" },
-        { value: "externalOnly", label: "Send to attendees outside your organization" },
-        { value: "none", label: "Don't send" }
-      ], hidden: true },
-      { name: "guestsCanInviteOthers", label: "Guests can invite others (legacy)", type: "boolean", required: false, defaultValue: true, hidden: true },
-      { name: "guestsCanSeeOtherGuests", label: "Guests can see guest list (legacy)", type: "boolean", required: false, defaultValue: true, hidden: true },
-      { name: "guestsCanModify", label: "Guests can modify event (legacy)", type: "boolean", required: false, defaultValue: false, hidden: true },
-      { name: "visibility", label: "Visibility (legacy)", type: "select", required: false, defaultValue: "public", options: [
-        { value: "public", label: "Public" },
-        { value: "private", label: "Private" }
-      ], hidden: true }
+      ]}
     ]
   },
   {
@@ -6001,7 +5511,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     configSchema: [
       { name: "givenName", label: "First Name", type: "text", required: true, placeholder: "John" },
       { name: "surname", label: "Last Name", type: "text", required: true, placeholder: "Doe" },
-      { name: "emailAddresses", label: "Email Addresses", type: "text", required: false, placeholder: "john.doe@example.com" },
+      { name: "emailAddresses", label: "Email Addresses", type: "text", required: true, placeholder: "john.doe@example.com" },
       { name: "businessPhones", label: "Business Phone", type: "text", required: false, placeholder: "+1-555-123-4567" },
       { name: "companyName", label: "Company", type: "text", required: false, placeholder: "Company Name" },
       { name: "jobTitle", label: "Job Title", type: "text", required: false, placeholder: "Software Engineer" }
@@ -6017,9 +5527,9 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Communication",
     isTrigger: false,
     configSchema: [
-      { name: "messageId", label: "Message", type: "select", required: true, dynamic: "outlook_messages", placeholder: "Select a message" },
+      { name: "messageId", label: "Email", type: "select", required: true, dynamic: "outlook_messages", placeholder: "Select an email", hasVariablePicker: true },
       { name: "sourceFolderId", label: "Source Folder", type: "select", required: false, dynamic: "outlook_folders", placeholder: "Select source folder (optional)" },
-      { name: "destinationFolderId", label: "Destination Folder", type: "select", required: true, dynamic: "outlook_folders", placeholder: "Select destination folder" },
+      { name: "destinationFolderId", label: "Destination Folder", type: "select", required: true, dynamic: "outlook_folders", placeholder: "Select destination folder", hasVariablePicker: true },
     ]
   },
   {
@@ -6032,7 +5542,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Communication",
     isTrigger: false,
     configSchema: [
-      { name: "messageId", label: "Message", type: "select", required: true, dynamic: "outlook_messages", placeholder: "Select a message" },
+      { name: "messageId", label: "Email", type: "select", required: true, dynamic: "outlook_messages", placeholder: "Select an email" },
     ]
   },
   {
@@ -6045,7 +5555,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Communication",
     isTrigger: false,
     configSchema: [
-      { name: "messageId", label: "Message", type: "select", required: true, dynamic: "outlook_messages", placeholder: "Select a message" },
+      { name: "messageId", label: "Email", type: "select", required: true, dynamic: "outlook_messages", placeholder: "Select an email" },
     ]
   },
   {
@@ -6058,9 +5568,10 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Communication",
     isTrigger: false,
     configSchema: [
-      { name: "messageId", label: "Message", type: "select", required: true, dynamic: "outlook_messages", placeholder: "Select a message" },
-      { name: "body", label: "Reply Body", type: "textarea", required: true, placeholder: "Your reply message" },
-      { name: "isHtml", label: "HTML Body", type: "boolean", required: false, defaultValue: false }
+      { name: "messageId", label: "Email", type: "select", required: true, dynamic: "outlook_messages", placeholder: "Select an email to reply to", description: "Search for emails by sender, subject, or content" },
+      { name: "subject", label: "Subject", type: "text", required: true, placeholder: "Email subject" },
+      { name: "body", label: "Body", type: "rich-text", required: true, placeholder: "Compose your reply..." },
+      { name: "attachments", label: "Attachments", type: "file", required: false, placeholder: "Select files to attach", multiple: true, description: "Attach files from your computer or select files from previous workflow nodes" }
     ]
   },
   {
@@ -6073,16 +5584,16 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     category: "Communication",
     isTrigger: false,
     configSchema: [
-      { name: "messageId", label: "Message", type: "select", required: true, dynamic: "outlook_messages", placeholder: "Select a message" },
+      { name: "messageId", label: "Email", type: "select", required: true, dynamic: "outlook_messages", placeholder: "Select an email" },
       { name: "to", label: "To", type: "email-autocomplete", required: true, placeholder: "Enter recipient email addresses...", dynamic: "outlook-enhanced-recipients" },
       { name: "cc", label: "CC", type: "email-autocomplete", required: false, placeholder: "Enter CC email addresses...", dynamic: "outlook-enhanced-recipients" },
       { name: "bcc", label: "BCC", type: "email-autocomplete", required: false, placeholder: "Enter BCC email addresses...", dynamic: "outlook-enhanced-recipients" },
-      { name: "body", label: "Additional Message", type: "textarea", required: false, placeholder: "Additional message to include with the forwarded email" },
+      { name: "body", label: "Additional Note", type: "textarea", required: false, placeholder: "Additional note to include with the forwarded email" },
     ]
   },
   {
-    type: "microsoft-outlook_action_get_messages",
-    title: "Get Messages",
+    type: "microsoft-outlook_action_fetch_emails",
+    title: "Fetch Emails",
     description: "Retrieve emails from a specific folder",
     icon: MailOpen,
     providerId: "microsoft-outlook",
@@ -6092,19 +5603,19 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
     producesOutput: true,
     configSchema: [
       { name: "folderId", label: "Folder", type: "select", required: false, dynamic: "outlook_folders", placeholder: "Select a folder (uses inbox if not specified)" },
-      { name: "limit", label: "Number of Messages", type: "select", required: false, defaultValue: "10", options: [
-        { value: "5", label: "5 messages" },
-        { value: "10", label: "10 messages" },
-        { value: "25", label: "25 messages" },
-        { value: "50", label: "50 messages" },
-        { value: "100", label: "100 messages" }
+      { name: "limit", label: "Number of Emails", type: "select", required: false, defaultValue: "10", options: [
+        { value: "5", label: "5 emails" },
+        { value: "10", label: "10 emails" },
+        { value: "25", label: "25 emails" },
+        { value: "50", label: "50 emails" },
+        { value: "100", label: "100 emails" }
       ]},
       { name: "unreadOnly", label: "Unread Only", type: "boolean", required: false, defaultValue: false },
     ]
   },
   {
     type: "microsoft-outlook_action_get_contacts",
-    title: "Get Contacts",
+    title: "Fetch Contacts",
     description: "Retrieve contacts from Outlook",
     icon: Users,
     providerId: "microsoft-outlook",
@@ -6124,7 +5635,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "microsoft-outlook_action_get_calendar_events",
-    title: "Get Calendar Events",
+    title: "Fetch Calendar Events",
     description: "Retrieve calendar events from Outlook",
     icon: Calendar,
     providerId: "microsoft-outlook",
@@ -6816,41 +6327,6 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
         { value: "15", label: "Forum Channels" }
       ]},
       { name: "nameFilter", label: "Name Filter", type: "text", required: false, uiTab: "advanced", description: "Filter channels by name (case-insensitive)", placeholder: "e.g., general, admin, support" },
-      { name: "parentCategory", label: "Parent Category", type: "select", dynamic: "discord_categories", required: false, uiTab: "advanced", description: "Only show channels in this category", dependsOn: "guildId" }
-    ]
-  },
-  {
-    type: "discord_action_list_channels",
-    title: "Fetch Channels",
-    description: "List channels in a Discord server with optional filtering.",
-    icon: MessageSquare,
-    providerId: "discord",
-    requiredScopes: ["bot"],
-    category: "Communication",
-    isTrigger: false,
-    configSchema: [
-      // Basic Settings Tab
-      { name: "guildId", label: "Server", type: "select", dynamic: "discord_guilds", required: true, uiTab: "basic" },
-      { name: "limit", label: "Limit", type: "number", required: false, defaultValue: 50, placeholder: "Number of channels to fetch (max 100)", uiTab: "basic" },
-      
-      // Advanced Settings Tab
-      { name: "channelTypes", label: "Channel Types", type: "multi-select", required: false, uiTab: "advanced", description: "Filter by channel types", options: [
-        { value: "0", label: "Text Channels" },
-        { value: "2", label: "Voice Channels" },
-        { value: "4", label: "Categories" },
-        { value: "5", label: "Announcement Channels" },
-        { value: "13", label: "Stage Channels" },
-        { value: "15", label: "Forum Channels" }
-      ]},
-      { name: "nameFilter", label: "Name Filter", type: "text", required: false, uiTab: "advanced", description: "Filter channels by name (case-insensitive)", placeholder: "e.g., general, admin, support" },
-      { name: "sortBy", label: "Sort By", type: "select", required: false, uiTab: "advanced", description: "How to sort the channels", options: [
-        { value: "position", label: "Position (default)" },
-        { value: "name", label: "Name (A-Z)" },
-        { value: "name_desc", label: "Name (Z-A)" },
-        { value: "created", label: "Newest First" },
-        { value: "created_old", label: "Oldest First" }
-      ], defaultValue: "position" },
-      { name: "includeArchived", label: "Include Archived", type: "boolean", required: false, uiTab: "advanced", description: "Include archived channels in results", defaultValue: false },
       { name: "parentCategory", label: "Parent Category", type: "select", dynamic: "discord_categories", required: false, uiTab: "advanced", description: "Only show channels in this category", dependsOn: "guildId" }
     ]
   },

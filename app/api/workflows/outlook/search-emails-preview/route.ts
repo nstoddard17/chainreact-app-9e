@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Config is required' }, { status: 400 })
     }
 
-    const { query, folderId, maxResults = 5 } = config
+    const { query, folderId, maxResults = 5, unreadOnly = false } = config
 
     // Get integration from database
     const { data: integration, error: integrationError } = await supabase
@@ -65,6 +65,9 @@ export async function POST(req: NextRequest) {
     const params = new URLSearchParams()
     if (query) {
       params.append('$search', `"${query}"`)
+    }
+    if (unreadOnly) {
+      params.append('$filter', 'isRead eq false')
     }
     if (folderId) {
       apiUrl = `https://graph.microsoft.com/v1.0/me/mailFolders/${folderId}/messages`

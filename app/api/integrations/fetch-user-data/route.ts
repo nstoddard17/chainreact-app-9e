@@ -230,6 +230,75 @@ async function validateAndRefreshToken(integration: any): Promise<{
     } catch (decryptError: any) {
       console.error(`Failed to decrypt token for ${integration.provider}:`, decryptError)
       
+      // Special handling for Facebook tokens
+      if (integration.provider === 'facebook') {
+        console.log('🔍 Facebook token decryption failed, attempting manual refresh...');
+        
+        if (integration.refresh_token) {
+          try {
+            let refreshToken = integration.refresh_token;
+            if (refreshToken.includes(":")) {
+              try {
+                refreshToken = decrypt(refreshToken, secret);
+              } catch (refreshDecryptError) {
+                console.error('Failed to decrypt Facebook refresh token:', refreshDecryptError);
+                // Try using the refresh token as-is
+              }
+            }
+            
+            console.log('🔄 Manually refreshing Facebook token...');
+            const refreshResponse = await fetch('https://graph.facebook.com/v18.0/oauth/access_token', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+              },
+              body: new URLSearchParams({
+                grant_type: 'fb_exchange_token',
+                client_id: process.env.NEXT_PUBLIC_FACEBOOK_CLIENT_ID!,
+                client_secret: process.env.FACEBOOK_CLIENT_SECRET!,
+                fb_exchange_token: refreshToken,
+              }),
+            });
+            
+            if (refreshResponse.ok) {
+              const refreshData = await refreshResponse.json();
+              console.log('✅ Manual token refresh successful for Facebook');
+              return {
+                success: true,
+                token: refreshData.access_token,
+              }
+            } else {
+              const errorData = await refreshResponse.json();
+              console.error('❌ Manual token refresh failed for Facebook:', errorData);
+            }
+          } catch (refreshError) {
+            console.error('❌ Error during manual Facebook token refresh:', refreshError);
+          }
+        }
+        
+        // If manual refresh fails, try to test the token as-is
+        try {
+          const testResponse = await fetch('https://graph.facebook.com/v18.0/me', {
+            headers: {
+              'Authorization': `Bearer ${integration.access_token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (testResponse.ok) {
+            console.log('⚠️ Facebook token appears to be valid despite decryption failure - using as-is');
+            return {
+              success: true,
+              token: integration.access_token,
+            }
+          } else {
+            console.log('❌ Facebook token test failed with status:', testResponse.status);
+          }
+        } catch (testError) {
+          console.error('❌ Facebook token test failed after decryption failure:', testError);
+        }
+      }
+      
       // Special handling for OneNote/Microsoft tokens
       if (integration.provider === 'microsoft-onenote') {
         console.log('🔍 OneNote token decryption failed, attempting manual refresh...');
@@ -4177,6 +4246,22 @@ const dataFetchers: DataFetcher = {
         hasToken: !!integration.access_token
       })
       
+      // Validate and refresh token if needed
+      console.log("🔍 Validating Facebook token...")
+      const tokenResult = await validateAndRefreshToken(integration)
+      console.log("🔍 Token validation result:", {
+        success: tokenResult.success,
+        hasToken: !!tokenResult.token,
+        tokenLength: tokenResult.token?.length || 0,
+        tokenPreview: tokenResult.token ? `${tokenResult.token.substring(0, 20)}...` : 'none',
+        error: tokenResult.error
+      })
+      
+      if (!tokenResult.success) {
+        console.log(`❌ Facebook token validation failed: ${tokenResult.error}`)
+        return []
+      }
+      
       // Generate appsecret_proof for server-side calls
       const crypto = require('crypto')
       const appSecret = process.env.FACEBOOK_CLIENT_SECRET
@@ -4188,23 +4273,25 @@ const dataFetchers: DataFetcher = {
       
       const appsecretProof = crypto
         .createHmac('sha256', appSecret)
-        .update(integration.access_token)
+        .update(tokenResult.token)
         .digest('hex')
 
       console.log("🔍 Making Facebook API call with appsecret_proof")
       const response = await fetch(`https://graph.facebook.com/v19.0/me/accounts?appsecret_proof=${appsecretProof}`, {
         headers: {
-          Authorization: `Bearer ${integration.access_token}`,
+          Authorization: `Bearer ${tokenResult.token}`,
           "Content-Type": "application/json",
         },
       })
 
       if (!response.ok) {
         if (response.status === 401) {
-          throw new Error("Facebook authentication expired. Please reconnect your account.")
+          console.log("❌ Facebook API returned 401 - token may be invalid")
+          return []
         }
         const errorData = await response.json().catch(() => ({}))
-        throw new Error(`Facebook API error: ${response.status} - ${errorData.error?.message || response.statusText}`)
+        console.error(`Facebook API error: ${response.status} - ${errorData.error?.message || response.statusText}`)
+        return []
       }
 
       const data = await response.json()
