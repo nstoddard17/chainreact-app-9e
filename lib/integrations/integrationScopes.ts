@@ -99,11 +99,20 @@ export const INTEGRATION_SCOPES = {
     optional: [],
   },
   onedrive: {
-    required: ["https://graph.microsoft.com/Files.ReadWrite"],
+    required: ["User.Read", "Files.ReadWrite.All"],
     optional: [],
   },
   "microsoft-outlook": {
-    required: ["User.Read", "Mail.ReadWrite", "Mail.Send", "Calendars.ReadWrite", "Contacts.ReadWrite"],
+    required: [
+      "User.Read",
+      "Mail.Read",
+      "Mail.ReadWrite", 
+      "Mail.Send",
+      "Calendars.Read",
+      "Calendars.ReadWrite",
+      "Contacts.Read",
+      "Contacts.ReadWrite"
+    ],
     optional: [],
   },
   hubspot: {

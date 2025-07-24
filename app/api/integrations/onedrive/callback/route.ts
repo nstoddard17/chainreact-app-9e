@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
         code,
         redirect_uri: redirectUri,
         grant_type: "authorization_code",
-        scope: "offline_access Files.ReadWrite.All",
+        scope: "offline_access User.Read Files.ReadWrite.All",
       }),
     })
 
