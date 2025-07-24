@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
         code,
         redirect_uri: redirectUri,
         grant_type: "authorization_code",
-        scope: "offline_access User.Read Team.ReadBasic.All Channel.ReadBasic.All",
+        scope: "offline_access User.Read Team.ReadBasic.All Channel.ReadBasic.All Chat.Read Chat.ReadWrite ChatMessage.Send OnlineMeetings.ReadWrite TeamMember.Read.All TeamMember.ReadWrite.All Channel.Create Team.Create",
       }),
     })
 

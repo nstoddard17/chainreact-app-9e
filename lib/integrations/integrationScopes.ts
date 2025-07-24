@@ -83,8 +83,20 @@ export const INTEGRATION_SCOPES = {
     optional: ["video.list", "video.upload"],
   },
   teams: {
-    required: ["https://graph.microsoft.com/User.Read"],
-    optional: ["Chat.ReadWrite", "Files.ReadWrite"],
+    required: [
+      "User.Read",
+      "Team.ReadBasic.All", 
+      "Channel.ReadBasic.All",
+      "Chat.Read",
+      "Chat.ReadWrite",
+      "ChatMessage.Send",
+      "OnlineMeetings.ReadWrite",
+      "TeamMember.Read.All",
+      "TeamMember.ReadWrite.All",
+      "Channel.Create",
+      "Team.Create"
+    ],
+    optional: [],
   },
   onedrive: {
     required: ["https://graph.microsoft.com/Files.ReadWrite"],
