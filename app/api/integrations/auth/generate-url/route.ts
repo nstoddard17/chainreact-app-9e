@@ -783,11 +783,27 @@ function generateTeamsAuthUrl(state: string): string {
   if (!clientId) throw new Error("Microsoft client ID not configured")
   const baseUrl = getBaseUrl()
 
+  // Teams-specific scopes only
+  const teamsScopes = [
+    "offline_access",
+    "User.Read",
+    "Team.ReadBasic.All", 
+    "Channel.ReadBasic.All",
+    "Chat.Read",
+    "Chat.ReadWrite",
+    "ChatMessage.Send",
+    "OnlineMeetings.ReadWrite",
+    "TeamMember.Read.All",
+    "TeamMember.ReadWrite.All",
+    "Channel.Create",
+    "Team.Create"
+  ].join(" ")
+
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: `${baseUrl}/api/integrations/teams/callback`,
     response_type: "code",
-    scope: "offline_access User.Read Team.ReadBasic.All Channel.ReadBasic.All Chat.Read Chat.ReadWrite ChatMessage.Send OnlineMeetings.ReadWrite TeamMember.Read.All TeamMember.ReadWrite.All Channel.Create Team.Create",
+    scope: teamsScopes,
     prompt: "consent", // Force consent screen every time
     state,
   })
