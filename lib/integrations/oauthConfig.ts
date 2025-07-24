@@ -344,7 +344,8 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     sendScopeWithRefresh: true,
     sendRedirectUriWithRefresh: true,
     redirectUriPath: "/api/integrations/teams/callback",
-    scope: "User.Read Team.ReadBasic.All Channel.ReadBasic.All Chat.Read Chat.ReadWrite ChatMessage.Send OnlineMeetings.ReadWrite TeamMember.Read.All TeamMember.ReadWrite.All Channel.Create Team.Create",
+    // Use fully qualified scope names with Microsoft Graph API URL prefix
+    scope: "offline_access https://graph.microsoft.com/User.Read https://graph.microsoft.com/Team.ReadBasic.All https://graph.microsoft.com/Channel.ReadBasic.All https://graph.microsoft.com/Chat.Read https://graph.microsoft.com/Chat.ReadWrite https://graph.microsoft.com/ChatMessage.Send https://graph.microsoft.com/OnlineMeetings.ReadWrite https://graph.microsoft.com/TeamMember.Read.All https://graph.microsoft.com/TeamMember.ReadWrite.All https://graph.microsoft.com/Channel.Create https://graph.microsoft.com/Team.Create",
   },
   hubspot: {
     id: "hubspot",

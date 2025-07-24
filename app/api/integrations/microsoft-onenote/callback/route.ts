@@ -28,7 +28,9 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const stateData = JSON.parse(atob(state))
+    // Extract the original state from the enhanced state parameter
+    const originalState = state.split('&app=onenote')[0]
+    const stateData = JSON.parse(atob(originalState))
     const { userId, forceFresh } = stateData
     if (!userId) {
       throw new Error("Missing userId in OneNote state")
@@ -36,15 +38,10 @@ export async function GET(request: NextRequest) {
 
     const supabase = createAdminClient()
 
-    const clientId = process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID
-    const clientSecret = process.env.MICROSOFT_CLIENT_SECRET
-    // Extract the timestamp parameter from the current request URL
-    const timestamp = searchParams.get("t")
-    
-    // Construct the redirect URI with the timestamp parameter to match what was used in the authorization request
-    const redirectUri = timestamp 
-      ? `${getBaseUrl()}/api/integrations/microsoft-onenote/callback?t=${timestamp}` 
-      : `${getBaseUrl()}/api/integrations/microsoft-onenote/callback`
+    const clientId = process.env.NEXT_PUBLIC_ONENOTE_CLIENT_ID || process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID
+    const clientSecret = process.env.ONENOTE_CLIENT_SECRET || process.env.MICROSOFT_CLIENT_SECRET
+    // Construct the redirect URI with the unique parameters to match what was used in the authorization request
+    const redirectUri = `${getBaseUrl()}/api/integrations/microsoft-onenote/callback?app=onenote&v=2&ts=${Date.now()}`
 
     if (!clientId || !clientSecret) {
       throw new Error("Microsoft client ID or secret not configured")
