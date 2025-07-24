@@ -25,18 +25,16 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Extract the original state from the enhanced state parameter
-    const originalState = state.split('&app=teams')[0]
-    const { userId } = JSON.parse(atob(originalState))
+    const { userId } = JSON.parse(atob(state))
     if (!userId) {
       throw new Error("Missing userId in Teams state")
     }
 
     const supabase = createAdminClient()
 
-    const clientId = process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID
-    const clientSecret = process.env.MICROSOFT_CLIENT_SECRET
-    const redirectUri = `${baseUrl}/api/integrations/teams/callback?app=teams&v=1`
+    const clientId = process.env.NEXT_PUBLIC_TEAMS_CLIENT_ID || process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID
+    const clientSecret = process.env.TEAMS_CLIENT_SECRET || process.env.MICROSOFT_CLIENT_SECRET
+    const redirectUri = `${baseUrl}/api/integrations/teams/callback`
 
     if (!clientId || !clientSecret) {
       throw new Error("Microsoft client ID or secret not configured")

@@ -132,11 +132,11 @@ export async function POST(request: NextRequest) {
         break
 
       case "teams":
-        authUrl = generateTeamsAuthUrl(finalState)
+        authUrl = await generateTeamsAuthUrl(finalState)
         break
 
       case "onedrive":
-        authUrl = generateOneDriveAuthUrl(finalState)
+        authUrl = await generateOneDriveAuthUrl(finalState)
         break
 
       case "gitlab":
@@ -156,7 +156,7 @@ export async function POST(request: NextRequest) {
         break
 
       case "microsoft-outlook":
-        authUrl = generateMicrosoftOutlookAuthUrl(finalState)
+        authUrl = await generateMicrosoftOutlookAuthUrl(finalState)
         break
 
       case "microsoft-onenote":
@@ -165,7 +165,7 @@ export async function POST(request: NextRequest) {
         stateObject.timestamp = Date.now() // Ensure unique state
         stateObject.forceConsent = true // Force Microsoft to show consent screen
         finalState = btoa(JSON.stringify(stateObject))
-        authUrl = generateMicrosoftOneNoteAuthUrl(finalState)
+        authUrl = await generateMicrosoftOneNoteAuthUrl(finalState)
         break
 
       case "gumroad":
@@ -778,62 +778,56 @@ async function generatePayPalAuthUrl(stateObject: any): Promise<string> {
   }
 }
 
-function generateTeamsAuthUrl(state: string): string {
-  const clientId = process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID
-  if (!clientId) throw new Error("Microsoft client ID not configured")
+async function generateTeamsAuthUrl(state: string): Promise<string> {
+  const { getOAuthConfig } = await import("@/lib/integrations/oauthConfig")
+  const config = getOAuthConfig("teams")
+  if (!config) throw new Error("Teams OAuth config not found")
+  
+  const { getOAuthClientCredentials } = await import("@/lib/integrations/oauthConfig")
+  const { clientId } = getOAuthClientCredentials(config)
+  if (!clientId) throw new Error("Teams client ID not configured")
+  
   const baseUrl = getBaseUrl()
 
-  // Teams-specific scopes only
-  const teamsScopes = [
-    "offline_access",
-    "User.Read",
-    "Team.ReadBasic.All", 
-    "Channel.ReadBasic.All",
-    "Chat.Read",
-    "Chat.ReadWrite",
-    "ChatMessage.Send",
-    "OnlineMeetings.ReadWrite",
-    "TeamMember.Read.All",
-    "TeamMember.ReadWrite.All",
-    "Channel.Create",
-    "Team.Create"
-  ].join(" ")
-
-  // Add unique parameters to force Microsoft to treat this as a separate app
-  const uniqueRedirectUri = `${baseUrl}/api/integrations/teams/callback?app=teams&v=1`
-  const uniqueState = `${state}&app=teams&timestamp=${Date.now()}`
+  // Use standard redirect URI without extra parameters
+  const redirectUri = `${baseUrl}${config.redirectUriPath}`
 
   const params = new URLSearchParams({
     client_id: clientId,
-    redirect_uri: uniqueRedirectUri,
+    redirect_uri: redirectUri,
     response_type: "code",
-    scope: teamsScopes,
+    scope: config.scope || "",
     prompt: "consent", // Force consent screen every time
-    state: uniqueState,
+    state,
   })
 
-  return `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`
+  return `${config.authEndpoint}?${params.toString()}`
 }
 
-function generateOneDriveAuthUrl(state: string): string {
-  const clientId = process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID
-  if (!clientId) throw new Error("Microsoft client ID not configured")
+async function generateOneDriveAuthUrl(state: string): Promise<string> {
+  const { getOAuthConfig } = await import("@/lib/integrations/oauthConfig")
+  const config = getOAuthConfig("onedrive")
+  if (!config) throw new Error("OneDrive OAuth config not found")
+  
+  const { getOAuthClientCredentials } = await import("@/lib/integrations/oauthConfig")
+  const { clientId } = getOAuthClientCredentials(config)
+  if (!clientId) throw new Error("OneDrive client ID not configured")
+  
   const baseUrl = getBaseUrl()
 
-  // Add unique parameters to force Microsoft to treat this as a separate app
-  const uniqueRedirectUri = `${baseUrl}/api/integrations/onedrive/callback?app=onedrive&v=1`
-  const uniqueState = `${state}&app=onedrive&timestamp=${Date.now()}`
+  // Use standard redirect URI without extra parameters
+  const redirectUri = `${baseUrl}${config.redirectUriPath}`
 
   const params = new URLSearchParams({
     client_id: clientId,
-    redirect_uri: uniqueRedirectUri,
+    redirect_uri: redirectUri,
     response_type: "code",
-    scope: "offline_access User.Read Files.ReadWrite.All",
+    scope: config.scope || "",
     prompt: "consent", // Force consent screen every time
-    state: uniqueState,
+    state,
   })
 
-  return `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`
+  return `${config.authEndpoint}?${params.toString()}`
 }
 
 function generateGitLabAuthUrl(state: string): string {
@@ -918,46 +912,56 @@ function generateBlackbaudAuthUrl(state: string): string {
   return `https://oauth2.sky.blackbaud.com/authorization?${params.toString()}`
 }
 
-function generateMicrosoftOutlookAuthUrl(state: string): string {
-  const clientId = process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID
-  if (!clientId) throw new Error("Microsoft client ID not configured")
+async function generateMicrosoftOutlookAuthUrl(state: string): Promise<string> {
+  const { getOAuthConfig } = await import("@/lib/integrations/oauthConfig")
+  const config = getOAuthConfig("microsoft-outlook")
+  if (!config) throw new Error("Outlook OAuth config not found")
+  
+  const { getOAuthClientCredentials } = await import("@/lib/integrations/oauthConfig")
+  const { clientId } = getOAuthClientCredentials(config)
+  if (!clientId) throw new Error("Outlook client ID not configured")
+  
   const baseUrl = getBaseUrl()
 
-  // Add unique parameters to force Microsoft to treat this as a separate app
-  const uniqueRedirectUri = `${baseUrl}/api/integrations/microsoft-outlook/callback?app=outlook&v=1`
-  const uniqueState = `${state}&app=outlook&timestamp=${Date.now()}`
-
-  const params = new URLSearchParams({
-    client_id: clientId,
-    redirect_uri: uniqueRedirectUri,
-    response_type: "code",
-    scope: "offline_access User.Read Mail.Read Mail.ReadWrite Mail.Send Calendars.Read Calendars.ReadWrite Contacts.Read Contacts.ReadWrite",
-    prompt: "consent", // Force consent screen every time
-    state: uniqueState,
-  })
-
-  return `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`
-}
-
-function generateMicrosoftOneNoteAuthUrl(state: string): string {
-  const clientId = process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID
-  if (!clientId) throw new Error("Microsoft client ID not configured")
-  const baseUrl = getBaseUrl()
-
-  // Add timestamp to redirect URI to force fresh authentication
-  const timestamp = Date.now()
-  const redirectUri = `${baseUrl}/api/integrations/microsoft-onenote/callback?t=${timestamp}`
+  // Use standard redirect URI without extra parameters
+  const redirectUri = `${baseUrl}${config.redirectUriPath}`
 
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: redirectUri,
     response_type: "code",
-    scope: "offline_access openid profile email User.Read Notes.ReadWrite.All Files.Read",
+    scope: config.scope || "",
+    prompt: "consent", // Force consent screen every time
     state,
-    prompt: "consent", // Force Microsoft to show consent screen every time
   })
 
-  return `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`
+  return `${config.authEndpoint}?${params.toString()}`
+}
+
+async function generateMicrosoftOneNoteAuthUrl(state: string): Promise<string> {
+  const { getOAuthConfig } = await import("@/lib/integrations/oauthConfig")
+  const config = getOAuthConfig("microsoft-onenote")
+  if (!config) throw new Error("OneNote OAuth config not found")
+  
+  const { getOAuthClientCredentials } = await import("@/lib/integrations/oauthConfig")
+  const { clientId } = getOAuthClientCredentials(config)
+  if (!clientId) throw new Error("OneNote client ID not configured")
+  
+  const baseUrl = getBaseUrl()
+
+  // Use standard redirect URI without extra parameters
+  const redirectUri = `${baseUrl}${config.redirectUriPath}`
+
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    response_type: "code",
+    scope: config.scope || "",
+    prompt: "consent", // Force consent screen every time
+    state,
+  })
+
+  return `${config.authEndpoint}?${params.toString()}`
 }
 
 async function generateGumroadAuthUrl(stateObject: any): Promise<string> {
