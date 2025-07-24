@@ -115,6 +115,14 @@ export const INTEGRATION_SCOPES = {
     ],
     optional: [],
   },
+  "microsoft-onenote": {
+    required: [
+      "User.Read",
+      "Notes.ReadWrite.All",
+      "Files.Read"
+    ],
+    optional: [],
+  },
   hubspot: {
     required: [
       "crm.objects.companies.read",
@@ -239,9 +247,10 @@ function getRequiredEnvVars(provider: string): string[] {
     facebook: ["NEXT_PUBLIC_FACEBOOK_CLIENT_ID", "FACEBOOK_CLIENT_SECRET"],
     instagram: ["NEXT_PUBLIC_INSTAGRAM_CLIENT_ID", "INSTAGRAM_CLIENT_SECRET"],
     tiktok: ["NEXT_PUBLIC_TIKTOK_CLIENT_ID", "TIKTOK_CLIENT_SECRET"],
-    teams: ["NEXT_PUBLIC_MICROSOFT_CLIENT_ID", "MICROSOFT_CLIENT_SECRET"],
-    onedrive: ["NEXT_PUBLIC_MICROSOFT_CLIENT_ID", "MICROSOFT_CLIENT_SECRET"],
-    "microsoft-outlook": ["NEXT_PUBLIC_MICROSOFT_CLIENT_ID", "MICROSOFT_CLIENT_SECRET"],
+    teams: ["NEXT_PUBLIC_TEAMS_CLIENT_ID", "TEAMS_CLIENT_SECRET"],
+    onedrive: ["NEXT_PUBLIC_ONEDRIVE_CLIENT_ID", "ONEDRIVE_CLIENT_SECRET"],
+    "microsoft-outlook": ["NEXT_PUBLIC_OUTLOOK_CLIENT_ID", "OUTLOOK_CLIENT_SECRET"],
+    "microsoft-onenote": ["NEXT_PUBLIC_ONENOTE_CLIENT_ID", "ONENOTE_CLIENT_SECRET"],
     hubspot: ["NEXT_PUBLIC_HUBSPOT_CLIENT_ID", "HUBSPOT_CLIENT_SECRET"],
     mailchimp: ["NEXT_PUBLIC_MAILCHIMP_CLIENT_ID", "MAILCHIMP_CLIENT_SECRET"],
     shopify: ["NEXT_PUBLIC_SHOPIFY_CLIENT_ID", "SHOPIFY_CLIENT_SECRET"],

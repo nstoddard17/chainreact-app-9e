@@ -25,18 +25,16 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Extract the original state from the enhanced state parameter
-    const originalState = state.split('&app=outlook')[0]
-    const { userId } = JSON.parse(atob(originalState))
+    const { userId } = JSON.parse(atob(state))
     if (!userId) {
       throw new Error("Missing userId in Microsoft Outlook state")
     }
 
     const supabase = createAdminClient()
 
-    const clientId = process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID
-    const clientSecret = process.env.MICROSOFT_CLIENT_SECRET
-    const redirectUri = `${baseUrl}/api/integrations/microsoft-outlook/callback?app=outlook&v=1`
+    const clientId = process.env.NEXT_PUBLIC_OUTLOOK_CLIENT_ID || process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID
+    const clientSecret = process.env.OUTLOOK_CLIENT_SECRET || process.env.MICROSOFT_CLIENT_SECRET
+    const redirectUri = `${baseUrl}/api/integrations/microsoft-outlook/callback`
 
     if (!clientId || !clientSecret) {
       throw new Error("Microsoft client ID or secret not configured")

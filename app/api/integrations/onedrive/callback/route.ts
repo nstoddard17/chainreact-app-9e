@@ -25,18 +25,16 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Extract the original state from the enhanced state parameter
-    const originalState = state.split('&app=onedrive')[0]
-    const { userId } = JSON.parse(atob(originalState))
+    const { userId } = JSON.parse(atob(state))
     if (!userId) {
       throw new Error("Missing userId in OneDrive state")
     }
 
     const supabase = createAdminClient()
 
-    const clientId = process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID
-    const clientSecret = process.env.MICROSOFT_CLIENT_SECRET
-    const redirectUri = `${baseUrl}/api/integrations/onedrive/callback?app=onedrive&v=1`
+    const clientId = process.env.NEXT_PUBLIC_ONEDRIVE_CLIENT_ID || process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID
+    const clientSecret = process.env.ONEDRIVE_CLIENT_SECRET || process.env.MICROSOFT_CLIENT_SECRET
+    const redirectUri = `${baseUrl}/api/integrations/onedrive/callback`
 
     if (!clientId || !clientSecret) {
       throw new Error("Microsoft client ID or secret not configured")
