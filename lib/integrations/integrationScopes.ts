@@ -90,6 +90,10 @@ export const INTEGRATION_SCOPES = {
     required: ["https://graph.microsoft.com/Files.ReadWrite"],
     optional: [],
   },
+  "microsoft-outlook": {
+    required: ["User.Read", "Mail.ReadWrite", "Mail.Send", "Calendars.ReadWrite", "Contacts.ReadWrite"],
+    optional: [],
+  },
   hubspot: {
     required: [
       "crm.objects.companies.read",
@@ -216,6 +220,7 @@ function getRequiredEnvVars(provider: string): string[] {
     tiktok: ["NEXT_PUBLIC_TIKTOK_CLIENT_ID", "TIKTOK_CLIENT_SECRET"],
     teams: ["NEXT_PUBLIC_MICROSOFT_CLIENT_ID", "MICROSOFT_CLIENT_SECRET"],
     onedrive: ["NEXT_PUBLIC_MICROSOFT_CLIENT_ID", "MICROSOFT_CLIENT_SECRET"],
+    "microsoft-outlook": ["NEXT_PUBLIC_MICROSOFT_CLIENT_ID", "MICROSOFT_CLIENT_SECRET"],
     hubspot: ["NEXT_PUBLIC_HUBSPOT_CLIENT_ID", "HUBSPOT_CLIENT_SECRET"],
     mailchimp: ["NEXT_PUBLIC_MAILCHIMP_CLIENT_ID", "MAILCHIMP_CLIENT_SECRET"],
     shopify: ["NEXT_PUBLIC_SHOPIFY_CLIENT_ID", "SHOPIFY_CLIENT_SECRET"],
