@@ -787,7 +787,7 @@ function generateTeamsAuthUrl(state: string): string {
     client_id: clientId,
     redirect_uri: `${baseUrl}/api/integrations/teams/callback`,
     response_type: "code",
-    scope: "User.Read Team.ReadBasic.All Channel.ReadBasic.All Chat.Read Chat.ReadWrite ChatMessage.Send OnlineMeetings.ReadWrite TeamMember.Read.All TeamMember.ReadWrite.All Channel.Create Team.Create",
+    scope: "offline_access User.Read Team.ReadBasic.All Channel.ReadBasic.All Chat.Read Chat.ReadWrite ChatMessage.Send OnlineMeetings.ReadWrite TeamMember.Read.All TeamMember.ReadWrite.All Channel.Create Team.Create",
     prompt: "consent", // Force consent screen every time
     state,
   })
@@ -804,7 +804,7 @@ function generateOneDriveAuthUrl(state: string): string {
     client_id: clientId,
     redirect_uri: `${baseUrl}/api/integrations/onedrive/callback`,
     response_type: "code",
-    scope: "Files.ReadWrite.All",
+    scope: "offline_access User.Read Files.ReadWrite.All",
     prompt: "consent", // Force consent screen every time
     state,
   })
@@ -903,7 +903,7 @@ function generateMicrosoftOutlookAuthUrl(state: string): string {
     client_id: clientId,
     redirect_uri: `${baseUrl}/api/integrations/microsoft-outlook/callback`,
     response_type: "code",
-    scope: "offline_access User.Read Mail.ReadWrite Mail.Send Calendars.ReadWrite Contacts.ReadWrite",
+    scope: "offline_access User.Read Mail.Read Mail.ReadWrite Mail.Send Calendars.Read Calendars.ReadWrite Contacts.Read Contacts.ReadWrite",
     prompt: "consent", // Force consent screen every time
     state,
   })
