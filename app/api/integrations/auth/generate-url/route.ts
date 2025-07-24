@@ -799,13 +799,17 @@ function generateTeamsAuthUrl(state: string): string {
     "Team.Create"
   ].join(" ")
 
+  // Add unique parameters to force Microsoft to treat this as a separate app
+  const uniqueRedirectUri = `${baseUrl}/api/integrations/teams/callback?app=teams&v=1`
+  const uniqueState = `${state}&app=teams&timestamp=${Date.now()}`
+
   const params = new URLSearchParams({
     client_id: clientId,
-    redirect_uri: `${baseUrl}/api/integrations/teams/callback`,
+    redirect_uri: uniqueRedirectUri,
     response_type: "code",
     scope: teamsScopes,
     prompt: "consent", // Force consent screen every time
-    state,
+    state: uniqueState,
   })
 
   return `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`
@@ -816,13 +820,17 @@ function generateOneDriveAuthUrl(state: string): string {
   if (!clientId) throw new Error("Microsoft client ID not configured")
   const baseUrl = getBaseUrl()
 
+  // Add unique parameters to force Microsoft to treat this as a separate app
+  const uniqueRedirectUri = `${baseUrl}/api/integrations/onedrive/callback?app=onedrive&v=1`
+  const uniqueState = `${state}&app=onedrive&timestamp=${Date.now()}`
+
   const params = new URLSearchParams({
     client_id: clientId,
-    redirect_uri: `${baseUrl}/api/integrations/onedrive/callback`,
+    redirect_uri: uniqueRedirectUri,
     response_type: "code",
     scope: "offline_access User.Read Files.ReadWrite.All",
     prompt: "consent", // Force consent screen every time
-    state,
+    state: uniqueState,
   })
 
   return `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`
@@ -915,13 +923,17 @@ function generateMicrosoftOutlookAuthUrl(state: string): string {
   if (!clientId) throw new Error("Microsoft client ID not configured")
   const baseUrl = getBaseUrl()
 
+  // Add unique parameters to force Microsoft to treat this as a separate app
+  const uniqueRedirectUri = `${baseUrl}/api/integrations/microsoft-outlook/callback?app=outlook&v=1`
+  const uniqueState = `${state}&app=outlook&timestamp=${Date.now()}`
+
   const params = new URLSearchParams({
     client_id: clientId,
-    redirect_uri: `${baseUrl}/api/integrations/microsoft-outlook/callback`,
+    redirect_uri: uniqueRedirectUri,
     response_type: "code",
     scope: "offline_access User.Read Mail.Read Mail.ReadWrite Mail.Send Calendars.Read Calendars.ReadWrite Contacts.Read Contacts.ReadWrite",
     prompt: "consent", // Force consent screen every time
-    state,
+    state: uniqueState,
   })
 
   return `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`
