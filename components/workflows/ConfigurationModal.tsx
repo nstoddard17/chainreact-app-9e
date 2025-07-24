@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { NodeComponent, NodeField, ConfigField } from "@/lib/workflows/availableNodes"
 import { useIntegrationStore } from "@/stores/integrationStore"
 import { useWorkflowTestStore } from "@/stores/workflowTestStore"
@@ -19,11 +20,11 @@ import { LocationAutocomplete } from "@/components/ui/location-autocomplete"
 import { GmailLabelsInput } from "@/components/ui/gmail-labels-input"
 import { ConfigurationLoadingScreen } from "@/components/ui/loading-screen"
 import { FileUpload } from "@/components/ui/file-upload"
-import { DatePicker } from "@/components/ui/date-picker"
 import { TimePicker } from "@/components/ui/time-picker"
 import { DateTimePicker } from "@/components/ui/date-time-picker"
 import { Calendar } from "@/components/ui/calendar"
-import { Play, X, Loader2, TestTube, Clock, HelpCircle, AlertCircle, Video, ChevronLeft, ChevronRight, Database, Calendar as CalendarIcon, Upload, Eye, RefreshCw, Package, FileText, Filter, Mail, Image as ImageIcon, Paperclip } from "lucide-react"
+import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, startOfWeek, endOfWeek, addWeeks } from "date-fns"
+import { Play, X, Loader2, TestTube, Clock, HelpCircle, AlertCircle, Video, ChevronLeft, ChevronRight, Database, Calendar as CalendarIcon, Upload, Eye, RefreshCw, Package, FileText, Filter, Mail, Image as ImageIcon, Paperclip, Plus } from "lucide-react"
 
 import { Checkbox } from "@/components/ui/checkbox"
 import { Switch } from "@/components/ui/switch"
@@ -1343,8 +1344,26 @@ function ConfigurationModal({
         endpoint = "/api/discord/fetch-guild-members-preview"
       } else if (nodeInfo.type === "gmail_action_search_emails" || nodeInfo.type === "gmail_action_search_email") {
         endpoint = "/api/workflows/gmail/search-emails-preview"
-      } else if (nodeInfo.type === "microsoft-outlook_action_search_email") {
+      } else if (nodeInfo.type === "microsoft-outlook_action_search_email" || nodeInfo.type === "microsoft-outlook_action_fetch_emails") {
         endpoint = "/api/workflows/outlook/search-emails-preview"
+        // Get the Outlook integration ID
+        const integration = getIntegrationByProvider("microsoft-outlook")
+        if (!integration?.id) {
+          throw new Error("Outlook integration not found. Please connect your Outlook account first.")
+        }
+        requestBody.integrationId = integration.id
+        requestBody.userId = currentUserId
+      } else if (nodeInfo.type === "microsoft-outlook_action_get_contacts") {
+        endpoint = "/api/workflows/outlook/fetch-contacts-preview"
+        // Get the Outlook integration ID
+        const integration = getIntegrationByProvider("microsoft-outlook")
+        if (!integration?.id) {
+          throw new Error("Outlook integration not found. Please connect your Outlook account first.")
+        }
+        requestBody.integrationId = integration.id
+        requestBody.userId = currentUserId
+      } else if (nodeInfo.type === "microsoft-outlook_action_get_calendar_events") {
+        endpoint = "/api/workflows/outlook/fetch-calendar-events-preview"
         // Get the Outlook integration ID
         const integration = getIntegrationByProvider("microsoft-outlook")
         if (!integration?.id) {
@@ -1673,6 +1692,34 @@ function ConfigurationModal({
       // Set default timezone to user's current timezone if not specified
       if (config.timeZone === undefined || config.timeZone === "user-timezone") {
         defaultValues.timeZone = getUserTimezone()
+      }
+      
+      // Set default start date/time to current time rounded to nearest 5 minutes
+      if (config.startDate === undefined) {
+        const now = new Date()
+        const roundedTime = roundToNearest5Minutes(now)
+        defaultValues.startDate = roundedTime.toISOString()
+      }
+      
+      if (config.startTime === undefined) {
+        const now = new Date()
+        const roundedTime = roundToNearest5Minutes(now)
+        defaultValues.startTime = formatTime(roundedTime)
+      }
+      
+      // Set default end date/time to 1 hour after start
+      if (config.endDate === undefined) {
+        const startTime = config.startDate ? new Date(config.startDate) : roundToNearest5Minutes(new Date())
+        const endTime = new Date(startTime)
+        endTime.setHours(endTime.getHours() + 1)
+        defaultValues.endDate = endTime.toISOString()
+      }
+      
+      if (config.endTime === undefined) {
+        const startTime = config.startDate ? new Date(config.startDate) : roundToNearest5Minutes(new Date())
+        const endTime = new Date(startTime)
+        endTime.setHours(endTime.getHours() + 1)
+        defaultValues.endTime = formatTime(endTime)
       }
     }
 
@@ -3154,7 +3201,18 @@ function ConfigurationModal({
             } else if (field.dynamic === "outlook_folders") {
               processedData = data.map((folder: any) => ({ value: folder.id, label: folder.name, description: folder.unreadItemCount ? `${folder.unreadItemCount} unread` : undefined }))
             } else if (field.dynamic === "outlook_messages") {
-              processedData = data.map((message: any) => ({ value: message.id, label: message.name, description: `${message.fromName} (${message.from})`, email: message.from, fromName: message.fromName, receivedDateTime: message.receivedDateTime, isRead: message.isRead, hasAttachments: message.hasAttachments }))
+              processedData = data.map((message: any) => ({ 
+                value: message.id, 
+                label: message.name || message.subject || 'No subject', 
+                description: `${message.fromName || 'Unknown'} (${message.from || message.sender || 'No email'})`, 
+                email: message.from || message.sender, 
+                fromName: message.fromName, 
+                receivedDateTime: message.receivedDateTime, 
+                isRead: message.isRead, 
+                hasAttachments: message.hasAttachments,
+                body: message.body || message.bodyPreview || '',
+                subject: message.name || message.subject || 'No subject'
+              }))
             } else if (field.dynamic === "outlook_contacts") {
               processedData = data.map((contact: any) => ({ value: contact.id, label: contact.name, description: contact.email ? contact.email : contact.company ? contact.company : undefined, email: contact.email, businessPhone: contact.businessPhone, mobilePhone: contact.mobilePhone, company: contact.company, jobTitle: contact.jobTitle }))
             } else if (field.dynamic === "outlook-enhanced-recipients") {
@@ -5778,6 +5836,145 @@ function ConfigurationModal({
 
     switch (String(field.type)) {
       case "text":
+      case "location-autocomplete":
+        // Special handling for Outlook calendar event location fields
+        if (nodeInfo?.type === "microsoft-outlook_action_create_calendar_event" && 
+            (field.name === "location" || field.name === "locations")) {
+          
+          // For the main location field
+          if (field.name === "location") {
+            return (
+              <div className="space-y-2">
+                {renderDynamicLabel()}
+                <EnhancedLocationInput
+                  value={value || ""}
+                  onChange={(newValue) => {
+                    setConfig(prev => ({ ...prev, [field.name]: newValue }))
+                    if (hasError) {
+                      setErrors(prev => {
+                        const newErrors = { ...prev }
+                        delete newErrors[field.name]
+                        return newErrors
+                      })
+                    }
+                  }}
+                  placeholder={field.placeholder || "Enter location or room number"}
+                  disabled={loadingDynamic}
+                  className={cn(hasError && "border-red-500")}
+                  workflowData={workflowData}
+                  currentNodeId={currentNodeId}
+                  onVariableSelect={handleVariableSelect}
+                />
+                {hasError && (
+                  <p className="text-xs text-red-500">{errors[field.name]}</p>
+                )}
+              </div>
+            )
+          }
+          
+          // For the locations field (additional locations)
+          if (field.name === "locations") {
+            const locations = Array.isArray(value) ? value : []
+            
+            return (
+              <div className="space-y-4">
+                {renderDynamicLabel()}
+                <div className="space-y-3">
+                  {locations.map((location, index) => (
+                    <div key={index} className="flex gap-2 items-start">
+                      <div className="flex-1">
+                        <EnhancedLocationInput
+                          value={location || ""}
+                          onChange={(newValue) => {
+                            const newLocations = [...locations]
+                            newLocations[index] = newValue
+                            setConfig(prev => ({ ...prev, [field.name]: newLocations }))
+                            if (hasError) {
+                              setErrors(prev => {
+                                const newErrors = { ...prev }
+                                delete newErrors[field.name]
+                                return newErrors
+                              })
+                            }
+                          }}
+                          placeholder={`Additional location ${index + 1}`}
+                          disabled={loadingDynamic}
+                          className={cn(hasError && "border-red-500")}
+                          workflowData={workflowData}
+                          currentNodeId={currentNodeId}
+                          onVariableSelect={handleVariableSelect}
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const newLocations = locations.filter((_, i) => i !== index)
+                          setConfig(prev => ({ ...prev, [field.name]: newLocations }))
+                        }}
+                        className="flex-shrink-0"
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const newLocations = [...locations, ""]
+                      setConfig(prev => ({ ...prev, [field.name]: newLocations }))
+                    }}
+                    className="w-full"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Additional Location
+                  </Button>
+                </div>
+                {hasError && (
+                  <p className="text-xs text-red-500">{errors[field.name]}</p>
+                )}
+              </div>
+            )
+          }
+        }
+        
+        // Special handling for Google Calendar event location fields
+        if (nodeInfo?.type === "google_calendar_action_create_event" && 
+            field.name === "location") {
+          
+          return (
+            <div className="space-y-2">
+              {renderDynamicLabel()}
+              <EnhancedLocationInput
+                value={value || ""}
+                onChange={(newValue) => {
+                  setConfig(prev => ({ ...prev, [field.name]: newValue }))
+                  if (hasError) {
+                    setErrors(prev => {
+                      const newErrors = { ...prev }
+                      delete newErrors[field.name]
+                      return newErrors
+                    })
+                  }
+                }}
+                placeholder={field.placeholder || "Enter location or room number"}
+                disabled={loadingDynamic}
+                className={cn(hasError && "border-red-500")}
+                workflowData={workflowData}
+                currentNodeId={currentNodeId}
+                onVariableSelect={handleVariableSelect}
+              />
+              {hasError && (
+                <p className="text-xs text-red-500">{errors[field.name]}</p>
+              )}
+            </div>
+          )
+        }
+        
         // Fall through to default text handling
       case "email":
       case "password":
@@ -6649,6 +6846,242 @@ function ConfigurationModal({
           )
         }
 
+        // Add enhanced email selection for Outlook reply to email
+        if (nodeInfo?.type === "microsoft-outlook_action_reply_to_email" && field.name === "messageId") {
+          const [searchQuery, setSearchQuery] = React.useState("")
+          
+          // Get options for the select field
+          let options: any[] = []
+          if (field.dynamic) {
+            options = (dynamicOptions[field.name] as any[]) || 
+                     (typeof field.dynamic === 'string' ? (dynamicOptions[field.dynamic] as any[]) : []) || 
+                     []
+          } else if (field.options) {
+            options = field.options as any[]
+          }
+          
+          // Filter emails based on search query
+          const filteredEmails = options.filter((option: any) => {
+            if (!searchQuery) return true
+            const searchText = `${option.label || ''} ${option.subject || ''} ${option.fromName || ''} ${option.email || option.from || ''} ${option.body || ''} ${option.description || ''}`.toLowerCase()
+            return searchText.includes(searchQuery.toLowerCase())
+          })
+          
+          // Limit to past 10 emails and enhance the display
+          const recentEmails = filteredEmails.slice(0, 10).map((option: any) => ({
+            ...option,
+            label: option.label || option.name || option.subject || 'No subject',
+            description: option.description || `${option.fromName || 'Unknown'} (${option.email || option.from || 'No email'})`,
+            searchText: `${option.label || ''} ${option.subject || ''} ${option.fromName || ''} ${option.email || option.from || ''} ${option.body || ''} ${option.description || ''}`.toLowerCase()
+          }))
+          
+          // Find the selected option to display the label properly
+          const selectedOption = recentEmails.find((option: any) => {
+            const optionValue = typeof option === 'string' ? option : option.value
+            return optionValue === value
+          })
+          
+          // Use selected option label, fallback to stored label, then fallback to value
+          let selectedLabel = value
+          if (selectedOption) {
+            selectedLabel = selectedOption.label
+          } else if (config[`${field.name}_label`]) {
+            // Fallback to stored label if option not found (e.g., when data is still loading)
+            selectedLabel = config[`${field.name}_label`]
+          }
+          
+          return (
+            <div className="space-y-2">
+              {renderDynamicLabel()}
+              <div className="flex gap-2 w-full relative">
+                {loadingDynamic && (
+                  <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-10 flex items-center justify-center rounded-md border">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Loading recent emails...
+                    </div>
+                  </div>
+                )}
+                <div className="flex-1">
+                  <Select
+                    value={value}
+                    onValueChange={handleSelectChange}
+                    disabled={Boolean(loadingDynamic)}
+                  >
+                    <SelectTrigger className={cn("w-full", hasError && "border-red-500")}>
+                      <SelectValue placeholder={field.placeholder}>
+                        {selectedLabel}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent 
+                      className="max-h-[min(384px,calc(100vh-64px))] overflow-y-auto" 
+                      side="bottom" 
+                      sideOffset={0} 
+                      align="start"
+                    >
+                      {loadingDynamic ? (
+                        <div className="flex items-center justify-start py-4 text-sm text-muted-foreground px-3">
+                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                          Loading recent emails...
+                        </div>
+                      ) : recentEmails.length === 0 ? (
+                        <div className="flex items-center justify-start py-4 text-sm text-muted-foreground px-3">
+                          No recent emails available
+                        </div>
+                      ) : (
+                        <>
+                          <div className="px-3 py-2 text-xs font-medium text-muted-foreground border-b">
+                            Recent 10 emails (search by subject, sender, or content)
+                          </div>
+                          <div className="p-2 border-b">
+                            <Input
+                              placeholder="Search emails..."
+                              value={searchQuery}
+                              onChange={(e) => setSearchQuery(e.target.value)}
+                              className="h-8 text-sm"
+                            />
+                          </div>
+                          {recentEmails.map((option: any, optionIndex: number) => {
+                            const optionValue = typeof option === 'string' ? option : option.value
+                            const optionLabel = typeof option === 'string' ? option : option.label
+                            const optionDescription = typeof option === 'string' ? undefined : option.description
+                            return (
+                              <SelectItem key={`email-option-${optionIndex}-${optionValue || 'undefined'}`} value={optionValue} className="whitespace-nowrap">
+                                <div className="flex flex-col">
+                                  <div className="font-medium">{optionLabel}</div>
+                                  {optionDescription && (
+                                    <div className="text-xs text-muted-foreground">{optionDescription}</div>
+                                  )}
+                                </div>
+                              </SelectItem>
+                            )
+                          })}
+                        </>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <VariablePicker
+                  workflowData={workflowData}
+                  currentNodeId={currentNodeId}
+                  onVariableSelect={(variable) => {
+                    setConfig(prev => ({ ...prev, [field.name]: variable }))
+                  }}
+                  fieldType="text"
+                  trigger={
+                    <Button variant="outline" size="sm" className="flex-shrink-0 px-3 min-h-[2.5rem]" title="Select from previous node">
+                      <Database className="w-4 h-4" />
+                    </Button>
+                  }
+                />
+              </div>
+              {hasError && (
+                <p className="text-xs text-red-500">{errors[field.name]}</p>
+              )}
+            </div>
+          )
+        }
+
+        // Add variable picker for Outlook move email fields
+        if (nodeInfo?.type === "microsoft-outlook_action_move_email" && (field.name === "messageId" || field.name === "destinationFolderId")) {
+          // Get options for the select field
+          let options: any[] = []
+          if (field.dynamic) {
+            options = (dynamicOptions[field.name] as any[]) || 
+                     (typeof field.dynamic === 'string' ? (dynamicOptions[field.dynamic] as any[]) : []) || 
+                     []
+          } else if (field.options) {
+            options = field.options as any[]
+          }
+          
+          // Find the selected option to display the label properly
+          const selectedOption = options.find((option: any) => {
+            const optionValue = typeof option === 'string' ? option : option.value
+            return optionValue === value
+          })
+          
+          // Use selected option label, fallback to stored label, then fallback to value
+          let selectedLabel = value
+          if (selectedOption) {
+            selectedLabel = typeof selectedOption === 'string' ? selectedOption : selectedOption.label
+          } else if (config[`${field.name}_label`]) {
+            // Fallback to stored label if option not found (e.g., when data is still loading)
+            selectedLabel = config[`${field.name}_label`]
+          }
+          
+          return (
+            <div className="space-y-2">
+              {renderDynamicLabel()}
+              <div className="flex gap-2 w-full relative">
+                {loadingDynamic && (
+                  <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-10 flex items-center justify-center rounded-md border">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Loading {field.label?.toLowerCase() || 'options'}...
+                    </div>
+                  </div>
+                )}
+                <div className="flex-1">
+                  <Select
+                    value={value}
+                    onValueChange={handleSelectChange}
+                    disabled={Boolean(loadingDynamic)}
+                  >
+                    <SelectTrigger className={cn("w-full", hasError && "border-red-500")}>
+                      <SelectValue placeholder={field.placeholder}>
+                        {selectedLabel}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent 
+                      className="max-h-[min(384px,calc(100vh-64px))] overflow-y-auto" 
+                      side="bottom" 
+                      sideOffset={0} 
+                      align="start"
+                    >
+                      {loadingDynamic ? (
+                        <div className="flex items-center justify-start py-4 text-sm text-muted-foreground px-3">
+                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                          Loading {field.label?.toLowerCase() || 'options'}...
+                        </div>
+                      ) : options.length === 0 ? (
+                        <div className="flex items-center justify-start py-4 text-sm text-muted-foreground px-3">
+                          No {field.label?.toLowerCase() || 'options'} available
+                        </div>
+                      ) : (
+                        options.map((option: any, optionIndex: number) => {
+                          const optionValue = typeof option === 'string' ? option : option.value
+                          const optionLabel = typeof option === 'string' ? option : option.label
+                          return (
+                            <SelectItem key={`select-option-${optionIndex}-${optionValue || 'undefined'}`} value={optionValue} className="whitespace-nowrap">
+                              {optionLabel}
+                            </SelectItem>
+                          )
+                        })
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <VariablePicker
+                  workflowData={workflowData}
+                  currentNodeId={currentNodeId}
+                  onVariableSelect={(variable) => {
+                    setConfig(prev => ({ ...prev, [field.name]: variable }))
+                  }}
+                  fieldType="text"
+                  trigger={
+                    <Button variant="outline" size="sm" className="flex-shrink-0 px-3 min-h-[2.5rem]" title="Select from previous node">
+                      <Database className="w-4 h-4" />
+                    </Button>
+                  }
+                />
+              </div>
+              {hasError && (
+                <p className="text-xs text-red-500">{errors[field.name]}</p>
+              )}
+            </div>
+          )
+        }
+
         // Add variable picker for Discord member selection fields (assign role, remove role, kick member, ban member, unban member)
         if (nodeInfo && (nodeInfo.type === "discord_action_assign_role" || nodeInfo.type === "discord_action_remove_role" || nodeInfo.type === "discord_action_kick_member" || nodeInfo.type === "discord_action_ban_member" || nodeInfo.type === "discord_action_unban_member") && field.name === "userId") {
           // Get options for the select field
@@ -7281,6 +7714,169 @@ function ConfigurationModal({
           </div>
         )
 
+        // Default case for select fields with variable picker support
+        if (field.hasVariablePicker) {
+          // Get options for the select field
+          let options: any[] = []
+          if (field.dynamic) {
+            options = (dynamicOptions[field.name] as any[]) || 
+                     (typeof field.dynamic === 'string' ? (dynamicOptions[field.dynamic] as any[]) : []) || 
+                     []
+          } else if (field.options) {
+            options = field.options as any[]
+          }
+          
+          // Find the selected option to display the label properly
+          const selectedOption = options.find((option: any) => {
+            const optionValue = typeof option === 'string' ? option : option.value
+            return optionValue === value
+          })
+          
+          // Use selected option label, fallback to stored label, then fallback to value
+          let selectedLabel = value
+          if (selectedOption) {
+            selectedLabel = typeof selectedOption === 'string' ? selectedOption : selectedOption.label
+          } else if (config[`${field.name}_label`]) {
+            // Fallback to stored label if option not found (e.g., when data is still loading)
+            selectedLabel = config[`${field.name}_label`]
+          }
+          
+          return (
+            <div className="space-y-2">
+              {renderDynamicLabel()}
+              <div className="flex gap-2 w-full relative">
+                {loadingDynamic && (
+                  <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-10 flex items-center justify-center rounded-md border">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Loading {field.label?.toLowerCase() || 'options'}...
+                    </div>
+                  </div>
+                )}
+                <div className="flex-1">
+                  <Select
+                    value={value}
+                    onValueChange={handleSelectChange}
+                    disabled={Boolean(loadingDynamic)}
+                  >
+                    <SelectTrigger className={cn("w-full", hasError && "border-red-500")}>
+                      <SelectValue placeholder={field.placeholder}>
+                        {selectedLabel}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent 
+                      className="max-h-[min(384px,calc(100vh-64px))] overflow-y-auto" 
+                      side="bottom" 
+                      sideOffset={0} 
+                      align="start"
+                    >
+                      {loadingDynamic ? (
+                        <div className="flex items-center justify-start py-4 text-sm text-muted-foreground px-3">
+                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                          Loading {field.label?.toLowerCase() || 'options'}...
+                        </div>
+                      ) : options.length === 0 ? (
+                        <div className="flex items-center justify-start py-4 text-sm text-muted-foreground px-3">
+                          No {field.label?.toLowerCase() || 'options'} available
+                        </div>
+                      ) : (
+                        options.map((option: any, optionIndex: number) => {
+                          const optionValue = typeof option === 'string' ? option : option.value
+                          const optionLabel = typeof option === 'string' ? option : option.label
+                          return (
+                            <SelectItem key={`select-option-${optionIndex}-${optionValue || 'undefined'}`} value={optionValue} className="whitespace-nowrap">
+                              {optionLabel}
+                            </SelectItem>
+                          )
+                        })
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <VariablePicker
+                  workflowData={workflowData}
+                  currentNodeId={currentNodeId}
+                  onVariableSelect={(variable) => {
+                    setConfig(prev => ({ ...prev, [field.name]: variable }))
+                  }}
+                  fieldType="text"
+                  trigger={
+                    <Button variant="outline" size="sm" className="flex-shrink-0 px-3 min-h-[2.5rem]" title="Select from previous node">
+                      <Database className="w-4 h-4" />
+                    </Button>
+                  }
+                />
+              </div>
+              {hasError && (
+                <p className="text-xs text-red-500">{errors[field.name]}</p>
+              )}
+            </div>
+          )
+        }
+
+        // Default case for regular select fields
+        const selectOptions = field.dynamic ? (dynamicOptions[field.name] as any[]) || [] : (field.options as any[]) || [];
+        const isSelectLoading = field.dynamic && loadingDynamic;
+        
+        return (
+          <div className="space-y-2">
+            {renderDynamicLabel()}
+            <div className="flex gap-2 w-full relative">
+              {isSelectLoading && (
+                <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-10 flex items-center justify-center rounded-md border">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Loading {field.label?.toLowerCase() || 'options'}...
+                  </div>
+                </div>
+              )}
+              <div className="flex-1">
+                <Select
+                  value={value}
+                  onValueChange={handleSelectChange}
+                  disabled={isSelectLoading}
+                >
+                  <SelectTrigger className={cn("w-full", hasError && "border-red-500")}>
+                    <SelectValue placeholder={field.placeholder}>
+                      {value}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent 
+                    className="max-h-[min(384px,calc(100vh-64px))] overflow-y-auto" 
+                    side="bottom" 
+                    sideOffset={0} 
+                    align="start"
+                  >
+                    {isSelectLoading ? (
+                      <div className="flex items-center justify-start py-4 text-sm text-muted-foreground px-3">
+                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                        Loading {field.label?.toLowerCase() || 'options'}...
+                      </div>
+                    ) : selectOptions.length === 0 ? (
+                      <div className="flex items-center justify-start py-4 text-sm text-muted-foreground px-3">
+                        No {field.label?.toLowerCase() || 'options'} available
+                      </div>
+                    ) : (
+                      selectOptions.map((option: any, optionIndex: number) => {
+                        const optionValue = typeof option === 'string' ? option : option.value
+                        const optionLabel = typeof option === 'string' ? option : option.label
+                        return (
+                          <SelectItem key={`select-option-${optionIndex}-${optionValue || 'undefined'}`} value={optionValue} className="whitespace-nowrap">
+                            {optionLabel}
+                          </SelectItem>
+                        )
+                      })
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            {hasError && (
+              <p className="text-xs text-red-500">{errors[field.name]}</p>
+            )}
+          </div>
+        )
+
       case "combobox":
         // Special case for Slack addPeople field
         if (nodeInfo?.type === "slack_action_create_channel" && field.name === "addPeople") {
@@ -7345,11 +7941,11 @@ function ConfigurationModal({
                   }))}
                   value={value}
                   onChange={handleSelectChange}
-                  disabled={isComboboxLoading}
+                  disabled={Boolean(isComboboxLoading)}
                   placeholder={isComboboxLoading ? "Loading..." : field.placeholder}
                   searchPlaceholder="Search or type to create new..."
                   emptyPlaceholder={isComboboxLoading ? "Loading..." : "No results found."}
-                  creatable={Boolean(field.creatable)}
+                  creatable={!!field.creatable}
                 />
               </div>
             </div>
@@ -7525,6 +8121,8 @@ function ConfigurationModal({
 
       case "custom":
         // Handle custom field types
+
+        
         if (field.name === "additional_properties") {
           // Import the DynamicFieldSelector component
           const DynamicFieldSelector = require("./DynamicFieldSelector").default
@@ -7685,6 +8283,170 @@ function ConfigurationModal({
                 </p>
               )}
             </div>
+          </div>
+        )
+
+      case "date":
+        // Special handling for Outlook calendar event date fields
+        if (nodeInfo?.type === "microsoft-outlook_action_create_calendar_event" && 
+            (field.name === "startDate" || field.name === "endDate")) {
+          return (
+            <div className="space-y-2">
+              {renderDynamicLabel()}
+              <div className="flex items-center gap-2">
+                <DateOnlyPicker
+                  value={value ? new Date(value) : undefined}
+                  onChange={(date) => {
+                    if (date) {
+                      // For start date, set the time to current time rounded to nearest 5 minutes
+                      if (field.name === "startDate") {
+                        const now = new Date()
+                        const roundedTime = roundToNearest5Minutes(now)
+                        date.setHours(roundedTime.getHours(), roundedTime.getMinutes(), 0, 0)
+                        
+                        // Also update the start time field
+                        setConfig(prev => ({ 
+                          ...prev, 
+                          startTime: formatTime(date)
+                        }))
+                      }
+                      
+                      // For end date, set it to 1 hour after start if it's the same as start
+                      if (field.name === "endDate") {
+                        const startDate = config.startDate ? new Date(config.startDate) : new Date()
+                        if (date.toDateString() === startDate.toDateString()) {
+                          date.setHours(startDate.getHours() + 1, startDate.getMinutes(), 0, 0)
+                          
+                          // Also update the end time field
+                          setConfig(prev => ({ 
+                            ...prev, 
+                            endTime: formatTime(date)
+                          }))
+                        }
+                      }
+                    }
+                    
+                    setConfig(prev => ({ 
+                      ...prev, 
+                      [field.name]: date ? date.toISOString() : null 
+                    }))
+                  }}
+                  placeholder={field.placeholder || "Select date"}
+                  className="flex-1"
+                />
+                {value && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setConfig(prev => ({ ...prev, [field.name]: null }))}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+              {hasError && (
+                <p className="text-xs text-red-500">{errors[field.name]}</p>
+              )}
+            </div>
+          )
+        }
+        
+        // Default date picker for other date fields
+        return (
+          <div className="space-y-2">
+            {renderDynamicLabel()}
+            <DateOnlyPicker
+              value={value ? new Date(value) : undefined}
+              onChange={handleDateChange}
+              placeholder={field.placeholder || "Pick a date"}
+              className="w-full"
+            />
+            {hasError && (
+              <p className="text-xs text-red-500">{errors[field.name]}</p>
+            )}
+          </div>
+        )
+
+      case "time":
+        // Special handling for Outlook calendar event time fields
+        if (nodeInfo?.type === "microsoft-outlook_action_create_calendar_event" && 
+            (field.name === "startTime" || field.name === "endTime")) {
+          // Generate time options in 5-minute intervals with AM/PM format
+          const timeOptions = [];
+          for (let hour = 0; hour < 24; hour++) {
+            for (let minute = 0; minute < 60; minute += 5) {
+              const timeString = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+              const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+              const ampm = hour < 12 ? 'AM' : 'PM';
+              const displayTime = `${displayHour}:${minute.toString().padStart(2, '0')} ${ampm}`;
+              timeOptions.push({
+                value: timeString,
+                label: displayTime
+              });
+            }
+          }
+          
+          return (
+            <div className="space-y-2">
+              {renderDynamicLabel()}
+              <div className="flex items-center gap-2">
+                <Select
+                  value={value}
+                  onValueChange={(newValue) => {
+                    setConfig(prev => ({ 
+                      ...prev, 
+                      [field.name]: newValue 
+                    }))
+                  }}
+                >
+                  <SelectTrigger className={cn("flex-1", hasError && "border-red-500")}>
+                    <SelectValue placeholder={field.placeholder || "Select time"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {timeOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {value && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setConfig(prev => ({ 
+                        ...prev, 
+                        [field.name]: null 
+                      }))
+                    }}
+                    className="shrink-0"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+              {hasError && (
+                <p className="text-xs text-red-500">{errors[field.name]}</p>
+              )}
+            </div>
+          )
+        }
+        
+        return (
+          <div className="space-y-2">
+            {renderDynamicLabel()}
+            <Input
+              type="time"
+              value={value}
+              onChange={(e) => handleTimeChange(e.target.value)}
+              placeholder={field.placeholder || "Select time"}
+              className={cn("w-full", hasError && "border-red-500")}
+            />
+            {hasError && (
+              <p className="text-xs text-red-500">{errors[field.name]}</p>
+            )}
           </div>
         )
 
@@ -8789,7 +9551,9 @@ function ConfigurationModal({
                     nodeInfo?.type === "discord_action_fetch_guild_members" ||
                     nodeInfo?.type === "notion_action_search_pages" ||
                     nodeInfo?.type === "facebook_action_get_page_insights" ||
-                    nodeInfo?.type === "facebook_action_comment_on_post") && (
+                    nodeInfo?.type === "facebook_action_comment_on_post" ||
+                    nodeInfo?.type === "microsoft-outlook_action_get_contacts" ||
+                    nodeInfo?.type === "microsoft-outlook_action_get_calendar_events") && (
                     <div className="space-y-3 border-t pt-4">
                       <div className="flex items-center justify-between">
                         <div className="text-sm font-medium">Preview Results</div>
@@ -8819,6 +9583,15 @@ function ConfigurationModal({
                         </div>
                       )}
 
+                      {!previewData && !previewError && (
+                        <div className="text-sm text-muted-foreground bg-muted/30 p-4 rounded border flex flex-col items-center justify-center">
+                          <div className="mb-2">
+                            <Database className="w-8 h-8 text-muted-foreground/50" />
+                          </div>
+                          <p>No data yet. Configure your settings and use "Load Preview" to see sample results.</p>
+                        </div>
+                      )}
+
                       {previewData && (
                         <div className="space-y-2">
                           {nodeInfo?.type === "discord_action_fetch_messages" && (
@@ -8841,6 +9614,81 @@ function ConfigurationModal({
                           )}
                           {nodeInfo?.type === "facebook_action_comment_on_post" && (
                             <FacebookCommentPreview preview={previewData.preview} />
+                          )}
+                          {nodeInfo?.type === "microsoft-outlook_action_get_contacts" && (
+                            <div className="w-full border rounded-lg overflow-hidden">
+                              <div className="max-h-[400px] overflow-y-auto overflow-x-hidden">
+                                <div className="divide-y">
+                                  {previewData.contacts?.map((contact: any, index: number) => (
+                                    <div key={contact.id || index} className="p-4 hover:bg-muted/30">
+                                      <div className="flex items-start justify-between mb-2">
+                                        <div className="font-medium text-sm truncate flex-1">
+                                          {contact.displayName || contact.givenName + ' ' + contact.surname}
+                                        </div>
+                                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                          {contact.emailAddresses?.[0]?.address && (
+                                            <span className="text-blue-600">Email</span>
+                                          )}
+                                        </div>
+                                      </div>
+                                      {contact.emailAddresses?.[0]?.address && (
+                                        <div className="text-sm text-muted-foreground mb-1">
+                                          Email: {contact.emailAddresses[0].address}
+                                        </div>
+                                      )}
+                                      {contact.businessPhones?.[0] && (
+                                        <div className="text-sm text-muted-foreground mb-1">
+                                          Phone: {contact.businessPhones[0]}
+                                        </div>
+                                      )}
+                                      {contact.jobTitle && (
+                                        <div className="text-sm text-muted-foreground mb-2">
+                                          {contact.jobTitle}
+                                        </div>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                          {nodeInfo?.type === "microsoft-outlook_action_get_calendar_events" && (
+                            <div className="w-full border rounded-lg overflow-hidden">
+                              <div className="max-h-[400px] overflow-y-auto overflow-x-hidden">
+                                <div className="divide-y">
+                                  {previewData.events?.map((event: any, index: number) => (
+                                    <div key={event.id || index} className="p-4 hover:bg-muted/30">
+                                      <div className="flex items-start justify-between mb-2">
+                                        <div className="font-medium text-sm truncate flex-1">
+                                          {event.subject}
+                                        </div>
+                                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                          {event.isAllDay && (
+                                            <span className="text-green-600">All Day</span>
+                                          )}
+                                          {event.isCancelled && (
+                                            <span className="text-red-600">Cancelled</span>
+                                          )}
+                                        </div>
+                                      </div>
+                                      <div className="text-sm text-muted-foreground mb-1">
+                                        {new Date(event.start?.dateTime || event.start?.date).toLocaleString()}
+                                      </div>
+                                      {event.location?.displayName && (
+                                        <div className="text-sm text-muted-foreground mb-2">
+                                          📍 {event.location.displayName}
+                                        </div>
+                                      )}
+                                      {event.bodyPreview && (
+                                        <div className="text-sm text-muted-foreground line-clamp-2">
+                                          {event.bodyPreview}
+                                        </div>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
                           )}
                         </div>
                       )}
@@ -8867,7 +9715,7 @@ function ConfigurationModal({
                           ) : (
                             <>
                               <Eye className="w-4 h-4 mr-2" />
-                              Load Sample
+                              Load Preview
                             </>
                           )}
                         </Button>
@@ -8884,7 +9732,7 @@ function ConfigurationModal({
                           <div className="mb-2">
                             <Mail className="w-8 h-8 text-muted-foreground/50" />
                           </div>
-                          <p>No data yet. Run your workflow or use "Load Sample" to preview results.</p>
+                          <p>No data yet. Configure your search and use "Load Preview" to see sample results.</p>
                         </div>
                       )}
 
@@ -8902,7 +9750,8 @@ function ConfigurationModal({
                   )}
 
                   {/* Outlook Search Email Preview */}
-                  {nodeInfo?.type === "microsoft-outlook_action_search_email" && (
+                  {(nodeInfo?.type === "microsoft-outlook_action_search_email" || 
+                    nodeInfo?.type === "microsoft-outlook_action_fetch_emails") && (
                     <div className="space-y-3 border-t pt-4 mt-6 w-full max-w-full">
                       <div className="flex items-center justify-between">
                         <div className="text-sm font-medium">Sample Messages</div>
@@ -8991,27 +9840,6 @@ function ConfigurationModal({
                     <Button variant="outline" onClick={() => onClose(false)}>
                       Cancel
                     </Button>
-                    {(nodeInfo?.type === "facebook_action_get_page_insights" || 
-                      nodeInfo?.type === "facebook_action_comment_on_post") && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handlePreview}
-                        disabled={previewLoading}
-                      >
-                        {previewLoading ? (
-                          <>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            Loading...
-                          </>
-                        ) : (
-                          <>
-                            <Eye className="w-4 h-4 mr-2" />
-                            Load Preview
-                          </>
-                        )}
-                      </Button>
-                    )}
                   </div>
                   <Button 
                     onClick={handleSave}
@@ -9170,6 +9998,291 @@ function ConfigurationModal({
         </Dialog>
       )}
     </TooltipProvider>
+  )
+}
+
+// DateOnlyPicker component based on DateTimePicker but without time selection
+interface DateOnlyPickerProps {
+  value?: Date
+  onChange?: (date: Date | undefined) => void
+  placeholder?: string
+  disabled?: boolean
+  className?: string
+}
+
+// EnhancedLocationInput component for Outlook calendar events
+interface EnhancedLocationInputProps {
+  value: string
+  onChange: (value: string) => void
+  placeholder?: string
+  disabled?: boolean
+  className?: string
+  workflowData?: { nodes: any[], edges: any[] }
+  currentNodeId?: string
+  onVariableSelect?: (variable: string) => void
+}
+
+const EnhancedLocationInput = ({
+  value,
+  onChange,
+  placeholder = "Enter location or room number",
+  disabled,
+  className,
+  workflowData,
+  currentNodeId,
+  onVariableSelect
+}: EnhancedLocationInputProps) => {
+  const [suggestions, setSuggestions] = React.useState<string[]>([])
+  const [showSuggestions, setShowSuggestions] = React.useState(false)
+  const [isLoading, setIsLoading] = React.useState(false)
+  const inputRef = React.useRef<HTMLInputElement>(null)
+  const suggestionsRef = React.useRef<HTMLDivElement>(null)
+
+  const searchPlaces = async (query: string) => {
+    if (query.length < 3) {
+      setSuggestions([])
+      return
+    }
+
+    setIsLoading(true)
+    try {
+      // Use our server-side API endpoint for Google Places autocomplete
+      const response = await fetch(
+        `/api/google-maps/places-autocomplete?query=${encodeURIComponent(query)}`
+      )
+      
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`)
+      }
+      
+      const data = await response.json()
+      
+      if (data.predictions && Array.isArray(data.predictions)) {
+        const suggestions = data.predictions.map((pred: any) => pred.description)
+        setSuggestions(suggestions)
+      } else {
+        setSuggestions([])
+      }
+    } catch (error) {
+      console.error('Error fetching place suggestions:', error)
+      setSuggestions([])
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value
+    onChange(newValue)
+    
+    if (newValue.length >= 3) {
+      searchPlaces(newValue)
+      setShowSuggestions(true)
+    } else {
+      setSuggestions([])
+      setShowSuggestions(false)
+    }
+  }
+
+  const handleSuggestionClick = (suggestion: string) => {
+    onChange(suggestion)
+    setShowSuggestions(false)
+    setSuggestions([])
+    inputRef.current?.focus()
+  }
+
+  const handleInputFocus = () => {
+    if (suggestions.length > 0) {
+      setShowSuggestions(true)
+    }
+  }
+
+  const handleInputBlur = () => {
+    // Delay hiding suggestions to allow for clicks
+    setTimeout(() => {
+      setShowSuggestions(false)
+    }, 200)
+  }
+
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (suggestionsRef.current && !suggestionsRef.current.contains(event.target as Node)) {
+        setShowSuggestions(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  return (
+    <div className="relative w-full">
+      <div className="flex gap-2">
+        <div className="flex-1 relative">
+          <Input
+            ref={inputRef}
+            type="text"
+            value={value}
+            onChange={handleInputChange}
+            onFocus={handleInputFocus}
+            onBlur={handleInputBlur}
+            placeholder={placeholder}
+            disabled={Boolean(disabled)}
+            className={cn("w-full", className)}
+          />
+          {isLoading && (
+            <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+              <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+            </div>
+          )}
+        </div>
+        {onVariableSelect && (
+          <VariablePicker
+            workflowData={workflowData}
+            currentNodeId={currentNodeId}
+            onVariableSelect={onVariableSelect}
+            fieldType="text"
+            trigger={
+              <Button variant="outline" size="sm" className="flex-shrink-0 px-3">
+                <Database className="w-4 h-4" />
+              </Button>
+            }
+          />
+        )}
+      </div>
+      
+      {showSuggestions && suggestions.length > 0 && (
+        <div
+          ref={suggestionsRef}
+          className="absolute z-50 w-full mt-1 bg-background border border-border rounded-md shadow-lg max-h-60 overflow-y-auto"
+        >
+          {suggestions.map((suggestion, index) => (
+            <button
+              key={index}
+              type="button"
+              className="w-full px-3 py-2 text-left hover:bg-muted focus:bg-muted focus:outline-none text-sm"
+              onClick={() => handleSuggestionClick(suggestion)}
+            >
+              {suggestion}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+const DateOnlyPicker = ({
+  value,
+  onChange,
+  placeholder = "Pick a date",
+  disabled,
+  className
+}: DateOnlyPickerProps) => {
+  const [isOpen, setIsOpen] = React.useState(false)
+  const [currentMonth, setCurrentMonth] = React.useState(value ? new Date(value) : new Date())
+  const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(value)
+
+  // Update state when value prop changes
+  React.useEffect(() => {
+    if (value) {
+      setSelectedDate(value)
+      setCurrentMonth(value)
+    } else {
+      setSelectedDate(undefined)
+    }
+  }, [value])
+
+  const handleDateSelect = (date: Date) => {
+    setSelectedDate(date)
+    onChange?.(date)
+    setIsOpen(false)
+  }
+
+  const displayValue = value ? format(value, "PPP") : undefined
+
+  // Generate calendar days - always show 6 weeks (42 days) for consistent size
+  const monthStart = startOfMonth(currentMonth)
+  const calendarStart = startOfWeek(monthStart)
+  const calendarEnd = addWeeks(calendarStart, 5) // 6 weeks total
+  
+  const days = eachDayOfInterval({ start: calendarStart, end: calendarEnd })
+
+  return (
+    <Popover open={isOpen} onOpenChange={setIsOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          className={cn(
+            "w-full justify-start text-left font-normal",
+            !value && "text-muted-foreground",
+            className
+          )}
+          disabled={disabled}
+        >
+          <CalendarIcon className="mr-2 h-4 w-4" />
+          {displayValue || <span>{placeholder}</span>}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-4" align="start">
+        <div className="space-y-4">
+          {/* Calendar Header */}
+          <div className="flex items-center justify-between">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <h3 className="font-medium">
+              {format(currentMonth, "MMMM yyyy")}
+            </h3>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+
+          {/* Calendar Grid - Fixed height container */}
+          <div className="grid grid-cols-7 gap-1" style={{ height: '240px' }}>
+            {/* Day headers */}
+            {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((day) => (
+              <div key={day} className="text-center text-xs font-medium text-muted-foreground p-1">
+                {day}
+              </div>
+            ))}
+            
+            {/* Calendar days */}
+            {days.map((day) => {
+              const isCurrentMonth = isSameMonth(day, currentMonth)
+              const isSelected = selectedDate && isSameDay(day, selectedDate)
+              const isToday = isSameDay(day, new Date())
+              
+              return (
+                <Button
+                  key={day.toISOString()}
+                  variant={isSelected ? "default" : "ghost"}
+                  size="sm"
+                  className={cn(
+                    "h-8 w-8 p-0 text-xs",
+                    !isCurrentMonth && "text-muted-foreground/50",
+                    isToday && !isSelected && "bg-muted font-semibold",
+                    isSelected && "bg-primary text-primary-foreground"
+                  )}
+                  onClick={() => handleDateSelect(day)}
+                >
+                  {format(day, "d")}
+                </Button>
+              )
+            })}
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
   )
 }
 

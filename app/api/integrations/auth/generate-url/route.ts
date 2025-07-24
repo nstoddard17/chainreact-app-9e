@@ -901,7 +901,7 @@ function generateMicrosoftOutlookAuthUrl(state: string): string {
     client_id: clientId,
     redirect_uri: `${baseUrl}/api/integrations/microsoft-outlook/callback`,
     response_type: "code",
-    scope: "User.Read Mail.ReadWrite Mail.Send",
+    scope: "offline_access User.Read Mail.ReadWrite Mail.Send Calendars.ReadWrite Contacts.ReadWrite",
     state,
   })
 
