@@ -186,6 +186,17 @@ export function generateReconnectionUrl(provider: string, state?: string): strin
       })
       return `https://app.box.com/api/oauth2/authorize?${boxParams.toString()}`
 
+    case "microsoft-outlook":
+      const outlookParams = new URLSearchParams({
+        client_id: process.env.NEXT_PUBLIC_MICROSOFT_CLIENT_ID!,
+        scope: allScopes.join(" "),
+        redirect_uri: redirectUri,
+        response_type: "code",
+        prompt: "consent", // Force re-authorization
+        ...(state && { state }),
+      })
+      return `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${outlookParams.toString()}`
+
     default:
       throw new Error(`Reconnection URL generation not implemented for provider: ${provider}`)
   }

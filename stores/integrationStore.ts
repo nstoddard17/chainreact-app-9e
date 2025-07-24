@@ -1398,6 +1398,28 @@ export const useIntegrationStore = create<IntegrationStore>()(
         }
       }
       
+      // Check for Outlook specific scope requirements
+      if (providerId === "microsoft-outlook") {
+        const requiredScopes = [
+          "User.Read",
+          "Mail.ReadWrite",
+          "Mail.Send",
+          "Calendars.ReadWrite",
+          "Contacts.ReadWrite"
+        ]
+        
+        const missingScopes = requiredScopes.filter(scope => !grantedScopes.includes(scope))
+        
+        if (missingScopes.length > 0) {
+          console.warn(`❌ Missing scopes for ${providerId}:`, missingScopes)
+          return {
+            needsReconnection: true,
+            reason: `Outlook integration requires additional permissions for full functionality. Please reconnect your account to grant access to emails, calendars, and contacts.`,
+            missingScopes
+          }
+        }
+      }
+      
       console.log(`✅ All required scopes present for ${providerId}`)
       return { needsReconnection: false, reason: "All required scopes present" }
     },
