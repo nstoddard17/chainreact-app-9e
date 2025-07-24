@@ -2334,7 +2334,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   // Microsoft Teams
   {
     type: "teams_trigger_new_message",
-    title: "New Message in Channel (Teams)",
+          title: "New Message in Channel",
     description: "Triggers on a new message in a channel",
     icon: MessageSquare,
     providerId: "teams",
@@ -2357,7 +2357,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "teams_action_send_message",
-    title: "Send Channel Message (Teams)",
+          title: "Send Channel Message",
     description: "Send a message to a channel",
     icon: MessageSquare,
     providerId: "teams",
@@ -2378,7 +2378,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "teams_action_create_meeting",
-    title: "Create Meeting (Teams)",
+          title: "Create Meeting",
     description: "Create a new online meeting",
     icon: Calendar,
     providerId: "teams",
@@ -2406,7 +2406,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "teams_action_send_chat_message",
-    title: "Send Chat Message (Teams)",
+          title: "Send Chat Message",
     description: "Send a message to a specific chat or user",
     icon: MessageSquare,
     providerId: "teams",
@@ -2421,7 +2421,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "teams_action_create_channel",
-    title: "Create Channel (Teams)",
+          title: "Create Channel",
     description: "Create a new channel in a team",
     icon: Hash,
     providerId: "teams",
@@ -2444,7 +2444,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "teams_action_add_member_to_team",
-    title: "Add Member to Team (Teams)",
+          title: "Add Member to Team",
     description: "Add a user to a team",
     icon: UserPlus,
     providerId: "teams",
@@ -2462,7 +2462,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "teams_action_schedule_meeting",
-    title: "Schedule Meeting (Teams)",
+          title: "Schedule Meeting",
     description: "Schedule a meeting with participants",
     icon: Calendar,
     providerId: "teams",
@@ -2480,7 +2480,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "teams_action_send_adaptive_card",
-    title: "Send Adaptive Card (Teams)",
+          title: "Send Adaptive Card",
     description: "Send a rich adaptive card message to a channel",
     icon: FileText,
     providerId: "teams",
@@ -2500,7 +2500,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "teams_action_get_team_members",
-    title: "Get Team Members (Teams)",
+          title: "Get Team Members",
     description: "Get all members of a team",
     icon: Users,
     providerId: "teams",
@@ -2519,7 +2519,7 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   },
   {
     type: "teams_action_create_team",
-    title: "Create Team (Teams)",
+          title: "Create Team",
     description: "Create a new team",
     icon: Plus,
     providerId: "teams",

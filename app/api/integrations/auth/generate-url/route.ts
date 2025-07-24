@@ -787,7 +787,7 @@ function generateTeamsAuthUrl(state: string): string {
     client_id: clientId,
     redirect_uri: `${baseUrl}/api/integrations/teams/callback`,
     response_type: "code",
-    scope: "User.Read Chat.ReadWrite",
+    scope: "User.Read Team.ReadBasic.All Channel.ReadBasic.All Chat.Read Chat.ReadWrite ChatMessage.Send OnlineMeetings.ReadWrite TeamMember.Read.All TeamMember.ReadWrite.All Channel.Create Team.Create",
     prompt: "consent", // Force consent screen every time
     state,
   })
